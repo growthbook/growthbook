@@ -4,6 +4,10 @@ import { findDimensionById } from "back-end/src/models/DimensionModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { findSnapshotById } from "back-end/src/models/ExperimentSnapshotModel";
 import { createExperimentSnapshot } from "back-end/src/services/experiments";
+import {
+  ExperimentIncrementalPipelineRequiresFullRefreshError,
+  ExperimentIncrementalPipelineRequiresOverallUpdateError,
+} from "back-end/src/util/errors";
 import { snapshotFactory } from "back-end/test/factories/Snapshot.factory";
 import { setupApp } from "./api.setup";
 
@@ -35,6 +39,16 @@ describe("snapshots API", () => {
   });
 
   const org = { id: "org" };
+
+  const incrementalDatasource = {
+    id: "ds_123",
+    settings: {
+      pipelineSettings: {
+        allowWriting: true,
+        mode: "incremental" as const,
+      },
+    },
+  };
 
   it("can get a snapshot", async () => {
     setReqContext({
@@ -410,6 +424,226 @@ describe("snapshots API", () => {
     expect(response.status).toBe(400);
     expect(response.body).toEqual({ message: "Phase 5 not found" });
     expect(createExperimentSnapshot).not.toHaveBeenCalled();
+  });
+
+  it("returns 409 when incremental state requires a full refresh", async () => {
+    setReqContext({
+      org,
+      permissions: {
+        canCreateExperimentSnapshot: () => true,
+        canReadSingleProjectResource: () => true,
+      },
+    });
+
+    const snapshot = snapshotFactory.build({
+      organization: org.id,
+    });
+    const experiment = {
+      id: snapshot.experiment,
+      datasource: "ds_123",
+      phases: [{}],
+    };
+    const staleConfigMessage =
+      "The experiment configuration is outdated. Please run a Full Refresh.";
+
+    getExperimentById.mockReturnValueOnce(experiment);
+    getDataSourceById.mockReturnValueOnce({ id: "ds_123" });
+    createExperimentSnapshot.mockRejectedValueOnce(
+      new ExperimentIncrementalPipelineRequiresFullRefreshError(
+        staleConfigMessage,
+      ),
+    );
+
+    const response = await request(app)
+      .post(`/api/v1/experiments/${snapshot.experiment}/snapshot`)
+      .set("Authorization", "Bearer foo");
+
+    expect(response.status).toBe(409);
+    expect(response.body.code).toBe("requires_full_refresh");
+    expect(response.body.details).toEqual({ reason: staleConfigMessage });
+    expect(response.body.message).toContain('{"force": true, dimension: ""}');
+  });
+
+  it("rejects force on a dimension snapshot when incremental refresh is enabled", async () => {
+    setReqContext({
+      org,
+      permissions: {
+        canCreateExperimentSnapshot: () => true,
+        canReadSingleProjectResource: () => true,
+      },
+    });
+
+    const snapshot = snapshotFactory.build({
+      organization: org.id,
+    });
+    const experiment = {
+      id: snapshot.experiment,
+      datasource: "ds_123",
+      exposureQueryId: "eq_1",
+      phases: [{}],
+    };
+
+    getExperimentById.mockReturnValueOnce(experiment);
+    getDataSourceById.mockReturnValueOnce({
+      ...incrementalDatasource,
+      settings: {
+        ...incrementalDatasource.settings,
+        queries: {
+          exposure: [{ id: "eq_1", dimensions: ["country"] }],
+        },
+      },
+    });
+
+    const response = await request(app)
+      .post(`/api/v1/experiments/${snapshot.experiment}/snapshot`)
+      .set("Authorization", "Bearer foo")
+      .send({ dimension: "exp:country", force: true });
+
+    expect(response.status).toBe(400);
+    expect(response.body.message).toContain('"force"');
+    expect(response.body.message).toContain('dimension: ""');
+    expect(createExperimentSnapshot).not.toHaveBeenCalled();
+  });
+
+  it("returns 409 when a dimension snapshot needs the main results fully refreshed", async () => {
+    setReqContext({
+      org,
+      permissions: {
+        canCreateExperimentSnapshot: () => true,
+        canReadSingleProjectResource: () => true,
+      },
+    });
+
+    const snapshot = snapshotFactory.build({
+      organization: org.id,
+    });
+    const experiment = {
+      id: snapshot.experiment,
+      datasource: "ds_123",
+      exposureQueryId: "eq_1",
+      phases: [{}],
+    };
+
+    getExperimentById.mockReturnValueOnce(experiment);
+    getDataSourceById.mockReturnValueOnce({
+      ...incrementalDatasource,
+      settings: {
+        ...incrementalDatasource.settings,
+        queries: {
+          exposure: [{ id: "eq_1", dimensions: ["country"] }],
+        },
+      },
+    });
+    const dimensionFullRefreshMessage =
+      "Overall Results require a full refresh before Dimension Results can be updated.";
+    createExperimentSnapshot.mockRejectedValueOnce(
+      new ExperimentIncrementalPipelineRequiresFullRefreshError(
+        dimensionFullRefreshMessage,
+      ),
+    );
+
+    const response = await request(app)
+      .post(`/api/v1/experiments/${snapshot.experiment}/snapshot`)
+      .set("Authorization", "Bearer foo")
+      .send({ dimension: "exp:country" });
+
+    expect(response.status).toBe(409);
+    expect(response.body.code).toBe("requires_full_refresh");
+    expect(response.body.details).toEqual({
+      reason: dimensionFullRefreshMessage,
+    });
+    expect(response.body.message).toContain('{"force": true, dimension: ""}');
+  });
+
+  it("returns 409 when a dimension snapshot needs the main results incrementally updated", async () => {
+    setReqContext({
+      org,
+      permissions: {
+        canCreateExperimentSnapshot: () => true,
+        canReadSingleProjectResource: () => true,
+      },
+    });
+
+    const snapshot = snapshotFactory.build({
+      organization: org.id,
+    });
+    const experiment = {
+      id: snapshot.experiment,
+      datasource: "ds_123",
+      exposureQueryId: "eq_1",
+      phases: [{}],
+    };
+
+    getExperimentById.mockReturnValueOnce(experiment);
+    getDataSourceById.mockReturnValueOnce({
+      ...incrementalDatasource,
+      settings: {
+        ...incrementalDatasource.settings,
+        queries: {
+          exposure: [{ id: "eq_1", dimensions: ["country"] }],
+        },
+      },
+    });
+    const overallUpdateMessage =
+      "Overall Results must be updated before Dimension Results reflect recent metric changes.";
+    createExperimentSnapshot.mockRejectedValueOnce(
+      new ExperimentIncrementalPipelineRequiresOverallUpdateError(
+        overallUpdateMessage,
+        ["met_1"],
+      ),
+    );
+
+    const response = await request(app)
+      .post(`/api/v1/experiments/${snapshot.experiment}/snapshot`)
+      .set("Authorization", "Bearer foo")
+      .send({ dimension: "exp:country" });
+
+    expect(response.status).toBe(409);
+    expect(response.body.code).toBe("requires_overall_update");
+    expect(response.body.details).toEqual({
+      reason: overallUpdateMessage,
+    });
+    expect(response.body.message).toContain('without "dimension"');
+    expect(response.body.message).not.toContain('"force": true');
+  });
+
+  it("passes force: true without prompting for a full refresh", async () => {
+    setReqContext({
+      org,
+      permissions: {
+        canCreateExperimentSnapshot: () => true,
+        canReadSingleProjectResource: () => true,
+      },
+    });
+
+    const snapshot = snapshotFactory.build({
+      organization: org.id,
+    });
+    const experiment = {
+      id: snapshot.experiment,
+      datasource: "ds_123",
+      phases: [{}],
+    };
+    const datasource = { id: "ds_123" };
+
+    getExperimentById.mockReturnValueOnce(experiment);
+    getDataSourceById.mockReturnValueOnce(datasource);
+    createExperimentSnapshot.mockResolvedValueOnce({
+      snapshot,
+      queryRunner: {},
+    });
+
+    const response = await request(app)
+      .post(`/api/v1/experiments/${snapshot.experiment}/snapshot`)
+      .set("Authorization", "Bearer foo")
+      .send({ force: true });
+
+    expect(response.status).toBe(200);
+    expect(createExperimentSnapshot).toHaveBeenCalledWith(
+      expect.objectContaining({
+        useCache: false,
+      }),
+    );
   });
 
   it("post fails without datasource permission", async () => {

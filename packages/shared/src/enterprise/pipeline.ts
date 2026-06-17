@@ -1,6 +1,8 @@
 import { getValidDate } from "shared/dates";
 import {
+  getExperimentOutdatedReasonLabel,
   isFactMetric,
+  isExperimentOutdatedReasonField,
   quantileMetricType,
   ExperimentMetricInterface,
 } from "shared/experiments";
@@ -9,9 +11,91 @@ import type {
   DataSourcePipelineMode,
   DataSourcePipelineSettings,
 } from "shared/types/datasource";
-import type { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import type {
+  ExperimentSnapshotInterface,
+  ExperimentSnapshotSettings,
+} from "shared/types/experiment-snapshot";
 import type { ExperimentInterface } from "shared/types/experiment";
 import type { PipelineIntegration } from "shared/types/integrations";
+
+// Ordered list of ExperimentSnapshotSettings fields whose change forces a full
+// refresh under Incremental Pipeline mode. The order is load-bearing: it
+// determines JSON.stringify key order and therefore the md5 produced by
+// getExperimentSettingsHashForIncrementalRefresh.
+// Covered by a test that will need to be updated if this changes.
+export const INCREMENTAL_FULL_REFRESH_SETTINGS_FIELDS = [
+  "activationMetric",
+  "attributionModel",
+  "queryFilter",
+  "segment",
+  "skipPartialData",
+  "datasourceId",
+  "exposureQueryId",
+  "startDate",
+  "regressionAdjustmentEnabled",
+  "experimentId",
+] as const satisfies readonly (keyof ExperimentSnapshotSettings)[];
+
+// For Incremental pipeline, Dimension Results are built on top of Overall
+// Results. This type describes the Overall Results refresh required before
+// running Dimension Results.
+export type DimensionUpdateRequiresOverallResultsUpdate =
+  | { kind: "full-refresh" }
+  | { kind: "incremental-update" };
+
+export type IncrementalFullRefreshComparable = Pick<
+  ExperimentSnapshotSettings,
+  (typeof INCREMENTAL_FULL_REFRESH_SETTINGS_FIELDS)[number]
+>;
+
+// Canonical value for one field in the frontend reason diff. This is only for
+// mapping changed settings to labels; backend hash enforcement remains the
+// source of truth for requiring a full refresh. Keep it aligned with
+// snapshotSettings construction so the UI does not show labels for
+// serialization-only differences.
+export function normalizeIncrementalFullRefreshField(
+  field: (typeof INCREMENTAL_FULL_REFRESH_SETTINGS_FIELDS)[number],
+  settings: IncrementalFullRefreshComparable,
+): string | number | boolean | null {
+  if (field === "startDate") {
+    return getValidDate(settings.startDate).getTime() ?? null;
+  }
+  if (field === "attributionModel") {
+    return settings.attributionModel || "firstExposure";
+  }
+  const value = settings[field];
+  return value ? value : null;
+}
+
+/**
+ * Returns labels for user-facing fields in
+ * INCREMENTAL_FULL_REFRESH_SETTINGS_FIELDS that differ between current and
+ * baseline. datasourceId is labeled because moving data sources requires a full
+ * refresh. experimentId stays unlabeled because comparing different experiments
+ * is an invariant bug, not a product reason.
+ *
+ * Backend settings-hash enforcement remains the source of truth. This helper
+ * compares normalized field values only to explain known full-refresh cases in
+ * the UI.
+ */
+export function getIncrementalFullRefreshReasons(
+  current: IncrementalFullRefreshComparable,
+  baseline: IncrementalFullRefreshComparable,
+): string[] {
+  const reasons: string[] = [];
+  for (const field of INCREMENTAL_FULL_REFRESH_SETTINGS_FIELDS) {
+    if (!isExperimentOutdatedReasonField(field)) continue;
+
+    const changed =
+      normalizeIncrementalFullRefreshField(field, current) !==
+      normalizeIncrementalFullRefreshField(field, baseline);
+
+    if (changed) {
+      reasons.push(getExperimentOutdatedReasonLabel(field));
+    }
+  }
+  return reasons;
+}
 
 /**
  * Whether a data source's Incremental Pipeline configuration *covers* this

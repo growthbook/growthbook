@@ -173,10 +173,25 @@ export class ConcurrentIncrementalRefreshError extends Error {
   }
 }
 
-export class IncrementalUpdateRequiresFullRefreshError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "IncrementalUpdateRequiresFullRefreshError";
+export class ExperimentIncrementalPipelineRequiresFullRefreshError extends ApiError<"requires_full_refresh"> {
+  constructor(reason: string) {
+    super(
+      "requires_full_refresh",
+      `${reason}\n\nRe-issue this request with {"force": true, dimension: ""} in the request body to run a full refresh.`,
+      { reason },
+    );
+    this.name = "ExperimentIncrementalPipelineRequiresFullRefreshError";
+  }
+}
+
+export class ExperimentIncrementalPipelineRequiresOverallUpdateError extends ApiError<"requires_overall_update"> {
+  constructor(reason: string) {
+    super(
+      "requires_overall_update",
+      `${reason}\n\nFirst update Overall Results (create a snapshot without "dimension" in the request body), then re-issue this request.`,
+      { reason },
+    );
+    this.name = "ExperimentIncrementalPipelineRequiresOverallUpdateError";
   }
 }
 

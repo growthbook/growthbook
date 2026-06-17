@@ -4,11 +4,14 @@ import { OrganizationInterface } from "shared/types/organization";
 import { IncrementalRefreshInterface } from "shared/validators";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
-import { IncrementalUpdateRequiresFullRefreshError } from "back-end/src/util/errors";
+import { ExperimentIncrementalPipelineRequiresFullRefreshError } from "back-end/src/util/errors";
 import {
   getExperimentSettingsHashForIncrementalRefresh,
   assertIncrementalRefreshPrerequisites,
   getFactTablesNeedingRebuild,
+  hasStaleExploratoryMetrics,
+  getExploratoryMainSnapshotStaleness,
+  getMetricSettingsHashForIncrementalRefresh,
 } from "back-end/src/enterprise/services/data-pipeline";
 import { planMetricFanOut } from "back-end/src/services/experimentQueries/planMetricFanOut";
 import { factMetricFactory } from "../factories/FactMetric.factory";
@@ -131,7 +134,7 @@ describe("assertIncrementalRefreshPrerequisites experimentSettingsHash", () => {
         }),
         analysisType: "main-update",
       }),
-    ).rejects.toThrow(IncrementalUpdateRequiresFullRefreshError);
+    ).rejects.toThrow(ExperimentIncrementalPipelineRequiresFullRefreshError);
   });
 
   it("throws on main-update when the stored hash differs", async () => {
@@ -147,7 +150,7 @@ describe("assertIncrementalRefreshPrerequisites experimentSettingsHash", () => {
         }),
         analysisType: "main-update",
       }),
-    ).rejects.toThrow(IncrementalUpdateRequiresFullRefreshError);
+    ).rejects.toThrow(ExperimentIncrementalPipelineRequiresFullRefreshError);
   });
 
   it("skips hash validation on exploratory even when the stored hash differs", async () => {
@@ -395,5 +398,190 @@ describe("getFactTablesNeedingRebuild", () => {
       ]),
     });
     expect([...rebuild].sort()).toEqual(["ft_denom", "ft_num"]);
+  });
+});
+
+describe("hasStaleExploratoryMetrics", () => {
+  const metricA = factMetricFactory.build({
+    id: "m_a",
+    metricType: "mean",
+    numerator: { factTableId: "ft_a", column: "amount" },
+  });
+  const metricB = factMetricFactory.build({
+    id: "m_b",
+    metricType: "mean",
+    numerator: { factTableId: "ft_b", column: "amount" },
+  });
+  const crossFtMetric = factMetricFactory.build({
+    id: "m_cross",
+    metricType: "ratio",
+    numerator: { factTableId: "ft_num", column: "amount" },
+    denominator: { factTableId: "ft_denom", column: "tenure" },
+  });
+
+  it("returns true when existing sources are empty", () => {
+    const result = hasStaleExploratoryMetrics({
+      existingMetricSources: [],
+      desiredFanOut: planMetricFanOut([metricA, metricB]),
+      currentMetricSettingsHashes: new Map([
+        ["m_a", "h1"],
+        ["m_b", "h2"],
+      ]),
+    });
+    expect(result).toBe(true);
+  });
+
+  it("returns false when all tuples are present with matching hashes", () => {
+    const result = hasStaleExploratoryMetrics({
+      existingMetricSources: [
+        makeMetricSource("grp_a", "ft_a", [{ id: "m_a", settingsHash: "h1" }]),
+        makeMetricSource("grp_b", "ft_b", [{ id: "m_b", settingsHash: "h2" }]),
+      ],
+      desiredFanOut: planMetricFanOut([metricA, metricB]),
+      currentMetricSettingsHashes: new Map([
+        ["m_a", "h1"],
+        ["m_b", "h2"],
+      ]),
+    });
+    expect(result).toBe(false);
+  });
+
+  it("returns true when a (factTableId, metricId) tuple is absent from the cache", () => {
+    const result = hasStaleExploratoryMetrics({
+      existingMetricSources: [
+        makeMetricSource("grp_a", "ft_a", [{ id: "m_a", settingsHash: "h1" }]),
+      ],
+      desiredFanOut: planMetricFanOut([metricA, metricB]),
+      currentMetricSettingsHashes: new Map([
+        ["m_a", "h1"],
+        ["m_b", "h2"],
+      ]),
+    });
+    expect(result).toBe(true);
+  });
+
+  it("returns true when a current hash differs from the stored hash", () => {
+    const result = hasStaleExploratoryMetrics({
+      existingMetricSources: [
+        makeMetricSource("grp_a", "ft_a", [{ id: "m_a", settingsHash: "old" }]),
+      ],
+      desiredFanOut: planMetricFanOut([metricA]),
+      currentMetricSettingsHashes: new Map([["m_a", "new"]]),
+    });
+    expect(result).toBe(true);
+  });
+
+  it("returns true when a cross-FT metric is missing from the cache", () => {
+    const result = hasStaleExploratoryMetrics({
+      existingMetricSources: [],
+      desiredFanOut: planMetricFanOut([crossFtMetric]),
+      currentMetricSettingsHashes: new Map([["m_cross", "h1"]]),
+    });
+    expect(result).toBe(true);
+  });
+});
+
+// Golden test: changing the output of getExperimentSettingsHashForIncrementalRefresh
+// means every existing incremental experiment would get a spurious full refresh on
+// the next run. Any failure here requires intentional sign-off.
+describe("getExperimentSettingsHashForIncrementalRefresh — golden output", () => {
+  const GOLDEN_INPUT: ExperimentSnapshotSettings = {
+    activationMetric: null,
+    attributionModel: "firstExposure",
+    queryFilter: "",
+    segment: "",
+    skipPartialData: false,
+    datasourceId: "ds_123",
+    exposureQueryId: "exposure_1",
+    startDate: new Date("2024-01-01T00:00:00.000Z"),
+    regressionAdjustmentEnabled: false,
+    experimentId: "exp_123",
+    // Non-hashed fields present in the real type
+    dimensions: [],
+    metricSettings: [],
+    goalMetrics: [],
+    secondaryMetrics: [],
+    guardrailMetrics: [],
+    defaultMetricPriorSettings: {},
+    endDate: new Date("2024-12-31T00:00:00.000Z"),
+    variations: [],
+  } as ExperimentSnapshotSettings;
+
+  it("produces the pinned md5 for the fixed input", () => {
+    expect(getExperimentSettingsHashForIncrementalRefresh(GOLDEN_INPUT)).toBe(
+      "1c14c7b3c695413e66101563d2b606ab",
+    );
+  });
+});
+
+describe("getExploratoryMainSnapshotStaleness", () => {
+  const snapshotSettings = makeSnapshotSettings({ metricSettings: [] });
+
+  it("returns full-refresh when experiment settings hash drifted", () => {
+    const result = getExploratoryMainSnapshotStaleness({
+      snapshotSettings,
+      incrementalRefreshModel: makeIncrementalRefreshModel({
+        experimentSettingsHash: "stale_hash",
+      }),
+      metricMap: new Map(),
+      factTableMap: new Map(),
+    });
+    expect(result).toEqual({ kind: "full-refresh" });
+  });
+
+  it("returns incremental-update when hash matches but a metric is not in the cache", () => {
+    const metric = factMetricFactory.build({
+      id: "m1",
+      metricType: "mean",
+      numerator: { factTableId: "ft_a", column: "amount" },
+    });
+    const settingsWithMetric = makeSnapshotSettings({
+      metricSettings: [{ id: "m1" }],
+    });
+    const result = getExploratoryMainSnapshotStaleness({
+      snapshotSettings: settingsWithMetric,
+      incrementalRefreshModel: makeIncrementalRefreshModel({
+        experimentSettingsHash:
+          getExperimentSettingsHashForIncrementalRefresh(settingsWithMetric),
+        metricSources: [],
+      }),
+      metricMap: new Map([["m1", metric]]),
+      factTableMap: new Map(),
+    });
+    expect(result).toEqual({ kind: "incremental-update" });
+  });
+
+  it("returns fresh when hash matches and all metrics are cached with current hashes", () => {
+    const metric = factMetricFactory.build({
+      id: "m1",
+      metricType: "mean",
+      numerator: { factTableId: "ft_a", column: "amount" },
+    });
+    const settingsWithMetric = makeSnapshotSettings({
+      metricSettings: [{ id: "m1" }],
+    });
+    const experimentHash =
+      getExperimentSettingsHashForIncrementalRefresh(settingsWithMetric);
+    const currentMetricHash = getMetricSettingsHashForIncrementalRefresh({
+      factMetric: metric,
+      factTableMap: new Map(),
+      metricSettings: settingsWithMetric.metricSettings.find(
+        (ms) => ms.id === "m1",
+      ),
+    });
+    const result = getExploratoryMainSnapshotStaleness({
+      snapshotSettings: settingsWithMetric,
+      incrementalRefreshModel: makeIncrementalRefreshModel({
+        experimentSettingsHash: experimentHash,
+        metricSources: [
+          makeMetricSource("grp_a", "ft_a", [
+            { id: "m1", settingsHash: currentMetricHash },
+          ]),
+        ],
+      }),
+      metricMap: new Map([["m1", metric]]),
+      factTableMap: new Map(),
+    });
+    expect(result).toEqual({ kind: "fresh" });
   });
 });

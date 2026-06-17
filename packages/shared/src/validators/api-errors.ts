@@ -51,6 +51,22 @@ export const apiErrorRegistry = {
       expectedStatuses: z.array(z.string()),
     }),
   },
+  requires_full_refresh: {
+    status: 409,
+    description:
+      "The Incremental Pipeline data is outdated and must be rebuilt before an Incremental Update can proceed",
+    detailsSchema: z.object({
+      reason: z.string(),
+    }),
+  },
+  requires_overall_update: {
+    status: 409,
+    description:
+      "The experiment's Overall Results must be updated before this operation can proceed",
+    detailsSchema: z.object({
+      reason: z.string(),
+    }),
+  },
 } satisfies Record<
   string,
   { status: number; description: string; detailsSchema: z.ZodTypeAny }

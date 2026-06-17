@@ -3182,42 +3182,33 @@ export async function postSnapshot(
 
   const useCache = !req.query["force"];
 
-  try {
-    const { snapshot } = await createExperimentSnapshot({
-      context,
-      experiment,
-      datasource,
-      dimension,
-      phase,
-      useCache,
-      type:
-        experiment.type === "multi-armed-bandit" ? "exploratory" : undefined,
-    });
+  const { snapshot } = await createExperimentSnapshot({
+    context,
+    experiment,
+    datasource,
+    dimension,
+    phase,
+    useCache,
+    type: experiment.type === "multi-armed-bandit" ? "exploratory" : undefined,
+  });
 
-    await req.audit({
-      event: "experiment.refresh",
-      entity: {
-        object: "experiment",
-        id: experiment.id,
-      },
-      details: auditDetailsCreate({
-        phase,
-        dimension,
-        useCache,
-        manual: false,
-      }),
-    });
-    res.status(200).json({
-      status: 200,
-      snapshot,
-    });
-  } catch (e) {
-    req.log.error(e, "Failed to create experiment snapshot");
-    res.status(400).json({
-      status: 400,
-      message: e.message,
-    });
-  }
+  await req.audit({
+    event: "experiment.refresh",
+    entity: {
+      object: "experiment",
+      id: experiment.id,
+    },
+    details: auditDetailsCreate({
+      phase,
+      dimension,
+      useCache,
+      manual: false,
+    }),
+  });
+  res.status(200).json({
+    status: 200,
+    snapshot,
+  });
 }
 export async function postSnapshotAnalysis(
   req: AuthRequest<

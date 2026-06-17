@@ -34,6 +34,7 @@ import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import AsyncQueriesModal from "@/components/Queries/AsyncQueriesModal";
 import { MetricDrilldownProvider } from "@/components/MetricDrilldown/MetricDrilldownContext";
+import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
 import { ExperimentTab } from "./TabbedPage";
 
 export type AnalysisBarSettings = {
@@ -105,6 +106,7 @@ const Results: FC<{
   const {
     error,
     snapshot,
+    dimensionless,
     analysis,
     latestSummary: latest,
     phase,
@@ -210,6 +212,14 @@ const Results: FC<{
   const datasource = experiment.datasource
     ? getDatasourceById(experiment.datasource)
     : null;
+  const dimensionNeedsOverallResultsFirst =
+    !!analysisBarSettings.dimension &&
+    getIsExperimentIncludedInIncrementalRefresh(
+      datasource ?? undefined,
+      experiment.id,
+      experiment.type,
+    ) &&
+    !(dimensionless && !dimensionless.dimension);
 
   const hasMetrics =
     experiment.goalMetrics.length > 0 ||
@@ -267,6 +277,7 @@ const Results: FC<{
         status !== "running" &&
         !snapshot?.unknownVariations?.length &&
         hasMetrics &&
+        !dimensionNeedsOverallResultsFirst &&
         !snapshotLoading && (
           <Callout status="info" mx="3" mb="4">
             No data yet.{" "}

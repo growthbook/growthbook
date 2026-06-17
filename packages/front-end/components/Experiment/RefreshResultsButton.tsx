@@ -10,17 +10,22 @@ import { useAuth } from "@/services/auth";
 import RunQueriesButton from "@/components/Queries/RunQueriesButton";
 import ExperimentRefreshSnapshotButton from "@/components/Experiment/RefreshSnapshotButton";
 import SafeRolloutRefreshSnapshotButton from "@/components/SafeRollout/RefreshSnapshotButton";
-import { useExperimentSnapshotUpdate } from "@/hooks/useExperimentSnapshotUpdate";
+import {
+  type SnapshotRefreshBlocker,
+  useExperimentSnapshotUpdate,
+} from "@/hooks/useExperimentSnapshotUpdate";
+import FullRefreshRequiredDialog from "@/components/Experiment/FullRefreshRequiredDialog";
+import Tooltip from "@/ui/Tooltip";
 
 export type EntityType = "experiment" | "holdout" | "safe-rollout";
 
-export interface RefreshResultsButtonProps<
-  T extends {
-    id: string;
-    queries?: Queries;
-    runStarted?: string | Date | null;
-  },
-> {
+type RefreshResultsModel = {
+  id: string;
+  queries?: Queries;
+  runStarted?: string | Date | null;
+};
+
+export interface RefreshResultsButtonProps<T extends RefreshResultsModel> {
   entityType: EntityType;
   entityId: string;
   datasourceId?: string | null;
@@ -36,6 +41,7 @@ export interface RefreshResultsButtonProps<
   // Return false to abort the refresh (e.g. to open a confirmation dialog
   // instead). Mirrors Modal's customValidation. Side effects are allowed.
   customValidation?: () => boolean | Promise<boolean>;
+  onSnapshotRefreshBlocked?: (blocker: SnapshotRefreshBlocker) => void;
   // Experiment/holdout-specific props
   experiment?: ExperimentInterfaceStringDates;
   phase?: number;
@@ -44,15 +50,13 @@ export interface RefreshResultsButtonProps<
     settings: ExperimentSnapshotAnalysisSettings | null,
   ) => void;
   safeRollout?: SafeRolloutInterface;
+  fullRefreshRequired?: boolean;
+  fullRefreshReasons?: string[];
+  disabled?: boolean;
+  disabledReason?: string;
 }
 
-export default function RefreshResultsButton<
-  T extends {
-    id: string;
-    queries?: Queries;
-    runStarted?: string | Date | null;
-  },
->({
+export default function RefreshResultsButton<T extends RefreshResultsModel>({
   entityType,
   entityId,
   datasourceId,
@@ -63,14 +67,109 @@ export default function RefreshResultsButton<
   experimentSnapshotTrackingProps,
   onSuccess,
   customValidation,
+  onSnapshotRefreshBlocked,
   experiment,
   phase,
   dimension,
   safeRollout,
+  fullRefreshRequired = false,
+  fullRefreshReasons = [],
+  disabled = false,
+  disabledReason,
 }: RefreshResultsButtonProps<T>) {
-  const { apiCall } = useAuth();
+  const hasQueries = (latest?.queries?.length ?? 0) > 0;
+  if (datasourceId && latest && hasQueries) {
+    return (
+      <RefreshRunQueriesButton
+        entityType={entityType}
+        entityId={entityId}
+        latest={latest}
+        mutate={mutate}
+        mutateAdditional={mutateAdditional}
+        setRefreshError={setRefreshError}
+        experimentSnapshotTrackingProps={experimentSnapshotTrackingProps}
+        onSuccess={onSuccess}
+        customValidation={customValidation}
+        onSnapshotRefreshBlocked={onSnapshotRefreshBlocked}
+        experiment={experiment}
+        phase={phase}
+        dimension={dimension}
+        fullRefreshRequired={fullRefreshRequired}
+        fullRefreshReasons={fullRefreshReasons}
+        disabled={disabled}
+        disabledReason={disabledReason}
+      />
+    );
+  }
 
-  const { submitUpdate } = useExperimentSnapshotUpdate({
+  if (
+    (entityType === "experiment" || entityType === "holdout") &&
+    experiment &&
+    phase !== undefined
+  ) {
+    return (
+      <ExperimentRefreshSnapshotButton
+        mutate={() => {
+          mutate();
+          mutateAdditional?.();
+        }}
+        phase={phase}
+        experiment={experiment}
+        dimension={dimension}
+        setError={(error) => setRefreshError(error ?? "")}
+        useRadixButton={true}
+        radixVariant="outline"
+        customValidation={customValidation}
+        onSuccess={onSuccess}
+        onSnapshotRefreshBlocked={onSnapshotRefreshBlocked}
+        experimentSnapshotTrackingProps={experimentSnapshotTrackingProps}
+        fullRefreshRequired={fullRefreshRequired}
+        fullRefreshReasons={fullRefreshReasons}
+        disabled={disabled}
+        disabledReason={disabledReason}
+      />
+    );
+  }
+
+  if (entityType === "safe-rollout" && safeRollout) {
+    return (
+      <SafeRolloutRefreshSnapshotButton
+        mutate={mutate}
+        safeRollout={safeRollout}
+        customValidation={customValidation}
+      />
+    );
+  }
+
+  return null;
+}
+
+function RefreshRunQueriesButton<T extends RefreshResultsModel>({
+  entityType,
+  entityId,
+  latest,
+  mutate,
+  mutateAdditional,
+  setRefreshError,
+  experimentSnapshotTrackingProps,
+  onSuccess,
+  customValidation,
+  onSnapshotRefreshBlocked,
+  experiment,
+  phase,
+  dimension,
+  fullRefreshRequired,
+  fullRefreshReasons,
+  disabled,
+  disabledReason,
+}: RefreshResultsButtonProps<T> & {
+  latest: T;
+  fullRefreshRequired: boolean;
+  fullRefreshReasons: string[];
+  disabled: boolean;
+}) {
+  const { apiCall } = useAuth();
+  const { submitUpdate, fullRefreshConfirm } = useExperimentSnapshotUpdate({
     experiment,
     phase: phase ?? 0,
     dimension,
@@ -79,26 +178,14 @@ export default function RefreshResultsButton<
     setRefreshError,
     onSuccess,
     customValidation,
+    onSnapshotRefreshBlocked,
     experimentSnapshotTrackingProps,
   });
 
-  const hasQueries = latest?.queries && latest.queries.length > 0;
-  const shouldUseRunQueriesButton = datasourceId && latest && hasQueries;
-  const shouldRenderExperimentButton =
-    !shouldUseRunQueriesButton &&
-    (entityType === "experiment" || entityType === "holdout") &&
-    experiment &&
-    phase !== undefined;
-  const shouldRenderSafeRolloutButton =
-    !shouldUseRunQueriesButton &&
-    !shouldRenderExperimentButton &&
-    entityType === "safe-rollout" &&
-    safeRollout;
-
   const cancelEndpoint =
     entityType === "safe-rollout"
-      ? `/safe-rollout/snapshot/${latest?.id}/cancel`
-      : `/snapshot/${latest?.id}/cancel`;
+      ? `/safe-rollout/snapshot/${latest.id}/cancel`
+      : `/snapshot/${latest.id}/cancel`;
 
   const snapshotEndpoint =
     entityType === "safe-rollout"
@@ -106,7 +193,6 @@ export default function RefreshResultsButton<
       : `/experiment/${entityId}/snapshot`;
 
   const runSafeRolloutUpdate = async () => {
-    if (!latest) return;
     try {
       await apiCall<{ snapshot: SafeRolloutSnapshotInterface }>(
         snapshotEndpoint,
@@ -122,11 +208,20 @@ export default function RefreshResultsButton<
     }
   };
 
+  const ctaLabel = fullRefreshRequired ? "Full Refresh" : "Update";
+  const handleSubmit =
+    entityType === "safe-rollout"
+      ? runSafeRolloutUpdate
+      : fullRefreshRequired
+        ? () => submitUpdate({ force: true, fullRefreshReasons })
+        : () => submitUpdate();
+
   return (
     <>
-      {shouldUseRunQueriesButton ? (
+      <FullRefreshRequiredDialog controller={fullRefreshConfirm} />
+      <Tooltip content={disabledReason} enabled={disabled && !!disabledReason}>
         <RunQueriesButton
-          cta="Update"
+          cta={ctaLabel}
           cancelEndpoint={cancelEndpoint}
           mutate={() => {
             mutate();
@@ -139,33 +234,10 @@ export default function RefreshResultsButton<
           icon="refresh"
           useRadixButton={true}
           radixVariant="outline"
-          onSubmit={
-            entityType === "safe-rollout" ? runSafeRolloutUpdate : submitUpdate
-          }
+          onSubmit={handleSubmit}
+          disabled={disabled}
         />
-      ) : shouldRenderExperimentButton ? (
-        <ExperimentRefreshSnapshotButton
-          mutate={() => {
-            mutate();
-            mutateAdditional?.();
-          }}
-          phase={phase}
-          experiment={experiment}
-          dimension={dimension}
-          setError={(error) => setRefreshError(error ?? "")}
-          useRadixButton={true}
-          radixVariant="outline"
-          customValidation={customValidation}
-          onSuccess={onSuccess}
-          experimentSnapshotTrackingProps={experimentSnapshotTrackingProps}
-        />
-      ) : shouldRenderSafeRolloutButton ? (
-        <SafeRolloutRefreshSnapshotButton
-          mutate={mutate}
-          safeRollout={safeRollout}
-          customValidation={customValidation}
-        />
-      ) : null}
+      </Tooltip>
     </>
   );
 }

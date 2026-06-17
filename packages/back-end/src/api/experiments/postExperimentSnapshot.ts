@@ -1,9 +1,11 @@
 import { postExperimentSnapshotValidator } from "shared/validators";
+import { isExperimentIncrementalEnabled } from "shared/enterprise";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { auditDetailsCreate } from "back-end/src/services/audit";
 import { createExperimentSnapshot } from "back-end/src/services/experiments";
 import { validateSnapshotDimension } from "back-end/src/services/snapshotDimension";
+import { BadRequestError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
 export const postExperimentSnapshot = createApiRequestHandler(
@@ -12,7 +14,7 @@ export const postExperimentSnapshot = createApiRequestHandler(
   const context = req.context;
   const id = req.params.id;
 
-  const { triggeredBy, dimension, phase } = req.body ?? {};
+  const { triggeredBy, dimension, phase, force } = req.body ?? {};
   const experiment = await getExperimentById(context, id);
 
   if (!experiment) {
@@ -55,20 +57,31 @@ export const postExperimentSnapshot = createApiRequestHandler(
       dimension,
       organization: context.org.id,
     });
+
+    if (
+      force &&
+      isExperimentIncrementalEnabled(
+        datasource.settings.pipelineSettings,
+        experiment.id,
+        experiment.type,
+      )
+    ) {
+      throw new BadRequestError(
+        'The "force" parameter cannot be used on Dimension snapshots when Incremental Pipeline mode is enabled. You can re-issue this request with dimension: "" to force a Full Refresh on Overall Results.',
+      );
+    }
   }
 
-  const createSnapshotPayload = {
-    phase: phaseIndex,
-    dimension,
-    useCache: true,
-  };
+  const useCache = !force;
 
-  const snapshot = await createExperimentSnapshot({
+  const { snapshot } = await createExperimentSnapshot({
     context,
     experiment,
     datasource,
     triggeredBy,
-    ...createSnapshotPayload,
+    phase: phaseIndex,
+    dimension,
+    useCache,
   });
 
   await req.audit({
@@ -78,15 +91,17 @@ export const postExperimentSnapshot = createApiRequestHandler(
       id: experiment.id,
     },
     details: auditDetailsCreate({
-      ...createSnapshotPayload,
+      phase: phaseIndex,
+      dimension,
+      useCache,
       manual: false,
     }),
   });
   return {
     snapshot: {
-      id: snapshot.snapshot.id,
-      experiment: snapshot.snapshot.experiment,
-      status: snapshot.snapshot.status,
+      id: snapshot.id,
+      experiment: snapshot.experiment,
+      status: snapshot.status,
     },
   };
 });

@@ -81,7 +81,7 @@ describe("resolveSnapshotRunner", () => {
     ).toEqual({
       runnerKind: "results",
       incrementalFallbackReason:
-        "No materialized units table yet for this dimension-less exploratory snapshot.",
+        "No materialized units table yet for Overall Results.",
     });
   });
 
@@ -176,7 +176,7 @@ describe("resolveSnapshotRunner", () => {
     ).toEqual({
       runnerKind: "results",
       incrementalFallbackReason:
-        'Experiment type "multi-armed-bandit" is not supported for incremental refresh.',
+        'Experiment type "multi-armed-bandit" is not supported for Incremental Pipeline mode.',
     });
   });
 
@@ -192,7 +192,7 @@ describe("resolveSnapshotRunner", () => {
     ).toEqual({
       runnerKind: "results",
       incrementalFallbackReason:
-        'Experiment type "holdout" is not supported for incremental refresh.',
+        'Experiment type "holdout" is not supported for Incremental Pipeline mode.',
     });
   });
 

@@ -196,9 +196,13 @@ import {
 import {
   getErrorMessage,
   ConcurrentIncrementalRefreshError,
-  IncrementalUpdateRequiresFullRefreshError,
+  ExperimentIncrementalPipelineRequiresFullRefreshError,
+  ExperimentIncrementalPipelineRequiresOverallUpdateError,
 } from "back-end/src/util/errors";
-import { assertIncrementalRefreshPrerequisites } from "back-end/src/enterprise/services/data-pipeline";
+import {
+  assertIncrementalRefreshPrerequisites,
+  getExploratoryMainSnapshotStaleness,
+} from "back-end/src/enterprise/services/data-pipeline";
 import {
   ExperimentUpdateLogPlan,
   ExperimentUpdateExecutionLogger,
@@ -1343,7 +1347,8 @@ type IncrementalRefreshPrerequisiteArgs = {
  * In case we cannot run an incremental update as planned, we need to determine
  * the best fallback strategy.
  *
- * - If this is from the scheduled job and the error is an `IncrementalUpdateRequiresFullRefreshError`, we can
+ * - If this is from the scheduled job and the error is an
+ *   `ExperimentIncrementalPipelineRequiresFullRefreshError`, we can
  *   promote the scheduled job to a full refresh.
  * - Otherwise, we downgrade to the non-incremental results runner.
  */
@@ -1356,6 +1361,7 @@ async function resolveIncrementalPrerequisiteFailure({
   fullRefresh,
   fullRefreshReason,
   prerequisites,
+  throwOnErrorInsteadOfFallback,
 }: {
   error: unknown;
   decision: {
@@ -1368,21 +1374,19 @@ async function resolveIncrementalPrerequisiteFailure({
   fullRefresh: boolean;
   fullRefreshReason: string | null;
   prerequisites: IncrementalRefreshPrerequisiteArgs;
+  throwOnErrorInsteadOfFallback: boolean;
 }): Promise<{
   runnerKind: SnapshotQueryRunnerKind;
   incrementalFallbackReason: string | null;
   fullRefresh: boolean;
   fullRefreshReason: string | null;
 }> {
-  const validationError = getErrorMessage(error);
-
-  // In some scenarios, marked by this error, we know a Full Refresh will fix the pipeline.
-  // Given the cost of a non-incremental update and a full refresh is comparable
-  // but the latter provides cheaper incremental updates after it is done, we want to recover
-  // automatically and promote the update to be a full refresh.
-  // In the UI we have a confirmation dialog, but here, for the background job, we want to do it automatically.
+  const validationError =
+    error instanceof ExperimentIncrementalPipelineRequiresFullRefreshError
+      ? error.details.reason
+      : getErrorMessage(error);
   const canPromoteToFullRefresh =
-    error instanceof IncrementalUpdateRequiresFullRefreshError &&
+    error instanceof ExperimentIncrementalPipelineRequiresFullRefreshError &&
     triggeredBy === "schedule" &&
     snapshotType === "standard" &&
     !fullRefresh;
@@ -1416,6 +1420,13 @@ async function resolveIncrementalPrerequisiteFailure({
     }
   }
 
+  if (
+    throwOnErrorInsteadOfFallback &&
+    error instanceof ExperimentIncrementalPipelineRequiresFullRefreshError
+  ) {
+    throw error;
+  }
+
   logger.info(
     `Experiment ${experiment.id} does not support incremental refresh: ${validationError}`,
   );
@@ -1433,24 +1444,28 @@ async function planSnapshotQueryRunner({
   integration,
   snapshotSettings,
   metricMap,
+  factTableMap,
   experiment,
   incrementalRefreshModel,
   snapshotType,
   fullRefresh,
   fullRefreshReason,
   triggeredBy,
+  throwOnErrorInsteadOfFallback,
 }: {
   organization: OrganizationInterface;
   datasource: DataSourceInterface;
   integration: SourceIntegrationInterface;
   snapshotSettings: ExperimentSnapshotSettings;
   metricMap: Map<string, ExperimentMetricInterface>;
+  factTableMap: FactTableMap;
   experiment: ExperimentInterface;
   incrementalRefreshModel: IncrementalRefreshInterface | null;
   snapshotType: SnapshotType;
   fullRefresh: boolean;
   fullRefreshReason: string | null;
   triggeredBy: SnapshotTriggeredBy;
+  throwOnErrorInsteadOfFallback: boolean;
 }): Promise<{
   runnerKind: SnapshotQueryRunnerKind;
   incrementalFallbackReason: string | null;
@@ -1467,6 +1482,42 @@ async function planSnapshotQueryRunner({
 
   if (decision.runnerKind === "results") {
     return { ...decision, fullRefresh, fullRefreshReason };
+  }
+
+  if (
+    decision.runnerKind === "incremental-exploratory" &&
+    incrementalRefreshModel
+  ) {
+    const staleness = getExploratoryMainSnapshotStaleness({
+      snapshotSettings,
+      incrementalRefreshModel,
+      metricMap,
+      factTableMap,
+    });
+
+    if (staleness.kind !== "fresh") {
+      if (throwOnErrorInsteadOfFallback) {
+        if (staleness.kind === "full-refresh") {
+          throw new ExperimentIncrementalPipelineRequiresFullRefreshError(
+            "Overall Results require a full refresh before Dimension Results can be updated.",
+          );
+        }
+
+        throw new ExperimentIncrementalPipelineRequiresOverallUpdateError(
+          "Overall Results must be incrementally updated before Dimension Results are updated.",
+        );
+      }
+
+      return {
+        runnerKind: "results",
+        incrementalFallbackReason:
+          staleness.kind === "full-refresh"
+            ? "Overall Results need a full refresh; running non-incremental update instead of reading stale data."
+            : "Overall Results need an incremental update; running non-incremental update instead of reading stale data.",
+        fullRefresh,
+        fullRefreshReason,
+      };
+    }
   }
 
   const prerequisites: IncrementalRefreshPrerequisiteArgs = {
@@ -1498,6 +1549,7 @@ async function planSnapshotQueryRunner({
       fullRefresh,
       fullRefreshReason,
       prerequisites,
+      throwOnErrorInsteadOfFallback: throwOnErrorInsteadOfFallback,
     });
   }
 }
@@ -1511,6 +1563,31 @@ export type PlannedExperimentSnapshot = {
   incrementalFallbackReason: string | null;
   fullRefreshReason: string | null;
 };
+
+function shouldIncrementalThrowErrorInsteadOfFallback(
+  useCache: boolean,
+  triggeredBy: SnapshotTriggeredBy,
+): boolean {
+  // No fallback for full refresh or non-incremental updates
+  if (!useCache) {
+    return false;
+  }
+
+  // Only throw when it was because of a manual action so the user
+  // can recover
+  switch (triggeredBy) {
+    case "manual":
+      return true;
+    case "manual-dashboard":
+    case "schedule":
+    case "update-dashboards":
+      return false;
+    default: {
+      triggeredBy satisfies never;
+      return false;
+    }
+  }
+}
 
 export async function planSnapshot({
   experiment,
@@ -1640,12 +1717,17 @@ export async function planSnapshot({
     integration,
     snapshotSettings: data.settings,
     metricMap,
+    factTableMap,
     experiment,
     incrementalRefreshModel,
     snapshotType: type,
     fullRefresh,
     fullRefreshReason,
     triggeredBy,
+    throwOnErrorInsteadOfFallback: shouldIncrementalThrowErrorInsteadOfFallback(
+      useCache,
+      triggeredBy,
+    ),
   });
 
   if (runnerPlan.runnerKind === "incremental-exploratory") {
