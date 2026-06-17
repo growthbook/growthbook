@@ -14,15 +14,46 @@ import type { ExperimentInterface } from "shared/types/experiment";
 import type { PipelineIntegration } from "shared/types/integrations";
 
 /**
+ * Whether a data source's Incremental Pipeline configuration *covers* this
+ * experiment: incremental writing is enabled and the experiment is in scope.
+ * Datasource-level only; the experiment's type and per-config support are
+ * checked separately. A `false` here means "not an incremental experiment",
+ * which callers treat as silent (no fallback warning).
+ */
+export function isExperimentCoveredByIncrementalPipeline(
+  settings: DataSourcePipelineSettings | undefined,
+  experimentId: string,
+): boolean {
+  if (!settings || !settings.allowWriting) return false;
+
+  return settings.mode === "incremental"
+    ? !settings.excludedExperimentIds?.includes(experimentId) &&
+        (settings.includedExperimentIds === undefined ||
+          settings.includedExperimentIds.includes(experimentId))
+    : (settings.incrementalOptInExperimentIds?.includes(experimentId) ?? false);
+}
+
+/**
+ * The reason an experiment's *type* is unsupported by Incremental Pipeline
+ * mode, or null when the type is supported. Bandit and holdout experiments
+ * aren't supported yet.
+ */
+export function getUnsupportedIncrementalExperimentTypeReason(
+  experimentType: ExperimentInterface["type"],
+): string | null {
+  if (experimentType !== undefined && experimentType !== "standard") {
+    return `Experiment type "${experimentType}" is not supported for incremental refresh.`;
+  }
+  return null;
+}
+
+/**
  * Whether an experiment is *covered* by a data source's Incremental Pipeline
- * configuration: incremental writing is enabled, the experiment is in scope,
- * and its type is supported. Coverage is the first stage of incremental
- * resolution.
- *
- * The later stages live elsewhere: per-experiment *support*
- * (`getIncrementalPipelineUnsupportedReason`) checks whether the experiment's
- * own configuration works with incremental, and a supported experiment may
- * still need a full (non-incremental) rescan to rebuild its units table.
+ * configuration and has a supported type. Coverage is the first stage of
+ * incremental resolution; per-experiment *support*
+ * (`getIncrementalPipelineUnsupportedReason`) checks the rest, and a supported
+ * experiment may still need a full (non-incremental) rescan to rebuild its
+ * units table.
  *
  * Used at snapshot planning time (`resolveSnapshotRunner`) and validation time
  * (`assertIncrementalRefreshPrerequisites`).
@@ -32,24 +63,10 @@ export function isExperimentIncrementalEnabled(
   experimentId: string,
   experimentType: ExperimentInterface["type"],
 ): boolean {
-  if (!settings || !settings.allowWriting) return false;
-
-  const coveredByDataSource =
-    settings.mode === "incremental"
-      ? !settings.excludedExperimentIds?.includes(experimentId) &&
-        (settings.includedExperimentIds === undefined ||
-          settings.includedExperimentIds.includes(experimentId))
-      : (settings.incrementalOptInExperimentIds?.includes(experimentId) ??
-        false);
-
-  if (!coveredByDataSource) return false;
-
-  // Bandit and holdout experiments aren't supported yet.
-  if (experimentType !== undefined && experimentType !== "standard") {
-    return false;
-  }
-
-  return true;
+  return (
+    isExperimentCoveredByIncrementalPipeline(settings, experimentId) &&
+    getUnsupportedIncrementalExperimentTypeReason(experimentType) === null
+  );
 }
 
 /**

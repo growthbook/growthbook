@@ -145,12 +145,9 @@ export default function ResultMoreMenu({
       )
     : false;
 
-  // An experiment can be covered by the data source's incremental config yet
-  // still be unable to run incrementally (e.g. it has an activation metric).
-  // Such an experiment always does a full rescan, so the "Full refresh"
-  // treatment doesn't apply — present it as a plain re-run instead. The reason
-  // it can't run incrementally is surfaced separately by the analysis summary
-  // warning callout.
+  // An experiment that is unsupported by Incremental Pipeline mode
+  // will always do a full rescan.
+  // So Full Refresh does not apply.
   const incrementalPipelineUnsupportedReason =
     useIncrementalPipelineUnsupportedReason(experiment);
   const runsIncrementalRefresh =

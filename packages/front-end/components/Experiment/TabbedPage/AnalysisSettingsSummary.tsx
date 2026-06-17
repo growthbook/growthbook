@@ -812,9 +812,6 @@ export default function AnalysisSettingsSummary({
               forceRefresh={
                 allMetrics.length > 0
                   ? async () => {
-                      // Gate through the same fallback confirm as the main
-                      // Update button: a covered-but-unsupported experiment
-                      // would rescan all data, so warn before forcing it.
                       if (!(await confirmIncrementalPipelineFallback())) return;
                       await runSnapshot(dimension ?? "", {
                         force: true,
