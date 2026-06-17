@@ -633,6 +633,7 @@ export default function ExperimentRefNewFields({
             }
             collapseSecondary={true}
             collapseGuardrail={true}
+            experimentType="standard"
           />
 
           <CustomMetricSlicesSelector

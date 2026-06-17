@@ -130,7 +130,10 @@ import { ExperimentRefRule, FeatureRule } from "shared/types/feature";
 import { ProjectInterface } from "shared/types/project";
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { ExperimentQueryMetadata } from "shared/types/query";
-import { isExperimentIncrementalEnabled } from "shared/enterprise";
+import {
+  isExperimentCoveredByIncrementalPipeline,
+  getUnsupportedIncrementalExperimentTypeReason,
+} from "shared/enterprise";
 import { generateId } from "back-end/src/util/uuid";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
@@ -1230,19 +1233,6 @@ export type SnapshotQueryRunnerKind =
   | "incremental"
   | "incremental-exploratory";
 
-function isIncrementalRefreshEnabledForSnapshot({
-  datasource,
-  experiment,
-}: {
-  datasource: DataSourceInterface;
-  experiment: ExperimentInterface;
-}): boolean {
-  return isExperimentIncrementalEnabled(
-    datasource.settings.pipelineSettings,
-    experiment.id,
-  );
-}
-
 export function resolveSnapshotRunner({
   datasource,
   experiment,
@@ -1259,14 +1249,22 @@ export function resolveSnapshotRunner({
   runnerKind: SnapshotQueryRunnerKind;
   incrementalFallbackReason: string | null;
 } {
-  if (!isIncrementalRefreshEnabledForSnapshot({ datasource, experiment })) {
+  if (
+    !isExperimentCoveredByIncrementalPipeline(
+      datasource.settings.pipelineSettings,
+      experiment.id,
+    )
+  ) {
     return { runnerKind: "results", incrementalFallbackReason: null };
   }
 
-  if (experiment.type !== undefined && experiment.type !== "standard") {
+  const unsupportedTypeReason = getUnsupportedIncrementalExperimentTypeReason(
+    experiment.type,
+  );
+  if (unsupportedTypeReason) {
     return {
       runnerKind: "results",
-      incrementalFallbackReason: `Experiment type "${experiment.type}" is not supported for incremental refresh.`,
+      incrementalFallbackReason: unsupportedTypeReason,
     };
   }
 
