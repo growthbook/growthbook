@@ -2,10 +2,15 @@ import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { cloneDeep, isEqual } from "lodash";
 import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
-import { isManagedWarehouseAwaitingProvisioning } from "shared/util";
+import {
+  isEventForwarderManagedExposureQuery,
+  isEventForwarderManagedFeatureUsageQuery,
+  isManagedWarehouseAwaitingProvisioning,
+} from "shared/util";
 import {
   DataSourceInterface,
   DataSourceParams,
+  DataSourcePipelineSettings,
   DataSourceSettings,
   DataSourceType,
 } from "shared/types/datasource";
@@ -17,6 +22,7 @@ import {
   getSourceIntegrationObject,
   testDataSourceConnection,
   testQueryValidity,
+  testFeatureUsageQueryValidity,
 } from "back-end/src/services/datasource";
 import {
   usingFileConfig,
@@ -30,6 +36,8 @@ import { ApiReqContext } from "back-end/types/api";
 import { logger } from "back-end/src/util/logger";
 import { deleteClickhouseUser } from "back-end/src/services/licenseServerManagedClickhouse";
 import { createModelAuditLogger } from "back-end/src/services/audit";
+import { syncEventForwarderAfterDatasourceDeleted } from "back-end/src/services/eventForwarder/datasourceLifecycle";
+import { deleteEventForwarderEventsFactTableForDatasource } from "back-end/src/services/eventForwarder/factTable";
 import { deleteFactTable, getFactTable } from "./FactTableModel";
 
 const dataSourceAuditConfig = {
@@ -206,6 +214,17 @@ export async function deleteDatasource(
   if (usingFileConfig()) {
     throw new Error("Cannot delete. Data sources managed by config.yml");
   }
+  await syncEventForwarderAfterDatasourceDeleted(context, datasource);
+
+  // Event forwarder managed artifacts (Events fact table, exposure queries,
+  // feature usage queries) are only removed when the datasource is deleted.
+  // Disconnecting the forwarder alone does not delete them.
+  try {
+    await deleteEventForwarderEventsFactTableForDatasource(context, datasource);
+  } catch (e) {
+    logger.error(e, "Error deleting event forwarder Events fact table");
+  }
+
   if (datasource.type === "growthbook_clickhouse") {
     if (!isManagedWarehouseAwaitingProvisioning(datasource)) {
       await deleteClickhouseUser(context.org.id);
@@ -234,18 +253,29 @@ export async function deleteDatasource(
 
 /**
  * Deletes data sources where the provided project is the only project of that data source.
- * @param projectId
- * @param organizationId
+ * Runs event-forwarder teardown per datasource before removal so Confluent resources are not orphaned.
  */
 export async function deleteAllDataSourcesForAProject({
+  context,
   projectId,
   organizationId,
 }: {
+  context: ReqContext | ApiReqContext;
   projectId: string;
   organizationId: string;
 }) {
   if (usingFileConfig()) {
     throw new Error("Cannot delete. Data sources managed by config.yml");
+  }
+
+  const docs = await DataSourceModel.find({
+    organization: organizationId,
+    projects: [projectId],
+  });
+
+  for (const doc of docs) {
+    const datasource = toInterface(doc);
+    await syncEventForwarderAfterDatasourceDeleted(context, datasource);
   }
 
   await DataSourceModel.deleteMany({
@@ -307,6 +337,8 @@ export async function createDataSource(
     true,
   );
 
+  validatePipelineSettingsInvariants(settings.pipelineSettings);
+
   const model = (await DataSourceModel.create(
     datasource,
   )) as DataSourceDocument;
@@ -332,12 +364,25 @@ export async function validateExposureQueriesAndAddMissingIds(
   datasource: DataSourceInterface,
   updates: Partial<DataSourceSettings>,
   forceCheckValidity: boolean = false,
+  skipEventForwarderManagedValidation: boolean = false,
 ): Promise<Partial<DataSourceSettings>> {
   const updatesCopy = cloneDeep(updates);
   if (updatesCopy.queries?.exposure) {
     await Promise.all(
       updatesCopy.queries.exposure.map(async (exposure) => {
         if (isManagedWarehouseAwaitingProvisioning(datasource)) {
+          if (!exposure.id) {
+            exposure.id = uniqid("exq_");
+          }
+          exposure.error = undefined;
+          return;
+        }
+
+        if (
+          skipEventForwarderManagedValidation &&
+          isEventForwarderManagedExposureQuery(exposure) &&
+          !forceCheckValidity
+        ) {
           if (!exposure.id) {
             exposure.id = uniqid("exq_");
           }
@@ -372,6 +417,47 @@ export async function validateExposureQueriesAndAddMissingIds(
       }),
     );
   }
+  if (updatesCopy.queries?.featureUsage) {
+    await Promise.all(
+      updatesCopy.queries.featureUsage.map(async (featureUsage) => {
+        if (isManagedWarehouseAwaitingProvisioning(datasource)) {
+          featureUsage.error = undefined;
+          return;
+        }
+
+        if (
+          skipEventForwarderManagedValidation &&
+          isEventForwarderManagedFeatureUsageQuery(featureUsage) &&
+          !forceCheckValidity
+        ) {
+          featureUsage.error = undefined;
+          return;
+        }
+
+        let checkValidity = forceCheckValidity;
+        if (!forceCheckValidity) {
+          const existingQuery = datasource.settings.queries?.featureUsage?.find(
+            (q) => q.id === featureUsage.id,
+          );
+          if (
+            !existingQuery ||
+            !isEqual(existingQuery, featureUsage) ||
+            existingQuery.error
+          ) {
+            checkValidity = true;
+          }
+        }
+        if (checkValidity) {
+          const integration = getSourceIntegrationObject(context, datasource);
+          featureUsage.error = await testFeatureUsageQueryValidity(
+            integration,
+            featureUsage,
+            context.org.settings?.testQueryDays,
+          );
+        }
+      }),
+    );
+  }
   return updatesCopy;
 }
 
@@ -387,10 +473,44 @@ export function hasActualChanges(
   return updateKeys.some((key) => !isEqual(datasource[key], updates[key]));
 }
 
+// Sanity-check pipeline settings before persisting. Mirrors the UI-level
+// validation in EditDataSourcePipeline so direct API / config.yml callers
+// can't save an opt-in list that snapshot planning will silently reject.
+//
+// We only enforce this for the new `incrementalOptInExperimentIds` path so
+// existing customers updating an unrelated field on a data source with
+// pre-existing (potentially non-strict) pipeline settings aren't affected.
+function validatePipelineSettingsInvariants(
+  pipelineSettings: DataSourcePipelineSettings | undefined,
+) {
+  if (!pipelineSettings) return;
+
+  const optInCount =
+    pipelineSettings.mode === "ephemeral"
+      ? (pipelineSettings.incrementalOptInExperimentIds?.length ?? 0)
+      : 0;
+  if (optInCount === 0) return;
+
+  if (!pipelineSettings.allowWriting) {
+    throw new Error(
+      "Cannot opt experiments into incremental refresh without allowWriting set to true.",
+    );
+  }
+  if (!pipelineSettings.writeDataset) {
+    throw new Error(
+      "Cannot opt experiments into incremental refresh without a writeDataset configured.",
+    );
+  }
+}
+
 export async function updateDataSource(
   context: ReqContext | ApiReqContext,
   datasource: DataSourceInterface,
   updates: Partial<DataSourceInterface>,
+  options?: {
+    forceCheckValidity?: boolean;
+    skipEventForwarderManagedValidation?: boolean;
+  },
 ) {
   if (usingFileConfig()) {
     throw new Error("Cannot update. Data sources managed by config.yml");
@@ -401,7 +521,10 @@ export async function updateDataSource(
       context,
       datasource,
       updates.settings,
+      options?.forceCheckValidity ?? false,
+      options?.skipEventForwarderManagedValidation ?? false,
     );
+    validatePipelineSettingsInvariants(updates.settings.pipelineSettings);
   }
   if (!hasActualChanges(datasource, updates)) {
     return;

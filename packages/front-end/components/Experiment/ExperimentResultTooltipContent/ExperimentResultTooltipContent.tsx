@@ -18,6 +18,15 @@ import {
 } from "@/services/metrics";
 import styles from "./ExperimentResultTooltipContent.module.scss";
 
+export interface StatusLabels {
+  won?: string;
+  lost?: string;
+  draw?: string;
+  insignificant?: string;
+  notEnoughData?: string;
+  badgeColor?: string;
+}
+
 interface ExperimentResultTooltipContentProps {
   stats: SnapshotMetric;
   metric: ExperimentMetricInterface;
@@ -35,6 +44,7 @@ interface ExperimentResultTooltipContentProps {
   currentMetricTotal: number;
   timeRemainingMs?: number;
   pValueAdjustmentEnabled?: boolean;
+  statusLabels?: StatusLabels;
 }
 
 const numberFormatter = Intl.NumberFormat(undefined, {
@@ -63,6 +73,7 @@ export default function ExperimentResultTooltipContent({
   currentMetricTotal,
   timeRemainingMs,
   pValueAdjustmentEnabled,
+  statusLabels,
 }: ExperimentResultTooltipContentProps) {
   const _displayCurrency = useCurrency();
   const displayCurrency = ssrPolyfills?.useCurrency?.() || _displayCurrency;
@@ -106,19 +117,19 @@ export default function ExperimentResultTooltipContent({
     notEnoughData || suspiciousChange || resultsStatus === "draw";
 
   const getBadgeText = () => {
-    if (notEnoughData) return "Not enough data";
+    if (notEnoughData) return statusLabels?.notEnoughData ?? "Not enough data";
     if (significant) {
-      if (resultsStatus === "won") return "Won";
-      if (resultsStatus === "lost") return "Lost";
-      if (resultsStatus === "draw") return "Draw";
+      if (resultsStatus === "won") return statusLabels?.won ?? "Won";
+      if (resultsStatus === "lost") return statusLabels?.lost ?? "Lost";
+      if (resultsStatus === "draw") return statusLabels?.draw ?? "Draw";
     }
-    return "Insignificant";
+    return statusLabels?.insignificant ?? "Insignificant";
   };
 
   const renderBadge = () => (
     <Flex
       className={clsx(styles.badge, {
-        [styles.badgeWon]: isWon,
+        [styles.badgeWon]: isWon && !statusLabels?.badgeColor,
         [styles.badgeLost]: isLost,
       })}
       px="4"
@@ -126,6 +137,11 @@ export default function ExperimentResultTooltipContent({
       align="center"
       justify="between"
       gap="1"
+      style={
+        !isLost && statusLabels?.badgeColor
+          ? { backgroundColor: statusLabels.badgeColor }
+          : undefined
+      }
     >
       <Text size="1" weight="bold">
         {getBadgeText()}
@@ -166,7 +182,8 @@ export default function ExperimentResultTooltipContent({
     if (resultsStatus !== "draw" || minPercentChange === undefined) return null;
     return (
       <Text as="div" size="1" style={{ color: "var(--color-text-mid)" }}>
-        <b>Draw:</b> this occurs when the % Change is smaller than the
+        <b>Draw:</b>
+        {" this occurs when the % Change is smaller than the "}
         metric&apos;s min change ({percentFormatter.format(minPercentChange)})
       </Text>
     );
@@ -176,7 +193,8 @@ export default function ExperimentResultTooltipContent({
     if (!suspiciousChange) return null;
     return (
       <Text as="div" size="1" style={{ color: "var(--color-text-mid)" }}>
-        <b>Suspicious:</b> this occurs when the % Change is above the
+        <b>Suspicious:</b>
+        {" this occurs when the % Change is above the "}
         metric&apos;s max change ({percentFormatter.format(suspiciousThreshold)}
         )
       </Text>

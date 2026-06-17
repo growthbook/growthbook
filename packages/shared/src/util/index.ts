@@ -25,6 +25,8 @@ import {
 import { HoldoutInterfaceStringDates } from "../validators/holdout";
 import { featureHasEnvironment } from "./features";
 
+export * from "./strings";
+export * from "./event-forwarder-destination";
 export * from "./features";
 export * from "./managedWarehouse";
 export * from "./saved-groups";
@@ -35,6 +37,10 @@ export * from "./types";
 export * from "./errors";
 export * from "./namespaces";
 export * from "./custom-fields";
+export * from "./diffFormats";
+export * from "./datasource";
+export * from "./event-forwarder-fact-table";
+export * from "./event-forwarder-warehouse-queries";
 
 export const DEFAULT_ENVIRONMENT_IDS = ["production", "dev", "staging", "test"];
 
@@ -135,7 +141,10 @@ export function isAnalysisAllowed(
   analysisSettings: ExperimentSnapshotAnalysisSettings,
 ): boolean {
   // Analysis dimensions must be subset of snapshot dimensions
-  const snapshotDimIds = snapshotSettings.dimensions.map((d) => d.id);
+  const snapshotDimIds = [
+    ...snapshotSettings.dimensions.map((d) => d.id),
+    ...(snapshotSettings.precomputedUnitDimensionIds ?? []),
+  ];
   if (!analysisSettings.dimensions.every((d) => snapshotDimIds.includes(d))) {
     return false;
   }
@@ -682,3 +691,8 @@ export function parseProcessLogBase() {
 export function capitalizeFirstCharacter(s: string) {
   return s.charAt(0).toLocaleUpperCase() + s.slice(1);
 }
+
+export {
+  NON_PRODUCTION_ENV_PATTERNS,
+  isEnvironmentDevLike,
+} from "./environments";

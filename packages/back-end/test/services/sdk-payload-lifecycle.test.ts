@@ -222,6 +222,11 @@ describe("SDK payload lifecycle (comprehensive)", () => {
         holdout: {
           getAllPayloadHoldouts: jest.fn().mockResolvedValue(new Map()),
         },
+        rampSchedules: {
+          getPayloadRampMonitoredRuleMap: jest
+            .fn()
+            .mockResolvedValue(new Map()),
+        },
       };
       (
         global as unknown as { __mockContextModels: unknown }
@@ -285,6 +290,11 @@ describe("SDK payload lifecycle (comprehensive)", () => {
         savedGroups: { getAll: jest.fn().mockResolvedValue([]) },
         holdout: {
           getAllPayloadHoldouts: jest.fn().mockResolvedValue(new Map()),
+        },
+        rampSchedules: {
+          getPayloadRampMonitoredRuleMap: jest
+            .fn()
+            .mockResolvedValue(new Map()),
         },
       };
       (
@@ -397,6 +407,11 @@ describe("SDK payload lifecycle (comprehensive)", () => {
         holdout: {
           getAllPayloadHoldouts: jest.fn().mockResolvedValue(new Map()),
         },
+        rampSchedules: {
+          getPayloadRampMonitoredRuleMap: jest
+            .fn()
+            .mockResolvedValue(new Map()),
+        },
       };
       (
         global as unknown as { __mockContextModels: unknown }
@@ -450,6 +465,11 @@ describe("SDK payload lifecycle (comprehensive)", () => {
         savedGroups: { getAll: jest.fn().mockResolvedValue([]) },
         holdout: {
           getAllPayloadHoldouts: jest.fn().mockResolvedValue(new Map()),
+        },
+        rampSchedules: {
+          getPayloadRampMonitoredRuleMap: jest
+            .fn()
+            .mockResolvedValue(new Map()),
         },
       };
       (

@@ -42,7 +42,9 @@ export default function LinkedChangeVariationRows({
                 {j}
               </Box>
               <Box as="span" className="text-ellipsis" title={v.name}>
-                <Text weight="semibold">{v.name}</Text>
+                <Text color="text-high" weight="medium">
+                  {v.name}
+                </Text>
               </Box>
             </Flex>
             <Flex flexBasis="90px" flexShrink="0" justify="end">

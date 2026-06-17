@@ -181,6 +181,7 @@ export const deleteProject = async (
       }
 
       await deleteAllDataSourcesForAProject({
+        context,
         projectId: id,
         organizationId: org.id,
       });

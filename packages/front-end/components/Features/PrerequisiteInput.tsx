@@ -1,4 +1,10 @@
-import React, { useEffect, useMemo, useState, type ReactNode } from "react";
+import React, {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { FeatureInterface, FeaturePrerequisite } from "shared/types/feature";
 import { getDefaultPrerequisiteCondition } from "shared/util";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
@@ -47,6 +53,7 @@ import Field from "@/components/Forms/Field";
 import StringArrayField from "@/components/Forms/StringArrayField";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
 import Link from "@/ui/Link";
+import RadioGroup from "@/ui/RadioGroup";
 import Switch from "@/ui/Switch";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Callout from "@/ui/Callout";
@@ -57,6 +64,11 @@ import {
   operatorSupportsCaseInsensitive,
   withOperatorCaseInsensitivity,
 } from "./ConditionInput";
+
+export interface RuleCyclicResult {
+  wouldBeCyclic: boolean;
+  cyclicFeatureId: string | null;
+}
 
 interface Props {
   value: FeaturePrerequisite[];
@@ -70,6 +82,13 @@ interface Props {
   label?: string;
   labelActions?: ReactNode;
   locked?: boolean;
+  addRemoveMode?: boolean;
+  addRemoveValue?: "set" | "remove";
+  onAddRemoveValueChange?: (value: "set" | "remove") => void;
+  onRemoveEffect?: () => void;
+  setModeLabel?: string;
+  removeModeLabel?: string;
+  onRuleCyclicChange?: (result: RuleCyclicResult) => void;
 }
 
 export default function PrerequisiteInput({
@@ -84,6 +103,13 @@ export default function PrerequisiteInput({
   label = "Target by Prerequisite Features",
   labelActions,
   locked,
+  addRemoveMode,
+  addRemoveValue,
+  onAddRemoveValueChange,
+  onRemoveEffect,
+  setModeLabel,
+  removeModeLabel,
+  onRuleCyclicChange,
 }: Props) {
   const { features: featureNames } = useFeatureMetaInfo({
     includeDefaultValue: true,
@@ -167,16 +193,15 @@ export default function PrerequisiteInput({
   const hasTargetFeature = !!targetFeatureId;
 
   const featureIdsToFetch = useMemo(() => {
-    if (isSingleEnvironment && hasTargetFeature) {
-      const selectedIds = value.map((v) => v.id).filter(Boolean);
-      const dropdownIds = featureNames
-        .filter((f) => f.id !== feature?.id)
-        .map((f) => f.id);
-      return [...new Set([...selectedIds, ...dropdownIds])];
-    } else {
-      return value.map((v) => v.id).filter(Boolean);
+    if (value.length === 0) {
+      return [];
     }
-  }, [isSingleEnvironment, hasTargetFeature, value, featureNames, feature?.id]);
+    const selectedIds = value.map((v) => v.id).filter(Boolean);
+    const dropdownIds = featureNames
+      .filter((f) => f.id !== feature?.id)
+      .map((f) => f.id);
+    return [...new Set([...selectedIds, ...dropdownIds])];
+  }, [value, featureNames, feature?.id]);
 
   const { results: batchStates, loading: batchStatesLoading } =
     useBatchPrerequisiteStates({
@@ -207,6 +232,36 @@ export default function PrerequisiteInput({
     });
     return cyclic;
   }, [batchStates]);
+
+  // Derive rule-level cyclic state from the batch wouldBeCyclic flags.
+  const prevCyclicRef = useRef<{
+    wouldBeCyclic: boolean;
+    cyclicFeatureId: string | null;
+  }>({
+    wouldBeCyclic: false,
+    cyclicFeatureId: null,
+  });
+  useEffect(() => {
+    if (!onRuleCyclicChange) return;
+    let result: { wouldBeCyclic: boolean; cyclicFeatureId: string | null } = {
+      wouldBeCyclic: false,
+      cyclicFeatureId: null,
+    };
+    for (const v of value) {
+      if (v.id && wouldBeCyclicStates[v.id]) {
+        result = { wouldBeCyclic: true, cyclicFeatureId: v.id };
+        break;
+      }
+    }
+    const prev = prevCyclicRef.current;
+    if (
+      prev.wouldBeCyclic !== result.wouldBeCyclic ||
+      prev.cyclicFeatureId !== result.cyclicFeatureId
+    ) {
+      prevCyclicRef.current = result;
+      onRuleCyclicChange(result);
+    }
+  }, [onRuleCyclicChange, value, wouldBeCyclicStates]);
 
   const prereqStatesArr = useMemo(
     () =>
@@ -259,9 +314,7 @@ export default function PrerequisiteInput({
       const cyclic = targetEnv
         ? featureStates[targetEnv]?.state === "cyclic"
         : false;
-      const wouldBeCyclic = targetEnv
-        ? wouldBeCyclicStates[f.id] || false
-        : false;
+      const wouldBeCyclic = wouldBeCyclicStates[f.id] || false;
 
       const states = targetEnv
         ? [featureStates[targetEnv]].filter(Boolean)
@@ -337,13 +390,13 @@ export default function PrerequisiteInput({
   };
 
   const header = (label || labelActions) && (
-    <Flex mb={slimMode ? "0" : "1"} justify="between" align="center">
+    <Flex mb="1" justify="between" align="center">
       <PremiumTooltip
         commercialFeature="prerequisite-targeting"
         premiumText="Prerequisite targeting is available for Enterprise customers"
       >
         {slimMode ? (
-          <Text as="div" size="small" weight="semibold" color="text-mid">
+          <Text as="div" size="medium" weight="semibold" color="text-mid">
             {label}
           </Text>
         ) : (
@@ -355,6 +408,26 @@ export default function PrerequisiteInput({
       {labelActions}
     </Flex>
   );
+  const showAddRemoveSelector =
+    !!addRemoveMode && !!addRemoveValue && !!onAddRemoveValueChange;
+  const addRemoveSelector = showAddRemoveSelector ? (
+    <RadioGroup
+      mt="2"
+      gap="0"
+      value={addRemoveValue}
+      setValue={(v) => onAddRemoveValueChange(v as "set" | "remove")}
+      options={[
+        { value: "set", label: setModeLabel ?? "Set targeting" },
+        { value: "remove", label: removeModeLabel ?? "Remove targeting" },
+      ]}
+      labelSize="2"
+    />
+  ) : null;
+  useEffect(() => {
+    if (!showAddRemoveSelector || addRemoveValue !== "set") return;
+    if (value.length > 0) return;
+    setValue([{ id: "", condition: "{}" }]);
+  }, [showAddRemoveSelector, addRemoveValue, value, setValue]);
 
   const addPrerequisiteLink = (
     <PremiumTooltip commercialFeature="prerequisite-targeting">
@@ -365,8 +438,8 @@ export default function PrerequisiteInput({
         }}
       >
         <Text
-          weight={slimMode ? "regular" : "semibold"}
-          size={slimMode ? "small" : "medium"}
+          weight="semibold"
+          size="medium"
           color={
             !hasPrerequisitesCommercialFeature || locked
               ? "text-low"
@@ -381,7 +454,7 @@ export default function PrerequisiteInput({
   );
 
   const content = (
-    <Box mb={slimMode ? "1" : "2"}>
+    <Box mb="0">
       {value.length === 0 && (emptyText || !slimMode) && (
         <Text
           color="text-low"
@@ -417,7 +490,6 @@ export default function PrerequisiteInput({
             hasPrerequisitesCommercialFeature ? (
               <AddConditionButton
                 disabled={locked}
-                slimMode={slimMode}
                 onClick={() => {
                   setValue([
                     ...value,
@@ -495,12 +567,17 @@ export default function PrerequisiteInput({
                             disabled={locked}
                             value={v.id}
                             onChange={(featureId) => {
+                              const meta = featureNames.find(
+                                (f) => f.id === featureId,
+                              );
+                              const condition = getDefaultPrerequisiteCondition(
+                                meta
+                                  ? { valueType: meta.valueType }
+                                  : undefined,
+                              );
                               setValue([
                                 ...value.slice(0, i),
-                                {
-                                  id: featureId,
-                                  condition: "",
-                                },
+                                { id: featureId, condition },
                                 ...value.slice(i + 1),
                               ]);
                             }}
@@ -805,6 +882,17 @@ export default function PrerequisiteInput({
                               size="1"
                               disabled={locked}
                               onClick={() => {
+                                if (
+                                  showAddRemoveSelector &&
+                                  value.length === 1
+                                ) {
+                                  if (onRemoveEffect) {
+                                    onRemoveEffect();
+                                  } else {
+                                    onAddRemoveValueChange?.("remove");
+                                  }
+                                  return;
+                                }
                                 setValue([
                                   ...value.slice(0, i),
                                   ...value.slice(i + 1),
@@ -827,12 +915,17 @@ export default function PrerequisiteInput({
                             disabled={locked}
                             value={v.id}
                             onChange={(featureId) => {
+                              const meta = featureNames.find(
+                                (f) => f.id === featureId,
+                              );
+                              const condition = getDefaultPrerequisiteCondition(
+                                meta
+                                  ? { valueType: meta.valueType }
+                                  : undefined,
+                              );
                               setValue([
                                 ...value.slice(0, i),
-                                {
-                                  id: featureId,
-                                  condition: "",
-                                },
+                                { id: featureId, condition },
                                 ...value.slice(i + 1),
                               ]);
                             }}
@@ -854,6 +947,17 @@ export default function PrerequisiteInput({
                               size="1"
                               disabled={locked}
                               onClick={() => {
+                                if (
+                                  showAddRemoveSelector &&
+                                  value.length === 1
+                                ) {
+                                  if (onRemoveEffect) {
+                                    onRemoveEffect();
+                                  } else {
+                                    onAddRemoveValueChange?.("remove");
+                                  }
+                                  return;
+                                }
                                 setValue([
                                   ...value.slice(0, i),
                                   ...value.slice(i + 1),
@@ -949,7 +1053,7 @@ export default function PrerequisiteInput({
                     <PrerequisiteAlerts
                       environments={environments}
                       project={parentFeature.project || ""}
-                      size="sm"
+                      size="small"
                       mb="0"
                     />
                   )}
@@ -964,8 +1068,9 @@ export default function PrerequisiteInput({
   return (
     <Box>
       {(label || labelActions) && header}
-      {content}
-      {value.length === 0 && addPrerequisiteLink}
+      {addRemoveSelector}
+      {showAddRemoveSelector && addRemoveValue === "remove" ? null : content}
+      {!showAddRemoveSelector && value.length === 0 && addPrerequisiteLink}
     </Box>
   );
 }

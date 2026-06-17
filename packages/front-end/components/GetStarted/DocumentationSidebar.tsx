@@ -25,7 +25,14 @@ const DocumentationSidebar = ({
 
   return (
     <Card style={{ padding: "var(--space-5)" }}>
-      <SidebarHeading>FEATURED DOCS</SidebarHeading>
+      <SidebarHeading>WHAT&apos;S NEW</SidebarHeading>
+      <Flex direction="column" gapY="3">
+        <LinkItem href="https://www.growthbook.io/blog/growthbook-version-4-4">
+          GrowthBook 4.4
+        </LinkItem>
+      </Flex>
+      <Separator size="4" my="5" />
+      <SidebarHeading>RESOURCES</SidebarHeading>
       <Flex direction="column" gapY="3">
         {getLinksFor(type, organization.isVercelIntegration)}
       </Flex>
@@ -105,6 +112,9 @@ function getLinksFor(
             <LinkItem href="https://docs.growthbook.io/integrations/vercel">
               Vercel Integration Docs
             </LinkItem>
+            <LinkItem href="https://github.com/growthbook/growthbook/releases/tag/v4.4.0">
+              4.4 Release Notes
+            </LinkItem>
             <LinkItem href="https://docs.growthbook.io/">Docs</LinkItem>
             <LinkItem href="https://www.growthbook.io/pricing">
               Premium Features
@@ -116,6 +126,9 @@ function getLinksFor(
       return (
         <>
           <LinkItem href="https://docs.growthbook.io/">Docs</LinkItem>
+          <LinkItem href="https://github.com/growthbook/growthbook/releases/tag/v4.4.0">
+            4.4 Release Notes
+          </LinkItem>
           <LinkItem href="https://www.growthbook.io/pricing">
             Premium Features
           </LinkItem>

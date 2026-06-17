@@ -1,7 +1,9 @@
 import {
   autoMerge,
+  evaluatePublishGovernance,
   fillRevisionFromFeature,
   filterEnvironmentsByFeature,
+  getLiveChangesSinceBase,
   liveRevisionFromFeature,
 } from "shared/util";
 import { getFeatureRevisionMergeStatusValidator } from "shared/validators";
@@ -41,17 +43,41 @@ export const mergeStatusHandler = async (req: {
     revision,
   });
 
+  const filledLive = liveRevisionFromFeature(live, feature);
+  const filledBase = fillRevisionFromFeature(base, feature);
   const mergeResult = autoMerge(
-    liveRevisionFromFeature(live, feature),
-    fillRevisionFromFeature(base, feature),
+    filledLive,
+    filledBase,
     revision,
     environmentIds,
     {},
   );
 
+  // Pre-flight signal for the publish endpoint's rebase governance: true when
+  // publishing would be blocked until the draft is rebased (merge conflicts,
+  // or the draft is behind live / its approval went stale while the org
+  // enforces rebase-before-publish).
+  const governance = evaluatePublishGovernance({
+    revisionStatus: revision.status,
+    baseVersion: revision.baseVersion,
+    liveVersion: live.version,
+    mergeSuccess: mergeResult.success,
+    liveChanges: getLiveChangesSinceBase(
+      filledLive,
+      filledBase,
+      environmentIds,
+    ),
+    approvedBaseVersion: revision.approvedBaseVersion ?? null,
+    requireRebaseBeforePublish:
+      !!req.context.org.settings?.requireRebaseBeforePublish,
+  });
+
   return {
     success: mergeResult.success,
+    liveVersion: live.version,
+    draftDateUpdated: revision.dateUpdated.toISOString(),
     conflicts: mergeResult.conflicts,
+    rebaseRequired: governance.rebaseRequired,
     ...(mergeResult.success ? { result: mergeResult.result } : {}),
   };
 };

@@ -14,6 +14,7 @@ import { useRouter } from "next/router";
 import MiniSearch from "minisearch";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Pagination from "@/components/Pagination";
+import { TableColumnHeader } from "@/ui/Table";
 
 export function useAddComputedFields<T, ExtraFields>(
   items: T[] | undefined,
@@ -79,6 +80,29 @@ export function tagFilterOnClick(
   };
 }
 
+// Whitespace separates distinct words; punctuation (incl. _ and -) separates
+// sub-tokens within a word.
+const wordBoundary = /[\n\r\p{Z}]+/u;
+const tokenSeparators = /\p{P}+/u;
+
+// Split a string into normalized words. MiniSearch can only match terms by
+// prefix/fuzzy (no substring search), so for indexing we emit every
+// "boundary suffix" of each word — e.g. "search_test_key" -> ["search_test_key",
+// "test_key", "key"] — which turns a prefix query into a substring-at-word-
+// boundary match. For queries we keep each word whole (one normalized term), so
+// "test_key" / "test-key" both prefix-match the "test_key" suffix of
+// "search_test_key" but never match "test-my-key".
+function tokenizeFields(text: string, expandSuffixes: boolean): string[] {
+  return text.split(wordBoundary).flatMap((word) => {
+    const parts = word.split(tokenSeparators).filter(Boolean);
+    return expandSuffixes
+      ? parts.map((_, i) => parts.slice(i).join("_"))
+      : parts.length
+        ? [parts.join("_")]
+        : [];
+  });
+}
+
 const searchTermOperators = [">", "<", "^", "=", "~", ""] as const;
 
 export type SyntaxFilter = {
@@ -116,7 +140,17 @@ export interface SearchProps<T extends { id: string }> {
       | (Date | null | undefined)[];
   };
   filterResults?: (items: T[]) => T[];
+  // Return true for (field, value) pairs that should always pass client-side
+  // syntax filtering. Useful when a search token is handled externally (e.g.
+  // via a server-side content search + filterResults) and shouldn't be
+  // double-filtered on the client.
+  syntaxFilterPassthrough?: (field: string, value: string) => boolean;
   updateSearchQueryOnChange?: boolean;
+  // When true, the hook will not initialize its search term from the URL `q`
+  // param. Use this when an enclosing useSearch instance owns the `q` param
+  // (e.g. a sort-only inner table inside a search-filtered page) so the inner
+  // hook doesn't latch onto the outer hook's filter string.
+  disableUrlSearchTerm?: boolean;
   pageSize?: number;
 }
 
@@ -138,6 +172,13 @@ export interface SearchReturn<T> {
     children: ReactNode;
     style?: React.CSSProperties;
   }>;
+  /** Radix Table header with same sort UI/callbacks; use with TableColumnHeader in ui/Table. */
+  SortableTableColumnHeader: FC<{
+    field: keyof T;
+    className?: string;
+    children: ReactNode;
+    style?: React.CSSProperties;
+  }>;
   page: number;
   resetPage: () => void;
   pagination: ReactNode;
@@ -154,7 +195,9 @@ export function useSearch<T extends { id: string }>({
   undefinedLast,
   defaultMappings = {},
   searchTermFilters,
+  syntaxFilterPassthrough,
   updateSearchQueryOnChange,
+  disableUrlSearchTerm,
   pageSize,
 }: SearchProps<T>): SearchReturn<T> {
   const defaultSort = { field: defaultSortField, dir: defaultSortDir || 1 };
@@ -167,7 +210,11 @@ export function useSearch<T extends { id: string }>({
 
   const router = useRouter();
   const { q } = router.query;
-  const initialSearchTerm = Array.isArray(q) ? q.join(" ") : q;
+  const initialSearchTerm = disableUrlSearchTerm
+    ? ""
+    : Array.isArray(q)
+      ? q.join(" ")
+      : q;
   const [value, setValue] = useState(initialSearchTerm ?? "");
   const [disableRelevanceSort, setDisableRelevanceSort] = useState(false);
 
@@ -203,10 +250,12 @@ export function useSearch<T extends { id: string }>({
     const miniSearchInstance = new MiniSearch({
       idField: internalSearchIdField,
       fields,
+      tokenize: (text) => tokenizeFields(text, true),
       searchOptions: {
         boost: keys,
         fuzzy: true,
         prefix: true,
+        tokenize: (text) => tokenizeFields(text, false),
       },
     });
 
@@ -269,6 +318,8 @@ export function useSearch<T extends { id: string }>({
         syntaxFilters.every((filter) => {
           // If a filter has multiple values, at least one has to match
           const res = filter.values.some((searchValue) => {
+            if (syntaxFilterPassthrough?.(filter.field, searchValue))
+              return true;
             const itemValue = searchTermFilters?.[filter.field]?.(item) ?? null;
             return filterSearchTerm(itemValue, filter.operator, searchValue);
           });
@@ -283,7 +334,13 @@ export function useSearch<T extends { id: string }>({
       filtered = filterResults(filtered);
     }
     return { filtered, syntaxFilters, searchTerm };
-  }, [value, miniSearch, filterResults, transformQuery]);
+  }, [
+    value,
+    miniSearch,
+    filterResults,
+    syntaxFilterPassthrough,
+    transformQuery,
+  ]);
 
   const previousSearchTerm = useRef(searchTerm);
   const hasSearchTerm = searchTerm.length > 0;
@@ -397,6 +454,50 @@ export function useSearch<T extends { id: string }>({
     return th;
   }, [sort.dir, sort.field, isRelevanceSortActive]);
 
+  const SortableTableColumnHeader = useMemo(() => {
+    const Header: FC<{
+      field: keyof T;
+      className?: string;
+      children: ReactNode;
+      style?: React.CSSProperties;
+    }> = ({ children, field, className, style }) => {
+      const showSortDirection = !isRelevanceSortActive && sort.field === field;
+
+      return (
+        <TableColumnHeader className={className} style={style}>
+          <span
+            className="cursor-pointer"
+            onClick={(e) => {
+              e.preventDefault();
+              setDisableRelevanceSort(true);
+              setSort({
+                field,
+                dir: sort.field === field ? sort.dir * -1 : 1,
+              });
+            }}
+          >
+            {children}{" "}
+            <a
+              href="#"
+              className={showSortDirection ? "activesort" : "inactivesort"}
+            >
+              {showSortDirection ? (
+                sort.dir < 0 ? (
+                  <FaSortDown />
+                ) : (
+                  <FaSortUp />
+                )
+              ) : (
+                <FaSort />
+              )}
+            </a>
+          </span>
+        </TableColumnHeader>
+      );
+    };
+    return Header;
+  }, [sort.dir, sort.field, isRelevanceSortActive]);
+
   const clear = useCallback(() => {
     setValue("");
   }, []);
@@ -418,6 +519,7 @@ export function useSearch<T extends { id: string }>({
     },
     setSearchValue: setValue,
     SortableTH,
+    SortableTableColumnHeader,
     page,
     resetPage: () => setPage(1),
     pagination:

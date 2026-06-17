@@ -19,6 +19,8 @@ import {
   ActiveDraftStatus,
   ACTIVE_DRAFT_STATUSES,
   RevisionMetadata,
+  RevisionReview,
+  reviewerKeyForEventUser,
 } from "shared/validators";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
@@ -42,8 +44,31 @@ import { logger } from "back-end/src/util/logger";
 import { syncFeatureExperimentLinkages } from "back-end/src/util/featureExperimentSync";
 import { createWithVersionRetry } from "back-end/src/util/mongo.util";
 import { runValidateFeatureRevisionHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
+import {
+  migrateRampScheduleEndCondition,
+  migrateRampStepTriggers,
+} from "./RampScheduleModel";
 
 export type ReviewSubmittedType = "Comment" | "Approved" | "Requested Changes";
+
+// Read-time migration: old docs stored contributors as EventUser objects;
+// new docs store plain user-ID strings. Normalize to string[] so callers
+// always see the current schema.
+function migrateContributors(raw: unknown[] | undefined): string[] | undefined {
+  if (!raw?.length) return raw as undefined;
+
+  const ids = new Set<string>();
+  for (const entry of raw) {
+    if (entry == null) continue;
+    if (typeof entry === "string") {
+      if (entry) ids.add(entry);
+    } else if (typeof entry === "object" && "id" in entry) {
+      const id = (entry as { id?: string }).id;
+      if (id) ids.add(id);
+    }
+  }
+  return ids.size > 0 ? [...ids] : undefined;
+}
 
 const featureRevisionSchema = new mongoose.Schema({
   organization: String,
@@ -51,6 +76,9 @@ const featureRevisionSchema = new mongoose.Schema({
   createdBy: {},
   version: Number,
   baseVersion: Number,
+  // Live feature version captured when this revision was approved; used to
+  // detect approvals that have gone stale due to subsequent publishes.
+  approvedBaseVersion: Number,
   dateCreated: Date,
   dateUpdated: Date,
   datePublished: Date,
@@ -68,8 +96,21 @@ const featureRevisionSchema = new mongoose.Schema({
   rampActions: [{}],
   // Users who have made edits to this draft beyond the original author.
   contributors: [{}],
+  // Active reviewer verdicts for the current review cycle. Maintained by the
+  // review lifecycle mutations; cleared when a new review cycle starts.
+  reviews: [
+    {
+      _id: false,
+      userId: String,
+      user: {},
+      status: String,
+      timestamp: Date,
+    },
+  ],
   status: String,
   requiresReview: Boolean,
+  autoPublishOnApproval: Boolean,
+  autoPublishEnabledBy: String,
   log: [
     {
       _id: false,
@@ -183,6 +224,33 @@ export function buildFeatureRevisionInterface(
       applicableEnvs,
     });
   }
+
+  // JIT migration: normalize legacy ramp action shapes on read:
+  //   - endCondition → cutoffDate
+  //   - steps[].trigger discriminated union → steps[].interval + holdConditions
+  // Old DB documents may still hold these legacy shapes even though the schema
+  // no longer defines them — cast through `unknown` so the migration can read.
+  if (revision.rampActions?.length) {
+    revision.rampActions = revision.rampActions.map((action) => {
+      if (action.mode !== "create") return action;
+      const endCondMigrated = migrateRampScheduleEndCondition(
+        action as unknown as Parameters<
+          typeof migrateRampScheduleEndCondition
+        >[0],
+      );
+      const triggersMigrated = migrateRampStepTriggers(
+        endCondMigrated as unknown as Parameters<
+          typeof migrateRampStepTriggers
+        >[0],
+      );
+      return triggersMigrated as unknown as typeof action;
+    });
+  }
+
+  revision.contributors = migrateContributors(
+    revision.contributors as unknown as unknown[],
+  );
+
   return revision;
 }
 
@@ -231,6 +299,7 @@ export async function countDocuments(
   if (involvedUserId) {
     filter.$or = [
       { "createdBy.id": involvedUserId },
+      { contributors: involvedUserId },
       { "contributors.id": involvedUserId },
     ];
   }
@@ -279,7 +348,13 @@ export async function getMinimalRevisions(
     status: m.status,
     comment: m.comment || "",
     ...(m.title ? { title: m.title } : {}),
-    ...(m.contributors?.length ? { contributors: m.contributors } : {}),
+    ...(m.contributors?.length
+      ? {
+          contributors: migrateContributors(
+            m.contributors as unknown as unknown[],
+          ),
+        }
+      : {}),
   }));
 }
 
@@ -412,6 +487,7 @@ export async function getFeatureRevisionsByStatus({
   if (involvedUserId) {
     filter.$or = [
       { "createdBy.id": involvedUserId },
+      { contributors: involvedUserId },
       { "contributors.id": involvedUserId },
     ];
   }
@@ -434,18 +510,34 @@ export async function getLatestActiveDraftForFeature(
   organization: string,
   featureId: string,
   feature: RevisionFeatureContext | undefined,
-  { involvedUserId }: { involvedUserId?: string } = {},
+  {
+    involvedUserId,
+    status,
+    author,
+  }: {
+    involvedUserId?: string;
+    status?: string | string[];
+    author?: string;
+  } = {},
 ): Promise<FeatureRevisionInterface | null> {
   const filter: Record<string, unknown> = {
     organization,
     featureId,
-    status: { $in: ACTIVE_DRAFT_STATUSES },
+    status: status
+      ? Array.isArray(status)
+        ? { $in: status }
+        : status
+      : { $in: ACTIVE_DRAFT_STATUSES },
   };
   if (involvedUserId) {
     filter.$or = [
       { "createdBy.id": involvedUserId },
+      { contributors: involvedUserId },
       { "contributors.id": involvedUserId },
     ];
+  }
+  if (author) {
+    filter["createdBy.id"] = author;
   }
   const doc = await FeatureRevisionModel.findOne(filter, { log: 0 }).sort({
     dateUpdated: -1,
@@ -863,14 +955,26 @@ export async function createRevision({
   return toInterface(doc, context, feature);
 }
 
-export async function updateRevision(
+// Pure computation of what updateRevision() will validate and persist; no writes
+export function computeRevisionUpdate(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   revision: FeatureRevisionInterface,
   changes: RevisionChanges,
-  log: Omit<RevisionLog, "timestamp">,
   resetReview: boolean,
-) {
+): {
+  normalizedChanges: RevisionChanges;
+  status: FeatureRevisionInterface["status"];
+  proposedRevision: FeatureRevisionInterface;
+  // True when the edit knocked a verdict-bearing status (approved /
+  // changes-requested) back to pending-review. Verdicts aren't deleted — they
+  // flip to "-stale" variants (see `staleReviews`) so they stay attributable
+  // without counting as active verdicts.
+  clearReviews: boolean;
+  // The `reviews` array to persist when `clearReviews` is true: prior active
+  // verdicts demoted to "approved-stale" / "changes-requested-stale".
+  staleReviews: FeatureRevisionInterface["reviews"];
+} {
   let status = revision.status;
 
   const MUTABLE_FIELDS = [
@@ -919,22 +1023,85 @@ export async function updateRevision(
         }
       : changes;
 
-  await runValidateFeatureRevisionHooks({
-    context,
-    feature,
-    revision: {
+  const clearReviews =
+    status === "pending-review" && revision.status !== "pending-review";
+  const staleReviews = clearReviews
+    ? (revision.reviews ?? []).map((r) => ({
+        ...r,
+        status:
+          r.status === "approved"
+            ? ("approved-stale" as const)
+            : r.status === "changes-requested"
+              ? ("changes-requested-stale" as const)
+              : r.status,
+      }))
+    : undefined;
+
+  return {
+    normalizedChanges,
+    status,
+    proposedRevision: {
       ...revision,
       ...normalizedChanges,
       status,
+      ...(clearReviews ? { reviews: staleReviews } : {}),
     },
+    clearReviews,
+    staleReviews,
+  };
+}
+
+// Best-effort early hook run before side-effect writes; updateRevision() re-runs hooks authoritatively
+export async function prevalidateRevisionUpdate(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  revision: FeatureRevisionInterface,
+  changes: RevisionChanges,
+  resetReview: boolean,
+): Promise<void> {
+  const { proposedRevision } = computeRevisionUpdate(
+    context,
+    feature,
+    revision,
+    changes,
+    resetReview,
+  );
+  await runValidateFeatureRevisionHooks({
+    context,
+    feature,
+    revision: proposedRevision,
+    original: revision,
+  });
+}
+
+export async function updateRevision(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  revision: FeatureRevisionInterface,
+  changes: RevisionChanges,
+  log: Omit<RevisionLog, "timestamp">,
+  resetReview: boolean,
+) {
+  const {
+    normalizedChanges,
+    status,
+    proposedRevision,
+    clearReviews,
+    staleReviews,
+  } = computeRevisionUpdate(context, feature, revision, changes, resetReview);
+
+  await runValidateFeatureRevisionHooks({
+    context,
+    feature,
+    revision: proposedRevision,
     original: revision,
   });
 
-  // Track contributors atomically using $addToSet (deep equality dedup).
-  // Using a separate operator from $set avoids the race condition where two
-  // concurrent edits both read the same stale contributors array.
+  // Track contributors as user ID strings via atomic $addToSet.
+  const contributorId =
+    log.user != null && "id" in log.user && log.user.id ? log.user.id : null;
   const contributorUpdate =
-    log.user != null ? { $addToSet: { contributors: log.user } } : {};
+    contributorId != null ? { $addToSet: { contributors: contributorId } } : {};
 
   const doc = await FeatureRevisionModel.findOneAndUpdate(
     {
@@ -947,6 +1114,17 @@ export async function updateRevision(
         ...normalizedChanges,
         status,
         dateUpdated: new Date(),
+        // A rebase (baseVersion advances) that keeps the approval standing
+        // (review not reset) re-anchors the approval to the new live version.
+        // Without this, staleApproval stays true forever and publishing
+        // deadlocks under requireRebaseBeforePublish — rebasing never clears it.
+        ...(normalizedChanges.baseVersion !== undefined && status === "approved"
+          ? { approvedBaseVersion: normalizedChanges.baseVersion }
+          : {}),
+        // The edit invalidated standing verdicts — demote them to "-stale" so
+        // policy hooks and the REST API don't count approvals made against
+        // older content, while the UI can still attribute them.
+        ...(clearReviews ? { reviews: staleReviews } : {}),
       },
       ...contributorUpdate,
     },
@@ -995,6 +1173,21 @@ export async function updateRevision(
   return updatedRevision;
 }
 
+// Pure computation of the changes markRevisionAsPublished() will validate and persist
+export function computeRevisionPublishChanges(
+  revision: FeatureRevisionInterface,
+  user: EventUser,
+  comment?: string,
+): Partial<FeatureRevisionInterface> {
+  return {
+    status: "published",
+    publishedBy: user,
+    datePublished: new Date(),
+    dateUpdated: new Date(),
+    comment: revision.comment ? revision.comment : comment,
+  };
+}
+
 export async function markRevisionAsPublished(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
@@ -1002,17 +1195,11 @@ export async function markRevisionAsPublished(
   user: EventUser,
   comment?: string,
 ) {
-  const action = revision.status === "draft" ? "publish" : "re-publish";
+  // "re-publish" only applies to a revision that was already live; publishing
+  // an approved (or otherwise in-flight) draft for the first time is a "publish".
+  const action = revision.status === "published" ? "re-publish" : "publish";
 
-  const revisionComment = revision.comment ? revision.comment : comment;
-
-  const changes: Partial<FeatureRevisionInterface> = {
-    status: "published",
-    publishedBy: user,
-    datePublished: new Date(),
-    dateUpdated: new Date(),
-    comment: revisionComment,
-  };
+  const changes = computeRevisionPublishChanges(revision, user, comment);
 
   await runValidateFeatureRevisionHooks({
     context,
@@ -1036,6 +1223,9 @@ export async function markRevisionAsPublished(
   );
 
   // Fire and forget - no route that marks the revision as published expects the log to be there immediately
+  // Note: no comment in the payload — publish events are plain lifecycle
+  // markers. Any publish-time comment only feeds the revision description
+  // fallback (computeRevisionPublishChanges), not the log.
   context.models.featureRevisionLogs
     .create({
       featureId: revision.featureId,
@@ -1043,7 +1233,7 @@ export async function markRevisionAsPublished(
       action,
       subject: "",
       user,
-      value: JSON.stringify(comment ? { comment } : {}),
+      value: JSON.stringify({}),
     })
     .catch((e) => {
       logger.error(e, "Error creating revisionlog");
@@ -1057,8 +1247,15 @@ export async function markRevisionAsReviewRequested(
   revision: FeatureRevisionInterface,
   user: EventUser,
   comment?: string,
+  { autoPublishOnApproval }: { autoPublishOnApproval?: boolean } = {},
 ) {
   const action = "Review Requested";
+
+  // The auto-publish later runs with the arming user's authority, so record
+  // who that was. Actors without a user ID (e.g. API keys) can still arm —
+  // the publish then falls back to `createdBy`.
+  const enabledBy =
+    autoPublishOnApproval && user && "id" in user ? user.id : null;
 
   await FeatureRevisionModel.updateOne(
     {
@@ -1072,7 +1269,13 @@ export async function markRevisionAsReviewRequested(
         datePublished: null,
         dateUpdated: new Date(),
         comment: comment,
+        autoPublishOnApproval: !!autoPublishOnApproval,
+        ...(enabledBy !== null ? { autoPublishEnabledBy: enabledBy } : {}),
+        // Requesting review starts a new review cycle — prior verdicts no
+        // longer stand (mirrors the revision-log replay semantics).
+        reviews: [],
       },
+      ...(enabledBy === null ? { $unset: { autoPublishEnabledBy: 1 } } : {}),
     },
   );
 
@@ -1091,41 +1294,202 @@ export async function markRevisionAsReviewRequested(
     });
 }
 
-export async function submitReviewAndComments(
-  context: ReqContext | ApiReqContext,
+export async function setAutoPublishOnApproval(
   revision: FeatureRevisionInterface,
-  user: EventUser,
-  reviewSubmittedType: ReviewSubmittedType,
-  comment?: string,
+  enabled: boolean,
+  // User arming the flag; the auto-publish runs with their authority.
+  // Cleared on disable (and on enable without a user ID, where the publish
+  // falls back to `createdBy`).
+  enabledBy: string | null,
 ) {
-  const action = reviewSubmittedType;
-  let status = "pending-review";
-  switch (reviewSubmittedType) {
-    case "Approved":
-      status = "approved";
-      break;
-    case "Requested Changes":
-      status = "changes-requested";
-      break;
-    default:
-      // we dont want comments to override approved state
-      status = revision.status;
-  }
-
   await FeatureRevisionModel.updateOne(
     {
       organization: revision.organization,
       featureId: revision.featureId,
       version: revision.version,
     },
-    {
+    enabled && enabledBy !== null
+      ? {
+          $set: {
+            autoPublishOnApproval: true,
+            autoPublishEnabledBy: enabledBy,
+          },
+        }
+      : {
+          $set: { autoPublishOnApproval: enabled },
+          $unset: { autoPublishEnabledBy: 1 },
+        },
+  );
+}
+
+// Compare-and-swap update: read `guardFields`, derive an update from the
+// current doc, then write only if those fields are unchanged — retrying on a
+// lost race. `build` returning null aborts. Lets concurrent reviewers reconcile
+// shared fields without an aggregation-pipeline update (DocumentDB/Cosmos reject
+// those). Mirrors RevisionModel.casUpdate.
+async function casUpdate(
+  filter: mongoose.FilterQuery<FeatureRevisionInterface>,
+  guardFields: (keyof FeatureRevisionInterface)[],
+  build: (
+    current: Partial<FeatureRevisionInterface>,
+  ) =>
+    | mongoose.UpdateQuery<FeatureRevisionInterface>
+    | null
+    | Promise<mongoose.UpdateQuery<FeatureRevisionInterface> | null>,
+  maxAttempts = 5,
+): Promise<"applied" | "aborted" | "exhausted"> {
+  const projection = Object.fromEntries(guardFields.map((f) => [f, 1]));
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const current = await FeatureRevisionModel.findOne(
+      filter,
+      projection,
+    ).lean<Partial<FeatureRevisionInterface> | null>();
+    if (!current) return "aborted";
+    const update = await build(current);
+    if (!update) return "aborted";
+    // Missing fields guard on absence so legacy self-heal writes stay correct.
+    const guard = Object.fromEntries(
+      guardFields.map((f) => [
+        f,
+        current[f] === undefined ? { $exists: false } : current[f],
+      ]),
+    );
+    const res = await FeatureRevisionModel.updateOne(
+      { ...filter, ...guard },
+      update,
+    );
+    if (res.matchedCount > 0) return "applied";
+  }
+  return "exhausted";
+}
+
+export async function submitReviewAndComments(
+  context: ReqContext | ApiReqContext,
+  revision: FeatureRevisionInterface,
+  user: EventUser,
+  reviewSubmittedType: ReviewSubmittedType,
+  comment?: string,
+  // Current live feature version, captured on approval so we can later detect
+  // when an approval has gone stale (live advanced past the approved point).
+  liveVersion?: number,
+) {
+  const action = reviewSubmittedType;
+
+  const filter = {
+    organization: revision.organization,
+    featureId: revision.featureId,
+    version: revision.version,
+  };
+
+  // Bake this reviewer's verdict into the revision's `reviews` array so
+  // consumers (custom hooks, API) don't have to replay the log. Plain
+  // comments don't carry a verdict; system/anonymous users are skipped.
+  const verdict =
+    reviewSubmittedType === "Approved"
+      ? ("approved" as const)
+      : reviewSubmittedType === "Requested Changes"
+        ? ("changes-requested" as const)
+        : null;
+  const reviewerKey = reviewerKeyForEventUser(user);
+  const newReview: RevisionReview | null =
+    verdict !== null && reviewerKey !== null
+      ? { userId: reviewerKey, user, status: verdict, timestamp: new Date() }
+      : null;
+
+  // `status` aggregates ALL standing verdicts — one reviewer's approval must
+  // not override another reviewer's active changes-requested. Stale verdicts
+  // don't count, and comments never change the status.
+  if (newReview !== null) {
+    // Step 1: bake this reviewer's verdict, scoped to their own entry so
+    // concurrent verdicts converge to one entry per reviewer.
+    // Legacy revision (no baked `reviews`): self-heal from the log, CAS-guarded
+    // on the field still being absent so concurrent first-verdicts don't clobber.
+    let seeded = false;
+    if (revision.reviews === undefined) {
+      const priorReviews = await getActiveReviewsFromLog(context, revision);
+      const outcome = await casUpdate(filter, ["reviews"], (current) =>
+        current.reviews === undefined
+          ? {
+              $set: {
+                reviews: [
+                  ...priorReviews.filter((r) => r.userId !== newReview.userId),
+                  newReview,
+                ],
+                datePublished: null,
+                dateUpdated: new Date(),
+              },
+            }
+          : null,
+      );
+      seeded = outcome === "applied";
+    }
+    if (!seeded) {
+      // $pull then $push (Mongo can't do both on one field at once); each op is
+      // atomic and scoped to this reviewer's userId.
+      await FeatureRevisionModel.updateOne(filter, {
+        $pull: { reviews: { userId: newReview.userId } },
+      });
+      await FeatureRevisionModel.updateOne(filter, {
+        $push: { reviews: newReview },
+        $set: { datePublished: null, dateUpdated: new Date() },
+      });
+    }
+
+    // Step 2: reconcile `status` from the stored reviews (CAS-guarded on both
+    // `reviews` and `status`) so it can't drift from a concurrent verdict.
+    // Bail if a concurrent recall/discard moved us out of the review cycle —
+    // otherwise we'd resurrect "pending-review" over their "draft". Record
+    // approvedBaseVersion for later staleness detection when approved.
+    const outcome = await casUpdate(
+      filter,
+      ["reviews", "status"],
+      (current) => {
+        if (
+          !(
+            ["pending-review", "changes-requested", "approved"] as string[]
+          ).includes(current.status ?? "")
+        ) {
+          return null;
+        }
+        const reviews = current.reviews ?? [];
+        const status = reviews.some((r) => r.status === "changes-requested")
+          ? "changes-requested"
+          : reviews.some((r) => r.status === "approved")
+            ? "approved"
+            : "pending-review";
+        return {
+          $set: {
+            status,
+            ...(status === "approved" && liveVersion !== undefined
+              ? { approvedBaseVersion: liveVersion }
+              : {}),
+          },
+        };
+      },
+    );
+    if (outcome === "exhausted") {
+      logger.warn(
+        `submitReviewAndComments: status reconcile exhausted retries for ${revision.featureId}#${revision.version}`,
+      );
+    }
+  } else if (verdict !== null) {
+    // Verdict from a user without a stable reviewer key (e.g. system events)
+    // can't be baked into `reviews`; fall back to latest-verdict-wins.
+    const status = verdict === "approved" ? "approved" : "changes-requested";
+    await FeatureRevisionModel.updateOne(filter, {
       $set: {
         status,
         datePublished: null,
         dateUpdated: new Date(),
+        ...(status === "approved" && liveVersion !== undefined
+          ? { approvedBaseVersion: liveVersion }
+          : {}),
       },
-    },
-  );
+    });
+  }
+  // Plain comment (verdict === null): don't touch the revision. It's logged as
+  // its own entry below; bumping `dateUpdated` would falsely signal a content
+  // change to the rebase guard (expectedDraftDateUpdated) and "last modified" UI.
 
   // Fire and forget - no route that submits the review and comments expects the log to be there immediately
   context.models.featureRevisionLogs
@@ -1139,6 +1503,288 @@ export async function submitReviewAndComments(
     })
     .catch((e) => {
       logger.error(e, "Error creating revisionlog");
+    });
+}
+
+// Retract a review request: pending-review / changes-requested / approved back
+// to draft. Callers gate on canManageFeatureDrafts (any draft manager, not just
+// the requester), matching request-review. Log entries are preserved.
+export async function recallReview(
+  context: ReqContext | ApiReqContext,
+  revision: FeatureRevisionInterface,
+  user: EventUser,
+) {
+  const allowed = ["pending-review", "changes-requested", "approved"] as const;
+  if (!(allowed as readonly string[]).includes(revision.status)) {
+    throw new Error(
+      `Can only recall a review on a pending-review, changes-requested, or approved draft (status is "${revision.status}")`,
+    );
+  }
+
+  await FeatureRevisionModel.updateOne(
+    {
+      organization: revision.organization,
+      featureId: revision.featureId,
+      version: revision.version,
+    },
+    {
+      // Recalling starts the review lifecycle over — clear baked verdicts
+      // (mirrors the revision-log replay semantics).
+      $set: { status: "draft", dateUpdated: new Date(), reviews: [] },
+      $unset: { approvedBaseVersion: 1 },
+    },
+  );
+
+  context.models.featureRevisionLogs
+    .create({
+      featureId: revision.featureId,
+      version: revision.version,
+      action: "Recall Review",
+      subject: "",
+      user,
+      value: JSON.stringify({}),
+    })
+    .catch((e) => {
+      logger.error(e, "Error creating revisionlog for recallReview");
+    });
+}
+
+// Replay the review lifecycle from the merged log to find each reviewer's
+// active verdict. `Review Requested` / `Recall Review` / `reopen` start a new
+// cycle (clearing all verdicts); `Undo Review` removes that reviewer's verdict.
+// Returns entries in the baked `reviews` shape so callers can use it as a
+// drop-in fallback for revisions that predate the denormalized field.
+export function activeReviewsFromLog(
+  entries: { action: string; user: EventUser; timestamp: Date }[],
+): RevisionReview[] {
+  const sorted = [...entries].sort(
+    (a, b) => a.timestamp.getTime() - b.timestamp.getTime(),
+  );
+  const byReviewer = new Map<string, RevisionReview>();
+  for (const entry of sorted) {
+    if (
+      entry.action === "Review Requested" ||
+      entry.action === "Recall Review" ||
+      entry.action === "reopen"
+    ) {
+      byReviewer.clear();
+      continue;
+    }
+    const key = reviewerKeyForEventUser(entry.user);
+    if (key === null) continue;
+    if (entry.action === "Approved" || entry.action === "Requested Changes") {
+      byReviewer.set(key, {
+        userId: key,
+        user: entry.user,
+        status: entry.action === "Approved" ? "approved" : "changes-requested",
+        timestamp: entry.timestamp,
+      });
+    } else if (entry.action === "Undo Review") {
+      byReviewer.delete(key);
+    }
+  }
+  return Array.from(byReviewer.values());
+}
+
+// Reconstruct active reviewer verdicts by merging the legacy inline log with
+// the dedicated log collection and replaying the review lifecycle. Used as a
+// fallback for revisions created before the baked `reviews` field existed —
+// prefer `revision.reviews` when defined.
+export async function getActiveReviewsFromLog(
+  context: ReqContext | ApiReqContext,
+  revision: Pick<
+    FeatureRevisionInterface,
+    "organization" | "featureId" | "version"
+  >,
+): Promise<RevisionReview[]> {
+  const docWithLog = await FeatureRevisionModel.findOne(
+    {
+      organization: revision.organization,
+      featureId: revision.featureId,
+      version: revision.version,
+    },
+    { log: 1 },
+  );
+  const modernLogs =
+    await context.models.featureRevisionLogs.getAllByFeatureIdAndVersion({
+      featureId: revision.featureId,
+      version: revision.version,
+    });
+  return activeReviewsFromLog([
+    ...(docWithLog?.log ?? []).map((entry) => ({
+      action: entry.action,
+      user: entry.user,
+      timestamp: new Date(entry.timestamp),
+    })),
+    ...modernLogs.map((entry) => ({
+      action: entry.action,
+      user: entry.user,
+      timestamp: new Date(entry.dateCreated),
+    })),
+  ]);
+}
+
+// Reviewer retracts their own verdict. Rather than blanket-reverting to
+// pending-review, rewind to the state implied by the *remaining* active
+// verdicts: any outstanding Requested Changes → changes-requested, else any
+// outstanding Approved → approved, else pending-review. Review comments
+// remain in the log.
+export async function undoReview(
+  context: ReqContext | ApiReqContext,
+  revision: FeatureRevisionInterface,
+  user: EventUser,
+) {
+  const allowed = ["approved", "changes-requested"] as const;
+  if (!(allowed as readonly string[]).includes(revision.status)) {
+    throw new Error(
+      `Can only undo a review on an approved or changes-requested draft (status is "${revision.status}")`,
+    );
+  }
+
+  const retractingKey = reviewerKeyForEventUser(user);
+  // Keyless callers (e.g. system events) never hold a baked verdict to undo.
+  if (retractingKey === null) {
+    throw new Error("You have no active review verdict to undo");
+  }
+
+  const filter = {
+    organization: revision.organization,
+    featureId: revision.featureId,
+    version: revision.version,
+  };
+
+  // Rewind to the state implied by the *remaining* verdicts, CAS-guarded on
+  // `reviews`+`status` so a verdict another reviewer landed concurrently isn't
+  // clobbered by the wholesale rewrite. Modern revisions store verdicts in
+  // `reviews`; legacy ones only in the log (the helper guards on the field's
+  // continued absence so we self-heal from the log just once).
+  let resolved: "approved" | "changes-requested" | "pending-review" | null =
+    null;
+  const outcome = await casUpdate(
+    filter,
+    ["reviews", "status"],
+    async (current) => {
+      if (!(allowed as readonly string[]).includes(current.status ?? "")) {
+        throw new Error(
+          `Can only undo a review on an approved or changes-requested draft (status is "${current.status}")`,
+        );
+      }
+      const activeReviews =
+        current.reviews ?? (await getActiveReviewsFromLog(context, revision));
+      // Only a reviewer with an active verdict can undo one — otherwise we'd
+      // write a phantom "Undo Review" entry and bump dateUpdated for nothing.
+      if (!activeReviews.some((r) => r.userId === retractingKey)) {
+        throw new Error("You have no active review verdict to undo");
+      }
+      const remaining = activeReviews.filter((r) => r.userId !== retractingKey);
+      resolved = remaining.some((r) => r.status === "changes-requested")
+        ? "changes-requested"
+        : remaining.some((r) => r.status === "approved")
+          ? "approved"
+          : "pending-review";
+      return {
+        // Writing `remaining` wholesale (rather than $pull) also self-heals
+        // legacy revisions whose verdicts only existed in the log.
+        $set: { status: resolved, dateUpdated: new Date(), reviews: remaining },
+        // An approval that still stands keeps its recorded base version.
+        ...(resolved === "approved"
+          ? {}
+          : { $unset: { approvedBaseVersion: 1 } }),
+      };
+    },
+  );
+  if (outcome === "aborted") {
+    throw new Error("Could not find feature revision");
+  }
+  if (outcome === "exhausted" || resolved === null) {
+    throw new Error(
+      "Could not undo review due to a concurrent update. Please retry.",
+    );
+  }
+  const status = resolved;
+
+  context.models.featureRevisionLogs
+    .create({
+      featureId: revision.featureId,
+      version: revision.version,
+      action: "Undo Review",
+      subject: "",
+      user,
+      value: JSON.stringify({}),
+    })
+    .catch((e) => {
+      logger.error(e, "Error creating revisionlog for undoReview");
+    });
+
+  // Return the resolved status so callers can trigger auto-publish when undoing
+  // a "changes-requested" verdict flips the revision to "approved".
+  return status;
+}
+
+// Reopen a discarded revision as a plain draft. Any prior review state is
+// intentionally not restored — the draft must go back through review.
+export async function reopenRevision(
+  context: ReqContext | ApiReqContext,
+  revision: FeatureRevisionInterface,
+  user: EventUser,
+) {
+  if (revision.status !== "discarded") {
+    throw new Error(`Can only reopen discarded revisions`);
+  }
+
+  await FeatureRevisionModel.updateOne(
+    {
+      organization: revision.organization,
+      featureId: revision.featureId,
+      version: revision.version,
+    },
+    {
+      // Reopening starts the review lifecycle over — clear baked verdicts,
+      // the recorded approval point, and the auto-publish opt-in so a stale
+      // approval can't carry over (mirrors recallReview).
+      $set: {
+        status: "draft",
+        dateUpdated: new Date(),
+        reviews: [],
+        autoPublishOnApproval: false,
+      },
+      $unset: { approvedBaseVersion: 1, autoPublishEnabledBy: 1 },
+    },
+  );
+
+  // Fire and forget — callers don't depend on the log entry being there
+  context.models.featureRevisionLogs
+    .create({
+      featureId: revision.featureId,
+      version: revision.version,
+      action: "reopen",
+      subject: "",
+      user,
+      value: JSON.stringify({}),
+    })
+    .catch((e) => {
+      logger.error(e, "Error creating revisionlog");
+    });
+
+  // Sync linkages — the reopened revision's rules count as "open drafts" again.
+  FeatureRevisionModel.find({
+    organization: revision.organization,
+    featureId: revision.featureId,
+    status: { $nin: ["discarded"] },
+  })
+    .then((docs) =>
+      syncFeatureExperimentLinkages(
+        context,
+        revision.featureId,
+        docs.map((d) => ({
+          version: d.version,
+          status: d.status,
+          rules: d.rules,
+        })),
+      ),
+    )
+    .catch((e) => {
+      logger.error(e, "syncFeatureExperimentLinkages failed in reopenRevision");
     });
 }
 
@@ -1233,19 +1879,12 @@ export async function getFeatureRevisionsByFeatureIds(
   return revisionsByFeatureId;
 }
 
-// Higher number = higher priority. When a feature has multiple active
-// revisions, surface the most actionable one.
-const DRAFT_STATUS_PRIORITY: Record<ActiveDraftStatus, number> = {
-  "changes-requested": 4,
-  "pending-review": 3,
-  approved: 2,
-  draft: 1,
-};
+export type DraftStatusCounts = Partial<Record<ActiveDraftStatus, number>>;
 
 export async function getActiveDraftStates(
   orgId: string,
   featureIds?: string[],
-): Promise<Record<string, { status: ActiveDraftStatus; version: number }>> {
+): Promise<Record<string, DraftStatusCounts>> {
   const q: Record<string, unknown> = {
     organization: orgId,
     status: { $in: ACTIVE_DRAFT_STATUSES },
@@ -1256,22 +1895,15 @@ export async function getActiveDraftStates(
   const docs = await FeatureRevisionModel.find(q, {
     featureId: 1,
     status: 1,
-    version: 1,
     _id: 0,
   });
 
-  const result: Record<string, { status: ActiveDraftStatus; version: number }> =
-    {};
+  const result: Record<string, DraftStatusCounts> = {};
   for (const doc of docs) {
     const fid = doc.featureId;
     const status = doc.status as ActiveDraftStatus;
-    const existing = result[fid];
-    if (
-      !existing ||
-      DRAFT_STATUS_PRIORITY[status] > DRAFT_STATUS_PRIORITY[existing.status]
-    ) {
-      result[fid] = { status, version: doc.version };
-    }
+    if (!result[fid]) result[fid] = {};
+    result[fid][status] = (result[fid][status] ?? 0) + 1;
   }
   return result;
 }

@@ -1,10 +1,11 @@
-import { VisualChangesetInterface } from "shared/types/visual-changeset";
+import omit from "lodash/omit";
 import { putVisualChangesetValidator } from "shared/validators";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import {
   findVisualChangesetById,
   toVisualChangesetApiInterface,
   updateVisualChangeset,
+  VisualChangesetUpdates,
 } from "back-end/src/models/VisualChangesetModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
@@ -32,11 +33,24 @@ export const putVisualChangeset = createApiRequestHandler(
     req.context.permissions.throwPermissionError();
   }
 
+  const updates: VisualChangesetUpdates = {
+    ...omit(req.body, ["urlPatterns"]),
+    ...(req.body.urlPatterns !== undefined
+      ? {
+          urlPatterns: req.body.urlPatterns.map((p) => ({
+            type: p.type,
+            pattern: p.pattern,
+            include: p.include ?? true,
+          })),
+        }
+      : {}),
+  };
+
   const res = await updateVisualChangeset({
     visualChangeset,
     experiment,
     context: req.context,
-    updates: req.body,
+    updates,
   });
 
   const updatedVisualChangeset = await findVisualChangesetById(
@@ -48,9 +62,6 @@ export const putVisualChangeset = createApiRequestHandler(
     nModified: res.nModified,
     visualChangeset: updatedVisualChangeset
       ? toVisualChangesetApiInterface(updatedVisualChangeset)
-      : {
-          ...toVisualChangesetApiInterface(visualChangeset),
-          ...(req.body as Partial<VisualChangesetInterface>),
-        },
+      : toVisualChangesetApiInterface(visualChangeset),
   };
 });

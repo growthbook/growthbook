@@ -12,11 +12,12 @@ import {
   buildEffectiveDraft,
   filterEnvironmentsByFeature,
 } from "shared/util";
-import { revisionLabelText } from "@/components/Features/RevisionLabel";
-import { isRampGenerated } from "@/components/Features/RevisionStatusBadge";
+import { revisionLabelText } from "@/components/Reviews/RevisionLabel";
+import { isRampGenerated } from "@/components/Reviews/RevisionStatusBadge";
 import RevisionDropdown from "@/components/Features/RevisionDropdown";
 import AffectedEnvironmentsBadges from "@/components/Features/AffectedEnvironmentsBadges";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useApi from "@/hooks/useApi";
 import { useEnvironments } from "@/services/features";
 import { useFeatureRevisionsContext } from "@/contexts/FeatureRevisionsContext";
@@ -37,6 +38,7 @@ export default function DraftSelectorForChanges({
   defaultExpanded = false,
   hideExisting = false,
   triggerPrefix = "Changes will be",
+  allowNewDraftAtCap = false,
 }: {
   feature: FeatureInterface;
   // Un-merged live feature doc; fallback for env state on old sparse live revisions.
@@ -51,7 +53,13 @@ export default function DraftSelectorForChanges({
   defaultExpanded?: boolean;
   hideExisting?: boolean;
   triggerPrefix?: string;
+  // Keep "create a new draft" available even when the org's soft draft cap is
+  // reached — for critical flows (revert, archive) that shouldn't be blocked.
+  allowNewDraftAtCap?: boolean;
 }) {
+  const permissionsUtil = usePermissionsUtil();
+  const isAdmin = permissionsUtil.canBypassApprovalChecks(feature);
+
   const activeDrafts = useMemo(
     () =>
       revisionList.filter(
@@ -61,6 +69,30 @@ export default function DraftSelectorForChanges({
       ),
     [revisionList],
   );
+
+  const singleOption = hideExisting
+    ? !canAutoPublish
+    : activeDrafts.length === 0 && !canAutoPublish;
+
+  // Soft per-feature draft cap (org setting). At/over the cap we steer users to
+  // an existing draft and block creating a new one — except admins and critical
+  // flows (revert, archive) that opt in via `allowNewDraftAtCap`.
+  const settings = useOrgSettings();
+  const maxDrafts = settings?.maxConcurrentDrafts || 0;
+  const atDraftCap =
+    !hideExisting && maxDrafts > 0 && activeDrafts.length >= maxDrafts;
+  const newDraftBlocked = atDraftCap && !isAdmin && !allowNewDraftAtCap;
+
+  // When there is only one mode available it must be "new"; keep the form in
+  // sync in case the parent initialised with a stale value.
+  if (singleOption && mode !== "new") {
+    setSelectedDraft(null);
+    setMode("new");
+  } else if (newDraftBlocked && mode === "new") {
+    // "new" is disabled at the cap — fall back to the most recent active draft.
+    setMode("existing");
+    setSelectedDraft(selectedDraft ?? activeDrafts[0]?.version ?? null);
+  }
 
   // Use context revisions if available; fetch only when rendered outside FeaturesOverview.
   const ctx = useFeatureRevisionsContext();
@@ -73,11 +105,10 @@ export default function DraftSelectorForChanges({
     revisions: FeatureRevisionInterface[];
   }>(
     `/feature/${feature.id}/revisions?versions=${feature.version},${draftVersionForFetch ?? 0}`,
-    { shouldRun: () => draftVersionForFetch != null },
+    { shouldRun: () => draftVersionForFetch !== null },
   );
 
   // Org-level approval scope for badge coloring; independent of this action's gating.
-  const settings = useOrgSettings();
   const approvalScopedEnvSet = useMemo<Set<string> | "all" | "none">(() => {
     const raw = settings?.requireReviews;
     if (!raw) return "none";
@@ -151,7 +182,7 @@ export default function DraftSelectorForChanges({
         setVersion={setSelectedDraft}
         draftsOnly
       />
-      {affectedEnvs != null && (
+      {!!affectedEnvs && (
         <AffectedEnvironmentsBadges
           label="Affected in this draft:"
           affectedEnvs={affectedEnvs}
@@ -176,6 +207,16 @@ export default function DraftSelectorForChanges({
       triggerPrefix={triggerPrefix}
       existingDraftLabel={existingDraftLabel}
       revisionDropdown={revisionDropdown}
+      singleOption={singleOption}
+      recommendExisting={atDraftCap}
+      newDraftDisabled={newDraftBlocked}
+      newDraftDisabledReason={
+        newDraftBlocked
+          ? `This feature is at your organization's cap of ${maxDrafts} active draft${
+              maxDrafts === 1 ? "" : "s"
+            }. Add to an existing draft, or publish/discard one first.`
+          : undefined
+      }
     />
   );
 }
