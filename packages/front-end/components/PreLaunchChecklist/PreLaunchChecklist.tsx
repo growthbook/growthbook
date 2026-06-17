@@ -10,7 +10,6 @@ import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunc
 import clsx from "clsx";
 import { Box, Flex, Theme } from "@radix-ui/themes";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
-import useGlobalMenu from "@/services/useGlobalMenu";
 import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
@@ -51,6 +50,7 @@ function PreLaunchChecklistUI({
   const { hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
   const [updatingChecklist, setUpdatingChecklist] = useState(false);
+  const [showCompleted, setShowCompleted] = useState(false);
   const showEditChecklistLink =
     allowEditChecklist &&
     hasCommercialFeature("custom-launch-checklist") &&
@@ -100,61 +100,96 @@ function PreLaunchChecklistUI({
 
   if (experiment.status !== "draft") return null;
 
+  const incompleteItems = checklist.filter(
+    (item) => item.status === "incomplete",
+  );
+  const completeItems = checklist.filter((item) => item.status === "complete");
+
+  const renderItem = (item: CheckListItem, key: string | number) => {
+    const isReadonly = item.type === "auto";
+    const isReadonlyIncomplete = isReadonly && item.status === "incomplete";
+    return (
+      <Box key={key} mb="2">
+        <Checkbox
+          value={item.status === "complete"}
+          setValue={(checked) => {
+            if (item.type === "auto") return;
+            if (item.type === "manual" && updatingChecklist) return;
+            updateTaskStatus(!!checked, item.key);
+          }}
+          disabled={!canEditExperiment}
+          disabledMessage={
+            !canEditExperiment
+              ? "You don't have permission to mark this as completed"
+              : undefined
+          }
+          containerClassName={clsx({
+            [styles.readonly]: isReadonly,
+            [styles.readonlyIncomplete]: isReadonlyIncomplete,
+          })}
+          label={
+            <span
+              style={{
+                textDecoration:
+                  item.status === "complete" ? "line-through" : "none",
+              }}
+            >
+              {item.display}
+              {!item.required && (
+                <small className="text-muted ml-1">(optional)</small>
+              )}
+            </span>
+          }
+          description={
+            item.hideDescription || item.status === "complete"
+              ? undefined
+              : item.description !== undefined
+                ? item.description
+                : item.type === "auto"
+                  ? "GrowthBook will mark this as completed automatically when you finish the task."
+                  : "You must manually mark this as complete. GrowthBook is unable to detect this automatically."
+          }
+          error={item.warning}
+          errorLevel="warning"
+        />
+      </Box>
+    );
+  };
+
   const contents = loading ? (
     <LoadingSpinner />
   ) : (
-    <div>
-      {checklist.map((item, i) => {
-        const isReadonly = item.type === "auto";
-        const isReadonlyIncomplete = isReadonly && item.status === "incomplete";
-        return (
-          <div key={i} className="mb-2">
-            <Checkbox
-              value={item.status === "complete"}
-              setValue={(checked) => {
-                if (item.type === "auto") return;
-                if (item.type === "manual" && updatingChecklist) return;
-                updateTaskStatus(!!checked, item.key);
-              }}
-              disabled={!canEditExperiment}
-              disabledMessage={
-                !canEditExperiment
-                  ? "You don't have permission to mark this as completed"
-                  : undefined
-              }
-              containerClassName={clsx({
-                [styles.readonly]: isReadonly,
-                [styles.readonlyIncomplete]: isReadonlyIncomplete,
-              })}
-              label={
-                <span
-                  style={{
-                    textDecoration:
-                      item.status === "complete" ? "line-through" : "none",
-                  }}
-                >
-                  {item.display}
-                  {!item.required && (
-                    <small className="text-muted ml-1">(optional)</small>
-                  )}
-                </span>
-              }
-              description={
-                item.hideDescription || item.status === "complete"
-                  ? undefined
-                  : item.description !== undefined
-                    ? item.description
-                    : item.type === "auto"
-                      ? "GrowthBook will mark this as completed automatically when you finish the task."
-                      : "You must manually mark this as complete. GrowthBook is unable to detect this automatically."
-              }
-              error={item.warning}
-              errorLevel="warning"
-            />
-          </div>
-        );
-      })}
-    </div>
+    <Box>
+      {incompleteItems.map((item, i) => renderItem(item, i))}
+      {completeItems.length > 0 && (
+        <Box>
+          <Flex
+            align="center"
+            gap="1"
+            className={styles.completedToggle}
+            role="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowCompleted((prev) => !prev);
+            }}
+          >
+            {showCompleted ? (
+              <PiCaretDown size={13} />
+            ) : (
+              <PiCaretUp size={13} />
+            )}
+            <span>View completed items</span>
+          </Flex>
+          {showCompleted && (
+            <Box mt="2">
+              {completeItems.map((item, i) =>
+                renderItem(item, `complete-${i}`),
+              )}
+            </Box>
+          )}
+        </Box>
+      )}
+    </Box>
   );
 
   const header = (
@@ -329,8 +364,6 @@ export function PreLaunchChecklistDrawer() {
       setOpen(false);
     }
   }, [checklistItemsRemaining, setOpen]);
-
-  useGlobalMenu(".prelaunch-checklist-drawer, .modal", () => setOpen(false));
 
   return (
     <>

@@ -84,6 +84,19 @@
   }
 }
 
+// Toggle row revealing the collapsed list of completed checklist items.
+.completedToggle {
+  cursor: pointer;
+  user-select: none;
+  margin-top: 12px;
+  font-weight: 600;
+  color: var(--violet-11);
+
+  &:hover {
+    color: var(--violet-12);
+  }
+}
+
 // Auto items aren't user-toggleable; the label cursor and the inner
 // checkbox button both need their pointer reset.
 .readonly {
