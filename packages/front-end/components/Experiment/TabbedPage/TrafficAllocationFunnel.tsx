@@ -44,12 +44,14 @@ function FunnelCard({
   inlineSummary,
   onEdit,
   children,
+  disabled = false,
 }: {
   title: string;
   info?: string;
   inlineSummary?: ReactNode;
   onEdit?: (() => void) | null;
   children?: ReactNode;
+  disabled?: boolean;
 }) {
   return (
     <Box
@@ -61,7 +63,11 @@ function FunnelCard({
     >
       <Flex justify="between" align="center" gap="3">
         <Flex align="baseline" gap="2" wrap="wrap">
-          <Text size="large" weight="medium" color="text-high">
+          <Text
+            size="large"
+            weight="medium"
+            color={disabled ? "text-disabled" : "text-high"}
+          >
             {title}
           </Text>
           {info ? <Tooltip body={info} /> : null}
@@ -275,6 +281,7 @@ export default function TrafficAllocationFunnel({
                     </Text>
                   )
                 }
+                disabled={!hasNamespace}
               />
               <FunnelConnector label={includedLabel} />
             </>
@@ -290,6 +297,7 @@ export default function TrafficAllocationFunnel({
                 </Text>
               )
             }
+            disabled={!hasConfiguredTargeting}
           >
             {hasConfiguredTargeting ? (
               <Flex direction="column" gap="3">
