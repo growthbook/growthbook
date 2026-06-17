@@ -12,7 +12,6 @@ import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetin
 import { HashVersionTooltip } from "@/components/Experiment/HashVersionSelector";
 import VariationsTable from "@/components/Experiment/VariationsTable";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import { GBInfo } from "@/components/Icons";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import Callout from "@/ui/Callout";
@@ -62,16 +61,12 @@ function FunnelCard({
     >
       <Flex justify="between" align="center" gap="3">
         <Flex align="baseline" gap="2" wrap="wrap">
-          <Text weight="medium" color="text-high">
+          <Text size="large" weight="medium" color="text-high">
             {title}
           </Text>
-          {info ? (
-            <Tooltip popperStyle={{ lineHeight: 1.5 }} body={info}>
-              <GBInfo />
-            </Tooltip>
-          ) : null}
+          {info ? <Tooltip body={info} /> : null}
           {inlineSummary ? (
-            <Text color="text-mid" ml="1">
+            <Text color="text-low" ml="1">
               {inlineSummary}
             </Text>
           ) : null}
@@ -79,16 +74,16 @@ function FunnelCard({
         {onEdit ? (
           <IconButton
             variant="ghost"
-            color="gray"
-            radius="full"
+            color="purple"
             onClick={onEdit}
+            size="1"
             aria-label={`Edit ${title}`}
           >
-            <PiPencilSimple size={16} />
+            <PiPencilSimple size="15" />
           </IconButton>
         ) : null}
       </Flex>
-      {children ? <Box mt="3">{children}</Box> : null}
+      {children ? <Box mt="4">{children}</Box> : null}
     </Box>
   );
 }
@@ -119,7 +114,7 @@ function ArrowHead() {
 
 // Vertical connector between funnel cards, with a centered label showing how
 // much traffic is carried into the next stage.
-function FunnelConnector({ label }: { label: ReactNode }) {
+function FunnelConnector({ label }: { label?: ReactNode }) {
   return (
     <Flex direction="column" align="center" py="1">
       <Box style={{ width: 1, height: 12, backgroundColor: CONNECTOR_COLOR }} />
@@ -134,9 +129,17 @@ function FunnelConnector({ label }: { label: ReactNode }) {
   );
 }
 
+// Width of a single variation column and the gap between columns, kept in sync
+// with the centered variations grid in VariationsTable so the fork arrows land
+// on the center of each variation box.
+const VARIATION_COL_WIDTH = 336;
+const VARIATION_COL_GAP = 16; // Radix gap="4"
+
 // Branching connector that forks from the Traffic card into one arrow per
-// variation, aligning each arrow above its column in the variations grid.
+// variation column, aligning each arrow above the center of its variation box.
+// Capped at 3 columns to match the variations grid layout.
 function VariationFork({ count, label }: { count: number; label?: ReactNode }) {
+  const cols = Math.min(count, 3);
   return (
     <Box py="1">
       {label ? (
@@ -152,35 +155,43 @@ function VariationFork({ count, label }: { count: number; label?: ReactNode }) {
           style={{ width: 1, height: 12, backgroundColor: CONNECTOR_COLOR }}
         />
       </Flex>
-      <Box style={{ position: "relative" }}>
-        {/* Horizontal bus connecting the centers of the outer columns */}
-        {count > 1 ? (
-          <Box
-            style={{
-              position: "absolute",
-              top: 0,
-              left: `${100 / (2 * count)}%`,
-              width: `${(100 * (count - 1)) / count}%`,
-              height: 1,
-              backgroundColor: CONNECTOR_COLOR,
-            }}
-          />
-        ) : null}
-        <Flex>
-          {Array.from({ length: count }).map((_, i) => (
-            <Flex key={i} direction="column" align="center" style={{ flex: 1 }}>
-              <Box
-                style={{
-                  width: 1,
-                  height: 12,
-                  backgroundColor: CONNECTOR_COLOR,
-                }}
-              />
-              <ArrowHead />
-            </Flex>
-          ))}
-        </Flex>
-      </Box>
+      {/* Centered group mirroring the variations grid */}
+      <Flex justify="center">
+        <Box style={{ position: "relative", maxWidth: "100%" }}>
+          {/* Horizontal bus connecting the centers of the outer columns */}
+          {cols > 1 ? (
+            <Box
+              style={{
+                position: "absolute",
+                top: 0,
+                left: VARIATION_COL_WIDTH / 2,
+                width: (cols - 1) * (VARIATION_COL_WIDTH + VARIATION_COL_GAP),
+                height: 1,
+                backgroundColor: CONNECTOR_COLOR,
+              }}
+            />
+          ) : null}
+          <Flex gap="4">
+            {Array.from({ length: cols }).map((_, i) => (
+              <Flex
+                key={i}
+                direction="column"
+                align="center"
+                style={{ width: VARIATION_COL_WIDTH, maxWidth: "100%" }}
+              >
+                <Box
+                  style={{
+                    width: 1,
+                    height: 12,
+                    backgroundColor: CONNECTOR_COLOR,
+                  }}
+                />
+                <ArrowHead />
+              </Flex>
+            ))}
+          </Flex>
+        </Box>
+      </Flex>
     </Box>
   );
 }
@@ -259,7 +270,9 @@ export default function TrafficAllocationFunnel({
                       )
                     </>
                   ) : (
-                    <em>Optional</em>
+                    <Text size="large">
+                      <em>Optional</em>
+                    </Text>
                   )
                 }
               />
@@ -270,7 +283,13 @@ export default function TrafficAllocationFunnel({
           <FunnelCard
             title="Targeting"
             onEdit={runningBandit ? null : editTargeting}
-            inlineSummary={hasConfiguredTargeting ? undefined : "Everyone"}
+            inlineSummary={
+              hasConfiguredTargeting ? undefined : (
+                <Text size="large">
+                  <em>Everyone</em>
+                </Text>
+              )
+            }
           >
             {hasConfiguredTargeting ? (
               <Flex direction="column" gap="3">
@@ -298,7 +317,7 @@ export default function TrafficAllocationFunnel({
             ) : null}
           </FunnelCard>
 
-          <FunnelConnector label={includedLabel} />
+          <FunnelConnector />
 
           <FunnelCard
             title="Traffic"
@@ -307,9 +326,9 @@ export default function TrafficAllocationFunnel({
             {!isHoldout ? (
               <Flex direction="column" gap="3">
                 <div>
-                  <Text color="text-mid">
+                  <Text weight="semibold" color="text-high">
                     Included in this experiment:{" "}
-                    <Text color="text-high" weight="medium">
+                    <Text color="text-high" weight="regular">
                       {Math.floor(phase.coverage * 100)}%
                     </Text>
                   </Text>
@@ -392,30 +411,28 @@ function AssignmentAttribute({
   const isHoldout = experiment.type === "holdout";
   return (
     <div>
-      <div className="h5">
-        Assignment Attribute{experiment.fallbackAttribute ? "s" : ""}{" "}
-        <Tooltip
+      <Text weight="semibold" color="text-high" mr="2">
+        Assignment Attribute{experiment.fallbackAttribute ? "s" : ""}:{" "}
+        {/* <Tooltip
           popperStyle={{ lineHeight: 1.5 }}
           body="This user attribute will be used to assign variations. This is typically either a logged-in user id or an anonymous id stored in a long-lived cookie."
         >
           <GBInfo />
-        </Tooltip>
-      </div>
-      <div className="d-flex flex-wrap align-items-center gap-1">
-        <AttributeBadge attributeId={experiment.hashAttribute || "id"} />
-        {experiment.fallbackAttribute ? (
-          <>
-            , <AttributeBadge attributeId={experiment.fallbackAttribute} />
-          </>
-        ) : null}
-        {!isHoldout ? (
-          <HashVersionTooltip>
-            <small className="text-muted ml-1">
-              (V{experiment.hashVersion || 2} hashing)
-            </small>
-          </HashVersionTooltip>
-        ) : null}
-      </div>
+        </Tooltip> */}
+      </Text>
+      <AttributeBadge attributeId={experiment.hashAttribute || "id"} />
+      {experiment.fallbackAttribute ? (
+        <>
+          , <AttributeBadge attributeId={experiment.fallbackAttribute} />
+        </>
+      ) : null}
+      {!isHoldout ? (
+        <HashVersionTooltip>
+          <small className="text-muted ml-1">
+            (V{experiment.hashVersion || 2} hashing)
+          </small>
+        </HashVersionTooltip>
+      ) : null}
       {!isHoldout && experiment.disableStickyBucketing ? (
         <div className="mt-1">
           <Text color="text-mid">

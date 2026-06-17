@@ -193,6 +193,7 @@ export function VariationBox({
       className={`appbox mb-0 position-relative variation variation${i} with-variation-label`}
       style={{
         minWidth,
+        maxWidth: "336px",
       }}
     >
       <Box
@@ -221,11 +222,11 @@ export function VariationBox({
                 <IconButton
                   variant="ghost"
                   size="1"
-                  color="gray"
+                  color="purple"
                   onClick={() => onEditMetadata(i)}
                   aria-label="Edit variation"
                 >
-                  <PiPencilSimple />
+                  <PiPencilSimple size="15" />
                 </IconButton>
               ) : null}
             </Flex>
@@ -337,7 +338,7 @@ const VariationsTable: FC<Props> = ({
   const hasAnyImages = variations.some((v) => v.screenshots.length > 0);
 
   // set some variables for the display of the component - could make options
-  const cols = variations.length > 4 ? 4 : variations.length;
+  const cols = Math.min(variations.length, 3);
   const gap = "4";
   const maxImageHeight = hasAnyImages ? 200 : 72; // shrink the image height if there are no images
 
@@ -345,11 +346,12 @@ const VariationsTable: FC<Props> = ({
     <Box mx={noMargin ? "0" : "4"}>
       <Grid
         gap={gap}
+        justify="center"
         columns={{
-          initial: "1",
-          xs: "2",
-          sm: cols === 2 ? "2" : "3",
-          md: cols.toString(),
+          initial: "minmax(0, 336px)",
+          xs: `repeat(${Math.min(cols, 2)}, minmax(0, 336px))`,
+          sm: `repeat(${cols}, minmax(0, 336px))`,
+          md: `repeat(${cols}, minmax(0, 336px))`,
         }}
       >
         {variations.map((v, i) =>
