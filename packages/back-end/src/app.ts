@@ -115,6 +115,8 @@ import { savedGroupRouter } from "./routers/saved-group/saved-group.router";
 import { ArchetypeRouter } from "./routers/archetype/archetype.router";
 import { AttributeRouter } from "./routers/attributes/attributes.router";
 import { customFieldsRouter } from "./routers/custom-fields/custom-fields.router";
+import { cliAuthPublicRouter } from "./routers/cli-auth/cli-auth-public.router";
+import { cliAuthRouter } from "./routers/cli-auth/cli-auth.router";
 import { segmentRouter } from "./routers/segment/segment.router";
 import { dimensionRouter } from "./routers/dimension/dimension.router";
 import { sdkConnectionRouter } from "./routers/sdk-connection/sdk-connection.router";
@@ -442,6 +444,10 @@ app.post("/auth/refresh", authController.postRefresh);
 app.post("/auth/logout", authController.postLogout);
 app.get("/auth/hasorgs", authController.getHasOrganizations);
 
+// CLI/Agent auth — public endpoints (init + exchange). Approve is mounted
+// after processJWT below.
+app.use("/cli-auth", cliAuthPublicRouter);
+
 // All other routes require a valid JWT
 const auth = getAuthConnection();
 app.use(auth.middleware as RequestHandler);
@@ -580,6 +586,8 @@ app.use("/archetype", ArchetypeRouter);
 app.use("/attribute", AttributeRouter);
 
 app.use("/custom-fields", customFieldsRouter);
+
+app.use("/cli-auth", cliAuthRouter);
 
 // Ideas
 app.get("/ideas", ideasController.getIdeas);
