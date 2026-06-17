@@ -1281,7 +1281,7 @@ export function resolveSnapshotRunner({
       return {
         runnerKind: "results",
         incrementalFallbackReason:
-          "No materialized units table yet for this dimension-less exploratory snapshot.",
+          "No materialized units table yet for Overall Results.",
       };
     }
     return { runnerKind: "incremental", incrementalFallbackReason: null };

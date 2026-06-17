@@ -126,7 +126,7 @@ export function getUnsupportedIncrementalExperimentTypeReason(
   experimentType: ExperimentInterface["type"],
 ): string | null {
   if (experimentType !== undefined && experimentType !== "standard") {
-    return `Experiment type "${experimentType}" is not supported for incremental refresh.`;
+    return `Experiment type "${experimentType}" is not supported for Incremental Pipeline mode.`;
   }
   return null;
 }
