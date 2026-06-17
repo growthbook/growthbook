@@ -87,6 +87,9 @@ RUN pnpm postinstall
 # Package the full app together on a hardened, continuously-patched base
 # (Docker Hardened Images). The dev variant keeps apt/shell/root, so the
 # apt-install + pm2 + pnpm flow below is unchanged from a stock node base.
+# Building this image from source requires `docker login dhi.io` (free Docker
+# Hub account, DHI Community tier). Pulling the published growthbook/growthbook
+# image needs no such login.
 FROM dhi.io/node:${NODE_MAJOR}-debian12-dev
 ARG PYTHON_MAJOR
 WORKDIR /usr/local/src/app
