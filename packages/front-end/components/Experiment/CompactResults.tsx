@@ -356,6 +356,26 @@ const CompactResults: FC<{
               experimentType={experimentType}
             />
           </Flex>
+          {/* Always-present, hidden summary block exposing top-level health */}
+          {/* signals (SRM p-value, multiple exposures, per-variation user */}
+          {/* counts) for programmatic extraction. These are otherwise only */}
+          {/* rendered inside conditional warning tooltips. Hidden via */}
+          {/* display:none + aria-hidden; not shown to users. */}
+          <div
+            data-results-health-summary="true"
+            style={{ display: "none" }}
+            aria-hidden="true"
+          >
+            {typeof results?.srm === "number" ? (
+              <span data-field="srm_p_value">{results.srm}</span>
+            ) : null}
+            <span data-field="multiple_exposures">{multipleExposures}</span>
+            {(results?.variations ?? []).map((v, i) => (
+              <span key={i} data-variation={i} data-field="total_users">
+                {v.users ?? 0}
+              </span>
+            ))}
+          </div>
         </>
       )}
 
