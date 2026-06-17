@@ -33,6 +33,7 @@ import {
 } from "@/hooks/useCustomFields";
 import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
 import { getDefaultVariations } from "@/components/Experiment/NewExperimentForm";
+import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 
 export type SimpleNewExperimentFormProps = {
   onClose?: () => void;
@@ -63,6 +64,7 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
     mutateTemplates: refreshTemplates,
   } = useTemplates();
   const { experimentsMap, holdoutsMap } = useHoldouts();
+  const { demoDataSourceId } = useDemoDataSourceProject();
 
   const initialProject = ctxProject || "";
 
@@ -221,8 +223,10 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
     // project. A template may already specify one — don't override it.
     let datasource = data.datasource || "";
     if (!datasource) {
-      const validDatasources = datasources.filter((d) =>
-        isProjectListValidForProject(d.projects, project),
+      const validDatasources = datasources.filter(
+        (d) =>
+          d.id !== demoDataSourceId &&
+          isProjectListValidForProject(d.projects, project),
       );
       const defaultDatasource =
         settings.defaultDataSource &&
