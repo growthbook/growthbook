@@ -29,8 +29,8 @@ export default function MainSnapshotRefreshDialog({
         </Text>
       ) : (
         <Text size="medium" color="text-high" as="p">
-          Update your Overall Results to ensure the latest configuration is
-          applied to the Dimensions, not showing stale data.
+          Update Overall Results first so this breakdown uses the latest
+          analysis settings instead of stale data.
         </Text>
       )}
     </ModalStandard>
