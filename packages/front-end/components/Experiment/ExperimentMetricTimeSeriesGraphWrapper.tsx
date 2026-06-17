@@ -135,6 +135,7 @@ interface ExperimentMetricTimeSeriesGraphWrapperProps {
   preloadedTimeSeries?: MetricTimeSeries;
   dimensionId?: string;
   dimensionValue?: string;
+  oneSided?: boolean;
 }
 
 export default function ExperimentMetricTimeSeriesGraphWrapperWithErrorBoundary(
@@ -171,6 +172,7 @@ function ExperimentMetricTimeSeriesGraphWrapper({
   preloadedTimeSeries,
   dimensionId,
   dimensionValue,
+  oneSided = false,
 }: ExperimentMetricTimeSeriesGraphWrapperProps) {
   const { getFactTableById } = useDefinitions();
 
@@ -361,6 +363,7 @@ function ExperimentMetricTimeSeriesGraphWrapper({
       }
       statsEngine={statsEngine}
       usesPValueAdjustment={pValueAdjustmentEnabled}
+      oneSided={oneSided}
     />
   );
 }

@@ -1,7 +1,7 @@
 import { getHoldoutTrafficBreakdown } from "@/services/utils";
 
 describe("getHoldoutTrafficBreakdown", () => {
-  it("computes the breakdown for the default 50/50 holdout", () => {
+  it("computes the breakdown at 10% coverage", () => {
     expect(
       getHoldoutTrafficBreakdown({
         coverage: 0.1,
@@ -14,7 +14,7 @@ describe("getHoldoutTrafficBreakdown", () => {
     });
   });
 
-  it("scales with coverage", () => {
+  it("computes the breakdown at 20% coverage", () => {
     expect(
       getHoldoutTrafficBreakdown({
         coverage: 0.2,
@@ -27,16 +27,16 @@ describe("getHoldoutTrafficBreakdown", () => {
     });
   });
 
-  it("uses variationWeights[0] for both holdout lines", () => {
+  it("computes the breakdown at 50% coverage", () => {
     expect(
       getHoldoutTrafficBreakdown({
         coverage: 0.5,
-        variationWeights: [0.4, 0.6],
+        variationWeights: [0.5, 0.5],
       }),
     ).toEqual({
-      inHoldoutPercent: 20,
-      forMeasurementPercent: 20,
-      notForMeasurementPercent: 60,
+      inHoldoutPercent: 25,
+      forMeasurementPercent: 25,
+      notForMeasurementPercent: 50,
     });
   });
 });

@@ -19,19 +19,7 @@ import {
 } from "@/services/features";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { allConnectionsSupportBucketingV2 } from "./HashVersionSelector";
-
-// Which field group the current modal/flow actually lets the user edit. Used
-// to scope client-side validation so a modal can't block a save on a field it
-// never rendered (e.g. editing traffic shouldn't fail on a stale condition).
-// Mirrors the `ChangeType` union from `MakeChangesFlow` without importing it,
-// to keep this hook free of UI dependencies.
-export type TargetingEditScope =
-  | "targeting"
-  | "traffic"
-  | "weights"
-  | "namespace"
-  | "advanced"
-  | "phase";
+import { ChangeType } from "./MakeChangesFlow";
 
 export interface UseExperimentTargetingFormResult {
   form: UseFormReturn<ExperimentTargetingData>;
@@ -43,16 +31,11 @@ export interface UseExperimentTargetingFormResult {
   prerequisiteTargetingSdkIssues: boolean;
   setPrerequisiteTargetingSdkIssues: (v: boolean) => void;
   canSubmit: boolean;
-  onSubmit: (
-    mutate: () => void,
-    scope?: TargetingEditScope,
-  ) => () => Promise<void>;
+  onSubmit: (mutate: () => void, scope?: ChangeType) => () => Promise<void>;
 }
 
-// Shared form setup for the targeting + traffic edit modals. Both the
-// targeting-only modal and the traffic-only modal POST to the same
-// `/experiment/:id/targeting` endpoint, so they need identical defaults and
-// form shape — we just render different subsets of fields.
+// Shared by the targeting and traffic modals, which both POST to the same
+// `/experiment/:id/targeting` endpoint.
 export function useExperimentTargetingForm(
   experiment: ExperimentInterfaceStringDates,
 ): UseExperimentTargetingFormResult {
@@ -127,10 +110,7 @@ export function useExperimentTargetingForm(
     defaultValues,
   });
 
-  const onSubmit = (
-    mutate: () => void,
-    scope: TargetingEditScope = "advanced",
-  ) =>
+  const onSubmit = (mutate: () => void, scope: ChangeType = "advanced") =>
     form.handleSubmit(async (value) => {
       // Targeting fields (saved groups, condition, prerequisites) are only
       // editable from the targeting modal and the unscoped/advanced flow. Skip

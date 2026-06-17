@@ -258,6 +258,10 @@ export const JSONSchemaDef = z
 
 const revisionLog = z
   .object({
+    // Optional — legacy log entries stored inline on the revision document
+    // don't have their own ID. New entries from FeatureRevisionLogModel always
+    // include the id, which is required for owner edit/delete operations.
+    id: z.string().optional(),
     user: eventUser,
     timestamp: z.date(),
     action: z.string(),
@@ -294,6 +298,17 @@ export const activeDraftStatusSchema = revisionStatusSchema.exclude([
 export type ActiveDraftStatus = z.infer<typeof activeDraftStatusSchema>;
 
 export const ACTIVE_DRAFT_STATUSES = activeDraftStatusSchema.options;
+
+// Revisions at "request review" or beyond — excludes drafts still being edited
+// (and terminal/ramp statuses). Used for "needs attention" counts and gates.
+export const reviewRequestedStatusSchema = revisionStatusSchema.exclude([
+  "draft",
+  "published",
+  "discarded",
+  "pending-parent",
+]);
+
+export const REVIEW_REQUESTED_STATUSES = reviewRequestedStatusSchema.options;
 
 /**
  * Status filter for revision list endpoints. Accepts a single value
@@ -486,11 +501,59 @@ export type ApiRevisionRampUpdateAction = z.infer<
 export type RevisionRampDetachAction = z.infer<typeof revisionRampDetachAction>;
 export type RevisionRampAction = z.infer<typeof revisionRampAction>;
 
+// A reviewer's active verdict for the current review cycle. Denormalized onto
+// the revision (the source of truth remains the revision log) so consumers —
+// custom hooks ("2 approvals required, 1 from this list of user IDs"),
+// the REST API, and reviewer-scoped queries — don't have to replay the log.
+export const revisionReviewSchema = z
+  .object({
+    // Stable reviewer identifier used for upserts/queries: the user id for
+    // dashboard users; the key id (or apiKey identifier) for API keys.
+    // See `reviewerKeyForEventUser`.
+    userId: z.string(),
+    // Full event user who submitted the verdict — lets policy hooks match on
+    // type ("dashboard" vs "api_key"), apiKey, email, etc.
+    user: eventUser,
+    // Active verdicts ("approved" / "changes-requested") become their
+    // "-stale" variants when the draft's content changes afterward (orgs with
+    // reset-on-review enabled). Stale verdicts no longer gate publishing but
+    // stay attributable; policy hooks matching on the active statuses ignore
+    // them naturally. A new verdict from the same reviewer replaces the stale
+    // entry; recall / re-request clears the list entirely.
+    status: z.enum([
+      "approved",
+      "changes-requested",
+      "approved-stale",
+      "changes-requested-stale",
+    ]),
+    // When this verdict was submitted. Compare against `dateUpdated` to detect
+    // verdicts that predate later content edits.
+    timestamp: z.date(),
+  })
+  .strict();
+
+export type RevisionReview = z.infer<typeof revisionReviewSchema>;
+
+// Stable identifier for a reviewer across review lifecycle events, or null if
+// the event user can't hold a review verdict (system/anonymous users).
+export function reviewerKeyForEventUser(
+  user: z.infer<typeof eventUser>,
+): string | null {
+  if (!user) return null;
+  if (user.type === "dashboard") return user.id;
+  if (user.type === "api_key") return user.id || user.apiKey || null;
+  return null;
+}
+
 const featureRevisionInterface = minimalFeatureRevisionInterface
   .extend({
     featureId: z.string(),
     organization: z.string(),
     baseVersion: z.number(),
+    // The live feature version at the moment this revision was approved.
+    // Used to detect "stale" approvals — i.e. changes published after approval.
+    // Absent on drafts that were never approved and on legacy approvals.
+    approvedBaseVersion: z.number().optional(),
     dateCreated: z.date(),
     publishedBy: z.union([z.null(), eventUser]),
     comment: z.string(),
@@ -515,6 +578,19 @@ const featureRevisionInterface = minimalFeatureRevisionInterface
     // updateRevision's $addToSet; may be empty if no content edits have been made.
     // Note: the revision author (createdBy) is NOT automatically seeded here.
     contributors: z.array(z.string()).optional(),
+    autoPublishOnApproval: z.boolean().optional(),
+    // User ID of whoever most recently armed `autoPublishOnApproval` — the
+    // auto-publish executes with this user's authority. Absent when armed by
+    // an actor without a user ID (e.g. an API key), in which case the
+    // publish falls back to `createdBy`.
+    autoPublishEnabledBy: z.string().optional(),
+    // Active reviewer verdicts for the current review cycle (one entry per
+    // reviewer). Kept in sync by the review lifecycle mutations:
+    // submit review upserts, undo review removes, request/recall review
+    // clears. Mirrors revision-log replay semantics — verdicts survive
+    // content edits (even when the review status resets) until a new review
+    // cycle starts. Absent on revisions that predate this field.
+    reviews: z.array(revisionReviewSchema).optional(),
   })
   .strict();
 
@@ -1509,7 +1585,7 @@ export const revertFeatureValidator = {
   responseSchema: featureResponseSchema,
   summary: "Revert a feature to a specific revision",
   description:
-    '**Deprecated.** Use [POST /v2/features/:id/revert](#operation/revertFeatureV2) instead.\n\nCreates a new revision whose rules and values match a previously-published revision, then immediately publishes it. This leaves a clear audit trail of the revert action in the revision history.\n\nReturns 403 if the API key lacks permission or if approval rules are enabled for an affected environment and the org setting "REST API always bypasses approval requirements" is off.\n',
+    '**Deprecated.** Use [POST /v2/features/:id/revert](#operation/revertFeatureV2) instead.\n\nCreates a new revision whose rules and values match a previously-published revision, then immediately publishes it. This leaves a clear audit trail of the revert action in the revision history.\n\nReturns 403 if the API key lacks permission, or if approval rules are enabled for an affected environment and neither the "REST API always bypasses approval requirements" nor the "Allow reverts without approval" org setting is enabled.\n\nReturns 422 with a list of `warnings` if the restored values no longer validate against the feature\'s current value type or JSON schema. Re-submit with `?ignoreWarnings=true` to revert anyway.\n',
   deprecated: true,
   deprecationDate: FEATURE_V1_DEPRECATED,
   operationId: "revertFeature",

@@ -3,11 +3,10 @@ import {
   LinkedFeatureInfo,
 } from "shared/types/experiment";
 import { FeatureInterface } from "shared/types/feature";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { FaAngleRight, FaCheck } from "react-icons/fa";
+import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { FaCheck } from "react-icons/fa";
 import { PiCaretDown, PiCaretUp } from "react-icons/pi";
 import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunchChecklist";
-import Collapsible from "react-collapsible";
 import clsx from "clsx";
 import { Box, Flex, Theme } from "@radix-ui/themes";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
@@ -23,7 +22,6 @@ import AnalysisForm from "@/components/Experiment/AnalysisForm";
 import InitialSDKConnectionForm from "@/components/Features/SDKConnections/InitialSDKConnectionForm";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
-import Frame from "@/ui/Frame";
 import Badge from "@/ui/Badge";
 import EditScheduleModal from "@/components/Experiment/EditScheduleModal";
 import Heading from "@/ui/Heading";
@@ -35,22 +33,18 @@ function PreLaunchChecklistUI({
   experiment,
   mutateExperiment,
   checklist,
-  checklistItemsRemaining,
   loading = false,
   allowEditChecklist,
   title = "Pre-Launch Checklist",
-  collapsible = true,
   showHeader = true,
 }: {
   experiment: ExperimentInterfaceStringDates;
   mutateExperiment: () => unknown | Promise<unknown>;
-  checklistItemsRemaining: number | null;
   checklist: CheckListItem[];
   loading?: boolean;
   className?: string;
   allowEditChecklist?: boolean;
-  title?: string;
-  collapsible?: boolean;
+  title?: ReactNode;
   showHeader?: boolean;
 }) {
   const { apiCall } = useAuth();
@@ -63,6 +57,9 @@ function PreLaunchChecklistUI({
     permissionsUtil.canManageOrgSettings();
   const canEditExperiment =
     !experiment.archived && permissionsUtil.canUpdateExperiment(experiment, {});
+  const checklistItemsRemaining = checklist.filter(
+    (item) => item.status === "incomplete",
+  ).length;
 
   async function updateTaskStatus(checked: boolean, key: string | undefined) {
     if (!key) return;
@@ -88,7 +85,6 @@ function PreLaunchChecklistUI({
       };
     }
     try {
-      // Updates the experiment's manual checklist and logs the event to the audit log
       await apiCall(`/experiment/${experiment.id}/launch-checklist`, {
         method: "PUT",
         body: JSON.stringify({
@@ -109,7 +105,6 @@ function PreLaunchChecklistUI({
   ) : (
     <div>
       {checklist.map((item, i) => {
-        // Auto items can't be toggled by the user.
         const isReadonly = item.type === "auto";
         const isReadonlyIncomplete = isReadonly && item.status === "incomplete";
         return (
@@ -163,10 +158,10 @@ function PreLaunchChecklistUI({
   );
 
   const header = (
-    <div className="d-flex flex-row align-items-center justify-content-between text-dark">
+    <div className="d-flex flex-row align-items-center justify-content-between text-dark mb-3">
       <h4 className="mb-0">
         {title}{" "}
-        {!loading && checklistItemsRemaining !== null ? (
+        {!loading ? (
           <span
             className={`badge rounded-circle p-1 ${
               checklistItemsRemaining === 0 ? "badge-success" : "badge-warning"
@@ -191,28 +186,13 @@ function PreLaunchChecklistUI({
           Edit
         </Link>
       ) : null}
-      {collapsible && <FaAngleRight className="chevron" />}
     </div>
   );
 
   return (
     <>
-      {collapsible ? (
-        <Frame>
-          <Collapsible
-            open={!!checklistItemsRemaining}
-            transitionTime={100}
-            trigger={<div>{header}</div>}
-          >
-            <div className="mt-2">{contents}</div>
-          </Collapsible>
-        </Frame>
-      ) : (
-        <>
-          {showHeader && header}
-          {contents}
-        </>
-      )}
+      {showHeader && header}
+      {contents}
     </>
   );
 }
@@ -236,12 +216,16 @@ function PreLaunchChecklistFeatureExpRule({
         experiment={experiment}
         mutateExperiment={mutateExperiment}
         checklist={checklist}
-        checklistItemsRemaining={
-          checklist.filter((item) => item.status === "incomplete").length
-        }
         loading={false}
-        collapsible={false}
-        title={experiment.name}
+        title={
+          <Link
+            href={`/experiment/${experiment.id}`}
+            target="_blank"
+            rel="noreferrer"
+          >
+            {experiment.name}
+          </Link>
+        }
       />
       {failedRequired ? (
         <Callout status="error" mb="3">
@@ -256,10 +240,7 @@ function PreLaunchChecklistFeatureExpRule({
   );
 }
 
-// Checklist for the DraftModal / RequestReviewModal publish flow.
-// Fetches the project-aware /experiment/:id/launch-checklist endpoint so
-// project-scoped custom tasks match what's shown on the experiment page.
-export function PreLaunchChecklistForDraft({
+export function PreLaunchChecklistForDraftFeature({
   experiment,
   feature,
   mutateExperiment,
@@ -268,16 +249,12 @@ export function PreLaunchChecklistForDraft({
   experiment: ExperimentInterfaceStringDates;
   feature: FeatureInterface;
   mutateExperiment: () => unknown | Promise<unknown>;
-  // Called when failedRequired or loading changes so the parent can gate submit.
   onReady?: (failedRequired: boolean, loading: boolean) => void;
 }) {
   const { data: checklistData, isLoading: checklistLoading } = useApi<{
     checklist: ExperimentLaunchChecklistInterface;
   }>(`/experiment/${experiment.id}/launch-checklist`);
 
-  // Fetch linked feature info so other features' merge conflicts surface in the
-  // checklist. The current feature is replaced by a synthetic "live" entry so
-  // the "Add at least one linked change" item stays green.
   const { data: experimentData, isLoading: expLoading } = useApi<{
     linkedFeatures: LinkedFeatureInfo[];
   }>(`/experiment/${experiment.id}`);
@@ -287,55 +264,31 @@ export function PreLaunchChecklistForDraft({
     (c) => !c.projects.length || c.projects.includes(experiment.project || ""),
   );
 
-  // Synthetic entry for the current feature: treat as "live" so the checklist
-  // passes the "Add at least one linked change" item. pendingApproval is
-  // intentionally omitted — approval is handled by the modal flow itself.
-  const syntheticLinkedFeature: LinkedFeatureInfo = useMemo(
-    () => ({
-      feature,
-      state: "live",
-      values: [],
-      valuesFrom: "",
-      inconsistentValues: false,
-      rulesAbove: false,
-      environmentStates: {},
-    }),
-    [feature],
-  );
-
-  // Combine: synthetic entry for the current feature + real info for all other
-  // linked features (so their hasMergeConflict / pendingApproval states show).
-  const linkedFeatures: LinkedFeatureInfo[] = useMemo(() => {
-    const others = (experimentData?.linkedFeatures ?? []).filter(
-      (f) => f.feature.id !== feature.id,
-    );
-    return [syntheticLinkedFeature, ...others];
-  }, [experimentData, feature.id, syntheticLinkedFeature]);
-
   const isLoading = checklistLoading || expLoading;
 
   const checklist = useMemo(
     () =>
       getChecklistItems({
         experiment,
-        linkedFeatures,
+        linkedFeatures: experimentData?.linkedFeatures ?? [],
         visualChangesets: [],
         checklist: checklistData?.checklist,
         checkLinkedChanges: true,
         connections,
+        publishingFeatureId: feature.id,
       }),
-    [experiment, linkedFeatures, checklistData, connections],
+    [experiment, experimentData, checklistData, connections, feature.id],
   );
 
   const failedRequired = checklist.some(
     (item) => item.status === "incomplete" && item.required,
   );
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const stableOnReady = useCallback(onReady ?? (() => {}), []);
+  const onReadyRef = useRef(onReady);
+  onReadyRef.current = onReady;
   useEffect(() => {
-    stableOnReady(failedRequired, !!isLoading);
-  }, [failedRequired, isLoading, stableOnReady]);
+    onReadyRef.current?.(failedRequired, !!isLoading);
+  }, [failedRequired, isLoading]);
 
   if (isLoading) {
     return <LoadingSpinner />;
@@ -466,10 +419,8 @@ export function PreLaunchChecklistDrawer() {
                   experiment={experiment}
                   mutateExperiment={mutateExperiment}
                   checklist={checklist}
-                  checklistItemsRemaining={checklistItemsRemaining}
                   loading={loading}
                   allowEditChecklist={true}
-                  collapsible={false}
                   showHeader={false}
                 />
               </Box>

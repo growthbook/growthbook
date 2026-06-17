@@ -66,7 +66,7 @@ const ScreenshotCarousel: FC<{
           }}
         >
           <Box>
-            <PiCameraLight size="32px" />
+            <PiCameraLight />
           </Box>
         </Flex>
       );

@@ -190,6 +190,9 @@ export default function EditSavedGroupPage() {
   // an opt-in action).
   const [revertIncludeArchive, setRevertIncludeArchive] =
     useState<boolean>(false);
+  // When the org allows reverts to bypass approval, the revert dialog defaults
+  // to publishing immediately; the user can still opt to create a draft instead.
+  const [revertPublishNow, setRevertPublishNow] = useState<boolean>(false);
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState("");
 
@@ -204,6 +207,7 @@ export default function EditSavedGroupPage() {
 
   const settings = useOrgSettings();
   const { savedGroupSizeLimit, attributeSchema } = settings;
+  const revertsBypassApproval = !!settings.revertsBypassApproval;
 
   const { references } = useSavedGroupReferences(savedGroup?.id);
   const referencingFeatures = references?.features ?? [];
@@ -298,6 +302,7 @@ export default function EditSavedGroupPage() {
   // disruptive direction stays opt-in.
   useEffect(() => {
     if (!confirmRevert || !revisionToRevert || !savedGroup) return;
+    setRevertPublishNow(revertsBypassApproval);
     const targetState = applyTopLevelPatchOps(
       revisionToRevert.target.snapshot as SavedGroupInterface,
       revisionToRevert.target.proposedChanges,
@@ -311,7 +316,7 @@ export default function EditSavedGroupPage() {
     // Drift exists: default to `true` only when the revert would un-archive
     // (i.e. live is archived but the target was not).
     setRevertIncludeArchive(liveArchived && !targetArchived);
-  }, [confirmRevert, revisionToRevert, savedGroup]);
+  }, [confirmRevert, revisionToRevert, savedGroup, revertsBypassApproval]);
 
   // Sync title draft when selected revision changes
   useEffect(() => {
@@ -847,7 +852,9 @@ export default function EditSavedGroupPage() {
                 setRevisionToRevert(null);
               }}
               open={confirmRevert}
-              cta="Create Revert Revision"
+              cta={
+                revertPublishNow ? "Revert & Publish" : "Create Revert Draft"
+              }
               submitColor="primary"
               submit={async () => {
                 // Calculate changes needed to go from current live state to target state
@@ -903,7 +910,9 @@ export default function EditSavedGroupPage() {
                   requiresApproval?: boolean;
                   revision?: Revision;
                 }>(
-                  `/saved-groups/${savedGroup.id}?forceCreateRevision=1&title=${encodeURIComponent(title)}&revertedFrom=${revisionToRevert.id}`,
+                  `/saved-groups/${savedGroup.id}?forceCreateRevision=1${
+                    revertPublishNow ? "&autoPublish=1" : ""
+                  }&title=${encodeURIComponent(title)}&revertedFrom=${revisionToRevert.id}`,
                   {
                     method: "PUT",
                     body: JSON.stringify(revertChanges),
@@ -912,7 +921,6 @@ export default function EditSavedGroupPage() {
 
                 if (res?.revision) {
                   onRevisionCreated(res.revision);
-                  selectFlow(res.revision);
                 }
 
                 setConfirmRevert(false);
@@ -937,8 +945,20 @@ export default function EditSavedGroupPage() {
                   />
                 </Callout>
               )}
+              {revertsBypassApproval && (
+                <Box mt="3">
+                  <Checkbox
+                    label="Publish immediately"
+                    description="Reverts restore an already-reviewed state, so they can be published without approval. Uncheck to create a draft for review instead."
+                    value={revertPublishNow}
+                    setValue={setRevertPublishNow}
+                  />
+                </Box>
+              )}
               <Text mt="3" weight="medium">
-                The new revision will need to be published to go live.
+                {revertPublishNow
+                  ? "This will be published immediately."
+                  : "The new revision will need to be published to go live."}
               </Text>
             </Modal>
           );

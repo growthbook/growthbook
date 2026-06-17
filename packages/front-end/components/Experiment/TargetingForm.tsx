@@ -33,6 +33,7 @@ export default function TargetingForm({
   const envs = environments.map((e) => e.id);
 
   const type = experiment.type;
+  const isAdvancedChange = changeType === "advanced";
 
   return (
     <div className="pt-2">
@@ -65,7 +66,7 @@ export default function TargetingForm({
               setPrerequisiteTargetingSdkIssues
             }
           />
-          {["advanced"].includes(changeType) && <hr />}
+          {isAdvancedChange && <hr />}
         </>
       )}
 
@@ -78,7 +79,7 @@ export default function TargetingForm({
             experimentHashAttribute={form.watch("hashAttribute")}
             fallbackAttribute={form.watch("fallbackAttribute")}
           />
-          {["advanced"].includes(changeType) && <hr />}
+          {isAdvancedChange && <hr />}
         </>
       )}
 

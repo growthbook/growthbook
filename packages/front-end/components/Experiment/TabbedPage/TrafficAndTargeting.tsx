@@ -56,9 +56,9 @@ export default function TrafficAndTargeting({
   const holdoutTraffic = getHoldoutTrafficBreakdown(phase);
 
   const hasConfiguredTargeting =
-    (phase.condition && phase.condition !== "{}") ||
-    (phase.savedGroups && phase.savedGroups.length > 0) ||
-    (phase.prerequisites && phase.prerequisites.length > 0);
+    (phase?.condition && phase.condition !== "{}") ||
+    (phase?.savedGroups && phase.savedGroups.length > 0) ||
+    (phase?.prerequisites && phase.prerequisites.length > 0);
 
   return (
     <>

@@ -2767,7 +2767,7 @@ export async function postExperimentTargeting(
     },
     "experiment",
     {
-      hashAttribute: experiment.hashAttribute,
+      hashAttribute: experiment.hashAttribute || "id",
       fallbackAttribute: experiment.fallbackAttribute,
       condition: lastPersistedPhase?.condition,
     },

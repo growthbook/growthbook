@@ -2281,9 +2281,15 @@ paths:
         leaves a clear audit trail of the revert action in the revision history.
 
 
-        Returns 403 if the API key lacks permission or if approval rules are
-        enabled for an affected environment and the org setting "REST API always
-        bypasses approval requirements" is off.
+        Returns 403 if the API key lacks permission, or if approval rules are
+        enabled for an affected environment and neither the "REST API always
+        bypasses approval requirements" nor the "Allow reverts without approval"
+        org setting is enabled.
+
+
+        Returns 422 with a list of `warnings` if the restored values no longer
+        validate against the feature's current value type or JSON schema.
+        Re-submit with `?ignoreWarnings=true` to revert anyway.
       deprecated: true
       tags:
         - features
@@ -2521,6 +2527,7 @@ paths:
           description: ''
           schema:
             type: string
+        - $ref: '#/components/parameters/overrideDraftLimit'
       requestBody:
         required: true
         content:
@@ -5277,6 +5284,8 @@ paths:
               properties:
                 comment:
                   type: string
+                autoPublishOnApproval:
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -5310,6 +5319,11 @@ paths:
         Submits an `approve`, `request-changes`, or `comment` review on the
         draft. Contributors cannot approve their own drafts, but may submit
         comments or request changes.
+
+
+        When `action` is `approve` and the revision has `autoPublishOnApproval`
+        enabled, the revision is automatically published after approval. Pass
+        `skipAutoPublish: true` to approve without triggering auto-publish.
       deprecated: true
       tags:
         - feature-revisions
@@ -5336,6 +5350,8 @@ paths:
                     - approve
                     - request-changes
                     - comment
+                skipAutoPublish:
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -5346,6 +5362,8 @@ paths:
                 properties:
                   revision:
                     $ref: '#/components/schemas/FeatureRevision'
+                  autoPublished:
+                    type: boolean
                 required:
                   - revision
                 additionalProperties: false
@@ -5389,15 +5407,35 @@ paths:
                 properties:
                   success:
                     type: boolean
+                  liveVersion:
+                    description: The current live version the merge was computed against.
+                    type: number
+                  draftDateUpdated:
+                    format: date-time
+                    description: The draft's last-modified timestamp at merge time.
+                    type: string
                   conflicts:
                     type: array
                     items:
                       $ref: '#/components/schemas/conflicts'
+                  rebaseRequired:
+                    description: >-
+                      True when publishing this draft is blocked until it is
+                      rebased — either the merge has conflicts, or the draft is
+                      behind live (or its approval went stale) while the
+                      organization enforces rebase-before-publish. When true
+                      with no conflicts, callers with bypass-approval permission
+                      can still publish with `mergeNow: true`; others must
+                      rebase first.
+                    type: boolean
                   result:
                     $ref: '#/components/schemas/result'
                 required:
                   - success
+                  - liveVersion
+                  - draftDateUpdated
                   - conflicts
+                  - rebaseRequired
                 additionalProperties: false
       x-codeSamples:
         - lang: cURL
@@ -5421,11 +5459,13 @@ paths:
         resolve any conflicting fields.
 
 
-        **Conflict key format changed for v1 clients.** Rules now merge as a
-        single flat array, so the per-rule `envName.ruleId` keys used by older
-        clients are no longer recognized. Valid keys: `defaultValue`, `rules`,
-        `prerequisites`, `archived`, `holdout`, and `environmentsEnabled.<env>`.
-        Unrecognized keys are ignored; unresolved conflicts respond with `409`.
+        **Conflict key format changed for v1 clients.** The per-rule
+        `envName.ruleId` keys used by older clients are no longer recognized.
+        Valid keys: `defaultValue`, `prerequisites`, `archived`, `holdout`,
+        `environmentsEnabled.<env>`, `metadata.<field>`, `rules.<ruleId>`,
+        `rules.order`, and the blanket `rules` (applies one strategy to all
+        rule-level conflicts). Unrecognized keys are ignored; unresolved
+        conflicts respond with `409`.
       deprecated: true
       tags:
         - feature-revisions
@@ -5506,6 +5546,14 @@ paths:
               properties:
                 comment:
                   type: string
+                mergeNow:
+                  description: >-
+                    When the org enforces same-base merges and the revision is
+                    behind the live version, set to true to force-merge the
+                    stale draft instead of rebasing first. This only takes
+                    effect for callers with bypass-approval permission;
+                    otherwise it is ignored and the revision must be rebased.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -6822,6 +6870,22 @@ paths:
     post:
       operationId: revertFeatureV2
       summary: Revert a feature to a specific revision
+      description: >
+        Creates a new revision whose rules and values match a
+        previously-published revision, then immediately publishes it, leaving a
+        clear audit trail of the revert in the revision history.
+
+
+        Returns 403 if the API key lacks permission, or if approval rules are
+        enabled for an affected environment and neither the "REST API always
+        bypasses approval requirements" nor the "Allow reverts without approval"
+        org setting is enabled.
+
+
+        Returns 422 with a list of `warnings` if the restored values no longer
+        validate against the feature's current value type or JSON schema (e.g.
+        reverting to a config the current schema can no longer read). Re-submit
+        with `?ignoreWarnings=true` to revert anyway.
       tags:
         - features-v2
       parameters:
@@ -7134,6 +7198,7 @@ paths:
           description: ''
           schema:
             type: string
+        - $ref: '#/components/parameters/overrideDraftLimit'
       requestBody:
         required: true
         content:
@@ -7259,6 +7324,175 @@ paths:
           source: >-
             curl -X GET
             'https://api.growthbook.io/api/v2/features/{id}/revisions/{version}'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v2/features/{id}/revisions/{version}/diff:
+    get:
+      operationId: getFeatureRevisionDiffV2
+      summary: Diff a revision against another revision
+      description: >-
+        Returns a schema-keyed JSON diff between this revision and a baseline.
+        The same shapes the in-app review surface produces under `Copy as →
+        Minimal JSON` / `Full JSON`: `minimal` lists only what changed (with
+        id-keyed arrays bucketed into added/removed/modified items and reorder
+        detection), while `full` returns the complete before/after content of
+        the revision. Lifecycle fields (version, status, comment, date,
+        createdBy, publishedBy) are excluded from the diff body and echoed via
+        `from` / `to` instead. Defaults to diffing against the revision's own
+        `baseVersion`; pass `?base=live` to diff against the current live
+        revision, or `?base=<version>` for an arbitrary historical one.
+      tags:
+        - feature-revisions-v2
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - $ref: '#/components/parameters/version'
+        - $ref: '#/components/parameters/format'
+        - $ref: '#/components/parameters/base'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - type: object
+                    properties:
+                      diff:
+                        type: object
+                        properties:
+                          name:
+                            description: The feature key.
+                            type: string
+                          type:
+                            type: string
+                            const: feature
+                          from:
+                            description: >-
+                              Version number this revision was diffed against
+                              (the before).
+                            type: integer
+                          to:
+                            description: Version number being diffed (the after).
+                            type: integer
+                          changes:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                field:
+                                  type: string
+                                change:
+                                  type: string
+                                  enum:
+                                    - added
+                                    - removed
+                                    - modified
+                              required:
+                                - field
+                                - change
+                              additionalProperties: {}
+                          supplemental:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                name:
+                                  type: string
+                                type:
+                                  type: string
+                                change:
+                                  type: string
+                                  enum:
+                                    - added
+                                    - removed
+                                    - modified
+                              required:
+                                - name
+                                - type
+                                - change
+                              additionalProperties: {}
+                        required:
+                          - name
+                          - type
+                          - from
+                          - to
+                          - changes
+                        additionalProperties: false
+                    required:
+                      - diff
+                    additionalProperties: false
+                  - type: object
+                    properties:
+                      diff:
+                        type: object
+                        properties:
+                          name:
+                            description: The feature key.
+                            type: string
+                          type:
+                            type: string
+                            const: feature
+                          from:
+                            description: >-
+                              Version number this revision was diffed against
+                              (the before).
+                            type: integer
+                          to:
+                            description: Version number being diffed (the after).
+                            type: integer
+                          before:
+                            type: object
+                            propertyNames:
+                              type: string
+                            additionalProperties: {}
+                          after:
+                            type: object
+                            propertyNames:
+                              type: string
+                            additionalProperties: {}
+                          supplemental:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                name:
+                                  type: string
+                                type:
+                                  type: string
+                                before:
+                                  anyOf:
+                                    - {}
+                                    - type: 'null'
+                                after:
+                                  anyOf:
+                                    - {}
+                                    - type: 'null'
+                              required:
+                                - name
+                                - type
+                                - before
+                                - after
+                              additionalProperties: false
+                        required:
+                          - name
+                          - type
+                          - from
+                          - to
+                          - before
+                          - after
+                        additionalProperties: false
+                    required:
+                      - diff
+                    additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v2/features/{id}/revisions/{version}/diff'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v2/features/{id}/revisions/{version}/metadata:
@@ -9535,6 +9769,15 @@ paths:
     post:
       operationId: postFeatureRevisionRequestReviewV2
       summary: Request review for a draft revision
+      description: >-
+        Moves the draft into the `pending-review` state and notifies reviewers.
+
+
+        Set `autoPublishOnApproval` to `true` to publish the revision
+        automatically the moment it is approved (GitHub auto-merge model). This
+        requires the org to have auto-publish-on-approval enabled for the
+        feature and the caller to have publish permission; the auto-publish then
+        executes with the caller's authority.
       tags:
         - feature-revisions-v2
       parameters:
@@ -9554,6 +9797,8 @@ paths:
               properties:
                 comment:
                   type: string
+                autoPublishOnApproval:
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -9578,6 +9823,16 @@ paths:
     post:
       operationId: postFeatureRevisionSubmitReviewV2
       summary: Submit a review on a draft revision
+      description: >-
+        Submits an `approve`, `request-changes`, or `comment` review on the
+        draft. Contributors cannot approve their own drafts when
+        `blockSelfApproval` is enabled.
+
+
+        When `action` is `approve` and the revision has `autoPublishOnApproval`
+        enabled, the revision is automatically published after approval. The
+        response includes `autoPublished: true` when this happens. Pass
+        `skipAutoPublish: true` to approve without triggering auto-publish.
       tags:
         - feature-revisions-v2
       parameters:
@@ -9603,6 +9858,60 @@ paths:
                     - approve
                     - request-changes
                     - comment
+                skipAutoPublish:
+                  type: boolean
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/FeatureRevisionV2'
+                  autoPublished:
+                    type: boolean
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v2/features/{id}/revisions/{version}/submit-review'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v2/features/{id}/revisions/{version}/recall-review:
+    post:
+      operationId: postFeatureRevisionRecallReviewV2
+      summary: Recall a review request (revert to draft)
+      description: >-
+        Retracts the review request, returning the revision from
+        `pending-review`, `changes-requested`, or `approved` back to `draft`.
+        Allowed for any user with draft-management permission on the feature
+        (the same permission required to request review), not only the original
+        requester. Existing review log entries are preserved as audit history
+        but any in-flight reviewer verdicts (Approved / Requested Changes)
+        submitted during this review cycle no longer count — submitting a fresh
+        `request-review` starts a new cycle.
+      tags:
+        - feature-revisions-v2
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - $ref: '#/components/parameters/version'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {}
               additionalProperties: false
       responses:
         '200':
@@ -9620,13 +9929,210 @@ paths:
         - lang: cURL
           source: >-
             curl -X POST
-            'https://api.growthbook.io/api/v2/features/{id}/revisions/{version}/submit-review'
+            'https://api.growthbook.io/api/v2/features/{id}/revisions/{version}/recall-review'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v2/features/{id}/revisions/{version}/undo-review:
+    post:
+      operationId: postFeatureRevisionUndoReviewV2
+      summary: Undo a reviewer's own review verdict
+      description: >-
+        Reviewer retracts their own verdict. The revision status rewinds to the
+        state implied by the remaining active verdicts from other reviewers: any
+        outstanding `Requested Changes` → `changes-requested`, else any
+        outstanding `Approved` → `approved`, else `pending-review`. Existing
+        review comments are preserved. If the retraction resolves the revision
+        to `approved` and auto-publish-on-approval is armed, the revision is
+        published.
+      tags:
+        - feature-revisions-v2
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - $ref: '#/components/parameters/version'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {}
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/FeatureRevisionV2'
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v2/features/{id}/revisions/{version}/undo-review'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v2/features/{id}/revisions/{version}/log:
+    get:
+      operationId: getFeatureRevisionLogV2
+      summary: List the activity log for a revision
+      description: >-
+        Returns every log entry for the revision — content edits (rules, default
+        value, rebases), review lifecycle events (review requested, approved,
+        changes requested, recalled, undone), comments, and other audit events —
+        sorted oldest-first.
+      tags:
+        - feature-revisions-v2
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - $ref: '#/components/parameters/version'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  log:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/log'
+                required:
+                  - log
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v2/features/{id}/revisions/{version}/log'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v2/features/{id}/revisions/{version}/log/{logId}:
+    put:
+      operationId: putFeatureRevisionLogCommentV2
+      summary: Edit the comment text of an owned log entry
+      description: >-
+        Author of a `Comment`, `Approved`, or `Requested Changes` log entry can
+        rewrite its comment text. The entry's action and other audit-trail
+        metadata remain immutable; this only mutates `value.comment`. Other
+        audit events (e.g. `Review Requested`, system events) are not editable.
+      tags:
+        - feature-revisions-v2
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - $ref: '#/components/parameters/version'
+        - $ref: '#/components/parameters/logId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                comment:
+                  description: New comment text. Replaces existing comment text.
+                  type: string
+              required:
+                - comment
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: number
+                    const: 200
+                required:
+                  - status
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X PUT
+            'https://api.growthbook.io/api/v2/features/{id}/revisions/{version}/log/{logId}'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    delete:
+      operationId: deleteFeatureRevisionLogEntryV2
+      summary: Delete an owned revision Comment entry
+      description: >-
+        Author of a `Comment` log entry can delete it. Verdict entries
+        (Approved, Requested Changes, Review Requested) and other audit-trail
+        events are immutable. To retract a verdict use `/undo-review`; to
+        retract a review request use `/recall-review`.
+      tags:
+        - feature-revisions-v2
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - $ref: '#/components/parameters/version'
+        - $ref: '#/components/parameters/logId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {}
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: number
+                    const: 200
+                required:
+                  - status
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X DELETE
+            'https://api.growthbook.io/api/v2/features/{id}/revisions/{version}/log/{logId}'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v2/features/{id}/revisions/{version}/merge-status:
     get:
       operationId: getFeatureRevisionMergeStatusV2
       summary: Get merge status for a draft revision
+      description: >-
+        Runs the three-way merge between the draft and the current live version
+        without applying it. Conflicts are granular: each conflicting field gets
+        its own key, and rules conflict individually (`rules.<ruleId>`, plus
+        `rules.order` for competing reorders). Pass the returned `liveVersion`
+        as `expectedLiveVersion` when rebasing. Also reports `rebaseRequired` so
+        callers can detect ahead of time whether the publish endpoint will block
+        until the draft is rebased.
       tags:
         - feature-revisions-v2
       parameters:
@@ -9646,6 +10152,179 @@ paths:
                 properties:
                   success:
                     type: boolean
+                  liveVersion:
+                    description: >-
+                      The current live version the merge was computed against.
+                      Echo this back as `expectedLiveVersion` when rebasing.
+                    type: number
+                  draftDateUpdated:
+                    format: date-time
+                    description: >-
+                      The draft's last-modified timestamp at merge time. Echo
+                      this back as `expectedDraftDateUpdated` when rebasing to
+                      guard against concurrent draft edits.
+                    type: string
+                  conflicts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/conflicts'
+                  result:
+                    type: object
+                    properties:
+                      defaultValue:
+                        type: string
+                      rules:
+                        type: array
+                        items: {}
+                      environmentsEnabled:
+                        type: object
+                        propertyNames:
+                          type: string
+                        additionalProperties:
+                          type: boolean
+                      prerequisites:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: string
+                            condition:
+                              type: string
+                          required:
+                            - id
+                            - condition
+                          additionalProperties: false
+                      archived:
+                        type: boolean
+                      metadata:
+                        type: object
+                        properties:
+                          releaseType:
+                            type: string
+                          riskLevel:
+                            type: string
+                        additionalProperties: {}
+                      holdout:
+                        anyOf:
+                          - type: object
+                            properties:
+                              id:
+                                type: string
+                              value:
+                                type: string
+                            required:
+                              - id
+                              - value
+                            additionalProperties: false
+                          - type: 'null'
+                    additionalProperties: false
+                  rebaseRequired:
+                    description: >-
+                      True when publishing this draft is blocked until it is
+                      rebased — either the merge has conflicts, or the draft is
+                      behind live (or its approval went stale) while the
+                      organization enforces rebase-before-publish. When true
+                      with no conflicts, callers with bypass-approval permission
+                      can still publish with `mergeNow: true`; others must
+                      rebase first.
+                    type: boolean
+                required:
+                  - success
+                  - liveVersion
+                  - draftDateUpdated
+                  - conflicts
+                  - rebaseRequired
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v2/features/{id}/revisions/{version}/merge-status'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v2/features/{id}/revisions/{version}/rebase/preview:
+    post:
+      operationId: postFeatureRevisionRebasePreviewV2
+      summary: Preview a rebase without applying it
+      description: >-
+        Dry-run of the rebase: runs the same three-way merge with the supplied
+        `conflictResolutions` and returns every conflict (resolved and
+        unresolved) plus the merged result once all are resolved — without
+        modifying the draft. Use it to iterate on resolutions before committing
+        them via the rebase endpoint.
+      tags:
+        - feature-revisions-v2
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - $ref: '#/components/parameters/version'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                conflictResolutions:
+                  description: >-
+                    Map of conflict key → resolution. Keys come from the
+                    returned conflicts: `defaultValue`, `prerequisites`,
+                    `archived`, `holdout`, `environmentsEnabled.<env>`,
+                    `metadata.<field>`, `rules.<ruleId>`, and `rules.order`.
+                    `overwrite` keeps the draft's version of that item;
+                    `discard` keeps live's. The blanket `rules` key applies one
+                    strategy to all rule-level conflicts.
+                  type: object
+                  propertyNames:
+                    type: string
+                  additionalProperties:
+                    type: string
+                    enum:
+                      - overwrite
+                      - discard
+                expectedLiveVersion:
+                  description: >-
+                    Optimistic-concurrency guard: the live version the
+                    resolutions were authored against (as returned by
+                    merge-status or rebase preview). If live has since moved,
+                    the request fails with `409` instead of applying resolutions
+                    to different conflicts.
+                  type: integer
+                expectedDraftDateUpdated:
+                  description: >-
+                    Optimistic-concurrency guard for the draft side: the draft's
+                    `draftDateUpdated` timestamp as returned by merge-status or
+                    rebase preview. If the draft has been modified since (e.g.
+                    by a co-author), the request fails with `409` instead of
+                    applying resolutions against changed draft content.
+                  type: string
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  liveVersion:
+                    description: >-
+                      The current live version the merge was computed against.
+                      Echo this back as `expectedLiveVersion` when rebasing.
+                    type: number
+                  draftDateUpdated:
+                    format: date-time
+                    description: >-
+                      The draft's last-modified timestamp at merge time. Echo
+                      this back as `expectedDraftDateUpdated` when rebasing to
+                      guard against concurrent draft edits.
+                    type: string
                   conflicts:
                     type: array
                     items:
@@ -9703,13 +10382,15 @@ paths:
                     additionalProperties: false
                 required:
                   - success
+                  - liveVersion
+                  - draftDateUpdated
                   - conflicts
                 additionalProperties: false
       x-codeSamples:
         - lang: cURL
           source: >-
-            curl -X GET
-            'https://api.growthbook.io/api/v2/features/{id}/revisions/{version}/merge-status'
+            curl -X POST
+            'https://api.growthbook.io/api/v2/features/{id}/revisions/{version}/rebase/preview'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v2/features/{id}/revisions/{version}/rebase:
@@ -9719,9 +10400,12 @@ paths:
       description: >-
         Updates the draft's base revision to match the currently-live revision,
         applying the draft's changes on top. Supply `conflictResolutions` to
-        resolve any conflicting fields. Valid keys: `defaultValue`, `rules`,
-        `prerequisites`, `archived`, `holdout`, and `environmentsEnabled.<env>`.
-        Unresolved conflicts respond with `409`.
+        resolve conflicting items individually — including per-rule
+        (`rules.<ruleId>`) and rule-order (`rules.order`) conflicts. Supply
+        `expectedLiveVersion` and/or `expectedDraftDateUpdated` (both returned
+        by merge-status and rebase preview) to fail fast with `409` if either
+        side changes between conflict review and submission. Unresolved
+        conflicts also respond with `409`.
       tags:
         - feature-revisions-v2
       parameters:
@@ -9740,6 +10424,14 @@ paths:
               type: object
               properties:
                 conflictResolutions:
+                  description: >-
+                    Map of conflict key → resolution. Keys come from the
+                    returned conflicts: `defaultValue`, `prerequisites`,
+                    `archived`, `holdout`, `environmentsEnabled.<env>`,
+                    `metadata.<field>`, `rules.<ruleId>`, and `rules.order`.
+                    `overwrite` keeps the draft's version of that item;
+                    `discard` keeps live's. The blanket `rules` key applies one
+                    strategy to all rule-level conflicts.
                   type: object
                   propertyNames:
                     type: string
@@ -9748,6 +10440,22 @@ paths:
                     enum:
                       - overwrite
                       - discard
+                expectedLiveVersion:
+                  description: >-
+                    Optimistic-concurrency guard: the live version the
+                    resolutions were authored against (as returned by
+                    merge-status or rebase preview). If live has since moved,
+                    the request fails with `409` instead of applying resolutions
+                    to different conflicts.
+                  type: integer
+                expectedDraftDateUpdated:
+                  description: >-
+                    Optimistic-concurrency guard for the draft side: the draft's
+                    `draftDateUpdated` timestamp as returned by merge-status or
+                    rebase preview. If the draft has been modified since (e.g.
+                    by a co-author), the request fails with `409` instead of
+                    applying resolutions against changed draft content.
+                  type: string
               additionalProperties: false
       responses:
         '200':
@@ -9795,6 +10503,14 @@ paths:
               properties:
                 comment:
                   type: string
+                mergeNow:
+                  description: >-
+                    When the org enforces same-base merges and the revision is
+                    behind the live version, set to true to force-merge the
+                    stale draft instead of rebasing first. This only takes
+                    effect for callers with bypass-approval permission;
+                    otherwise it is ignored and the revision must be rebased.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -9854,6 +10570,51 @@ paths:
           source: >-
             curl -X POST
             'https://api.growthbook.io/api/v2/features/{id}/revisions/{version}/discard'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v2/features/{id}/revisions/{version}/reopen:
+    post:
+      operationId: postFeatureRevisionReopenV2
+      summary: Reopen a discarded revision as a draft
+      description: >-
+        Returns a `discarded` revision to `draft` status so it can be edited,
+        reviewed, and published. Prior review state is not restored — the draft
+        must go back through review if approvals are required.
+      tags:
+        - feature-revisions-v2
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - $ref: '#/components/parameters/version'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {}
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/FeatureRevisionV2'
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v2/features/{id}/revisions/{version}/reopen'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v2/features/{id}/revisions/{version}/revert:
@@ -10557,6 +11318,7 @@ paths:
                         type: number
                       properPriorStdDev:
                         type: number
+                        exclusiveMinimum: 0
                       regressionAdjustmentOverride:
                         description: >-
                           Must be true for the override to take effect. If true,
@@ -11159,6 +11921,7 @@ paths:
                         type: number
                       properPriorStdDev:
                         type: number
+                        exclusiveMinimum: 0
                       regressionAdjustmentOverride:
                         description: >-
                           Must be true for the override to take effect. If true,
@@ -11246,6 +12009,27 @@ paths:
                 required:
                   - experiment
                 additionalProperties: false
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                type: object
+                description: One or more linked feature drafts could not be published
+                properties:
+                  message:
+                    type: string
+                  code:
+                    type: string
+                    enum:
+                      - pending_draft_publish_failed
+                  details:
+                    $ref: >-
+                      #/components/schemas/ApiErrorPendingDraftPublishFailedDetails
+                required:
+                  - message
+                  - code
+                  - details
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -11358,6 +12142,59 @@ paths:
                 required:
                   - experiment
                 additionalProperties: false
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    description: Required checklist items are incomplete
+                    properties:
+                      message:
+                        type: string
+                      code:
+                        type: string
+                        enum:
+                          - checklist_incomplete
+                      details:
+                        $ref: >-
+                          #/components/schemas/ApiErrorChecklistIncompleteDetails
+                    required:
+                      - message
+                      - code
+                      - details
+                  - type: object
+                    description: One or more linked feature drafts could not be published
+                    properties:
+                      message:
+                        type: string
+                      code:
+                        type: string
+                        enum:
+                          - pending_draft_publish_failed
+                      details:
+                        $ref: >-
+                          #/components/schemas/ApiErrorPendingDraftPublishFailedDetails
+                    required:
+                      - message
+                      - code
+                      - details
+                  - type: object
+                    description: Resource is not in a valid status for this operation
+                    properties:
+                      message:
+                        type: string
+                      code:
+                        type: string
+                        enum:
+                          - invalid_status
+                      details:
+                        $ref: '#/components/schemas/ApiErrorInvalidStatusDetails'
+                    required:
+                      - message
+                      - code
+                      - details
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -11492,6 +12329,26 @@ paths:
                 required:
                   - experiment
                 additionalProperties: false
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Resource is not in a valid status for this operation
+                properties:
+                  message:
+                    type: string
+                  code:
+                    type: string
+                    enum:
+                      - invalid_status
+                  details:
+                    $ref: '#/components/schemas/ApiErrorInvalidStatusDetails'
+                required:
+                  - message
+                  - code
+                  - details
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -11542,6 +12399,26 @@ paths:
                 required:
                   - experiment
                 additionalProperties: false
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Resource is not in a valid status for this operation
+                properties:
+                  message:
+                    type: string
+                  code:
+                    type: string
+                    enum:
+                      - invalid_status
+                  details:
+                    $ref: '#/components/schemas/ApiErrorInvalidStatusDetails'
+                required:
+                  - message
+                  - code
+                  - details
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -15528,6 +16405,13 @@ paths:
       description: >-
         Moves the draft from `draft` into `pending-review`. Notifies reviewers
         per the org's approval-flow settings.
+
+
+        Set `autoPublishOnApproval` to `true` to publish the revision
+        automatically the moment it is approved (GitHub auto-merge model). This
+        requires the org to have auto-publish-on-approval enabled and the caller
+        to have publish permission on the saved group; the auto-publish then
+        executes with the caller's authority.
       tags:
         - saved-group-revisions
       parameters:
@@ -15544,7 +16428,9 @@ paths:
           application/json:
             schema:
               type: object
-              properties: {}
+              properties:
+                autoPublishOnApproval:
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -15573,6 +16459,13 @@ paths:
         Submits an `approve`, `request-changes`, or `comment` review on the
         revision. Authors and contributors cannot submit `approve` reviews on
         their own drafts when the org has `blockSelfApproval` enabled.
+
+
+        When `decision` is `approve` and the revision has
+        `autoPublishOnApproval` enabled, the revision is automatically published
+        after approval. The response includes `autoPublished: true` when this
+        happens. Pass `skipAutoPublish: true` to approve without triggering
+        auto-publish.
       tags:
         - saved-group-revisions
       parameters:
@@ -15598,6 +16491,8 @@ paths:
                     - comment
                 comment:
                   type: string
+                skipAutoPublish:
+                  type: boolean
               required:
                 - decision
               additionalProperties: false
@@ -15610,6 +16505,8 @@ paths:
                 properties:
                   revision:
                     $ref: '#/components/schemas/SavedGroupRevision'
+                  autoPublished:
+                    type: boolean
                 required:
                   - revision
                 additionalProperties: false
@@ -15772,7 +16669,16 @@ paths:
           application/json:
             schema:
               type: object
-              properties: {}
+              properties:
+                mergeNow:
+                  description: >-
+                    When the org enforces same-base merges and the saved group
+                    changed since this revision was created, set to true to
+                    force-merge the stale revision instead of rebasing first.
+                    This only takes effect for callers with bypass-approval
+                    permission; otherwise it is ignored and the revision must be
+                    rebased.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -15845,7 +16751,9 @@ paths:
       summary: Revert the saved group to a prior revision
       description: >-
         Creates a new draft (or immediately publishes) whose content matches the
-        specified historical revision.
+        specified historical revision. Defaults to creating a draft; when the
+        org enables 'reverts bypass approval' it defaults to publishing
+        immediately. Pass `strategy` to override.
       tags:
         - saved-group-revisions
       parameters:
@@ -16663,13 +17571,13 @@ paths:
               schema:
                 type: object
                 properties:
-                  queued:
-                    description: The id types for which a materialization run was queued
+                  runs:
+                    description: One entry per id type refreshed
                     type: array
                     items:
-                      type: string
+                      $ref: '#/components/schemas/AggregatedTableRefreshTrigger'
                 required:
-                  - queued
+                  - runs
                 additionalProperties: false
       x-codeSamples:
         - lang: cURL
@@ -16680,6 +17588,75 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"fullRestate":false}'
+  /v1/fact-tables/{id}/aggregated-tables/runs:
+    get:
+      operationId: listAggregatedTableRuns
+      summary: List aggregated table runs
+      tags:
+        - fact-tables
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/idType'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    properties:
+                      runs:
+                        description: A list of the aggregated table runs for the fact table
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/AggregatedTableRunSummary'
+                    required:
+                      - runs
+                    additionalProperties: false
+                  - $ref: '#/components/schemas/PaginationFields'
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/fact-tables/ftb_123/aggregated-tables/runs?idType=user_id'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/fact-tables/{id}/aggregated-tables/runs/{runId}:
+    get:
+      operationId: getAggregatedTableRun
+      summary: Get a single aggregated table run
+      tags:
+        - fact-tables
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The id of the fact table
+          schema:
+            description: The id of the fact table
+            type: string
+        - $ref: '#/components/parameters/runId'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  run:
+                    $ref: '#/components/schemas/AggregatedTableRun'
+                required:
+                  - run
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/fact-tables/abc123/aggregated-tables/runs/aftr_abc123'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/fact-metrics:
     get:
       operationId: listFactMetrics
@@ -21947,6 +22924,7 @@ paths:
                         type: number
                       properPriorStdDev:
                         type: number
+                        exclusiveMinimum: 0
                       regressionAdjustmentOverride:
                         type: boolean
                       regressionAdjustmentEnabled:
@@ -22214,6 +23192,7 @@ paths:
                         type: number
                       properPriorStdDev:
                         type: number
+                        exclusiveMinimum: 0
                       regressionAdjustmentOverride:
                         type: boolean
                       regressionAdjustmentEnabled:
@@ -31390,6 +32369,28 @@ components:
       description: ''
       schema:
         type: integer
+    overrideDraftLimit:
+      name: overrideDraftLimit
+      in: query
+      description: >-
+        If the organization caps concurrent drafts per feature
+        (`maxConcurrentDrafts` setting), requests at or over the cap are
+        rejected with a 409. Pass `true` to create the draft anyway.
+      schema:
+        description: >-
+          If the organization caps concurrent drafts per feature
+          (`maxConcurrentDrafts` setting), requests at or over the cap are
+          rejected with a 409. Pass `true` to create the draft anyway.
+        anyOf:
+          - type: string
+            const: 'true'
+          - type: string
+            const: 'false'
+          - type: string
+            const: '0'
+          - type: string
+            const: '1'
+          - type: boolean
     ruleId:
       name: ruleId
       in: path
@@ -31419,6 +32420,49 @@ components:
           - type: string
             const: '1'
           - type: boolean
+    format:
+      name: format
+      in: query
+      description: >-
+        `minimal` (default) returns only what changed, with id-keyed arrays
+        bucketed into added/removed/modified items. `full` returns the complete
+        before/after content of the revision.
+      schema:
+        description: >-
+          `minimal` (default) returns only what changed, with id-keyed arrays
+          bucketed into added/removed/modified items. `full` returns the
+          complete before/after content of the revision.
+        type: string
+        enum:
+          - minimal
+          - full
+    base:
+      name: base
+      in: query
+      description: >-
+        Compare against: `baseVersion` (default — the revision's own
+        `baseVersion`, matches the in-app review view), `live` (the
+        currently-live revision), or an integer version (an arbitrary historical
+        revision).
+      schema:
+        description: >-
+          Compare against: `baseVersion` (default — the revision's own
+          `baseVersion`, matches the in-app review view), `live` (the
+          currently-live revision), or an integer version (an arbitrary
+          historical revision).
+        anyOf:
+          - type: string
+            const: baseVersion
+          - type: string
+            const: live
+          - type: integer
+    logId:
+      name: logId
+      in: path
+      required: true
+      description: ''
+      schema:
+        type: string
     datasourceId:
       name: datasourceId
       in: query
@@ -31548,6 +32592,25 @@ components:
       description: Specify a specific fact table
       schema:
         description: Specify a specific fact table
+        type: string
+    idType:
+      name: idType
+      in: query
+      description: >-
+        Only return runs for this id type. When omitted, runs for all id types
+        are returned.
+      schema:
+        description: >-
+          Only return runs for this id type. When omitted, runs for all id types
+          are returned.
+        type: string
+    runId:
+      name: runId
+      in: path
+      required: true
+      description: The id of the aggregated table run (e.g. aftr_...)
+      schema:
+        description: The id of the aggregated table run (e.g. aftr_...)
         type: string
     deleteMissing:
       name: deleteMissing
@@ -34596,6 +35659,38 @@ components:
                   - rampScheduleId
                   - ruleId
                 additionalProperties: false
+        reviews:
+          description: >-
+            Reviewer verdicts for the current review cycle (one entry per
+            reviewer). Verdicts flip to their -stale variants when draft content
+            changes after submission; the list is cleared when a new review
+            cycle starts. Absent on revisions that predate this field.
+          type: array
+          items:
+            type: object
+            properties:
+              userId:
+                description: >-
+                  Stable reviewer identifier: the user ID for dashboard users,
+                  or the API key ID for service accounts
+                type: string
+              user:
+                $ref: '#/components/schemas/EventUser'
+              status:
+                type: string
+                enum:
+                  - approved
+                  - changes-requested
+                  - approved-stale
+                  - changes-requested-stale
+              timestamp:
+                format: date-time
+                type: string
+            required:
+              - userId
+              - status
+              - timestamp
+            additionalProperties: false
       required:
         - featureId
         - baseVersion
@@ -36256,6 +37351,7 @@ components:
                     Must be > 0. The standard deviation of the prior
                     distribution of relative effects in proportion terms.
                   type: number
+                  exclusiveMinimum: 0
               required:
                 - override
                 - proper
@@ -37670,6 +38766,208 @@ components:
         - pendingRestate
         - pendingRestateReason
       additionalProperties: false
+    AggregatedTableRefreshTrigger:
+      type: object
+      properties:
+        idType:
+          description: The id type this refresh targets
+          type: string
+        runId:
+          description: >-
+            The id of the run, set when status is started or failed and null
+            when skipped.
+          anyOf:
+            - type: string
+            - type: 'null'
+        status:
+          description: Whether a refresh was started, failed to be created, or was skipped
+          type: string
+          enum:
+            - started
+            - failed
+            - skipped
+        reason:
+          description: Why the refresh was skipped, when status is skipped.
+          anyOf:
+            - type: string
+              enum:
+                - already-in-progress
+                - datasource-not-found
+                - pipeline-not-configured
+                - unsupported-datasource
+                - no-eligible-metrics
+            - type: 'null'
+        error:
+          description: The error message when status is failed; null otherwise.
+          anyOf:
+            - type: string
+            - type: 'null'
+      required:
+        - idType
+        - runId
+        - status
+        - reason
+        - error
+      additionalProperties: false
+    AggregatedTableRunSummary:
+      type: object
+      properties:
+        id:
+          description: The run id (e.g. aftr_...)
+          type: string
+        idType:
+          description: The id type this run materialized
+          type: string
+        mode:
+          description: Whether this run appended new data or rebuilt the table
+          type: string
+          enum:
+            - incremental
+            - restate
+        status:
+          description: Overall run status derived from its warehouse queries
+          type: string
+          enum:
+            - queued
+            - running
+            - failed
+            - partially-succeeded
+            - succeeded
+        runStarted:
+          description: When query execution began
+          anyOf:
+            - format: date-time
+              type: string
+            - type: 'null'
+        dateCreated:
+          format: date-time
+          description: When the run record was created
+          type: string
+        finishedAt:
+          description: When the run finished, or null if still in progress
+          anyOf:
+            - format: date-time
+              type: string
+            - type: 'null'
+        error:
+          description: Error message when the run failed
+          anyOf:
+            - type: string
+            - type: 'null'
+        queryIds:
+          description: >-
+            Warehouse query ids for this run; poll each via GET /queries/{id}
+            for per-query status
+          type: array
+          items:
+            type: string
+      required:
+        - id
+        - idType
+        - mode
+        - status
+        - runStarted
+        - dateCreated
+        - finishedAt
+        - error
+        - queryIds
+      additionalProperties: false
+    AggregatedTableRun:
+      type: object
+      properties:
+        id:
+          description: The run id (e.g. aftr_...)
+          type: string
+        idType:
+          description: The id type this run materialized
+          type: string
+        mode:
+          description: Whether this run appended new data or rebuilt the table
+          type: string
+          enum:
+            - incremental
+            - restate
+        status:
+          description: Overall run status derived from its warehouse queries
+          type: string
+          enum:
+            - queued
+            - running
+            - failed
+            - partially-succeeded
+            - succeeded
+        runStarted:
+          description: When query execution began
+          anyOf:
+            - format: date-time
+              type: string
+            - type: 'null'
+        dateCreated:
+          format: date-time
+          description: When the run record was created
+          type: string
+        finishedAt:
+          description: When the run finished, or null if still in progress
+          anyOf:
+            - format: date-time
+              type: string
+            - type: 'null'
+        error:
+          description: Error message when the run failed
+          anyOf:
+            - type: string
+            - type: 'null'
+        queryIds:
+          description: >-
+            Warehouse query ids for this run; poll each via GET /queries/{id}
+            for per-query status
+          type: array
+          items:
+            type: string
+        factTableId:
+          type: string
+        datasourceId:
+          type: string
+        result:
+          description: Coverage written on success, or null while running/failed
+          anyOf:
+            - type: object
+              properties:
+                lastMaxTimestamp:
+                  anyOf:
+                    - format: date-time
+                      type: string
+                    - type: 'null'
+                firstEventDate:
+                  anyOf:
+                    - format: date-time
+                      type: string
+                    - type: 'null'
+                lastEventDate:
+                  anyOf:
+                    - format: date-time
+                      type: string
+                    - type: 'null'
+              required:
+                - lastMaxTimestamp
+                - firstEventDate
+                - lastEventDate
+              additionalProperties: false
+            - type: 'null'
+      required:
+        - id
+        - idType
+        - mode
+        - status
+        - runStarted
+        - dateCreated
+        - finishedAt
+        - error
+        - queryIds
+        - factTableId
+        - datasourceId
+        - result
+      additionalProperties: false
     FactMetric:
       type: object
       properties:
@@ -38418,9 +39716,17 @@ components:
                 type: boolean
               featureRequireMetadataReview:
                 type: boolean
+              autopublishOnApproval:
+                type: boolean
             additionalProperties: false
         restApiBypassesReviews:
           type: boolean
+        requireRebaseBeforePublish:
+          type: boolean
+        revertsBypassApproval:
+          type: boolean
+        maxConcurrentDrafts:
+          type: number
         featureKeyExample:
           type: string
         featureRegexValidator:
@@ -39309,6 +40615,7 @@ components:
                     type: number
                   properPriorStdDev:
                     type: number
+                    exclusiveMinimum: 0
                   regressionAdjustmentOverride:
                     type: boolean
                   regressionAdjustmentEnabled:
@@ -43094,6 +44401,86 @@ components:
       required:
         - variation
       additionalProperties: false
+    ApiErrorConflictDetails:
+      type: object
+      properties:
+        conflicts:
+          type: array
+          items: {}
+      required:
+        - conflicts
+      additionalProperties: false
+    ApiErrorChecklistIncompleteDetails:
+      type: object
+      properties:
+        remainingChecklistItems:
+          type: array
+          items:
+            type: object
+            properties:
+              key:
+                type: string
+              required:
+                type: boolean
+              status:
+                type: string
+                enum:
+                  - complete
+                  - incomplete
+              manual:
+                type: boolean
+              reason:
+                type: string
+            required:
+              - key
+              - required
+              - status
+              - manual
+              - reason
+            additionalProperties: false
+      required:
+        - remainingChecklistItems
+      additionalProperties: false
+    ApiErrorPendingDraftPublishFailedDetails:
+      type: object
+      properties:
+        failedFeatureDrafts:
+          type: array
+          items:
+            type: object
+            properties:
+              featureId:
+                type: string
+              revisionVersion:
+                type: number
+              reason:
+                type: string
+                enum:
+                  - merge-conflict
+                  - needs-rebase
+                  - needs-approval
+                  - publish-error
+            required:
+              - featureId
+              - revisionVersion
+              - reason
+            additionalProperties: false
+      required:
+        - failedFeatureDrafts
+      additionalProperties: false
+    ApiErrorInvalidStatusDetails:
+      type: object
+      properties:
+        currentStatus:
+          type: string
+        expectedStatuses:
+          type: array
+          items:
+            type: string
+      required:
+        - currentStatus
+        - expectedStatuses
+      additionalProperties: false
     features:
       description: >-
         Map of feature ID to stale status. Only requested features that were
@@ -43877,6 +45264,56 @@ components:
                 - value
               additionalProperties: false
             - type: 'null'
+      additionalProperties: false
+    log:
+      type: object
+      properties:
+        id:
+          description: >-
+            Log entry ID. Use a `Comment` entry's id with the PUT/DELETE log
+            endpoints to edit or delete an owned comment. Absent on legacy
+            entries stored inline on the revision.
+          type: string
+        action:
+          description: >-
+            Entry type — content edits (e.g. "add rule", "edit defaultValue",
+            "rebase"), review lifecycle events ("Review Requested", "Approved",
+            "Requested Changes"), comments ("Comment"), or other audit events.
+          type: string
+        subject:
+          type: string
+        value:
+          description: JSON-encoded payload for the entry
+          type: string
+        timestamp:
+          format: date-time
+          type: string
+        user:
+          anyOf:
+            - type: object
+              properties:
+                type:
+                  type: string
+                  enum:
+                    - dashboard
+                    - api_key
+                    - system
+                id:
+                  type: string
+                name:
+                  type: string
+                email:
+                  type: string
+              required:
+                - type
+              additionalProperties: false
+            - type: 'null'
+      required:
+        - action
+        - subject
+        - value
+        - timestamp
+        - user
       additionalProperties: false
     checklistItems:
       type: object

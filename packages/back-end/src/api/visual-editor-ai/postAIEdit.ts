@@ -8,6 +8,7 @@ import {
 import { getAISettingsForOrg } from "back-end/src/services/organizations";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { logger } from "back-end/src/util/logger";
+import { IS_CLOUD } from "back-end/src/util/secrets";
 import { requireUserAuth } from "./requireUserAuth";
 import { buildVisualEditorTools, VISUAL_EDITOR_MAX_STEPS } from "./aiTools";
 import { aiEditJobStore } from "./aiTools/clientJob";
@@ -557,6 +558,11 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
       zodObjectSchema: outputSchema,
       overrideModel: visualEditorAIModel,
       cacheSystemPrompt: true,
+      // This is itself a retry (selector self-correction), so disable
+      // parsePrompt's no-object retry — otherwise one request could fan
+      // out to 4 LLM calls. finalizeOutput's try/catch already keeps the
+      // original result if this correction returns no object.
+      retryOnNoObject: false,
     });
 
   // Every selector a mutation requires on the page. Position moves
@@ -674,10 +680,19 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
   // client; non-streaming mode runs without DOM tools so the race only
   // ever resolves to "final".
   const streamingMode = !!req.body.streamingMode;
+  // The streaming tool loop parks an in-memory job and resumes it via a
+  // follow-up /edit/resume request — which only works if the resume hits
+  // the SAME process. On Cloud (multi-instance, no affinity) it can hit
+  // another instance → "AI edit session not found", and an in-flight
+  // generation can't be shared. So skip the DOM-side tool loop on Cloud:
+  // run a single-shot generation (server-side tools only) and answer
+  // immediately, still returning the {kind:"final"} envelope so the
+  // extension's handling is unchanged.
+  const useToolLoop = streamingMode && !IS_CLOUD;
   const job = aiEditJobStore.create();
   const tools = buildVisualEditorTools({
     context,
-    job: streamingMode ? job : undefined,
+    job: useToolLoop ? job : undefined,
   });
   // Cast through unknown — the job store is invariant in TFinal for
   // type-erasure reasons but each job is used with one schema only.
@@ -740,14 +755,14 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
     throw new Error(outcome.error);
   }
   if (outcome.kind === "toolCall") {
-    // Only streamingMode includes DOM-side tools, so this branch is
-    // unreachable when streaming is off — defensive throw makes that
+    // DOM-side tools are only attached when useToolLoop is true, so this
+    // branch is unreachable otherwise — defensive throw makes that
     // explicit. Server-side tools execute synchronously inside
     // generateText and never reach the race.
-    if (!streamingMode) {
+    if (!useToolLoop) {
       aiEditJobStore.delete(job.id);
       throw new Error(
-        "Internal: unexpected client-side tool call without streamingMode.",
+        "Internal: unexpected client-side tool call without the tool loop.",
       );
     }
     return {
