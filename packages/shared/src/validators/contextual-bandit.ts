@@ -54,6 +54,7 @@ export const contextualBanditValidator = baseSchema
 
     variations: z.array(variation),
 
+    // @teresayung remove datasourceId here and in a few other places
     /** @deprecated Prefer `datasource`; both fields hold the same value. */
     datasourceId: z.string(),
     datasource: z.string(),
@@ -203,17 +204,21 @@ export const apiListContextualBanditsValidator = {
 export const apiCreateContextualBanditBody = z.strictObject({
   name: z.string(),
   description: z.string().optional(),
-  hypothesis: z.string().optional(),
   project: z.string().optional(),
   owner: ownerInputField.optional(),
   tags: z.array(z.string()).optional(),
-  customFields: z.record(z.string(), z.any()).optional(),
 
   trackingKey: z.string(),
   hashAttribute: z.string().optional(),
-  fallbackAttribute: z.string().optional(),
+
+  // @teresayung remove below fields, hash version is always 2 (do the same for the update payload as well)
   hashVersion: z.union([z.literal(1), z.literal(2)]).optional(),
   disableStickyBucketing: z.boolean().optional(),
+  fallbackAttribute: z.string().optional(),
+  hypothesis: z.string().optional(),
+  segment: z.string().optional(),
+  customFields: z.record(z.string(), z.any()).optional(),
+  goalMetrics: z.array(z.string()),
 
   variations: z.array(
     z.object({
@@ -225,11 +230,12 @@ export const apiCreateContextualBanditBody = z.strictObject({
 
   datasource: z.string(),
   contextualBanditQueryId: z.string(),
-  segment: z.string().optional(),
-  queryFilter: z.string().optional(),
-  goalMetrics: z.array(z.string()),
-  activationMetric: z.string().optional(),
+
+  // @lukesonnet can we remove the 3 below?
   skipPartialData: z.boolean().optional(),
+  activationMetric: z.string().optional(),
+  queryFilter: z.string().optional(),
+  // @lukesonnet are we doing cuped
   regressionAdjustmentEnabled: z.boolean().optional(),
 
   contextualAttributes: z.array(z.string()),

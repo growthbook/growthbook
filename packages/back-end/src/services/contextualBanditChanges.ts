@@ -70,6 +70,7 @@ export async function executeContextualBanditStart(
   updated: ContextualBanditInterface;
   publishResult: PendingDraftPublishResult;
 }> {
+  // @lukesonnet QA pending draft publication
   const publishResult = await publishPendingFeatureDraftsForContextualBandit(
     context,
     cb,

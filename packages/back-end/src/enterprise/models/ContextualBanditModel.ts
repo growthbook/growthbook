@@ -98,17 +98,9 @@ const BaseClass = MakeModelClass({
       defineCustomApiHandler({
         ...refreshContextualBanditEndpoint,
         reqHandler: async (req) => {
-          // Cast required: tsc fails to resolve `models.contextualBandits` at this nesting depth.
-          const cbModel = (
-            req.context.models as unknown as {
-              contextualBandits: {
-                getById: (
-                  id: string,
-                ) => Promise<ContextualBanditInterface | null>;
-              };
-            }
-          ).contextualBandits;
-          const cb = await cbModel.getById(req.params.id);
+          const cb = await req.context.models.contextualBandits.getById(
+            req.params.id,
+          );
           if (!cb) {
             return req.context.throwNotFoundError();
           }

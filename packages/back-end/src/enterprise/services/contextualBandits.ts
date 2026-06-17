@@ -93,7 +93,7 @@ export async function getContextualBanditResultsForUi(
 export async function runContextualBanditSnapshot(
   context: ApiReqContext,
   cb: ContextualBanditInterface,
-  opts: { triggeredBy: "manual" | "scheduled"; triggeredByUser?: string },
+  opts: { triggeredBy: "manual" | "scheduled" },
 ): Promise<{ snapshotId: string; cbeId?: string }> {
   // Defense-in-depth: re-check licensing so background jobs / internal callers can't bypass.
   if (!context.hasPremiumFeature("contextual-bandits")) {

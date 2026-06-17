@@ -51,6 +51,7 @@ import Checkbox from "@/ui/Checkbox";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
 
+// @teresayung make new ContextualBanditRefNewFields component
 export default function BanditRefNewFields({
   step,
   source,
