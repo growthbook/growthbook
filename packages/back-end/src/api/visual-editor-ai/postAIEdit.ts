@@ -135,6 +135,9 @@ const validation = {
   method: "post" as const,
   path: "/visual-editor/ai/edit",
   operationId: "postVisualEditorAIEdit",
+  // Internal Visual Editor extension endpoint — not part of the
+  // public OpenAPI spec.
+  excludeFromSpec: true,
 };
 
 // OpenAI strict JSON mode rejects `.optional()` — every property must be
