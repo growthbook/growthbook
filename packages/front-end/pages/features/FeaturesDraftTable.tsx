@@ -21,7 +21,7 @@ import {
 import {
   draftStatusDotColor,
   revisionStatusLabel,
-} from "@/components/Features/RevisionStatusBadge";
+} from "@/components/Reviews/RevisionStatusBadge";
 import Text from "@/ui/Text";
 import Table, {
   TableHeader,

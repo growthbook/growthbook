@@ -26,7 +26,7 @@ import cloneDeep from "lodash/cloneDeep";
 import {
   featureHasEnvironment,
   generateVariationId,
-  getMatchingRules,
+  getNewDraftExperimentsToPublish,
   getRulesForEnvironment,
   validateAndFixCondition,
   validateFeatureValue,
@@ -1094,45 +1094,6 @@ export function getDefaultRuleValue({
   throw new Error("Unknown Rule Type: " + ruleType);
 }
 
-export function getUnreachableRuleIndex(
-  rules: FeatureRule[],
-  experimentsMap: Map<string, ExperimentInterfaceStringDates>,
-) {
-  for (let i = 0; i < rules.length; i++) {
-    const rule = rules[i];
-
-    // Skip over inactive rules
-    if (isRuleInactive(rule, experimentsMap)) continue;
-
-    // Skip rules that are conditional based on a schedule
-    const upcomingScheduleRule = getUpcomingScheduleRule(rule);
-    if (upcomingScheduleRule && upcomingScheduleRule.timestamp) {
-      continue;
-    }
-
-    // Skip rules with targeting conditions
-    if (rule.condition && rule.condition !== "{}") {
-      continue;
-    }
-    if (rule.savedGroups?.length) {
-      continue;
-    }
-    if (rule.prerequisites?.length) {
-      continue;
-    }
-
-    // Only force rules and 100%-coverage rollouts consume all traffic
-    const isFullCoverage =
-      rule.type === "force" || (rule.type === "rollout" && rule.coverage >= 1);
-    if (!isFullCoverage) continue;
-
-    return i + 1;
-  }
-
-  // No unreachable rules
-  return 0;
-}
-
 export function jsonToConds(
   json: string,
   attributes?: Map<string, AttributeData>,
@@ -1719,64 +1680,6 @@ export function genDuplicatedKey({ id }: FeatureInterface) {
     // we failed, let the user name the key
     return "";
   }
-}
-
-export function getNewDraftExperimentsToPublish({
-  environments,
-  feature,
-  revision,
-  experimentsMap,
-}: {
-  feature: FeatureInterface;
-  revision: FeatureRevisionInterface;
-  environments: Environment[];
-  experimentsMap: Map<string, ExperimentInterfaceStringDates>;
-}) {
-  const environmentIds = environments.map((e) => e.id);
-
-  const liveExperimentIds = new Set(
-    getMatchingRules(
-      feature,
-      (rule) => rule.type === "experiment-ref",
-      environmentIds,
-    ).map((result) => (result.rule as ExperimentRefRule).experimentId),
-  );
-
-  function isExp(
-    exp: ExperimentInterfaceStringDates | undefined,
-  ): exp is ExperimentInterfaceStringDates {
-    return !!exp;
-  }
-
-  const draftExperiments = getMatchingRules(
-    feature,
-    (rule) => {
-      if (rule.enabled === false) return false;
-      if (rule.type !== "experiment-ref") return false;
-
-      const exp = experimentsMap.get(rule.experimentId);
-      if (!exp) return false;
-
-      // Skip experiment rules that are already live
-      if (liveExperimentIds.has(rule.experimentId)) return false;
-
-      if (exp.status !== "draft") return false;
-      if (exp.archived) return false;
-
-      // Skip experiments with visual changesets. Those need to be started from the experiment page
-      if (exp.hasVisualChangesets) return false;
-
-      return true;
-    },
-    environmentIds,
-    revision,
-  )
-    .map((result) =>
-      experimentsMap.get((result.rule as ExperimentRefRule).experimentId),
-    )
-    .filter(isExp);
-
-  return [...new Set(draftExperiments)];
 }
 
 // Returns experiments whose draft rules would go live when this revision is published.

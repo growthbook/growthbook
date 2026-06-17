@@ -3,8 +3,8 @@ import { cloneDeep } from "lodash";
 import { freeEmailDomains } from "free-email-domains-typescript";
 import {
   experimentHasLinkedChanges,
-  getRulesForEnvironment,
   getNamespaceRanges,
+  getRulesForEnvironment,
   parseIntWithDefaultCapped,
 } from "shared/util";
 import {
@@ -55,10 +55,7 @@ import {
   revokeInvite,
   setLicenseKey,
 } from "back-end/src/services/organizations";
-import {
-  getNonSensitiveParams,
-  getSourceIntegrationObject,
-} from "back-end/src/services/datasource";
+import { getDataSourcesWithParams } from "back-end/src/services/datasourceResponse";
 import { updatePassword } from "back-end/src/services/users";
 import { getAllTags } from "back-end/src/models/TagModel";
 import {
@@ -151,6 +148,7 @@ import {
 } from "back-end/src/enterprise";
 import { getUsageFromCache } from "back-end/src/enterprise/billing";
 import { logger } from "back-end/src/util/logger";
+import { validatePriorSettings } from "back-end/src/util/priors";
 import {
   getInstallation,
   setInstallationName,
@@ -196,22 +194,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
   return res.status(200).json({
     status: 200,
     metrics,
-    datasources: datasources.map((d) => {
-      const integration = getSourceIntegrationObject(context, d);
-      return {
-        id: d.id,
-        name: d.name,
-        description: d.description,
-        type: d.type,
-        settings: d.settings,
-        params: getNonSensitiveParams(integration),
-        projects: d.projects || [],
-        properties: integration.getSourceProperties(),
-        decryptionError: integration.decryptionError || false,
-        dateCreated: d.dateCreated,
-        dateUpdated: d.dateUpdated,
-      };
-    }),
+    datasources: await getDataSourcesWithParams(context, datasources),
     dimensions,
     segments,
     metricGroups,
@@ -1698,6 +1681,8 @@ export async function putOrganization(
       orig.licenseKey = org.licenseKey;
       await setLicenseKey(org, updates.licenseKey);
     }
+
+    validatePriorSettings(updates.settings?.metricDefaults?.priorSettings);
 
     await updateOrganization(org.id, updates);
 

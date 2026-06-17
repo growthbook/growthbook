@@ -151,6 +151,7 @@ import {
   addOrUpdateSnapshotAnalysis,
   addOrUpdateSnapshotMultipleAnalysis,
   createExperimentSnapshotModel,
+  findSnapshotById,
   getLatestSnapshotMultipleExperiments,
   updateSnapshot,
   updateSnapshotAnalysis,
@@ -1648,6 +1649,26 @@ export async function planSnapshot({
     fullRefreshReason,
     triggeredBy,
   });
+
+  if (runnerPlan.runnerKind === "incremental-exploratory") {
+    // The snapshot whose run materialized the tables this breakdown reads is
+    // the source of its freshness date. Absent for legacy docs that predate the
+    // field; the UI falls back to the breakdown's own dateCreated in that case.
+    const materializedBySnapshotId =
+      incrementalRefreshModel?.materializedBySnapshotId;
+    const sourceSnapshot = materializedBySnapshotId
+      ? await findSnapshotById(context, materializedBySnapshotId)
+      : null;
+    if (sourceSnapshot) {
+      data.sourceSnapshotId = sourceSnapshot.id;
+      data.sourceSnapshotDateCreated = sourceSnapshot.dateCreated;
+    } else if (materializedBySnapshotId) {
+      logger.error(
+        { experimentId: experiment.id, phaseIndex, materializedBySnapshotId },
+        "Source snapshot for exploratory dimension breakdown not found",
+      );
+    }
+  }
 
   return {
     snapshot: data,

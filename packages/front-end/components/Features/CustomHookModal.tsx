@@ -56,10 +56,29 @@ const dummyRevision: FeatureRevisionInterface = {
     email: "user@example.com",
   },
   defaultValue: "false",
-  status: "draft",
+  status: "approved",
   rules: [],
   datePublished: null,
   publishedBy: null,
+  reviews: [
+    {
+      userId: "user_456",
+      user: {
+        type: "dashboard",
+        id: "user_456",
+        name: "Reviewer",
+        email: "reviewer@example.com",
+      },
+      status: "approved",
+      timestamp: new Date(),
+    },
+    {
+      userId: "key_abc123",
+      user: { type: "api_key", apiKey: "key_abc123" },
+      status: "approved",
+      timestamp: new Date(),
+    },
+  ],
 };
 
 export const hookTypes: Record<

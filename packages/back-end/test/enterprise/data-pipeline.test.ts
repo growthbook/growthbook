@@ -150,6 +150,40 @@ describe("assertIncrementalRefreshPrerequisites experimentSettingsHash", () => {
     ).rejects.toThrow(IncrementalUpdateRequiresFullRefreshError);
   });
 
+  it("skips hash validation on exploratory even when the stored hash differs", async () => {
+    await expect(
+      assertIncrementalRefreshPrerequisites({
+        org,
+        integration,
+        snapshotSettings: makeSnapshotSettings({ segment: "seg_changed" }),
+        metricMap,
+        experiment,
+        incrementalRefreshModel: makeIncrementalRefreshModel({
+          experimentSettingsHash: "stale_hash",
+        }),
+        analysisType: "exploratory",
+      }),
+    ).resolves.toBeUndefined();
+  });
+
+  it("allows exploratory when the stored hash matches", async () => {
+    const snapshotSettings = makeSnapshotSettings();
+    await expect(
+      assertIncrementalRefreshPrerequisites({
+        org,
+        integration,
+        snapshotSettings,
+        metricMap,
+        experiment,
+        incrementalRefreshModel: makeIncrementalRefreshModel({
+          experimentSettingsHash:
+            getExperimentSettingsHashForIncrementalRefresh(snapshotSettings),
+        }),
+        analysisType: "exploratory",
+      }),
+    ).resolves.toBeUndefined();
+  });
+
   it("skips hash validation on main-fullRefresh even when hash is null", async () => {
     await expect(
       assertIncrementalRefreshPrerequisites({

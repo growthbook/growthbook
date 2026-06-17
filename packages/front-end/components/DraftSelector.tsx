@@ -27,6 +27,9 @@ export default function DraftSelector({
   revisionDropdown,
   metadataOnly = false,
   singleOption = false,
+  newDraftDisabled = false,
+  newDraftDisabledReason,
+  recommendExisting = false,
 }: {
   hasActiveDrafts: boolean;
   mode: DraftMode;
@@ -52,6 +55,12 @@ export default function DraftSelector({
    *  are suppressed entirely. The caller is responsible for ensuring `mode` is
    *  already set to the correct value. */
   singleOption?: boolean;
+  /** Disable the "create a new draft" option — e.g. the org's soft draft cap is
+   *  reached and the caller may not exceed it. */
+  newDraftDisabled?: boolean;
+  newDraftDisabledReason?: ReactNode;
+  /** Flag "add to existing draft" as the recommended choice (soft cap reached). */
+  recommendExisting?: boolean;
 }) {
   const [isOpen, setIsOpen] = useState(defaultExpanded ?? false);
 
@@ -108,13 +117,25 @@ export default function DraftSelector({
       ? [
           {
             value: "existing",
-            label: existingOptionLabel,
+            label: recommendExisting ? (
+              <>
+                {existingOptionLabel}{" "}
+                <span style={{ color: "var(--violet-11)" }}>(Recommended)</span>
+              </>
+            ) : (
+              existingOptionLabel
+            ),
             renderOnSelect: existingDraftDisclosure ?? undefined,
             renderOutsideItem: true,
           },
         ]
       : []),
-    { value: "new", label: newOptionLabel },
+    {
+      value: "new",
+      label: newOptionLabel,
+      disabled: newDraftDisabled,
+      disabledReason: newDraftDisabled ? newDraftDisabledReason : undefined,
+    },
     ...(canAutoPublish
       ? [
           {

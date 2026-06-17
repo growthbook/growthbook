@@ -1,8 +1,10 @@
+import { getValidDate } from "shared/dates";
 import type {
   DataSourceType,
   DataSourcePipelineMode,
   DataSourcePipelineSettings,
 } from "shared/types/datasource";
+import type { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import type { PipelineIntegration } from "shared/types/integrations";
 
 /**
@@ -168,4 +170,51 @@ export function prestoCreateTablePartitions(columns: string[]) {
     format = 'ORC',
     partitioned_by = ARRAY[${columns.map((column) => `'${column}'`).join(", ")}]
   )`;
+}
+
+/**
+ * A reference to the upstream overall (dimensionless) results snapshot a
+ * dimension breakdown was computed from, under Incremental Pipeline mode. A
+ * subset of the snapshot's own fields so the UI can render without fetching the
+ * full snapshot.
+ */
+export type SourceSnapshotRef = Pick<
+  ExperimentSnapshotInterface,
+  "id" | "dateCreated"
+>;
+
+/**
+ * The upstream source reference for a snapshot, or undefined when the snapshot
+ * was queried directly or never persisted its basis (legacy data before we added it).
+ */
+export function getExperimentSourceSnapshotRef(
+  snapshot?: Pick<
+    ExperimentSnapshotInterface,
+    "sourceSnapshotId" | "sourceSnapshotDateCreated"
+  >,
+): SourceSnapshotRef | undefined {
+  if (!snapshot?.sourceSnapshotId || !snapshot.sourceSnapshotDateCreated) {
+    return undefined;
+  }
+
+  return {
+    id: snapshot.sourceSnapshotId,
+    dateCreated: getValidDate(snapshot.sourceSnapshotDateCreated),
+  };
+}
+
+export function isNewerOverallResultsDataAvailable(
+  sourceSnapshot: SourceSnapshotRef | undefined,
+  latestSuccessfulOverallResultsSnapshot:
+    | Pick<ExperimentSnapshotInterface, "dateCreated">
+    | undefined,
+): boolean {
+  if (!sourceSnapshot || !latestSuccessfulOverallResultsSnapshot) {
+    return false;
+  }
+
+  return (
+    getValidDate(latestSuccessfulOverallResultsSnapshot.dateCreated).getTime() >
+    getValidDate(sourceSnapshot.dateCreated).getTime()
+  );
 }

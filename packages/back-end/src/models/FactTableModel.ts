@@ -301,10 +301,13 @@ export async function updateFactTable(
   factTable: FactTableInterface,
   changes: UpdateFactTableProps,
 ) {
-  // Allow changing columns even for API-managed fact tables
+  // Allow changing columns even for API-managed fact tables. Also allow
+  // system/background contexts (which have no audit user) through, e.g. the
+  // event forwarder sync.
   if (
     factTable.managedBy === "api" &&
     context.auditUser?.type !== "api_key" &&
+    context.auditUser !== null &&
     Object.keys(changes).some((k) => k !== "columns")
   ) {
     throw new Error(
