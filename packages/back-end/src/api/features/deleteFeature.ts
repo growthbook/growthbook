@@ -1,8 +1,4 @@
-import {
-  filterEnvironmentsByFeature,
-  PermissionError,
-  stringToBoolean,
-} from "shared/util";
+import { filterEnvironmentsByFeature, PermissionError } from "shared/util";
 import { deleteFeatureValidator } from "shared/validators";
 import type { ApiRequestLocals } from "back-end/types/api";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -11,19 +7,11 @@ import { auditDetailsDelete } from "back-end/src/services/audit";
 import { getEnvironments } from "back-end/src/util/organization.util";
 import { getEnabledEnvironments } from "back-end/src/util/features";
 import { canUseRestApiBypassSetting } from "./reviewBypass";
-import {
-  buildDependentsError,
-  computeFeatureDependents,
-  hasDependents,
-} from "./dependents";
 
 // Single handler shared by v1 and v2: identical semantics, identical response
 // shape (`{ deletedId }`). Only the deprecation marker on the route spec differs.
 export async function deleteFeatureHandler(
-  req: ApiRequestLocals & {
-    params: { id: string };
-    query: { bypassDependentsCheck?: string | boolean };
-  },
+  req: ApiRequestLocals & { params: { id: string } },
 ) {
   const feature = await getFeature(req.context, req.params.id);
 
@@ -59,20 +47,6 @@ export async function deleteFeatureHandler(
         "Cannot delete a live feature via the REST API when 'REST API always bypasses approval requirements' is disabled. " +
           "Archive the feature first, or enable the bypass setting in organization settings.",
       );
-    }
-  }
-
-  // Block deletion while other features/experiments still reference this
-  // feature as a prerequisite — matches the internal UI's delete modal.
-  // `bypassDependentsCheck=true` overrides for callers that intend to clean
-  // up the references afterwards.
-  const bypassDependentsCheck = stringToBoolean(
-    req.query.bypassDependentsCheck?.toString(),
-  );
-  if (!bypassDependentsCheck) {
-    const dependents = await computeFeatureDependents(req.context, feature);
-    if (hasDependents(dependents)) {
-      throw buildDependentsError("delete", dependents);
     }
   }
 

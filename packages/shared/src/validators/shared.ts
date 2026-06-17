@@ -113,19 +113,3 @@ export const skipPaginationQueryField = {
     })
     .optional(),
 };
-
-/**
- * Generic non-blocking warning attached to mutation responses. The operation
- * succeeded; the warning flags a side effect the caller should be aware of.
- */
-export const apiWarningValidator = namedSchema(
-  "Warning",
-  z
-    .object({
-      type: z.string().describe("Machine-readable warning type"),
-      message: z.string().describe("Human-readable warning message"),
-    })
-    .strict(),
-);
-
-export type ApiWarning = z.infer<typeof apiWarningValidator>;

@@ -63,7 +63,6 @@ import {
   apiFeatureRevisionV2Validator,
   ApiFeatureWithRevisionsV2,
   ApiFeatureEnvironmentV2,
-  ApiFeatureDependents,
 } from "shared/validators";
 import {
   AttributeMap,
@@ -1948,7 +1947,6 @@ export function getApiFeatureObjV2({
   revisions,
   safeRolloutMap,
   rampScheduleMap,
-  dependents,
 }: {
   feature: FeatureInterface;
   organization: OrganizationInterface;
@@ -1958,7 +1956,6 @@ export function getApiFeatureObjV2({
   revisions?: FeatureRevisionInterface[];
   safeRolloutMap: Map<string, SafeRolloutInterface>;
   rampScheduleMap?: Map<string, string>;
-  dependents?: ApiFeatureDependents;
 }): ApiFeatureWithRevisionsV2 {
   const defaultValue = feature.defaultValue;
   const featureEnvironments: Record<string, ApiFeatureEnvironmentV2> = {};
@@ -2027,7 +2024,6 @@ export function getApiFeatureObjV2({
     revisions: revisionDefs,
     customFields: feature.customFields ?? {},
     ...(feature.holdout != null ? { holdout: feature.holdout } : {}),
-    ...(dependents ? { dependents } : {}),
   };
 }
 
@@ -2039,7 +2035,6 @@ export function getApiFeatureObj({
   revision,
   revisions,
   safeRolloutMap,
-  dependents,
 }: {
   feature: FeatureInterface;
   organization: OrganizationInterface;
@@ -2048,7 +2043,6 @@ export function getApiFeatureObj({
   revision: FeatureRevisionInterface | null;
   revisions?: FeatureRevisionInterface[];
   safeRolloutMap: Map<string, SafeRolloutInterface>;
-  dependents?: ApiFeatureDependents;
 }): ApiFeatureWithRevisions {
   const defaultValue = feature.defaultValue;
   const featureEnvironments: Record<string, ApiFeatureEnvironment> = {};
@@ -2231,7 +2225,6 @@ export function getApiFeatureObj({
     revisions: revisionDefs,
     customFields: feature.customFields ?? {},
     ...(feature.holdout != null ? { holdout: feature.holdout } : {}),
-    ...(dependents ? { dependents } : {}),
   };
 
   return featureRecord;

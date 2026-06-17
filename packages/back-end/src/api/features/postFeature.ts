@@ -28,7 +28,6 @@ import {
   assertValidProjectId,
   validateEnvRulesScheduleRules,
 } from "./v2Shared";
-import { computeFeatureDependents } from "./dependents";
 
 export type ApiFeatureEnvSettings = NonNullable<
   z.infer<typeof postFeatureValidator.bodySchema>["environments"]
@@ -189,9 +188,6 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
     feature,
     version: feature.version,
   });
-  // A re-created feature can already have dependents if other features or
-  // experiments still reference its id as a prerequisite.
-  const dependents = await computeFeatureDependents(req.context, feature);
   return {
     feature: await resolveOwnerEmail(
       getApiFeatureObj({
@@ -201,7 +197,6 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
         experimentMap,
         revision,
         safeRolloutMap,
-        dependents,
       }),
       req.context,
     ),
