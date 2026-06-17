@@ -88,7 +88,7 @@ class PythonStatsServer<Input, Output> {
 
     if (this.python.stdout) {
       readline
-        .createInterface({ input: this.python.stdout })
+        .createInterface({ input: this.python.stdout, crlfDelay: Infinity })
         .on("line", (line) => {
           const output = line.trim();
           if (!output) return;
