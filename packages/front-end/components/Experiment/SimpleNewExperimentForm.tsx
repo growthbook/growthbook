@@ -45,9 +45,8 @@ export type SimpleNewExperimentFormProps = {
   onSwitchToLegacy?: () => void;
 };
 
-// Resolve a datasource only when the choice is unambiguous: a template-provided
-// one, an org default that's valid for the project, or the only datasource
-// available to the project (never the sample/demo datasource).
+// Auto-select a datasource only when the choice is unambiguous, and never the
+// sample/demo datasource.
 function getAutoDatasourceId({
   datasources,
   demoDataSourceId,
@@ -61,13 +60,19 @@ function getAutoDatasourceId({
   project: string;
   templateDatasource?: string;
 }): string {
-  if (templateDatasource) return templateDatasource;
-
   const validDatasources = datasources.filter(
     (d) =>
       d.id !== demoDataSourceId &&
       isProjectListValidForProject(d.projects, project),
   );
+
+  if (templateDatasource) {
+    const templateDatasourceIsValid = validDatasources.some(
+      (d) => d.id === templateDatasource,
+    );
+    if (templateDatasourceIsValid) return templateDatasource;
+  }
+
   const defaultDatasource =
     defaultDataSource &&
     validDatasources.find((d) => d.id === defaultDataSource);
@@ -76,9 +81,7 @@ function getAutoDatasourceId({
   return "";
 }
 
-// Resolve an experiment assignment query only when the choice is unambiguous:
-// a template-provided one, the only query in the datasource, or the only query
-// linked to the selected hash attribute's identifier type(s).
+// Auto-select an experiment assignment query only when the choice is unambiguous.
 function getAutoExposureQueryId({
   dsSettings,
   hashAttribute,
@@ -88,9 +91,15 @@ function getAutoExposureQueryId({
   hashAttribute: string;
   templateExposureQueryId?: string;
 }): string {
-  if (templateExposureQueryId) return templateExposureQueryId;
-
   const exposureQueries = dsSettings?.queries?.exposure || [];
+
+  if (templateExposureQueryId) {
+    const templateExposureQueryIsValid = exposureQueries.some(
+      (q) => q.id === templateExposureQueryId,
+    );
+    if (templateExposureQueryIsValid) return templateExposureQueryId;
+  }
+
   if (exposureQueries.length === 1) return exposureQueries[0].id;
   if (exposureQueries.length > 1) {
     // A hash attribute can be linked to multiple identifier types, each with
@@ -135,7 +144,6 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
 
   const initialProject = ctxProject || "";
 
-  // Compute the initial hash attribute default from the active project's schema
   const initialAttributeSchema = useAttributeSchema(false, initialProject);
   const initialHashAttributes = initialAttributeSchema
     .filter((a) => a.hashAttribute)
@@ -218,7 +226,6 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
     }
   }, [selectedProject]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // If a holdout is selected, force the hash attribute to match the holdout's
   const holdoutId = form.watch("holdoutId");
   const holdoutExperimentId = holdoutId
     ? holdoutsMap.get(holdoutId)?.experimentId
@@ -232,9 +239,6 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
     }
   }, [holdoutId, holdoutHashAttribute]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Suggest linking the hash attribute to an identifier type when we'd auto-pick
-  // a datasource the user can edit, but no assignment query can be auto-selected
-  // because the hash attribute isn't linked to any identifier type there.
   const watchedHashAttribute = form.watch("hashAttribute") || "id";
   const watchedTemplateId = form.watch("templateId");
   const watchedTemplate = watchedTemplateId
@@ -277,8 +281,6 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
       throw new Error("You must select a template");
     }
 
-    // Seed the experiment with sensible defaults so the overview page renders
-    // properly; stakeholders fill in datasource/metrics/targeting later.
     let data: Partial<ExperimentInterfaceStringDates>;
     const template = rawValue.templateId
       ? templatesMap.get(rawValue.templateId)
@@ -287,7 +289,7 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
     if (template) {
       const templateAsExperiment = convertTemplateToExperiment(template);
       // skipPartialData is stored as a boolean on templates but the experiment
-      // expects a "strict" | "loose" enum (mirrors NewExperimentForm).
+      // expects a "strict" | "loose" enum
       if (templateAsExperiment.skipPartialData === true) {
         // @ts-expect-error Mangled types
         templateAsExperiment.skipPartialData = "strict";
@@ -336,7 +338,6 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
       templateExposureQueryId: data.exposureQueryId || "",
     });
 
-    // Overlay the simple-flow fields
     data = {
       ...data,
       type: "standard",
