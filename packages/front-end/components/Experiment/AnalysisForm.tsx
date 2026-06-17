@@ -101,7 +101,7 @@ const AnalysisForm: FC<{
   const hasOverrideMetricsFeature = hasCommercialFeature("override-metrics");
   const [upgradeModal, setUpgradeModal] = useState(false);
   const [editingDataSource, setEditingDataSource] = useState(
-    !experiment.datasource,
+    !experiment.datasource || !experiment.exposureQueryId,
   );
 
   const pid = experiment?.project;
@@ -690,8 +690,9 @@ const AnalysisForm: FC<{
                   });
                 }}
                 required
+                sort={false}
                 disabled={isBandit && experiment.status !== "draft"}
-                initialOption="Choose..."
+                placeholder="Choose..."
                 options={groupedExposureQueries}
                 formatOptionLabel={({ label, value }) => {
                   const userIdType = exposureQueries?.find(

@@ -27,6 +27,11 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useTemplates } from "@/hooks/useTemplates";
 import { useHoldouts } from "@/hooks/useHoldouts";
+import {
+  filterCustomFieldsForSectionAndProject,
+  useCustomFields,
+} from "@/hooks/useCustomFields";
+import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
 import { getDefaultVariations } from "@/components/Experiment/NewExperimentForm";
 
 export type SimpleNewExperimentFormProps = {
@@ -42,7 +47,12 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
 }) => {
   const router = useRouter();
   const { apiCall } = useAuth();
-  const { project: ctxProject, projects } = useDefinitions();
+  const {
+    project: ctxProject,
+    projects,
+    datasources,
+    getDatasourceById,
+  } = useDefinitions();
   const { hasCommercialFeature } = useUser();
   const settings = useOrgSettings();
   const permissionsUtil = usePermissionsUtil();
@@ -73,6 +83,7 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
       hashAttribute: initialHashAttribute,
       templateId: "",
       holdoutId: undefined,
+      customFields: undefined,
     },
   });
 
@@ -87,6 +98,12 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
   const defaultHashAttribute = hashAttributes.includes("id")
     ? "id"
     : hashAttributes[0] || "id";
+
+  const customFields = filterCustomFieldsForSectionAndProject(
+    useCustomFields(),
+    "experiment",
+    selectedProject,
+  );
 
   const availableProjects = projects
     .slice()
@@ -196,17 +213,67 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
       };
     }
 
+    const project = rawValue.project || "";
+    const hashAttribute = rawValue.hashAttribute || "id";
+
+    // Auto-select a datasource when the choice is unambiguous: an org default
+    // that's valid for this project, or the only datasource available to the
+    // project. A template may already specify one — don't override it.
+    let datasource = data.datasource || "";
+    if (!datasource) {
+      const validDatasources = datasources.filter((d) =>
+        isProjectListValidForProject(d.projects, project),
+      );
+      const defaultDatasource =
+        settings.defaultDataSource &&
+        validDatasources.find((d) => d.id === settings.defaultDataSource);
+      if (defaultDatasource) {
+        datasource = defaultDatasource.id;
+      } else if (validDatasources.length === 1) {
+        datasource = validDatasources[0].id;
+      }
+    }
+
+    // Auto-select the experiment assignment query when the choice is
+    // unambiguous: only one query exists in the datasource, or only one query
+    // is linked to the selected hash attribute's identifier type.
+    let exposureQueryId = data.exposureQueryId || "";
+    if (datasource && !exposureQueryId) {
+      const dsSettings = getDatasourceById(datasource)?.settings;
+      const exposureQueries = dsSettings?.queries?.exposure || [];
+      if (exposureQueries.length === 1) {
+        exposureQueryId = exposureQueries[0].id;
+      } else if (exposureQueries.length > 1) {
+        // A hash attribute can be linked to multiple identifier types, each
+        // with its own assignment query. Only auto-select when exactly one
+        // query is linked across all matching identifier types.
+        const linkedUserIdTypes =
+          dsSettings?.userIdTypes
+            ?.filter((t) => t.attributes?.includes(hashAttribute))
+            .map((t) => t.userIdType) || [];
+        const matchingQueries = exposureQueries.filter((q) =>
+          linkedUserIdTypes.includes(q.userIdType),
+        );
+        if (matchingQueries.length === 1) {
+          exposureQueryId = matchingQueries[0].id;
+        }
+      }
+    }
+
     // Overlay the simple-flow fields
     data = {
       ...data,
       type: "standard",
       status: "draft",
-      project: rawValue.project || "",
+      project,
       name,
       hypothesis: rawValue.hypothesis || "",
-      hashAttribute: rawValue.hashAttribute || "id",
+      hashAttribute,
+      datasource,
+      exposureQueryId,
       templateId: rawValue.templateId || "",
       holdoutId: rawValue.holdoutId || undefined,
+      customFields: rawValue.customFields,
       // Leave trackingKey empty — the back-end derives a unique key from the name
       trackingKey: "",
     };
@@ -273,48 +340,6 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
         {...form.register("name")}
       />
 
-      {availableTemplates.length >= 1 && (
-        <SelectField
-          label={
-            <PremiumTooltip commercialFeature="templates">
-              Template
-            </PremiumTooltip>
-          }
-          value={form.watch("templateId") ?? ""}
-          onChange={(t) => {
-            form.setValue("templateId", t);
-            if (!t) {
-              // Clearing the template — restore form defaults
-              form.setValue("hypothesis", "");
-              form.setValue("hashAttribute", defaultHashAttribute);
-              return;
-            }
-            const template = templatesMap.get(t);
-            if (!template) return;
-            const templateAsExperiment = convertTemplateToExperiment(template);
-            if (templateAsExperiment.hypothesis) {
-              form.setValue("hypothesis", templateAsExperiment.hypothesis);
-            }
-            if (templateAsExperiment.hashAttribute) {
-              form.setValue(
-                "hashAttribute",
-                templateAsExperiment.hashAttribute,
-              );
-            }
-          }}
-          name="template"
-          initialOption="None"
-          options={availableTemplates}
-          helpText={
-            templateRequired
-              ? "Your organization requires experiments to be created from a template"
-              : undefined
-          }
-          disabled={!hasCommercialFeature("templates")}
-          required={templateRequired}
-        />
-      )}
-
       {projects.length >= 1 && (
         <SelectField
           label="Project"
@@ -330,6 +355,50 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
         <Callout status="error" mb="3">
           You don&apos;t have permission to create experiments in this project.
         </Callout>
+      )}
+
+      {hasCommercialFeature("templates") && availableTemplates.length >= 1 && (
+        <SelectField
+          label={
+            <PremiumTooltip commercialFeature="templates">
+              Template
+            </PremiumTooltip>
+          }
+          value={form.watch("templateId") ?? ""}
+          onChange={(t) => {
+            form.setValue("templateId", t);
+            if (!t) {
+              // Clearing the template — restore form defaults
+              form.setValue("hypothesis", "");
+              form.setValue("hashAttribute", defaultHashAttribute);
+              form.setValue("customFields", undefined);
+              return;
+            }
+            const template = templatesMap.get(t);
+            if (!template) return;
+            const templateAsExperiment = convertTemplateToExperiment(template);
+            if (templateAsExperiment.hypothesis) {
+              form.setValue("hypothesis", templateAsExperiment.hypothesis);
+            }
+            if (templateAsExperiment.hashAttribute) {
+              form.setValue(
+                "hashAttribute",
+                templateAsExperiment.hashAttribute,
+              );
+            }
+            form.setValue("customFields", templateAsExperiment.customFields);
+          }}
+          name="template"
+          initialOption="None"
+          options={availableTemplates}
+          helpText={
+            templateRequired
+              ? "Your organization requires experiments to be created from a template"
+              : undefined
+          }
+          disabled={!hasCommercialFeature("templates")}
+          required={templateRequired}
+        />
       )}
 
       <HoldoutSelect
@@ -378,6 +447,18 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
             attribute of the holdout this experiment will belong to.
           </HelperText>
         )}
+
+      {hasCommercialFeature("custom-metadata") && !!customFields?.length && (
+        <CustomFieldInput
+          customFields={customFields}
+          currentCustomFields={form.watch("customFields") || {}}
+          setCustomFields={(value) => {
+            form.setValue("customFields", value);
+          }}
+          section={"experiment"}
+          project={selectedProject}
+        />
+      )}
     </ModalStandard>
   );
 };

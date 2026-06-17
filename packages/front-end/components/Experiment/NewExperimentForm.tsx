@@ -862,7 +862,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 datasource project is deleted.
               </div>
             )}
-            {availableTemplates.length >= 1 &&
+            {hasCommercialFeature("templates") &&
+              availableTemplates.length >= 1 &&
               !isBandit &&
               !isImport &&
               !duplicate && (
