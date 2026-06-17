@@ -101,11 +101,9 @@ export function getBlockAnalysisSettings(
   defaultAnalysisSettings: ExperimentSnapshotAnalysisSettings,
 ): ExperimentSnapshotAnalysisSettings {
   const blockSettings: Partial<ExperimentSnapshotAnalysisSettings> = {};
-  if (
-    blockHasFieldOfType(block, "dimensionId", isString) &&
-    block.dimensionId.length > 0
-  ) {
-    blockSettings.dimensions = [block.dimensionId];
+  if (blockHasFieldOfType(block, "dimensionId", isString)) {
+    blockSettings.dimensions =
+      block.dimensionId.length > 0 ? [block.dimensionId] : [];
   }
   if (blockHasFieldOfType(block, "differenceType", isDifferenceType)) {
     blockSettings.differenceType = block.differenceType;
