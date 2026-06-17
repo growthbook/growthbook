@@ -123,12 +123,15 @@ export function isActiveSubscriptionStatus(
 // use getEffectiveAccountPlan() instead.
 export function getAccountPlan(org: MinimalOrganization): AccountPlan {
   if (stringToBoolean(process.env.IS_CLOUD)) {
+    // If the org has the enterprise flag, return enterprise
+    // Can remove this when all enterprise orgs are migrated to a license
+    if (org.enterprise) return "enterprise";
+
     if (org.licenseKey) {
       return getLicense(org.licenseKey)?.plan || "starter";
     }
     // Vercel starter orgs have the `restrictLoginMethod` set, but they're not pro_sso
     if (org.isVercelIntegration) return "starter";
-    if (org.enterprise) return "enterprise";
     if (org.restrictAuthSubPrefix || org.restrictLoginMethod) return "pro_sso";
     return "starter";
   }
@@ -332,6 +335,12 @@ export async function callLicenseServer({
     );
   }
 
+  if (
+    serverResult.status === 204 ||
+    serverResult.headers?.get("content-length") === "0"
+  ) {
+    return;
+  }
   return await serverResult.json();
 }
 
@@ -587,6 +596,56 @@ export async function postCancelSubscriptionToLicenseServer(licenseId: string) {
 
   verifyAndSetServerLicenseData(license);
   return license;
+}
+
+// currently - we only notify the license server of usage if the org has a licenseKey and isn't airgapped
+export function shouldNotifyLicenseServer(
+  licenseKey?: string,
+): licenseKey is string {
+  return !!licenseKey && !isAirGappedLicenseKey(licenseKey);
+}
+
+/**
+ * Notifies the license server of a billable product event, forwarded to Orb
+ * for usage-based billing.
+ *
+ * @param eventName         - Event name (must be on the license server's allowlist).
+ * @param uniqueId          - Natural identifier for the entity this event is about
+ *                            (e.g. an experiment ID). The license server namespaces
+ *                            it as `{org}:{eventName}:{uniqueId}` to form the Orb
+ *                            idempotency key — the same value is safe to reuse
+ *                            across different event types without collision.
+ * @param metadata          - Arbitrary key/value context forwarded to Orb as event
+ *                            properties. Separate from `uniqueId`: uniqueId drives
+ *                            deduplication, metadata is for filtering and attribution
+ *                            in billing analytics.
+ * @param timestampOverride - ISO 8601 event timestamp. Defaults to now. Pass this
+ *                            only when backdating historical events.
+ */
+export async function notifyLicenseServerEvent({
+  licenseKey,
+  eventName,
+  uniqueId,
+  metadata,
+  timestampOverride,
+}: {
+  licenseKey: string;
+  eventName: string;
+  uniqueId: string;
+  metadata: Record<string, unknown>;
+  timestampOverride?: string;
+}) {
+  const url = `${LICENSE_SERVER_URL}events/track`;
+  await callLicenseServer({
+    url,
+    body: JSON.stringify({
+      licenseKey,
+      eventName,
+      uniqueId,
+      metadata,
+      timestamp: timestampOverride ?? new Date().toISOString(),
+    }),
+  });
 }
 
 export async function postResendEmailVerificationEmailToLicenseServer(
@@ -957,6 +1016,10 @@ export function getEffectiveAccountPlan(org: MinimalOrganization): AccountPlan {
   let basicPlan: AccountPlan;
 
   if (stringToBoolean(process.env.IS_CLOUD)) {
+    // If the org has the enterprise flag, return enterprise
+    // Can remove this when all enterprise orgs are migrated to a license
+    if (org.enterprise) return "enterprise";
+
     if (!org.licenseKey) {
       return getAccountPlan(org);
     }
