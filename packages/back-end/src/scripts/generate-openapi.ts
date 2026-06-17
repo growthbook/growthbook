@@ -1,5 +1,6 @@
 import path from "path";
 import fs from "fs";
+import { execSync } from "child_process";
 import { z, ZodNever } from "zod";
 import yaml from "js-yaml";
 import {
@@ -8,6 +9,27 @@ import {
   ApiErrorCode,
 } from "shared/validators";
 import { allRoutes, apiModelTagMeta } from "back-end/src/api/api.router";
+import { getBuild } from "back-end/src/util/build";
+
+// Build identity stamped into the spec so a generated client can tell which
+// server build it was generated against (used for version-skew checks). The
+// orderable field is `date`. version comes from package.json; commit/date from
+// git (buildinfo files are usually absent when the spec is generated).
+function getServerBuild(): { version: string; commit: string; date: string } {
+  const build = getBuild();
+  let { sha: commit, date } = build;
+  if (!commit || !date) {
+    try {
+      commit =
+        commit || execSync("git rev-parse --short HEAD").toString().trim();
+      date =
+        date || execSync("git show -s --format=%cs HEAD").toString().trim();
+    } catch {
+      // git unavailable (e.g. tarball build) — leave whatever we have.
+    }
+  }
+  return { version: build.lastVersion, commit, date };
+}
 
 const openApiTags = [
   "projects",
@@ -378,6 +400,7 @@ type CodeSample = { lang: string; source: string };
 
 async function run() {
   // TODO: add security, etc.
+  const serverBuild = getServerBuild();
   const openapiSpec: {
     openapi: string;
     info: {
@@ -385,6 +408,7 @@ async function run() {
       title: string;
       description: string;
     };
+    "x-growthbook-build": { version: string; commit: string; date: string };
     servers: {
       url: string;
       description: string;
@@ -410,8 +434,9 @@ async function run() {
     };
   } = {
     openapi: "3.1.0",
+    "x-growthbook-build": serverBuild,
     info: {
-      version: "1.0.0",
+      version: serverBuild.version || "1.0.0",
       title: "GrowthBook REST API",
       description: `GrowthBook offers a full REST API for interacting with the application.
 
