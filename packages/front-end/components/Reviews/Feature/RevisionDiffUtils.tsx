@@ -28,6 +28,7 @@ import {
   RevisionLog,
 } from "shared/types/feature-revision";
 import { RampScheduleInterface, HoldoutInterface } from "shared/validators";
+import ExpandableContent from "@/ui/ExpandableContent";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
 import SplitButton from "@/ui/SplitButton";
@@ -173,65 +174,6 @@ export function DiffFormatToggle({
         {visible.map(segment)}
       </SplitButton>
     </Box>
-  );
-}
-
-// Height-capped wrapper with a fade-out and a "Show more"/"Show less" toggle
-// (same affordance as the Notes panel). Only collapses when the content
-// actually overflows; a ResizeObserver re-checks as content reflows.
-function CollapsedSection({
-  maxHeight,
-  children,
-}: {
-  maxHeight: number;
-  children: React.ReactNode;
-}) {
-  const [expanded, setExpanded] = useState(false);
-  const [overflowing, setOverflowing] = useState(false);
-  const contentRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const el = contentRef.current;
-    if (!el) return;
-    const check = () => setOverflowing(el.scrollHeight > maxHeight + 1);
-    check();
-    const ro = new ResizeObserver(check);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [maxHeight]);
-
-  return (
-    <>
-      <Box
-        style={
-          !expanded && overflowing
-            ? { position: "relative", maxHeight, overflow: "hidden" }
-            : { position: "relative" }
-        }
-      >
-        <Box ref={contentRef}>{children}</Box>
-        {!expanded && overflowing && (
-          <Box
-            style={{
-              position: "absolute",
-              bottom: 0,
-              left: 0,
-              right: 0,
-              height: 64,
-              background:
-                "linear-gradient(transparent, var(--color-panel-solid))",
-              pointerEvents: "none",
-            }}
-          />
-        )}
-      </Box>
-      {overflowing && (
-        <Box mt="2">
-          <Link onClick={() => setExpanded((v) => !v)}>
-            {expanded ? "Show less" : "Show more"}
-          </Link>
-        </Box>
-      )}
-    </>
   );
 }
 
@@ -1860,9 +1802,9 @@ export function DiffContent({
                   </Flex>
                 );
               return collapsedMaxHeight ? (
-                <CollapsedSection maxHeight={collapsedMaxHeight}>
+                <ExpandableContent maxHeight={collapsedMaxHeight}>
                   {view}
-                </CollapsedSection>
+                </ExpandableContent>
               ) : (
                 view
               );

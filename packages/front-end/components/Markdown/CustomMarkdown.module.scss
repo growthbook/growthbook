@@ -2,11 +2,13 @@
   border-color: var(--custom-markdown-border);
   color: var(--text-color-primary);
 
-  a {
-    vertical-align: middle;
+  .header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 12px;
+  }
 
-    &:hover {
-      text-decoration: underline !important;
-    }
+  .content {
+    padding-left: 28px;
   }
 }

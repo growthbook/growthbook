@@ -1,10 +1,10 @@
-import React, { useState } from "react";
+import React from "react";
 import Handlebars from "handlebars";
 import { PiNote } from "react-icons/pi";
 import clsx from "clsx";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import ExpandableContent from "@/ui/ExpandableContent";
 import Markdown from "./Markdown";
 import styles from "./CustomMarkdown.module.scss";
 
@@ -26,6 +26,8 @@ const PAGE_TO_CTA = {
   metricList: "How to create a metric at ",
 };
 
+const DEFAULT_MAX_HEIGHT = 150;
+
 interface Props {
   page:
     | "experiment"
@@ -36,14 +38,18 @@ interface Props {
     | "metricList"
     | "learnings";
   variables?: Record<string, unknown>;
+  maxHeight?: number;
 }
 
-const CustomMarkdown: React.FC<Props> = ({ page, variables }) => {
+const CustomMarkdown: React.FC<Props> = ({
+  page,
+  variables,
+  maxHeight = DEFAULT_MAX_HEIGHT,
+}) => {
   const { name, organization, hasCommercialFeature } = useUser();
   const settings = useOrgSettings();
   const settingName = PAGE_TO_SETTING_NAME[page];
   const markdown = settings[settingName];
-  const [showModal, setShowModal] = useState(false);
 
   if (!markdown || !hasCommercialFeature("custom-markdown")) return null;
 
@@ -56,26 +62,17 @@ const CustomMarkdown: React.FC<Props> = ({ page, variables }) => {
   const renderedMarkdown = template({ ...baseVariables, ...variables });
 
   return (
-    <>
-      {showModal && (
-        <ModalStandard
-          trackingEventModalType=""
-          open={true}
-          header={PAGE_TO_CTA[page] + organization.name}
-          close={() => setShowModal(false)}
-          size="lg"
-        >
-          <Markdown>{renderedMarkdown}</Markdown>
-        </ModalStandard>
-      )}
-
-      <div className={clsx(styles.customMarkdown, "appbox p-4")}>
+    <div className={clsx(styles.customMarkdown, "appbox p-4")}>
+      <div className={styles.header}>
         <PiNote className="mr-2" style={{ height: "20px", width: "20px" }} />
-        <a role="button" onClick={() => setShowModal(true)}>
-          <strong>{PAGE_TO_CTA[page] + organization.name}</strong>
-        </a>
+        <strong>{PAGE_TO_CTA[page] + organization.name}</strong>
       </div>
-    </>
+      <div className={styles.content}>
+        <ExpandableContent maxHeight={maxHeight}>
+          <Markdown>{renderedMarkdown}</Markdown>
+        </ExpandableContent>
+      </div>
+    </div>
   );
 };
 
