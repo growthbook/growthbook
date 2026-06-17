@@ -356,29 +356,29 @@ export const apiContextualBanditRefreshReturn = z.object({
   cbeId: z.string().optional(),
 });
 
-// CB-native read endpoints: not wired through the spec-pattern apiConfig because
+// Contextual Bandit-native read endpoints: not wired through the spec-pattern apiConfig because
 // the TS inference cascade across too many spec-style customHandlers is unworkable;
 // registered as standalone routes in `contextual-bandits.router.ts` instead.
 
-const cbIdAndSnapshotParam = z
+const contextualBanditIdAndSnapshotParam = z
   .object({
     id: z.string().describe("The Contextual Bandit id"),
     snapshotId: z.string().describe("The snapshot id"),
   })
   .strict();
 
-const cbIdAndEventParam = z
+const contextualBanditIdAndEventParam = z
   .object({
     id: z.string().describe("The Contextual Bandit id"),
     eventId: z.string().describe("The event id"),
   })
   .strict();
 
-const cbIdOnlyParam = z
+const contextualBanditIdOnlyParam = z
   .object({ id: z.string().describe("The Contextual Bandit id") })
   .strict();
 
-const cbSnapshotResponseShape = z.object({
+const contextualBanditSnapshotResponseShape = z.object({
   id: z.string(),
   contextualBandit: z.string(),
   status: z.enum(["pending", "running", "success", "error", "partial"]),
@@ -388,7 +388,7 @@ const cbSnapshotResponseShape = z.object({
   dateCreated: z.string(),
 });
 
-const cbEventResponseShape = z.object({
+const contextualBanditEventResponseShape = z.object({
   id: z.string(),
   contextualBandit: z.string(),
   snapshotId: z.string(),
@@ -402,24 +402,24 @@ const cbEventResponseShape = z.object({
   dateCreated: z.string(),
 });
 
-export const getCbCurrentValidator = {
+export const getContextualBanditCurrentWeightsValidator = {
   bodySchema: z.never(),
   querySchema: z.never(),
-  paramsSchema: cbIdOnlyParam,
+  paramsSchema: contextualBanditIdOnlyParam,
   responseSchema: z
     .object({
       currentLeafWeights: z.array(leafWeightValidator).optional(),
-      latestEvent: cbEventResponseShape.nullable(),
+      latestEvent: contextualBanditEventResponseShape.nullable(),
     })
     .strict(),
   summary: "Get current Contextual Bandit leaf weights and latest event",
-  operationId: "getCbCurrent",
+  operationId: "getContextualBanditCurrentWeights",
   tags: ["contextual-bandits"],
   method: "get" as const,
   path: "/contextual-bandits/:id/current",
 };
 
-export const listCbSnapshotsValidator = {
+export const listContextualBanditSnapshotsValidator = {
   bodySchema: z.never(),
   querySchema: z
     .object({
@@ -427,30 +427,32 @@ export const listCbSnapshotsValidator = {
     })
     .strict()
     .optional(),
-  paramsSchema: cbIdOnlyParam,
+  paramsSchema: contextualBanditIdOnlyParam,
   responseSchema: z
-    .object({ snapshots: z.array(cbSnapshotResponseShape) })
+    .object({ snapshots: z.array(contextualBanditSnapshotResponseShape) })
     .strict(),
   summary: "List Contextual Bandit snapshots",
-  operationId: "listCbSnapshots",
+  operationId: "listContextualBanditSnapshots",
   tags: ["contextual-bandits"],
   method: "get" as const,
   path: "/contextual-bandits/:id/snapshots",
 };
 
-export const getCbSnapshotValidator = {
+export const getContextualBanditSnapshotValidator = {
   bodySchema: z.never(),
   querySchema: z.never(),
-  paramsSchema: cbIdAndSnapshotParam,
-  responseSchema: z.object({ snapshot: cbSnapshotResponseShape }).strict(),
+  paramsSchema: contextualBanditIdAndSnapshotParam,
+  responseSchema: z
+    .object({ snapshot: contextualBanditSnapshotResponseShape })
+    .strict(),
   summary: "Get a single Contextual Bandit snapshot",
-  operationId: "getCbSnapshot",
+  operationId: "getContextualBanditSnapshot",
   tags: ["contextual-bandits"],
   method: "get" as const,
   path: "/contextual-bandits/:id/snapshots/:snapshotId",
 };
 
-export const listCbEventsValidator = {
+export const listContextualBanditEventsValidator = {
   bodySchema: z.never(),
   querySchema: z
     .object({
@@ -458,31 +460,35 @@ export const listCbEventsValidator = {
     })
     .strict()
     .optional(),
-  paramsSchema: cbIdOnlyParam,
-  responseSchema: z.object({ events: z.array(cbEventResponseShape) }).strict(),
+  paramsSchema: contextualBanditIdOnlyParam,
+  responseSchema: z
+    .object({ events: z.array(contextualBanditEventResponseShape) })
+    .strict(),
   summary: "List Contextual Bandit weight-update events",
-  operationId: "listCbEvents",
+  operationId: "listContextualBanditEvents",
   tags: ["contextual-bandits"],
   method: "get" as const,
   path: "/contextual-bandits/:id/events",
 };
 
-export const getCbEventValidator = {
+export const getContextualBanditEventValidator = {
   bodySchema: z.never(),
   querySchema: z.never(),
-  paramsSchema: cbIdAndEventParam,
-  responseSchema: z.object({ event: cbEventResponseShape }).strict(),
+  paramsSchema: contextualBanditIdAndEventParam,
+  responseSchema: z
+    .object({ event: contextualBanditEventResponseShape })
+    .strict(),
   summary: "Get a single Contextual Bandit weight-update event",
-  operationId: "getCbEvent",
+  operationId: "getContextualBanditEvent",
   tags: ["contextual-bandits"],
   method: "get" as const,
   path: "/contextual-bandits/:id/events/:eventId",
 };
 
-export const getCbResultsValidator = {
+export const getContextualBanditResultsValidator = {
   bodySchema: z.never(),
   querySchema: z.never(),
-  paramsSchema: cbIdOnlyParam,
+  paramsSchema: contextualBanditIdOnlyParam,
   responseSchema: z
     .object({
       contextualBanditSnapshot: z
@@ -510,8 +516,8 @@ export const getCbResultsValidator = {
     .strict(),
   summary: "Get latest Contextual Bandit results",
   description:
-    "Returns the latest contextual-bandit stats engine output and the status of the most recent snapshot run for the CB. Same payload the GrowthBook UI uses to render the CB results table.",
-  operationId: "getCbResults",
+    "Returns the latest contextual-bandit stats engine output and the status of the most recent snapshot run for the contextual bandit. Same payload the GrowthBook UI uses to render the contextual bandit results table.",
+  operationId: "getContextualBanditResults",
   tags: ["contextual-bandits"],
   method: "get" as const,
   path: "/contextual-bandits/:id/results",

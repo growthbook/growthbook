@@ -1,15 +1,18 @@
-import { listCbSnapshotsValidator } from "shared/validators";
+import { listContextualBanditSnapshotsValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { loadCbForRead } from "./_shared";
+import { loadContextualBanditForRead } from "./_shared";
 
-export const listCbSnapshots = createApiRequestHandler(
-  listCbSnapshotsValidator,
+export const listContextualBanditSnapshots = createApiRequestHandler(
+  listContextualBanditSnapshotsValidator,
 )(async (req) => {
-  const { cb } = await loadCbForRead(req.context, req.params.id);
+  const { contextualBandit } = await loadContextualBanditForRead(
+    req.context,
+    req.params.id,
+  );
   const limit = req.query?.limit ?? 20;
   const snapshots =
     await req.context.models.contextualBanditSnapshots.listForContextualBandit(
-      cb.id,
+      contextualBandit.id,
       limit,
     );
   return {

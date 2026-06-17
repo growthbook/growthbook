@@ -12745,7 +12745,7 @@ paths:
               -d '{"editorUrl":"https://example.com/","urlPatterns":[{"type":"simple","pattern":"/","include":true}]}'
   /v1/contextual-bandits/{id}/current:
     get:
-      operationId: getCbCurrent
+      operationId: getContextualBanditCurrentWeights
       summary: Get current Contextual Bandit leaf weights and latest event
       tags:
         - contextual-bandits
@@ -12804,7 +12804,7 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/contextual-bandits/{id}/snapshots:
     get:
-      operationId: listCbSnapshots
+      operationId: listContextualBanditSnapshots
       summary: List Contextual Bandit snapshots
       tags:
         - contextual-bandits
@@ -12846,7 +12846,7 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/contextual-bandits/{id}/snapshots/{snapshotId}:
     get:
-      operationId: getCbSnapshot
+      operationId: getContextualBanditSnapshot
       summary: Get a single Contextual Bandit snapshot
       tags:
         - contextual-bandits
@@ -12880,7 +12880,7 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/contextual-bandits/{id}/events:
     get:
-      operationId: listCbEvents
+      operationId: listContextualBanditEvents
       summary: List Contextual Bandit weight-update events
       tags:
         - contextual-bandits
@@ -12921,7 +12921,7 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/contextual-bandits/{id}/events/{eventId}:
     get:
-      operationId: getCbEvent
+      operationId: getContextualBanditEvent
       summary: Get a single Contextual Bandit weight-update event
       tags:
         - contextual-bandits
@@ -12955,12 +12955,12 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/contextual-bandits/{id}/results:
     get:
-      operationId: getCbResults
+      operationId: getContextualBanditResults
       summary: Get latest Contextual Bandit results
       description: >-
         Returns the latest contextual-bandit stats engine output and the status
-        of the most recent snapshot run for the CB. Same payload the GrowthBook
-        UI uses to render the CB results table.
+        of the most recent snapshot run for the contextual bandit. Same payload
+        the GrowthBook UI uses to render the contextual bandit results table.
       tags:
         - contextual-bandits
       parameters:

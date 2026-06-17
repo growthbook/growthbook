@@ -1,26 +1,29 @@
-import { getCbCurrentValidator } from "shared/validators";
+import { getContextualBanditCurrentWeightsValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { loadCbForRead } from "./_shared";
+import { loadContextualBanditForRead } from "./_shared";
 
-export const getCbCurrent = createApiRequestHandler(getCbCurrentValidator)(
-  async (req) => {
-    const { cb } = await loadCbForRead(req.context, req.params.id);
-    const latestCBE =
-      await req.context.models.contextualBanditEvents.getLatestForContextualBandit(
-        cb.id,
-      );
-    return {
-      currentLeafWeights: cb.currentLeafWeights ?? [],
-      latestEvent: latestCBE
-        ? {
-            id: latestCBE.id,
-            contextualBandit: latestCBE.contextualBandit,
-            snapshotId: latestCBE.snapshotId,
-            weightsWereUpdated: latestCBE.weightsWereUpdated,
-            degreesOfFreedom: latestCBE.degreesOfFreedom,
-            dateCreated: latestCBE.dateCreated.toISOString(),
-          }
-        : null,
-    };
-  },
-);
+export const getContextualBanditCurrentWeights = createApiRequestHandler(
+  getContextualBanditCurrentWeightsValidator,
+)(async (req) => {
+  const { contextualBandit } = await loadContextualBanditForRead(
+    req.context,
+    req.params.id,
+  );
+  const latestContextualBanditEvent =
+    await req.context.models.contextualBanditEvents.getLatestForContextualBandit(
+      cb.id,
+    );
+  return {
+    currentLeafWeights: contextualBandit.currentLeafWeights ?? [],
+    latestEvent: latestContextualBanditEvent
+      ? {
+          id: latestContextualBanditEvent.id,
+          contextualBandit: latestContextualBanditEvent.contextualBandit,
+          snapshotId: latestContextualBanditEvent.snapshotId,
+          weightsWereUpdated: latestContextualBanditEvent.weightsWereUpdated,
+          degreesOfFreedom: latestContextualBanditEvent.degreesOfFreedom,
+          dateCreated: latestContextualBanditEvent.dateCreated.toISOString(),
+        }
+      : null,
+  };
+});
