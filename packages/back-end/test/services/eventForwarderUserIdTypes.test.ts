@@ -12,17 +12,12 @@ const EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION =
   "Managed by Event Forwarder.";
 
 jest.mock("back-end/src/models/DataSourceModel", () => ({
-  getRawDataSourceById: jest.fn(),
   getDataSourceById: jest.fn(),
   updateDataSource: jest.fn(),
 }));
 jest.mock("back-end/src/services/eventForwarder/sinkParams");
 jest.mock("back-end/src/services/datasource");
 
-const mockedGetRaw =
-  DataSourceModel.getRawDataSourceById as jest.MockedFunction<
-    typeof DataSourceModel.getRawDataSourceById
-  >;
 const mockedGetById = DataSourceModel.getDataSourceById as jest.MockedFunction<
   typeof DataSourceModel.getDataSourceById
 >;
@@ -115,7 +110,6 @@ describe("initializeDatasourceUserIdTypesFromOrgAttributeSchema without event fo
     const raw = ds("ds_1", {
       userIdTypes: [{ userIdType: "user_id", description: "Existing" }],
     });
-    mockedGetRaw.mockResolvedValue(raw);
     setupDataSourceMocks(raw);
 
     await initializeDatasourceUserIdTypesFromOrgAttributeSchema(
@@ -153,7 +147,6 @@ describe("initializeDatasourceUserIdTypesFromOrgAttributeSchema without event fo
 
   it("writes userIdTypes when raw Mongo has none", async () => {
     const raw = ds("ds_1", {});
-    mockedGetRaw.mockResolvedValue(raw);
     setupDataSourceMocks(raw);
 
     await initializeDatasourceUserIdTypesFromOrgAttributeSchema(
@@ -223,7 +216,6 @@ describe("reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries", () =>
         ],
       },
     });
-    mockedGetRaw.mockResolvedValue(raw);
     setupDataSourceMocks(raw);
     const attributeSchema = [
       {
@@ -279,7 +271,6 @@ describe("reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries", () =>
       userIdTypes: [],
       queries: { exposure: [] },
     });
-    mockedGetRaw.mockResolvedValue(raw);
     setupDataSourceMocks(raw);
     const attributeSchema = [
       { property: "id", datatype: "string" as const, hashAttribute: true },
@@ -327,7 +318,6 @@ describe("reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries", () =>
         ],
       },
     });
-    mockedGetRaw.mockResolvedValue(raw);
     setupDataSourceMocks(raw);
     const attributeSchema = [
       { property: "user_id", datatype: "number" as const, hashAttribute: true },
@@ -367,7 +357,6 @@ describe("reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries", () =>
         ],
       },
     });
-    mockedGetRaw.mockResolvedValue(raw);
     setupDataSourceMocks(raw);
     const updateConfig = jest.fn();
 
@@ -399,7 +388,7 @@ describe("reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries", () =>
       [{ property: "id", datatype: "string", hashAttribute: true }],
     );
 
-    expect(mockedGetRaw).not.toHaveBeenCalled();
+    expect(mockedGetById).not.toHaveBeenCalled();
     expect(mockedUpdate).not.toHaveBeenCalled();
   });
 
@@ -408,7 +397,6 @@ describe("reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries", () =>
       userIdTypes: [],
       queries: { exposure: [] },
     });
-    mockedGetRaw.mockResolvedValue(raw);
     setupDataSourceMocks(raw);
     const updateConfig = jest.fn();
     const attributeSchema = [

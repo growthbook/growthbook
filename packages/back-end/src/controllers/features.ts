@@ -89,6 +89,7 @@ import {
   deleteFeature,
   editFeatureRule,
   getAllFeatures,
+  getAllFeaturesForStaleGraph,
   getFeature,
   getFeaturesByIds,
   getFeatureMetaInfoById,
@@ -6464,7 +6465,7 @@ export async function getFeaturesStaleStates(
     : undefined;
 
   const [allFeatures, allExperiments, draftRevisions] = await Promise.all([
-    getAllFeatures(context, {}),
+    getAllFeaturesForStaleGraph(context),
     getAllExperiments(context, { includeArchived: false }),
     getRevisionsByStatus(context as ReqContext, [...ACTIVE_DRAFT_STATUSES], {
       sparse: true,
@@ -6580,12 +6581,16 @@ export async function getFeaturesDependents(
   const allEnvIds = getEnvironments(context.org).map((e) => e.id);
 
   const [allFeatures, allExperiments] = await Promise.all([
-    getAllFeatures(context, { includeArchived: true }),
+    getAllFeaturesForStaleGraph(context, { includeArchived: true }),
     getAllExperiments(context, { includeArchived: true }),
   ]);
 
-  const { featuresMap, reverseDependencyIndex, experiments } =
-    buildFeatureLookups(allFeatures, allExperiments);
+  const {
+    featuresMap,
+    reverseDependencyIndex,
+    experiments,
+    experimentDependencyIndex,
+  } = buildFeatureLookups(allFeatures, allExperiments);
 
   const dependents: Record<
     string,
@@ -6608,7 +6613,11 @@ export async function getFeaturesDependents(
         reverseDependencyIndex,
         featuresMap,
       ),
-      experiments: getDependentExperiments(feature, experiments).map((e) => ({
+      experiments: getDependentExperiments(
+        feature,
+        experiments,
+        experimentDependencyIndex,
+      ).map((e) => ({
         id: e.id,
         name: e.name,
       })),

@@ -2495,15 +2495,21 @@ export default function ReviewAndPublish({
                 publishHasMoreSteps={hasChecklistStep}
                 isBlockedContributor={!!isBlockedContributor}
                 onSuccess={async (opts) => {
+                  let publishedViaArming = false;
                   if (opts?.publish) {
                     if (hasChecklistStep) {
                       checklistAfterApproval.current = true;
                     } else if (!revisionAutoPublishArmed) {
                       publishAfterApproval.current = true;
+                    } else {
+                      publishedViaArming = true;
                     }
                   }
                   await mutate();
                   await revisionLogRef?.current?.mutateLog();
+                  if (publishedViaArming) {
+                    onPublish && onPublish();
+                  }
                 }}
                 trigger={
                   <Button
