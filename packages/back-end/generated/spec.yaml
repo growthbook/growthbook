@@ -262,8 +262,10 @@ tags:
     x-displayName: Usage
     description: Usage information for metrics in experiments.
   - name: meta
-    x-displayName: meta
-    description: ''
+    x-displayName: Meta
+    description: >-
+      Server metadata, including the running build's version and commit for
+      version-skew checks.
   - name: Dashboards
     x-displayName: Dashboards
     description: ''
