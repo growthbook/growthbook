@@ -649,7 +649,10 @@ export async function notifyLicenseServerEvent({
       }),
     });
   } catch (e) {
-    logger.error(e, "Error posting license server event");
+    logger.error(
+      { err: e, eventName, uniqueId },
+      "Error posting license server event",
+    );
   }
 }
 
