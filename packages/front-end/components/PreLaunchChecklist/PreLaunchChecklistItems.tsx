@@ -53,6 +53,7 @@ export function getChecklistItems({
   /** When publishing from a feature draft page, waive the unrelated-edits gate
    *  for that feature — the user is explicitly reviewing the full draft. */
   publishingFeatureId,
+  showAnalysisSetupItems,
 }: {
   experiment: ExperimentInterfaceStringDates;
   linkedFeatures: LinkedFeatureInfo[];
@@ -67,6 +68,7 @@ export function getChecklistItems({
   checkLinkedChanges: boolean;
   setShowScheduleModal?: (value: boolean) => void;
   publishingFeatureId?: string;
+  showAnalysisSetupItems?: boolean;
 }) {
   const isBandit = experiment.type === "multi-armed-bandit";
 
@@ -119,7 +121,7 @@ export function getChecklistItems({
   }
   const items: CheckListItem[] = [];
 
-  if (!isBandit) {
+  if (showAnalysisSetupItems && !isBandit) {
     const hasDatasource = !!experiment.datasource;
     const hasAssignmentTable = !!experiment.exposureQueryId;
 
