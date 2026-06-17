@@ -162,7 +162,7 @@ function PreLaunchChecklistUI({
     <Box>
       {incompleteItems.map((item, i) => renderItem(item, i))}
       {completeItems.length > 0 && (
-        <Box>
+        <Box mt="4">
           <Flex
             align="center"
             gap="1"

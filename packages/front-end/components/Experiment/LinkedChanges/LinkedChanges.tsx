@@ -1,4 +1,3 @@
-import { useState } from "react";
 import {
   ExperimentInterfaceStringDates,
   LinkedChangeEnvStates,
@@ -6,9 +5,7 @@ import {
 } from "shared/types/experiment";
 import { URLRedirectInterface } from "shared/types/url-redirect";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
-import { includeExperimentInPayload } from "shared/util";
 import { Box, Flex, Separator, type AvatarProps } from "@radix-ui/themes";
-import { PiPlusCircleFill } from "react-icons/pi";
 import LinkedFeatureFlag from "@/components/Experiment/LinkedChanges/LinkedFeatureFlag";
 import { VisualChangesetTable } from "@/components/Experiment/VisualChangesetTable";
 import Avatar from "@/ui/Avatar";
@@ -17,8 +14,6 @@ import Text from "@/ui/Text";
 import Frame from "@/ui/Frame";
 import VariationsTable from "@/components/Experiment/VariationsTable";
 import Button from "@/ui/Button";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import AddVariationModal from "@/components/Experiment/AddVariationModal";
 import { RedirectLinkedChanges } from "./RedirectLinkedChanges";
 import AddLinkedChangeButton from "./AddLinkedChangeButton";
 import {
@@ -63,20 +58,8 @@ export default function LinkedChanges({
   canEditExperiment?: boolean;
   setEditVariationIndex?: (index: number) => void;
 }) {
-  const [addVariationOpen, setAddVariationOpen] = useState(false);
-
   const numLinkedChanges =
     linkedFeatures.length + visualChangesets.length + urlRedirects.length;
-
-  // Adding a variation changes the variation count, which is only safe when the
-  // experiment isn't actively bucketing users via the SDK payload. Mirrors the
-  // `safeToEdit` check on the experiment page.
-  const safeToEdit =
-    experiment.status !== "running" ||
-    !includeExperimentInPayload(
-      experiment,
-      linkedFeatures.map((f) => f.feature),
-    );
 
   const publicLinkedChangeSummary: { id: LinkedChange; count: number }[] = [
     { id: "feature-flag", count: linkedFeatures.length },
@@ -90,35 +73,12 @@ export default function LinkedChanges({
         <Heading color="text-high" as="h4" size="small">
           {isPublic ? "Linked Changes" : "Variations & Values"}
         </Heading>
-        {/* onAddVariation is only provided when the user can edit variations */}
-        {!isPublic && onAddVariation && mutate ? (
-          safeToEdit ? (
-            <Button variant="ghost" onClick={() => setAddVariationOpen(true)}>
-              <Flex align="center" gap="1">
-                <PiPlusCircleFill size={15} />
-                Add Variation
-              </Flex>
-            </Button>
-          ) : (
-            <Tooltip body="You can't add variations while the experiment is running and included in the SDK payload.">
-              <Button variant="ghost" disabled>
-                <Flex align="center" gap="1">
-                  <PiPlusCircleFill size={15} />
-                  Add Variation
-                </Flex>
-              </Button>
-            </Tooltip>
-          )
+        {!isPublic && onAddVariation ? (
+          <Button variant="ghost" onClick={onAddVariation}>
+            Edit Variations
+          </Button>
         ) : null}
       </Flex>
-      {addVariationOpen && mutate ? (
-        <AddVariationModal
-          experiment={experiment}
-          mutate={mutate}
-          close={() => setAddVariationOpen(false)}
-          source="experiment-variations"
-        />
-      ) : null}
       {isPublic ? (
         <Flex direction="column" gap="3" mx="1" mb="2" mt="4">
           {publicLinkedChangeSummary
