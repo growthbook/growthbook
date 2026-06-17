@@ -271,10 +271,9 @@ export default function TrafficAllocationFunnel({
                 onEdit={runningBandit ? null : editNamespace}
                 inlineSummary={
                   hasNamespace ? (
-                    <>
-                      {namespaceName} ({percentFormatter.format(namespaceRange)}
-                      )
-                    </>
+                    <Text size="large" color="text-mid">
+                      {namespaceName}
+                    </Text>
                   ) : (
                     <Text size="large">
                       <em>Optional</em>
@@ -303,13 +302,17 @@ export default function TrafficAllocationFunnel({
               <Flex direction="column" gap="3">
                 {phase.condition && phase.condition !== "{}" ? (
                   <div>
-                    <div className="h5">Attribute Targeting</div>
+                    <Text as="div" color="text-high" weight="semibold" mb="2">
+                      Attribute Targeting
+                    </Text>
                     <ConditionDisplay condition={phase.condition} />
                   </div>
                 ) : null}
                 {phase.savedGroups?.length ? (
                   <div>
-                    <div className="h5">Saved Group Targeting</div>
+                    <Text as="div" color="text-high" weight="semibold" mb="2">
+                      Saved Group Targeting
+                    </Text>
                     <SavedGroupTargetingDisplay
                       savedGroups={phase.savedGroups}
                     />
@@ -317,7 +320,9 @@ export default function TrafficAllocationFunnel({
                 ) : null}
                 {!isHoldout && phase.prerequisites?.length ? (
                   <div>
-                    <div className="h5">Prerequisite Targeting</div>
+                    <Text as="div" color="text-high" weight="semibold" mb="2">
+                      Prerequisite Targeting
+                    </Text>
                     <ConditionDisplay prerequisites={phase.prerequisites} />
                   </div>
                 ) : null}
