@@ -173,6 +173,17 @@ const experimentRefVariation = z
 
 export type ExperimentRefVariation = z.infer<typeof experimentRefVariation>;
 
+const contextualBanditRefVariation = z
+  .object({
+    variationId: z.string(),
+    value: z.string(),
+  })
+  .strict();
+
+export type ContextualBanditRefVariation = z.infer<
+  typeof contextualBanditRefVariation
+>;
+
 const experimentRefRule = baseRule
   .extend({
     type: z.literal("experiment-ref"),
@@ -188,7 +199,7 @@ const contextualBanditRefRule = baseRule
   .extend({
     type: z.literal("contextual-bandit-ref"),
     contextualBanditId: z.string(),
-    variations: z.array(experimentRefVariation),
+    variations: z.array(contextualBanditRefVariation),
   })
   .strict();
 
