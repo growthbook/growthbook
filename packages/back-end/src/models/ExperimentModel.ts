@@ -30,6 +30,7 @@ import {
 } from "back-end/src/services/experiments";
 import { logger } from "back-end/src/util/logger";
 import { upgradeExperimentDoc } from "back-end/src/util/migrations";
+import { validateMetricOverrides } from "back-end/src/util/priors";
 import {
   queueSDKPayloadRefresh,
   URLRedirectExperiment,
@@ -466,6 +467,7 @@ export async function getAllExperiments(
     trackingKey,
     status,
     sortBy,
+    limit,
   }: {
     project?: string;
     includeArchived?: boolean;
@@ -474,6 +476,10 @@ export async function getAllExperiments(
     trackingKey?: string;
     status?: ExperimentStatus;
     sortBy?: SortFilter;
+    // Mongo-cursor-level cap; pair with `sortBy` to get top-N. Without
+    // it, large orgs materialize the full result set (each row carries
+    // a potentially large analysis blob).
+    limit?: number;
   } = {},
 ): Promise<ExperimentInterface[]> {
   const query: FilterQuery<ExperimentDocument> = {
@@ -510,7 +516,7 @@ export async function getAllExperiments(
     query.type = { $ne: "holdout" };
   }
 
-  return await findExperiments(context, query, undefined, sortBy);
+  return await findExperiments(context, query, limit, sortBy);
 }
 
 export async function hasArchivedExperiments(
@@ -602,6 +608,8 @@ export async function createExperiment({
     context.org.settings?.updateSchedule || null,
   );
 
+  validateMetricOverrides(data.metricOverrides);
+
   const exp = await ExperimentModel.create({
     id: uniqid("exp_"),
     uid: uuidv4().replace(/-/g, ""),
@@ -670,6 +678,8 @@ export async function updateExperiment({
   };
   if (allChanges.name === "")
     throw new Error("Cannot set empty name for experiment!");
+
+  validateMetricOverrides(allChanges.metricOverrides);
 
   await ExperimentModel.updateOne(
     {

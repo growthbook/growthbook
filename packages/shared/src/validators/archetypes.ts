@@ -20,6 +20,12 @@ export const apiArchetypeValidator = namedSchema(
         .record(z.string(), z.any())
         .describe("The attributes to set when using this Archetype"),
       projects: z.array(z.string()).optional(),
+      environments: z
+        .array(z.string())
+        .optional()
+        .describe(
+          "Limit this Archetype to specific environments. Omit or leave empty to apply to all environments.",
+        ),
     })
     .strict(),
 );
@@ -41,6 +47,12 @@ const postArchetypeBody = z
       .describe("The attributes to set when using this Archetype")
       .optional(),
     projects: z.array(z.string()).optional(),
+    environments: z
+      .array(z.string())
+      .optional()
+      .describe(
+        "Limit this Archetype to specific environments. Omit or leave empty to apply to all environments.",
+      ),
   })
   .strict();
 

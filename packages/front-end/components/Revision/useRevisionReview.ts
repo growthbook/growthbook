@@ -21,7 +21,7 @@ interface UseRevisionReviewArgs {
   isRevisionAuthor: boolean;
   isBlockedContributor: boolean;
   setCurrentRevision: (revision: Revision | null) => void;
-  mutate?: () => void;
+  mutate?: () => void | Promise<void>;
   closeModal?: () => void;
 }
 
@@ -68,30 +68,38 @@ export function useRevisionReview({
     }
   }, [isRevisionAuthor, isBlockedContributor, reviewDecision]);
 
-  const submitForReview = useCallback(async () => {
-    setIsSubmitting(true);
-    setReviewError(null);
-    try {
-      const response = await apiCall<{ revision: Revision }>(
-        `/revision/${revision.id}/submit`,
-        {
-          method: "POST",
-        },
-      );
+  const submitForReview = useCallback(
+    async ({
+      autoPublishOnApproval = false,
+    }: { autoPublishOnApproval?: boolean } = {}) => {
+      setIsSubmitting(true);
+      setReviewError(null);
+      try {
+        const response = await apiCall<{ revision: Revision }>(
+          `/revision/${revision.id}/submit`,
+          {
+            method: "POST",
+            body: JSON.stringify({ autoPublishOnApproval }),
+          },
+        );
 
-      if (response.revision) {
-        setCurrentRevision(response.revision);
+        if (response.revision) {
+          setCurrentRevision(response.revision);
+        }
+        mutate?.();
+        closeModal?.();
+      } catch (error) {
+        setReviewError(
+          error instanceof Error
+            ? error.message
+            : "Failed to submit for review",
+        );
+      } finally {
+        setIsSubmitting(false);
       }
-      mutate?.();
-      closeModal?.();
-    } catch (error) {
-      setReviewError(
-        error instanceof Error ? error.message : "Failed to submit for review",
-      );
-    } finally {
-      setIsSubmitting(false);
-    }
-  }, [apiCall, revision.id, setCurrentRevision, mutate, closeModal]);
+    },
+    [apiCall, revision.id, setCurrentRevision, mutate, closeModal],
+  );
 
   const submitReview = useCallback(
     async (decision: ReviewDecision, commentText: string) => {
@@ -149,6 +157,59 @@ export function useRevisionReview({
     ],
   );
 
+  const approveAndPublish = useCallback(
+    async (commentText: string) => {
+      if (isRevisionAuthor) {
+        setReviewError(reviewMessages.approveOwnChanges);
+        return;
+      }
+      if (isBlockedContributor) {
+        setReviewError(reviewMessages.blockedContributorApprove);
+        return;
+      }
+
+      setIsSubmitting(true);
+      setReviewError(null);
+      try {
+        const response = await apiCall<{ revision: Revision }>(
+          `/revision/${revision.id}/approve-and-publish`,
+          {
+            method: "POST",
+            body: JSON.stringify({ comment: commentText }),
+          },
+        );
+
+        if (response.revision) {
+          setCurrentRevision(response.revision);
+        }
+
+        mutate?.();
+        setReviewComment("");
+        setReviewDecision("comment");
+        setReviewDropdownOpen(false);
+        closeModal?.();
+      } catch (error) {
+        await mutate?.();
+        setReviewError(
+          error instanceof Error
+            ? error.message
+            : "Failed to approve & publish",
+        );
+      } finally {
+        setIsSubmitting(false);
+      }
+    },
+    [
+      apiCall,
+      revision.id,
+      setCurrentRevision,
+      mutate,
+      closeModal,
+      isRevisionAuthor,
+      isBlockedContributor,
+    ],
+  );
+
   return {
     isSubmitting,
     setIsSubmitting,
@@ -162,5 +223,6 @@ export function useRevisionReview({
     setReviewDropdownOpen,
     submitForReview,
     submitReview,
+    approveAndPublish,
   };
 }

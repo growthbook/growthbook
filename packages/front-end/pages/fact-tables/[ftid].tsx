@@ -16,6 +16,7 @@ import { useAuth } from "@/services/auth";
 import FactTableModal from "@/components/FactTables/FactTableModal";
 import Code from "@/components/SyntaxHighlighting/Code";
 import ColumnList from "@/components/FactTables/ColumnList";
+import AggregatedFactTablesCard from "@/components/FactTables/AggregatedFactTablesCard";
 import FactFilterList from "@/components/FactTables/FactFilterList";
 import EditProjectsForm from "@/components/Projects/EditProjectsForm";
 import PageHead from "@/components/Layout/PageHead";
@@ -558,6 +559,8 @@ export default function FactTablePage() {
           </TabsContent>
         </Box>
       </Tabs>
+
+      <AggregatedFactTablesCard factTable={factTable} />
     </div>
   );
 }

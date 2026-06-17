@@ -209,12 +209,21 @@ export default function AttributeDetailPage() {
           submitColor="danger"
           trackingEventModalType=""
           submit={async () => {
-            await apiCall<{ status: number }>("/attribute/", {
+            const response = await apiCall<{
+              status: number;
+              eventForwarderWarning?: string;
+            }>("/attribute/", {
               method: "DELETE",
               body: JSON.stringify({ id: attribute.property }),
             });
             refreshOrganization();
             setShowDeleteModal(false);
+            if (response.eventForwarderWarning) {
+              sessionStorage.setItem(
+                "attributeDeleteEventForwarderWarning",
+                response.eventForwarderWarning,
+              );
+            }
             router.push("/attributes");
           }}
         >

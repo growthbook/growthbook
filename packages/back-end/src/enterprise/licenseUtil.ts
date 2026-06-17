@@ -22,6 +22,7 @@ import { StripeAddress, TaxIdType } from "shared/types/subscriptions";
 import {
   OrganizationInterface,
   OrgMemberInfo,
+  type SDKAttributeSchema,
 } from "shared/types/organization";
 import { fetch } from "back-end/src/util/http.util";
 import { LicenseServerError } from "back-end/src/util/errors";
@@ -1070,4 +1071,186 @@ function shouldLimitAccessDueToExpiredLicense(
 
   // The license is not expired
   return false;
+}
+
+/** Payload for central-license-server `POST .../event-forwarder/provision`. */
+type EventForwarderLicenseProvisionBaseParams = {
+  organizationId: string;
+  datasourceId: string;
+  topic: string;
+  attributeSchema: SDKAttributeSchema;
+  connectorName?: string;
+  connectorId?: string;
+};
+
+export type EventForwarderLicenseProvisionParams =
+  | (EventForwarderLicenseProvisionBaseParams & {
+      sinkType: "bigquery";
+      bigqueryProjectId: string;
+      tablePrefix: string;
+      bigqueryDataset: string;
+      serviceAccountKeyJson: string;
+    })
+  | (EventForwarderLicenseProvisionBaseParams & {
+      sinkType: "snowflake";
+      snowflake: {
+        tablePrefix: string;
+        account: string;
+        accessUrl?: string;
+        username: string;
+        database: string;
+        schema: string;
+        privateKey: string;
+        privateKeyPassword?: string;
+        role?: string;
+        warehouse?: string;
+      };
+    });
+
+export async function postProvisionEventForwarderToLicenseServer(
+  params: EventForwarderLicenseProvisionParams,
+): Promise<{ schemaId: number; connectorName: string; connectorId: string }> {
+  const url = `${LICENSE_SERVER_URL}event-forwarder/provision`;
+  return callLicenseServer({
+    url,
+    body: JSON.stringify({
+      ...params,
+      cloudSecret: process.env.CLOUD_SECRET,
+    }),
+  });
+}
+
+export async function postTeardownEventForwarderToLicenseServer(params: {
+  organizationId: string;
+  datasourceId: string;
+  sinkType: "bigquery" | "snowflake";
+  topic?: string;
+  connectorName?: string;
+  connectorId?: string;
+}): Promise<{ ok: true }> {
+  const url = `${LICENSE_SERVER_URL}event-forwarder/teardown`;
+  return callLicenseServer({
+    url,
+    body: JSON.stringify({
+      ...params,
+      cloudSecret: process.env.CLOUD_SECRET,
+    }),
+  });
+}
+
+export async function postPauseEventForwarderToLicenseServer(params: {
+  organizationId: string;
+  datasourceId: string;
+  connectorName: string;
+}): Promise<{ ok: true }> {
+  const url = `${LICENSE_SERVER_URL}event-forwarder/pause`;
+  return callLicenseServer({
+    url,
+    body: JSON.stringify({
+      ...params,
+      cloudSecret: process.env.CLOUD_SECRET,
+    }),
+  });
+}
+
+export async function postResumeEventForwarderToLicenseServer(params: {
+  organizationId: string;
+  datasourceId: string;
+  connectorName: string;
+}): Promise<{ ok: true }> {
+  const url = `${LICENSE_SERVER_URL}event-forwarder/resume`;
+  return callLicenseServer({
+    url,
+    body: JSON.stringify({
+      ...params,
+      cloudSecret: process.env.CLOUD_SECRET,
+    }),
+  });
+}
+
+export type EventForwarderLicenseConnectorPhase =
+  | "provisioning"
+  | "ready"
+  | "error"
+  | "paused";
+
+export type EventForwarderLicenseConnectorStatus = {
+  confluentState: string;
+  phase: EventForwarderLicenseConnectorPhase;
+  message?: string;
+  taskErrors?: { id: number; state: string; trace?: string }[];
+};
+
+export async function postRestartEventForwarderToLicenseServer(params: {
+  organizationId: string;
+  datasourceId: string;
+  connectorName: string;
+}): Promise<{ ok: true }> {
+  const url = `${LICENSE_SERVER_URL}event-forwarder/restart`;
+  return callLicenseServer({
+    url,
+    body: JSON.stringify({
+      ...params,
+      cloudSecret: process.env.CLOUD_SECRET,
+    }),
+  });
+}
+
+export async function postEventForwarderStatusToLicenseServer(params: {
+  organizationId: string;
+  datasourceId: string;
+  connectorName: string;
+}): Promise<EventForwarderLicenseConnectorStatus> {
+  const url = `${LICENSE_SERVER_URL}event-forwarder/status`;
+  return callLicenseServer({
+    url,
+    body: JSON.stringify({
+      ...params,
+      cloudSecret: process.env.CLOUD_SECRET,
+    }),
+  });
+}
+
+/** Payload for central-license-server `POST .../event-forwarder/update-credentials`. */
+export type EventForwarderLicenseUpdateCredentialsParams =
+  | {
+      organizationId: string;
+      datasourceId: string;
+      connectorName: string;
+      sinkType: "bigquery";
+      bigqueryProjectId: string;
+      bigqueryDataset: string;
+      tablePrefix: string;
+      serviceAccountKeyJson: string;
+    }
+  | {
+      organizationId: string;
+      datasourceId: string;
+      connectorName: string;
+      sinkType: "snowflake";
+      snowflake: {
+        tablePrefix: string;
+        account: string;
+        accessUrl?: string;
+        username: string;
+        database: string;
+        schema: string;
+        privateKey: string;
+        privateKeyPassword?: string;
+        role?: string;
+        warehouse?: string;
+      };
+    };
+
+export async function postUpdateEventForwarderCredentialsToLicenseServer(
+  params: EventForwarderLicenseUpdateCredentialsParams,
+): Promise<{ ok: true }> {
+  const url = `${LICENSE_SERVER_URL}event-forwarder/update-credentials`;
+  return callLicenseServer({
+    url,
+    body: JSON.stringify({
+      ...params,
+      cloudSecret: process.env.CLOUD_SECRET,
+    }),
+  });
 }

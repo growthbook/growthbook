@@ -5,6 +5,7 @@ import {
   Output,
   tool as aiTool,
   stepCountIs,
+  NoObjectGeneratedError,
 } from "ai";
 import type { ToolSet, ModelMessage } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
@@ -22,6 +23,7 @@ import {
   AIPromptType,
   getProviderFromModel,
   getProviderFromEmbeddingModel,
+  isReasoningModel,
 } from "shared/ai";
 import { z, ZodObject, ZodRawShape } from "zod";
 import { OrganizationInterface } from "shared/types/organization";
@@ -55,7 +57,9 @@ export const getAIProviderClass = (
   } = getAISettingsForOrg(context, true);
 
   if (!aiEnabled) {
-    throw new Error("AI is not enabled for this organization.");
+    throw new Error(
+      "AI is not enabled for this organization. Visit Settings → AI Settings to enable it.",
+    );
   }
 
   const selectedProvider = getProviderFromModel(model);
@@ -199,10 +203,18 @@ export const simpleCompletion = async ({
 
   const messages = constructMessages(prompt, instructions);
 
+  // Reasoning models reject `temperature`; omit it rather than let the
+  // provider warn and drop it.
+  const effectiveTemperature = isReasoningModel(model)
+    ? undefined
+    : temperature;
+
   const generateOptions = {
     model: aiProvider(model) as Parameters<typeof generateText>[0]["model"],
     messages,
-    ...(temperature != null ? { temperature } : {}),
+    ...(effectiveTemperature != null
+      ? { temperature: effectiveTemperature }
+      : {}),
   };
 
   let numTokensUsed: number | undefined;
@@ -242,7 +254,7 @@ export const simpleCompletion = async ({
       model,
       numPromptTokensUsed: inputTokensUsed,
       numCompletionTokensUsed: outputTokensUsed,
-      temperature,
+      temperature: effectiveTemperature,
       usedDefaultPrompt: isDefaultPrompt,
     });
   }
@@ -281,11 +293,19 @@ export const streamingChatCompletion = async ({
     throw new Error("AI provider not enabled or key not set");
   }
 
+  // Reasoning models reject `temperature`; omit it rather than let the
+  // provider warn and drop it.
+  const effectiveTemperature = isReasoningModel(model)
+    ? undefined
+    : temperature;
+
   const result = streamText({
     model: aiProvider(model) as Parameters<typeof streamText>[0]["model"],
     system,
     messages,
-    ...(temperature != null ? { temperature } : {}),
+    ...(effectiveTemperature != null
+      ? { temperature: effectiveTemperature }
+      : {}),
     ...(tools ? { tools, stopWhen: stepCountIs(maxSteps) } : {}),
     ...(abortSignal ? { abortSignal } : {}),
     onFinish: async ({ usage }) => {
@@ -301,7 +321,7 @@ export const streamingChatCompletion = async ({
           model,
           numPromptTokensUsed: usage?.inputTokens,
           numCompletionTokensUsed: usage?.outputTokens,
-          temperature,
+          temperature: effectiveTemperature,
           usedDefaultPrompt: isDefaultPrompt,
         });
       }
@@ -322,6 +342,11 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
   isDefaultPrompt,
   zodObjectSchema,
   overrideModel,
+  tools,
+  maxSteps = 1,
+  cacheSystemPrompt = false,
+  onStepFinish,
+  retryOnNoObject = true,
 }: {
   context: ReqContext | ApiReqContext;
   instructions?: string;
@@ -331,6 +356,26 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
   isDefaultPrompt: boolean;
   zodObjectSchema: T;
   overrideModel?: AIModel;
+  // Retry once on NoObjectGeneratedError. Pass false from callers that
+  // are themselves a retry so attempts don't stack (e.g. postAIEdit's
+  // selector-correction retry — otherwise one request could fan out to
+  // 4 LLM calls).
+  retryOnNoObject?: boolean;
+  // Optional tool-calling: when present, the model may emit tool calls
+  // across up to `maxSteps` LLM round-trips before producing the final
+  // structured output. Default of 1 keeps the no-tools shape identical.
+  tools?: ToolSet;
+  maxSteps?: number;
+  // Mark the system message as cacheable on providers that honor an
+  // explicit cache breakpoint (Anthropic). OpenAI and Google cache
+  // automatically based on prefix, so this flag is a no-op for them.
+  // Cache TTL is ~5 minutes; back-to-back chat turns benefit, idle
+  // sessions don't.
+  cacheSystemPrompt?: boolean;
+  // Per-step telemetry hook — fires after each LLM round-trip in a
+  // tool-calling loop. Useful for logging which tools the model picked
+  // and how many steps a turn used.
+  onStepFinish?: Parameters<typeof generateText>[0]["onStepFinish"];
 }): Promise<z.infer<T>> => {
   const { defaultAIModel } = getAISettingsForOrg(context, true);
   const model = overrideModel || defaultAIModel;
@@ -349,14 +394,85 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
 
   const messages = constructMessages(prompt, instructions);
 
-  const response = await generateText({
-    model: aiProvider(model) as Parameters<typeof generateText>[0]["model"],
-    messages: messages,
-    output: Output.object({
-      schema: zodObjectSchema,
-    }),
-    ...(temperature != null ? { temperature } : {}),
-  });
+  // Attach a provider-specific cache breakpoint to the system message
+  // when requested. Anthropic charges ~10% of input cost for cached
+  // tokens on hit — for a multi-step tool-calling loop where the system
+  // prompt is large and re-sent N times, this is the difference between
+  // tool calling being roughly cost-neutral vs N× more expensive than
+  // single-shot.
+  if (cacheSystemPrompt && instructions) {
+    const sys = messages.find((m) => m.role === "system");
+    if (sys) {
+      (
+        sys as ChatCompletionRequestMessage & {
+          providerOptions?: Record<string, unknown>;
+        }
+      ).providerOptions = {
+        anthropic: { cacheControl: { type: "ephemeral" } },
+      };
+    }
+  }
+
+  // Reasoning models reject `temperature`; omit it rather than let the
+  // provider warn and drop it.
+  const effectiveTemperature = isReasoningModel(model)
+    ? undefined
+    : temperature;
+
+  const generateOnce = () =>
+    generateText({
+      model: aiProvider(model) as Parameters<typeof generateText>[0]["model"],
+      messages: messages,
+      output: Output.object({
+        schema: zodObjectSchema,
+      }),
+      ...(effectiveTemperature != null
+        ? { temperature: effectiveTemperature }
+        : {}),
+      ...(tools ? { tools, stopWhen: stepCountIs(maxSteps) } : {}),
+      ...(onStepFinish ? { onStepFinish } : {}),
+    });
+
+  // Output.object steers the model toward the schema but doesn't
+  // grammar-constrain it, so conformance is probabilistic: a complex
+  // schema, a smaller model, or mixing in tools + multi-step all raise
+  // the chance it returns something the schema rejects
+  // (NoObjectGeneratedError). It's almost always transient, so retry
+  // once before surfacing a clear error. The durable fix for a high
+  // rate is a simpler schema or a stronger model; this is just a cheap
+  // backstop. A failed attempt still bills tokens (the error carries its
+  // usage), so track them or the retry under-counts on Cloud.
+  let retriedTokens = 0;
+  let response: Awaited<ReturnType<typeof generateOnce>>;
+  try {
+    response = await generateOnce();
+  } catch (err) {
+    if (!NoObjectGeneratedError.isInstance(err)) throw err;
+    // Don't stack retries when the caller is already a retry path.
+    if (!retryOnNoObject) throw err;
+    retriedTokens += err.usage?.totalTokens ?? 0;
+    logger.warn(
+      { type, model },
+      "parsePrompt: model returned no schema-valid object; retrying once",
+    );
+    try {
+      response = await generateOnce();
+    } catch (retryErr) {
+      if (!NoObjectGeneratedError.isInstance(retryErr)) throw retryErr;
+      retriedTokens += retryErr.usage?.totalTokens ?? 0;
+      // Bill both failed attempts before surfacing the error so Cloud
+      // rate-limiting doesn't under-count a double failure.
+      if (IS_CLOUD && retriedTokens > 0) {
+        await updateTokenUsage({
+          numTokensUsed: retriedTokens,
+          organization: context.org,
+        });
+      }
+      throw new Error(
+        "The AI couldn't format a valid response for this request. Please try again, or rephrase/simplify the request.",
+      );
+    }
+  }
 
   if (IS_CLOUD) {
     // Fire and forget
@@ -366,12 +482,13 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
       model: model,
       numPromptTokensUsed: response.usage?.inputTokens,
       numCompletionTokensUsed: response.usage?.outputTokens,
-      temperature,
+      temperature: effectiveTemperature,
       usedDefaultPrompt: isDefaultPrompt,
     });
 
     const numTokensUsed =
-      response.usage?.totalTokens ?? numTokensFromMessages(messages, model);
+      (response.usage?.totalTokens ?? numTokensFromMessages(messages, model)) +
+      retriedTokens;
     await updateTokenUsage({ numTokensUsed, organization: context.org });
   }
 

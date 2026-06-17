@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { v4 as uuidv4 } from "uuid";
 import { PermissionError } from "shared/util";
+import type { RampScheduleInterface } from "shared/validators";
 import {
   apiRampScheduleInterface,
   DEFAULT_NO_TRAFFIC_GRACE_PERIOD_HOURS,
@@ -18,6 +19,7 @@ import { getSRMHealthData, getMultipleExposureHealthData } from "shared/health";
 import {
   advanceScheduleManually,
   approveAndPublishStep,
+  completeRampKeepCutoff,
   completeRollout,
   ensureSafeRolloutForMonitoredRamp,
   getEffectiveRampAutoUpdateState,
@@ -196,9 +198,18 @@ export const completeRampSchedule = createApiRequestHandler({
   }
 
   const isSimple = schedule.steps.length === 0 && !!schedule.cutoffDate;
-  const completed = await completeRollout(req.context, schedule, {
-    disableActiveTargets: req.body?.disableRule === true || isSimple,
-  });
+  const disableNow = req.body?.disableRule === true || isSimple;
+  const hasFutureCutoff =
+    schedule.cutoffDate && schedule.cutoffDate > new Date();
+
+  let completed: RampScheduleInterface;
+  if (!disableNow && hasFutureCutoff) {
+    completed = await completeRampKeepCutoff(req.context, schedule);
+  } else {
+    completed = await completeRollout(req.context, schedule, {
+      disableActiveTargets: disableNow,
+    });
+  }
 
   return { rampSchedule: rampScheduleToApiInterface(completed) };
 });

@@ -9,6 +9,7 @@ import {
   patchOpsToPartial,
   getApprovalFlowSettings,
   isUserBlockedFromApproving,
+  isAutopublishOnApprovalEnabled,
   isSavedGroupRevisionMetadataOnly,
 } from "../../../src/revisions/helpers";
 import type {
@@ -714,6 +715,76 @@ describe("revisions helpers", () => {
           revision: baseRevision,
           userId: "author-1",
         }),
+      ).toBe(false);
+    });
+  });
+
+  describe("isAutopublishOnApprovalEnabled", () => {
+    it("returns false when approvalFlows is undefined", () => {
+      expect(isAutopublishOnApprovalEnabled(undefined, "saved-group")).toBe(
+        false,
+      );
+    });
+
+    it("returns true when autopublishOnApproval is enabled for the entity type", () => {
+      expect(
+        isAutopublishOnApprovalEnabled(
+          {
+            savedGroups: [
+              {
+                required: true,
+                requireMetadataReview: false,
+                autopublishOnApproval: true,
+              },
+            ],
+          } as ApprovalFlowConfigurations,
+          "saved-group",
+        ),
+      ).toBe(true);
+    });
+
+    it("returns false when autopublishOnApproval is disabled", () => {
+      expect(
+        isAutopublishOnApprovalEnabled(
+          {
+            savedGroups: [
+              {
+                required: true,
+                requireMetadataReview: false,
+                autopublishOnApproval: false,
+              },
+            ],
+          } as ApprovalFlowConfigurations,
+          "saved-group",
+        ),
+      ).toBe(false);
+    });
+
+    it("returns false when the flag is absent from the config", () => {
+      expect(
+        isAutopublishOnApprovalEnabled(
+          {
+            savedGroups: [{ required: true, requireMetadataReview: false }],
+          } as ApprovalFlowConfigurations,
+          "saved-group",
+        ),
+      ).toBe(false);
+    });
+
+    it("returns false for an entity type with no approval-flow config", () => {
+      expect(
+        isAutopublishOnApprovalEnabled(
+          {
+            savedGroups: [
+              {
+                required: true,
+                requireMetadataReview: false,
+                autopublishOnApproval: true,
+              },
+            ],
+          } as ApprovalFlowConfigurations,
+          "unknown" as RevisionTargetType,
+        ),
       ).toBe(false);
     });
   });
