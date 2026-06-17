@@ -295,6 +295,7 @@ export type ApiUpdateContextualBanditBody = z.infer<
 
 /** Fields `ContextualBanditModel.processApiUpdateBody` keeps after filtering. */
 export const CONTEXTUAL_BANDIT_API_UPDATE_FIELDS = [
+  // @lukesonnet check if all these fields are allowed to be updated
   "name",
   "description",
   "hypothesis",

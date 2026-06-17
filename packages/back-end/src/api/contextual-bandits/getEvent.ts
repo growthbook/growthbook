@@ -9,13 +9,9 @@ export const getContextualBanditEvent = createApiRequestHandler(
     req.context,
     req.params.id,
   );
-  // No getById on events; pull the recent window and filter.
-  const events =
-    await req.context.models.contextualBanditEvents.listForContextualBandit(
-      cb.id,
-      100,
-    );
-  const event = events.find((e) => e.id === req.params.eventId);
+  const event = await req.context.models.contextualBanditEvents.getEventById(
+    req.params.eventId,
+  );
   if (!event || event.contextualBandit !== contextualBandit.id) {
     return req.context.throwNotFoundError();
   }

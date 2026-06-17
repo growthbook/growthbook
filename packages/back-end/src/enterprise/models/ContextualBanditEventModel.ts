@@ -25,7 +25,6 @@ const BaseClass = MakeModelClass({
 });
 
 export class ContextualBanditEventModel extends BaseClass {
-  // ACL is gated at the HTTP boundary; see ContextualBanditSnapshotModel.
   protected canRead(): boolean {
     return true;
   }
@@ -57,6 +56,12 @@ export class ContextualBanditEventModel extends BaseClass {
       { contextualBandit },
       { sort: { dateCreated: -1 }, limit },
     );
+  }
+
+  public async getEventById(
+    eventId: string,
+  ): Promise<ContextualBanditEventInterface | null> {
+    return this.getById(eventId);
   }
 
   public async getContextHistory(

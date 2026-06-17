@@ -31,7 +31,7 @@ import {
 
 export type ContextualBanditResultsForUi = {
   contextualBanditSnapshot: ContextualBanditSnapshot | null;
-  latest: SnapshotStatusSummary | null;
+  latestSnapshotSummary: SnapshotStatusSummary | null;
 };
 
 function mapCbsStatusToSnapshotStatus(
@@ -67,27 +67,27 @@ export async function getContextualBanditResultsForUi(
   context: ReqContext,
   cb: ContextualBanditInterface,
 ): Promise<ContextualBanditResultsForUi> {
-  const [latestCbs, latestCbe] = await Promise.all([
+  const [latestSnapshot, latestEvent] = await Promise.all([
     context.models.contextualBanditSnapshots.getLatestForContextualBandit(
       cb.id,
     ),
     context.models.contextualBanditEvents.getLatestForContextualBandit(cb.id),
   ]);
 
-  const contextualBanditSnapshot: ContextualBanditSnapshot | null = latestCbe
+  const contextualBanditSnapshot: ContextualBanditSnapshot | null = latestEvent
     ? {
-        attributes: latestCbe.attributes,
-        responses: latestCbe.responses,
-        leaf_map: latestCbe.leaf_map,
-        leaf_stats: latestCbe.leaf_stats,
+        attributes: latestEvent.attributes,
+        responses: latestEvent.responses,
+        leaf_map: latestEvent.leaf_map,
+        leaf_stats: latestEvent.leaf_stats,
       }
     : null;
 
-  const latest = latestCbs
-    ? toContextualBanditSnapshotStatusSummary(latestCbs)
+  const latestSnapshotSummary = latestSnapshot
+    ? toContextualBanditSnapshotStatusSummary(latestSnapshot)
     : null;
 
-  return { contextualBanditSnapshot, latest };
+  return { contextualBanditSnapshot, latestSnapshotSummary };
 }
 
 export async function runContextualBanditSnapshot(

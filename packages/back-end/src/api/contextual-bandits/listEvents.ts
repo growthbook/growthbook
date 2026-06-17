@@ -9,7 +9,8 @@ export const listContextualBanditEvents = createApiRequestHandler(
     req.context,
     req.params.id,
   );
-  const limit = req.query?.limit ?? 20;
+  const DEFAULT_CONTEXTUAL_BANDIT_EVENT_LIMIT = 20;
+  const limit = req.query?.limit ?? DEFAULT_CONTEXTUAL_BANDIT_EVENT_LIMIT;
   const events =
     await req.context.models.contextualBanditEvents.listForContextualBandit(
       contextualBandit.id,

@@ -282,25 +282,20 @@ export class ContextualBanditModel extends BaseClass {
     return this.context.permissions.canDeleteContextualBandit(doc);
   }
 
-  /**
-   * Atomically replace `currentLeafWeights` and `$inc` `banditVersion` in one write so they
-   * can't drift. Empty `leafWeights` leaves the weights untouched but still advances the counter and
-   * `dateUpdated`. Callers MUST keep the snapshot-success write ordering (CBE → CB-patch → CBS-success).
-   */
   public async patchLeafWeights(
     cbId: string,
     leafWeights: LeafWeight[],
   ): Promise<ContextualBanditInterface> {
-    const existing = await this.getById(cbId);
-    if (!existing) {
+    const existingCB = await this.getById(cbId);
+    if (!existingCB) {
       throw new Error(`ContextualBandit not found: ${cbId}`);
     }
     // Re-assert canUpdate because the atomic write below bypasses BaseModel.updateById's gate.
-    if (!this.canUpdate(existing)) {
+    if (!this.canUpdate(existingCB)) {
       this.context.permissions.throwPermissionError();
     }
 
-    const collection = this._dangerousGetCollection();
+    const collection = this._dangerousGetCollection(); //@teresayung verify this is ok
     const now = new Date();
     const set: Record<string, unknown> = { dateUpdated: now };
     // Skip writing currentLeafWeights when empty so an empty-result run can't wipe existing weights.

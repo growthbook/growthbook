@@ -11,7 +11,7 @@ export const getContextualBanditCurrentWeights = createApiRequestHandler(
   );
   const latestContextualBanditEvent =
     await req.context.models.contextualBanditEvents.getLatestForContextualBandit(
-      cb.id,
+      contextualBandit.id,
     );
   return {
     currentLeafWeights: contextualBandit.currentLeafWeights ?? [],

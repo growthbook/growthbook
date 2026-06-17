@@ -9,7 +9,8 @@ export const listContextualBanditSnapshots = createApiRequestHandler(
     req.context,
     req.params.id,
   );
-  const limit = req.query?.limit ?? 20;
+  const DEFAULT_CONTEXTUAL_BANDIT_SNAPSHOT_LIMIT = 20;
+  const limit = req.query?.limit ?? DEFAULT_CONTEXTUAL_BANDIT_SNAPSHOT_LIMIT;
   const snapshots =
     await req.context.models.contextualBanditSnapshots.listForContextualBandit(
       contextualBandit.id,
