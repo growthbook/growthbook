@@ -2101,8 +2101,6 @@ const onExperimentUpdate = async ({
       eventName: "experiment_started",
       uniqueId: newExperiment.id,
       metadata: { experiment_id: newExperiment.id },
-    }).catch((e) => {
-      logger.error(e, "Failed to notify license server of experiment start");
     });
   }
 };

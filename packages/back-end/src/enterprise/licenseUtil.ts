@@ -607,7 +607,7 @@ export function shouldNotifyLicenseServer(
 
 /**
  * Notifies the license server of a billable product event, forwarded to Orb
- * for usage-based billing.
+ * for usage-based billing. Errors are swallowed and logged. Fire and forget.
  *
  * @param eventName         - Event name (must be on the license server's allowlist).
  * @param uniqueId          - Natural identifier for the entity this event is about
@@ -622,7 +622,7 @@ export function shouldNotifyLicenseServer(
  * @param timestampOverride - ISO 8601 event timestamp. Defaults to now. Pass this
  *                            only when backdating historical events.
  */
-export async function notifyLicenseServerEvent({
+export function notifyLicenseServerEvent({
   licenseKey,
   eventName,
   uniqueId,
@@ -634,9 +634,10 @@ export async function notifyLicenseServerEvent({
   uniqueId: string;
   metadata: Record<string, unknown>;
   timestampOverride?: string;
-}) {
+}): void {
   const url = `${LICENSE_SERVER_URL}events/track`;
-  await callLicenseServer({
+
+  callLicenseServer({
     url,
     body: JSON.stringify({
       licenseKey,
@@ -645,6 +646,11 @@ export async function notifyLicenseServerEvent({
       metadata,
       timestamp: timestampOverride ?? new Date().toISOString(),
     }),
+  }).catch((e) => {
+    logger.error(
+      { err: e, eventName, uniqueId },
+      "Error posting license server event",
+    );
   });
 }
 
