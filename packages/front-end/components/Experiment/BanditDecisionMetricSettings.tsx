@@ -111,6 +111,7 @@ export default function BanditDecisionMetricSettings({
   return (
     <>
       <ExperimentMetricsSelector
+        experimentType="multi-armed-bandit"
         datasource={datasource?.id}
         exposureQueryId={exposureQueryId}
         project={project}

@@ -1570,6 +1570,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                   form.setValue("guardrailMetrics", guardrailMetrics)
                 }
                 experimentId={initialValue?.id}
+                experimentType={type}
               />
             </div>
 

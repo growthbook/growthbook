@@ -318,11 +318,6 @@
       "count": 3
     }
   },
-  "packages/front-end/components/Experiment/TabbedPage/AnalysisSettingsSummary.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Experiment/TabbedPage/BanditUpdateStatus.tsx": {
     "local/no-alert-classname": {
       "count": 1

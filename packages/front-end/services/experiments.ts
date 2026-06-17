@@ -959,6 +959,7 @@ export function getHonoredPrecomputedUnitDimensionIds(
 export function getIsExperimentIncludedInIncrementalRefresh(
   datasource: DataSourceInterfaceWithParams | undefined,
   experimentId: string | undefined,
+  experimentType: ExperimentInterfaceStringDates["type"],
 ): boolean {
   const pipelineSettings = datasource?.settings.pipelineSettings;
   if (!pipelineSettings) return false;
@@ -976,7 +977,11 @@ export function getIsExperimentIncludedInIncrementalRefresh(
     );
   }
 
-  return isExperimentIncrementalEnabled(pipelineSettings, experimentId);
+  return isExperimentIncrementalEnabled(
+    pipelineSettings,
+    experimentId,
+    experimentType,
+  );
 }
 
 // Returns updated pipeline settings that disable incremental refresh for the
