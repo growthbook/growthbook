@@ -914,7 +914,7 @@ export default function AnalysisSettingsSummary({
         </Box>
       )}
 
-      {latest?.status !== "running" && incrementalUpdatesUnavailable && (
+      {incrementalUpdatesUnavailable && (
         <Callout status="warning" mt="2">
           <Text weight="semibold" size="medium">
             Updates will rescan full experiment data.
