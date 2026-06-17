@@ -85,6 +85,14 @@ export function tagFilterOnClick(
 const wordBoundary = /[\n\r\p{Z}]+/u;
 const tokenSeparators = /\p{P}+/u;
 
+// Suffix expansion is O(parts²) in string data, so it's only safe for
+// identifier-like words (a handful of underscore/hyphen-separated parts).
+// Above this threshold a "word" is almost certainly free text or JSON without
+// whitespace (e.g. a saved-group condition), where joining suffixes is both
+// meaningless and can produce hundreds of MB of strings — index the individual
+// parts instead.
+const maxPartsForSuffixExpansion = 16;
+
 // Split a string into normalized words. MiniSearch can only match terms by
 // prefix/fuzzy (no substring search), so for indexing we emit every
 // "boundary suffix" of each word — e.g. "search_test_key" -> ["search_test_key",
@@ -95,11 +103,10 @@ const tokenSeparators = /\p{P}+/u;
 function tokenizeFields(text: string, expandSuffixes: boolean): string[] {
   return text.split(wordBoundary).flatMap((word) => {
     const parts = word.split(tokenSeparators).filter(Boolean);
-    return expandSuffixes
-      ? parts.map((_, i) => parts.slice(i).join("_"))
-      : parts.length
-        ? [parts.join("_")]
-        : [];
+    if (!expandSuffixes) return parts.length ? [parts.join("_")] : [];
+    return parts.length > maxPartsForSuffixExpansion
+      ? parts
+      : parts.map((_, i) => parts.slice(i).join("_"));
   });
 }
 
