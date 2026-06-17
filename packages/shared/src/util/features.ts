@@ -2353,7 +2353,9 @@ export function getDependentExperiments(
   experimentDependencyIndex?: ExperimentDependencyIndex,
 ): ExperimentInterfaceStringDates[] {
   if (experimentDependencyIndex) {
-    return experimentDependencyIndex.get(feature.id) ?? [];
+    // Copy so callers can't mutate the array stored in the index; also keeps
+    // this path's aliasing contract identical to the `.filter()` scan below.
+    return experimentDependencyIndex.get(feature.id)?.slice() ?? [];
   }
   return experiments.filter((e) => {
     const phase = e.phases.slice(-1)?.[0] ?? null;
