@@ -247,6 +247,11 @@ const EXPERIMENT_SECTION_KEYS: Record<
   dismissedWarnings: false,
   holdoutId: false,
   defaultDashboardId: false,
+  // pinning an official readout is a UI bookmark, not part of event diffs
+  pinnedReportId: false,
+  pinnedSnapshotId: false,
+  pinnedReportBy: false,
+  pinnedReportAt: false,
 };
 
 function sectionKeys(

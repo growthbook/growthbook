@@ -379,6 +379,15 @@ const experimentSchema = new mongoose.Schema({
     },
   ],
   precomputedUnitDimensionIds: [String],
+  // ID of a custom report pinned as the "official results" for this experiment
+  pinnedReportId: String,
+  // Frozen snapshot id at pin time so the official view stays stable
+  // even if the report is later edited/refreshed (server-derived)
+  pinnedSnapshotId: String,
+  // userId of whoever pinned the current official results (server-derived)
+  pinnedReportBy: String,
+  // Timestamp when the current official results were pinned (server-derived)
+  pinnedReportAt: Date,
 });
 
 // Compound indexes for API list filtering
@@ -701,6 +710,18 @@ export async function updateExperiment({
   });
 
   return updated;
+}
+
+// Only updates the snapshot — pinnedReportBy/At keep the original pinner.
+export async function updatePinnedSnapshotIdForReport(
+  organization: string,
+  reportId: string,
+  newSnapshotId: string,
+): Promise<void> {
+  await ExperimentModel.updateMany(
+    { organization, pinnedReportId: reportId },
+    { $set: { pinnedSnapshotId: newSnapshotId, dateUpdated: new Date() } },
+  );
 }
 
 export async function getExperimentsByMetric(

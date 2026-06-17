@@ -446,6 +446,15 @@ export const experimentInterface = z
       .array(z.string())
       .max(MAX_PRECOMPUTED_UNIT_DIMENSIONS, maxPrecomputedUnitDimensionsError)
       .optional(),
+    // ID of a custom report pinned as the "official results" for this experiment
+    pinnedReportId: z.string().optional(),
+    // frozen snapshot id at pin time so the official view stays stable
+    // even if the report is later edited/refreshed (server-derived)
+    pinnedSnapshotId: z.string().optional(),
+    // userId of whoever pinned the current official results (server-derived)
+    pinnedReportBy: z.string().optional(),
+    // timestamp when the current official results were pinned (server-derived)
+    pinnedReportAt: z.date().optional(),
   })
   .strict()
   .merge(experimentAnalysisSettings);
@@ -816,6 +825,32 @@ const apiExperimentShape = z.object({
       date: z.string().meta({ format: "date-time" }),
     })
     .nullable()
+    .optional(),
+  // official-results pin state on the external API
+  pinnedReportId: z
+    .string()
+    .describe(
+      "ID of the report pinned as this experiment's official results, if any.",
+    )
+    .optional(),
+  pinnedSnapshotId: z
+    .string()
+    .describe(
+      "ID of the snapshot frozen at pin time. Independent of the report's current snapshot so the official view stays stable. Server-derived.",
+    )
+    .optional(),
+  pinnedReportBy: z
+    .string()
+    .describe(
+      "User ID of whoever pinned the current official results. Server-derived.",
+    )
+    .optional(),
+  pinnedReportAt: z
+    .string()
+    .meta({ format: "date-time" })
+    .describe(
+      "Timestamp when the current official results were pinned. Server-derived.",
+    )
     .optional(),
 });
 export const apiExperimentValidator = namedSchema(

@@ -680,6 +680,11 @@ app.get(
   "/experiment/:id/snapshot-summary/:phase",
   experimentsController.getSnapshotSummary,
 );
+// Lists past snapshots for the "view a past snapshot" official-results picker
+app.get(
+  "/experiment/:id/snapshot-history/:phase",
+  experimentsController.getSnapshotHistory,
+);
 app.post("/experiment/:id/snapshot", experimentsController.postSnapshot);
 app.post(
   "/experiment/:id/banditSnapshot",

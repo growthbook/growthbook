@@ -287,6 +287,18 @@ export type SnapshotStatusSummary = Pick<
   | "triggeredBy"
 >;
 
+// Lightweight row for the "view a past snapshot" history picker. Carries the
+// analysis window (from settings) on top of a few status fields so the picker
+// can label each snapshot by its covered date range / "Day N" without reading
+// the heavy per-metric analysis blobs.
+export type SnapshotHistoryEntry = Pick<
+  ExperimentSnapshotInterface,
+  "id" | "dateCreated" | "status" | "triggeredBy" | "type" | "dimension"
+> & {
+  windowStartDate: Date;
+  windowEndDate: Date;
+};
+
 export interface ExperimentSnapshotHealth {
   traffic: ExperimentSnapshotTraffic;
   power?: MidExperimentPowerCalculationResult;

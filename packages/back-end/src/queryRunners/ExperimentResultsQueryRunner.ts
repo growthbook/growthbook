@@ -55,6 +55,7 @@ import { expandDenominatorMetrics } from "back-end/src/util/sql";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
 import SqlIntegration from "back-end/src/integrations/SqlIntegration";
 import { updateReport } from "back-end/src/models/ReportModel";
+import { updatePinnedSnapshotIdForReport } from "back-end/src/models/ExperimentModel";
 import {
   QueryRunner,
   QueryMap,
@@ -646,6 +647,14 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       await updateReport(this.model.organization, this.model.report, {
         snapshot: this.model.id,
       });
+      // Don't promote a failed snapshot to be the official view.
+      if (["partially-succeeded", "succeeded"].includes(status)) {
+        await updatePinnedSnapshotIdForReport(
+          this.model.organization,
+          this.model.report,
+          this.model.id,
+        );
+      }
     }
     return {
       ...this.model,

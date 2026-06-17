@@ -15,6 +15,8 @@ import ReportMetaInfo from "@/components/Report/ReportMetaInfo";
 import LegacyReportPage from "@/components/Report/LegacyReportPage";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ConfigureReport from "@/components/Report/ConfigureReport";
+import Callout from "@/ui/Callout";
+import Link from "@/ui/Link";
 
 export default function ReportPage() {
   const router = useRouter();
@@ -31,7 +33,9 @@ export default function ReportPage() {
   const report = data?.report;
   const loading = !data;
 
-  const { data: experimentData } = useApi<{
+  // mutateExperiment is exposed so the Pin-as-official-readout button in
+  // ReportMetaInfo can refresh experiment state after toggling pinnedReportId.
+  const { data: experimentData, mutate: mutateExperiment } = useApi<{
     experiment: ExperimentInterfaceStringDates;
     idea?: IdeaInterface;
     visualChangesets: VisualChangesetInterface[];
@@ -127,12 +131,26 @@ export default function ReportPage() {
         ]}
       />
 
+      {/* heads-up when this report is pinned as official results */}
+      {experiment?.pinnedReportId === report.id ? (
+        <Callout status="info" mb="3">
+          📌 Changes made to this report will update the{" "}
+          <Link href={`/experiment/${experiment.id}#results/official-results`}>
+            official experiment results
+          </Link>
+          . Please create a new custom report if you do not want to affect the
+          official results.
+        </Callout>
+      ) : null}
+
       <ReportMetaInfo
         report={report}
         snapshot={snapshot ?? undefined}
         experiment={experiment}
         datasource={datasource}
         mutate={mutate}
+        // lets Pin/Unpin official readout refresh the experiment state
+        mutateExperiment={mutateExperiment}
         isOwner={isOwner}
         isAdmin={isAdmin}
         canEdit={canEdit}
