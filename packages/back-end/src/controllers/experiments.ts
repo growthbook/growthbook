@@ -8,6 +8,7 @@ import {
   getSnapshotAnalysis,
   isDefined,
   autoMerge,
+  includeExperimentInPayload,
 } from "shared/util";
 import {
   expandAllSliceMetricsInMap,
@@ -1445,6 +1446,7 @@ export async function postExperiment(
       phaseStartDate?: string;
       phaseEndDate?: string;
       variationWeights?: number[];
+      coverage?: number;
     },
     { id: string }
   >,
@@ -1621,6 +1623,28 @@ export async function postExperiment(
 
   if (data.variations) {
     validateVariationIds(data.variations);
+
+    // Changing the number of variations is only safe before the experiment is
+    // live in the SDK payload. Mirrors the front-end `safeToEdit` gate so a
+    // running, in-payload experiment can't have variations added/removed.
+    if (data.variations.length !== experiment.variations.length) {
+      const linkedFeaturesForPayload = await getFeaturesByIds(
+        context,
+        experiment.linkedFeatures || [],
+      );
+      const inPayload = includeExperimentInPayload(
+        experiment,
+        linkedFeaturesForPayload,
+      );
+      if (experiment.status === "running" && inPayload) {
+        res.status(400).json({
+          status: 400,
+          message:
+            "Cannot change the number of variations while the experiment is running and live in the SDK payload.",
+        });
+        return;
+      }
+    }
   }
 
   // Check if tracking key is being changed and validate uniqueness if required
@@ -1933,6 +1957,18 @@ export async function postExperiment(
         id: v.id,
         status: "active" as const,
       })),
+    };
+    changes.phases = phases;
+  }
+
+  // Apply coverage to the latest phase so traffic % can be edited through the
+  // same call as variations/weights (mirrors variationWeights handling above).
+  if (data.coverage) {
+    const phases = changes.phases || [...experiment.phases];
+    const lastIndex = phases.length - 1;
+    phases[lastIndex] = {
+      ...phases[lastIndex],
+      coverage: data.coverage,
     };
     changes.phases = phases;
   }
