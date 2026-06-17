@@ -79,11 +79,10 @@ export const publishScheduledRevision = async (
   const feature = await getFeature(context, featureId);
   if (!feature) return;
 
-  // Archived features must not auto-publish. archiveFeature already cancels
-  // schedules; this is a belt-and-suspenders guard against a race so we stop
-  // retrying instead of resurrecting an archived feature's draft.
+  // archiveFeature already cancels schedules; this guards against a race so we
+  // don't resurrect an archived feature's draft.
   if (feature.archived) {
-    await cancelScheduledPublishesForFeature(organization, featureId);
+    await cancelScheduledPublishesForFeature(context, organization, featureId);
     return;
   }
 
@@ -96,7 +95,6 @@ export const publishScheduledRevision = async (
   });
   if (!revision) return;
 
-  // maybePublishScheduledRevision re-checks the due gate and governance; if the
-  // draft can't publish yet it holds and the next 1-minute tick retries.
+  // Re-checks the due gate and governance; holds and retries next tick if not ready.
   await maybePublishScheduledRevision(context, feature, revision);
 };

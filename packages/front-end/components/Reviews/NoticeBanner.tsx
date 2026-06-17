@@ -2,11 +2,8 @@ import { Box, Flex } from "@radix-ui/themes";
 import { ReactNode } from "react";
 import Text from "@/ui/Text";
 
-// GitHub-style banner ("This branch is out-of-date with the base branch"):
-// neutral panel, tinted icon disk, bold title with a muted body, and a
-// right-aligned secondary action that wraps below in narrow columns. Shared by
-// the publish-flow status blocks (divergence/rebase/conflict notices and the
-// scheduled-publish status card) so they all read identically.
+// Shared status banner for the publish flow (divergence/rebase/conflict notices
+// and the scheduled-publish card) so they all read identically.
 export default function NoticeBanner({
   icon,
   iconColor,
@@ -16,12 +13,11 @@ export default function NoticeBanner({
   action,
 }: {
   icon: ReactNode;
-  // Radix color scale name (e.g. "red", "amber", "violet", "gray").
+  // Radix color scale name (e.g. "red", "amber", "violet").
   iconColor: string;
   title: ReactNode;
   body?: ReactNode;
-  // Rendered below the muted body, unwrapped, for content that styles itself
-  // (e.g. a HelperText callout).
+  // Rendered below the body, unwrapped, for self-styled content (e.g. HelperText).
   footer?: ReactNode;
   action?: ReactNode;
 }) {

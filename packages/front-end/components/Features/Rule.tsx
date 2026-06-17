@@ -208,9 +208,8 @@ interface SortableProps {
   version: number;
   setVersion: (version: number) => void;
   locked: boolean;
-  // True when `locked` is caused specifically by a pending scheduled publish.
-  // Ramp runtime controls (start/pause/resume/advance/rollback/complete) act on
-  // live runtime state, not the frozen draft content, so they stay interactive.
+  // `locked` is caused by a pending scheduled publish. Ramp runtime controls act
+  // on live state, not draft content, so they stay interactive.
   lockedBySchedule?: boolean;
   experimentsMap: Map<string, ExperimentInterfaceStringDates>;
   safeRolloutsMap: Map<string, SafeRolloutInterface>;
@@ -309,9 +308,8 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
   ) => {
     const { apiCall } = useAuth();
 
-    // Ramp runtime controls act on live runtime state (the ramp schedule), not
-    // the draft's rule config, so a scheduled-publish edit lock must not disable
-    // them. Other read-only reasons (old/discarded revisions) still do.
+    // A scheduled-publish edit lock leaves ramp runtime controls interactive;
+    // other lock reasons (old/discarded revisions) still disable them.
     const rampControlsLocked = locked && !lockedBySchedule;
 
     const allEnvironments = useEnvironments();
@@ -784,10 +782,9 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
 
               {info.pill}
 
-              {/* Dropdown Menu. Shown whenever rule-edit actions OR ramp runtime
-                actions are available. Under a scheduled-publish lock the
-                rule-edit group is hidden, but the ramp/schedule actions (which
-                act on live runtime state) remain. */}
+              {/* Shown when rule-edit OR ramp runtime actions are available.
+                Under a scheduled-publish lock the rule-edit group is hidden but
+                ramp/schedule actions remain. */}
               {canEdit &&
                 !rampControlsLocked &&
                 (!locked || !!rampSchedule) && (
@@ -941,14 +938,15 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                           </DropdownMenuGroup>
                         </>
                       )}
-                    {rampSchedule &&
+                    {!locked &&
+                      rampSchedule &&
                       isSimpleSchedule &&
                       !!rampSchedule.cutoffDate &&
                       ["completed", "rolled-back"].includes(
                         rampSchedule.status,
                       ) && (
                         <>
-                          {!locked && <DropdownMenuSeparator />}
+                          <DropdownMenuSeparator />
                           <DropdownMenuGroup label="Schedule">
                             <DropdownMenuItem
                               onClick={async () => {
@@ -983,26 +981,29 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                         {!locked && <DropdownMenuSeparator />}
                         <DropdownMenuGroup label="Ramp-up schedule">
                           {hasPendingDetach ? (
-                            /* When removal is pending: cancel it directly via API (no modal) */
-                            <DropdownMenuItem
-                              onClick={async () => {
-                                const res = await apiCall<{
-                                  version: number;
-                                }>(`/feature/${feature.id}/${version}/rule`, {
-                                  method: "PUT",
-                                  body: JSON.stringify({
-                                    ruleId: rule.id,
-                                    rule,
-                                    rampSchedule: { mode: "clear" },
-                                  }),
-                                });
-                                if (res.version) setVersion(res.version);
-                                await mutate();
-                                setDropdownOpen(false);
-                              }}
-                            >
-                              Cancel removal of schedule
-                            </DropdownMenuItem>
+                            // Canceling a pending removal edits the draft, so it's
+                            // gated by the edit-lock; runtime actions below are not.
+                            !locked && (
+                              <DropdownMenuItem
+                                onClick={async () => {
+                                  const res = await apiCall<{
+                                    version: number;
+                                  }>(`/feature/${feature.id}/${version}/rule`, {
+                                    method: "PUT",
+                                    body: JSON.stringify({
+                                      ruleId: rule.id,
+                                      rule,
+                                      rampSchedule: { mode: "clear" },
+                                    }),
+                                  });
+                                  if (res.version) setVersion(res.version);
+                                  await mutate();
+                                  setDropdownOpen(false);
+                                }}
+                              >
+                                Cancel removal of schedule
+                              </DropdownMenuItem>
+                            )
                           ) : (
                             <>
                               {/* pending: blocked Start */}
@@ -1283,34 +1284,37 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                                       </Flex>
                                     </DropdownMenuItem>
                                   )}
-                                  <DropdownMenuItem
-                                    onClick={async () => {
-                                      const res = await apiCall<{
-                                        version: number;
-                                      }>(
-                                        `/feature/${feature.id}/${version}/rule`,
-                                        {
-                                          method: "PUT",
-                                          body: JSON.stringify({
-                                            ruleId: rule.id,
-                                            rule,
-                                            rampSchedule: {
-                                              mode: "detach",
-                                              rampScheduleId: rampSchedule.id,
-                                              deleteScheduleWhenEmpty: true,
-                                            },
-                                          }),
-                                        },
-                                      );
-                                      if (res.version) setVersion(res.version);
-                                      await mutate();
-                                      setDropdownOpen(false);
-                                    }}
-                                  >
-                                    <Flex align="center" gap="2">
-                                      <PiTrash /> Remove schedule
-                                    </Flex>
-                                  </DropdownMenuItem>
+                                  {!locked && (
+                                    <DropdownMenuItem
+                                      onClick={async () => {
+                                        const res = await apiCall<{
+                                          version: number;
+                                        }>(
+                                          `/feature/${feature.id}/${version}/rule`,
+                                          {
+                                            method: "PUT",
+                                            body: JSON.stringify({
+                                              ruleId: rule.id,
+                                              rule,
+                                              rampSchedule: {
+                                                mode: "detach",
+                                                rampScheduleId: rampSchedule.id,
+                                                deleteScheduleWhenEmpty: true,
+                                              },
+                                            }),
+                                          },
+                                        );
+                                        if (res.version)
+                                          setVersion(res.version);
+                                        await mutate();
+                                        setDropdownOpen(false);
+                                      }}
+                                    >
+                                      <Flex align="center" gap="2">
+                                        <PiTrash /> Remove schedule
+                                      </Flex>
+                                    </DropdownMenuItem>
+                                  )}
                                 </>
                               )}
                             </>

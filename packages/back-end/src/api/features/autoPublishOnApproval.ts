@@ -15,6 +15,7 @@ import { ApiReqContext } from "back-end/types/api";
 import { getEnvironments } from "back-end/src/util/organization.util";
 import { getContextForUserIdInOrg } from "back-end/src/services/organizations";
 import { getExperimentsByIds } from "back-end/src/models/ExperimentModel";
+import { recordScheduledPublishFailure } from "back-end/src/models/FeatureRevisionModel";
 import { BadRequestError } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 import { publishFeatureRevision } from "./postFeatureRevisionPublish";
@@ -41,9 +42,8 @@ export function canEnableFeatureAutoPublishOnApproval(
   return context.permissions.canPublishFeature(feature, environmentIds);
 }
 
-// Parse + validate a client-supplied schedule date. `null`/`undefined` means "no
-// schedule"; a value must be a valid, future date. Shared by the internal and
-// REST schedule entry points.
+// Validate a client-supplied schedule date. null/undefined means "no schedule";
+// any value must be a valid future date.
 export function parseScheduledPublishDate(
   value: string | null | undefined,
 ): Date | null {
@@ -58,9 +58,8 @@ export function parseScheduledPublishDate(
   return date;
 }
 
-// Publish authority over every environment this feature applies to. This is the
-// permission to cancel a pending schedule — anyone who could publish the feature
-// can call off (or take over) a deferred publish.
+// Publish authority over every environment the feature applies to. Anyone with
+// it can cancel (or take over) a pending schedule.
 export function canPublishFeatureRevision(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
@@ -73,11 +72,8 @@ export function canPublishFeatureRevision(
   return context.permissions.canPublishFeature(feature, environmentIds);
 }
 
-// Whether the caller may arm a deferred (date-based) publish on this feature.
-// Unlike auto-publish-on-approval, scheduling isn't gated on the org's
-// auto-publish setting — it only needs publish authority (the date is just a
-// deferral) — but it's a premium feature in its own right. Cancelling needs no
-// premium (see canPublishFeatureRevision) so a lapsed license can still disarm.
+// Whether the caller may arm a date-based publish. Needs publish authority plus
+// the premium feature (canceling needs neither, so a lapsed license can disarm).
 export function canScheduleFeaturePublish(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
@@ -123,9 +119,9 @@ async function revisionRequiresPreLaunchChecklist(
   );
 }
 
-// Resolve the context an armed publish runs with: the authority of whoever armed
-// it (`autoPublishEnabledBy`), falling back to the draft author for revisions
-// armed by actors without a user ID (API keys) or before the field existed.
+// Resolve the context an armed publish runs with: whoever armed it
+// (autoPublishEnabledBy), falling back to the draft author when that's absent
+// (API keys, or revisions predating the field).
 async function getArmedPublishContext(
   context: ReqContext | ApiReqContext,
   revision: FeatureRevisionInterface,
@@ -144,17 +140,16 @@ async function getArmedPublishContext(
 }
 
 // Run the pre-launch checklist gate with the armer's authority, then publish.
-// Throws on a failed checklist / governance / permission / merge-conflict so the
-// caller can decide whether to hold (scheduled) or leave approved (on-approval).
+// Throws on a failed gate so the caller can decide whether to hold or leave
+// approved.
 async function publishArmedRevision(
   enablerContext: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   revision: FeatureRevisionInterface,
   mergeNow: boolean,
 ): Promise<FeatureRevisionInterface> {
-  // Checklist gate runs with the armer's context (the authority we publish with),
-  // not the caller's. A reviewer scoped out of a linked experiment's project
-  // would otherwise see no experiments and let a draft-experiment feature publish.
+  // Use the armer's context, not the caller's: a reviewer scoped out of a linked
+  // experiment's project would see no experiments and skip the checklist.
   if (
     await revisionRequiresPreLaunchChecklist(enablerContext, feature, revision)
   ) {
@@ -167,8 +162,7 @@ async function publishArmedRevision(
       organization: enablerContext.org,
       audit: enablerContext.auditLog.bind(enablerContext),
       params: { id: feature.id, version: revision.version },
-      // mergeNow only takes effect for armers with bypass-approval permission;
-      // it lets an admin-armed schedule force-merge a stale draft at fire time.
+      // Only honored for armers who can bypass approvals (force-merge a stale draft).
       body: { comment: "", mergeNow },
     },
     false,
@@ -184,8 +178,8 @@ export async function maybeAutoPublishFeatureRevision(
   if (!revision.autoPublishOnApproval) return revision;
   if (revision.status !== "approved") return revision;
 
-  // A future-dated schedule defers to the Agenda poller; only publish on the
-  // approval event itself when there's no date (or the date has already passed).
+  // A future-dated schedule defers to the Agenda poller; publish on approval only
+  // when there's no date (or it's already due).
   if (isScheduledPublishPending(revision) && !isScheduledPublishDue(revision)) {
     return revision;
   }
@@ -215,11 +209,14 @@ export async function maybeAutoPublishFeatureRevision(
   }
 }
 
-// Date-driven counterpart invoked by the scheduled-publish Agenda poller. Fires
-// only once the target date has arrived; if the draft can't publish yet (review
-// required but not approved, stale approval, merge conflict) it holds — the next
-// tick retries — until conditions are met or the schedule is canceled. An admin
-// armer with bypass authority force-merges and skips the approval requirement.
+// Date-driven counterpart invoked by the Agenda poller once the target date has
+// arrived. If the draft can't publish yet (not approved, stale, conflict) it
+// holds and the next tick retries. Admin armers force-merge and skip approval.
+// Past this many failed poller attempts (~1/min) a held schedule is treated as
+// stuck: we log at error level so it surfaces in monitoring rather than retrying
+// silently forever.
+const SCHEDULED_PUBLISH_STUCK_AFTER_ATTEMPTS = 10;
+
 export async function maybePublishScheduledRevision(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
@@ -227,12 +224,21 @@ export async function maybePublishScheduledRevision(
 ): Promise<FeatureRevisionInterface> {
   if (!isScheduledPublishDue(revision)) return revision;
 
+  const recordFailure = async (message: string) => {
+    const attempts = await recordScheduledPublishFailure(revision, message);
+    const log =
+      attempts >= SCHEDULED_PUBLISH_STUCK_AFTER_ATTEMPTS
+        ? logger.error
+        : logger.info;
+    log(
+      { featureId: feature.id, version: revision.version, attempts },
+      `scheduled-publish held (will retry next tick): ${message}`,
+    );
+  };
+
   const enablerContext = await getArmedPublishContext(context, revision);
   if (!enablerContext) {
-    logger.warn(
-      { featureId: feature.id, version: revision.version },
-      "scheduled-publish skipped: enabling user could not be resolved; schedule left pending",
-    );
+    await recordFailure("enabling user could not be resolved");
     return revision;
   }
 
@@ -244,10 +250,7 @@ export async function maybePublishScheduledRevision(
       enablerContext.permissions.canBypassApprovalChecks(feature),
     );
   } catch (e) {
-    logger.info(
-      { featureId: feature.id, version: revision.version },
-      `scheduled-publish held (will retry next tick): ${e instanceof Error ? e.message : String(e)}`,
-    );
+    await recordFailure(e instanceof Error ? e.message : String(e));
     return revision;
   }
 }

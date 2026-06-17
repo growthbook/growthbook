@@ -56,9 +56,8 @@ interface Props {
   allowPublishOnApprove?: boolean;
   // Whether the auto-publish checkbox is checked on the revision.
   autoPublishArmed?: boolean;
-  // Whether the armed publish is deferred to a future date. When true, approving
-  // doesn't publish now — it just approves and the schedule fires on its date —
-  // so the CTA stays "Submit" instead of "Submit and Publish".
+  // Armed publish is deferred to a date, so approving doesn't publish now — the
+  // CTA stays "Submit" instead of "Submit and Publish".
   autoPublishScheduled?: boolean;
   // Whether the current reviewer can publish under their own authority. Gates
   // the non-armed "Submit and Publish" option, which publishes as the reviewer.
@@ -143,8 +142,7 @@ export default function ReviewCommentPopover({
   const canSubmit = decision !== "Comment" || comment.trim().length > 0;
 
   const isApproval = decision === "Approved";
-  // A future-dated schedule is already armed; approving just approves and lets
-  // the schedule fire later, so it isn't an immediate publish.
+  // A future-dated schedule fires later, so approving it isn't an immediate publish.
   const willPublish =
     isApproval &&
     autoPublishArmed &&

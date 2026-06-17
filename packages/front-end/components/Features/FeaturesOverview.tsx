@@ -480,14 +480,11 @@ export default function FeaturesOverview({
   const projectId = feature.project;
 
   const isDiscarded = revision.status === "discarded";
-  // This draft's content is frozen because it has a pending scheduled publish
-  // with "lock edits" armed (parallel to a ramp-schedule lockdown). Cancel the
-  // schedule to edit. Rebase is still allowed (handled in the publish modal).
+  // Draft frozen by a pending scheduled publish with "lock edits" (parallel to a
+  // ramp lockdown). Rebase is still allowed via the publish modal.
   const editLockedBySchedule =
     isDraft && isRevisionEditLockedBySchedule(revision);
   const scheduledPublishPending = isScheduledPublishPending(revision);
-  // True when the revision's content can't be edited here: an old published
-  // revision, a discarded one, or a draft frozen for a scheduled publish.
   const isReadOnly =
     isDiscarded ||
     (revision.status === "published" && !isLive) ||
@@ -711,10 +708,8 @@ export default function FeaturesOverview({
             isDraft || isPendingReview
               ? scheduledPublishPending
                 ? (() => {
-                    // Scheduled-publish state mirrors a ramp lockdown: amber
-                    // chrome, naming the target date. Locks (and the publish)
-                    // only take effect once the schedule is committed and no
-                    // longer awaiting approval. While in review we say "once
+                    // Mirrors a ramp lockdown, naming the target date. Locks
+                    // engage only once approved; while in review we say "once
                     // approved" and omit the lock clauses (editing stays open).
                     const lockActive = isScheduledPublishLockActive(revision);
                     const awaitingApproval =

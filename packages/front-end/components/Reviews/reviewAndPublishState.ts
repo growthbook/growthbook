@@ -53,9 +53,8 @@ export interface RnPStateInput {
   experimentsStep: boolean;
   // Publishing is frozen by an active ramp-schedule lockdown on this feature.
   featureLockedByRamp: boolean;
-  // Publishing is frozen because another draft of this feature has a pending
-  // scheduled publish that locks publishing of other drafts. Treated identically
-  // to the ramp lock (same lock glyph, admin-bypassable).
+  // Publishing is frozen by a sibling draft's scheduled publish that locks other
+  // drafts. Treated identically to the ramp lock.
   featureLockedBySchedule: boolean;
   // A selected experiment's required checklist is incomplete/loading.
   checklistBlocked: boolean;
@@ -67,8 +66,7 @@ export interface RnPState {
   mode: RnPMode;
   ctaLabel: string;
   ctaEnabled: boolean;
-  // Show a lock glyph on the CTA (publishing is frozen by a ramp lockdown or a
-  // sibling draft's scheduled-publish lock).
+  // Show a lock glyph on the CTA (frozen by a ramp or scheduled-publish lock).
   ctaLocked: boolean;
   submitAction: RnPSubmitAction;
   // Whether the main modal wires up a submit handler at all.
@@ -111,9 +109,8 @@ export function getReviewAndPublishState(input: RnPStateInput): RnPState {
     governanceCanPublish,
   } = input;
 
-  // A ramp lockdown and a sibling draft's "lock other publishes" schedule both
-  // freeze publishing identically: the CTA shows a lock glyph and is disabled
-  // unless an admin bypasses. Collapse them into one concept everywhere below.
+  // Ramp and scheduled-publish locks freeze publishing identically (lock glyph,
+  // admin-bypassable), so collapse them into one concept below.
   const publishLocked = featureLockedByRamp || featureLockedBySchedule;
 
   // recall-review ("Return to draft"): the requester or anyone with skin in

@@ -117,6 +117,8 @@ const featureRevisionSchema = new mongoose.Schema({
   scheduledPublishAt: Date,
   scheduledPublishLockEdits: Boolean,
   scheduledPublishLockOthers: Boolean,
+  scheduledPublishAttempts: Number,
+  scheduledPublishLastError: String,
   log: [
     {
       _id: false,
@@ -134,8 +136,8 @@ featureRevisionSchema.index(
   { unique: true },
 );
 featureRevisionSchema.index({ organization: 1, status: 1 });
-// Sparse: only armed, deferred-publish revisions carry scheduledPublishAt, so the
-// cross-org due-poller (dangerouslyFindRevisionsDueToPublish) scans a tiny set.
+// Sparse: only scheduled revisions carry scheduledPublishAt, so the cross-org
+// due-poller scans a tiny set.
 featureRevisionSchema.index({ scheduledPublishAt: 1 }, { sparse: true });
 
 type FeatureRevisionDocument = mongoose.Document & FeatureRevisionInterface;
@@ -1102,9 +1104,8 @@ export async function updateRevision(
   changes: RevisionChanges,
   log: Omit<RevisionLog, "timestamp">,
   resetReview: boolean,
-  // Rebase is the one content-mutating path allowed while a schedule's
-  // "lock edits" is active (it keeps the scheduled draft mergeable). All other
-  // edits are frozen until the schedule is canceled.
+  // Rebase is the only content-mutating path allowed while "lock edits" is
+  // active (keeps the scheduled draft mergeable); all other edits are frozen.
   { bypassScheduleLock = false }: { bypassScheduleLock?: boolean } = {},
 ) {
   if (!bypassScheduleLock && isRevisionEditLockedBySchedule(revision)) {
@@ -1250,8 +1251,7 @@ export async function markRevisionAsPublished(
     },
     {
       $set: changes,
-      // A published revision's schedule is spent — drop it (also keeps it out of
-      // the scheduledPublishAt sparse index).
+      // A published revision's schedule is spent — drop it.
       $unset: { ...SCHEDULED_PUBLISH_UNSET },
     },
   );
@@ -1299,6 +1299,14 @@ export async function markRevisionAsReviewRequested(
   // A target date implies the unified "armed" auto-publish flag.
   const scheduled = scheduledPublishAt !== null;
   const armed = !!autoPublishOnApproval || scheduled;
+
+  if (scheduled && scheduledPublishLockOthers) {
+    await assertNoConflictingPublishLock(
+      revision.organization,
+      revision.featureId,
+      revision.version,
+    );
+  }
 
   // The auto-publish later runs with the arming user's authority, so record
   // who that was. Actors without a user ID (e.g. API keys) can still arm —
@@ -1353,8 +1361,7 @@ export async function markRevisionAsReviewRequested(
       logger.error(e, "Error creating revisionlog");
     });
 
-  // A schedule armed alongside the review request is a separate, inspectable
-  // event in the timeline (carries the date + lock details).
+  // Log the schedule armed with the review request as its own timeline event.
   if (scheduled) {
     logScheduledPublishChange(context, revision, {
       action: "schedule publish",
@@ -1385,26 +1392,25 @@ export async function setAutoPublishOnApproval(
             autoPublishOnApproval: true,
             autoPublishEnabledBy: enabledBy,
           },
-          // Arming the "publish when approved" mode is mutually exclusive with a
-          // deferred date — clear any existing schedule so the two modes can't
-          // both be set at once.
+          // "publish when approved" is mutually exclusive with a date — clear any
+          // existing schedule.
           $unset: { ...SCHEDULED_PUBLISH_UNSET },
         }
       : {
           $set: { autoPublishOnApproval: enabled },
-          // Disarming also drops any pending schedule so a dangling
-          // scheduledPublishAt can't linger (the unified armed flag is off).
+          // Disarming drops any pending schedule too.
           $unset: { autoPublishEnabledBy: 1, ...SCHEDULED_PUBLISH_UNSET },
         },
   );
 }
 
-// Fields that make up a deferred-publish schedule. Cleared together when the
-// schedule is canceled or the revision leaves the active review cycle.
+// Schedule fields cleared together on cancel or when leaving the review cycle.
 const SCHEDULED_PUBLISH_UNSET = {
   scheduledPublishAt: 1,
   scheduledPublishLockEdits: 1,
   scheduledPublishLockOthers: 1,
+  scheduledPublishAttempts: 1,
+  scheduledPublishLastError: 1,
 } as const;
 
 export type ScheduledPublishInput = {
@@ -1414,12 +1420,8 @@ export type ScheduledPublishInput = {
   lockOthers?: boolean;
 };
 
-// Arm (or cancel) a deferred publish on a revision. Scheduling implies the
-// unified "armed" auto-publish flag; canceling disarms it. The publish later
-// runs with `enabledBy`'s authority (falls back to the draft author when null).
-// Append a revision-log entry for a deferred-publish change so additions,
-// changes, and cancellations show up in the review tab's timeline (and the
-// revision audit trail). Fire-and-forget, matching the other log writers here.
+// Log a schedule change so additions/changes/cancellations show in the review
+// timeline. Fire-and-forget, like the other log writers here.
 export function logScheduledPublishChange(
   context: ReqContext | ApiReqContext,
   revision: Pick<FeatureRevisionInterface, "featureId" | "version">,
@@ -1460,6 +1462,9 @@ export function logScheduledPublishChange(
     });
 }
 
+// Arm (or cancel) a deferred publish on a revision. Scheduling implies the armed
+// auto-publish flag; canceling disarms it. The publish later runs with
+// `enabledBy`'s authority (falls back to the draft author when null).
 export async function setRevisionScheduledPublish(
   context: ReqContext | ApiReqContext,
   revision: FeatureRevisionInterface,
@@ -1481,6 +1486,14 @@ export async function setRevisionScheduledPublish(
       action: "cancel scheduled publish",
     });
     return;
+  }
+
+  if (lockOthers) {
+    await assertNoConflictingPublishLock(
+      revision.organization,
+      revision.featureId,
+      revision.version,
+    );
   }
 
   await FeatureRevisionModel.updateOne(filter, {
@@ -1506,10 +1519,34 @@ export async function setRevisionScheduledPublish(
   });
 }
 
-// Cross-org poller query for the scheduled-publish Agenda job. Returns the
-// identifying tuple for every armed revision whose target date has arrived and
-// is still in an active review cycle. Deliberately org-agnostic — the job
-// resolves per-org context downstream — so the projection stays tiny.
+// Record a failed attempt by the scheduled-publish poller so a stuck schedule is
+// visible (UI + REST) instead of silently retrying. Cleared on the next
+// successful publish or when the schedule is canceled.
+export async function recordScheduledPublishFailure(
+  revision: Pick<
+    FeatureRevisionInterface,
+    "organization" | "featureId" | "version"
+  >,
+  message: string,
+): Promise<number> {
+  const doc = await FeatureRevisionModel.findOneAndUpdate(
+    {
+      organization: revision.organization,
+      featureId: revision.featureId,
+      version: revision.version,
+    },
+    {
+      $set: { scheduledPublishLastError: message },
+      $inc: { scheduledPublishAttempts: 1 },
+    },
+    { new: true },
+  ).select("scheduledPublishAttempts");
+  return doc?.scheduledPublishAttempts ?? 0;
+}
+
+// Cross-org poller query for the Agenda job: every armed revision whose date has
+// arrived and is still in an active review cycle. Org-agnostic by design (context
+// is resolved per-org downstream).
 export async function dangerouslyFindRevisionsDueToPublish(
   now: Date,
 ): Promise<{ organization: string; featureId: string; version: number }[]> {
@@ -1530,13 +1567,10 @@ export async function dangerouslyFindRevisionsDueToPublish(
     }));
 }
 
-// True if another active revision of this feature has a pending schedule that
-// blocks publishing sibling drafts (scheduledPublishLockOthers). Used to enforce
-// the lock at the publish choke point. The lock only applies once the scheduled
-// sibling is committed and no longer awaiting approval — i.e. "approved" (the
-// approval flow finished) or "draft" (the no-approval flow, where a schedule is
-// only committed on a draft when the change doesn't require review). An armed
-// schedule still in "pending-review"/"changes-requested" doesn't freeze others.
+// True if another revision has a committed "lock other drafts" schedule blocking
+// sibling publishes. Only applies once the schedule is committed and no longer
+// awaiting approval — status "approved" (approval flow) or "draft" (no-approval
+// flow); "pending-review"/"changes-requested" don't freeze others.
 export async function hasPublishLockingScheduledSibling(
   organization: string,
   featureId: string,
@@ -1553,14 +1587,47 @@ export async function hasPublishLockingScheduledSibling(
   return !!doc;
 }
 
-// Cancel every pending deferred publish across a feature's revisions. Used by
-// feature lifecycle events (e.g. archive) where a scheduled publish must no
-// longer fire. Disarms and clears the schedule/locks; safe to call when none
-// are pending. (Deletion drops the revisions outright, so it needs no call.)
+// Reject arming a second "lock other drafts" schedule while one is already
+// pending on the feature. Two such schedules would mutually block each other at
+// fire time (each is a publish-locking sibling of the other) and hold forever.
+async function assertNoConflictingPublishLock(
+  organization: string,
+  featureId: string,
+  version: number,
+) {
+  const conflict = await FeatureRevisionModel.findOne({
+    organization,
+    featureId,
+    version: { $ne: version },
+    autoPublishOnApproval: true,
+    scheduledPublishLockOthers: true,
+    scheduledPublishAt: { $ne: null },
+    status: { $in: [...ACTIVE_DRAFT_STATUSES] },
+  }).select("version");
+  if (conflict) {
+    throw new Error(
+      `Revision ${conflict.version} already has a scheduled publish that locks other drafts. Cancel it before scheduling another.`,
+    );
+  }
+}
+
+// Cancel pending schedules across a feature's revisions (e.g. on archive).
+// Disarms and clears schedule/locks; safe to call when none are pending.
+// Logs a cancellation against each affected revision so the timeline reflects it.
 export async function cancelScheduledPublishesForFeature(
+  context: ReqContext | ApiReqContext,
   organization: string,
   featureId: string,
 ) {
+  const affected = await FeatureRevisionModel.find({
+    organization,
+    featureId,
+    autoPublishOnApproval: true,
+    scheduledPublishAt: { $exists: true, $ne: null },
+  }).select("version");
+
+  if (!affected.length) return;
+
   await FeatureRevisionModel.updateMany(
     {
       organization,
@@ -1573,6 +1640,14 @@ export async function cancelScheduledPublishesForFeature(
       $unset: { ...SCHEDULED_PUBLISH_UNSET, autoPublishEnabledBy: 1 },
     },
   );
+
+  for (const doc of affected) {
+    logScheduledPublishChange(
+      context,
+      { featureId, version: doc.version },
+      { action: "cancel scheduled publish" },
+    );
+  }
 }
 
 // Compare-and-swap update: read `guardFields`, derive an update from the
@@ -1744,16 +1819,18 @@ export async function submitReviewAndComments(
   // its own entry below; bumping `dateUpdated` would falsely signal a content
   // change to the rebase guard (expectedDraftDateUpdated) and "last modified" UI.
 
-  // A changes-requested verdict invalidates any pending deferred publish — the
-  // revision is no longer on track to publish, so cancel the schedule (and its
-  // edit/feature locks) and disarm so it can't fire on a stale approval.
+  // A changes-requested verdict cancels any pending schedule so it can't fire on
+  // a stale approval.
   if (
     verdict === "changes-requested" &&
-    (revision.scheduledPublishAt ?? null)
+    (revision.scheduledPublishAt ?? null) !== null
   ) {
     await FeatureRevisionModel.updateOne(filter, {
       $set: { autoPublishOnApproval: false, dateUpdated: new Date() },
       $unset: { ...SCHEDULED_PUBLISH_UNSET, autoPublishEnabledBy: 1 },
+    });
+    logScheduledPublishChange(context, revision, {
+      action: "cancel scheduled publish",
     });
   }
 
@@ -1794,10 +1871,8 @@ export async function recallReview(
       version: revision.version,
     },
     {
-      // Recalling starts the review lifecycle over — clear baked verdicts
-      // (mirrors the revision-log replay semantics) and disarm any auto/deferred
-      // publish: arming is re-specified on the next Request Review, and a pending
-      // schedule must not fire on a draft that's no longer up for review.
+      // Recalling restarts the review lifecycle: clear verdicts and disarm any
+      // auto/deferred publish (re-specified on the next Request Review).
       $set: {
         status: "draft",
         dateUpdated: new Date(),
@@ -1824,6 +1899,13 @@ export async function recallReview(
     .catch((e) => {
       logger.error(e, "Error creating revisionlog for recallReview");
     });
+
+  // Recall disarms any pending schedule — record the cancellation in the timeline.
+  if ((revision.scheduledPublishAt ?? null) !== null) {
+    logScheduledPublishChange(context, revision, {
+      action: "cancel scheduled publish",
+    });
+  }
 }
 
 // Replay the review lifecycle from the merged log to find each reviewer's

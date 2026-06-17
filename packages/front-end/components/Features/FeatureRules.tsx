@@ -60,9 +60,7 @@ export default function FeatureRules({
   feature: FeatureInterface;
   baseFeature: FeatureInterface;
   isLocked: boolean;
-  // True when isLocked is caused specifically by a pending scheduled publish.
-  // Ramp runtime controls stay interactive in this case (they act on live
-  // runtime state, not the frozen draft content).
+  // `isLocked` is due to a pending scheduled publish; ramp controls stay interactive.
   lockedBySchedule?: boolean;
   canEditDrafts: boolean;
   experimentsMap: Map<string, ExperimentInterfaceStringDates>;

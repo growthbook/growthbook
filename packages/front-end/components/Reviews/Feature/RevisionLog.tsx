@@ -156,12 +156,8 @@ function auditVerb(action: string): string {
   );
 }
 
-// Icons and colors mirror the revision status presentation in
-// RevisionStatusBadge (`revisionStatusIcon` / `revisionStatusColor`) so the
-// timeline and the actions-column header speak the same visual language:
-// approved = grass check, changes requested = red chat bubble,
-// review requested (→ pending-review) = orange clock,
-// discard = gray prohibit (matches the Discarded badge's gray).
+// Icons and colors mirror RevisionStatusBadge so the timeline and the
+// actions-column header speak the same visual language.
 function rowVisual(action: string): RowVisual {
   switch (action) {
     case "Comment":
@@ -194,9 +190,7 @@ function rowVisual(action: string): RowVisual {
       return {
         color: "orange",
         verb: "requested a review",
-        // Spinner glyph (not a clock) to read as "awaiting review" and stay
-        // distinct from the scheduled-publish clock. Not animated here since
-        // this is a historical timeline entry.
+        // Spinner glyph (not a clock) — distinct from the scheduled-publish clock.
         icon: <PiSpinnerGap />,
         showCommentBody: false,
         showAuditDetails: false,

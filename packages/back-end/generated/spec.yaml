@@ -35736,6 +35736,36 @@ components:
                   - rampScheduleId
                   - ruleId
                 additionalProperties: false
+        autoPublishOnApproval:
+          description: >-
+            When true, the revision is armed to publish automatically once
+            governance allows (immediately on approval, or on
+            `scheduledPublishAt` if set).
+          type: boolean
+        scheduledPublishAt:
+          description: >-
+            Target date for a deferred (scheduled) publish. Null/absent means
+            publish as soon as approved.
+          anyOf:
+            - format: date-time
+              type: string
+            - type: 'null'
+        scheduledPublishLockEdits:
+          description: >-
+            When true, content edits to this draft are frozen while the schedule
+            is pending (rebasing is still allowed).
+          type: boolean
+        scheduledPublishLockOthers:
+          description: >-
+            When true, publishing other drafts of this feature is blocked while
+            the schedule is pending.
+          type: boolean
+        scheduledPublishLastError:
+          description: >-
+            Set when a due scheduled publish keeps failing (e.g. still awaiting
+            approval, merge conflict). Indicates the schedule is stuck and
+            retrying.
+          type: string
         reviews:
           description: >-
             Reviewer verdicts for the current review cycle (one entry per

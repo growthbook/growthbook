@@ -54,8 +54,7 @@ type CommonProps = {
   version: number;
   setVersion: (version: number) => void;
   locked: boolean;
-  // True when `locked` is caused specifically by a pending scheduled publish.
-  // Ramp runtime controls remain interactive in this case.
+  // `locked` is due to a pending scheduled publish; ramp controls stay interactive.
   lockedBySchedule?: boolean;
   experimentsMap: Map<string, ExperimentInterfaceStringDates>;
   hideInactive?: boolean;

@@ -1963,6 +1963,23 @@ export function revisionToApiInterfaceV2(
     ...(rev.rampActions !== undefined && {
       rampActions: rev.rampActions,
     }),
+    ...(rev.autoPublishOnApproval !== undefined && {
+      autoPublishOnApproval: rev.autoPublishOnApproval,
+    }),
+    ...((rev.scheduledPublishAt ?? null) !== null && {
+      scheduledPublishAt: new Date(
+        rev.scheduledPublishAt as Date,
+      ).toISOString(),
+    }),
+    ...(rev.scheduledPublishLockEdits !== undefined && {
+      scheduledPublishLockEdits: rev.scheduledPublishLockEdits,
+    }),
+    ...(rev.scheduledPublishLockOthers !== undefined && {
+      scheduledPublishLockOthers: rev.scheduledPublishLockOthers,
+    }),
+    ...(rev.scheduledPublishLastError !== undefined && {
+      scheduledPublishLastError: rev.scheduledPublishLastError,
+    }),
     ...(rev.reviews !== undefined && {
       reviews: rev.reviews.map((r) => {
         const user = eventUserToApiEventUser(r.user);
@@ -3105,14 +3122,18 @@ async function collectHoldoutAffectedEnvs(
   return [...envs];
 }
 
-// Whether a draft requires approval before it can be published (accounts for
-// the org's review settings, environment scoping, and the require-approvals
-// license). Returns false when the base can't be resolved (legacy/missing base)
-// so callers treat it as a no-approval change.
+// Whether a draft requires approval before publishing (org review settings, env
+// scoping, license). When the base can't be resolved the answer is ambiguous:
+// the default treats it as a no-approval change (false), but pass
+// `treatUnresolvedBaseAsReview` to fail closed (true) for flows that commit
+// locks/schedules and must not engage them on a draft that can't be evaluated.
 export async function revisionRequiresReview(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   draft: FeatureRevisionInterface,
+  {
+    treatUnresolvedBaseAsReview = false,
+  }: { treatUnresolvedBaseAsReview?: boolean } = {},
 ): Promise<boolean> {
   const allEnvironments = getEnvironmentIdsFromOrg(context.org);
 
@@ -3123,7 +3144,7 @@ export async function revisionRequiresReview(
     feature,
     version: draft.baseVersion,
   });
-  if (!baseRevision) return false;
+  if (!baseRevision) return treatUnresolvedBaseAsReview;
 
   return checkIfRevisionNeedsReview({
     feature,

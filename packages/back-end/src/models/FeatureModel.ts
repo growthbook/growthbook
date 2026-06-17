@@ -1149,10 +1149,13 @@ export async function archiveFeature(
   const updated = await updateFeature(context, feature, {
     archived: isArchived,
   });
-  // An archived feature shouldn't auto-publish a draft out from under the
-  // archive — cancel any pending deferred publishes on its revisions.
+  // Cancel pending schedules so an archived feature can't auto-publish a draft.
   if (isArchived) {
-    await cancelScheduledPublishesForFeature(context.org.id, feature.id);
+    await cancelScheduledPublishesForFeature(
+      context,
+      context.org.id,
+      feature.id,
+    );
   }
   return updated;
 }
@@ -2303,8 +2306,7 @@ export async function publishRevision({
   if (!bypassLockdown) {
     await assertFeatureNotLockedByRamp(context, feature.id);
 
-    // Another draft with a pending "lock other drafts" schedule freezes sibling
-    // publishes so live can't advance out from under the scheduled change.
+    // A sibling draft's "lock other drafts" schedule freezes other publishes.
     if (
       revision.version !== undefined &&
       (await hasPublishLockingScheduledSibling(

@@ -1248,9 +1248,8 @@ export function evaluatePublishGovernance({
 
 // ── Scheduled / deferred publish ────────────────────────────────────────────
 // A revision is "armed" (autoPublishOnApproval) when it should publish itself as
-// soon as governance allows. `scheduledPublishAt` defers that auto-publish to a
-// target date. These helpers are pure so they're shared by the publish UI, the
-// edit/publish lockdown gates, and the Agenda poller's due-predicate.
+// soon as governance allows; `scheduledPublishAt` defers that to a target date.
+// These pure helpers are shared by the UI, the lockdown gates, and the poller.
 
 const SCHEDULE_PENDING_STATUSES = new Set<FeatureRevisionInterface["status"]>([
   "draft",
@@ -1269,8 +1268,8 @@ type ScheduledRevisionFields = Pick<
   | "scheduledPublishLockOthers"
 >;
 
-// A deferred-publish schedule is "pending" when the revision is armed, carries a
-// target date, and is still an active draft (not yet published/discarded).
+// A schedule is "pending" when the revision is armed, has a date, and is still
+// an active draft.
 export function isScheduledPublishPending(
   revision: Pick<
     ScheduledRevisionFields,
@@ -1284,8 +1283,8 @@ export function isScheduledPublishPending(
   );
 }
 
-// True once a pending schedule's target date has arrived. Coerces the date so it
-// works on both Date (back-end) and ISO-string (front-end JSON) shapes.
+// True once a pending schedule's date has arrived. Coerces the date so it works
+// on both Date (back-end) and ISO-string (front-end) shapes.
 export function isScheduledPublishDue(
   revision: Pick<
     ScheduledRevisionFields,
@@ -1298,16 +1297,9 @@ export function isScheduledPublishDue(
   return at.getTime() <= now.getTime();
 }
 
-// A scheduled publish's locks (and the publish itself) only take effect once the
-// schedule is committed AND no longer awaiting approval:
-//  - "approved": the approval flow finished.
-//  - "draft": the no-approval flow. The schedule-publish endpoint only commits a
-//    schedule on a draft when the change doesn't require review (or an admin
-//    bypassed), so a draft carrying a pending schedule is locked in and will
-//    fire on its date.
-// "pending-review" / "changes-requested" mean the schedule is armed but still
-// awaiting approval, so edits stay open and sibling publishes aren't blocked —
-// the author can keep iterating and address feedback until it's approved.
+// Locks (and the publish) take effect once the schedule is committed and no
+// longer awaiting approval: status "approved" (approval flow) or "draft"
+// (no-approval flow). "pending-review"/"changes-requested" stay editable.
 export function isScheduledPublishLockActive(
   revision: Pick<
     ScheduledRevisionFields,

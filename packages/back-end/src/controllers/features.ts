@@ -1068,9 +1068,8 @@ export async function postFeatureRebase(
     status: 200,
   });
 }
-// Arm or cancel a deferred publish on an existing draft. Cancel by sending
-// scheduledPublishAt: null. The Agenda poller (updateScheduledPublishes) fires
-// the publish once the date arrives and governance allows.
+// Arm or cancel a deferred publish on a draft (scheduledPublishAt: null cancels).
+// The Agenda poller fires it once the date arrives and governance allows.
 export async function postFeatureScheduledPublish(
   req: AuthRequest<
     {
@@ -1109,10 +1108,8 @@ export async function postFeatureScheduledPublish(
   }
 
   const date = parseScheduledPublishDate(scheduledPublishAt);
-  // Arming requires the premium feature + publish authority. Cancelling a
-  // pending schedule needs only publish authority — anyone who can publish the
-  // feature can call off (or take over) the deferred publish, leaving the
-  // revision at its current (approved) status.
+  // Arming needs the premium feature + publish authority; canceling needs only
+  // publish authority.
   const allowed = date
     ? canScheduleFeaturePublish(context, feature)
     : canPublishFeatureRevision(context, feature);
@@ -1120,16 +1117,17 @@ export async function postFeatureScheduledPublish(
     context.permissions.throwPermissionError();
   }
 
-  // Committing a schedule directly on a draft is the no-approval path: the draft
-  // is locked in and fires on its date without a review cycle. Only allow it
-  // when the change doesn't actually require review (or the caller can bypass
-  // approvals). Review-required drafts must arm the schedule through the
-  // request-review flow instead, so they stay gated on approval.
+  // Committing a schedule on a draft is the no-approval path (fires without a
+  // review cycle), so only allow it when the change doesn't require review (or
+  // the caller can bypass). Review-required drafts arm via request-review instead.
   if (date && revision.status === "draft") {
+    // Fail closed when the base can't be resolved: don't engage locks/schedule
+    // on a draft we can't confirm is review-exempt.
     const requiresReview = await revisionRequiresReview(
       context,
       feature,
       revision,
+      { treatUnresolvedBaseAsReview: true },
     );
     if (
       requiresReview &&

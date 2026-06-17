@@ -134,6 +134,36 @@ export const apiFeatureRevisionV2Validator = namedSchema(
           "Pending ramp schedule actions that will be applied when this draft is published",
         )
         .optional(),
+      autoPublishOnApproval: z
+        .boolean()
+        .describe(
+          "When true, the revision is armed to publish automatically once governance allows (immediately on approval, or on `scheduledPublishAt` if set).",
+        )
+        .optional(),
+      scheduledPublishAt: z
+        .union([z.string().meta({ format: "date-time" }), z.null()])
+        .describe(
+          "Target date for a deferred (scheduled) publish. Null/absent means publish as soon as approved.",
+        )
+        .optional(),
+      scheduledPublishLockEdits: z
+        .boolean()
+        .describe(
+          "When true, content edits to this draft are frozen while the schedule is pending (rebasing is still allowed).",
+        )
+        .optional(),
+      scheduledPublishLockOthers: z
+        .boolean()
+        .describe(
+          "When true, publishing other drafts of this feature is blocked while the schedule is pending.",
+        )
+        .optional(),
+      scheduledPublishLastError: z
+        .string()
+        .describe(
+          "Set when a due scheduled publish keeps failing (e.g. still awaiting approval, merge conflict). Indicates the schedule is stuck and retrying.",
+        )
+        .optional(),
       reviews: z
         .array(
           z

@@ -379,8 +379,8 @@ const minimalFeatureRevisionInterface = z
     comment: z.string(),
     title: z.string().optional(),
     contributors: z.array(z.string()).optional(),
-    // Scheduled-publish state — surfaced so revision lists/dropdowns can show a
-    // "Scheduled" status + lock indicators without fetching full revisions.
+    // Surfaced so revision lists/dropdowns can show schedule status + lock
+    // indicators without fetching full revisions.
     autoPublishOnApproval: z.boolean().optional(),
     scheduledPublishAt: z.union([z.null(), z.date()]).optional(),
     scheduledPublishLockEdits: z.boolean().optional(),
@@ -590,18 +590,19 @@ const featureRevisionInterface = minimalFeatureRevisionInterface
     // an actor without a user ID (e.g. an API key), in which case the
     // publish falls back to `createdBy`.
     autoPublishEnabledBy: z.string().optional(),
-    // Deferred publish: when set, an armed revision (autoPublishOnApproval) does
-    // not publish until on/after this date — and, if review is required, only once
-    // also approved. `null`/absent keeps today's "publish as soon as approved"
-    // behavior. The Agenda poller (updateScheduledPublishes) fires it.
+    // Defers an armed revision's auto-publish until on/after this date (and, if
+    // required, approved). null/absent = publish as soon as approved.
     scheduledPublishAt: z.union([z.null(), z.date()]).optional(),
-    // While a schedule is pending, freeze content edits to this draft. Rebase is
-    // still permitted (to keep it mergeable) unless it would invalidate a required
-    // approval. Lets authors "set and forget" without drift.
+    // While pending, freeze content edits to this draft (rebase still allowed).
     scheduledPublishLockEdits: z.boolean().optional(),
-    // While a schedule is pending, block publishing OTHER drafts of this feature so
-    // the live version can't advance out from under the scheduled change.
+    // While pending, block publishing other drafts of this feature.
     scheduledPublishLockOthers: z.boolean().optional(),
+    // Set by the scheduled-publish poller when a due publish can't go through
+    // (e.g. still awaiting approval, merge conflict). Lets the UI surface a
+    // stuck schedule instead of it silently retrying forever. Cleared on a
+    // successful publish or when the schedule is canceled.
+    scheduledPublishAttempts: z.number().optional(),
+    scheduledPublishLastError: z.string().optional(),
     // Active reviewer verdicts for the current review cycle (one entry per
     // reviewer). Kept in sync by the review lifecycle mutations:
     // submit review upserts, undo review removes, request/recall review
