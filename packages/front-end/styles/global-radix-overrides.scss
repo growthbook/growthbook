@@ -446,6 +446,10 @@ p.rt-TooltipText {
 }
 
 // Table
+.rt-TableRow {
+  color: var(--color-text-high);
+}
+
 .rt-TableRootTable {
   .rt-TableBody > .rt-TableRow:last-child > .rt-TableCell {
     box-shadow: none;
