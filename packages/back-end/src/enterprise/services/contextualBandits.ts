@@ -3,10 +3,10 @@ import type {
   SnapshotStatusSummary,
 } from "shared/types/experiment-snapshot";
 import type { ContextualBanditSnapshot } from "shared/types/stats";
-import { ExposureQuery } from "shared/types/datasource";
 import {
   ContextualBanditEventInterface,
   ContextualBanditInterface,
+  ContextualBanditQueryInterface,
   ContextualBanditSnapshotInterface,
   ContextualBanditSnapshotSettings,
   LeafWeight,
@@ -105,10 +105,14 @@ export async function runContextualBanditSnapshot(
   const ds = await getDataSourceById(context, cb.datasourceId);
   if (!ds) throw new Error(`Datasource missing: ${cb.datasourceId}`);
 
-  const eaq = ds.settings?.queries?.exposure?.find(
-    (q) => q.id === cb.exposureQueryId,
+  const cbQuery = await context.models.contextualBanditQueries.getById(
+    cb.contextualBanditQueryId,
   );
-  if (!eaq) throw new Error(`EAQ missing: ${cb.exposureQueryId}`);
+  if (!cbQuery) {
+    throw new Error(
+      `Contextual bandit query missing: ${cb.contextualBanditQueryId}`,
+    );
+  }
 
   const { regressionAdjustmentEnabled } = await getSettingsForSnapshotMetrics(
     context,
@@ -117,7 +121,7 @@ export async function runContextualBanditSnapshot(
 
   const snapshotSettings = buildContextualBanditSnapshotSettings(
     cb,
-    eaq,
+    cbQuery,
     regressionAdjustmentEnabled,
   );
 
@@ -283,7 +287,7 @@ export function attributesToCondition(
 /** Builds the frozen snapshot settings stored on CBS so the run is reproducible if the parent CB mutates. */
 export function buildContextualBanditSnapshotSettings(
   cb: ContextualBanditInterface,
-  exposureQuery: ExposureQuery,
+  cbQuery: ContextualBanditQueryInterface,
   regressionAdjustmentEnabled: boolean,
 ): ContextualBanditSnapshotSettings {
   const numVariations = cb.variations?.length || 1;
@@ -294,9 +298,11 @@ export function buildContextualBanditSnapshotSettings(
     contextualBanditId: cb.id,
 
     datasourceId: cb.datasourceId,
-    exposureQueryId: cb.exposureQueryId,
+    contextualBanditQueryId: cb.contextualBanditQueryId,
+    query: cbQuery.query,
+    userIdType: cbQuery.userIdType,
     contextualAttributes:
-      exposureQuery.targetingAttributeColumns ?? cb.contextualAttributes,
+      cbQuery.targetingAttributeColumns ?? cb.contextualAttributes,
 
     goalMetrics: cb.goalMetrics ?? [],
     metricSettings: Object.fromEntries(
@@ -335,7 +341,7 @@ export function buildSnapshotMetricRequestForCb(
     experimentId: cbSnapshotSettings.trackingKey,
     queryFilter: "",
     datasourceId: cbSnapshotSettings.datasourceId,
-    exposureQueryId: cbSnapshotSettings.exposureQueryId,
+    exposureQueryId: cbSnapshotSettings.contextualBanditQueryId,
     startDate: cbSnapshotSettings.startDate,
     endDate: cbSnapshotSettings.endDate ?? new Date(),
     goalMetrics: cbSnapshotSettings.goalMetrics,

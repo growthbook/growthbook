@@ -49,11 +49,12 @@ export function getExperimentUnitsQuery(
     activationMetric,
   );
 
-  const exposureQuery = getExposureQuery(
-    datasource,
-    settings.exposureQueryId || "",
-    undefined,
-  );
+  const exposureQuery = params.unitsQueryOverride
+    ? {
+        query: params.unitsQueryOverride.query,
+        userIdType: params.unitsQueryOverride.userIdType,
+      }
+    : getExposureQuery(datasource, settings.exposureQueryId || "", undefined);
 
   const { baseIdType, idJoinMap, idJoinSQL } = getIdentitiesCTE(
     dialect,

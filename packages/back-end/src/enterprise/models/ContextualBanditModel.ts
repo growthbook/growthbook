@@ -157,7 +157,7 @@ export function toApiContextualBandit(
       description: v.description,
     })),
     datasource: doc.datasource,
-    exposureQueryId: doc.exposureQueryId,
+    contextualBanditQueryId: doc.contextualBanditQueryId,
     segment: doc.segment,
     queryFilter: doc.queryFilter,
     goalMetrics: doc.goalMetrics,

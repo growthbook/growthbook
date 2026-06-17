@@ -78,6 +78,7 @@ export function getExperimentFactMetricsQuery(
 
   const userIdType =
     params.forcedUserIdType ??
+    params.unitsQueryOverride?.userIdType ??
     getExposureQuery(datasource, settings.exposureQueryId || "").userIdType;
 
   const metricData = metricsWithIndices.map((metric) =>

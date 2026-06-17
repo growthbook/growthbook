@@ -4,6 +4,7 @@ import { ApiContextualBanditInterface } from "shared/validators";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import { useContextualBanditQueries } from "@/hooks/useContextualBanditQueries";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
@@ -11,7 +12,7 @@ import Switch from "@/ui/Switch";
 
 type FormValues = {
   datasource: string;
-  exposureQueryId: string;
+  contextualBanditQueryId: string;
   regressionAdjustmentEnabled: boolean;
   activationMetric: string;
   segment: string;
@@ -36,7 +37,7 @@ export default function ContextualBanditAnalysisSettingsModal({
   const form = useForm<FormValues>({
     defaultValues: {
       datasource: cb.datasource ?? "",
-      exposureQueryId: cb.exposureQueryId ?? "",
+      contextualBanditQueryId: cb.contextualBanditQueryId ?? "",
       regressionAdjustmentEnabled: cb.regressionAdjustmentEnabled ?? false,
       activationMetric: cb.activationMetric ?? "",
       segment: cb.segment ?? "",
@@ -46,42 +47,33 @@ export default function ContextualBanditAnalysisSettingsModal({
   });
 
   const watchedDatasource = form.watch("datasource");
-  const watchedExposureQueryId = form.watch("exposureQueryId");
+  const watchedQueryId = form.watch("contextualBanditQueryId");
 
   const datasource = watchedDatasource
     ? getDatasourceById(watchedDatasource)
     : null;
 
-  const exposureQueries = useMemo(
-    () => datasource?.settings?.queries?.exposure ?? [],
-    [datasource],
+  const { contextualBanditQueries } = useContextualBanditQueries(
+    datasource?.id,
   );
 
-  const validExposureQueries = useMemo(
-    () =>
-      exposureQueries.filter(
-        (q) => (q.targetingAttributeColumns?.length ?? 0) > 0,
-      ),
-    [exposureQueries],
-  );
-
-  const selectedExposureQuery = useMemo(
-    () => exposureQueries.find((q) => q.id === watchedExposureQueryId),
-    [exposureQueries, watchedExposureQueryId],
+  const selectedQuery = useMemo(
+    () => contextualBanditQueries.find((q) => q.id === watchedQueryId),
+    [contextualBanditQueries, watchedQueryId],
   );
 
   const derivedContextualAttributes =
-    selectedExposureQuery?.targetingAttributeColumns ?? [];
+    selectedQuery?.targetingAttributeColumns ?? [];
 
   useEffect(() => {
-    const valid = exposureQueries.find((q) => q.id === watchedExposureQueryId);
-    if (!valid && exposureQueries.length > 0) {
+    if (!contextualBanditQueries.length) return;
+    if (!contextualBanditQueries.find((q) => q.id === watchedQueryId)) {
       form.setValue(
-        "exposureQueryId",
-        validExposureQueries[0]?.id ?? exposureQueries[0]?.id ?? "",
+        "contextualBanditQueryId",
+        contextualBanditQueries[0]?.id ?? "",
       );
     }
-  }, [exposureQueries, validExposureQueries, watchedExposureQueryId, form]);
+  }, [contextualBanditQueries, watchedQueryId, form]);
 
   const metricsForDatasource = useMemo(
     () => (metrics ?? []).filter((m) => m.datasource === watchedDatasource),
@@ -102,17 +94,17 @@ export default function ContextualBanditAnalysisSettingsModal({
       cta="Save"
       size="lg"
       submit={form.handleSubmit(async (data) => {
-        const exposureQuery = exposureQueries.find(
-          (q) => q.id === data.exposureQueryId,
+        const query = contextualBanditQueries.find(
+          (q) => q.id === data.contextualBanditQueryId,
         );
         const contextualAttributes =
-          exposureQuery?.targetingAttributeColumns ?? cb.contextualAttributes;
+          query?.targetingAttributeColumns ?? cb.contextualAttributes;
 
         await apiCall(`/api/v1/contextual-bandits/${cb.id}`, {
           method: "PUT",
           body: JSON.stringify({
             datasource: data.datasource || undefined,
-            exposureQueryId: data.exposureQueryId || undefined,
+            contextualBanditQueryId: data.contextualBanditQueryId || undefined,
             contextualAttributes,
             regressionAdjustmentEnabled: data.regressionAdjustmentEnabled,
             activationMetric: data.activationMetric || undefined,
@@ -138,27 +130,24 @@ export default function ContextualBanditAnalysisSettingsModal({
             d.name + (d.id === settings?.defaultDataSource ? " (default)" : ""),
         }))}
         initialOption="None"
-        helpText="Only data sources with an Experiment Assignment Table that has targeting attributes can power a Contextual Bandit."
+        helpText="Only data sources with a Contextual Bandit query can power a Contextual Bandit."
       />
 
-      {datasource?.properties?.exposureQueries && exposureQueries.length > 0 ? (
+      {contextualBanditQueries.length > 0 ? (
         <SelectField
-          label="Experiment Assignment Table"
-          value={form.watch("exposureQueryId")}
-          onChange={(v) => form.setValue("exposureQueryId", v)}
+          label="Contextual Bandit Query"
+          value={form.watch("contextualBanditQueryId")}
+          onChange={(v) => form.setValue("contextualBanditQueryId", v)}
           required
-          options={(validExposureQueries.length > 0
-            ? validExposureQueries
-            : exposureQueries
-          ).map((q) => ({
+          options={contextualBanditQueries.map((q) => ({
             value: q.id,
             label: q.name,
           }))}
-          helpText="Must have targeting attribute columns configured."
+          helpText="The bandit assignment query for this data source."
         />
       ) : null}
 
-      {selectedExposureQuery ? (
+      {selectedQuery ? (
         <div className="form-group">
           <label className="font-weight-bold">Contextual Attributes</label>
           <div>
@@ -171,14 +160,12 @@ export default function ContextualBanditAnalysisSettingsModal({
               ))
             ) : (
               <em className="text-muted">
-                None — add targeting attribute columns to the selected
-                assignment table.
+                None — add targeting attribute columns to the selected query.
               </em>
             )}
           </div>
           <small className="form-text text-muted">
-            Derived from the selected assignment table. Edit on the Data Source
-            page.
+            Derived from the selected Contextual Bandit query.
           </small>
         </div>
       ) : null}
@@ -226,8 +213,8 @@ export default function ContextualBanditAnalysisSettingsModal({
         textarea
         minRows={2}
         {...form.register("queryFilter")}
-        placeholder="Optional SQL WHERE clause to filter the experiment assignment query"
-        helpText="Applied directly to the assignment table query."
+        placeholder="Optional SQL WHERE clause to filter the bandit assignment query"
+        helpText="Applied directly to the assignment query."
       />
 
       <Switch

@@ -266,6 +266,9 @@ tags:
   - name: ContextualBandits
     x-displayName: Contextual Bandits
     description: ''
+  - name: ContextualBanditQueries
+    x-displayName: Contextual Bandit Queries
+    description: ''
   - name: CustomFields
     x-displayName: Custom Fields
     description: ''
@@ -302,6 +305,11 @@ tags:
   - name: ContextualBandit_model
     x-displayName: Contextual Bandit
     description: <SchemaDefinition schemaRef="#/components/schemas/ContextualBandit" />
+  - name: ContextualBanditQuery_model
+    x-displayName: Contextual Bandit Query
+    description: >-
+      <SchemaDefinition schemaRef="#/components/schemas/ContextualBanditQuery"
+      />
   - name: CustomField_model
     x-displayName: Custom Field
     description: <SchemaDefinition schemaRef="#/components/schemas/CustomField" />
@@ -27990,7 +27998,7 @@ paths:
                     additionalProperties: false
                 datasource:
                   type: string
-                exposureQueryId:
+                contextualBanditQueryId:
                   type: string
                 segment:
                   type: string
@@ -28172,7 +28180,7 @@ paths:
                     additionalProperties: false
                 datasource:
                   type: string
-                exposureQueryId:
+                contextualBanditQueryId:
                   type: string
                 segment:
                   type: string
@@ -28205,7 +28213,7 @@ paths:
                 - trackingKey
                 - variations
                 - datasource
-                - exposureQueryId
+                - contextualBanditQueryId
                 - goalMetrics
                 - contextualAttributes
               additionalProperties: false
@@ -28384,6 +28392,212 @@ paths:
           source: >-
             curl -X POST
             'https://api.growthbook.io/api/v1/contextual-bandits/{id}/refresh' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/contextual-bandit-queries/{id}:
+    get:
+      operationId: getContextualBanditQuery
+      summary: Get a single contextualBanditQuery
+      tags:
+        - ContextualBanditQueries
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  contextualBanditQuery:
+                    $ref: '#/components/schemas/ContextualBanditQuery'
+                required:
+                  - contextualBanditQuery
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/contextual-bandit-queries/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    delete:
+      operationId: deleteContextualBanditQuery
+      summary: Delete a single contextualBanditQuery
+      tags:
+        - ContextualBanditQueries
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deletedId:
+                    type: string
+                required:
+                  - deletedId
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X DELETE
+            'https://api.growthbook.io/api/v1/contextual-bandit-queries/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    put:
+      operationId: updateContextualBanditQuery
+      summary: Update a single contextualBanditQuery
+      tags:
+        - ContextualBanditQueries
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                userIdType:
+                  type: string
+                query:
+                  type: string
+                targetingAttributeColumns:
+                  type: array
+                  items:
+                    type: string
+                dimensions:
+                  type: array
+                  items:
+                    type: string
+                hasNameCol:
+                  type: boolean
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  contextualBanditQuery:
+                    $ref: '#/components/schemas/ContextualBanditQuery'
+                required:
+                  - contextualBanditQuery
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X PUT
+            'https://api.growthbook.io/api/v1/contextual-bandit-queries/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/contextual-bandit-queries:
+    post:
+      operationId: createContextualBanditQuery
+      summary: Create a single contextualBanditQuery
+      tags:
+        - ContextualBanditQueries
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                datasourceId:
+                  type: string
+                name:
+                  type: string
+                description:
+                  type: string
+                userIdType:
+                  type: string
+                query:
+                  type: string
+                targetingAttributeColumns:
+                  type: array
+                  items:
+                    type: string
+                dimensions:
+                  type: array
+                  items:
+                    type: string
+                hasNameCol:
+                  type: boolean
+              required:
+                - datasourceId
+                - name
+                - userIdType
+                - query
+                - targetingAttributeColumns
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  contextualBanditQuery:
+                    $ref: '#/components/schemas/ContextualBanditQuery'
+                required:
+                  - contextualBanditQuery
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/contextual-bandit-queries' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    get:
+      operationId: listContextualBanditQueries
+      summary: Get all contextualBanditQueries
+      tags:
+        - ContextualBanditQueries
+      parameters:
+        - name: datasourceId
+          in: query
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  contextualBanditQueries:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ContextualBanditQuery'
+                required:
+                  - contextualBanditQueries
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/contextual-bandit-queries' \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/custom-fields:
     post:
@@ -38902,12 +39116,6 @@ components:
                 type: array
                 items:
                   type: string
-              contextualBandit:
-                type: boolean
-              targetingAttributeColumns:
-                type: array
-                items:
-                  type: string
             required:
               - id
               - name
@@ -43707,7 +43915,7 @@ components:
             additionalProperties: false
         datasource:
           type: string
-        exposureQueryId:
+        contextualBanditQueryId:
           type: string
         segment:
           type: string
@@ -43805,7 +44013,7 @@ components:
         - disableStickyBucketing
         - variations
         - datasource
-        - exposureQueryId
+        - contextualBanditQueryId
         - goalMetrics
         - currentLeafWeights
         - banditVersion
@@ -43814,6 +44022,47 @@ components:
         - maxLeaves
         - holdoutPercent
         - canonicalFormVersion
+      additionalProperties: false
+    ContextualBanditQuery:
+      type: object
+      properties:
+        id:
+          type: string
+        dateCreated:
+          type: string
+          format: date-time
+        dateUpdated:
+          type: string
+          format: date-time
+        datasourceId:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        userIdType:
+          type: string
+        query:
+          type: string
+        targetingAttributeColumns:
+          type: array
+          items:
+            type: string
+        dimensions:
+          type: array
+          items:
+            type: string
+        hasNameCol:
+          type: boolean
+      required:
+        - id
+        - dateCreated
+        - dateUpdated
+        - datasourceId
+        - name
+        - userIdType
+        - query
+        - targetingAttributeColumns
       additionalProperties: false
     CustomField:
       type: object
@@ -47335,6 +47584,7 @@ x-tagGroups:
       - contextual-bandits
       - Dashboards
       - ContextualBandits
+      - ContextualBanditQueries
       - CustomFields
       - MetricGroups
       - Teams
@@ -47349,6 +47599,7 @@ x-tagGroups:
       - Attribute_model
       - CodeRef_model
       - ContextualBandit_model
+      - ContextualBanditQuery_model
       - CustomField_model
       - Dashboard_model
       - DataSource_model

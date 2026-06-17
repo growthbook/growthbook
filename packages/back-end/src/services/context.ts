@@ -72,6 +72,7 @@ import { RampScheduleTemplateModel } from "back-end/src/models/RampScheduleTempl
 import { SdkWebhookModel } from "back-end/src/models/WebhookModel";
 import { TeamModel } from "back-end/src/models/TeamModel";
 import { ContextualBanditModel } from "back-end/src/enterprise/models/ContextualBanditModel";
+import { ContextualBanditQueryModel } from "back-end/src/enterprise/models/ContextualBanditQueryModel";
 import { ContextualBanditSnapshotModel } from "back-end/src/enterprise/models/ContextualBanditSnapshotModel";
 import { ContextualBanditEventModel } from "back-end/src/enterprise/models/ContextualBanditEventModel";
 import { AnalyticsExplorationModel } from "back-end/src/models/AnalyticsExplorationModel";
@@ -132,6 +133,7 @@ export type ModelName =
   | "rampScheduleTemplates"
   | "aiConversations"
   | "contextualBandits"
+  | "contextualBanditQueries"
   | "contextualBanditSnapshots"
   | "contextualBanditEvents"
   | "eventForwarderConfigs";
@@ -177,6 +179,7 @@ export const modelClasses = {
   rampScheduleTemplates: RampScheduleTemplateModel,
   aiConversations: AIConversationModel,
   contextualBandits: ContextualBanditModel,
+  contextualBanditQueries: ContextualBanditQueryModel,
   contextualBanditSnapshots: ContextualBanditSnapshotModel,
   contextualBanditEvents: ContextualBanditEventModel,
   eventForwarderConfigs: EventForwarderConfigModel,
@@ -232,6 +235,7 @@ export class ReqContextClass {
       rampScheduleTemplates: new RampScheduleTemplateModel(this),
       aiConversations: new AIConversationModel(this),
       contextualBandits: new ContextualBanditModel(this),
+      contextualBanditQueries: new ContextualBanditQueryModel(this),
       contextualBanditSnapshots: new ContextualBanditSnapshotModel(this),
       contextualBanditEvents: new ContextualBanditEventModel(this),
       eventForwarderConfigs: new EventForwarderConfigModel(this),

@@ -16,10 +16,6 @@ import {
 import { FactTableColumnType } from "shared/types/fact-table";
 import { QueryStatistics } from "shared/types/query";
 import { formatQueryExecutionErrorForApi } from "shared/util";
-import {
-  CONTEXTUAL_BANDIT_EAQ_REQUIRED_COLUMNS,
-  isContextualBanditExposureQuery,
-} from "shared/validators";
 import { SQLExecutionError } from "back-end/src/util/errors";
 import { determineColumnTypes } from "back-end/src/util/sql";
 import { ENCRYPTION_KEY } from "back-end/src/util/secrets";
@@ -381,9 +377,6 @@ export async function testQueryValidity(
     query.userIdType,
     ...query.dimensions,
     ...(query.hasNameCol ? ["experiment_name", "variation_name"] : []),
-    ...(isContextualBanditExposureQuery(query)
-      ? CONTEXTUAL_BANDIT_EAQ_REQUIRED_COLUMNS
-      : []),
   ]);
 
   const sql = integration.getTestValidityQuery(

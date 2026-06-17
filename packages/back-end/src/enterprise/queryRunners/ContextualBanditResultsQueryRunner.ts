@@ -15,7 +15,6 @@ import {
   ContextualBanditSrmQueryResponseRows,
   ExperimentMetricQueryResponseRows,
 } from "shared/types/integrations";
-import { ExposureQuery } from "shared/types/datasource";
 import type { ExperimentSnapshotAnalysisSettings } from "shared/types/experiment-snapshot";
 import {
   attributesToCondition,
@@ -66,7 +65,6 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
   private snapshotSettings?: ContextualBanditSnapshotSettings;
   private variationNames: string[] = [];
   private cachedCb?: ContextualBanditInterface;
-  private cachedExposureQuery?: ExposureQuery;
   private cachedMetricMap?: Map<string, ExperimentMetricInterface>;
 
   checkPermissions(): boolean {
@@ -83,11 +81,11 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
 
     // Side-effect: ensure the parent CB doc resolves before the SQL runs.
     await this.loadCbDoc();
-    this.loadExposureQuery();
 
     const expSnapshotSettings = buildSnapshotMetricRequestForCb(
       this.snapshotSettings,
     );
+    const unitsQueryOverride = this.getUnitsQueryOverride();
 
     // Without usable targeting we degrade to a single global context; warn so the misconfig is visible.
     if (!hasUsableContextualBanditTargeting(expSnapshotSettings)) {
@@ -134,6 +132,7 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
       segment: null,
       settings: expSnapshotSettings,
       unitsSource: "exposureQuery",
+      unitsQueryOverride,
       unitsTableFullName: "",
       factTableMap,
     });
@@ -163,6 +162,7 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
     ) {
       const srmSql = this.integration.getContextualBanditSrmQuery({
         settings: expSnapshotSettings,
+        unitsQueryOverride,
       });
       queries.push(
         await this.startQuery({
@@ -408,24 +408,16 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
     return cb;
   }
 
-  /** Resolves and caches the exposure-assignment query referenced by the snapshot. */
-  private loadExposureQuery(): ExposureQuery {
-    if (this.cachedExposureQuery) return this.cachedExposureQuery;
+  private getUnitsQueryOverride(): { query: string; userIdType: string } {
     if (!this.snapshotSettings) {
       throw new Error(
-        "ContextualBanditResultsQueryRunner: snapshotSettings missing in loadExposureQuery",
+        "ContextualBanditResultsQueryRunner: snapshotSettings missing in getUnitsQueryOverride",
       );
     }
-    const eaq = this.integration.datasource.settings?.queries?.exposure?.find(
-      (q) => q.id === this.snapshotSettings!.exposureQueryId,
-    );
-    if (!eaq) {
-      throw new Error(
-        `Exposure query missing on datasource ${this.snapshotSettings.datasourceId}: ${this.snapshotSettings.exposureQueryId}`,
-      );
-    }
-    this.cachedExposureQuery = eaq;
-    return eaq;
+    return {
+      query: this.snapshotSettings.query,
+      userIdType: this.snapshotSettings.userIdType,
+    };
   }
 
   private async getMetricMapCached(): Promise<

@@ -47,7 +47,7 @@ function makeCb(
     name: "CB 1",
     trackingKey: "",
     datasourceId: "ds_1",
-    exposureQueryId: "eq_1",
+    contextualBanditQueryId: "cbq_1",
     contextualAttributes: ["country", "device"],
     minUsersPerLeaf: 100,
     maxLeaves: 8,

@@ -13,7 +13,9 @@ export const contextualBanditSnapshotSettingsValidator = z
     contextualBanditId: z.string(),
 
     datasourceId: z.string(),
-    exposureQueryId: z.string(),
+    contextualBanditQueryId: z.string(),
+    query: z.string(),
+    userIdType: z.string(),
     contextualAttributes: z.array(z.string()),
 
     goalMetrics: z.array(z.string()),

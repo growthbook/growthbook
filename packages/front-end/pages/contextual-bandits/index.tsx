@@ -126,16 +126,9 @@ const ContextualBanditsPage = (): React.ReactElement => {
     (d) => d.properties?.exposureQueries,
   );
   const hasDataSource = exposureDataSources.length > 0;
-  const hasViableDataSource = exposureDataSources.some((d) =>
-    (d.settings?.queries?.exposure ?? []).some(
-      (q) => (q.targetingAttributeColumns?.length ?? 0) > 0,
-    ),
-  );
   const emptyStateKind: ContextualBanditEmptyStateKind = !hasDataSource
     ? "no-data-source"
-    : !hasViableDataSource
-      ? "no-assignment-table"
-      : "ready";
+    : "ready";
 
   const start = (currentPage - 1) * NUM_PER_PAGE;
   const end = start + NUM_PER_PAGE;

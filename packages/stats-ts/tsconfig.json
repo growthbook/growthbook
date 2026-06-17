@@ -17,5 +17,5 @@
     "resolveJsonModule": true,
     "incremental": true
   },
-  "include": ["src/**/*"]
+  "include": ["src/**/*", "typings.d.ts"]
 }

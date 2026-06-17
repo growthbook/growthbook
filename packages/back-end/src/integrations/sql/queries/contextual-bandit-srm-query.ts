@@ -4,11 +4,9 @@ import {
   CONTEXTUAL_BANDIT_EAQ_LEAF_ID_COLUMN,
   CONTEXTUAL_BANDIT_EAQ_VARIATION_WEIGHTS_COLUMN,
 } from "shared/validators";
-import type { DataSourceInterface } from "shared/types/datasource";
 import type { ContextualBanditSrmQueryParams } from "shared/types/integrations";
 import type { SqlDialect } from "shared/types/sql";
 import { compileSqlTemplate } from "back-end/src/util/sql";
-import { getExposureQuery } from "back-end/src/integrations/sql/queries/exposure-query";
 
 /** Minimum expected count for a (group, variation) cell to be usable in the test. */
 const MIN_EXPECTED_PER_CELL = 5;
@@ -42,15 +40,14 @@ const MIN_VALID_CELLS_PER_GROUP = 2;
  */
 export function getContextualBanditSrmQuery(
   dialect: SqlDialect,
-  datasource: DataSourceInterface,
   params: ContextualBanditSrmQueryParams,
 ): string {
   const { settings } = params;
 
-  const exposureQuery = getExposureQuery(
-    datasource,
-    settings.exposureQueryId || "",
-  );
+  const exposureQuery = {
+    query: params.unitsQueryOverride.query,
+    userIdType: params.unitsQueryOverride.userIdType,
+  };
 
   const variations = settings.variations ?? [];
   if (variations.length === 0) {

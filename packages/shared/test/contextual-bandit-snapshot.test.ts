@@ -12,7 +12,9 @@ function buildSettings(
     contextualBanditId: "cb_1",
 
     datasourceId: "ds_1",
-    exposureQueryId: "eq_1",
+    contextualBanditQueryId: "cbq_1",
+    query: "SELECT user_id, timestamp, experiment_id, variation_id FROM t",
+    userIdType: "user_id",
     contextualAttributes: ["country", "device"],
 
     goalMetrics: ["met_g1"],

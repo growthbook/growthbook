@@ -1,19 +1,10 @@
-import React, { FC, Fragment, useMemo, useState } from "react";
+import { FC, useMemo, useState } from "react";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
-import { Box, Flex } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import {
   DataSourceInterfaceWithParams,
   ExposureQuery,
 } from "shared/types/datasource";
-import {
-  CONTEXTUAL_BANDIT_EAQ_REQUIRED_COLUMNS,
-  formatContextualBanditMissingSqlColumnMessages,
-  formatInvalidTargetingAttributeColumnMessages,
-  formatMalformedTargetingAttributeColumnMessages,
-  getContextualBanditRequiredColumnsMissingFromSql,
-  getInvalidTargetingAttributeColumnsForExposureQueries,
-  getMalformedTargetingAttributeColumnsForExposureQueries,
-} from "shared/validators";
 import { useForm } from "react-hook-form";
 import cloneDeep from "lodash/cloneDeep";
 import uniqId from "uniqid";
@@ -27,8 +18,6 @@ import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
 import Checkbox from "@/ui/Checkbox";
-import Link from "@/ui/Link";
-import { useUser } from "@/services/UserContext";
 
 type EditExperimentAssignmentQueryProps = {
   exposureQuery?: ExposureQuery;
@@ -38,60 +27,13 @@ type EditExperimentAssignmentQueryProps = {
   onCancel: () => void;
 };
 
-function targetingAttributeColumnsValidationError(columns: string[]): Error {
-  const unique = [...new Set(columns)];
-  const plain = formatInvalidTargetingAttributeColumnMessages(unique);
-  const err = new Error(plain);
-  (err as Error & { display?: React.ReactNode }).display = (
-    <Box>
-      {unique.map((col, i) => (
-        <Fragment key={col}>
-          <div style={{ marginTop: i > 0 ? "var(--space-3)" : 0 }}>
-            {col} is not a saved targeting attribute. Column aliases in your
-            assignment query must match organization targeting attributes (
-            <Link href="/attributes">Settings → Attributes</Link>
-            ).
-          </div>
-        </Fragment>
-      ))}
-    </Box>
-  );
-  return err;
-}
-
-function malformedTargetingAttributeColumnsValidationError(
-  columns: string[],
-): Error {
-  const unique = [...new Set(columns)];
-  const plain = formatMalformedTargetingAttributeColumnMessages(unique);
-  const err = new Error(plain);
-  (err as Error & { display?: React.ReactNode }).display = (
-    <Box>
-      {unique.map((col, i) => (
-        <div key={col} style={{ marginTop: i > 0 ? "var(--space-3)" : 0 }}>
-          &quot;{col}&quot; is not a valid column name. Targeting attribute
-          column names must be valid SQL identifiers: only letters, numbers, and
-          underscores are allowed, and they cannot start with a number.
-        </div>
-      ))}
-    </Box>
-  );
-  return err;
-}
-
 export const AddEditExperimentAssignmentQueryModal: FC<
   EditExperimentAssignmentQueryProps
 > = ({ exposureQuery, dataSource, mode, onSave, onCancel }) => {
-  const { settings } = useUser();
-  const attributeSchema = settings?.attributeSchema ?? [];
   const [showAdvancedMode, setShowAdvancedMode] = useState(
     () =>
-      (exposureQuery?.targetingAttributeColumns?.length ?? 0) > 0 ||
       (exposureQuery?.dimensions?.length ?? 0) > 0 ||
       !!exposureQuery?.hasNameCol,
-  );
-  const [isContextualBanditQuery, setIsContextualBanditQuery] = useState(
-    () => exposureQuery?.contextualBandit === true,
   );
   const [uiMode, setUiMode] = useState<"view" | "sql" | "dimension">("view");
   const modalTitle =
@@ -124,15 +66,12 @@ export const AddEditExperimentAssignmentQueryModal: FC<
         ? {
             ...cloneDeep<ExposureQuery>(exposureQuery),
             dimensions: exposureQuery.dimensions ?? [],
-            targetingAttributeColumns:
-              exposureQuery.targetingAttributeColumns ?? [],
           }
         : {
             description: "",
             id: uniqId("tbl_"),
             name: "",
             dimensions: [],
-            targetingAttributeColumns: [],
             query: defaultQuery,
             userIdType: userIdTypeOptions ? userIdTypeOptions[0]?.value : "",
           },
@@ -142,9 +81,6 @@ export const AddEditExperimentAssignmentQueryModal: FC<
   const userEnteredUserIdType = form.watch("userIdType");
   const userEnteredQuery = form.watch("query");
   const userEnteredDimensions = form.watch("dimensions");
-  const userEnteredTargetingAttributeColumns = form.watch(
-    "targetingAttributeColumns",
-  );
   const userEnteredHasNameCol = form.watch("hasNameCol");
 
   const composeExposureQueryPayload = (): ExposureQuery => {
@@ -153,21 +89,12 @@ export const AddEditExperimentAssignmentQueryModal: FC<
       mode === "edit" && exposureQuery
         ? cloneDeep<ExposureQuery>(exposureQuery)
         : ({} as ExposureQuery);
-    // Dimensions / query / targeting columns are managed via setValue+watch, so prefer getValues after blur with watch as fallback.
     return {
       ...base,
       ...registered,
       id: registered.id ?? base.id,
       query: registered.query ?? userEnteredQuery,
       dimensions: [...(registered.dimensions ?? userEnteredDimensions ?? [])],
-      contextualBandit: isContextualBanditQuery,
-      targetingAttributeColumns: isContextualBanditQuery
-        ? [
-            ...(registered.targetingAttributeColumns ??
-              userEnteredTargetingAttributeColumns ??
-              []),
-          ]
-        : [],
       hasNameCol: !!(registered.hasNameCol ?? userEnteredHasNameCol),
     };
   };
@@ -178,41 +105,6 @@ export const AddEditExperimentAssignmentQueryModal: FC<
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     const value = composeExposureQueryPayload();
-    if (isContextualBanditQuery) {
-      // Invariant: a contextual bandit query must declare at least one targeting attribute column.
-      if ((value.targetingAttributeColumns?.length ?? 0) === 0) {
-        throw new Error(
-          "Add at least one targeting attribute column for a contextual bandit query.",
-        );
-      }
-      // Reject malformed identifiers first since these columns get interpolated into SQL.
-      const malformed = getMalformedTargetingAttributeColumnsForExposureQueries(
-        [value],
-      );
-      if (malformed.length > 0) {
-        // Throw so Modal does not auto-close on success.
-        throw malformedTargetingAttributeColumnsValidationError(
-          malformed.map((i) => i.column),
-        );
-      }
-      const invalid = getInvalidTargetingAttributeColumnsForExposureQueries(
-        attributeSchema,
-        [value],
-      );
-      if (invalid.length > 0) {
-        throw targetingAttributeColumnsValidationError(
-          invalid.map((i) => i.column),
-        );
-      }
-      // Ensure the system columns the SRM computation depends on are present in the SQL.
-      const missingSqlColumns =
-        getContextualBanditRequiredColumnsMissingFromSql(value.query);
-      if (missingSqlColumns.length > 0) {
-        throw new Error(
-          formatContextualBanditMissingSqlColumnMessages(missingSqlColumns),
-        );
-      }
-    }
 
     if (isManaged && exposureQuery) {
       value.userIdType = exposureQuery.userIdType;
@@ -220,14 +112,11 @@ export const AddEditExperimentAssignmentQueryModal: FC<
     }
     await onSave(value);
 
-    setIsContextualBanditQuery(false);
     form.reset({
       id: undefined,
       query: "",
       name: "",
       dimensions: [],
-      contextualBandit: false,
-      targetingAttributeColumns: [],
       description: "",
       hasNameCol: false,
       userIdType: undefined,
@@ -241,21 +130,9 @@ export const AddEditExperimentAssignmentQueryModal: FC<
       "timestamp",
       userEnteredUserIdType,
       ...(userEnteredDimensions || []),
-      ...(isContextualBanditQuery
-        ? [
-            ...(userEnteredTargetingAttributeColumns || []),
-            ...CONTEXTUAL_BANDIT_EAQ_REQUIRED_COLUMNS,
-          ]
-        : []),
       ...(userEnteredHasNameCol ? ["experiment_name", "variation_name"] : []),
     ]);
-  }, [
-    userEnteredUserIdType,
-    userEnteredDimensions,
-    userEnteredTargetingAttributeColumns,
-    userEnteredHasNameCol,
-    isContextualBanditQuery,
-  ]);
+  }, [userEnteredUserIdType, userEnteredDimensions, userEnteredHasNameCol]);
 
   const identityTypes = useMemo(
     () => dataSource.settings.userIdTypes || [],
@@ -278,8 +155,6 @@ export const AddEditExperimentAssignmentQueryModal: FC<
     const userIdTypes = identityTypes?.map((type) => type.userIdType || []);
 
     const requiredColumnsArray = Array.from(requiredColumns);
-    const userEnteredTargetingCols =
-      form.getValues("targetingAttributeColumns") ?? [];
     const returnedColumns = new Set<string>(Object.keys(result));
     const optionalColumns = [...returnedColumns].filter(
       (col) =>
@@ -356,21 +231,6 @@ export const AddEditExperimentAssignmentQueryModal: FC<
           (column) => !missingDimensions.includes(column),
         );
         form.setValue("dimensions", newUserEnteredDimensions);
-      }
-
-      const missingTargeting = missingColumns.filter((column) =>
-        userEnteredTargetingCols.includes(column),
-      );
-      if (missingTargeting.length > 0) {
-        missingColumns = missingColumns.filter(
-          (column) => !missingTargeting.includes(column),
-        );
-        form.setValue(
-          "targetingAttributeColumns",
-          userEnteredTargetingCols.filter(
-            (column) => !missingTargeting.includes(column),
-          ),
-        );
       }
 
       // Now, if missingColumns still has a length, throw an error
@@ -523,40 +383,6 @@ export const AddEditExperimentAssignmentQueryModal: FC<
                           form.setValue("dimensions", dimensions);
                         }}
                       />
-                      <Flex gap="1" my="3">
-                        <Checkbox
-                          id="isContextualBanditQuery"
-                          label="Make this a contextual bandit query"
-                          value={isContextualBanditQuery}
-                          setValue={(value) => {
-                            setIsContextualBanditQuery(value);
-                            if (!value) {
-                              form.setValue("targetingAttributeColumns", []);
-                            }
-                          }}
-                        />
-                      </Flex>
-                      {isContextualBanditQuery && (
-                        <div className="mt-3">
-                          <StringArrayField
-                            label="Targeting Attribute Columns"
-                            value={userEnteredTargetingAttributeColumns ?? []}
-                            onChange={(cols) => {
-                              form.setValue("targetingAttributeColumns", cols);
-                            }}
-                          />
-                          <small className="form-text text-muted d-block mt-1">
-                            Column aliases in your assignment query must match
-                            organization targeting attributes (
-                            <Link href="/attributes">
-                              Settings → Attributes
-                            </Link>
-                            ). Each name must match a non-archived attribute
-                            property. These columns must appear in your SELECT
-                            (same as dimension columns).
-                          </small>
-                        </div>
-                      )}
                     </div>
                   </div>
                 )}

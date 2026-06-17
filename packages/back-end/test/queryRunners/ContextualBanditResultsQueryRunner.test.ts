@@ -71,7 +71,9 @@ function makeSnapshotSettings(
     contextualBanditId: "cb_1",
 
     datasourceId: "ds_1",
-    exposureQueryId: "eq_1",
+    contextualBanditQueryId: "cbq_1",
+    query: "SELECT user_id, timestamp, experiment_id, variation_id FROM t",
+    userIdType: "user_id",
     contextualAttributes: ["country"],
 
     goalMetrics: ["fact__g1"],
@@ -104,7 +106,7 @@ function makeCb(
     dateCreated: new Date("2025-01-01T00:00:00Z"),
     dateUpdated: new Date("2025-01-01T00:00:00Z"),
     datasourceId: "ds_1",
-    exposureQueryId: "eq_1",
+    contextualBanditQueryId: "cbq_1",
     contextualAttributes: ["country"],
     minUsersPerLeaf: 100,
     maxLeaves: 8,

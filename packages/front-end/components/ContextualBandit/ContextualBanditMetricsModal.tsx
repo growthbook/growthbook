@@ -36,7 +36,7 @@ export default function ContextualBanditMetricsModal({
     >
       <ExperimentMetricsSelector
         datasource={cb.datasource}
-        exposureQueryId={cb.exposureQueryId}
+        exposureQueryId=""
         project={cb.project}
         goalMetrics={goalMetrics}
         secondaryMetrics={[]}

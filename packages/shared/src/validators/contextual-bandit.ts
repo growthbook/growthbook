@@ -57,7 +57,7 @@ export const contextualBanditValidator = baseSchema
     /** @deprecated Prefer `datasource`; both fields hold the same value. */
     datasourceId: z.string(),
     datasource: z.string(),
-    exposureQueryId: z.string(),
+    contextualBanditQueryId: z.string(),
     segment: z.string().optional(),
     queryFilter: z.string().optional(),
     goalMetrics: z.array(z.string()),
@@ -161,7 +161,7 @@ export const apiContextualBanditValidator = namedSchema(
     variations: z.array(apiContextualBanditVariation),
 
     datasource: z.string(),
-    exposureQueryId: z.string(),
+    contextualBanditQueryId: z.string(),
     segment: z.string().optional(),
     queryFilter: z.string().optional(),
     goalMetrics: z.array(z.string()),
@@ -224,7 +224,7 @@ export const apiCreateContextualBanditBody = z.strictObject({
   ),
 
   datasource: z.string(),
-  exposureQueryId: z.string(),
+  contextualBanditQueryId: z.string(),
   segment: z.string().optional(),
   queryFilter: z.string().optional(),
   goalMetrics: z.array(z.string()),
@@ -260,7 +260,7 @@ export const apiUpdateContextualBanditBody = z.object({
   variations: z.array(variation).optional(),
 
   datasource: z.string().optional(),
-  exposureQueryId: z.string().optional(),
+  contextualBanditQueryId: z.string().optional(),
   segment: z.string().optional(),
   queryFilter: z.string().optional(),
   goalMetrics: z.array(z.string()).optional(),
@@ -303,7 +303,7 @@ export const CONTEXTUAL_BANDIT_API_UPDATE_FIELDS = [
   "disableStickyBucketing",
   "variations",
   "datasource",
-  "exposureQueryId",
+  "contextualBanditQueryId",
   "segment",
   "queryFilter",
   "goalMetrics",

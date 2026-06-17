@@ -26,6 +26,7 @@ import {
   DetailSectionColumn,
 } from "@/components/DetailSectionBox";
 import ContextualBanditResultsTable from "@/components/ContextualBandit/ContextualBanditResultsTable";
+import { useContextualBanditQueries } from "@/hooks/useContextualBanditQueries";
 
 const STATUS_COLOR: Record<string, RadixColor> = {
   draft: "gray",
@@ -71,6 +72,9 @@ export default function ContextualBanditDetailPage({
   const { getDatasourceById, getExperimentMetricById, projects } =
     useDefinitions();
   const { apiCall } = useAuth();
+  const { contextualBanditQueriesMap } = useContextualBanditQueries(
+    cb.datasource,
+  );
   const [confirmStop, setConfirmStop] = useState(false);
 
   const updateEndpoint = `/api/v1/contextual-bandits/${cb.id}`;
@@ -93,9 +97,8 @@ export default function ContextualBanditDetailPage({
   const datasource = cb.datasource ? getDatasourceById(cb.datasource) : null;
   const datasourceName = datasource?.name ?? cb.datasource;
   const exposureQueryName =
-    datasource?.settings?.queries?.exposure?.find(
-      (q) => q.id === cb.exposureQueryId,
-    )?.name ?? cb.exposureQueryId;
+    contextualBanditQueriesMap.get(cb.contextualBanditQueryId)?.name ??
+    cb.contextualBanditQueryId;
   const projectName =
     projects.find((p) => p.id === cb.project)?.name ?? cb.project ?? "None";
   const metricName = (id: string) => getExperimentMetricById(id)?.name ?? id;

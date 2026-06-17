@@ -1,4 +1,4 @@
-import React, { FC, useEffect, useState, useCallback, useMemo } from "react";
+import React, { FC, useState, useCallback } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import {
   ExperimentInterfaceStringDates,
@@ -54,6 +54,7 @@ import SelectField, {
 } from "@/components/Forms/SelectField";
 import { validateSavedGroupTargeting } from "@/components/Features/SavedGroupTargetingField";
 import { useExperiments } from "@/hooks/useExperiments";
+import { useContextualBanditQueries } from "@/hooks/useContextualBanditQueries";
 import BanditRefNewFields from "@/components/Features/RuleModal/BanditRefNewFields";
 import Checkbox from "@/ui/Checkbox";
 import DatePicker from "@/components/DatePicker";
@@ -223,6 +224,9 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
   const datasource = form.watch("datasource")
     ? getDatasourceById(form.watch("datasource") ?? "")
     : null;
+  const { contextualBanditQueries: cbQueries } = useContextualBanditQueries(
+    datasource?.id,
+  );
 
   const watchedExpVariations = form.watch("variations") ?? [];
   const watchedWeights = form.watch("variationWeights") ?? [];
@@ -343,28 +347,14 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
     data.statsEngine = "bayesian";
     data.customMetricSlices = [];
 
-    const ds = datasources.find((d) => d.id === data.datasource);
-    const queries = ds?.settings?.queries?.exposure ?? [];
-    const withTargetingAttributes = queries.filter(
-      (q) => (q.targetingAttributeColumns?.length ?? 0) > 0,
+    const selectedCbQuery = cbQueries.find(
+      (q) => q.id === data.exposureQueryId,
     );
-    if (queries.length > 0 && withTargetingAttributes.length === 0) {
+    if (!selectedCbQuery) {
       setStep(2);
       throw new Error(
-        "No Experiment Assignment Tables with targeting attributes exist for this data source. Add attributes to an experiment assignment table on the data source page, then try again.",
+        "Select a Contextual Bandit query for this data source. If none exist yet, create one first.",
       );
-    }
-    if (withTargetingAttributes.length > 0) {
-      const selected = queries.find((q) => q.id === data.exposureQueryId);
-      if (
-        !selected?.targetingAttributeColumns?.length ||
-        !withTargetingAttributes.some((q) => q.id === data.exposureQueryId)
-      ) {
-        setStep(2);
-        throw new Error(
-          "Select an Experiment Assignment Table that has targeting attribute columns configured.",
-        );
-      }
     }
 
     if ((data.goalMetrics?.length ?? 0) !== 1 || !data.goalMetrics?.[0]) {
@@ -440,14 +430,9 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
       }
     }
 
-    // CB create endpoint expects targeting-attribute columns in the POST body.
-    const submitDatasource = datasources.find((d) => d.id === data.datasource);
-    const submitExposureQuery =
-      submitDatasource?.settings?.queries?.exposure?.find(
-        (q) => q.id === data.exposureQueryId,
-      );
     const submitContextualAttributes =
-      submitExposureQuery?.targetingAttributeColumns ?? [];
+      cbQueries.find((q) => q.id === data.exposureQueryId)
+        ?.targetingAttributeColumns ?? [];
 
     const createBody: ApiCreateContextualBanditBody = {
       name: data.name ?? "",
@@ -471,7 +456,7 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
       })),
 
       datasource: data.datasource ?? "",
-      exposureQueryId: data.exposureQueryId ?? "",
+      contextualBanditQueryId: data.exposureQueryId ?? "",
       segment: data.segment || undefined,
       queryFilter: data.queryFilter || undefined,
       goalMetrics: data.goalMetrics ?? [],
@@ -517,18 +502,7 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
     ? permissionsUtils.canViewExperimentModal(selectedProject)
     : allowAllProjects;
 
-  const exposureQueries = useMemo(
-    () => datasource?.settings?.queries?.exposure || [],
-    [datasource?.settings?.queries?.exposure],
-  );
-  const exposureQueryId = form.getValues("exposureQueryId");
   const status = form.watch("status");
-
-  useEffect(() => {
-    if (!exposureQueries.find((q) => q.id === exposureQueryId)) {
-      form.setValue("exposureQueryId", exposureQueries?.[0]?.id ?? "");
-    }
-  }, [form, exposureQueries, exposureQueryId]);
 
   const [linkNameWithTrackingKey, setLinkNameWithTrackingKey] = useState(true);
 

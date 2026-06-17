@@ -1,35 +1,19 @@
-import type { DataSourceInterface } from "shared/types/datasource";
 import type { SnapshotMetricRequest } from "shared/types/experiment-snapshot";
 import { postgresDialect } from "back-end/src/integrations/dialects/postgres";
 import { getContextualBanditSrmQuery } from "back-end/src/integrations/sql/queries/contextual-bandit-srm-query";
 
-function makeDatasource(): DataSourceInterface {
-  return {
-    settings: {
-      queries: {
-        exposure: [
-          {
-            id: "eq1",
-            name: "EAQ",
-            userIdType: "user_id",
-            query:
-              "SELECT user_id, timestamp, experiment_id, variation_id, leaf_id, bandit_version, variation_weights FROM exposures",
-            dimensions: [],
-            contextualBandit: true,
-            targetingAttributeColumns: ["country"],
-          },
-        ],
-      },
-    },
-  } as unknown as DataSourceInterface;
-}
+const defaultOverride = {
+  query:
+    "SELECT user_id, timestamp, experiment_id, variation_id, leaf_id, snapshot_update_count, variation_weights FROM cb_assignments",
+  userIdType: "user_id",
+};
 
 function makeSettings(
   overrides: Partial<SnapshotMetricRequest> = {},
 ): SnapshotMetricRequest {
   return {
     experimentId: "exp_1",
-    exposureQueryId: "eq1",
+    exposureQueryId: "cbq_1",
     startDate: new Date("2025-01-01T00:00:00.000Z"),
     endDate: new Date("2025-02-01T00:00:00.000Z"),
     variations: [
@@ -47,8 +31,9 @@ function compact(sql: string): string {
 
 describe("getContextualBanditSrmQuery", () => {
   it("builds the SRM query with per-variation observed/expected cells", () => {
-    const sql = getContextualBanditSrmQuery(postgresDialect, makeDatasource(), {
+    const sql = getContextualBanditSrmQuery(postgresDialect, {
       settings: makeSettings(),
+      unitsQueryOverride: defaultOverride,
     });
     const c = compact(sql);
 
@@ -100,7 +85,7 @@ describe("getContextualBanditSrmQuery", () => {
   });
 
   it("emits one observed/expected pair and array index per variation", () => {
-    const sql = getContextualBanditSrmQuery(postgresDialect, makeDatasource(), {
+    const sql = getContextualBanditSrmQuery(postgresDialect, {
       settings: makeSettings({
         variations: [
           { id: "var_a", weight: 0.34 },
@@ -108,6 +93,7 @@ describe("getContextualBanditSrmQuery", () => {
           { id: "var_c", weight: 0.33 },
         ],
       }),
+      unitsQueryOverride: defaultOverride,
     });
     const c = compact(sql);
 
@@ -120,8 +106,9 @@ describe("getContextualBanditSrmQuery", () => {
   });
 
   it("omits the upper time bound when endDate is not set", () => {
-    const sql = getContextualBanditSrmQuery(postgresDialect, makeDatasource(), {
+    const sql = getContextualBanditSrmQuery(postgresDialect, {
       settings: makeSettings({ endDate: undefined }),
+      unitsQueryOverride: defaultOverride,
     });
     const c = compact(sql);
 
@@ -131,9 +118,24 @@ describe("getContextualBanditSrmQuery", () => {
 
   it("throws when there are no variations", () => {
     expect(() =>
-      getContextualBanditSrmQuery(postgresDialect, makeDatasource(), {
+      getContextualBanditSrmQuery(postgresDialect, {
         settings: makeSettings({ variations: [] }),
+        unitsQueryOverride: defaultOverride,
       }),
     ).toThrow(/at least one variation/);
+  });
+
+  it("uses unitsQueryOverride for the assignment query SQL + identifier type", () => {
+    const sql = getContextualBanditSrmQuery(postgresDialect, {
+      settings: makeSettings(),
+      unitsQueryOverride: {
+        query: "SELECT * FROM my_cb_assignments",
+        userIdType: "anonymous_id",
+      },
+    });
+    const c = compact(sql);
+
+    expect(c).toContain("SELECT*FROMmy_cb_assignments");
+    expect(c).toContain("e.anonymous_idASuid");
   });
 });

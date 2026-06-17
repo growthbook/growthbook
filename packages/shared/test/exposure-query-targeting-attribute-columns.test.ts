@@ -1,8 +1,5 @@
-import type { ExposureQuery } from "shared/types/datasource";
 import type { SDKAttributeSchema } from "shared/types/organization";
 import {
-  assertContextualBanditExperimentFieldsValid,
-  assertContextualBanditExposureQueriesValid,
   assertExposureQueriesTargetingAttributeColumnsValid,
   CONTEXTUAL_BANDIT_EAQ_REQUIRED_COLUMNS,
   formatContextualBanditMissingSqlColumnMessages,
@@ -11,7 +8,6 @@ import {
   getContextualBanditRequiredColumnsMissingFromSql,
   getInvalidTargetingAttributeColumnsForExposureQueries,
   getMalformedTargetingAttributeColumnsForExposureQueries,
-  isContextualBanditExposureQuery,
   isSafeSqlIdentifier,
 } from "../src/validators/exposure-query-targeting-attribute-columns";
 
@@ -35,13 +31,10 @@ describe("exposure query targeting attribute columns", () => {
   });
 
   it("getInvalidTargetingAttributeColumnsForExposureQueries lists unknown columns", () => {
-    const queries: ExposureQuery[] = [
+    const queries = [
       {
         id: "q1",
         name: "Main",
-        userIdType: "user_id",
-        query: "SELECT 1",
-        dimensions: [],
         targetingAttributeColumns: ["country", "planet"],
       },
     ];
@@ -83,58 +76,6 @@ describe("exposure query targeting attribute columns", () => {
         },
       ]),
     ).toThrow(/nope is not a saved targeting attribute/);
-  });
-
-  it("assertContextualBanditExperimentFieldsValid is a no-op for non-CB types", () => {
-    expect(() =>
-      assertContextualBanditExperimentFieldsValid({
-        experimentType: "standard",
-        exposureQueryId: "q1",
-        exposureQueries: [
-          {
-            id: "q1",
-            name: "Q",
-            userIdType: "user_id",
-            query: "SELECT 1",
-            dimensions: [],
-            targetingAttributeColumns: ["country"],
-          },
-        ],
-      }),
-    ).not.toThrow();
-    expect(() =>
-      assertContextualBanditExperimentFieldsValid({
-        experimentType: "multi-armed-bandit",
-        exposureQueryId: "q1",
-        exposureQueries: [
-          {
-            id: "q1",
-            name: "Q",
-            userIdType: "user_id",
-            query: "SELECT 1",
-            dimensions: [],
-          },
-        ],
-      }),
-    ).not.toThrow();
-  });
-
-  it("assertContextualBanditExperimentFieldsValid rejects EAQ without targeting columns", () => {
-    expect(() =>
-      assertContextualBanditExperimentFieldsValid({
-        experimentType: "contextual-bandit",
-        exposureQueryId: "q1",
-        exposureQueries: [
-          {
-            id: "q1",
-            name: "Q",
-            userIdType: "user_id",
-            query: "SELECT 1",
-            dimensions: ["device"],
-          },
-        ],
-      }),
-    ).toThrow(/targeting attribute columns/);
   });
 
   it("isSafeSqlIdentifier accepts identifiers and rejects unsafe input", () => {
@@ -185,129 +126,5 @@ describe("exposure query targeting attribute columns", () => {
     ).toBe(
       `planet is not a saved targeting attribute. Column aliases in your assignment query must match organization targeting attributes (Settings → Attributes).\n\nx is not a saved targeting attribute. Column aliases in your assignment query must match organization targeting attributes (Settings → Attributes).`,
     );
-  });
-
-  describe("getContextualBanditRequiredColumnsMissingFromSql", () => {
-    it("returns no missing columns when all are present in the SQL", () => {
-      const sql = `SELECT
-        user_id as user_id,
-        timestamp as timestamp,
-        experiment_id as experiment_id,
-        variation_id as variation_id,
-        bandit_version as bandit_version,
-        leaf_id as leaf_id,
-        variation_weights as variation_weights
-      FROM bandit_assignments`;
-      expect(getContextualBanditRequiredColumnsMissingFromSql(sql)).toEqual([]);
-    });
-
-    it("lists every required column missing from the SQL", () => {
-      expect(
-        getContextualBanditRequiredColumnsMissingFromSql("SELECT 1"),
-      ).toEqual([...CONTEXTUAL_BANDIT_EAQ_REQUIRED_COLUMNS]);
-    });
-
-    it("lists only the columns that are absent", () => {
-      const sql = "SELECT leaf_id, variation_weights FROM t";
-      expect(getContextualBanditRequiredColumnsMissingFromSql(sql)).toEqual([
-        "bandit_version",
-      ]);
-    });
-
-    it("matches whole-word tokens, not substrings", () => {
-      // `my_leaf_id` / `variation_weights_raw` must not satisfy the required columns.
-      const sql =
-        "SELECT bandit_version, my_leaf_id, variation_weights_raw FROM t";
-      expect(getContextualBanditRequiredColumnsMissingFromSql(sql)).toEqual([
-        "leaf_id",
-        "variation_weights",
-      ]);
-    });
-
-    it("treats undefined SQL as missing everything", () => {
-      expect(
-        getContextualBanditRequiredColumnsMissingFromSql(undefined),
-      ).toEqual([...CONTEXTUAL_BANDIT_EAQ_REQUIRED_COLUMNS]);
-    });
-  });
-
-  describe("formatContextualBanditMissingSqlColumnMessages", () => {
-    it("uses singular phrasing for one column", () => {
-      expect(formatContextualBanditMissingSqlColumnMessages(["leaf_id"])).toBe(
-        "Your contextual bandit assignment query SQL is missing required column: leaf_id. Add them to your SELECT clause (used to compute SRM for contextual bandits).",
-      );
-    });
-
-    it("dedupes and uses plural phrasing for multiple columns", () => {
-      expect(
-        formatContextualBanditMissingSqlColumnMessages([
-          "leaf_id",
-          "leaf_id",
-          "variation_weights",
-        ]),
-      ).toBe(
-        "Your contextual bandit assignment query SQL is missing required columns: leaf_id, variation_weights. Add them to your SELECT clause (used to compute SRM for contextual bandits).",
-      );
-    });
-  });
-
-  describe("isContextualBanditExposureQuery", () => {
-    it("returns true only when the contextualBandit flag is set", () => {
-      expect(isContextualBanditExposureQuery({ contextualBandit: true })).toBe(
-        true,
-      );
-      expect(isContextualBanditExposureQuery({ contextualBandit: false })).toBe(
-        false,
-      );
-      expect(isContextualBanditExposureQuery({})).toBe(false);
-    });
-  });
-
-  describe("assertContextualBanditExposureQueriesValid", () => {
-    it("throws when a contextual bandit query has no targeting columns", () => {
-      expect(() =>
-        assertContextualBanditExposureQueriesValid([
-          {
-            id: "q1",
-            name: "CB",
-            userIdType: "user_id",
-            query: "SELECT 1",
-            dimensions: [],
-            contextualBandit: true,
-            targetingAttributeColumns: [],
-          },
-        ]),
-      ).toThrow(/no targeting attribute columns/);
-    });
-
-    it("passes when a contextual bandit query has targeting columns", () => {
-      expect(() =>
-        assertContextualBanditExposureQueriesValid([
-          {
-            id: "q1",
-            name: "CB",
-            userIdType: "user_id",
-            query: "SELECT 1",
-            dimensions: [],
-            contextualBandit: true,
-            targetingAttributeColumns: ["country"],
-          },
-        ]),
-      ).not.toThrow();
-    });
-
-    it("is a no-op for non contextual bandit queries", () => {
-      expect(() =>
-        assertContextualBanditExposureQueriesValid([
-          {
-            id: "q1",
-            name: "Standard",
-            userIdType: "user_id",
-            query: "SELECT 1",
-            dimensions: [],
-          },
-        ]),
-      ).not.toThrow();
-    });
   });
 });

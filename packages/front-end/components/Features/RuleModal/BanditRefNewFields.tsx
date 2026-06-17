@@ -1,5 +1,5 @@
 import { useFormContext } from "react-hook-form";
-import { Fragment, useEffect, useMemo } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import {
   FeatureInterface,
@@ -27,6 +27,8 @@ import { type RuleCyclicResult } from "@/components/Features/PrerequisiteInput";
 import NamespaceSelector from "@/components/Features/NamespaceSelector";
 import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { useContextualBanditQueries } from "@/hooks/useContextualBanditQueries";
+import AddEditContextualBanditQueryModal from "@/components/ContextualBandit/AddEditContextualBanditQueryModal";
 import ExperimentMetricsSelector from "@/components/Experiment/ExperimentMetricsSelector";
 import BanditDecisionMetricSettings from "@/components/Experiment/BanditDecisionMetricSettings";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
@@ -48,7 +50,6 @@ import RuleEnvironmentScopeField, {
 import Checkbox from "@/ui/Checkbox";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
-import { EAQ_ANCHOR_ID } from "@/components/Settings/EditDataSource/ExperimentAssignmentQueries/constants";
 
 export default function BanditRefNewFields({
   step,
@@ -128,20 +129,30 @@ export default function BanditRefNewFields({
   const exposureQueries = datasource?.settings?.queries?.exposure;
   const exposureQueryId = form.watch("exposureQueryId");
 
-  const exposureQueriesWithTargetingAttributes = useMemo(
-    () =>
-      exposureQueries?.filter(
-        (q) => (q.targetingAttributeColumns?.length ?? 0) > 0,
-      ) ?? [],
-    [exposureQueries],
-  );
+  const { contextualBanditQueries: cbQueries, mutate: mutateCbQueries } =
+    useContextualBanditQueries(
+      contextualBandit ? (datasource?.id ?? undefined) : undefined,
+    );
+  const [cbQueryModalOpen, setCbQueryModalOpen] = useState(false);
 
-  const assignmentQueriesForPicker = useMemo(
+  type PickerQuery = {
+    id: string;
+    name: string;
+    userIdType?: string;
+    targetingAttributeColumns?: string[];
+  };
+
+  const assignmentQueriesForPicker: PickerQuery[] = useMemo(
     () =>
       contextualBandit
-        ? exposureQueriesWithTargetingAttributes
+        ? cbQueries.map((q) => ({
+            id: q.id,
+            name: q.name,
+            userIdType: q.userIdType,
+            targetingAttributeColumns: q.targetingAttributeColumns,
+          }))
         : (exposureQueries ?? []),
-    [contextualBandit, exposureQueriesWithTargetingAttributes, exposureQueries],
+    [contextualBandit, cbQueries, exposureQueries],
   );
 
   const selectedExposureQuery = useMemo(
@@ -149,33 +160,14 @@ export default function BanditRefNewFields({
     [assignmentQueriesForPicker, exposureQueryId],
   );
 
-  const datasourcesForPicker = useMemo(
-    () =>
-      contextualBandit
-        ? datasources.filter((d) =>
-            (d.settings?.queries?.exposure ?? []).some(
-              (q) => (q.targetingAttributeColumns?.length ?? 0) > 0,
-            ),
-          )
-        : datasources,
-    [contextualBandit, datasources],
-  );
+  const datasourcesForPicker = datasources;
 
   useEffect(() => {
-    if (!exposureQueries?.length) return;
-    const allowed = contextualBandit
-      ? exposureQueriesWithTargetingAttributes
-      : exposureQueries;
-    if (!allowed.find((q) => q.id === exposureQueryId)) {
-      form.setValue("exposureQueryId", allowed[0]?.id ?? "");
+    if (!assignmentQueriesForPicker.length) return;
+    if (!assignmentQueriesForPicker.find((q) => q.id === exposureQueryId)) {
+      form.setValue("exposureQueryId", assignmentQueriesForPicker[0]?.id ?? "");
     }
-  }, [
-    contextualBandit,
-    exposureQueries,
-    exposureQueriesWithTargetingAttributes,
-    exposureQueryId,
-    form,
-  ]);
+  }, [assignmentQueriesForPicker, exposureQueryId, form]);
 
   useEffect(() => {
     if (contextualBandit) {
@@ -411,32 +403,36 @@ export default function BanditRefNewFields({
               className="portal-overflow-ellipsis"
             />
 
-            {datasource?.properties?.exposureQueries && exposureQueries ? (
+            {(
+              contextualBandit
+                ? !!datasource
+                : datasource?.properties?.exposureQueries && exposureQueries
+            ) ? (
               <>
-                {contextualBandit &&
-                exposureQueries.length > 0 &&
-                exposureQueriesWithTargetingAttributes.length === 0 ? (
+                {contextualBandit && assignmentQueriesForPicker.length === 0 ? (
                   <Callout status="warning" mt="3" contentsAs="div">
-                    No Experiment Assignment Tables with Attributes exist for
-                    this datasource. Add attributes to your experiment
-                    assignment table{" "}
+                    No Contextual Bandit queries exist for this data source yet.{" "}
                     <Link
-                      href={`/datasources/${datasource.id}#${EAQ_ANCHOR_ID}`}
+                      href="#"
                       className="underline"
-                      target="_blank"
-                      rel="noopener noreferrer"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setCbQueryModalOpen(true);
+                      }}
                     >
-                      here
+                      Add one
                     </Link>
                     .
                   </Callout>
                 ) : null}
                 {(!contextualBandit ||
-                  exposureQueriesWithTargetingAttributes.length > 0) && (
+                  assignmentQueriesForPicker.length > 0) && (
                   <SelectField
                     label={
                       <>
-                        Experiment Assignment Table{" "}
+                        {contextualBandit
+                          ? "Contextual Bandit Query"
+                          : "Experiment Assignment Table"}{" "}
                         <Tooltip body="Should correspond to the Identifier Type used to randomize units for this experiment" />
                       </>
                     }
@@ -486,6 +482,31 @@ export default function BanditRefNewFields({
                     {!(selectedExposureQuery.targetingAttributeColumns ?? [])
                       .length && <em className="text-muted">none</em>}
                   </Box>
+                ) : null}
+                {contextualBandit && assignmentQueriesForPicker.length > 0 ? (
+                  <Box mt="2">
+                    <Link
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setCbQueryModalOpen(true);
+                      }}
+                    >
+                      + Add Contextual Bandit query
+                    </Link>
+                  </Box>
+                ) : null}
+                {contextualBandit && cbQueryModalOpen && datasource ? (
+                  <AddEditContextualBanditQueryModal
+                    dataSource={datasource}
+                    mode="add"
+                    onSave={async (q) => {
+                      await mutateCbQueries();
+                      form.setValue("exposureQueryId", q.id);
+                      setCbQueryModalOpen(false);
+                    }}
+                    onCancel={() => setCbQueryModalOpen(false)}
+                  />
                 ) : null}
               </>
             ) : null}

@@ -21,6 +21,7 @@ import Metadata from "@/ui/Metadata";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useContextualBanditResults } from "@/hooks/useContextualBandits";
+import { useContextualBanditQueries } from "@/hooks/useContextualBanditQueries";
 import QueriesLastRun from "@/components/Queries/QueriesLastRun";
 import AsyncQueriesModal from "@/components/Queries/AsyncQueriesModal";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
@@ -261,9 +262,11 @@ export default function ContextualBanditResultsTable({
   } = useContextualBanditResults(cb.id);
 
   const datasource = cb.datasource ? getDatasourceById(cb.datasource) : null;
-  const datasourceSettings = datasource?.settings;
-  const userIdType = datasourceSettings?.queries?.exposure?.find(
-    (e) => e.id === cb.exposureQueryId,
+  const { contextualBanditQueriesMap } = useContextualBanditQueries(
+    cb.datasource,
+  );
+  const userIdType = contextualBanditQueriesMap.get(
+    cb.contextualBanditQueryId,
   )?.userIdType;
   const unitDisplayName = userIdType
     ? startCase(userIdType.split("_").join(" ")) + "s"

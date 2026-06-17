@@ -309,6 +309,7 @@ interface ExperimentBaseQueryParams {
   dimensions: Dimension[];
   segment: SegmentInterface | null;
   unitsTableFullName?: string;
+  unitsQueryOverride?: { query: string; userIdType: string };
 }
 
 export interface ExperimentUnitsQueryParams extends ExperimentBaseQueryParams {
@@ -317,6 +318,7 @@ export interface ExperimentUnitsQueryParams extends ExperimentBaseQueryParams {
 
 export interface ContextualBanditSrmQueryParams {
   settings: SnapshotMetricRequest;
+  unitsQueryOverride: { query: string; userIdType: string };
 }
 
 export interface CreateExperimentIncrementalUnitsQueryParams {

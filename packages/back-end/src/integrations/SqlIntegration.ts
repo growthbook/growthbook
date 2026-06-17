@@ -911,11 +911,7 @@ export default abstract class SqlIntegration
   }
 
   getContextualBanditSrmQuery(params: ContextualBanditSrmQueryParams): string {
-    return getContextualBanditSrmQueryFromSql(
-      this.getSqlDialect(),
-      this.datasource,
-      params,
-    );
+    return getContextualBanditSrmQueryFromSql(this.getSqlDialect(), params);
   }
 
   getDimensionSlicesQuery(params: DimensionSlicesQueryParams): string {

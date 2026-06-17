@@ -218,7 +218,7 @@ const ContextualBanditPage = (): ReactElement => {
             hashAttribute: cb.hashAttribute,
             hashVersion: cb.hashVersion,
             datasource: cb.datasource,
-            exposureQueryId: cb.exposureQueryId,
+            exposureQueryId: cb.contextualBanditQueryId,
             goalMetrics: cb.goalMetrics,
             activationMetric: cb.activationMetric,
             regressionAdjustmentEnabled: cb.regressionAdjustmentEnabled,
