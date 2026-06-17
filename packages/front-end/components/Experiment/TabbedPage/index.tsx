@@ -14,7 +14,7 @@ import { URLRedirectInterface } from "shared/types/url-redirect";
 import { FaChartBar } from "react-icons/fa";
 import { HoldoutInterfaceStringDates } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
-import { Text } from "@radix-ui/themes";
+import { Box, Text } from "@radix-ui/themes";
 import {
   getAvailableMetricsFilters,
   getAvailableMetricTags,
@@ -544,7 +544,9 @@ export default function TabbedPage({
         {experiment.type !== "holdout" &&
           tab !== "dashboards" &&
           !showDashboardView && (
-            <CustomMarkdown page={"experiment"} variables={variables} />
+            <Box mt="3">
+              <CustomMarkdown page={"experiment"} variables={variables} />
+            </Box>
           )}
         {showStoppedBanner && (
           <div className="pt-3">

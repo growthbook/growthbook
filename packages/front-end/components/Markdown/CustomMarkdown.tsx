@@ -1,7 +1,6 @@
-import React from "react";
 import Handlebars from "handlebars";
-import { PiNote } from "react-icons/pi";
 import clsx from "clsx";
+import { useMemo } from "react";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import ExpandableContent from "@/ui/ExpandableContent";
@@ -15,65 +14,46 @@ const PAGE_TO_SETTING_NAME = {
   featureList: "featureListMarkdown",
   metric: "metricPageMarkdown",
   metricList: "metricListMarkdown",
-};
+} as const;
 
-const PAGE_TO_CTA = {
-  experiment: "How to run an experiment at ",
-  experimentList: "How to prepare an experiment at ",
-  feature: "How to configure a feature flag at ",
-  featureList: "How to create a feature flag at ",
-  metric: "How to create a metric at ",
-  metricList: "How to create a metric at ",
-};
+export type CustomMarkdownPage = keyof typeof PAGE_TO_SETTING_NAME;
 
-const DEFAULT_MAX_HEIGHT = 150;
+const DEFAULT_MAX_HEIGHT = 100;
 
 interface Props {
-  page:
-    | "experiment"
-    | "experimentList"
-    | "feature"
-    | "featureList"
-    | "metric"
-    | "metricList"
-    | "learnings";
+  page: CustomMarkdownPage;
   variables?: Record<string, unknown>;
   maxHeight?: number;
 }
 
-const CustomMarkdown: React.FC<Props> = ({
+export default function CustomMarkdown({
   page,
   variables,
   maxHeight = DEFAULT_MAX_HEIGHT,
-}) => {
+}: Props) {
   const { name, organization, hasCommercialFeature } = useUser();
   const settings = useOrgSettings();
-  const settingName = PAGE_TO_SETTING_NAME[page];
-  const markdown = settings[settingName];
+  const markdown = settings[PAGE_TO_SETTING_NAME[page]];
 
-  if (!markdown || !hasCommercialFeature("custom-markdown")) return null;
+  const renderedMarkdown = useMemo(() => {
+    if (!markdown) return null;
+    const template = Handlebars.compile(markdown);
+    return template({
+      user: name,
+      orgName: organization.name,
+      ...variables,
+    });
+  }, [markdown, name, organization.name, variables]);
 
-  const baseVariables = {
-    user: name,
-    orgName: organization.name,
-  };
-
-  const template = Handlebars.compile(markdown);
-  const renderedMarkdown = template({ ...baseVariables, ...variables });
+  if (!renderedMarkdown || !hasCommercialFeature("custom-markdown")) {
+    return null;
+  }
 
   return (
-    <div className={clsx(styles.customMarkdown, "appbox p-4")}>
-      <div className={styles.header}>
-        <PiNote className="mr-2" style={{ height: "20px", width: "20px" }} />
-        <strong>{PAGE_TO_CTA[page] + organization.name}</strong>
-      </div>
-      <div className={styles.content}>
-        <ExpandableContent maxHeight={maxHeight}>
-          <Markdown>{renderedMarkdown}</Markdown>
-        </ExpandableContent>
-      </div>
+    <div className={clsx("appbox p-4", styles.customMarkdown)}>
+      <ExpandableContent maxHeight={maxHeight}>
+        <Markdown>{renderedMarkdown}</Markdown>
+      </ExpandableContent>
     </div>
   );
-};
-
-export default CustomMarkdown;
+}

@@ -7,7 +7,6 @@ import React, { useState } from "react";
 import { isFactMetricId, getAllVariations } from "shared/experiments";
 import { date } from "shared/dates";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import EmptyState from "@/components/EmptyState";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
@@ -59,7 +58,6 @@ const CompletedExperimentList = ({
           restrictVariation={false}
         />
       )}
-      <CustomMarkdown page={"learnings"} />
       <Box>
         {experiments.length === 0 ? (
           <EmptyState

@@ -1,14 +1,3 @@
 .customMarkdown {
   border-color: var(--custom-markdown-border);
-  color: var(--text-color-primary);
-
-  .header {
-    display: flex;
-    align-items: center;
-    margin-bottom: 12px;
-  }
-
-  .content {
-    padding-left: 28px;
-  }
 }
