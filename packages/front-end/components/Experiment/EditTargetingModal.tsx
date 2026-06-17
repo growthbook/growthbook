@@ -11,12 +11,9 @@ import SelectField from "@/components/Forms/SelectField";
 import Switch from "@/ui/Switch";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
-import HashVersionSelector, {
-  allConnectionsSupportBucketingV2,
-} from "./HashVersionSelector";
+import HashVersionSelector from "./HashVersionSelector";
 import MakeChangesFlow from "./MakeChangesFlow";
 import { useExperimentTargetingForm } from "./useExperimentTargetingForm";
-import useSDKConnections from "@/hooks/useSDKConnections";
 
 export interface Props {
   close: () => void;
