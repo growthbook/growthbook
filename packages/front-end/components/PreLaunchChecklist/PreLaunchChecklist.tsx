@@ -5,7 +5,12 @@ import {
 import { FeatureInterface } from "shared/types/feature";
 import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { FaCheck } from "react-icons/fa";
-import { PiCaretDown, PiCaretUp } from "react-icons/pi";
+import {
+  PiCaretDown,
+  PiCaretDownFill,
+  PiCaretRightFill,
+  PiCaretUp,
+} from "react-icons/pi";
 import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunchChecklist";
 import clsx from "clsx";
 import { Box, Flex, Theme } from "@radix-ui/themes";
@@ -173,12 +178,12 @@ function PreLaunchChecklistUI({
               setShowCompleted((prev) => !prev);
             }}
           >
-            {showCompleted ? (
-              <PiCaretDown size={13} />
-            ) : (
-              <PiCaretUp size={13} />
-            )}
             <span>View completed items</span>
+            {showCompleted ? (
+              <PiCaretDownFill size={13} />
+            ) : (
+              <PiCaretRightFill size={13} />
+            )}
           </Flex>
           {showCompleted && (
             <Box mt="2">

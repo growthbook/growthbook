@@ -2,6 +2,10 @@ import { FC, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { useRouter } from "next/router";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import {
+  DataSourceInterfaceWithParams,
+  DataSourceSettings,
+} from "shared/types/datasource";
 import { getEqualWeights } from "shared/experiments";
 import { isProjectListValidForProject } from "shared/util";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
@@ -40,6 +44,69 @@ export type SimpleNewExperimentFormProps = {
   source: string;
   onSwitchToLegacy?: () => void;
 };
+
+// Resolve a datasource only when the choice is unambiguous: a template-provided
+// one, an org default that's valid for the project, or the only datasource
+// available to the project (never the sample/demo datasource).
+function getAutoDatasourceId({
+  datasources,
+  demoDataSourceId,
+  defaultDataSource,
+  project,
+  templateDatasource,
+}: {
+  datasources: DataSourceInterfaceWithParams[];
+  demoDataSourceId: string | null;
+  defaultDataSource?: string;
+  project: string;
+  templateDatasource?: string;
+}): string {
+  if (templateDatasource) return templateDatasource;
+
+  const validDatasources = datasources.filter(
+    (d) =>
+      d.id !== demoDataSourceId &&
+      isProjectListValidForProject(d.projects, project),
+  );
+  const defaultDatasource =
+    defaultDataSource &&
+    validDatasources.find((d) => d.id === defaultDataSource);
+  if (defaultDatasource) return defaultDatasource.id;
+  if (validDatasources.length === 1) return validDatasources[0].id;
+  return "";
+}
+
+// Resolve an experiment assignment query only when the choice is unambiguous:
+// a template-provided one, the only query in the datasource, or the only query
+// linked to the selected hash attribute's identifier type(s).
+function getAutoExposureQueryId({
+  dsSettings,
+  hashAttribute,
+  templateExposureQueryId,
+}: {
+  dsSettings?: DataSourceSettings;
+  hashAttribute: string;
+  templateExposureQueryId?: string;
+}): string {
+  if (templateExposureQueryId) return templateExposureQueryId;
+
+  const exposureQueries = dsSettings?.queries?.exposure || [];
+  if (exposureQueries.length === 1) return exposureQueries[0].id;
+  if (exposureQueries.length > 1) {
+    // A hash attribute can be linked to multiple identifier types, each with
+    // its own query. Only auto-select when exactly one query is linked across
+    // all matching identifier types.
+    const linkedUserIdTypes =
+      dsSettings?.userIdTypes
+        ?.filter((t) => t.attributes?.includes(hashAttribute))
+        .map((t) => t.userIdType) || [];
+    const matchingQueries = exposureQueries.filter((q) =>
+      linkedUserIdTypes.includes(q.userIdType),
+    );
+    if (matchingQueries.length === 1) return matchingQueries[0].id;
+  }
+  return "";
+}
 
 const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
   onClose,
@@ -165,6 +232,42 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
     }
   }, [holdoutId, holdoutHashAttribute]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Suggest linking the hash attribute to an identifier type when we'd auto-pick
+  // a datasource the user can edit, but no assignment query can be auto-selected
+  // because the hash attribute isn't linked to any identifier type there.
+  const watchedHashAttribute = form.watch("hashAttribute") || "id";
+  const watchedTemplateId = form.watch("templateId");
+  const watchedTemplate = watchedTemplateId
+    ? templatesMap.get(watchedTemplateId)
+    : undefined;
+  const autoDatasourceId = getAutoDatasourceId({
+    datasources,
+    demoDataSourceId,
+    defaultDataSource: settings.defaultDataSource,
+    project: selectedProject,
+    templateDatasource: watchedTemplate?.datasource,
+  });
+  const autoDatasource = autoDatasourceId
+    ? getDatasourceById(autoDatasourceId)
+    : null;
+  const autoDsExposureQueries =
+    autoDatasource?.settings?.queries?.exposure || [];
+  const hashAttributeLinkedToIdentifier = (
+    autoDatasource?.settings?.userIdTypes || []
+  ).some((t) => t.attributes?.includes(watchedHashAttribute));
+  const wouldAutoSelectExposureQuery =
+    getAutoExposureQueryId({
+      dsSettings: autoDatasource?.settings,
+      hashAttribute: watchedHashAttribute,
+      templateExposureQueryId: watchedTemplate?.exposureQueryId,
+    }) !== "";
+  const showLinkIdentifierCallout =
+    !!autoDatasource &&
+    permissionsUtil.canUpdateDataSourceSettings(autoDatasource) &&
+    autoDsExposureQueries.length > 0 &&
+    !hashAttributeLinkedToIdentifier &&
+    !wouldAutoSelectExposureQuery;
+
   const onSubmit = form.handleSubmit(async (rawValue) => {
     const name = (rawValue.name || "").trim();
     if (name.length < 1) {
@@ -218,51 +321,20 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
     const project = rawValue.project || "";
     const hashAttribute = rawValue.hashAttribute || "id";
 
-    // Auto-select a datasource when the choice is unambiguous: an org default
-    // that's valid for this project, or the only datasource available to the
-    // project. A template may already specify one — don't override it.
-    let datasource = data.datasource || "";
-    if (!datasource) {
-      const validDatasources = datasources.filter(
-        (d) =>
-          d.id !== demoDataSourceId &&
-          isProjectListValidForProject(d.projects, project),
-      );
-      const defaultDatasource =
-        settings.defaultDataSource &&
-        validDatasources.find((d) => d.id === settings.defaultDataSource);
-      if (defaultDatasource) {
-        datasource = defaultDatasource.id;
-      } else if (validDatasources.length === 1) {
-        datasource = validDatasources[0].id;
-      }
-    }
-
-    // Auto-select the experiment assignment query when the choice is
-    // unambiguous: only one query exists in the datasource, or only one query
-    // is linked to the selected hash attribute's identifier type.
-    let exposureQueryId = data.exposureQueryId || "";
-    if (datasource && !exposureQueryId) {
-      const dsSettings = getDatasourceById(datasource)?.settings;
-      const exposureQueries = dsSettings?.queries?.exposure || [];
-      if (exposureQueries.length === 1) {
-        exposureQueryId = exposureQueries[0].id;
-      } else if (exposureQueries.length > 1) {
-        // A hash attribute can be linked to multiple identifier types, each
-        // with its own assignment query. Only auto-select when exactly one
-        // query is linked across all matching identifier types.
-        const linkedUserIdTypes =
-          dsSettings?.userIdTypes
-            ?.filter((t) => t.attributes?.includes(hashAttribute))
-            .map((t) => t.userIdType) || [];
-        const matchingQueries = exposureQueries.filter((q) =>
-          linkedUserIdTypes.includes(q.userIdType),
-        );
-        if (matchingQueries.length === 1) {
-          exposureQueryId = matchingQueries[0].id;
-        }
-      }
-    }
+    const datasource = getAutoDatasourceId({
+      datasources,
+      demoDataSourceId,
+      defaultDataSource: settings.defaultDataSource,
+      project,
+      templateDatasource: data.datasource || "",
+    });
+    const exposureQueryId = getAutoExposureQueryId({
+      dsSettings: datasource
+        ? getDatasourceById(datasource)?.settings
+        : undefined,
+      hashAttribute,
+      templateExposureQueryId: data.exposureQueryId || "",
+    });
 
     // Overlay the simple-flow fields
     data = {
@@ -451,6 +523,22 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
             attribute of the holdout this experiment will belong to.
           </HelperText>
         )}
+
+      {showLinkIdentifierCallout && autoDatasource && (
+        <Callout status="info" mb="3">
+          Link the <strong>{watchedHashAttribute}</strong> attribute to an
+          identifier type in{" "}
+          <Link
+            href={`/datasources/${autoDatasource.id}`}
+            target="_blank"
+            rel="noreferrer"
+          >
+            {autoDatasource.name}
+          </Link>{" "}
+          to automatically select an assignment query when creating an
+          experiment.
+        </Callout>
+      )}
 
       {hasCommercialFeature("custom-metadata") && !!customFields?.length && (
         <CustomFieldInput
