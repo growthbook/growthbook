@@ -45,7 +45,7 @@ jobs:
       # so we build on CI via Depot (which can) and deploy the prebuilt image.
       - name: Login to Docker Hardened Images
         if: ${{ github.event.action != 'closed' }}
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: dhi.io
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
