@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useAgentPanel } from "@/components/Agent/AgentPanelContext";
+import { isCloud } from "@/services/env";
 
 type PylonApi = (command: string, ...args: unknown[]) => void;
 
@@ -20,6 +21,10 @@ export default function PylonChatVisibility() {
   const { open } = useAgentPanel();
 
   useEffect(() => {
+    // Pylon is only ever injected in cloud; skip entirely (including the poll
+    // below) on self-hosted instances where it never loads.
+    if (!isCloud()) return;
+
     if (!open) {
       getPylon()?.("showChatBubble");
       return;
@@ -33,10 +38,18 @@ export default function PylonChatVisibility() {
       pylon("onShow", () => pylon("hide"));
     };
 
+    // Restore the bubble + drop the onShow handler on cleanup. This covers the
+    // panel closing (open -> false) and the component unmounting while open
+    // (e.g. AI gets disabled mid-session), so the bubble never stays hidden.
+    const restore = (pylon: PylonApi) => {
+      pylon("onShow", null);
+      pylon("showChatBubble");
+    };
+
     const pylon = getPylon();
     if (pylon) {
       hide(pylon);
-      return () => pylon("onShow", null);
+      return () => restore(pylon);
     }
 
     // Pylon's script may not have loaded yet; poll briefly so a late-loading
@@ -58,7 +71,7 @@ export default function PylonChatVisibility() {
     return () => {
       window.clearInterval(intervalId);
       window.clearTimeout(timeoutId);
-      resolved?.("onShow", null);
+      if (resolved) restore(resolved);
     };
   }, [open]);
 
