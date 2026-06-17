@@ -38,6 +38,7 @@ export const member = memberRoleWithProjects.safeExtend({
   externalId: z.string().optional(),
   managedByIdp: z.boolean().optional(),
   lastLoginDate: z.date().optional(),
+  invitedBy: z.string().optional(),
 });
 
 export const expandedMemberInfo = {
