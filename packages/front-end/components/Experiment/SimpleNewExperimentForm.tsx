@@ -379,9 +379,8 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
       );
     }
 
-    track("Create Experiment", {
+    track("Create Experiment: Simple Flow", {
       source,
-      numVariations: data.variations?.length || 0,
       createdFromTemplate: !!data.templateId,
     });
     refreshWatching();
@@ -532,6 +531,13 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
             href={`/datasources/${autoDatasource.id}`}
             target="_blank"
             rel="noreferrer"
+            onClick={() =>
+              track("Link Hash Attribute to Identifier Type", {
+                source: "Simple Experiment Creation Flow",
+                datasource: autoDatasource.id,
+                hashAttribute: watchedHashAttribute,
+              })
+            }
           >
             {autoDatasource.name}
           </Link>{" "}
