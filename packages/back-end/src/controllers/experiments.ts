@@ -1620,10 +1620,6 @@ export async function postExperiment(
   }
 
   if (data.variations) {
-    fillEmptyVariationKeys(
-      data.variations,
-      experiment.variations.map((v) => v.key),
-    );
     validateVariationIds(data.variations);
   }
 

@@ -2,16 +2,13 @@ import { FC, useState } from "react";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
 import SimpleNewExperimentForm from "@/components/Experiment/SimpleNewExperimentForm";
+import track from "@/services/track";
 
 export type CreateExperimentModalProps = {
   onClose: () => void;
   source: string;
 };
 
-// Switches between the new one-step experiment-creation modal and the existing
-// multi-step modal based on the "simple-experiment-flow" A/B test flag. Only
-// the standard "create new experiment" entry points should render this; import,
-// duplicate, idea, bandit, and template-detail flows keep using NewExperimentForm.
 const CreateExperimentModal: FC<CreateExperimentModalProps> = ({
   onClose,
   source,
@@ -24,7 +21,10 @@ const CreateExperimentModal: FC<CreateExperimentModalProps> = ({
       <SimpleNewExperimentForm
         onClose={onClose}
         source={source}
-        onSwitchToLegacy={() => setUseOldFlow(true)}
+        onSwitchToLegacy={() => {
+          track("Switch to legacy experiment flow");
+          setUseOldFlow(true);
+        }}
       />
     );
   }

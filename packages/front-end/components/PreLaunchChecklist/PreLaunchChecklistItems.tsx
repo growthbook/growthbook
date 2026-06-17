@@ -119,8 +119,6 @@ export function getChecklistItems({
   }
   const items: CheckListItem[] = [];
 
-  // Bandits enforce a data source and decision metric through their own flow,
-  // so these only apply to standard experiments.
   if (!isBandit) {
     const hasDatasource = !!experiment.datasource;
     const hasAssignmentTable = !!experiment.exposureQueryId;
@@ -171,8 +169,6 @@ export function getChecklistItems({
       ),
     });
 
-    // Goal metrics are scoped to the data source, so this only shows once a
-    // data source and assignment table have been selected.
     if (hasDatasource && hasAssignmentTable) {
       items.push({
         type: "auto",
