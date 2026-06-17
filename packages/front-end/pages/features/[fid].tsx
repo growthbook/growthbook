@@ -227,9 +227,6 @@ export default function FeaturePage() {
             rampSchedules={rampSchedules}
             mutate={refreshData}
             onPublish={() => {
-              // After publish, snap to whatever is now live. mutate() has
-              // already refreshed the data, but liveVersionRef only updates on
-              // the next render, so defer the read until after that re-render.
               setTimeout(() => {
                 if (liveVersionRef.current !== null) {
                   setVersion(liveVersionRef.current);
