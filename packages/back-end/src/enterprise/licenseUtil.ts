@@ -123,12 +123,15 @@ export function isActiveSubscriptionStatus(
 // use getEffectiveAccountPlan() instead.
 export function getAccountPlan(org: MinimalOrganization): AccountPlan {
   if (stringToBoolean(process.env.IS_CLOUD)) {
+    // If the org has the enterprise flag, return enterprise
+    // Can remove this when all enterprise orgs are migrated to a license
+    if (org.enterprise) return "enterprise";
+
     if (org.licenseKey) {
       return getLicense(org.licenseKey)?.plan || "starter";
     }
     // Vercel starter orgs have the `restrictLoginMethod` set, but they're not pro_sso
     if (org.isVercelIntegration) return "starter";
-    if (org.enterprise) return "enterprise";
     if (org.restrictAuthSubPrefix || org.restrictLoginMethod) return "pro_sso";
     return "starter";
   }
@@ -957,6 +960,10 @@ export function getEffectiveAccountPlan(org: MinimalOrganization): AccountPlan {
   let basicPlan: AccountPlan;
 
   if (stringToBoolean(process.env.IS_CLOUD)) {
+    // If the org has the enterprise flag, return enterprise
+    // Can remove this when all enterprise orgs are migrated to a license
+    if (org.enterprise) return "enterprise";
+
     if (!org.licenseKey) {
       return getAccountPlan(org);
     }
