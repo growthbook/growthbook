@@ -2489,6 +2489,14 @@ export default abstract class SqlIntegration
         })
         .join("\n");
 
+    // skipPartialData cutoff on __experimentUnits (the single source of users +
+    // N), so both N and metric values exclude not-yet-mature units.
+    const firstExposureWhere = params.maxFirstExposureTimestamp
+      ? `WHERE e.first_exposure_timestamp <= ${this.getSqlDialect().toTimestamp(
+          params.maxFirstExposureTimestamp,
+        )}`
+      : "";
+
     // TODO(incremental-refresh): Handle activation metric in dimensions
     // like in getExperimentFactMetricsQuery
     // TODO(incremental-refresh): Validate with existing columns
@@ -2532,6 +2540,7 @@ export default abstract class SqlIntegration
           )`,
             )
             .join("\n")}
+          ${firstExposureWhere}
           GROUP BY
             e.${baseIdType}
       `
@@ -2540,7 +2549,8 @@ export default abstract class SqlIntegration
           , e.variation AS variation
           , e.first_exposure_timestamp AS first_exposure_timestamp
           ${nonUnitDimensionCols.map((d) => `, ${d.value} AS ${d.alias}`).join("")}
-        FROM ${params.unitsSourceTableFullName} e`
+        FROM ${params.unitsSourceTableFullName} e
+        ${firstExposureWhere}`
       })
       ${sources
         .map(

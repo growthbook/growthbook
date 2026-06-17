@@ -54,12 +54,8 @@ export async function assertIncrementalRefreshPrerequisites({
   incrementalRefreshModel: IncrementalRefreshInterface | null;
   analysisType: "main-update" | "main-fullRefresh" | "exploratory";
 }): Promise<void> {
-  if (snapshotSettings.skipPartialData) {
-    throw new Error(
-      "'Exclude In-Progress Conversions' is not supported for incremental refresh queries while in beta. Please select 'Include' in the Analysis Settings for Metric Conversion Windows.",
-    );
-  }
-
+  // skipPartialData no longer blocks incremental refresh — it's applied as a
+  // read-time cutoff in the stats query (see getIncrementalRefreshStatisticsQuery).
   if (!integration.getSourceProperties().hasIncrementalRefresh) {
     throw new Error("Integration does not support incremental refresh queries");
   }
@@ -153,7 +149,9 @@ export function getExperimentSettingsHashForIncrementalRefresh(
     attributionModel: snapshotSettings.attributionModel,
     queryFilter: snapshotSettings.queryFilter,
     segment: snapshotSettings.segment,
-    skipPartialData: snapshotSettings.skipPartialData,
+    // Hard-coded (not dropped) to keep the hash byte-identical to existing
+    // models — skipPartialData only affects read-time stats, never the cache.
+    skipPartialData: false,
     datasourceId: snapshotSettings.datasourceId,
     exposureQueryId: snapshotSettings.exposureQueryId,
     startDate: snapshotSettings.startDate,

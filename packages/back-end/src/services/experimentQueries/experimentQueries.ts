@@ -18,6 +18,7 @@ import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { applyMetricOverrides } from "back-end/src/util/integration";
 import { getMaxHoursToConvert } from "back-end/src/integrations/sql/dates/max-hours-to-convert";
+import { getExperimentEndDate } from "back-end/src/integrations/sql/dates/experiment-end-date";
 import {
   BANDIT_CUPED_FLOAT_COLS,
   BASE_METRIC_CUPED_FLOAT_COLS,
@@ -264,6 +265,58 @@ export function getFactMetricGroup(
   return metric.numerator.factTableId
     ? `${metric.numerator.factTableId}${conversionWindowKey}`
     : "";
+}
+
+// Bucket fact metrics by conversion-window hours (delay + window; 0 for none),
+// so skipPartialData stats queries can apply one end-date cutoff per bucket.
+export function groupMetricsByConversionWindowHours(
+  metrics: FactMetricInterface[],
+): Map<number, FactMetricInterface[]> {
+  const groups = new Map<number, FactMetricInterface[]>();
+  metrics.forEach((metric) => {
+    const hours = getMaxHoursToConvert(false, [metric], null);
+    const existing = groups.get(hours);
+    if (existing) {
+      existing.push(metric);
+    } else {
+      groups.set(hours, [metric]);
+    }
+  });
+  return groups;
+}
+
+export interface StatsQueryBucket {
+  metrics: FactMetricInterface[];
+  // Exposure cutoff for skipPartialData, or null to include all users.
+  maxFirstExposureTimestamp: Date | null;
+  nameSuffix: string;
+}
+
+// One stats-query bucket per conversion window when skipPartialData is on (each
+// gets its own first_exposure_timestamp cutoff); otherwise a single bucket.
+export function getStatsQueryBuckets({
+  metrics,
+  snapshotSettings,
+  referenceTime,
+}: {
+  metrics: FactMetricInterface[];
+  snapshotSettings: ExperimentSnapshotSettings;
+  referenceTime: Date;
+}): StatsQueryBucket[] {
+  if (!snapshotSettings.skipPartialData) {
+    return [{ metrics, maxFirstExposureTimestamp: null, nameSuffix: "" }];
+  }
+  return Array.from(groupMetricsByConversionWindowHours(metrics).entries()).map(
+    ([conversionWindowHours, bucketMetrics]) => ({
+      metrics: bucketMetrics,
+      maxFirstExposureTimestamp: getExperimentEndDate(
+        snapshotSettings,
+        conversionWindowHours,
+        referenceTime,
+      ),
+      nameSuffix: `_cw${conversionWindowHours}`,
+    }),
+  );
 }
 
 export interface GroupedMetrics {

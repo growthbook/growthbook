@@ -1083,37 +1083,25 @@ const AnalysisForm: FC<{
                       )}
                     {datasourceProperties?.separateExperimentResultQueries && (
                       <div className="form-group mb-2">
-                        <Tooltip
-                          shouldDisplay={
-                            isExperimentIncludedInIncrementalRefresh
+                        <SelectField
+                          label="Metric Conversion Windows"
+                          labelClassName="font-weight-bold"
+                          value={form.watch("skipPartialData")}
+                          onChange={(value) =>
+                            form.setValue("skipPartialData", value)
                           }
-                          body="In-progress Conversions is not supported with Incremental Refresh while in beta"
-                        >
-                          <SelectField
-                            label="Metric Conversion Windows"
-                            labelClassName="font-weight-bold"
-                            value={form.watch("skipPartialData")}
-                            onChange={(value) =>
-                              form.setValue("skipPartialData", value)
-                            }
-                            options={[
-                              {
-                                label: "Include In-Progress Conversions",
-                                value: "loose",
-                              },
-                              {
-                                label: "Exclude In-Progress Conversions",
-                                value: "strict",
-                              },
-                            ]}
-                            isOptionDisabled={(option) =>
-                              isExperimentIncludedInIncrementalRefresh &&
-                              "value" in option &&
-                              option.value === "strict"
-                            }
-                            helpText="How to treat users not enrolled in the experiment long enough to complete conversion window."
-                          />
-                        </Tooltip>
+                          options={[
+                            {
+                              label: "Include In-Progress Conversions",
+                              value: "loose",
+                            },
+                            {
+                              label: "Exclude In-Progress Conversions",
+                              value: "strict",
+                            },
+                          ]}
+                          helpText="How to treat users not enrolled in the experiment long enough to complete conversion window."
+                        />
                       </div>
                     )}
                     {datasourceProperties?.separateExperimentResultQueries && (

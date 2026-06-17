@@ -34,6 +34,10 @@ const incrementalRefresh = z
     unitsMaxTimestamp: z.date().nullable(),
     unitsDimensions: z.array(z.string()),
 
+    // When the caches were last refreshed; exploratory runs use it as the
+    // skipPartialData cutoff reference so it matches what the caches contain.
+    lastRefreshTimestamp: z.date().nullable().optional(),
+
     // Experiment Settings Hash
     experimentSettingsHash: z.string().nullable(),
 
