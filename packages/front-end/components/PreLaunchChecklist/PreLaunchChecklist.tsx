@@ -263,11 +263,11 @@ function PreLaunchChecklistFeatureExpRule({
         }
       />
       {failedRequired ? (
-        <Callout status="error" mb="3">
+        <Callout status="error" my="3">
           Please complete all required items before starting your experiment.
         </Callout>
       ) : (
-        <Callout status="success" mb="3">
+        <Callout status="success" my="3">
           All required items are complete. The experiment is ready to start.
         </Callout>
       )}{" "}
