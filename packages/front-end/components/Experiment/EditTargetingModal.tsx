@@ -1,7 +1,17 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { useEnvironments } from "@/services/features";
+import { Separator } from "@radix-ui/themes";
+import { useAttributeSchema, useEnvironments } from "@/services/features";
 import TargetingFieldsGroup from "@/components/Features/TargetingFieldsGroup";
+import FallbackAttributeSelector from "@/components/Features/FallbackAttributeSelector";
+import {
+  AttributeOptionWithTooltip,
+  type AttributeOptionForTooltip,
+} from "@/components/Features/AttributeOptionTooltip";
+import SelectField from "@/components/Forms/SelectField";
+import Checkbox from "@/ui/Checkbox";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import HashVersionSelector from "./HashVersionSelector";
 import MakeChangesFlow from "./MakeChangesFlow";
 import { useExperimentTargetingForm } from "./useExperimentTargetingForm";
 
@@ -30,6 +40,40 @@ export default function EditTargetingModal({
   const environments = useEnvironments();
   const envs = environments.map((e) => e.id);
 
+  const attributeSchema = useAttributeSchema(false, experiment.project);
+  const hasHashAttributes =
+    attributeSchema.filter((x) => x.hashAttribute).length > 0;
+
+  const hashAttributeOptions: AttributeOptionForTooltip[] = attributeSchema
+    .filter((s) => !hasHashAttributes || s.hashAttribute)
+    .map((s) => ({
+      label: s.property,
+      value: s.property,
+      description: s.description,
+      tags: s.tags,
+      datatype: s.datatype,
+      hashAttribute: s.hashAttribute,
+    }));
+
+  // If the current hashAttribute isn't in the list, add it for backwards
+  // compatibility (e.g. the attribute was archived or removed from the
+  // experiment's project after creation).
+  if (
+    form.watch("hashAttribute") &&
+    !hashAttributeOptions.find((o) => o.value === form.watch("hashAttribute"))
+  ) {
+    hashAttributeOptions.push({
+      label: form.watch("hashAttribute"),
+      value: form.watch("hashAttribute"),
+    });
+  }
+
+  const disableStickyBucketing = !!form.watch("disableStickyBucketing");
+
+  const settings = useOrgSettings();
+
+  const orgStickyBucketing = !!settings.useStickyBucketing;
+
   if (safeToEdit) {
     return (
       <ModalStandard
@@ -42,6 +86,57 @@ export default function EditTargetingModal({
         size="lg"
       >
         <div className="pt-2">
+          <SelectField
+            withRadixThemedPortal
+            containerClassName="flex-1"
+            label="Assignment Attribute"
+            labelClassName="font-weight-bold"
+            options={hashAttributeOptions}
+            sort={false}
+            value={form.watch("hashAttribute")}
+            onChange={(v) => {
+              form.setValue("hashAttribute", v);
+            }}
+            formatOptionLabel={(o, meta) => {
+              return (
+                <AttributeOptionWithTooltip
+                  option={o as AttributeOptionForTooltip}
+                  context={meta.context}
+                >
+                  {o.label}
+                </AttributeOptionWithTooltip>
+              );
+            }}
+            helpText={
+              "Will be hashed together with the Tracking Key to determine which variation to assign"
+            }
+          />
+          {orgStickyBucketing ? (
+            <Checkbox
+              mt="4"
+              size="lg"
+              label="Disable Sticky Bucketing"
+              description="Do not persist variation assignments for this experiment (overrides your organization settings)"
+              value={!!form.watch("disableStickyBucketing")}
+              setValue={(v) => {
+                form.setValue("disableStickyBucketing", v === true);
+              }}
+            />
+          ) : null}
+          {!disableStickyBucketing && (
+            <FallbackAttributeSelector
+              form={form}
+              attributeSchema={attributeSchema}
+            />
+          )}
+          <HashVersionSelector
+            value={form.watch("hashVersion")}
+            onChange={(v) => form.setValue("hashVersion", v)}
+            project={experiment.project}
+          />
+
+          <Separator size="4" my="5" />
+
           <TargetingFieldsGroup
             project={experiment.project || ""}
             environments={envs}

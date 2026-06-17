@@ -296,38 +296,40 @@ export default function TrafficAllocationFunnel({
                 </Text>
               )
             }
-            disabled={!hasConfiguredTargeting}
           >
-            {hasConfiguredTargeting ? (
-              <Flex direction="column" gap="3">
-                {phase.condition && phase.condition !== "{}" ? (
-                  <div>
-                    <Text as="div" color="text-high" weight="semibold" mb="2">
-                      Attribute Targeting
-                    </Text>
-                    <ConditionDisplay condition={phase.condition} />
-                  </div>
-                ) : null}
-                {phase.savedGroups?.length ? (
-                  <div>
-                    <Text as="div" color="text-high" weight="semibold" mb="2">
-                      Saved Group Targeting
-                    </Text>
-                    <SavedGroupTargetingDisplay
-                      savedGroups={phase.savedGroups}
-                    />
-                  </div>
-                ) : null}
-                {!isHoldout && phase.prerequisites?.length ? (
-                  <div>
-                    <Text as="div" color="text-high" weight="semibold" mb="2">
-                      Prerequisite Targeting
-                    </Text>
-                    <ConditionDisplay prerequisites={phase.prerequisites} />
-                  </div>
-                ) : null}
-              </Flex>
-            ) : null}
+            <Flex direction="column" gap="3">
+              {hasConfiguredTargeting ? (
+                <>
+                  {phase.condition && phase.condition !== "{}" ? (
+                    <div>
+                      <Text as="div" color="text-high" weight="semibold" mb="2">
+                        Attribute Targeting
+                      </Text>
+                      <ConditionDisplay condition={phase.condition} />
+                    </div>
+                  ) : null}
+                  {phase.savedGroups?.length ? (
+                    <div>
+                      <Text as="div" color="text-high" weight="semibold" mb="2">
+                        Saved Group Targeting
+                      </Text>
+                      <SavedGroupTargetingDisplay
+                        savedGroups={phase.savedGroups}
+                      />
+                    </div>
+                  ) : null}
+                  {!isHoldout && phase.prerequisites?.length ? (
+                    <div>
+                      <Text as="div" color="text-high" weight="semibold" mb="2">
+                        Prerequisite Targeting
+                      </Text>
+                      <ConditionDisplay prerequisites={phase.prerequisites} />
+                    </div>
+                  ) : null}
+                </>
+              ) : null}
+              <AssignmentAttribute experiment={experiment} />
+            </Flex>
           </FunnelCard>
 
           <FunnelConnector />
@@ -363,7 +365,6 @@ export default function TrafficAllocationFunnel({
                     />
                   </Box>
                 </div>
-                <AssignmentAttribute experiment={experiment} />
               </Flex>
             ) : (
               <Flex direction="column" gap="1">
@@ -378,9 +379,6 @@ export default function TrafficAllocationFunnel({
                   {holdoutTraffic.notForMeasurementPercent}% not in holdout (not
                   for measurement)
                 </Text>
-                <Box mt="2">
-                  <AssignmentAttribute experiment={experiment} />
-                </Box>
               </Flex>
             )}
           </FunnelCard>
@@ -448,8 +446,11 @@ function AssignmentAttribute({
       ) : null}
       {!isHoldout && experiment.disableStickyBucketing ? (
         <div className="mt-1">
+          <Text weight="semibold" color="text-high" mr="2">
+            Sticky bucketing:
+          </Text>
           <Text color="text-mid">
-            Sticky bucketing: <em>disabled</em>
+            <em>Disabled</em>
           </Text>
         </div>
       ) : null}
