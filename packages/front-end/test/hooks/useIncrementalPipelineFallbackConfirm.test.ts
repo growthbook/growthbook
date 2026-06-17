@@ -116,4 +116,33 @@ describe("useIncrementalPipelineFallbackConfirm", () => {
     await expect(secondValidation!).resolves.toBe(true);
     expect(result.current.isConfirmOpen).toBe(false);
   });
+
+  // Both the Update button and the More Menu's "Re-run all queries" call this
+  // gate, so a second invocation can arrive while the first dialog is still
+  // open. The superseded attempt must settle (aborted) rather than hang.
+  it("aborts the earlier attempt instead of hanging when invocations overlap", async () => {
+    vi.mocked(useIncrementalPipelineUnsupportedReason).mockReturnValue(reason);
+    const { result } = renderHook(() =>
+      useIncrementalPipelineFallbackConfirm({ experiment }),
+    );
+
+    let firstValidation: boolean | Promise<boolean>;
+    act(() => {
+      firstValidation = result.current.customValidation();
+    });
+    expect(result.current.isConfirmOpen).toBe(true);
+
+    let secondValidation: boolean | Promise<boolean>;
+    act(() => {
+      secondValidation = result.current.customValidation();
+    });
+    await expect(firstValidation!).resolves.toBe(false);
+
+    expect(result.current.isConfirmOpen).toBe(true);
+    act(() => {
+      result.current.onConfirm();
+    });
+    await expect(secondValidation!).resolves.toBe(true);
+    expect(result.current.isConfirmOpen).toBe(false);
+  });
 });

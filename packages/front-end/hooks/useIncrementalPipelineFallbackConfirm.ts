@@ -22,6 +22,8 @@ export function useIncrementalPipelineFallbackConfirm({
     if (!reason || latestStatus === "running") {
       return true;
     }
+    // Ensure any pending requests resolve to false to avoid hanging
+    resolveRef.current?.(false);
     setIsConfirmOpen(true);
     return new Promise<boolean>((resolve) => {
       resolveRef.current = resolve;
