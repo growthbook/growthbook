@@ -182,7 +182,9 @@ class Bandits(ABC):
         #     p_i = f + (1 - n * f) * w_i        (w = normalized Thompson weights)
         # guarantees p_i >= f and sum(p_i) == 1 while preserving the posterior
         # ordering and the relative spacing of the arms above the floor.
-        f = self.config.min_variation_weight
+        # Clamp negatives to 0: a negative floor would make (1 - n*f) > 1 and
+        # push weights outside [0, 1]; treat it as no floor (pure Thompson).
+        f = max(0.0, self.config.min_variation_weight)
         total_floor = f * self.num_variations
         if total_floor >= 1.0:
             # floors cannot all fit on the simplex; fall back to uniform weights

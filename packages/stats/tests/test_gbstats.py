@@ -422,6 +422,14 @@ class TestBanditMinVariationWeightFloor(TestCase):
         p = np.array(self._bandit(0.5).compute_result().bandit_weights)
         np.testing.assert_allclose(p, np.full(4, 1 / 4), atol=1e-9)
 
+    def test_negative_floor_is_clamped_to_zero(self):
+        # a negative floor must not produce weights outside [0, 1]; clamps to f=0
+        w = np.array(self._bandit(0.0).compute_result().bandit_weights)
+        p = np.array(self._bandit(-0.3).compute_result().bandit_weights)
+        self.assertTrue(np.all(p >= -1e-12) and np.all(p <= 1 + 1e-9))
+        self.assertAlmostEqual(float(np.sum(p)), 1.0, places=9)
+        np.testing.assert_allclose(p, w, atol=1e-9)
+
 
 class TestGetMetricDf(TestCase):
     def test_get_metric_dfs_missing_count(self):
