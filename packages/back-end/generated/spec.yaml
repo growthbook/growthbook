@@ -261,6 +261,9 @@ tags:
   - name: usage
     x-displayName: Usage
     description: Usage information for metrics in experiments.
+  - name: meta
+    x-displayName: meta
+    description: ''
   - name: Dashboards
     x-displayName: Dashboards
     description: ''
@@ -19814,6 +19817,35 @@ paths:
         - lang: cURL
           source: |-
             curl -X GET 'https://api.growthbook.io/api/v1/settings' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/version:
+    get:
+      operationId: getVersion
+      summary: Get the GrowthBook server version and build info
+      tags:
+        - meta
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  version:
+                    type: string
+                  commit:
+                    type: string
+                  date:
+                    type: string
+                required:
+                  - version
+                  - commit
+                  - date
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/version' \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/information-schema-tables/{tableId}:
     get:
@@ -45974,6 +46006,7 @@ x-tagGroups:
       - settings
       - attributes
       - usage
+      - meta
       - Dashboards
       - CustomFields
       - MetricGroups
