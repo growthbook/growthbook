@@ -16,7 +16,6 @@ import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
-import Button from "@/ui/Button";
 
 export interface Props {
   phaseIndex?: number | null;
@@ -24,7 +23,6 @@ export interface Props {
   editTargeting?: (() => void) | null;
   editTraffic?: (() => void) | null;
   editNamespace?: (() => void) | null;
-  editVariations?: (() => void) | null;
   setEditVariationIndex?: (index: number) => void;
   canEditExperiment?: boolean;
   mutate?: () => void;
@@ -208,7 +206,6 @@ export default function TrafficAllocationFunnel({
   editTargeting,
   editTraffic,
   editNamespace,
-  editVariations,
   setEditVariationIndex,
   canEditExperiment = false,
   mutate,
@@ -385,9 +382,10 @@ export default function TrafficAllocationFunnel({
         </Flex>
         {!isHoldout && (
           <>
-            {!isBandit && (
-              <VariationFork count={numVariations} label="% Split" />
-            )}
+            <VariationFork
+              count={numVariations}
+              label={`${isBandit ? "" : "% Split"}`}
+            />
 
             <VariationsTable
               experiment={experiment}
@@ -400,13 +398,6 @@ export default function TrafficAllocationFunnel({
                   : undefined
               }
             />
-            {editVariations && !runningBandit ? (
-              <Flex justify="end" mt="3">
-                <Button variant="ghost" onClick={editVariations}>
-                  Edit Variations
-                </Button>
-              </Flex>
-            ) : null}
           </>
         )}
       </Flex>

@@ -8,12 +8,15 @@ import {
   type AttributeOptionForTooltip,
 } from "@/components/Features/AttributeOptionTooltip";
 import SelectField from "@/components/Forms/SelectField";
-import Checkbox from "@/ui/Checkbox";
+import Switch from "@/ui/Switch";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
-import HashVersionSelector from "./HashVersionSelector";
+import HashVersionSelector, {
+  allConnectionsSupportBucketingV2,
+} from "./HashVersionSelector";
 import MakeChangesFlow from "./MakeChangesFlow";
 import { useExperimentTargetingForm } from "./useExperimentTargetingForm";
+import useSDKConnections from "@/hooks/useSDKConnections";
 
 export interface Props {
   close: () => void;
@@ -112,14 +115,14 @@ export default function EditTargetingModal({
             }
           />
           {orgStickyBucketing ? (
-            <Checkbox
+            <Switch
               mt="4"
-              size="lg"
+              mb="2"
               label="Disable Sticky Bucketing"
               description="Do not persist variation assignments for this experiment (overrides your organization settings)"
               value={!!form.watch("disableStickyBucketing")}
-              setValue={(v) => {
-                form.setValue("disableStickyBucketing", v === true);
+              onChange={(v) => {
+                form.setValue("disableStickyBucketing", v);
               }}
             />
           ) : null}

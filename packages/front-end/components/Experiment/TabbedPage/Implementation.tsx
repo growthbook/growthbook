@@ -105,11 +105,11 @@ export default function Implementation({
   );
 
   const isHoldout = experiment.type === "holdout";
-  const isBandit = experiment.type === "multi-armed-bandit";
-  // The new Traffic Allocation funnel (with the dedicated namespace block and
-  // variations inside) is only for standard experiments. Bandits and holdouts
-  // keep their existing layout.
-  const isStandardExperiment = !isHoldout && !isBandit;
+  // The Traffic Allocation funnel (with the dedicated namespace block and
+  // variations inside) is used for standard experiments and bandits. Holdouts
+  // keep their existing layout. The funnel itself is bandit-aware (it hides the
+  // "% Split" fork and disables editing while a bandit is running).
+  const showTrafficFunnel = !isHoldout;
   const canEditHoldoutDefaultState =
     isHoldout &&
     !!holdout &&
@@ -151,7 +151,7 @@ export default function Implementation({
         <Heading as="h2" size="large" color="text-high" mb="2">
           Implementation
         </Heading>
-        {isStandardExperiment ? (
+        {showTrafficFunnel ? (
           <TrafficAllocationFunnel
             experiment={experiment}
             editTraffic={
@@ -163,7 +163,6 @@ export default function Implementation({
             editNamespace={
               experiment.nextScheduledStatusUpdate ? null : editNamespace
             }
-            editVariations={editVariations}
             setEditVariationIndex={setEditMetadataIndex}
             canEditExperiment={canEditExperiment}
             mutate={mutate}
@@ -182,7 +181,7 @@ export default function Implementation({
           />
         )}
         {!isHoldout &&
-        (!isStandardExperiment || hasLinkedChanges || canAddLinkedChanges) ? (
+        (!showTrafficFunnel || hasLinkedChanges || canAddLinkedChanges) ? (
           <LinkedChanges
             linkedFeatures={linkedFeatures}
             experiment={experiment}
@@ -199,7 +198,7 @@ export default function Implementation({
             onAddVariation={editVariations ?? undefined}
             canEditExperiment={canEditExperiment}
             setEditVariationIndex={setEditMetadataIndex}
-            hideVariations={isStandardExperiment}
+            hideVariations={showTrafficFunnel}
           />
         ) : null}
 
