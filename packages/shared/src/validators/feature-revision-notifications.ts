@@ -90,6 +90,12 @@ export type FeatureRevisionDiscardedPayload = z.infer<
   typeof featureRevisionDiscardedPayload
 >;
 
+export const featureRevisionReopenedPayload =
+  featureRevisionWebhookPayload.strict();
+export type FeatureRevisionReopenedPayload = z.infer<
+  typeof featureRevisionReopenedPayload
+>;
+
 export const featureRevisionRebasedPayload =
   featureRevisionWebhookPayload.strict();
 export type FeatureRevisionRebasedPayload = z.infer<

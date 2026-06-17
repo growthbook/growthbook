@@ -1,5 +1,6 @@
 import addExperimentResultsJob from "back-end/src/jobs/updateExperimentResults";
 import refreshFactTableColumns from "back-end/src/jobs/refreshFactTableColumns";
+import revalidateEventForwarderDataSourceQueries from "back-end/src/jobs/revalidateEventForwarderDataSourceQueries";
 import updateScheduledFeatures from "back-end/src/jobs/updateScheduledFeatures";
 import addWebhooksJob from "back-end/src/jobs/webhooks";
 import addMetricUpdateJob from "back-end/src/jobs/updateMetrics";
@@ -22,6 +23,7 @@ import addDashboardUpdateJob from "back-end/src/jobs/updateDashboards";
 import addHoldoutUpdateJob from "back-end/src/jobs/updateHoldoutStatus";
 import addExperimentStatusUpdateJob from "back-end/src/jobs/updateExperimentStatus";
 import updateAutoSlicesJob from "back-end/src/jobs/updateAutoSlices";
+import updateAggregatedFactTablesJob from "back-end/src/jobs/updateAggregatedFactTables";
 import addRampScheduleJob from "back-end/src/jobs/updateRampSchedules";
 import { initRampScheduleHooks } from "back-end/src/services/rampSchedule";
 
@@ -39,6 +41,7 @@ export async function queueInit() {
   updateStaleInformationSchemaTable(agenda);
   expireOldQueries(agenda);
   refreshFactTableColumns(agenda);
+  revalidateEventForwarderDataSourceQueries(agenda);
   addSdkWebhooksJob(agenda);
   updateLicenseJob(agenda);
   addSafeRolloutSnapshotJob(agenda);
@@ -46,6 +49,7 @@ export async function queueInit() {
   addHoldoutUpdateJob(agenda);
   addExperimentStatusUpdateJob(agenda);
   updateAutoSlicesJob(agenda);
+  updateAggregatedFactTablesJob(agenda);
   addRampScheduleJob(agenda);
   initRampScheduleHooks();
   // Make sure we have index needed to delete efficiently

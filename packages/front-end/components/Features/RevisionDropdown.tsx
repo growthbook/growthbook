@@ -7,7 +7,7 @@ import { DropdownMenu as RadixDropdownMenu, Box, Flex } from "@radix-ui/themes";
 import { PiCaretDownBold } from "react-icons/pi";
 import RevisionLabel, {
   revisionLabelText,
-} from "@/components/Features/RevisionLabel";
+} from "@/components/Reviews/RevisionLabel";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Switch from "@/ui/Switch";
 import Text from "@/ui/Text";
@@ -16,7 +16,7 @@ import Link from "@/ui/Link";
 import EventUser from "@/components/Avatar/EventUser";
 import RevisionStatusBadge, {
   isRampGenerated,
-} from "@/components/Features/RevisionStatusBadge";
+} from "@/components/Reviews/RevisionStatusBadge";
 
 export interface Props {
   feature: FeatureInterface;

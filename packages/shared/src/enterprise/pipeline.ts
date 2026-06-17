@@ -1,15 +1,17 @@
+import { getValidDate } from "shared/dates";
 import type {
   DataSourceType,
   DataSourcePipelineMode,
   DataSourcePipelineSettings,
 } from "shared/types/datasource";
+import type { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import type { PipelineIntegration } from "shared/types/integrations";
 
 /**
  * Single source of truth for whether an experiment runs with incremental
  * refresh on a given data source. Used at snapshot planning time
  * (`isIncrementalRefreshEnabledForSnapshot`) and validation time
- * (`validateIncrementalPipeline`).
+ * (`assertIncrementalRefreshPrerequisites`).
  *
  * Resolution order:
  * 1. If `mode === "incremental"`, apply include/exclude semantics. Opt-in is
@@ -131,20 +133,35 @@ export function getPipelineValidationDropTableQuery({
   });
 }
 
-export function bigQueryCreateTablePartitions(columns: string[]) {
-  // TODO(incremental-refresh): Is there a way to ensure the first argument is always a date column?
-  const partitionBy = `PARTITION BY TIMESTAMP_TRUNC(\`${columns[0]}\`, HOUR)`;
+export function bigQueryCreateTablePartitions(
+  columns: string[],
+  opts?: { partitionByDate?: boolean; partitionExpirationDays?: number },
+) {
+  // BigQuery rejects TIMESTAMP_TRUNC on a DATE column, so partition DATE keys directly.
+  // TODO(incremental-refresh): Is there a way to ensure the first argument is always a date/timestamp column?
+  const partitionBy = opts?.partitionByDate
+    ? `PARTITION BY \`${columns[0]}\``
+    : `PARTITION BY TIMESTAMP_TRUNC(\`${columns[0]}\`, HOUR)`;
+
+  // BigQuery auto-drops partitions once their date is older than this many days,
+  // enforcing the retention window without a separate maintenance job.
+  const options =
+    opts?.partitionExpirationDays && opts.partitionExpirationDays > 0
+      ? ` OPTIONS(partition_expiration_days = ${Math.floor(
+          opts.partitionExpirationDays,
+        )})`
+      : "";
 
   // NB: BigQuery only supports one column for partitioning, so use cluster for the rest.
   if (columns.length === 1) {
-    return partitionBy;
+    return `${partitionBy}${options}`;
   } else {
     const clusterBy = columns
       .slice(1)
       .map((column) => `\`${column}\``)
       .join(", ");
 
-    return `${partitionBy} CLUSTER BY ${clusterBy}`;
+    return `${partitionBy} CLUSTER BY ${clusterBy}${options}`;
   }
 }
 
@@ -153,4 +170,51 @@ export function prestoCreateTablePartitions(columns: string[]) {
     format = 'ORC',
     partitioned_by = ARRAY[${columns.map((column) => `'${column}'`).join(", ")}]
   )`;
+}
+
+/**
+ * A reference to the upstream overall (dimensionless) results snapshot a
+ * dimension breakdown was computed from, under Incremental Pipeline mode. A
+ * subset of the snapshot's own fields so the UI can render without fetching the
+ * full snapshot.
+ */
+export type SourceSnapshotRef = Pick<
+  ExperimentSnapshotInterface,
+  "id" | "dateCreated"
+>;
+
+/**
+ * The upstream source reference for a snapshot, or undefined when the snapshot
+ * was queried directly or never persisted its basis (legacy data before we added it).
+ */
+export function getExperimentSourceSnapshotRef(
+  snapshot?: Pick<
+    ExperimentSnapshotInterface,
+    "sourceSnapshotId" | "sourceSnapshotDateCreated"
+  >,
+): SourceSnapshotRef | undefined {
+  if (!snapshot?.sourceSnapshotId || !snapshot.sourceSnapshotDateCreated) {
+    return undefined;
+  }
+
+  return {
+    id: snapshot.sourceSnapshotId,
+    dateCreated: getValidDate(snapshot.sourceSnapshotDateCreated),
+  };
+}
+
+export function isNewerOverallResultsDataAvailable(
+  sourceSnapshot: SourceSnapshotRef | undefined,
+  latestSuccessfulOverallResultsSnapshot:
+    | Pick<ExperimentSnapshotInterface, "dateCreated">
+    | undefined,
+): boolean {
+  if (!sourceSnapshot || !latestSuccessfulOverallResultsSnapshot) {
+    return false;
+  }
+
+  return (
+    getValidDate(latestSuccessfulOverallResultsSnapshot.dateCreated).getTime() >
+    getValidDate(sourceSnapshot.dateCreated).getTime()
+  );
 }

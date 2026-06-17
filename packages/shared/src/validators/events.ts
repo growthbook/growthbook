@@ -30,6 +30,7 @@ import {
   featureRevisionChangesRequestedPayload,
   featureRevisionCommentedPayload,
   featureRevisionDiscardedPayload,
+  featureRevisionReopenedPayload,
   featureRevisionRebasedPayload,
   featureRevisionPublishedPayload,
   featureRevisionRevertedPayload,
@@ -177,6 +178,11 @@ export const notificationEvents = {
     "revision.discarded": {
       schema: featureRevisionDiscardedPayload,
       description: "Triggered when a draft revision is discarded",
+    },
+    "revision.reopened": {
+      schema: featureRevisionReopenedPayload,
+      description:
+        "Triggered when a discarded draft revision is reopened as a draft",
     },
     "revision.rebased": {
       schema: featureRevisionRebasedPayload,
@@ -386,6 +392,10 @@ export const notificationEventPayload = <
     data: notificationEventPayloadData(resource, event),
     user: eventUser,
     tags: z.array(z.string()),
-    environments: z.array(z.string()),
+    environments: z
+      .array(z.string())
+      .describe(
+        "The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter).",
+      ),
     containsSecrets: z.boolean(),
   });

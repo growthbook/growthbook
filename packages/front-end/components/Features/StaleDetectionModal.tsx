@@ -8,7 +8,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import DraftSelectorForChanges, {
   DraftMode,
 } from "@/components/Features/DraftSelectorForChanges";
-import { useDefaultDraft } from "@/hooks/useDefaultDraft";
+import { useDefaultDraftMode } from "@/hooks/useDefaultDraft";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
 export default function StaleDetectionModal({
@@ -46,8 +46,11 @@ export default function StaleDetectionModal({
 
   const canAutoPublish = isAdmin || !staleGated;
 
-  const defaultDraft = useDefaultDraft(revisionList);
-  const [mode, setMode] = useState<DraftMode>(staleGated ? "new" : "publish");
+  const { mode: initialMode, defaultDraft } = useDefaultDraftMode(
+    revisionList,
+    canAutoPublish,
+  );
+  const [mode, setMode] = useState<DraftMode>(initialMode);
   const [selectedDraft, setSelectedDraft] = useState<number | null>(
     defaultDraft,
   );

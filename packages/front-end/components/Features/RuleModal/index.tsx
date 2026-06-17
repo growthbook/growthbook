@@ -298,6 +298,9 @@ export default function RuleModal({
   const { templates: allTemplates } = useTemplates();
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
+  const disabledEnvironmentIds = environments
+    .filter((e) => !feature.environmentSettings[e.id]?.enabled)
+    .map((e) => e.id);
 
   const { data: sdkConnectionsData } = useSDKConnections();
   const hasSDKWithNoBucketingV2 = !allConnectionsSupportBucketingV2(
@@ -1474,7 +1477,7 @@ export default function RuleModal({
               // Single environment: scope patches to that env only.
               // Multiple environments: omit so the ramp applies to all matching ruleIds.
               environment:
-                selectedEnvironments.length === 1
+                !scopeAllEnvs && selectedEnvironments.length === 1
                   ? selectedEnvironments[0]
                   : undefined,
               ...(!isScheduleMode
@@ -1740,6 +1743,7 @@ export default function RuleModal({
     setAllEnvironments: setScopeAllEnvs,
     selectedEnvironments,
     setSelectedEnvironments,
+    disabledEnvironmentIds,
   };
 
   // Resolved env list used by child components that care about which envs the

@@ -19,6 +19,7 @@ const MoreMenu: FC<{
   zIndex?: number;
   children: ReactNode;
   useRadix?: boolean;
+  iconButtonSize?: "1" | "2" | "3";
   size?: number;
 }> = ({
   children,
@@ -26,6 +27,7 @@ const MoreMenu: FC<{
   className = "",
   zIndex = 1020,
   useRadix,
+  iconButtonSize = "3",
   size = 18,
 }) => {
   const [open, setOpen] = useState(false);
@@ -63,7 +65,7 @@ const MoreMenu: FC<{
             variant="ghost"
             color="gray"
             radius="full"
-            size="3"
+            size={iconButtonSize}
             highContrast
             ref={refs.setReference}
             onClick={() => {

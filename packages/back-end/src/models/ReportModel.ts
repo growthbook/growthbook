@@ -11,6 +11,10 @@ import { migrateExperimentReport } from "back-end/src/util/migrations";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { logger } from "back-end/src/util/logger";
+import {
+  healMetricOverrides,
+  validateMetricOverrides,
+} from "back-end/src/util/priors";
 import { getAllExperiments } from "./ExperimentModel";
 import { queriesSchema } from "./QueryModel";
 
@@ -52,11 +56,16 @@ const toInterface = (doc: ReportDocument): ReportInterface => {
       return migrateExperimentReport(
         omit(doc.toJSON<ExperimentReportDocument>(), ["__v", "_id"]),
       );
-    case "experiment-snapshot":
-      return omit(doc.toJSON<ExperimentSnapshotReportDocument>(), [
-        "__v",
-        "_id",
-      ]);
+    case "experiment-snapshot": {
+      const snapshotReport = omit(
+        doc.toJSON<ExperimentSnapshotReportDocument>(),
+        ["__v", "_id"],
+      );
+      healMetricOverrides(
+        snapshotReport.experimentAnalysisSettings?.metricOverrides,
+      );
+      return snapshotReport;
+    }
     default:
       logger.error(
         `Invalid report type: [${
@@ -76,6 +85,10 @@ export async function createReport(
   organization: string,
   initialValue: Partial<ExperimentSnapshotReportInterface>,
 ): Promise<ExperimentSnapshotReportInterface> {
+  validateMetricOverrides(
+    initialValue.experimentAnalysisSettings?.metricOverrides,
+  );
+
   const report = await ReportModel.create({
     status: "private",
     ...initialValue,
@@ -160,6 +173,15 @@ export async function updateReport(
   id: string,
   updates: Partial<ReportInterface>,
 ) {
+  if ("experimentAnalysisSettings" in updates) {
+    validateMetricOverrides(
+      updates.experimentAnalysisSettings?.metricOverrides,
+    );
+  }
+  if ("args" in updates) {
+    validateMetricOverrides(updates.args?.metricOverrides);
+  }
+
   await ReportModel.updateOne(
     {
       organization,
