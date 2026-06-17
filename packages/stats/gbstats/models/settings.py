@@ -49,6 +49,7 @@ class BanditSettingsForStatsEngine:
     reweight: bool = True
     decision_metric: str = ""
     bandit_weights_seed: int = 100
+    min_variation_weight: float = 0.01
     # we can delete the bottom two attributes, which are currently used in sim study testing
     weight_by_period: bool = True
     top_two: bool = False
