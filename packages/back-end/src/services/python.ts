@@ -64,6 +64,7 @@ if (IS_CLOUD) {
 
 class PythonStatsServer<Input, Output> {
   private python: ChildProcess;
+  private rl?: readline.Interface;
   private pid = -1;
   private promises: Map<
     string,
@@ -87,7 +88,7 @@ class PythonStatsServer<Input, Output> {
     this.promises = new Map();
 
     if (this.python.stdout) {
-      readline
+      this.rl = readline
         .createInterface({ input: this.python.stdout, crlfDelay: Infinity })
         .on("line", (line) => {
           const output = line.trim();
@@ -162,6 +163,8 @@ class PythonStatsServer<Input, Output> {
   }
 
   destroy() {
+    this.rl?.removeAllListeners("line");
+    this.rl?.close();
     if (this.isRunning()) {
       this.python.kill();
     }
