@@ -38,10 +38,6 @@ export async function syncFeatureContextualBanditLinkages(
   featureId: string,
   revisions: Pick<FeatureRevisionInterface, "version" | "status" | "rules">[],
 ): Promise<void> {
-  // Enterprise-only: skip linkage reconciliation for orgs without the feature
-  // (e.g. after a downgrade). The atomic linkage writes below bypass the model's
-  // premium gate, so guard here.
-  if (!context.hasPremiumFeature("contextual-bandits")) return;
   try {
     const openDrafts = revisions.filter((r) =>
       OPEN_DRAFT_STATUSES.has(r.status),

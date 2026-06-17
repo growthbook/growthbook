@@ -56,15 +56,6 @@ const updateSingleCBStatus = async (job: UpdateSingleCBStatusJob) => {
 
   const context = await getContextForAgendaJobByOrgId(organization);
 
-  // Enterprise-only: short-circuit before any side effects (e.g. publishing
-  // pending feature drafts) so a downgraded org's scheduled updates don't run.
-  if (!context.hasPremiumFeature("contextual-bandits")) {
-    logger.info(
-      `Skipping CB status update: org ${organization} lacks contextual-bandits feature`,
-    );
-    return;
-  }
-
   const cb = await context.models.contextualBandits.getById(cbId);
   if (!cb) return;
 
