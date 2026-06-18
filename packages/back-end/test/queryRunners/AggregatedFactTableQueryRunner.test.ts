@@ -1,10 +1,57 @@
 import { QueryInterface, QueryStatus, Queries } from "shared/types/query";
 import { ReqContext } from "back-end/types/request";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
-import { AggregatedFactTableQueryRunner } from "back-end/src/queryRunners/AggregatedFactTableQueryRunner";
+import {
+  AggregatedFactTableQueryRunner,
+  getRestateChunkBounds,
+  DEFAULT_RESTATE_CHUNK_DAYS,
+} from "back-end/src/queryRunners/AggregatedFactTableQueryRunner";
 import { getQueriesByIds } from "back-end/src/models/QueryModel";
 
 jest.mock("back-end/src/models/QueryModel");
+
+describe("getRestateChunkBounds", () => {
+  it("slices a 14-day window into 7 sequential 2-day chunks (default chunkDays)", () => {
+    expect(DEFAULT_RESTATE_CHUNK_DAYS).toBe(2);
+    const now = new Date("2024-01-15T00:00:00Z");
+    const windowStart = new Date("2024-01-01T00:00:00Z");
+    const chunks = getRestateChunkBounds(windowStart, now, 2);
+
+    expect(chunks.length).toBe(7);
+
+    // Chunks tile the window: each end === next start, half-open, no overlap.
+    expect(chunks[0].start).toEqual(windowStart);
+    for (let i = 1; i < chunks.length; i++) {
+      expect(chunks[i].start).toEqual(chunks[i - 1].end);
+    }
+    // Each closed chunk is exactly chunkDays wide.
+    for (let i = 0; i < chunks.length - 1; i++) {
+      expect(chunks[i].end!.getTime() - chunks[i].start.getTime()).toBe(
+        2 * 24 * 60 * 60 * 1000,
+      );
+    }
+    // Final chunk is open-ended so events arriving between planning and
+    // execution aren't dropped.
+    expect(chunks[6].end).toBeNull();
+    expect(chunks[6].start).toEqual(new Date("2024-01-13T00:00:00Z"));
+  });
+
+  it("leaves the final chunk open when the window doesn't divide evenly", () => {
+    const now = new Date("2024-01-15T12:00:00Z");
+    const windowStart = new Date("2024-01-01T00:00:00Z");
+    const chunks = getRestateChunkBounds(windowStart, now, 3);
+    expect(chunks.length).toBe(5);
+    expect(chunks[4].start).toEqual(new Date("2024-01-13T00:00:00Z"));
+    expect(chunks[4].end).toBeNull();
+  });
+
+  it("emits at least one open chunk for degenerate windows", () => {
+    const now = new Date("2024-01-01T00:00:00Z");
+    const chunks = getRestateChunkBounds(now, now, 2);
+    expect(chunks.length).toBe(1);
+    expect(chunks[0].end).toBeNull();
+  });
+});
 
 const createMockQuery = (
   id: string,

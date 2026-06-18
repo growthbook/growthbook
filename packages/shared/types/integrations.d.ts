@@ -455,11 +455,15 @@ export interface InsertAggregatedFactTableDataQueryParams {
   metrics: FactMetricInterface[];
   tableFullName: string;
   // Lower bound on event timestamp: incremental uses the watermark with
-  // exclusiveStart=true; restate uses the window start with exclusiveStart=false.
+  // exclusiveStart=true; restate uses the chunk start with exclusiveStart=false.
   windowStartDate: Date;
   exclusiveStart: boolean;
-  // Number of salt buckets for the two-level GROUP BY (default 8; range 1–64).
-  // Threaded from `factTable.aggregatedFactTableSettings.saltBuckets`.
+  // Exclusive upper bound on event timestamp. Set for all but the last chunk
+  // of a chunked restate so chunks tile [windowStart, now) half-open; null for
+  // incremental and the final restate chunk (open-ended to "now").
+  windowEndDate: Date | null;
+  // Optional salt-bucket count for the two-level GROUP BY (default 0 = off;
+  // range 0–64). Threaded from `aggregatedFactTableSettings.saltBuckets`.
   saltBuckets?: number;
 }
 
