@@ -5,7 +5,6 @@ import {
   aiInsightSuggestionsResponseValidator,
   AiInsightSuggestion,
 } from "shared/validators";
-import { DEFAULT_LEARNING_STATUSES } from "shared/constants";
 import { ExperimentInterface } from "shared/types/experiment";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { ExperimentMetricInterface } from "shared/experiments";
@@ -31,22 +30,6 @@ type ListInsightsResponse = {
   status: 200;
   insights: InsightWithCanManage[];
 };
-
-// Validate a learning status id against the org's configured list. "" (no
-// status) is always allowed.
-function validateLearningStatus(
-  context: ReturnType<typeof getContextFromReq>,
-  status: string | undefined,
-) {
-  if (!status) return;
-  const learningStatuses =
-    context.org.settings?.learningStatuses ?? DEFAULT_LEARNING_STATUSES;
-  if (!learningStatuses.some((s) => s.id === status)) {
-    throw new Error(
-      `Unknown learning status "${status}". Configure statuses under Settings → General → Experiment Settings.`,
-    );
-  }
-}
 
 export const getInsights = async (
   req: AuthRequest<unknown, unknown, { project?: string }>,
@@ -126,8 +109,8 @@ export const postInsight = async (
     source,
   } = req.body;
 
-  validateLearningStatus(context, status);
-
+  // Status validation and the "" no-status sentinel are enforced by the
+  // model, shared with the external API path.
   const insight = await context.models.insights.create({
     owner: context.userId,
     authors: context.userId ? [context.userId] : [],
@@ -137,8 +120,6 @@ export const postInsight = async (
     supportingExperimentIds: supportingExperimentIds || [],
     contraryEvidence: contraryEvidence || [],
     projects: projects || [],
-    // "" is the explicit "no status" sentinel. Never write undefined here —
-    // the raw Mongo driver would serialize it as null, violating the schema.
     status: status || "",
     source: source || "manual",
   });
@@ -180,14 +161,7 @@ export const putInsight = async (
       ? [...existingAuthors, editor]
       : existingAuthors;
 
-  // Only validate the status when it's actually changing — an insight whose
-  // status was since deleted from org settings can still be re-saved as-is.
-  if (req.body.status !== undefined && req.body.status !== existing.status) {
-    validateLearningStatus(context, req.body.status);
-  }
-
-  // "" is the explicit "no status" sentinel and is persisted as-is. (Writing
-  // undefined would reach the raw Mongo driver as null, violating the schema.)
+  // Status validation is enforced by the model (shared with the external API).
   const updates = { ...req.body, authors: nextAuthors };
 
   const updated = await context.models.insights.update(existing, updates);
