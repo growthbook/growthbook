@@ -4,6 +4,7 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
   buildAggregatedFactTableStatus,
   getAggregatedFactTableMetrics,
+  getRunningExperimentMetricIds,
 } from "back-end/src/services/aggregatedFactTables";
 import { buildAggregatedFactTableSchemaState } from "back-end/src/enterprise/services/data-pipeline";
 import { getNextUpdateOccurrence } from "back-end/src/util/factTable";
@@ -26,7 +27,12 @@ export const getAggregatedFactTables = createApiRequestHandler(
   // Recompute the schema state the nightly driver would so callers can see when
   // the next run will be forced to restate. Read-only; no warehouse query.
   const factMetrics = await req.context.models.factMetrics.getAll();
-  const metrics = getAggregatedFactTableMetrics({ factMetrics, factTable });
+  const activeMetricIds = await getRunningExperimentMetricIds(req.context);
+  const metrics = getAggregatedFactTableMetrics({
+    factMetrics,
+    factTable,
+    activeMetricIds,
+  });
   const { factTableSettingsHash, metricState } =
     buildAggregatedFactTableSchemaState({ factTable, metrics });
 

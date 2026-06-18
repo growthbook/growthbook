@@ -326,7 +326,7 @@ export const getHoldouts = async (
   const holdouts = await context.models.holdout.getAll();
   const experiments = await getAllExperiments(context, {
     includeArchived,
-    type: "holdout",
+    types: ["holdout"],
   });
 
   const filteredHoldouts = project

@@ -54,6 +54,7 @@ import {
   buildAggregatedFactTableStatus,
   deriveAggregatedFactTableRunStatus,
   getAggregatedFactTableMetrics,
+  getRunningExperimentMetricIds,
   runAggregatedFactTableUpdate,
   toAggregatedTableRefreshTriggerResult,
 } from "back-end/src/services/aggregatedFactTables";
@@ -493,7 +494,12 @@ export const getAggregatedFactTables = async (
   // Build the same schema state the nightly driver would, so the UI can warn
   // when the next run will be forced to restate. Read-only; no warehouse query.
   const factMetrics = await context.models.factMetrics.getAll();
-  const metrics = getAggregatedFactTableMetrics({ factMetrics, factTable });
+  const activeMetricIds = await getRunningExperimentMetricIds(context);
+  const metrics = getAggregatedFactTableMetrics({
+    factMetrics,
+    factTable,
+    activeMetricIds,
+  });
   const { factTableSettingsHash, metricState } =
     buildAggregatedFactTableSchemaState({ factTable, metrics });
 

@@ -185,7 +185,7 @@ export async function getExperiments(
   const experiments = await getAllExperiments(context, {
     project,
     includeArchived,
-    type,
+    types: type ? [type] : undefined,
   });
 
   const holdouts = await context.models.holdout.getAll();

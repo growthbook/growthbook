@@ -1,5 +1,9 @@
 import uniqid from "uniqid";
-import { getAutoSliceMetrics, isRatioMetric } from "shared/experiments";
+import {
+  getAllMetricIdsFromExperiment,
+  getAutoSliceMetrics,
+  isRatioMetric,
+} from "shared/experiments";
 import { DataSourceInterface } from "shared/types/datasource";
 import {
   FactMetricInterface,
@@ -13,6 +17,8 @@ import {
 } from "shared/validators";
 import { QueryStatus } from "shared/types/query";
 import { ReqContext } from "back-end/types/request";
+import { ApiReqContext } from "back-end/types/api";
+import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { logger } from "back-end/src/util/logger";
@@ -120,29 +126,56 @@ export type AggregatedFactTableStatus = {
   pendingRestateReason: AggregatedFactTableRestateReason;
 };
 
+export async function getRunningExperimentMetricIds(
+  context: ReqContext | ApiReqContext,
+): Promise<Set<string>> {
+  const [running, metricGroups] = await Promise.all([
+    getAllExperiments(context, {
+      status: "running",
+      types: ["standard", "multi-armed-bandit", "holdout"],
+    }),
+    context.models.metricGroups.getAll(),
+  ]);
+  const ids = new Set<string>();
+  for (const experiment of running) {
+    for (const id of getAllMetricIdsFromExperiment(
+      experiment,
+      true,
+      metricGroups,
+    )) {
+      ids.add(id);
+    }
+  }
+  return ids;
+}
+
 export function getMetricsForAggregatedFactTable(
   factMetrics: FactMetricInterface[],
   factTableId: string,
+  activeMetricIds: ReadonlySet<string>,
 ): FactMetricInterface[] {
   return factMetrics.filter((metric) => {
     const referencesFactTable =
       metric.numerator.factTableId === factTableId ||
       (isRatioMetric(metric) &&
         metric.denominator?.factTableId === factTableId);
-    return referencesFactTable;
+    return referencesFactTable && activeMetricIds.has(metric.id);
   });
 }
 
 export function getAggregatedFactTableMetrics({
   factMetrics,
   factTable,
+  activeMetricIds,
 }: {
   factMetrics: FactMetricInterface[];
   factTable: FactTableInterface;
+  activeMetricIds: ReadonlySet<string>;
 }): FactMetricInterface[] {
   const baseMetrics = getMetricsForAggregatedFactTable(
     factMetrics,
     factTable.id,
+    activeMetricIds,
   );
   return baseMetrics.flatMap((metric) => [
     metric,
@@ -302,7 +335,12 @@ export async function runAggregatedFactTableUpdate(
   }
 
   const factMetrics = await context.models.factMetrics.getAll();
-  const metrics = getAggregatedFactTableMetrics({ factMetrics, factTable });
+  const activeMetricIds = await getRunningExperimentMetricIds(context);
+  const metrics = getAggregatedFactTableMetrics({
+    factMetrics,
+    factTable,
+    activeMetricIds,
+  });
   if (!metrics.length) {
     logger.debug(
       `Skipping aggregated fact table update for ${factTable.id}/${idType}: no regression-adjusted fact metrics reference this fact table`,

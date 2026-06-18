@@ -462,7 +462,7 @@ export async function getAllExperiments(
   {
     project,
     includeArchived = false,
-    type,
+    types,
     datasourceId,
     trackingKey,
     status,
@@ -471,7 +471,7 @@ export async function getAllExperiments(
   }: {
     project?: string;
     includeArchived?: boolean;
-    type?: ExperimentType;
+    types?: ExperimentType[];
     datasourceId?: string;
     trackingKey?: string;
     status?: ExperimentStatus;
@@ -506,14 +506,15 @@ export async function getAllExperiments(
     query.status = status;
   }
 
-  if (type === "multi-armed-bandit") {
-    query.type = "multi-armed-bandit";
-  } else if (type === "standard") {
-    query.type = { $in: ["standard", null] };
-  } else if (type === "holdout") {
-    query.type = "holdout";
-  } else if (!type) {
+  if (!types) {
+    // Default: exclude holdouts (unchanged behavior)
     query.type = { $ne: "holdout" };
+  } else {
+    const typeValues: (ExperimentType | null)[] = types.flatMap((t) =>
+      // "standard" must also match legacy docs where type is unset (null)
+      t === "standard" ? ["standard", null] : [t],
+    );
+    query.type = { $in: typeValues };
   }
 
   return await findExperiments(context, query, limit, sortBy);
