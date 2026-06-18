@@ -25,6 +25,7 @@ import track from "@/services/track";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import useApi from "@/hooks/useApi";
 import { useFeatureRevisionsContext } from "@/contexts/FeatureRevisionsContext";
+import DependentFeaturesWarning from "@/components/Features/DependentFeaturesWarning";
 import DraftSelectorForChanges, {
   DraftMode,
 } from "@/components/Features/DraftSelectorForChanges";
@@ -479,6 +480,7 @@ export default function KillSwitchModal({
       submit={submit}
     >
       <div style={{ minHeight: 300 }}>
+        <DependentFeaturesWarning featureId={feature.id} />
         <DraftSelectorForChanges
           feature={feature}
           baseFeature={baseFeature}

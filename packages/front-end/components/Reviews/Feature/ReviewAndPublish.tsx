@@ -2355,6 +2355,12 @@ export default function ReviewAndPublish({
                         </Box>
                       )}
 
+                    {/* Heads-up that other features/experiments use this one
+                      as a prerequisite — compact helper text above Publish. */}
+                    <DependentFeaturesWarning
+                      featureId={feature.id}
+                      variant="helperText"
+                    />
                     <Button
                       onClick={primaryFooterEnabled ? doSubmit : undefined}
                       loading={
@@ -2443,9 +2449,6 @@ export default function ReviewAndPublish({
       {conflictModal}
       {discardConfirmModal}
       {mergeHeader}
-      {/* Non-blocking heads-up that other features/experiments use this one as
-          a prerequisite. Hidden during the focused experiments-checklist step. */}
-      {!experimentsStep && <DependentFeaturesWarning featureId={feature.id} />}
       {/* The experiments checklist step temporarily replaces the left column;
           hide the sub-tabs so the step reads as a focused flow. */}
       {!experimentsStep && subTabBar}
