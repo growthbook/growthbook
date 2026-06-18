@@ -154,6 +154,14 @@ export class DashboardModel extends BaseClass {
   }
 
   protected canCreate(doc: DashboardInterface): boolean {
+    // Public sharing (anyone with the URL, no auth) is gated for both
+    // experiment and general dashboards.
+    if (
+      doc.shareLevel === "public" &&
+      !this.context.hasPremiumFeature("share-product-analytics-dashboards")
+    ) {
+      throw new Error("Your plan does not support public dashboards.");
+    }
     if (doc.experimentId) {
       if (!this.context.hasPremiumFeature("dashboards")) {
         throw new Error("Your plan does not support creating dashboards.");
@@ -223,6 +231,16 @@ export class DashboardModel extends BaseClass {
           "You are not authorized to change the sharing level of this dashboard.",
         );
       }
+    }
+
+    // Public sharing (anyone with the URL, no auth) is gated for both
+    // experiment and general dashboards. Mirrors the editLevel gating below:
+    // gate while the dashboard is (or is becoming) public.
+    if (
+      (existing.shareLevel === "public" || updates.shareLevel === "public") &&
+      !this.context.hasPremiumFeature("share-product-analytics-dashboards")
+    ) {
+      throw new Error("Your plan does not support public dashboards.");
     }
 
     if (existing.experimentId) {
