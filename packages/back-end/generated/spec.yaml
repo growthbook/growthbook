@@ -25904,6 +25904,52 @@ paths:
                                 additionalProperties: false
                               explorerAnalysisId:
                                 type: string
+                              comparison:
+                                type: object
+                                properties:
+                                  enabled:
+                                    type: boolean
+                                  previousTimeFrame:
+                                    type: object
+                                    properties:
+                                      predefined:
+                                        type: string
+                                        enum:
+                                          - today
+                                          - last7Days
+                                          - last30Days
+                                          - last90Days
+                                          - customLookback
+                                          - customDateRange
+                                      lookbackValue:
+                                        anyOf:
+                                          - type: number
+                                          - type: 'null'
+                                      lookbackUnit:
+                                        anyOf:
+                                          - type: string
+                                            enum:
+                                              - hour
+                                              - day
+                                              - week
+                                              - month
+                                          - type: 'null'
+                                      startDate:
+                                        anyOf:
+                                          - type: string
+                                          - type: 'null'
+                                      endDate:
+                                        anyOf:
+                                          - type: string
+                                          - type: 'null'
+                                    required:
+                                      - predefined
+                                    additionalProperties: false
+                                required:
+                                  - enabled
+                                additionalProperties: false
+                              comparisonExplorerAnalysisId:
+                                type: string
                               config:
                                 type: object
                                 properties:
@@ -26214,6 +26260,52 @@ paths:
                                   - h
                                 additionalProperties: false
                               explorerAnalysisId:
+                                type: string
+                              comparison:
+                                type: object
+                                properties:
+                                  enabled:
+                                    type: boolean
+                                  previousTimeFrame:
+                                    type: object
+                                    properties:
+                                      predefined:
+                                        type: string
+                                        enum:
+                                          - today
+                                          - last7Days
+                                          - last30Days
+                                          - last90Days
+                                          - customLookback
+                                          - customDateRange
+                                      lookbackValue:
+                                        anyOf:
+                                          - type: number
+                                          - type: 'null'
+                                      lookbackUnit:
+                                        anyOf:
+                                          - type: string
+                                            enum:
+                                              - hour
+                                              - day
+                                              - week
+                                              - month
+                                          - type: 'null'
+                                      startDate:
+                                        anyOf:
+                                          - type: string
+                                          - type: 'null'
+                                      endDate:
+                                        anyOf:
+                                          - type: string
+                                          - type: 'null'
+                                    required:
+                                      - predefined
+                                    additionalProperties: false
+                                required:
+                                  - enabled
+                                additionalProperties: false
+                              comparisonExplorerAnalysisId:
                                 type: string
                               config:
                                 type: object
@@ -26534,6 +26626,52 @@ paths:
                                   - h
                                 additionalProperties: false
                               explorerAnalysisId:
+                                type: string
+                              comparison:
+                                type: object
+                                properties:
+                                  enabled:
+                                    type: boolean
+                                  previousTimeFrame:
+                                    type: object
+                                    properties:
+                                      predefined:
+                                        type: string
+                                        enum:
+                                          - today
+                                          - last7Days
+                                          - last30Days
+                                          - last90Days
+                                          - customLookback
+                                          - customDateRange
+                                      lookbackValue:
+                                        anyOf:
+                                          - type: number
+                                          - type: 'null'
+                                      lookbackUnit:
+                                        anyOf:
+                                          - type: string
+                                            enum:
+                                              - hour
+                                              - day
+                                              - week
+                                              - month
+                                          - type: 'null'
+                                      startDate:
+                                        anyOf:
+                                          - type: string
+                                          - type: 'null'
+                                      endDate:
+                                        anyOf:
+                                          - type: string
+                                          - type: 'null'
+                                    required:
+                                      - predefined
+                                    additionalProperties: false
+                                required:
+                                  - enabled
+                                additionalProperties: false
+                              comparisonExplorerAnalysisId:
                                 type: string
                               config:
                                 type: object
@@ -41034,6 +41172,50 @@ components:
               additionalProperties: false
         title:
           type: string
+        comparison:
+          type: object
+          properties:
+            enabled:
+              type: boolean
+            previousTimeFrame:
+              type: object
+              properties:
+                predefined:
+                  type: string
+                  enum:
+                    - today
+                    - last7Days
+                    - last30Days
+                    - last90Days
+                    - customLookback
+                    - customDateRange
+                lookbackValue:
+                  anyOf:
+                    - type: number
+                    - type: 'null'
+                lookbackUnit:
+                  anyOf:
+                    - type: string
+                      enum:
+                        - hour
+                        - day
+                        - week
+                        - month
+                    - type: 'null'
+                startDate:
+                  anyOf:
+                    - type: string
+                    - type: 'null'
+                endDate:
+                  anyOf:
+                    - type: string
+                    - type: 'null'
+              required:
+                - predefined
+              additionalProperties: false
+          required:
+            - enabled
+          additionalProperties: false
         grid:
           type: object
           properties:
@@ -41793,6 +41975,52 @@ components:
                     additionalProperties: false
                   explorerAnalysisId:
                     type: string
+                  comparison:
+                    type: object
+                    properties:
+                      enabled:
+                        type: boolean
+                      previousTimeFrame:
+                        type: object
+                        properties:
+                          predefined:
+                            type: string
+                            enum:
+                              - today
+                              - last7Days
+                              - last30Days
+                              - last90Days
+                              - customLookback
+                              - customDateRange
+                          lookbackValue:
+                            anyOf:
+                              - type: number
+                              - type: 'null'
+                          lookbackUnit:
+                            anyOf:
+                              - type: string
+                                enum:
+                                  - hour
+                                  - day
+                                  - week
+                                  - month
+                              - type: 'null'
+                          startDate:
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          endDate:
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                        required:
+                          - predefined
+                        additionalProperties: false
+                    required:
+                      - enabled
+                    additionalProperties: false
+                  comparisonExplorerAnalysisId:
+                    type: string
                   config:
                     type: object
                     properties:
@@ -42103,6 +42331,52 @@ components:
                       - h
                     additionalProperties: false
                   explorerAnalysisId:
+                    type: string
+                  comparison:
+                    type: object
+                    properties:
+                      enabled:
+                        type: boolean
+                      previousTimeFrame:
+                        type: object
+                        properties:
+                          predefined:
+                            type: string
+                            enum:
+                              - today
+                              - last7Days
+                              - last30Days
+                              - last90Days
+                              - customLookback
+                              - customDateRange
+                          lookbackValue:
+                            anyOf:
+                              - type: number
+                              - type: 'null'
+                          lookbackUnit:
+                            anyOf:
+                              - type: string
+                                enum:
+                                  - hour
+                                  - day
+                                  - week
+                                  - month
+                              - type: 'null'
+                          startDate:
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          endDate:
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                        required:
+                          - predefined
+                        additionalProperties: false
+                    required:
+                      - enabled
+                    additionalProperties: false
+                  comparisonExplorerAnalysisId:
                     type: string
                   config:
                     type: object
@@ -42423,6 +42697,52 @@ components:
                       - h
                     additionalProperties: false
                   explorerAnalysisId:
+                    type: string
+                  comparison:
+                    type: object
+                    properties:
+                      enabled:
+                        type: boolean
+                      previousTimeFrame:
+                        type: object
+                        properties:
+                          predefined:
+                            type: string
+                            enum:
+                              - today
+                              - last7Days
+                              - last30Days
+                              - last90Days
+                              - customLookback
+                              - customDateRange
+                          lookbackValue:
+                            anyOf:
+                              - type: number
+                              - type: 'null'
+                          lookbackUnit:
+                            anyOf:
+                              - type: string
+                                enum:
+                                  - hour
+                                  - day
+                                  - week
+                                  - month
+                              - type: 'null'
+                          startDate:
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          endDate:
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                        required:
+                          - predefined
+                        additionalProperties: false
+                    required:
+                      - enabled
+                    additionalProperties: false
+                  comparisonExplorerAnalysisId:
                     type: string
                   config:
                     type: object
