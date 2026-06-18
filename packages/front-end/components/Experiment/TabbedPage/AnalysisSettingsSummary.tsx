@@ -1169,11 +1169,11 @@ export default function AnalysisSettingsSummary({
               trackingSource: "UpdateDimensionBreakdownModal",
             });
           }}
-          handleGoToOverallResultsClick={() => {
-            // Kick-off overall results refresh.
-            void runSnapshot("", {
+          handleGoToOverallResultsClick={async () => {
+            const started = await runSnapshot("", {
               trackingSource: "UpdateDimensionBreakdownModal",
             });
+            if (!started) return;
 
             setUpdateDimensionBreakdownModalOpen(false);
             goToOverallResults();
