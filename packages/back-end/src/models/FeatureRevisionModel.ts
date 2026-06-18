@@ -2234,8 +2234,14 @@ export async function discardRevision(
       version: revision.version,
     },
     {
-      $set: { status: "discarded", dateUpdated: new Date() },
-      $unset: { ...SCHEDULED_PUBLISH_UNSET },
+      // Discarding a revision also disarms auto-publish so the dead revision
+      // doesn't surface as armed via the API (mirrors recallReview/reopenRevision).
+      $set: {
+        status: "discarded",
+        dateUpdated: new Date(),
+        autoPublishOnApproval: false,
+      },
+      $unset: { ...SCHEDULED_PUBLISH_UNSET, autoPublishEnabledBy: 1 },
     },
   );
 
