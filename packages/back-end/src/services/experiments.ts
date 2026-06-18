@@ -2235,6 +2235,7 @@ export async function _getSnapshots(
   experimentObjs: ExperimentInterface[],
   dimension?: string,
   withResults: boolean = true,
+  hydrateMetricIds?: string[],
 ): Promise<ExperimentSnapshotInterface[]> {
   const experimentPhaseMap: Map<string, number> = new Map();
   experimentObjs.forEach((e) => {
@@ -2249,6 +2250,7 @@ export async function _getSnapshots(
     experimentPhaseMap,
     dimension,
     withResults,
+    hydrateMetricIds,
   );
 }
 
