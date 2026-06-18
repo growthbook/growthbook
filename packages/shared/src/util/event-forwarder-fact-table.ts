@@ -185,17 +185,18 @@ function buildSnowflakeFlatMapAttributeValueSql(
   const attributesCol = EVENT_FORWARDER_AVRO_ATTRIBUTES_FIELD.toUpperCase();
   const quotedField = quoteSnowflakeVariantFieldName(fieldName);
   const raw = `${attributesCol}:${quotedField}`;
+  const rawString = `${raw}::STRING`;
 
   switch (valueDatatype) {
     case "number":
-      return `TRY_TO_DOUBLE(${raw})`;
+      return `TRY_TO_DOUBLE(${rawString})`;
     case "boolean":
-      return `TRY_TO_BOOLEAN(${raw})`;
+      return `TRY_TO_BOOLEAN(${rawString})`;
     case "json":
-      return `TRY_PARSE_JSON(${raw})`;
+      return `TRY_PARSE_JSON(${rawString})`;
     default:
       // Map values are strings in Avro; cast so Snowflake reports VARCHAR not VARIANT.
-      return `${raw}::STRING`;
+      return rawString;
   }
 }
 

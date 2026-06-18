@@ -164,7 +164,7 @@ describe("resolveSnapshotRunner", () => {
     ).toBe("incremental");
   });
 
-  it("returns 'results' for multi-armed-bandit experiments", () => {
+  it("returns 'results' with a descriptive fallback reason for multi-armed-bandit experiments", () => {
     expect(
       resolveSnapshotRunner({
         datasource: makeDatasource(),
@@ -177,6 +177,38 @@ describe("resolveSnapshotRunner", () => {
       runnerKind: "results",
       incrementalFallbackReason:
         'Experiment type "multi-armed-bandit" is not supported for incremental refresh.',
+    });
+  });
+
+  it("returns 'results' with a descriptive fallback reason for holdout experiments", () => {
+    expect(
+      resolveSnapshotRunner({
+        datasource: makeDatasource(),
+        experiment: makeExperiment({ type: "holdout" }),
+        snapshotType: "standard",
+        hasSnapshotDimensions: false,
+        hasMaterializedUnitsTable: true,
+      }),
+    ).toEqual({
+      runnerKind: "results",
+      incrementalFallbackReason:
+        'Experiment type "holdout" is not supported for incremental refresh.',
+    });
+  });
+
+  it("returns 'results' with no fallback reason for non-standard types not enabled by data source settings", () => {
+    const datasource = makeDatasource({ mode: "ephemeral" });
+    expect(
+      resolveSnapshotRunner({
+        datasource,
+        experiment: makeExperiment({ type: "multi-armed-bandit" }),
+        snapshotType: "standard",
+        hasSnapshotDimensions: false,
+        hasMaterializedUnitsTable: true,
+      }),
+    ).toEqual({
+      runnerKind: "results",
+      incrementalFallbackReason: null,
     });
   });
 

@@ -100,32 +100,6 @@ describe("syncEventForwarderAfterDatasourceDeleted", () => {
     expect(callOrder).toEqual(["teardown", "delete"]);
   });
 
-  it("does nothing when no event forwarder exists for that datasource", async () => {
-    const getByDatasourceIdForDatasourceCascade = jest
-      .fn()
-      .mockResolvedValue(null);
-    const deleteForDatasourceCascade = jest.fn();
-
-    const context = {
-      org: { id: "org1" },
-      auditLog: jest.fn(),
-      models: {
-        eventForwarderConfigs: {
-          getByDatasourceIdForDatasourceCascade,
-          deleteForDatasourceCascade,
-        },
-      },
-    };
-
-    await syncEventForwarderAfterDatasourceDeleted(
-      context as never,
-      bqDatasource("ds_missing"),
-    );
-
-    expect(mockedTeardownRemote).not.toHaveBeenCalled();
-    expect(deleteForDatasourceCascade).not.toHaveBeenCalled();
-  });
-
   it("tears down Confluent before cascade-deleting the row for Snowflake", async () => {
     const existing: EventForwarderConfigInterface = {
       id: "efc_s",
@@ -185,6 +159,32 @@ describe("syncEventForwarderAfterDatasourceDeleted", () => {
       connectorId: undefined,
     });
     expect(callOrder).toEqual(["teardown", "delete"]);
+  });
+
+  it("does nothing when no event forwarder exists for that datasource", async () => {
+    const getByDatasourceIdForDatasourceCascade = jest
+      .fn()
+      .mockResolvedValue(null);
+    const deleteForDatasourceCascade = jest.fn();
+
+    const context = {
+      org: { id: "org1" },
+      auditLog: jest.fn(),
+      models: {
+        eventForwarderConfigs: {
+          getByDatasourceIdForDatasourceCascade,
+          deleteForDatasourceCascade,
+        },
+      },
+    };
+
+    await syncEventForwarderAfterDatasourceDeleted(
+      context as never,
+      bqDatasource("ds_missing"),
+    );
+
+    expect(mockedTeardownRemote).not.toHaveBeenCalled();
+    expect(deleteForDatasourceCascade).not.toHaveBeenCalled();
   });
 
   it("invokes teardown only for the forwarder tied to the deleted datasource id", async () => {

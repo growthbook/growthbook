@@ -17,6 +17,8 @@ import {
   NamespaceValue,
   buildReverseDependencyIndex,
   ReverseDependencyIndex,
+  buildExperimentDependencyIndex,
+  ExperimentDependencyIndex,
 } from "shared/util";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { GroupMap, SavedGroupInterface } from "shared/types/saved-group";
@@ -60,6 +62,7 @@ export interface FeatureLookups {
   reverseDependencyIndex: ReverseDependencyIndex;
   experiments: ExperimentInterfaceStringDates[];
   experimentMap: Map<string, ExperimentInterfaceStringDates>;
+  experimentDependencyIndex: ExperimentDependencyIndex;
 }
 
 /** Builds the shared lookup structures used by stale detection and dependents. */
@@ -72,7 +75,14 @@ export function buildFeatureLookups(
   const experiments =
     (allExperiments as unknown as ExperimentInterfaceStringDates[]) ?? [];
   const experimentMap = new Map(experiments.map((e) => [e.id, e]));
-  return { featuresMap, reverseDependencyIndex, experiments, experimentMap };
+  const experimentDependencyIndex = buildExperimentDependencyIndex(experiments);
+  return {
+    featuresMap,
+    reverseDependencyIndex,
+    experiments,
+    experimentMap,
+    experimentDependencyIndex,
+  };
 }
 
 export type MetadataOptions = {

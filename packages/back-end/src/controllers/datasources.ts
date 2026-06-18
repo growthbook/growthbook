@@ -89,7 +89,6 @@ import {
   createDataSource,
   getDataSourcesByOrganization,
   getDataSourceById,
-  getRawDataSourceById,
   deleteDatasource,
   updateDataSource,
 } from "back-end/src/models/DataSourceModel";
@@ -530,8 +529,7 @@ export async function putDataSource(
         datasource.id,
       );
       if (existingEventForwarder && settings.userIdTypes !== undefined) {
-        const rawDatasource = await getRawDataSourceById(context, id);
-        const existingUserIdTypes = rawDatasource?.settings?.userIdTypes ?? [];
+        const existingUserIdTypes = datasource.settings?.userIdTypes ?? [];
         if (
           !isEqual(settings.userIdTypes, existingUserIdTypes) &&
           !isEventForwarderAllowedUserIdTypesChange(

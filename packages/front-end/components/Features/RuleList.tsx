@@ -31,12 +31,16 @@ import { Environment } from "shared/types/organization";
 import { ruleFootprint } from "shared/util";
 import { buildRuleRampScheduleMap } from "@/services/rampScheduleHelpers";
 import { useAuth } from "@/services/auth";
+import { getRules, isRuleInactive } from "@/services/features";
 import {
-  getRules,
-  getUnreachableRuleIndex,
-  isRuleInactive,
-} from "@/services/features";
+  buildConflictBanners,
+  ConflictBanner,
+  getRuleReachability,
+  RuleReachability,
+  SavedGroupForConflicts,
+} from "@/services/rule-conflicts";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import { Rule, SortableRule } from "./Rule";
 import { HoldoutRule } from "./HoldoutRule";
 
@@ -107,7 +111,80 @@ export default function RuleList(props: RuleListProps) {
 
   const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
+  const { savedGroups } = useDefinitions();
   const [activeId, setActiveId] = useState<string | null>(null);
+
+  // Saved group definitions for conflict detection. Condition groups carry
+  // their `condition` in the definitions payload, but ID-list `values` are
+  // stripped from it (for size), so we fetch those lazily below. Until they
+  // arrive, a list group is opaque — conflict detection still surfaces soft
+  // overlap on its attribute, then upgrades to precise conflicts once values
+  // load and this map (and the memos below) recompute.
+  const savedGroupDefs = useMemo<Map<string, SavedGroupForConflicts>>(() => {
+    const map = new Map<string, SavedGroupForConflicts>();
+    for (const g of savedGroups) {
+      map.set(g.id, {
+        type: g.type,
+        attributeKey: g.attributeKey,
+        condition: g.condition,
+      });
+    }
+    return map;
+  }, [savedGroups]);
+
+  // ID-list saved group ids referenced by this feature's rules (any env).
+  const referencedListGroupIds = useMemo<string[]>(() => {
+    const ids = new Set<string>();
+    for (const r of feature.rules ?? []) {
+      for (const sg of r.savedGroups ?? []) {
+        for (const id of sg.ids) {
+          if (savedGroupDefs.get(id)?.type === "list") ids.add(id);
+        }
+      }
+    }
+    return [...ids];
+  }, [feature.rules, savedGroupDefs]);
+
+  // Lazily-fetched ID-list values, keyed by saved group id.
+  const [listGroupValues, setListGroupValues] = useState<Map<string, string[]>>(
+    new Map(),
+  );
+
+  useEffect(() => {
+    const toFetch = referencedListGroupIds.filter(
+      (id) => !listGroupValues.has(id),
+    );
+    if (!toFetch.length) return;
+    let cancelled = false;
+    Promise.all(
+      toFetch.map((id) =>
+        apiCall<{ savedGroup?: { values?: string[] } }>(`/saved-groups/${id}`)
+          .then((res) => ({ id, values: res.savedGroup?.values ?? [] }))
+          .catch(() => ({ id, values: [] as string[] })),
+      ),
+    ).then((results) => {
+      if (cancelled) return;
+      setListGroupValues((prev) => {
+        const next = new Map(prev);
+        for (const { id, values } of results) next.set(id, values);
+        return next;
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [referencedListGroupIds, listGroupValues, apiCall]);
+
+  const savedGroupConflictMap = useMemo<
+    Map<string, SavedGroupForConflicts>
+  >(() => {
+    const map = new Map<string, SavedGroupForConflicts>();
+    for (const [id, def] of savedGroupDefs) {
+      const values = listGroupValues.get(id);
+      map.set(id, values ? { ...def, values } : def);
+    }
+    return map;
+  }, [savedGroupDefs, listGroupValues]);
 
   // allEnvsView: flat feature.rules narrowed by hiddenRuleIds.
   // single-env: project via getRules to honor env applicability + inheritance.
@@ -145,43 +222,90 @@ export default function RuleList(props: RuleListProps) {
     environment: allEnvsView ? undefined : props.environment,
   });
 
-  // Unreachable detection
-  //   single-env: threshold index — every rule at/after `unreachableIndex`
-  //     is blocked by an earlier 100% rule.
-  //   all-envs: a rule is unreachable iff it's blocked in *every* env it
-  //     applies to. Rules with no env footprint (allEnvironments:false,
-  //     environments:[]) never apply anywhere, so they're surfaced via the
-  //     "No environments" badge instead and skipped here.
-  const unreachableIndex = allEnvsView
-    ? 0
-    : getUnreachableRuleIndex(items, experimentsMap);
+  // Reachability & targeting-conflict detection.
+  //   single-env: per-rule analysis of `items` in evaluation order.
+  //   all-envs: analyze each environment separately, then group a rule's
+  //     environments by the status they share into one banner each — so a rule
+  //     unreachable in production but only soft-conflicting in dev shows both,
+  //     each naming its environments. Rules with no env footprint never apply
+  //     anywhere and are surfaced via the "No environments" badge.
+  const reachabilityByRule = useMemo<Map<string, RuleReachability>>(
+    () =>
+      allEnvsView
+        ? new Map()
+        : getRuleReachability(items, experimentsMap, savedGroupConflictMap),
+    [allEnvsView, items, experimentsMap, savedGroupConflictMap],
+  );
 
-  const unreachableRuleIds = useMemo<Set<string>>(() => {
-    if (!allEnvsView) return new Set();
-    const envIds = props.environments.map((e) => e.id);
-    const unreachableIdxByEnv = new Map<string, number>();
+  const reachByEnv = useMemo<Map<string, Map<string, RuleReachability>>>(() => {
+    const map = new Map<string, Map<string, RuleReachability>>();
+    if (!allEnvsView) return map;
     for (const e of props.environments) {
-      const envRules = getRules(feature, e.id);
-      unreachableIdxByEnv.set(
+      map.set(
         e.id,
-        getUnreachableRuleIndex(envRules, experimentsMap),
+        getRuleReachability(
+          getRules(feature, e.id),
+          experimentsMap,
+          savedGroupConflictMap,
+        ),
       );
     }
-    const out = new Set<string>();
-    for (const rule of items) {
-      const applicable = ruleFootprint(rule, envIds);
-      if (applicable.length === 0) continue;
-      const blockedEverywhere = applicable.every((envId) => {
-        const envRules = getRules(feature, envId);
-        const idx = envRules.findIndex((r) => r.id === rule.id);
-        if (idx === -1) return false;
-        const threshold = unreachableIdxByEnv.get(envId) ?? 0;
-        return threshold > 0 && idx >= threshold;
-      });
-      if (blockedEverywhere) out.add(rule.id);
+    return map;
+  }, [
+    allEnvsView,
+    feature,
+    experimentsMap,
+    props.environments,
+    savedGroupConflictMap,
+  ]);
+
+  // Per-rule conflict banners. Single-env → at most one banner (env unnamed);
+  // all-envs → one banner per status, each naming the environments that share
+  // it. The "rule number" shown in the details maps a consuming rule's id to its
+  // 1-based position (offset by 1 for the holdout row when present).
+  const bannersByRule = useMemo<Map<string, ConflictBanner[]>>(() => {
+    const flat = feature.rules ?? [];
+    const offset = holdout ? 2 : 1;
+    const ruleNumber = (id: string) => {
+      const idx = flat.findIndex((r) => r.id === id);
+      return idx === -1 ? undefined : idx + offset;
+    };
+    const out = new Map<string, ConflictBanner[]>();
+    if (!allEnvsView) {
+      for (const rule of items) {
+        const reach = reachabilityByRule.get(rule.id);
+        if (!reach) continue;
+        out.set(
+          rule.id,
+          buildConflictBanners(
+            [{ env: props.environment, reach }],
+            ruleNumber,
+            false,
+          ),
+        );
+      }
+    } else {
+      const envIds = props.environments.map((e) => e.id);
+      for (const rule of items) {
+        const perEnv = ruleFootprint(rule, envIds)
+          .map((env) => ({ env, reach: reachByEnv.get(env)?.get(rule.id) }))
+          .filter(
+            (x): x is { env: string; reach: RuleReachability } => !!x.reach,
+          );
+        out.set(rule.id, buildConflictBanners(perEnv, ruleNumber, true));
+      }
     }
     return out;
-  }, [allEnvsView, items, feature, experimentsMap, props.environments]);
+  }, [
+    allEnvsView,
+    items,
+    reachabilityByRule,
+    reachByEnv,
+    props.environment,
+    props.environments,
+    feature.rules,
+    holdout,
+  ]);
 
   const inactiveRules = items.filter((r) => isRuleInactive(r, experimentsMap));
 
@@ -218,9 +342,12 @@ export default function RuleList(props: RuleListProps) {
     return idx === -1 ? fallback : idx;
   }
 
-  function isUnreachable(idx: number, ruleId: string): boolean {
-    if (allEnvsView) return unreachableRuleIds.has(ruleId);
-    return !!unreachableIndex && idx >= unreachableIndex;
+  function ruleConflictBanners(ruleId: string): ConflictBanner[] {
+    return bannersByRule.get(ruleId) ?? [];
+  }
+
+  function isUnreachable(ruleId: string): boolean {
+    return ruleConflictBanners(ruleId).some((b) => b.isUnreachable);
   }
 
   const activeRule = activeId ? items[getRuleIndex(activeId)] : null;
@@ -322,7 +449,8 @@ export default function RuleList(props: RuleListProps) {
                 feature={feature}
                 mutate={mutate}
                 setRuleModal={setRuleModal}
-                unreachable={isUnreachable(i, rule.id)}
+                unreachable={isUnreachable(rule.id)}
+                conflictBanners={ruleConflictBanners(rule.id)}
                 version={version}
                 setVersion={setVersion}
                 locked={locked}
@@ -377,10 +505,8 @@ export default function RuleList(props: RuleListProps) {
               locked={locked}
               experimentsMap={experimentsMap}
               hideInactive={hideInactive}
-              unreachable={isUnreachable(
-                getRuleIndex(activeId as string),
-                activeId as string,
-              )}
+              unreachable={isUnreachable(activeId as string)}
+              conflictBanners={ruleConflictBanners(activeId as string)}
               isDraft={isDraft}
               safeRolloutsMap={safeRolloutsMap}
               holdout={holdout}
