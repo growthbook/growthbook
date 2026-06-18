@@ -1,10 +1,16 @@
-import { isEqual, uniqWith } from "lodash";
+import { isEqual, omit, pick, uniq, uniqWith } from "lodash";
 import { isString } from "shared/util";
-import { ExperimentMetricInterface } from "shared/experiments";
+import {
+  ExperimentMetricInterface,
+  expandMetricGroups,
+} from "shared/experiments";
 import { getScopedSettings } from "shared/settings";
 import {
+  accountFeatures,
   blockHasFieldOfType,
   BlockSnapshotSettings,
+  CommercialFeature,
+  DashboardSSRData,
   getBlockAnalysisSettings,
   getBlockSnapshotAnalysis,
   getBlockSnapshotSettings,
@@ -19,7 +25,13 @@ import {
   ExperimentSnapshotInterface,
 } from "shared/types/experiment-snapshot";
 
-import { ExperimentInterface } from "shared/types/experiment";
+import {
+  ExperimentInterface,
+  ExperimentInterfaceStringDates,
+} from "shared/types/experiment";
+import { FactTableInterface } from "shared/types/fact-table";
+import { ProjectInterface } from "shared/types/project";
+import { OrganizationSettings } from "shared/types/organization";
 import { MetricSnapshotSettings } from "shared/types/report";
 import { StatsEngine } from "shared/types/stats";
 import { MetricAnalysisSettings } from "shared/types/metric-analysis";
@@ -27,7 +39,14 @@ import { findSnapshotsByIds } from "back-end/src/models/ExperimentSnapshotModel"
 
 import { ReqContext } from "back-end/types/request";
 
-import { FactTableMap } from "back-end/src/models/FactTableModel";
+import {
+  FactTableMap,
+  getFactTablesByIds,
+} from "back-end/src/models/FactTableModel";
+import { getMetricsByIds } from "back-end/src/models/MetricModel";
+import { findDimensionsByOrganization } from "back-end/src/models/DimensionModel";
+import { getExperimentById } from "back-end/src/models/ExperimentModel";
+import { getEffectiveAccountPlan } from "back-end/src/enterprise";
 import { ApiReqContext } from "back-end/types/api";
 import { getDataSourcesByIds } from "back-end/src/models/DataSourceModel";
 import { executeAndSaveQuery } from "back-end/src/routers/saved-queries/saved-queries.controller";
@@ -411,4 +430,185 @@ export async function updateDashboardSavedQueries(
       }
     }),
   );
+}
+
+// Org settings exposed to the public dashboard page (stat config needed to
+// render results). Mirrors the allow-list used by generateExperimentReportSSRData.
+const PUBLIC_SSR_SETTINGS_KEYS: Array<keyof OrganizationSettings> = [
+  "confidenceLevel",
+  "metricDefaults",
+  "multipleExposureMinPercent",
+  "statsEngine",
+  "pValueThreshold",
+  "pValueCorrection",
+  "regressionAdjustmentEnabled",
+  "regressionAdjustmentDays",
+  "srmThreshold",
+  "attributionModel",
+  "sequentialTestingEnabled",
+  "sequentialTestingTuningParameter",
+  "displayCurrency",
+];
+
+// Metric fields that carry query/SQL/schema details. Stripped before a metric
+// is exposed to anonymous viewers. Matches generateExperimentReportSSRData.
+const SENSITIVE_METRIC_FIELDS = [
+  "queries",
+  "runStarted",
+  "analysis",
+  "analysisError",
+  "table",
+  "column",
+  "timestampColumn",
+  "conditions",
+  "queryFormat",
+] as const;
+
+// Builds the definitions/labels polyfill for the unauthenticated public
+// dashboard page (which has no DefinitionsContext), collected across all of a
+// dashboard's blocks. Values are redacted via allow-list (settings/projects)
+// or by stripping sensitive fields (metrics). This is NOT block result data.
+//
+// NOTE: factMetricSlices is deferred (returned empty) for the first cut — it's
+// a display enhancement, not a leak vector. See generateExperimentReportSSRData
+// for the slice-generation logic to port if/when needed.
+export async function generateDashboardSSRData({
+  context,
+  dashboard,
+}: {
+  context: ReqContext;
+  dashboard: DashboardInterface;
+}): Promise<DashboardSSRData> {
+  const experimentIds = new Set<string>();
+  const referencedMetricIds = new Set<string>();
+  const dimensionIds = new Set<string>();
+
+  for (const block of dashboard.blocks) {
+    if (
+      blockHasFieldOfType(block, "experimentId", isString) &&
+      block.experimentId
+    ) {
+      experimentIds.add(block.experimentId);
+    }
+    if ("metricIds" in block && Array.isArray(block.metricIds)) {
+      block.metricIds.forEach((id) => {
+        if (id) referencedMetricIds.add(id);
+      });
+    }
+    if (
+      blockHasFieldOfType(block, "factMetricId", isString) &&
+      block.factMetricId
+    ) {
+      referencedMetricIds.add(block.factMetricId);
+    }
+    if (
+      blockHasFieldOfType(block, "dimensionId", isString) &&
+      block.dimensionId
+    ) {
+      dimensionIds.add(block.dimensionId);
+    }
+  }
+
+  const metricGroups = await context.models.metricGroups.getAll();
+  const metricIds = expandMetricGroups([...referencedMetricIds], metricGroups);
+
+  const metrics = await getMetricsByIds(
+    context,
+    metricIds.filter((m) => m.startsWith("met_")),
+  );
+  const factMetrics = await context.models.factMetrics.getByIds(
+    metricIds.filter((m) => m.startsWith("fact__")),
+  );
+
+  // Pull in denominator metrics referenced by ratio metrics (mirrors report SSR)
+  const denominatorMetricIds = uniq(
+    metrics
+      .map((m) => m.denominator)
+      .filter((id): id is string => !!id && !metricIds.includes(id)),
+  );
+  const denominatorMetrics = await getMetricsByIds(
+    context,
+    denominatorMetricIds,
+  );
+
+  const metricMap: Record<string, ExperimentMetricInterface> = {};
+  [...metrics, ...factMetrics, ...denominatorMetrics].forEach((metric) => {
+    metricMap[metric.id] = omit(
+      metric,
+      SENSITIVE_METRIC_FIELDS,
+    ) as ExperimentMetricInterface;
+  });
+
+  const factTableIds = uniq(
+    factMetrics.flatMap((m) =>
+      [m?.numerator?.factTableId, m?.denominator?.factTableId].filter(
+        (id): id is string => !!id,
+      ),
+    ),
+  );
+  const factTables = await getFactTablesByIds(context, factTableIds);
+  const factTableMap: Record<string, FactTableInterface> = {};
+  factTables.forEach((ft) => {
+    factTableMap[ft.id] = ft;
+  });
+
+  const allDimensions = await findDimensionsByOrganization(context.org.id);
+  const dimensions = allDimensions.filter((d) => dimensionIds.has(d.id));
+
+  // Experiments: expose only display fields, matching the public experiment page
+  const experiments: Record<
+    string,
+    Partial<ExperimentInterfaceStringDates>
+  > = {};
+  const projectIds = new Set<string>(dashboard.projects ?? []);
+  for (const experimentId of experimentIds) {
+    const experiment = await getExperimentById(context, experimentId);
+    if (!experiment) continue;
+    if (experiment.project) projectIds.add(experiment.project);
+    experiments[experimentId] = pick(experiment, [
+      "id",
+      "name",
+      "type",
+      "hypothesis",
+      "variations",
+      "status",
+      "project",
+    ]) as Partial<ExperimentInterfaceStringDates>;
+  }
+
+  const projects: Record<string, ProjectInterface> = {};
+  for (const projectId of projectIds) {
+    const project = await context.models.projects.getById(projectId);
+    if (project) {
+      projects[projectId] = pick(project, [
+        "name",
+        "id",
+        "settings",
+      ]) as ProjectInterface;
+    }
+  }
+
+  const settings: OrganizationSettings = pick(
+    context.org.settings,
+    PUBLIC_SSR_SETTINGS_KEYS,
+  );
+
+  // Check commercial features against the org (not a user) for public pages
+  const publicRelevantFeatures: CommercialFeature[] = ["metric-slices"];
+  const allFeatures = accountFeatures[getEffectiveAccountPlan(context.org)];
+  const commercialFeatures = publicRelevantFeatures.filter((f) =>
+    allFeatures.has(f),
+  );
+
+  return {
+    metrics: metricMap,
+    metricGroups,
+    factTables: factTableMap,
+    factMetricSlices: {},
+    dimensions,
+    projects,
+    settings,
+    experiments,
+    commercialFeatures,
+  };
 }

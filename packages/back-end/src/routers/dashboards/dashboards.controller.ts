@@ -18,7 +18,10 @@ import {
   AuthRequest,
   ResponseWithStatusAndError,
 } from "back-end/src/types/AuthRequest";
-import { getContextFromReq } from "back-end/src/services/organizations";
+import {
+  getContextForAgendaJobByOrgId,
+  getContextFromReq,
+} from "back-end/src/services/organizations";
 import {
   createExperimentSnapshot,
   createExperimentSnapshotFromPlan,
@@ -28,6 +31,7 @@ import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { findSnapshotsByIds } from "back-end/src/models/ExperimentSnapshotModel";
 import {
+  generateDashboardSSRData,
   updateDashboardMetricAnalyses,
   updateDashboardExplorations,
   updateDashboardSavedQueries,
@@ -53,10 +57,11 @@ interface MultiDashboardResponse {
 // the JWT middleware in app.ts with permissive CORS. shareLevel === "public"
 // is the sole authorization gate here.
 //
-// NOTE (sub-step 1): this returns dashboard config/layout only (block configs
-// reference data by id; no resolved snapshot/query data). Resolving block data
-// for anonymous viewers + the redaction allow-list + ssrData come next, before
-// any per-resource data is exposed.
+// Returns the dashboard config/layout plus ssrData (definitions/labels polyfill
+// for the no-DefinitionsContext public page). ssrData values are server-redacted
+// (see generateDashboardSSRData). Resolved block result data (snapshots, query
+// results, analyses) through allow-list serializers comes next; no per-resource
+// result data is exposed yet.
 export async function getDashboardPublic(
   req: Request<{ uid: string }>,
   res: Response,
@@ -72,7 +77,10 @@ export async function getDashboardPublic(
     return res.status(401).json({ status: 401, message: "Unauthorized" });
   }
 
-  return res.status(200).json({ status: 200, dashboard });
+  const context = await getContextForAgendaJobByOrgId(dashboard.organization);
+  const ssrData = await generateDashboardSSRData({ context, dashboard });
+
+  return res.status(200).json({ status: 200, dashboard, ssrData });
 }
 
 export async function getAllDashboards(

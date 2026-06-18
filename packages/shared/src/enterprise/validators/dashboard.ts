@@ -1,4 +1,15 @@
 import { z } from "zod";
+import type {
+  ExperimentMetricInterface,
+  SliceLevelsData,
+} from "shared/experiments";
+import type { CommercialFeature } from "shared/enterprise";
+import type { MetricGroupInterface } from "shared/types/metric-groups";
+import type { FactTableInterface } from "shared/types/fact-table";
+import type { DimensionInterface } from "shared/types/dimension";
+import type { ProjectInterface } from "shared/types/project";
+import type { OrganizationSettings } from "shared/types/organization";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { namedSchema } from "../../validators/openapi-helpers";
 
 import {
@@ -158,3 +169,30 @@ export type ApiDashboardInterface = z.infer<typeof apiDashboardInterface>;
 export type DashboardEditLevel = z.infer<typeof dashboardEditLevel>;
 export type DashboardShareLevel = z.infer<typeof dashboardShareLevel>;
 export type DashboardUpdateSchedule = z.infer<typeof dashboardUpdateSchedule>;
+
+// Definitions/labels polyfill for the unauthenticated public dashboard page,
+// which has no DefinitionsContext. Mirrors ExperimentReportSSRData but is
+// collected across all of a dashboard's blocks, plus an `experiments` map for
+// experiment-block labels. Values are server-redacted before being sent (see
+// generateDashboardSSRData). This is NOT block result data.
+export type DashboardSSRData = {
+  metrics: Record<string, ExperimentMetricInterface>;
+  metricGroups: MetricGroupInterface[];
+  factTables: Record<string, FactTableInterface>;
+  factMetricSlices: Record<
+    string,
+    Array<{
+      id: string;
+      name: string;
+      description: string;
+      baseMetricId: string;
+      sliceLevels: SliceLevelsData[];
+      allSliceLevels: string[];
+    }>
+  >;
+  dimensions: DimensionInterface[];
+  projects: Record<string, ProjectInterface>;
+  settings: OrganizationSettings;
+  experiments: Record<string, Partial<ExperimentInterfaceStringDates>>;
+  commercialFeatures?: CommercialFeature[];
+};
