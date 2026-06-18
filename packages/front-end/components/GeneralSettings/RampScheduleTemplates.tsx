@@ -451,12 +451,24 @@ export default function RampScheduleTemplates() {
     [activeId, items],
   );
 
-  const reorderTemplates = async (oldId: string, newId: string) => {
-    await apiCall(`/ramp-schedule-templates/reorder`, {
-      method: "POST",
-      body: JSON.stringify({ oldId, newId }),
-    });
-    await mutate();
+  // Move `oldId` into `newId`'s slot. Shared by drag-and-drop and the Move
+  // up/down menu so both update the list immediately, then revert if the persist
+  // fails — the table never shows an order the server didn't accept.
+  const moveTemplate = async (oldId: string, newId: string) => {
+    const oldIndex = items.findIndex((t) => t.id === oldId);
+    const newIndex = items.findIndex((t) => t.id === newId);
+    if (oldIndex < 0 || newIndex < 0) return;
+    const previous = items;
+    setItems(arrayMove(items, oldIndex, newIndex));
+    try {
+      await apiCall(`/ramp-schedule-templates/reorder`, {
+        method: "POST",
+        body: JSON.stringify({ oldId, newId }),
+      });
+      await mutate();
+    } catch {
+      setItems(previous);
+    }
   };
 
   async function handleDragEnd(event: {
@@ -466,18 +478,7 @@ export default function RampScheduleTemplates() {
     const { active, over } = event;
     setActiveId(undefined);
     if (!over || active.id === over.id) return;
-    const oldIndex = items.findIndex((t) => t.id === active.id);
-    const newIndex = items.findIndex((t) => t.id === over.id);
-    if (oldIndex < 0 || newIndex < 0) return;
-    // Optimistically reorder, then revert if the persist fails so the list
-    // never shows an order the server didn't accept.
-    const previous = items;
-    setItems(arrayMove(items, oldIndex, newIndex));
-    try {
-      await reorderTemplates(String(active.id), String(over.id));
-    } catch {
-      setItems(previous);
-    }
+    await moveTemplate(String(active.id), String(over.id));
   }
 
   const deleteTemplate = async (template: RampScheduleTemplateInterface) => {
@@ -548,10 +549,8 @@ export default function RampScheduleTemplates() {
                     canMoveDown={i < items.length - 1}
                     onEdit={() => setEditingTemplate(tmpl)}
                     onDelete={() => deleteTemplate(tmpl)}
-                    onMoveUp={() => reorderTemplates(tmpl.id, items[i - 1]!.id)}
-                    onMoveDown={() =>
-                      reorderTemplates(tmpl.id, items[i + 1]!.id)
-                    }
+                    onMoveUp={() => moveTemplate(tmpl.id, items[i - 1]!.id)}
+                    onMoveDown={() => moveTemplate(tmpl.id, items[i + 1]!.id)}
                   />
                 ))}
               </SortableContext>
