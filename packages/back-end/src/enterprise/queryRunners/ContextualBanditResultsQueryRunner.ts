@@ -98,9 +98,11 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
       );
     }
 
-    const decisionMetricId = this.snapshotSettings.goalMetrics[0];
+    const decisionMetricId = this.snapshotSettings.decisionMetric;
     if (!decisionMetricId) {
-      throw new Error("Contextual bandit snapshot is missing a goal metric");
+      throw new Error(
+        "Contextual bandit snapshot is missing a decision metric",
+      );
     }
 
     const metricMap = await this.getMetricMapCached();
@@ -229,9 +231,11 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
     const expSnapshotSettings = buildSnapshotMetricRequestForCb(
       this.snapshotSettings,
     );
-    const decisionMetricId = this.snapshotSettings.goalMetrics[0];
+    const decisionMetricId = this.snapshotSettings.decisionMetric;
     if (!decisionMetricId) {
-      throw new Error("Contextual bandit snapshot is missing a goal metric");
+      throw new Error(
+        "Contextual bandit snapshot is missing a decision metric",
+      );
     }
     const metricMap = await this.getMetricMapCached();
     const analysisSettings: ExperimentSnapshotAnalysisSettings = {

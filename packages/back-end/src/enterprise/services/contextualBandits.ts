@@ -122,7 +122,7 @@ export async function runContextualBanditSnapshot(
 
   const { regressionAdjustmentEnabled } = await getSettingsForSnapshotMetrics(
     context,
-    cb,
+    { ...cb, goalMetrics: cb.decisionMetric ? [cb.decisionMetric] : [] },
   );
 
   const snapshotSettings = buildContextualBanditSnapshotSettings(
@@ -310,7 +310,7 @@ export function buildContextualBanditSnapshotSettings(
     contextualAttributes:
       cbQuery.targetingAttributeColumns ?? cb.contextualAttributes,
 
-    goalMetrics: cb.goalMetrics ?? [],
+    decisionMetric: cb.decisionMetric ?? "",
     metricSettings: Object.fromEntries(
       (cb.metricOverrides ?? []).map((m) => [m.id, m]),
     ),
@@ -342,7 +342,7 @@ export function buildContextualBanditSnapshotSettings(
 export function buildSnapshotMetricRequestForCb(
   cbSnapshotSettings: ContextualBanditSnapshotSettings,
 ): SnapshotMetricRequest {
-  const decisionMetric = cbSnapshotSettings.goalMetrics[0] ?? "";
+  const decisionMetric = cbSnapshotSettings.decisionMetric;
   return {
     experimentId: cbSnapshotSettings.trackingKey,
     queryFilter: "",
@@ -350,7 +350,7 @@ export function buildSnapshotMetricRequestForCb(
     exposureQueryId: cbSnapshotSettings.contextualBanditQueryId,
     startDate: cbSnapshotSettings.startDate,
     endDate: cbSnapshotSettings.endDate ?? new Date(),
-    goalMetrics: cbSnapshotSettings.goalMetrics,
+    goalMetrics: decisionMetric ? [decisionMetric] : [],
     secondaryMetrics: [],
     guardrailMetrics: [],
     activationMetric: null,

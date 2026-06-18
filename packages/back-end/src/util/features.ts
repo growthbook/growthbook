@@ -856,16 +856,10 @@ export function getFeatureDefinition({
           if (cb.hashAttribute) {
             rule.hashAttribute = cb.hashAttribute;
           }
-          if (cb.fallbackAttribute) {
-            rule.fallbackAttribute = cb.fallbackAttribute;
-          }
-          if (cb.disableStickyBucketing) {
-            rule.disableStickyBucketing = cb.disableStickyBucketing;
-          }
           if (cb.seed) {
             rule.seed = cb.seed;
           }
-          rule.hashVersion = cb.hashVersion;
+          rule.hashVersion = 2;
 
           if (cb.status === "stopped") {
             // CBs don't yet track `releasedVariationId`; a stopped CB drops out of the payload.
@@ -913,7 +907,6 @@ export function getFeatureDefinition({
             const cbMetadata = buildPayloadMetadata<ExperimentMetadata>(
               {
                 project: cb.project,
-                customFields: cb.customFields,
                 tags: cb.tags,
               },
               metadataOptions,

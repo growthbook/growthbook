@@ -36,7 +36,6 @@ const BaseClass = MakeModelClass({
   globallyUniquePrimaryKeys: true,
   defaultValues: {
     holdoutPercent: 0,
-    disableStickyBucketing: false, // @teresayung - will remove
     archived: false,
     minUsersPerLeaf: 100,
     maxLeaves: 12,
@@ -135,20 +134,15 @@ export function toApiContextualBandit(
     dateUpdated: doc.dateUpdated.toISOString(),
     name: doc.name,
     description: doc.description,
-    hypothesis: doc.hypothesis, // @teresayung - to remove
     project: doc.project,
     owner: doc.owner,
     tags: doc.tags,
     archived: doc.archived,
-    customFields: doc.customFields,
     status: doc.status,
     dateStarted: doc.dateStarted?.toISOString(),
     dateStopped: doc.dateStopped?.toISOString(),
     trackingKey: doc.trackingKey,
     hashAttribute: doc.hashAttribute,
-    fallbackAttribute: doc.fallbackAttribute,
-    hashVersion: doc.hashVersion,
-    disableStickyBucketing: doc.disableStickyBucketing, // @teresayung - to remove
     variations: doc.variations.map((v) => ({
       id: v.id,
       key: v.key,
@@ -157,9 +151,7 @@ export function toApiContextualBandit(
     })),
     datasource: doc.datasource,
     contextualBanditQueryId: doc.contextualBanditQueryId,
-    segment: doc.segment,
     queryFilter: doc.queryFilter,
-    goalMetrics: doc.goalMetrics,
     activationMetric: doc.activationMetric,
     skipPartialData: doc.skipPartialData,
     regressionAdjustmentEnabled: doc.regressionAdjustmentEnabled,
@@ -220,8 +212,6 @@ export class ContextualBanditModel extends BaseClass {
       minUsersPerLeaf: body.minUsersPerLeaf ?? 100,
       maxLeaves: body.maxLeaves ?? 12,
       hashAttribute: body.hashAttribute ?? "id",
-      hashVersion: 2 as const,
-      disableStickyBucketing: body.disableStickyBucketing ?? false,
       // Backfill per-variation id/screenshots so the internal validator accepts the doc.
       variations: body.variations.map((v) => ({
         ...v,

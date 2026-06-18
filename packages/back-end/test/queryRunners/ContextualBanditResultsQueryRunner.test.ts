@@ -76,7 +76,7 @@ function makeSnapshotSettings(
     userIdType: "user_id",
     contextualAttributes: ["country"],
 
-    goalMetrics: ["fact__g1"],
+    decisionMetric: "fact__g1",
     metricSettings: {},
 
     variations: [

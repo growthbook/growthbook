@@ -15,7 +15,9 @@ export default function ContextualBanditMetricsModal({
   close: () => void;
 }) {
   const { apiCall } = useAuth();
-  const [goalMetrics, setGoalMetrics] = useState<string[]>(cb.goalMetrics);
+  const [decisionMetric, setDecisionMetric] = useState<string>(
+    cb.decisionMetric ?? "",
+  );
 
   return (
     <ModalStandard
@@ -28,7 +30,7 @@ export default function ContextualBanditMetricsModal({
         await apiCall(`/api/v1/contextual-bandits/${cb.id}`, {
           method: "PUT",
           body: JSON.stringify({
-            goalMetrics,
+            decisionMetric,
           }),
         });
         mutate();
@@ -38,10 +40,12 @@ export default function ContextualBanditMetricsModal({
         datasource={cb.datasource}
         exposureQueryId=""
         project={cb.project}
-        goalMetrics={goalMetrics}
+        goalMetrics={decisionMetric ? [decisionMetric] : []}
         secondaryMetrics={[]}
         guardrailMetrics={[]}
-        setGoalMetrics={setGoalMetrics}
+        setGoalMetrics={(goalMetrics) =>
+          setDecisionMetric(goalMetrics[0] ?? "")
+        }
         forceSingleGoalMetric
         goalMetricsDescription="The single decision metric the bandit optimizes toward."
       />

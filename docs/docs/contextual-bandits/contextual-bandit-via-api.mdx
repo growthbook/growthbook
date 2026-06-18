@@ -52,7 +52,7 @@ curl -X POST 'https://api.growthbook.io/api/v1/contextual-bandits' \
     "trackingKey": "homepage-cta-bandit",
     "datasource": "ds_abc",
     "contextualBanditQueryId": "cbq_abc",
-    "goalMetrics": ["metric_signup"],
+    "decisionMetric": "metric_signup",
     "variations": [
       { "key": "control",   "name": "Control"  },
       { "key": "treatment", "name": "Treatment" }
@@ -62,7 +62,7 @@ curl -X POST 'https://api.growthbook.io/api/v1/contextual-bandits' \
   }'
 ```
 
-Required fields are `name`, `trackingKey`, `datasource`, `contextualBanditQueryId`, `variations`, `goalMetrics`, and `contextualAttributes`. Other fields (`hashAttribute`, `fallbackAttribute`, `hashVersion`, `disableStickyBucketing`, `segment`, `queryFilter`, `activationMetric`, `decisionMetric`, `minUsersPerLeaf`, `maxLeaves`, etc.) are optional and fall back to defaults.
+Required fields are `name`, `trackingKey`, `datasource`, `contextualBanditQueryId`, `variations`, `decisionMetric`, and `contextualAttributes`. Other fields (`hashAttribute`, `queryFilter`, `activationMetric`, `minUsersPerLeaf`, `maxLeaves`, etc.) are optional and fall back to defaults.
 
 The response includes the new Contextual Bandit id (`cb_…`). The CB is provisioned in `status: "draft"` with an empty `currentLeafWeights` array at the document root; it stays empty until the first successful refresh.
 

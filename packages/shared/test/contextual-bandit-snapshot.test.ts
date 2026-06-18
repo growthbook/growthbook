@@ -17,7 +17,7 @@ function buildSettings(
     userIdType: "user_id",
     contextualAttributes: ["country", "device"],
 
-    goalMetrics: ["met_g1"],
+    decisionMetric: "met_g1",
     metricSettings: {},
 
     variations: [

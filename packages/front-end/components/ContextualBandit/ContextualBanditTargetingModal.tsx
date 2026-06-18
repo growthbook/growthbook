@@ -3,19 +3,14 @@ import { useForm } from "react-hook-form";
 import { ApiContextualBanditInterface } from "shared/validators";
 import { useAuth } from "@/services/auth";
 import { useAttributeSchema } from "@/services/features";
-import useOrgSettings from "@/hooks/useOrgSettings";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
-import Switch from "@/ui/Switch";
 
 type FormValues = {
   coveragePercent: number;
   condition: string;
   hashAttribute: string;
-  fallbackAttribute: string;
-  hashVersion: 1 | 2;
-  disableStickyBucketing: boolean;
 };
 
 export default function ContextualBanditTargetingModal({
@@ -28,18 +23,12 @@ export default function ContextualBanditTargetingModal({
   close: () => void;
 }) {
   const { apiCall } = useAuth();
-  const settings = useOrgSettings();
   const attributeSchema = useAttributeSchema(false, cb.project);
 
   const hashAttributes = useMemo(
     () =>
       attributeSchema?.filter((a) => a.hashAttribute).map((a) => a.property) ??
       [],
-    [attributeSchema],
-  );
-
-  const allAttributes = useMemo(
-    () => attributeSchema?.map((a) => a.property) ?? [],
     [attributeSchema],
   );
 
@@ -50,9 +39,6 @@ export default function ContextualBanditTargetingModal({
       hashAttribute:
         cb.hashAttribute ??
         (hashAttributes.includes("id") ? "id" : (hashAttributes[0] ?? "id")),
-      fallbackAttribute: cb.fallbackAttribute ?? "",
-      hashVersion: (cb.hashVersion as 1 | 2) ?? 2,
-      disableStickyBucketing: cb.disableStickyBucketing ?? true,
     },
   });
 
@@ -72,9 +58,6 @@ export default function ContextualBanditTargetingModal({
             coverage,
             condition: data.condition,
             hashAttribute: data.hashAttribute || undefined,
-            fallbackAttribute: data.fallbackAttribute || undefined,
-            hashVersion: data.hashVersion,
-            disableStickyBucketing: data.disableStickyBucketing,
           }),
         });
         mutate();
@@ -114,36 +97,6 @@ export default function ContextualBanditTargetingModal({
           helpText="The user attribute used to assign variations."
         />
       )}
-
-      <SelectField
-        label="Fallback Attribute"
-        value={form.watch("fallbackAttribute")}
-        onChange={(v) => form.setValue("fallbackAttribute", v)}
-        initialOption="None"
-        options={allAttributes.map((a) => ({ value: a, label: a }))}
-        helpText="Used when the primary assignment attribute is missing."
-      />
-
-      <SelectField
-        label="Hash Version"
-        value={String(form.watch("hashVersion"))}
-        onChange={(v) => form.setValue("hashVersion", Number(v) as 1 | 2)}
-        options={[
-          { value: "2", label: "V2 (recommended)" },
-          { value: "1", label: "V1 (legacy)" },
-        ]}
-        helpText="V2 provides better distribution. Use V1 only for backwards compatibility."
-      />
-
-      {settings?.useStickyBucketing ? (
-        <Switch
-          label="Disable Sticky Bucketing"
-          description="Allow users in lower-performing variations to switch in future update periods."
-          value={form.watch("disableStickyBucketing")}
-          onChange={(v) => form.setValue("disableStickyBucketing", v)}
-          mb="2"
-        />
-      ) : null}
     </ModalStandard>
   );
 }

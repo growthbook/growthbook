@@ -431,7 +431,9 @@ const ContextualBanditsPage = (): React.ReactElement => {
                                   },
                                 ],
                                 dismissedWarnings: [],
-                                goalMetrics: e.goalMetrics,
+                                goalMetrics: e.decisionMetric
+                                  ? [e.decisionMetric]
+                                  : [],
                                 secondaryMetrics: [],
                                 guardrailMetrics: [],
                                 datasource: e.datasource,

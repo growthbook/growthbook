@@ -172,7 +172,6 @@ export default function BanditRefNewFields({
 
   useEffect(() => {
     if (contextualBandit) {
-      form.setValue("disableStickyBucketing", true);
       form.setValue("secondaryMetrics", []);
       form.setValue("guardrailMetrics", []);
       form.setValue("customMetricSlices", []);
@@ -288,12 +287,14 @@ export default function BanditRefNewFields({
                 );
               }}
             />
-            <FallbackAttributeSelector
-              form={form}
-              attributeSchema={attributeSchema}
-            />
+            {!contextualBandit && (
+              <FallbackAttributeSelector
+                form={form}
+                attributeSchema={attributeSchema}
+              />
+            )}
 
-            {hasSDKWithNoBucketingV2 && (
+            {!contextualBandit && hasSDKWithNoBucketingV2 && (
               <HashVersionSelector
                 value={(form.watch("hashVersion") || 1) as 1 | 2}
                 onChange={(v) => form.setValue("hashVersion", v)}

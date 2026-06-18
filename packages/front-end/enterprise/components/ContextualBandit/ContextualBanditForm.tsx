@@ -27,13 +27,8 @@ import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
-  filterCustomFieldsForSectionAndProject,
-  useCustomFields,
-} from "@/hooks/useCustomFields";
-import {
   generateVariationId,
   useAttributeSchema,
-  useEnvironments,
   validateUnregisteredAttributes,
 } from "@/services/features";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -41,9 +36,6 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import { useUser } from "@/services/UserContext";
-import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
-import useSDKConnections from "@/hooks/useSDKConnections";
-import { allConnectionsSupportBucketingV2 } from "@/components/Experiment/HashVersionSelector";
 import TagsInput from "@/components/Tags/TagsInput";
 import Page from "@/components/Modal/Page";
 import PagedModal from "@/components/Modal/PagedModal";
@@ -55,7 +47,7 @@ import SelectField, {
 import { validateSavedGroupTargeting } from "@/components/Features/SavedGroupTargetingField";
 import { useExperiments } from "@/hooks/useExperiments";
 import { useContextualBanditQueries } from "@/hooks/useContextualBanditQueries";
-import BanditRefNewFields from "@/components/Features/RuleModal/BanditRefNewFields";
+import ContextualBanditRefNewFields from "@/components/ContextualBandit/ContextualBanditRefNewFields";
 import Checkbox from "@/ui/Checkbox";
 import DatePicker from "@/components/DatePicker";
 import {
@@ -78,7 +70,10 @@ type ContextualBanditFormValues = Partial<ExperimentInterfaceStringDates> &
       | "dateStarted"
       | "dateEnded"
     >
-  >;
+  > & {
+    /** CBs optimize toward a single decision metric (not the experiment `goalMetrics` array). */
+    decisionMetric?: string;
+  };
 
 export type ContextualBanditFormProps = {
   initialStep?: number;
@@ -119,13 +114,10 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
     projects,
     getExperimentMetricById,
   } = useDefinitions();
-  const environments = useEnvironments();
   const { experiments } = useExperiments();
 
-  const envs = environments.map((e) => e.id);
-
-  const [prerequisiteTargetingSdkIssues, setPrerequisiteTargetingSdkIssues] =
-    useState(false);
+  // CBs have no prerequisite targeting step, so SDK targeting issues never arise.
+  const [prerequisiteTargetingSdkIssues] = useState(false);
   const [disableBanditConversionWindow, setDisableBanditConversionWindow] =
     useState(false);
   const canSubmit = !prerequisiteTargetingSdkIssues;
@@ -140,13 +132,7 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
   const permissionsUtils = usePermissionsUtil();
   const { refreshWatching } = useWatching();
 
-  const { data: sdkConnectionsData } = useSDKConnections();
-  const hasSDKWithNoBucketingV2 = !allConnectionsSupportBucketingV2(
-    sdkConnectionsData?.connections,
-    project,
-  );
-
-  const [conditionKey, forceConditionRender] = useIncrementer();
+  const [, forceConditionRender] = useIncrementer();
 
   const allAttributesSchema = useAttributeSchema(false);
   const attributeSchema = useAttributeSchema(false, project);
@@ -176,12 +162,9 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
         initialHashAttribute,
       }),
       name: initialValue?.name || "",
-      disableStickyBucketing: true,
       activationMetric: initialValue?.activationMetric || "",
       hashAttribute: initialHashAttribute,
-      hashVersion:
-        initialValue?.hashVersion || (hasSDKWithNoBucketingV2 ? 1 : 2),
-      goalMetrics: initialValue?.goalMetrics || [],
+      decisionMetric: initialValue?.decisionMetric ?? "",
       tags: initialValue?.tags || [],
       targetURLRegex: initialValue?.targetURLRegex || "",
       description: initialValue?.description || "",
@@ -200,7 +183,6 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
         .toISOString()
         .substring(0, 16),
       status: "draft",
-      customFields: initialValue?.customFields,
       regressionAdjustmentEnabled:
         scopedSettings.regressionAdjustmentEnabled.value,
       banditScheduleValue: scopedSettings.banditScheduleValue.value,
@@ -215,11 +197,6 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
   });
 
   const selectedProject = form.watch("project");
-  const customFields = filterCustomFieldsForSectionAndProject(
-    useCustomFields(),
-    "experiment",
-    selectedProject,
-  );
 
   const datasource = form.watch("datasource")
     ? getDatasourceById(form.watch("datasource") ?? "")
@@ -325,8 +302,6 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
     validateUnregisteredAttributes(
       {
         hashAttribute: (data as { hashAttribute?: string }).hashAttribute,
-        fallbackAttribute: (data as { fallbackAttribute?: string })
-          .fallbackAttribute,
         condition: data.condition,
       },
       "experiment",
@@ -357,11 +332,11 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
       );
     }
 
-    if ((data.goalMetrics?.length ?? 0) !== 1 || !data.goalMetrics?.[0]) {
+    if (!data.decisionMetric) {
       throw new Error("You must select 1 decision metric");
     }
-    const goalMetric = getExperimentMetricById(data.goalMetrics[0]);
-    if (goalMetric?.datasource !== data.datasource) {
+    const decisionMetric = getExperimentMetricById(data.decisionMetric);
+    if (decisionMetric?.datasource !== data.datasource) {
       setStep(2);
       throw new Error(
         "The decision metric must belong to the selected data source",
@@ -376,14 +351,14 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
         ? parseFloat(String(data.banditConversionWindowValue)) *
           (data.banditConversionWindowUnit === "days" ? 24 : 1)
         : null;
-    const goalMetricConversionWindow =
-      goalMetric?.windowSettings?.type === "conversion"
-        ? goalMetric.windowSettings
+    const decisionMetricConversionWindow =
+      decisionMetric?.windowSettings?.type === "conversion"
+        ? decisionMetric.windowSettings
         : null;
     const effectiveConversionWindowHours =
       overrideConversionWindowHours ??
-      (goalMetricConversionWindow
-        ? getMetricWindowHours(goalMetricConversionWindow)
+      (decisionMetricConversionWindow
+        ? getMetricWindowHours(decisionMetricConversionWindow)
         : null);
     if (
       cadenceHours > 0 &&
@@ -396,9 +371,7 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
       );
     }
 
-    const shouldIncludeConversionWindow =
-      !disableBanditConversionWindow &&
-      (!settings.useStickyBucketing || data.disableStickyBucketing);
+    const shouldIncludeConversionWindow = !disableBanditConversionWindow;
 
     if (!shouldIncludeConversionWindow) {
       delete data.banditConversionWindowValue;
@@ -437,17 +410,12 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
     const createBody: ApiCreateContextualBanditBody = {
       name: data.name ?? "",
       description: data.description,
-      hypothesis: data.hypothesis,
       project: data.project || undefined,
       owner: data.owner || undefined,
       tags: data.tags ?? [],
-      customFields: data.customFields,
 
       trackingKey: data.trackingKey ?? "",
       hashAttribute: data.hashAttribute || undefined,
-      fallbackAttribute: data.fallbackAttribute || undefined,
-      hashVersion: data.hashVersion as 1 | 2 | undefined,
-      disableStickyBucketing: data.disableStickyBucketing ?? true,
 
       variations: (data.variations ?? []).map((v, i) => ({
         key: v.key || `${i}`,
@@ -457,9 +425,8 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
 
       datasource: data.datasource ?? "",
       contextualBanditQueryId: data.exposureQueryId ?? "",
-      segment: data.segment || undefined,
       queryFilter: data.queryFilter || undefined,
-      goalMetrics: data.goalMetrics ?? [],
+      decisionMetric: data.decisionMetric ?? "",
       activationMetric: data.activationMetric || undefined,
       skipPartialData: data.skipPartialData,
       regressionAdjustmentEnabled: data.regressionAdjustmentEnabled,
@@ -477,7 +444,7 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
     track("Create Contextual Bandit", {
       source,
       numTags: createBody.tags?.length || 0,
-      numMetrics: createBody.goalMetrics?.length || 0,
+      numMetrics: createBody.decisionMetric ? 1 : 0,
       numVariations: createBody.variations?.length || 0,
     });
     refreshWatching();
@@ -681,19 +648,6 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
                 )}
               </>
             )}
-
-            {hasCommercialFeature("custom-metadata") &&
-              !!customFields?.length && (
-                <CustomFieldInput
-                  customFields={customFields}
-                  currentCustomFields={form.watch("customFields") || {}}
-                  setCustomFields={(value) => {
-                    form.setValue("customFields", value);
-                  }}
-                  section={"experiment"}
-                  project={selectedProject}
-                />
-              )}
           </div>
         </Page>
 
@@ -703,27 +657,9 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
               return (
                 <Page display={p} key={i}>
                   <div className="px-2">
-                    <BanditRefNewFields
+                    <ContextualBanditRefNewFields
                       step={i}
-                      source="experiment"
                       project={project}
-                      environments={envs}
-                      prerequisiteValue={form.watch("prerequisites") || []}
-                      setPrerequisiteValue={(prerequisites) =>
-                        form.setValue("prerequisites", prerequisites)
-                      }
-                      setPrerequisiteTargetingSdkIssues={
-                        setPrerequisiteTargetingSdkIssues
-                      }
-                      savedGroupValue={form.watch("savedGroups") || []}
-                      setSavedGroupValue={(savedGroups) =>
-                        form.setValue("savedGroups", savedGroups)
-                      }
-                      defaultConditionValue={form.watch("condition") || ""}
-                      setConditionValue={(value) =>
-                        form.setValue("condition", value)
-                      }
-                      conditionKey={conditionKey}
                       namespaceFormPrefix={""}
                       coverage={form.watch("coverage") ?? 1}
                       setCoverage={(coverage) =>
@@ -738,9 +674,6 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
                       setDisableBanditConversionWindow={
                         setDisableBanditConversionWindow
                       }
-                      contextualBandit={true}
-                      setContextualBandit={() => {}}
-                      hideContextualBanditToggle={true}
                     />
                   </div>
                 </Page>

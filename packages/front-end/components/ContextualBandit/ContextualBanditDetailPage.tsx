@@ -283,20 +283,7 @@ export default function ContextualBanditDetailPage({
                 <DetailSectionColumn label="Assignment Attribute">
                   <div className="d-flex flex-wrap align-items-center gap-1">
                     <AttributeBadge attributeId={cb.hashAttribute || "id"} />
-                    {cb.fallbackAttribute ? (
-                      <>
-                        , <AttributeBadge attributeId={cb.fallbackAttribute} />
-                      </>
-                    ) : null}
-                    <small className="text-muted ml-1">
-                      (V{cb.hashVersion || 2} hashing)
-                    </small>
                   </div>
-                  {cb.disableStickyBucketing ? (
-                    <div className="mt-1">
-                      Sticky bucketing: <em>disabled</em>
-                    </div>
-                  ) : null}
                 </DetailSectionColumn>
               </div>
             </DetailSectionBox>
@@ -353,7 +340,9 @@ export default function ContextualBanditDetailPage({
             >
               <div className="row">
                 <DetailSectionColumn label="Decision Metric">
-                  {renderMetricList(cb.goalMetrics.slice(0, 1))}
+                  {renderMetricList(
+                    cb.decisionMetric ? [cb.decisionMetric] : [],
+                  )}
                 </DetailSectionColumn>
               </div>
             </DetailSectionBox>

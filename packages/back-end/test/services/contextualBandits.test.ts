@@ -52,9 +52,8 @@ function makeCb(
     minUsersPerLeaf: 100,
     maxLeaves: 8,
     holdoutPercent: 0,
-    disableStickyBucketing: false,
     canonicalFormVersion: 1,
-    goalMetrics: ["met_g1"],
+    decisionMetric: "met_g1",
     metricOverrides: [],
     regressionAdjustmentEnabled: false,
     variations: [
@@ -152,7 +151,7 @@ describe("buildContextualBanditSnapshotSettings", () => {
     expect(settings.experimentId).toBe("cb_1");
     expect(settings.contextualBanditId).toBe("cb_1");
     expect(settings.banditWeightsSeed).toBe(0);
-    expect(settings.goalMetrics).toEqual(["met_g1"]);
+    expect(settings.decisionMetric).toEqual("met_g1");
     expect(settings.variations).toEqual([
       { id: "v0", weight: 0.4 },
       { id: "v1", weight: 0.6 },

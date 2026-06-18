@@ -57,9 +57,7 @@ export function useContextualBanditSearch({
         ? getProjectById(projectId)?.name
         : undefined;
       const projectIsDeReferenced = !!projectId && !projectName;
-      const metricIds = [cb.decisionMetric ?? "", ...cb.goalMetrics].filter(
-        Boolean,
-      );
+      const metricIds = [cb.decisionMetric ?? ""].filter(Boolean);
       const metricNames = Array.from(
         new Set(
           metricIds
@@ -91,7 +89,7 @@ export function useContextualBanditSearch({
     defaultSortField,
     defaultSortDir,
     updateSearchQueryOnChange: true,
-    searchFields: ["name^3", "trackingKey^2", "hypothesis^2", "description"],
+    searchFields: ["name^3", "trackingKey^2", "description"],
     searchTermFilters: {
       is: (item) => {
         const is: string[] = [];
@@ -105,7 +103,6 @@ export function useContextualBanditSearch({
       has: (item) => {
         const has: string[] = [];
         if (item.project) has.push("project");
-        if (item.hypothesis?.trim()?.length) has.push("hypothesis");
         if (item.description?.trim()?.length) has.push("description");
         return has;
       },
@@ -121,11 +118,7 @@ export function useContextualBanditSearch({
       owner: (item) => [item.owner, item.ownerName],
       tag: (item) => item.tags,
       metric: (item) =>
-        [
-          ...item.metricNames,
-          item.decisionMetric ?? "",
-          ...item.goalMetrics,
-        ].filter(Boolean),
+        [...item.metricNames, item.decisionMetric ?? ""].filter(Boolean),
       project: (item) => [item.projectId ?? "", item.projectName ?? ""],
       datasource: (item) => item.datasource,
     },

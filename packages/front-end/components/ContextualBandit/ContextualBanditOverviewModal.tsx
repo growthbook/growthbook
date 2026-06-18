@@ -19,7 +19,6 @@ export default function ContextualBanditOverviewModal({
     defaultValues: {
       name: cb.name,
       trackingKey: cb.trackingKey,
-      hypothesis: cb.hypothesis ?? "",
       owner: cb.owner ?? "",
     },
   });
@@ -37,7 +36,6 @@ export default function ContextualBanditOverviewModal({
           body: JSON.stringify({
             name: data.name.trim(),
             trackingKey: data.trackingKey,
-            hypothesis: data.hypothesis,
             owner: data.owner,
           }),
         });
@@ -49,13 +47,6 @@ export default function ContextualBanditOverviewModal({
         label="Tracking Key"
         helpText="Unique identifier used to track impressions and analyze results"
         {...form.register("trackingKey")}
-      />
-      <Field
-        label="Hypothesis"
-        textarea
-        minRows={2}
-        {...form.register("hypothesis")}
-        placeholder="What behavior are you trying to optimize?"
       />
       <div className="form-group">
         <label>Owner</label>

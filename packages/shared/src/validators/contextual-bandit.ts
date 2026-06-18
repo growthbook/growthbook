@@ -29,13 +29,11 @@ export const contextualBanditValidator = baseSchema
   .extend({
     name: z.string(),
     description: z.string().optional(),
-    hypothesis: z.string().optional(),
     /** Empty string ("") = no project. */
     project: z.string().optional(),
     owner: ownerField,
     tags: z.array(z.string()),
     archived: z.boolean(),
-    customFields: z.record(z.string(), z.any()).optional(),
 
     status: z.enum(contextualBanditStatus),
     dateStarted: z.date().optional(),
@@ -43,14 +41,6 @@ export const contextualBanditValidator = baseSchema
 
     trackingKey: z.string(),
     hashAttribute: z.string(),
-    fallbackAttribute: z.string().optional(),
-    hashVersion: z.union([z.literal(1), z.literal(2)]),
-    /**
-     * Inverted-from-original `stickyBucketing` so `false` (the default supplied
-     * via `defaultValues` to satisfy the eslint ban on `.default()`) matches
-     * the rest of the platform's hash-rule conventions.
-     */
-    disableStickyBucketing: z.boolean(),
 
     variations: z.array(variation),
 
@@ -59,9 +49,7 @@ export const contextualBanditValidator = baseSchema
     datasourceId: z.string(),
     datasource: z.string(),
     contextualBanditQueryId: z.string(),
-    segment: z.string().optional(),
     queryFilter: z.string().optional(),
-    goalMetrics: z.array(z.string()),
     activationMetric: z.string().optional(),
     metricOverrides: z.array(metricOverride).optional(),
     defaultMetricPriorSettings: priorSettingsValidator,
@@ -142,13 +130,11 @@ export const apiContextualBanditValidator = namedSchema(
   apiBaseSchema.safeExtend({
     name: z.string(),
     description: z.string().optional(),
-    hypothesis: z.string().optional(),
     project: z.string().optional(),
     owner: ownerField,
     ownerEmail: ownerEmailField,
     tags: z.array(z.string()),
     archived: z.boolean(),
-    customFields: z.record(z.string(), z.any()).optional(),
 
     status: z.enum(contextualBanditStatus),
     dateStarted: z.iso.datetime().optional(),
@@ -156,16 +142,11 @@ export const apiContextualBanditValidator = namedSchema(
 
     trackingKey: z.string(),
     hashAttribute: z.string(),
-    fallbackAttribute: z.string().optional(),
-    hashVersion: z.union([z.literal(1), z.literal(2)]),
-    disableStickyBucketing: z.boolean(),
     variations: z.array(apiContextualBanditVariation),
 
     datasource: z.string(),
     contextualBanditQueryId: z.string(),
-    segment: z.string().optional(),
     queryFilter: z.string().optional(),
-    goalMetrics: z.array(z.string()),
     activationMetric: z.string().optional(),
     skipPartialData: z.boolean().optional(),
     regressionAdjustmentEnabled: z.boolean().optional(),
@@ -211,12 +192,7 @@ export const apiCreateContextualBanditBody = z.strictObject({
   trackingKey: z.string(),
   hashAttribute: z.string().optional(),
 
-  disableStickyBucketing: z.boolean().optional(),
-  fallbackAttribute: z.string().optional(),
-  hypothesis: z.string().optional(),
-  segment: z.string().optional(),
-  customFields: z.record(z.string(), z.any()).optional(),
-  goalMetrics: z.array(z.string()),
+  decisionMetric: z.string(),
 
   variations: z.array(
     z.object({
@@ -237,7 +213,6 @@ export const apiCreateContextualBanditBody = z.strictObject({
   regressionAdjustmentEnabled: z.boolean().optional(),
 
   contextualAttributes: z.array(z.string()),
-  decisionMetric: z.string().optional(),
   minUsersPerLeaf: z.number().int().positive().optional(),
   maxLeaves: z.number().int().positive().optional(),
 });
@@ -249,24 +224,18 @@ export type ApiCreateContextualBanditBody = z.infer<
 export const apiUpdateContextualBanditBody = z.object({
   name: z.string().optional(),
   description: z.string().optional(),
-  hypothesis: z.string().optional(),
   project: z.string().optional(),
   owner: ownerInputField.optional(),
   tags: z.array(z.string()).optional(),
-  customFields: z.record(z.string(), z.any()).optional(),
 
   trackingKey: z.string().optional(),
   hashAttribute: z.string().optional(),
-  fallbackAttribute: z.string().optional(),
-  disableStickyBucketing: z.boolean().optional(),
 
   variations: z.array(variation).optional(),
 
   datasource: z.string().optional(),
   contextualBanditQueryId: z.string().optional(),
-  segment: z.string().optional(),
   queryFilter: z.string().optional(),
-  goalMetrics: z.array(z.string()).optional(),
   activationMetric: z.string().optional(),
   metricOverrides: z.array(metricOverride).optional(),
   skipPartialData: z.boolean().optional(),
@@ -295,21 +264,15 @@ export const CONTEXTUAL_BANDIT_API_UPDATE_FIELDS = [
   // @lukesonnet check if all these fields are allowed to be updated
   "name",
   "description",
-  "hypothesis",
   "project",
   "owner",
   "tags",
-  "customFields",
   "trackingKey",
   "hashAttribute",
-  "fallbackAttribute",
-  "disableStickyBucketing",
   "variations",
   "datasource",
   "contextualBanditQueryId",
-  "segment",
   "queryFilter",
-  "goalMetrics",
   "activationMetric",
   "metricOverrides",
   "skipPartialData",
@@ -352,10 +315,6 @@ export const apiContextualBanditRefreshReturn = z.object({
   snapshotId: z.string(),
   cbeId: z.string().optional(),
 });
-
-// Contextual Bandit-native read endpoints: not wired through the spec-pattern apiConfig because
-// the TS inference cascade across too many spec-style customHandlers is unworkable;
-// registered as standalone routes in `contextual-bandits.router.ts` instead.
 
 const contextualBanditIdAndSnapshotParam = z
   .object({

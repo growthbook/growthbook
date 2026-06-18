@@ -15,7 +15,6 @@ type FormValues = {
   contextualBanditQueryId: string;
   regressionAdjustmentEnabled: boolean;
   activationMetric: string;
-  segment: string;
   queryFilter: string;
   skipPartialData: boolean;
 };
@@ -30,8 +29,7 @@ export default function ContextualBanditAnalysisSettingsModal({
   close: () => void;
 }) {
   const { apiCall } = useAuth();
-  const { datasources, getDatasourceById, segments, metrics } =
-    useDefinitions();
+  const { datasources, getDatasourceById, metrics } = useDefinitions();
   const settings = useOrgSettings();
 
   const form = useForm<FormValues>({
@@ -40,7 +38,6 @@ export default function ContextualBanditAnalysisSettingsModal({
       contextualBanditQueryId: cb.contextualBanditQueryId ?? "",
       regressionAdjustmentEnabled: cb.regressionAdjustmentEnabled ?? false,
       activationMetric: cb.activationMetric ?? "",
-      segment: cb.segment ?? "",
       queryFilter: cb.queryFilter ?? "",
       skipPartialData: cb.skipPartialData ?? false,
     },
@@ -80,11 +77,6 @@ export default function ContextualBanditAnalysisSettingsModal({
     [metrics, watchedDatasource],
   );
 
-  const segmentsForDatasource = useMemo(
-    () => segments.filter((s) => s.datasource === watchedDatasource),
-    [segments, watchedDatasource],
-  );
-
   return (
     <ModalStandard
       open
@@ -108,7 +100,6 @@ export default function ContextualBanditAnalysisSettingsModal({
             contextualAttributes,
             regressionAdjustmentEnabled: data.regressionAdjustmentEnabled,
             activationMetric: data.activationMetric || undefined,
-            segment: data.segment || undefined,
             queryFilter: data.queryFilter || undefined,
             skipPartialData: data.skipPartialData,
           }),
@@ -122,7 +113,6 @@ export default function ContextualBanditAnalysisSettingsModal({
         onChange={(v) => {
           form.setValue("datasource", v);
           form.setValue("activationMetric", "");
-          form.setValue("segment", "");
         }}
         options={datasources.map((d) => ({
           value: d.id,
@@ -193,20 +183,6 @@ export default function ContextualBanditAnalysisSettingsModal({
         helpText="Only users who convert on this metric will be included in analysis."
         disabled={!watchedDatasource}
       />
-
-      {segmentsForDatasource.length > 0 ? (
-        <SelectField
-          label="Segment"
-          value={form.watch("segment")}
-          onChange={(v) => form.setValue("segment", v)}
-          initialOption="None"
-          options={segmentsForDatasource.map((s) => ({
-            value: s.id,
-            label: s.name,
-          }))}
-          helpText="Restrict analysis to a specific segment of users."
-        />
-      ) : null}
 
       <Field
         label="Query Filter"

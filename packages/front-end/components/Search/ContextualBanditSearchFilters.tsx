@@ -63,7 +63,6 @@ const ContextualBanditSearchFilters: FC<
       };
 
       if (cb.decisionMetric) enableMetric(cb.decisionMetric);
-      cb.goalMetrics?.forEach(enableMetric);
     });
 
     return map;

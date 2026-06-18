@@ -18,7 +18,7 @@ export const contextualBanditSnapshotSettingsValidator = z
     userIdType: z.string(),
     contextualAttributes: z.array(z.string()),
 
-    goalMetrics: z.array(z.string()),
+    decisionMetric: z.string(),
     metricSettings: z.record(z.string(), z.unknown()),
 
     variations: z.array(
