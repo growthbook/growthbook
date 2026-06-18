@@ -5,8 +5,8 @@ import {
   Comment,
 } from "shared/types/discussion";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import { date } from "shared/dates";
-import { Box, Card, Flex, IconButton, Separator } from "@radix-ui/themes";
+import { datetime } from "shared/dates";
+import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import { useUser } from "@/services/UserContext";
@@ -16,7 +16,7 @@ import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import LoadingSpinner from "./LoadingSpinner";
-import EventUser from "./Avatar/EventUser";
+import CommentCard from "./Comments/CommentCard";
 import CommentForm from "./CommentForm";
 import Markdown from "./Markdown/Markdown";
 
@@ -91,95 +91,65 @@ const DiscussionThread: FC<{
                       onCancel={() => setEdit(null)}
                     />
                   ) : (
-                    <Flex align="start" gap="3">
-                      <Box flexShrink="0" pt="2">
-                        <EventUser
-                          user={eventUser}
-                          display="avatar"
-                          size="sm"
-                        />
-                      </Box>
-                      <Card
-                        size="1"
-                        style={{ overflow: "hidden", flexGrow: 1 }}
-                      >
-                        <div
-                          style={{
-                            position: "absolute",
-                            left: 0,
-                            top: 0,
-                            bottom: 0,
-                            width: 4,
-                            backgroundColor: "var(--violet-7)",
-                          }}
-                        />
-                        <Box px="1">
-                          <Flex justify="between" align="center" mb="2" gap="2">
-                            <Flex align="center" gap="2" wrap="wrap">
-                              <EventUser
-                                user={eventUser}
-                                display="name-email"
-                                size="sm"
-                              />
-                              <Text color="text-low" size="small">
-                                commented on {date(comment.date)}
-                              </Text>
-                              {comment.edited && (
-                                <Text
-                                  color="text-low"
-                                  size="small"
-                                  fontStyle="italic"
-                                >
-                                  &bull; edited
-                                </Text>
-                              )}
-                            </Flex>
-                            {comment.userId === userId && (
-                              <DropdownMenu
-                                trigger={
-                                  <IconButton
-                                    variant="ghost"
-                                    color="gray"
-                                    radius="full"
-                                    size="2"
-                                    highContrast
-                                  >
-                                    <BsThreeDotsVertical size={14} />
-                                  </IconButton>
-                                }
-                                variant="soft"
-                                menuPlacement="end"
+                    <CommentCard
+                      user={eventUser}
+                      metadata={`commented on ${datetime(comment.date)}`}
+                      metadataExtra={
+                        comment.edited && (
+                          <Text
+                            color="text-low"
+                            size="small"
+                            fontStyle="italic"
+                          >
+                            &bull; edited
+                          </Text>
+                        )
+                      }
+                      actions={
+                        comment.userId === userId && (
+                          <DropdownMenu
+                            trigger={
+                              <IconButton
+                                variant="ghost"
+                                color="gray"
+                                radius="full"
+                                size="2"
+                                highContrast
                               >
-                                <DropdownMenuItem onClick={() => setEdit(i)}>
-                                  Edit
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  color="red"
-                                  confirmation={{
-                                    confirmationTitle: "Delete Comment",
-                                    cta: "Delete",
-                                    submit: async () => {
-                                      await apiCall(
-                                        `/discussion/${type}/${id}/${i}`,
-                                        { method: "DELETE" },
-                                      );
-                                      mutate();
-                                    },
-                                  }}
-                                >
-                                  Delete
-                                </DropdownMenuItem>
-                              </DropdownMenu>
-                            )}
-                          </Flex>
-                          <Box pt="1">
-                            <Markdown className="speech-bubble">
-                              {comment.content || ""}
-                            </Markdown>
-                          </Box>
-                        </Box>
-                      </Card>
-                    </Flex>
+                                <BsThreeDotsVertical size={14} />
+                              </IconButton>
+                            }
+                            variant="soft"
+                            menuPlacement="end"
+                          >
+                            <DropdownMenuItem onClick={() => setEdit(i)}>
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              color="red"
+                              confirmation={{
+                                confirmationTitle: "Delete Comment",
+                                cta: "Delete",
+                                submit: async () => {
+                                  await apiCall(
+                                    `/discussion/${type}/${id}/${i}`,
+                                    { method: "DELETE" },
+                                  );
+                                  mutate();
+                                },
+                              }}
+                            >
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenu>
+                        )
+                      }
+                      body={
+                        <Markdown className="speech-bubble">
+                          {comment.content || ""}
+                        </Markdown>
+                      }
+                    />
                   )}
                 </Box>
               </Flex>

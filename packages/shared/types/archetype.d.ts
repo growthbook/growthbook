@@ -6,6 +6,7 @@ export interface ArchetypeInterface {
   owner: string;
   isPublic: boolean;
   projects?: string[];
+  environments?: string[];
   attributes: string;
   dateUpdated: Date;
   dateCreated: Date;

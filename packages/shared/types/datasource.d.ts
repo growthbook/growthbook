@@ -11,6 +11,7 @@ import { DatabricksConnectionParams } from "./integrations/databricks";
 import { MetricType } from "./metric";
 import { MssqlConnectionParams } from "./integrations/mssql";
 import { FactTableColumnType } from "./fact-table";
+import { EventForwarderConfigWithMetadata } from "./event-forwarder";
 
 export type DataSourceType =
   | "growthbook_clickhouse"
@@ -59,6 +60,7 @@ export type SchemaFormat =
   | "firebase"
   | "keen"
   | "clevertap"
+  | "eventForwarder"
   | "custom";
 
 export type AutoFactTableSchemas = "segment" | "rudderstack" | "amplitude";
@@ -146,6 +148,7 @@ export interface DataSourceProperties {
   hasCountDistinctHLL?: boolean;
   hasQuantileSketch?: boolean;
   hasIncrementalRefresh?: boolean;
+  hasArrayQuantileGrid?: boolean;
   maxColumns: number;
 }
 
@@ -153,6 +156,7 @@ type WithParams<B, P> = Omit<B, "params"> & {
   params: P;
   properties?: DataSourceProperties;
   decryptionError: boolean;
+  eventForwarderConfig?: EventForwarderConfigWithMetadata | null;
 };
 
 export type IdentityJoinQuery = {
@@ -177,11 +181,17 @@ export interface ExposureQuery {
   dimensionSlicesId?: string;
   dimensionMetadata?: ExperimentDimensionMetadata[];
   error?: string;
+  /** Set to "api" for queries auto-created by Event Forwarder (not deletable in UI). */
+  managedBy?: "" | "api";
 }
 
 export interface FeatureUsageQuery {
   id: string;
   query: string;
+  description?: string;
+  error?: string;
+  /** Set to "api" for queries auto-created by Event Forwarder (not deletable in UI). */
+  managedBy?: "" | "api";
 }
 
 export interface UserIdType {

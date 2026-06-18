@@ -137,6 +137,10 @@ export type ResultsTableProps = {
   dimensionValue?: string;
   valueColumnWidth?: number;
   labelMaxWidth?: number;
+  // When the underlying analysis uses one-sided intervals (e.g. safe
+  // rollouts), render CIs as one-sided: a single bound + open side, with the
+  // domain/range anchored at 0 rather than the fake (±Infinity) bound.
+  oneSided?: boolean;
 };
 
 const ROW_HEIGHT = 46;
@@ -211,6 +215,7 @@ export default function ResultsTable({
   dimensionValue,
   valueColumnWidth = 130,
   labelMaxWidth = 75,
+  oneSided = false,
 }: ResultsTableProps) {
   if (variationFilter?.includes(baselineRow)) {
     variationFilter = variationFilter.filter((v) => v !== baselineRow);
@@ -419,7 +424,7 @@ export default function ResultsTable({
   );
   const compactResults = filteredVariations.length <= 2;
 
-  const domain = useDomain(filteredVariations, rows, differenceType);
+  const domain = useDomain(filteredVariations, rows, differenceType, oneSided);
 
   const rowsResults: (RowResults | "query error" | RowError | null)[][] =
     useMemo(() => {
@@ -1177,6 +1182,7 @@ export default function ResultsTable({
                                             significant={rowResults.significant}
                                             baseline={baseline}
                                             domain={domain}
+                                            oneSided={oneSided}
                                             metric={row.metric}
                                             stats={stats}
                                             id={`${id}_violin_row${i}_var${j}_${
@@ -1324,6 +1330,7 @@ export default function ResultsTable({
                                           }
                                           dimensionId={dimensionId}
                                           dimensionValue={dimensionValue}
+                                          oneSided={oneSided}
                                         />
                                       </div>
                                     </div>

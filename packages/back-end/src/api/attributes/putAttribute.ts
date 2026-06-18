@@ -5,6 +5,7 @@ import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import { syncManagedWarehouseIdentifiersOnAttributeChange } from "back-end/src/services/clickhouse";
+import { syncEventForwarderAfterAttributeSchemaChange } from "back-end/src/services/eventForwarder/attributeSync";
 import { validatePayload } from "./validations";
 
 export const putAttribute = createApiRequestHandler(putAttributeValidator)(
@@ -46,11 +47,16 @@ export const putAttribute = createApiRequestHandler(putAttributeValidator)(
 
     await updateOrganization(org.id, updates);
 
+    const updatedAttributeSchema = updates.settings?.attributeSchema ?? [];
     await syncManagedWarehouseIdentifiersOnAttributeChange(
       req.context,
-      updates.settings?.attributeSchema,
+      updatedAttributeSchema,
       !!attribute.hashAttribute || !!updatedAttribute.hashAttribute,
     );
+
+    await syncEventForwarderAfterAttributeSchemaChange(req.context, {
+      attributeSchema: updatedAttributeSchema,
+    });
 
     await req.audit({
       event: "attribute.update",

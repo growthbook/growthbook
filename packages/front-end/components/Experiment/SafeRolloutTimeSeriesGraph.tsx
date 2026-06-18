@@ -32,7 +32,6 @@ export type TimeSeriesEventMarker = {
 type SafeRolloutTimeSeriesGraphProps = {
   data: MetricTimeSeries;
   xDateRange?: [undefined, undefined] | [Date, Date];
-  inverse?: boolean;
   eventMarkers?: TimeSeriesEventMarker[];
   ssrPolyfills?: SSRPolyfills;
 };
@@ -40,7 +39,6 @@ type SafeRolloutTimeSeriesGraphProps = {
 export default function SafeRolloutTimeSeriesGraph({
   data,
   xDateRange,
-  inverse,
   eventMarkers,
   ssrPolyfills,
 }: SafeRolloutTimeSeriesGraphProps) {
@@ -50,7 +48,6 @@ export default function SafeRolloutTimeSeriesGraph({
         <SafeRolloutTimeSeriesGraphContent
           data={data}
           xDateRange={xDateRange}
-          inverse={inverse}
           eventMarkers={eventMarkers}
           width={width}
           height={height}
@@ -75,7 +72,6 @@ type DataPoint = {
 const SafeRolloutTimeSeriesGraphContent = ({
   data,
   xDateRange,
-  inverse = false,
   eventMarkers,
   width,
   height,
@@ -176,15 +172,15 @@ const SafeRolloutTimeSeriesGraphContent = ({
     .flatMap((d) => {
       const ciResult = getNonInfiniteSideOfCI(d.variations[1]);
 
-      // Determine if this CI value is on the "wrong" side of zero.
-      // For inverse metrics, the "bad" direction is flipped.
+      // Determine if this CI value is on the "wrong" side of zero. Safe
+      // rollouts use one-sided intervals and the back-end already picks the
+      // direction from the metric's `inverse` flag (a "greater" test for
+      // inverse metrics, a "lesser" test otherwise). The finite bound is
+      // therefore always the boundary pointing toward harm, so a regression is
+      // simply that bound crossing zero — no extra `inverse` adjustment here.
       const isNegative =
         ciResult.value !== null &&
-        (inverse
-          ? (ciResult.isUpperBound && ciResult.value > 0) ||
-            (!ciResult.isUpperBound && ciResult.value < 0)
-          : (ciResult.isUpperBound && ciResult.value < 0) ||
-            (!ciResult.isUpperBound && ciResult.value > 0));
+        (ciResult.isUpperBound ? ciResult.value < 0 : ciResult.value > 0);
 
       return {
         x: xScale(d.date),
@@ -419,7 +415,6 @@ const SafeRolloutTimeSeriesGraphContent = ({
                   tooltipData,
                   formatter,
                   formatterOptions,
-                  inverse,
                   metric?.name,
                 )}
               </div>
@@ -434,7 +429,6 @@ function getTooltipContent(
   tooltipData: { datum: DataPoint; index: number },
   formatter: (value: number, options?: Intl.NumberFormatOptions) => string,
   formatterOptions: Intl.NumberFormatOptions,
-  inverse = false,
   metricName?: string,
 ) {
   const rolloutVariation = tooltipData.datum.variations?.find(
@@ -447,11 +441,12 @@ function getTooltipContent(
 
   const ci = getNonInfiniteSideOfCI(rolloutVariation);
 
-  const isRegression = inverse
-    ? (ci.isUpperBound && (ci.value ?? 0) > 0) ||
-      (!ci.isUpperBound && (ci.value ?? 0) < 0)
-    : (ci.isUpperBound && (ci.value ?? 0) < 0) ||
-      (!ci.isUpperBound && (ci.value ?? 0) > 0);
+  // The finite bound of the one-sided CI is the boundary toward harm (the
+  // back-end already orients it via the metric's `inverse` flag), so a
+  // regression is that bound crossing zero into the harmful side.
+  const isRegression = ci.isUpperBound
+    ? (ci.value ?? 0) < 0
+    : (ci.value ?? 0) > 0;
 
   const getStatusInfo = () => {
     if (isRegression) {

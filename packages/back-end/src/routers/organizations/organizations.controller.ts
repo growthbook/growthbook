@@ -3,8 +3,8 @@ import { cloneDeep } from "lodash";
 import { freeEmailDomains } from "free-email-domains-typescript";
 import {
   experimentHasLinkedChanges,
-  getRulesForEnvironment,
   getNamespaceRanges,
+  getRulesForEnvironment,
   parseIntWithDefaultCapped,
 } from "shared/util";
 import {
@@ -55,10 +55,7 @@ import {
   revokeInvite,
   setLicenseKey,
 } from "back-end/src/services/organizations";
-import {
-  getNonSensitiveParams,
-  getSourceIntegrationObject,
-} from "back-end/src/services/datasource";
+import { getDataSourcesWithParams } from "back-end/src/services/datasourceResponse";
 import { updatePassword } from "back-end/src/services/users";
 import { getAllTags } from "back-end/src/models/TagModel";
 import {
@@ -102,6 +99,11 @@ import {
   addGetStartedChecklistItem,
 } from "back-end/src/models/OrganizationModel";
 import { ConfigFile } from "back-end/src/init/config";
+import {
+  classifyEmail,
+  parseAttributionCookie,
+  postSignupAttributionToLicenseServer,
+} from "back-end/src/util/signup-attribution";
 import { usingOpenId } from "back-end/src/services/auth";
 import { getSSOConnectionSummary } from "back-end/src/models/SSOConnectionModel";
 import { getUserPermissions } from "back-end/src/util/organization.util";
@@ -146,6 +148,7 @@ import {
 } from "back-end/src/enterprise";
 import { getUsageFromCache } from "back-end/src/enterprise/billing";
 import { logger } from "back-end/src/util/logger";
+import { validatePriorSettings } from "back-end/src/util/priors";
 import {
   getInstallation,
   setInstallationName,
@@ -191,22 +194,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
   return res.status(200).json({
     status: 200,
     metrics,
-    datasources: datasources.map((d) => {
-      const integration = getSourceIntegrationObject(context, d);
-      return {
-        id: d.id,
-        name: d.name,
-        description: d.description,
-        type: d.type,
-        settings: d.settings,
-        params: getNonSensitiveParams(integration),
-        projects: d.projects || [],
-        properties: integration.getSourceProperties(),
-        decryptionError: integration.decryptionError || false,
-        dateCreated: d.dateCreated,
-        dateUpdated: d.dateUpdated,
-      };
-    }),
+    datasources: await getDataSourcesWithParams(context, datasources),
     dimensions,
     segments,
     metricGroups,
@@ -851,6 +839,7 @@ export async function getOrganization(
       organization: null,
     });
   }
+
   const context = getContextFromReq(req);
   const { org, userId } = context;
   const {
@@ -978,6 +967,7 @@ export async function getOrganization(
         environments: filteredEnvironments,
       },
       autoApproveMembers: org.autoApproveMembers,
+      suspended: org.suspended,
       members: org.members,
       messages: messages || [],
       pendingMembers: org.pendingMembers,
@@ -1515,6 +1505,26 @@ export async function signup(
       demographicData,
     });
 
+    // Forward marketing attribution to central-license-server for the new
+    // org owner (best-effort, Cloud-only). Failures are logged and swallowed
+    // so attribution issues never block org creation.
+    if (IS_CLOUD) {
+      try {
+        await postSignupAttributionToLicenseServer({
+          organizationId: org.id,
+          userId: req.userId,
+          email: req.email,
+          emailType: classifyEmail(req.email),
+          attribution: parseAttributionCookie(req),
+        });
+      } catch (e) {
+        req.log.error(
+          e,
+          "Failed to forward signup attribution to license server",
+        );
+      }
+    }
+
     req.organization = org;
     const context = getContextFromReq(req);
 
@@ -1671,6 +1681,8 @@ export async function putOrganization(
       orig.licenseKey = org.licenseKey;
       await setLicenseKey(org, updates.licenseKey);
     }
+
+    validatePriorSettings(updates.settings?.metricDefaults?.priorSettings);
 
     await updateOrganization(org.id, updates);
 

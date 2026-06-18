@@ -3,6 +3,7 @@ import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import { useFormContext, UseFormReturn } from "react-hook-form";
 import {
   AI_PROMPT_DEFAULTS,
+  AI_IMAGE_MODELS,
   AIPromptInterface,
   AIModel,
   EmbeddingModel,
@@ -55,6 +56,42 @@ const EMBEDDING_MODEL_LABELS = ensureValuesExactlyMatchUnion<EmbeddingModel>()([
   },
   { value: "gemini-embedding-001", label: "Google: gemini-embedding-001" },
 ]);
+
+// Curated list of image-generation models the Visual Editor supports.
+// We present a closed dropdown rather than free text — letting users
+// type an arbitrary model name just produces 404s at generation time.
+// The empty value means "use the GEMINI_IMAGE_MODEL env var / canonical
+// default". The rest is sourced from the shared AI_IMAGE_MODELS
+// registry so adding a new model is a one-line change there — no fork
+// needed in the front-end. The selected id is stored on the org
+// settings and dispatched to the right Vercel AI SDK provider at gen
+// time by back-end/src/services/imageGeneration.ts.
+//
+// Models are grouped by whether they accept a reference image. This is
+// an important capability gap (the visual editor's "use current image
+// as context" flow only works on reference-capable models), so we
+// surface it as a top-level grouping in the dropdown rather than
+// burying it in helpText. Inside each group, registry order is
+// preserved (which groups by provider: Google → OpenAI → xAI).
+const VISUAL_EDITOR_IMAGE_MODEL_OPTIONS = (() => {
+  const referenceCapable = AI_IMAGE_MODELS.filter(
+    (m) => m.supportsReferenceImage,
+  ).map((m) => ({ value: m.id, label: m.label }));
+  const textOnly = AI_IMAGE_MODELS.filter((m) => !m.supportsReferenceImage).map(
+    (m) => ({ value: m.id, label: m.label }),
+  );
+  return [
+    { value: "", label: "Use default (Gemini 2.5 Flash Image)" },
+    {
+      label: "Supports reference image",
+      options: referenceCapable,
+    },
+    {
+      label: "Text prompt only",
+      options: textOnly,
+    },
+  ];
+})();
 
 const hasAPIforModel = (model: AIModel | string) => {
   let provider;
@@ -346,6 +383,7 @@ export default function AISettings({
                       options={EMBEDDING_MODEL_LABELS}
                     />
                   </Box>
+
                   {(() => {
                     const defaultModel = form.watch("defaultAIModel");
                     const usedProviders = new Set<string>();
@@ -674,6 +712,107 @@ export default function AISettings({
                     </>
                   </Box>
                 </>
+              </Flex>
+            </Flex>
+          </Frame>
+          {/* Visual Editor frame — sits between Prompts and Embeddings.
+              Owns per-surface model overrides + the brand-guidelines
+              context that gets prepended to every visual-editor AI
+              call (text edits + image gen). All fields gated on
+              !isCloud() in the inner UI; the frame itself renders so
+              cloud users at least see the section exists. */}
+          <Frame>
+            <Flex gap="4">
+              <Box width="220px" flexShrink="0">
+                <Heading size="4" as="h4">
+                  Visual Editor
+                </Heading>
+              </Box>
+
+              <Flex align="start" direction="column" flexGrow="1" pt="6">
+                <Box mb="6" width="100%">
+                  <Text size="2" mb="3" as="div" className="text-muted">
+                    Settings for the GrowthBook Visual Editor Chrome extension.
+                    Per-surface model overrides + a free-text brand context
+                    that&rsquo;s passed to every AI call.
+                  </Text>
+
+                  {/* Brand context / guidelines. Available on both
+                      cloud and self-hosted — it's a pure-text setting
+                      that doesn't depend on local API keys. Prepended
+                      to text-edit AND image-gen prompts on the back
+                      end (see postAIEdit / postAIImageGen). */}
+                  <Box mb="4">
+                    <Text
+                      as="label"
+                      htmlFor="visualEditorAIContext"
+                      size="2"
+                      className="font-weight-semibold"
+                    >
+                      Brand guidelines / additional context
+                    </Text>
+                    <Field
+                      textarea={true}
+                      id="visualEditorAIContext"
+                      placeholder={
+                        'e.g. "We\'re a B2B SaaS company. Brand colors: #6E56CF and #1F2D5C. Sentence-case CTAs. Friendly but professional tone."'
+                      }
+                      helpText="Optional. Prepended to every Visual Editor AI prompt (text edits + image generation) so the AI follows your brand voice and visual identity."
+                      {...form.register("visualEditorAIContext")}
+                    />
+                  </Box>
+
+                  {!isCloud() && (
+                    <>
+                      <Box mb="4">
+                        <Text
+                          as="label"
+                          htmlFor="visualEditorAIModel"
+                          size="2"
+                          className="font-weight-semibold"
+                        >
+                          Visual editor text model
+                        </Text>
+                        <SelectField
+                          id="visualEditorAIModel"
+                          helpText="Used for AI chat edits and AI suggestions in the extension. Leave blank to use the Default AI model."
+                          value={form.watch("visualEditorAIModel") || ""}
+                          onChange={(v) =>
+                            form.setValue("visualEditorAIModel", v)
+                          }
+                          options={[
+                            { value: "", label: "Use default AI model" },
+                            ...getAvailableAIModelOptions(),
+                          ]}
+                        />
+                        {form.watch("visualEditorAIModel") && (
+                          <ApiKeyWarning
+                            model={form.watch("visualEditorAIModel")}
+                          />
+                        )}
+                      </Box>
+                      <Box>
+                        <Text
+                          as="label"
+                          htmlFor="visualEditorImageModel"
+                          size="2"
+                          className="font-weight-semibold"
+                        >
+                          Visual editor image model
+                        </Text>
+                        <SelectField
+                          id="visualEditorImageModel"
+                          helpText="Models that support reference images can use an existing image as visual context (the visual editor's “use current image” flow). Text-only models generate from the prompt alone."
+                          value={form.watch("visualEditorImageModel") || ""}
+                          onChange={(v) =>
+                            form.setValue("visualEditorImageModel", v)
+                          }
+                          options={VISUAL_EDITOR_IMAGE_MODEL_OPTIONS}
+                        />
+                      </Box>
+                    </>
+                  )}
+                </Box>
               </Flex>
             </Flex>
           </Frame>

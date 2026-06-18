@@ -1,6 +1,18 @@
 import type { SqlLanguage } from "sql-formatter";
 import { DataType } from "./integrations";
 
+export type StringMatchOperator =
+  | "starts_with"
+  | "ends_with"
+  | "contains"
+  | "not_contains";
+
+export type StringMatchFn = (
+  columnExpr: string,
+  operator: StringMatchOperator,
+  value: string,
+) => string;
+
 /** One labeled column expanded per base row by {@link SqlDialect.unpivotLabeledPairs}. */
 export type UnpivotLabeledPair = {
   /** Logical name (unescaped); dialect may quote as a SQL string literal. */
@@ -42,6 +54,11 @@ export type DateTruncGranularity = "hour" | "day" | "week" | "month" | "year";
 
 export interface SqlDialect {
   escapeStringLiteral: (s: string) => string;
+  // Builds a string-match condition (LIKE or a warehouse-native equivalent).
+  // Owns LIKE wildcard escaping and any ESCAPE clause. Build it with
+  // createLikeStringMatchFn from shared/sql, passing this dialect's own
+  // escapeStringLiteral — the two must always agree or patterns break.
+  stringMatch: StringMatchFn;
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => string;
   evalBoolean: (col: string, value: boolean) => string;
   dateTrunc: (
@@ -101,6 +118,8 @@ export interface SqlDialect {
     nEventsCol: string,
     numQuantiles: number,
   ) => string;
+  hasArrayQuantileGrid: () => boolean;
+  quantileGridArrayLiteral: (elements: string[]) => string;
   unpivotLabeledPairs: (
     pairs: UnpivotLabeledPair[],
   ) => UnpivotLabeledPairsResult;
