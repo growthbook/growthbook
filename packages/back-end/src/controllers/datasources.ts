@@ -6,6 +6,8 @@ import { SQL_ROW_LIMIT } from "shared/sql";
 import {
   isEventForwarderAllowedUserIdTypesChange,
   getEventForwarderDatasourceParams,
+  buildManagedWarehouseExposureQueries,
+  getManagedWarehouseUserIdTypeSettings,
 } from "shared/util";
 import {
   PIPELINE_MODE_SUPPORTED_DATA_SOURCE_TYPES,
@@ -40,10 +42,6 @@ import { GoogleAnalyticsParams } from "shared/types/integrations/googleanalytics
 import type { ClickHouseConnectionParams } from "shared/types/integrations/clickhouse";
 import { FactTableColumnType } from "shared/types/fact-table";
 import { SDKAttributeSchema } from "shared/types/organization";
-import {
-  buildManagedWarehouseExposureQueries,
-  getManagedWarehouseUserIdTypeSettings,
-} from "shared/util";
 import { SQLExecutionError } from "back-end/src/util/errors";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
