@@ -1543,24 +1543,37 @@ export async function setRevisionScheduledPublish(
   }
 
   try {
-    await FeatureRevisionModel.updateOne(filter, {
-      $set: {
-        autoPublishOnApproval: true,
-        scheduledPublishAt,
-        scheduledPublishLockEdits: !!lockEdits,
-        scheduledPublishLockOthers: !!lockOthers,
-        dateUpdated: new Date(),
-        ...(bypassApproval ? { scheduledPublishBypassApproval: true } : {}),
-        ...(enabledBy !== null ? { autoPublishEnabledBy: enabledBy } : {}),
+    // Guard against a TOCTOU race: only arm a revision that's still active.
+    // Without the status predicate, a revision published/discarded between the
+    // caller's read and this write would get schedule/lock fields stamped back
+    // onto it — and a stale lock-others doc would keep occupying the partial
+    // unique index, blocking future schedules for the feature.
+    const { matchedCount } = await FeatureRevisionModel.updateOne(
+      { ...filter, status: { $in: [...ACTIVE_DRAFT_STATUSES] } },
+      {
+        $set: {
+          autoPublishOnApproval: true,
+          scheduledPublishAt,
+          scheduledPublishLockEdits: !!lockEdits,
+          scheduledPublishLockOthers: !!lockOthers,
+          dateUpdated: new Date(),
+          ...(bypassApproval ? { scheduledPublishBypassApproval: true } : {}),
+          ...(enabledBy !== null ? { autoPublishEnabledBy: enabledBy } : {}),
+        },
+        // Clear any prior poller-failure state so a reschedule doesn't keep the
+        // "stuck" UI or prematurely escalate logging on the next fire.
+        $unset: {
+          ...SCHEDULED_PUBLISH_FAILURE_UNSET,
+          ...(bypassApproval ? {} : { scheduledPublishBypassApproval: 1 }),
+          ...(enabledBy === null ? { autoPublishEnabledBy: 1 } : {}),
+        },
       },
-      // Clear any prior poller-failure state so a reschedule doesn't keep the
-      // "stuck" UI or prematurely escalate logging on the next fire.
-      $unset: {
-        ...SCHEDULED_PUBLISH_FAILURE_UNSET,
-        ...(bypassApproval ? {} : { scheduledPublishBypassApproval: 1 }),
-        ...(enabledBy === null ? { autoPublishEnabledBy: 1 } : {}),
-      },
-    });
+    );
+    if (!matchedCount) {
+      throw new Error(
+        "This revision can no longer be scheduled — it was published or discarded.",
+      );
+    }
   } catch (e) {
     if (isPublishLockIndexConflict(e)) {
       throw new Error(PUBLISH_LOCK_CONFLICT_MESSAGE);
