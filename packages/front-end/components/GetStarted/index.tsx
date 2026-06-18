@@ -26,6 +26,7 @@ import {
 import DocumentationSidebar from "@/components/GetStarted/DocumentationSidebar";
 import YouTubeLightBox from "@/components/GetStarted/YoutubeLightbox";
 import WorkspaceLinks from "@/components/GetStarted/WorkspaceLinks";
+import { HomeMarketingBanner } from "@/components/GetStarted/MarketingBanner";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import useSDKConnections from "@/hooks/useSDKConnections";
@@ -235,6 +236,7 @@ const GetStartedAndHomePage = (): React.ReactElement => {
         px={{ initial: "2", xs: "4", sm: "7" }}
         py={{ initial: "1", xs: "3", sm: "6" }}
       >
+        <HomeMarketingBanner />
         <Grid columns={`minmax(0, 1fr) ${DOCUMENTATION_SIDEBAR_WIDTH}`}>
           <Text size="7" weight="regular" mb="5" as="div">
             Home
