@@ -51,9 +51,11 @@ export function BackgroundRefreshErrorProvider({
   // depending on it (which would change their identity and re-run every
   // consumer's effect).
   const shownRef = useRef(false);
-  // The user manually dismissed the current run of failures; stay hidden until a
-  // brand-new key starts failing.
-  const dismissedRef = useRef(false);
+  // When the user dismisses, we snapshot the keys that were failing at that
+  // moment. We stay hidden until a key *outside* this snapshot starts failing (a
+  // brand-new problem) — a key that was already failing throwing a fresh Error on
+  // its next revalidation must not re-show the toast. `null` means "not dismissed".
+  const dismissedKeysRef = useRef<Set<string> | null>(null);
   const showTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const setShown = useCallback((next: boolean) => {
@@ -74,17 +76,23 @@ export function BackgroundRefreshErrorProvider({
     if (!hasErrors) {
       // Everything recovered (or unmounted) — reset and hide.
       clearTimer();
-      dismissedRef.current = false;
+      dismissedKeysRef.current = null;
       if (shownRef.current) setShown(false);
       return;
     }
 
     // User dismissed, or we're already showing / already waiting to show.
-    if (dismissedRef.current || shownRef.current || showTimer.current) return;
+    if (
+      dismissedKeysRef.current !== null ||
+      shownRef.current ||
+      showTimer.current
+    ) {
+      return;
+    }
 
     showTimer.current = setTimeout(() => {
       showTimer.current = null;
-      if (erroringKeys.current.size > 0 && !dismissedRef.current) {
+      if (erroringKeys.current.size > 0 && dismissedKeysRef.current === null) {
         setShown(true);
       }
     }, SHOW_DELAY_MS);
@@ -92,11 +100,13 @@ export function BackgroundRefreshErrorProvider({
 
   const report = useCallback(
     (key: string, error: Error) => {
-      const isNewKey = !erroringKeys.current.has(key);
       erroringKeys.current.set(key, error);
-      // A brand-new failing key undoes a prior manual dismissal.
-      if (isNewKey && dismissedRef.current) {
-        dismissedRef.current = false;
+      // A failure of a key the user didn't dismiss is a brand-new problem, so
+      // undo the dismissal. Keys in the dismiss snapshot stay suppressed even
+      // when they throw a fresh Error on a later revalidation.
+      const dismissedKeys = dismissedKeysRef.current;
+      if (dismissedKeys && !dismissedKeys.has(key)) {
+        dismissedKeysRef.current = null;
       }
       recompute();
     },
@@ -113,13 +123,14 @@ export function BackgroundRefreshErrorProvider({
   );
 
   const retryNow = useCallback(async () => {
-    const keys = erroringKeys.current;
-    // Revalidate exactly the keys that are currently failing.
+    // Snapshot the failing keys so a concurrent clear()/report() between here and
+    // SWR iterating its cache can't change which keys we revalidate.
+    const keys = new Set(erroringKeys.current.keys());
     await mutate((key) => typeof key === "string" && keys.has(key));
   }, [mutate]);
 
   const onDismiss = useCallback(() => {
-    dismissedRef.current = true;
+    dismissedKeysRef.current = new Set(erroringKeys.current.keys());
     clearTimer();
     setShown(false);
   }, [clearTimer, setShown]);

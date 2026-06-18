@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import useSWR from "swr";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
@@ -146,15 +146,22 @@ export function useBatchPrerequisiteStates({
   const hasData = data !== undefined;
   const refreshError = hasData ? error : undefined;
 
+  // Gate the effect on a stable boolean (not the per-failure Error identity) so it
+  // only runs when the presence of a background error toggles — see `useApi`.
+  const refreshErrorRef = useRef(refreshError);
+  refreshErrorRef.current = refreshError;
+  const hasRefreshError = refreshError !== undefined;
+
   useEffect(() => {
     if (!backgroundRefreshError || !key) return;
-    if (refreshError) {
-      backgroundRefreshError.report(key, refreshError);
+    const err = refreshErrorRef.current;
+    if (hasRefreshError && err) {
+      backgroundRefreshError.report(key, err);
     } else {
       backgroundRefreshError.clear(key);
     }
     return () => backgroundRefreshError.clear(key);
-  }, [backgroundRefreshError, key, refreshError]);
+  }, [backgroundRefreshError, key, hasRefreshError]);
 
   return {
     results: data?.results || null,

@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import useSWR, { SWRConfiguration } from "swr";
 import { useAuth } from "@/services/auth";
 import { useBackgroundRefreshError } from "@/services/BackgroundRefreshError";
@@ -52,17 +52,27 @@ export default function useApi<Response = unknown>(
   const hasData = swr.data !== undefined;
   const refreshError = hasData ? swr.error : undefined;
 
+  // The fetcher throws a *new* Error instance on every failed revalidation. Keep
+  // the latest one in a ref and gate the effect on a stable boolean, so it only
+  // runs when the *presence* of a background error toggles — not on every failed
+  // fetch (which would otherwise churn report()/clear() and perpetually reset the
+  // toast's debounce timer in the provider).
+  const refreshErrorRef = useRef(refreshError);
+  refreshErrorRef.current = refreshError;
+  const hasRefreshError = refreshError !== undefined;
+
   useEffect(() => {
     if (!backgroundRefreshError || !activeKey) return;
-    if (refreshError) {
-      backgroundRefreshError.report(activeKey, refreshError);
+    const err = refreshErrorRef.current;
+    if (hasRefreshError && err) {
+      backgroundRefreshError.report(activeKey, err);
     } else {
       backgroundRefreshError.clear(activeKey);
     }
     // Drop this key on unmount / key change (e.g. org switch) so a navigated-away
     // component can't keep the toast alive.
     return () => backgroundRefreshError.clear(activeKey);
-  }, [backgroundRefreshError, activeKey, refreshError]);
+  }, [backgroundRefreshError, activeKey, hasRefreshError]);
 
   return {
     data: swr.data,
