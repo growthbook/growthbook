@@ -1,9 +1,18 @@
-import { Box, Flex, Heading, Text } from "@radix-ui/themes";
+import {
+  Box,
+  Flex,
+  Heading,
+  IconButton,
+  Text,
+  Tooltip,
+} from "@radix-ui/themes";
 import { ReactNode } from "react";
 import { useFeatureValue } from "@growthbook/growthbook-react";
+import { PiX } from "react-icons/pi";
 import Badge from "@/ui/Badge";
 import Callout from "@/ui/Callout";
 import LinkButton from "@/ui/LinkButton";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 
 export type MarketingBannerProps = {
   /** Unique id — also used as the localStorage key for dismissal */
@@ -36,7 +45,13 @@ export default function MarketingBanner({
   dismissible = true,
   icon,
 }: MarketingBannerProps) {
+  const [dismissed, setDismissed] = useLocalStorage(
+    `marketing-banner:${id}`,
+    false,
+  );
   const badgeColor = tone === "beta" ? "teal" : "violet";
+
+  if (dismissible && dismissed) return null;
 
   return (
     <Callout
@@ -44,8 +59,6 @@ export default function MarketingBanner({
       color={badgeColor}
       icon={null}
       contentsAs="div"
-      dismissible={dismissible}
-      id={id}
       mb="5"
     >
       <Flex align="center" gap="4" wrap="wrap">
@@ -85,6 +98,20 @@ export default function MarketingBanner({
             {cta.copy}
           </LinkButton>
         ) : null}
+        {dismissible ? (
+          <Tooltip content="Dismiss">
+            <IconButton
+              variant="ghost"
+              color="gray"
+              size="1"
+              onClick={() => setDismissed(true)}
+              aria-label="Dismiss"
+              style={{ flexShrink: 0 }}
+            >
+              <PiX />
+            </IconButton>
+          </Tooltip>
+        ) : null}
       </Flex>
     </Callout>
   );
@@ -95,7 +122,7 @@ type MarketingBannerConfig = {
   subheader?: string;
   pill: string;
   button?: { copy: string; link: string };
-  dismissable?: boolean;
+  dismissible?: boolean;
 };
 
 // Slug derived from the title so changing the banner copy re-shows it to users
@@ -129,7 +156,7 @@ export function HomeMarketingBanner() {
       title={config.title}
       subheader={config.subheader}
       cta={cta}
-      dismissible={config.dismissable ?? true}
+      dismissible={config.dismissible ?? true}
     />
   );
 }
