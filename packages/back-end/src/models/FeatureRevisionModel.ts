@@ -1332,8 +1332,10 @@ export async function markRevisionAsReviewRequested(
 
   const unset: Record<string, 1> = {};
   if (enabledBy === null) unset.autoPublishEnabledBy = 1;
-  // Re-requesting review without a (new) schedule clears any stale one.
+  // Re-requesting review without a (new) schedule clears any stale one. With a
+  // new schedule, keep the schedule but still reset prior poller-failure state.
   if (!scheduled) Object.assign(unset, SCHEDULED_PUBLISH_UNSET);
+  else Object.assign(unset, SCHEDULED_PUBLISH_FAILURE_UNSET);
 
   try {
     await FeatureRevisionModel.updateOne(
@@ -1428,13 +1430,19 @@ export async function setAutoPublishOnApproval(
   );
 }
 
+// Poller-failure bookkeeping. Cleared on cancel and on every (re)arm so a fresh
+// schedule never inherits a prior schedule's "stuck" state or attempt count.
+const SCHEDULED_PUBLISH_FAILURE_UNSET = {
+  scheduledPublishAttempts: 1,
+  scheduledPublishLastError: 1,
+} as const;
+
 // Schedule fields cleared together on cancel or when leaving the review cycle.
 const SCHEDULED_PUBLISH_UNSET = {
   scheduledPublishAt: 1,
   scheduledPublishLockEdits: 1,
   scheduledPublishLockOthers: 1,
-  scheduledPublishAttempts: 1,
-  scheduledPublishLastError: 1,
+  ...SCHEDULED_PUBLISH_FAILURE_UNSET,
 } as const;
 
 export type ScheduledPublishInput = {
@@ -1530,7 +1538,12 @@ export async function setRevisionScheduledPublish(
         dateUpdated: new Date(),
         ...(enabledBy !== null ? { autoPublishEnabledBy: enabledBy } : {}),
       },
-      ...(enabledBy === null ? { $unset: { autoPublishEnabledBy: 1 } } : {}),
+      // Clear any prior poller-failure state so a reschedule doesn't keep the
+      // "stuck" UI or prematurely escalate logging on the next fire.
+      $unset: {
+        ...SCHEDULED_PUBLISH_FAILURE_UNSET,
+        ...(enabledBy === null ? { autoPublishEnabledBy: 1 } : {}),
+      },
     });
   } catch (e) {
     if (isPublishLockIndexConflict(e)) {
