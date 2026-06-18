@@ -1,5 +1,4 @@
-from dataclasses import field
-from typing import Any, Dict, List, Literal, Optional, Tuple, Union
+from typing import List, Literal, Optional, Tuple, Union
 
 from pydantic.dataclasses import dataclass
 import pandas as pd
@@ -65,7 +64,6 @@ class RealizedSettings:
 class SingleVariationResult:
     users: Optional[float]
     cr: Optional[float]
-    variationVariances: Optional[float]
     ci: Optional[ResponseCI]
 
 
@@ -80,59 +78,6 @@ class BanditResult:
     error: Optional[str]
     reweight: bool
     weightsWereUpdated: bool
-
-
-Context = dict[str, Any]
-
-
-@dataclass
-class ContextualBanditResponse:
-    context: Context
-    sampleSizePerVariation: Optional[List[float]]
-    variationMeans: Optional[List[float]]
-    variationVariances: Optional[List[float]]
-    updatedWeights: Optional[List[float]]
-    bestArmProbabilities: Optional[List[float]]
-    updateMessage: Optional[str]
-    error: Optional[str]
-
-
-@dataclass
-class ContextualBanditContextSummary:
-    """Per-context observed data (sample moments), as opposed to posterior moments."""
-
-    context: Context
-    sampleSizePerVariation: Optional[List[float]]
-    sampleMeans: Optional[List[float]]
-    sampleVariances: Optional[List[float]]
-    updatedWeights: Optional[List[float]]
-    bestArmProbabilities: Optional[List[float]]
-    updateMessage: Optional[str]
-    error: Optional[str]
-
-
-@dataclass
-class ContextualLeafMapEntry:
-    """JSON-serializable mapping from observed context attribute values to tree leaf id."""
-
-    context: Dict[str, str]
-    leafId: int
-
-
-@dataclass
-class ContextualBanditNoTreeResult:
-    """Container for per-context bandit results. responses maps context (str or tuple) to BanditResult."""
-
-    attributes: List[str]
-    responses: List[ContextualBanditResponse]
-
-
-@dataclass
-class ContextualBanditResult(ContextualBanditNoTreeResult):
-    """Tree fit output. ``leafMap`` uses tuple context keys until JSON serialization."""
-
-    responsesContext: List[ContextualBanditContextSummary]
-    leafMap: Any = field(default_factory=dict)
 
 
 @dataclass
@@ -267,6 +212,5 @@ class MultipleExperimentMetricAnalysis:
     id: str
     results: List[ExperimentMetricAnalysis]
     banditResult: Optional[BanditResult]
-    contextualBanditResult: Optional[ContextualBanditResult]
     error: Optional[str]
     traceback: Optional[str]

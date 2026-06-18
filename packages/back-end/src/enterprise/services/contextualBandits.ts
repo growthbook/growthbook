@@ -26,7 +26,7 @@ import {
 } from "back-end/src/enterprise/queryRunners/ContextualBanditResultsQueryRunner";
 import {
   ContextualBanditResult,
-  ContextualBanditSettingsForStatsEngine,
+  ContextualBanditStatsSettings,
 } from "./contextualBanditStats";
 
 export type ContextualBanditResultsForUi = {
@@ -383,24 +383,14 @@ export function buildSnapshotMetricRequestForCb(
   };
 }
 
-/** Whether updated CB variation weights are computed by the Python stats engine (`true`) or in TypeScript (`false`). */
-const UPDATE_WEIGHTS_USING_PYTHON = false;
-
 export function getContextualBanditSettingsForStatsEngine(
   cb: ContextualBanditInterface,
-  variations: { id: string; name: string }[],
-  currentWeightsByContext: Record<string, number[]>,
-): ContextualBanditSettingsForStatsEngine {
+  variationIds: string[],
+): ContextualBanditStatsSettings {
   return {
-    var_names: variations.map((v) => v.name),
-    var_ids: variations.map((v) => v.id),
-    reweight: true,
-    // Seed is a fixed 0 (matches `buildContextualBanditSnapshotSettings.banditWeightsSeed`).
-    bandit_weights_seed: 0,
-    contextual_attributes: cb.contextualAttributes,
-    current_weights_by_context: currentWeightsByContext,
-    max_leaves: cb.maxLeaves,
-    min_users_per_leaf: cb.minUsersPerLeaf,
-    update_weights_using_python: UPDATE_WEIGHTS_USING_PYTHON,
+    varIds: variationIds,
+    contextualAttributes: cb.contextualAttributes,
+    maxLeaves: cb.maxLeaves,
+    minUsersPerLeaf: cb.minUsersPerLeaf,
   };
 }

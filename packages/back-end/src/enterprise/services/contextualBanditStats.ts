@@ -1,40 +1,24 @@
-import {
-  contextualBanditAttrCol,
-  ExperimentMetricInterface,
-} from "shared/experiments";
+import { ExperimentMetricInterface } from "shared/experiments";
 import { ExperimentMetricQueryResponseRows } from "shared/types/integrations";
 import {
   ExperimentSnapshotAnalysisSettings,
   SnapshotMetricRequest,
 } from "shared/types/experiment-snapshot";
-import type {
-  ContextualBanditSettingsForStatsEngine as PythonContextualBanditSettings,
-  ContextualBanditResponseSnapshot,
-  ContextualBanditSnapshot,
-  ContextualLeafMapEntry,
-} from "shared/types/stats";
+import type { ContextualBanditSnapshot } from "shared/types/stats";
 import {
   computeContextualBanditWeights,
   ContextualBanditWeightsInput,
 } from "stats-ts";
-import { logger } from "back-end/src/util/logger";
 import {
   getAnalysisSettingsForStatsEngine,
   getMetricSettingsForStatsEngine,
-  runStatsEngine,
 } from "back-end/src/services/stats";
 
-export type ContextualBanditSettingsForStatsEngine = {
-  var_names: string[];
-  var_ids: string[];
-  reweight: boolean;
-  bandit_weights_seed: number;
-  contextual_attributes: string[];
-  current_weights_by_context: Record<string, number[]>;
-  max_leaves: number;
-  min_users_per_leaf: number;
-  // True: weights computed by Python gbstats. False: computed in TS via `computeContextualBanditWeights`.
-  update_weights_using_python: boolean;
+export type ContextualBanditStatsSettings = {
+  varIds: string[];
+  contextualAttributes: string[];
+  maxLeaves: number;
+  minUsersPerLeaf: number;
 };
 
 /** Mirrors gbstats `ContextualBanditResult` (per-context responses + optional tree leaf_map). */
@@ -42,7 +26,6 @@ export type ContextualBanditResult = ContextualBanditSnapshot;
 
 export type RunContextualStatsEngineOptions = {
   snapshotId: string;
-  sql?: string;
   decisionMetricId: string;
   snapshotSettings: SnapshotMetricRequest;
   analysisSettings: ExperimentSnapshotAnalysisSettings;
@@ -67,38 +50,30 @@ export function canonicalizeVariationIdsInRows(
 }
 
 export async function runContextualStatsEngine(
-  settings: ContextualBanditSettingsForStatsEngine,
+  settings: ContextualBanditStatsSettings,
   rows: ExperimentMetricQueryResponseRows,
   runParams?: RunContextualStatsEngineOptions,
 ): Promise<ContextualBanditResult> {
   const normalizedRows = canonicalizeVariationIdsInRows(
     prepareRowsForContextualStats(rows),
-    settings.var_ids,
+    settings.varIds,
   );
   if (!runParams) {
     throw new Error(
       "Contextual stats engine requires runParams when mock stats are disabled",
     );
   }
-  if (!settings.update_weights_using_python) {
-    const input = buildContextualBanditWeightsInput(
-      settings,
-      normalizedRows,
-      runParams,
-    );
-    const result = computeContextualBanditWeights(input);
-    return result;
-  }
-  return runContextualStatsEngineWithPython(
+  const input = buildContextualBanditWeightsInput(
     settings,
     normalizedRows,
     runParams,
   );
+  return computeContextualBanditWeights(input);
 }
 
 /** Packages metric/analysis settings + rows into the `stats-ts` weight engine input contract. */
 function buildContextualBanditWeightsInput(
-  settings: ContextualBanditSettingsForStatsEngine,
+  settings: ContextualBanditStatsSettings,
   rows: ExperimentMetricQueryResponseRows,
   runParams: RunContextualStatsEngineOptions,
 ): ContextualBanditWeightsInput {
@@ -137,10 +112,10 @@ function buildContextualBanditWeightsInput(
   );
 
   return {
-    varIds: settings.var_ids,
-    attributes: settings.contextual_attributes,
-    maxLeaves: settings.max_leaves,
-    minUsersPerLeaf: settings.min_users_per_leaf,
+    varIds: settings.varIds,
+    attributes: settings.contextualAttributes,
+    maxLeaves: settings.maxLeaves,
+    minUsersPerLeaf: settings.minUsersPerLeaf,
     metricSettings,
     analysisWeights: analysisForEngine.weights,
     rows,
@@ -198,138 +173,4 @@ function variationIndexFromRow(
     return asNum;
   }
   return null;
-}
-
-function buildPythonContextualBanditSettings(
-  settings: ContextualBanditSettingsForStatsEngine,
-  decisionMetricId: string,
-  analysisWeights: number[],
-): PythonContextualBanditSettings & { max_leaves: number } {
-  const numVariations = settings.var_ids.length;
-  const fallbackWeights =
-    analysisWeights.length === numVariations
-      ? analysisWeights
-      : Array(numVariations).fill(1 / numVariations);
-
-  return {
-    var_names: settings.var_names,
-    var_ids: settings.var_ids,
-    // Unused by contextual path but populated to satisfy parent dataclass invariant.
-    current_weights: fallbackWeights,
-    current_contextual_weights: settings.current_weights_by_context,
-    reweight: settings.reweight,
-    decision_metric: decisionMetricId,
-    bandit_weights_seed: settings.bandit_weights_seed,
-    attributes: settings.contextual_attributes.map(contextualBanditAttrCol),
-    max_leaves: settings.max_leaves,
-  };
-}
-
-async function runContextualStatsEngineWithPython(
-  settings: ContextualBanditSettingsForStatsEngine,
-  rows: ExperimentMetricQueryResponseRows,
-  runParams: RunContextualStatsEngineOptions,
-): Promise<ContextualBanditResult> {
-  const {
-    snapshotId,
-    sql,
-    decisionMetricId,
-    snapshotSettings,
-    analysisSettings,
-    metricMap,
-    variations,
-    coverage,
-    phaseLengthDays,
-  } = runParams;
-
-  const decisionMetric = metricMap.get(decisionMetricId);
-  if (!decisionMetric) {
-    throw new Error(`Decision metric not found: ${decisionMetricId}`);
-  }
-
-  const reportVariations = variations.map((v, index) => ({
-    id: v.id,
-    name: v.name,
-    weight: v.weight,
-    index,
-  }));
-
-  const analysisForEngine = getAnalysisSettingsForStatsEngine(
-    analysisSettings,
-    reportVariations,
-    coverage,
-    phaseLengthDays,
-  );
-
-  const contextualBanditSettings = buildPythonContextualBanditSettings(
-    settings,
-    decisionMetricId,
-    analysisForEngine.weights,
-  );
-
-  const statsRows = rows;
-
-  const decisionMetricSettings = getMetricSettingsForStatsEngine(
-    decisionMetric,
-    metricMap,
-    snapshotSettings,
-  );
-  // Contextual bandits: CUPED covariate columns from SQL, but no pooled theta.
-  if (decisionMetricSettings.keep_theta) {
-    decisionMetricSettings.keep_theta = false;
-  }
-
-  const analysis = (
-    await runStatsEngine([
-      {
-        id: snapshotId,
-        data: {
-          metrics: {
-            [decisionMetricId]: decisionMetricSettings,
-          },
-          analyses: [analysisForEngine],
-          query_results: [
-            {
-              rows: statsRows,
-              metrics: [decisionMetricId],
-              sql,
-            },
-          ],
-          contextual_bandit_settings: contextualBanditSettings,
-        },
-      },
-    ])
-  )?.[0];
-
-  if (!analysis) {
-    throw new Error("Error in stats engine: no rows returned");
-  }
-  if (analysis.error) {
-    let errorMsg =
-      "Failed to run contextual bandit stats model:\n" + analysis.error;
-    logger.error(analysis.error, errorMsg);
-    if (analysis.traceback) {
-      logger.error("Traceback:\n" + analysis.traceback);
-      errorMsg += "\n\n" + analysis.traceback;
-    }
-    throw new Error(errorMsg);
-  }
-  if (!analysis.contextualBanditResult) {
-    throw new Error(
-      "Error in stats engine: contextual bandit result missing from response",
-    );
-  }
-
-  // Surface per-context sample stats as `responses` for parity with the TS weight path.
-  const pyResult =
-    analysis.contextualBanditResult as ContextualBanditSnapshot & {
-      responsesContext?: ContextualBanditResponseSnapshot[];
-      leafMap?: ContextualLeafMapEntry[];
-    };
-
-  return {
-    attributes: settings.contextual_attributes,
-    responses: pyResult.responsesContext ?? pyResult.responses,
-    leaf_map: pyResult.leafMap ?? pyResult.leaf_map,
-  };
 }

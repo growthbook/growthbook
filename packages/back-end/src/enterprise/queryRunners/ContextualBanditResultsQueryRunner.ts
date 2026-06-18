@@ -220,25 +220,10 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
     }));
 
     const cb = await this.loadCbDoc();
-    const currentWeightsByContext: Record<string, number[]> =
-      Object.fromEntries(
-        (cb.currentLeafWeights ?? []).map((lw) => [
-          lw.contextId,
-          cb.variations.map(
-            (v) => lw.weights.find((w) => w.variationId === v.id)?.weight ?? 0,
-          ),
-        ]),
-      );
-
-    const variationsForStats = this.snapshotSettings.variations.map((v, i) => ({
-      id: v.id,
-      name: this.variationNames[i] ?? v.id,
-    }));
 
     const statsSettings = getContextualBanditSettingsForStatsEngine(
       cb,
-      variationsForStats,
-      currentWeightsByContext,
+      this.snapshotSettings.variations.map((v) => v.id),
     );
 
     const expSnapshotSettings = buildSnapshotMetricRequestForCb(
@@ -275,7 +260,6 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
 
     const analysis = await runContextualStatsEngine(statsSettings, tagged, {
       snapshotId: this.model.id,
-      sql: queryDoc.query,
       decisionMetricId,
       snapshotSettings: expSnapshotSettings,
       analysisSettings,

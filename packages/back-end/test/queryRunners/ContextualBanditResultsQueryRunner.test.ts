@@ -278,9 +278,8 @@ describe("ContextualBanditResultsQueryRunner", () => {
 
       const [statsSettings, taggedRows, runParams] =
         runContextualStatsEngineMock.mock.calls[0];
-      expect(statsSettings.var_names).toEqual(["Control", "Treatment"]);
-      expect(statsSettings.var_ids).toEqual(["v0", "v1"]);
-      expect(statsSettings.contextual_attributes).toEqual(["country"]);
+      expect(statsSettings.varIds).toEqual(["v0", "v1"]);
+      expect(statsSettings.contextualAttributes).toEqual(["country"]);
       expect(runParams?.snapshotId).toBe("cbs_1");
       expect(runParams?.decisionMetricId).toBe("fact__g1");
       expect(
