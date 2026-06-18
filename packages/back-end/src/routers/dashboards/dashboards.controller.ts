@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { Request, Response } from "express";
 import {
   blockHasFieldOfType,
   dashboardBlockHasIds,
@@ -33,6 +34,7 @@ import {
   updateNonExperimentDashboard,
 } from "back-end/src/enterprise/services/dashboards";
 import {
+  DashboardModel,
   generateDashboardBlockIds,
   migrateBlock,
 } from "back-end/src/enterprise/models/DashboardModel";
@@ -45,6 +47,32 @@ interface SingleDashboardResponse {
 interface MultiDashboardResponse {
   status: number;
   dashboards: DashboardInterface[];
+}
+
+// Unauthenticated endpoint for publicly-shared dashboards. Registered before
+// the JWT middleware in app.ts with permissive CORS. shareLevel === "public"
+// is the sole authorization gate here.
+//
+// NOTE (sub-step 1): this returns dashboard config/layout only (block configs
+// reference data by id; no resolved snapshot/query data). Resolving block data
+// for anonymous viewers + the redaction allow-list + ssrData come next, before
+// any per-resource data is exposed.
+export async function getDashboardPublic(
+  req: Request<{ uid: string }>,
+  res: Response,
+) {
+  const { uid } = req.params;
+  const dashboard = await DashboardModel.dangerousGetByUid(uid);
+  if (!dashboard) {
+    return res
+      .status(404)
+      .json({ status: 404, message: "Dashboard not found" });
+  }
+  if (dashboard.shareLevel !== "public") {
+    return res.status(401).json({ status: 401, message: "Unauthorized" });
+  }
+
+  return res.status(200).json({ status: 200, dashboard });
 }
 
 export async function getAllDashboards(

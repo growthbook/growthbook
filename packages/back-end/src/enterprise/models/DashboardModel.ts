@@ -297,7 +297,9 @@ export class DashboardModel extends BaseClass {
     }
   }
 
-  protected migrate(orig: LegacyDashboardDocument): DashboardInterface {
+  protected static migrateDoc(
+    orig: LegacyDashboardDocument,
+  ): DashboardInterface {
     return toInterface({
       ...orig,
       blocks: orig.blocks.map(migrateBlock),
@@ -306,6 +308,25 @@ export class DashboardModel extends BaseClass {
       shareLevel: orig.shareLevel || "private",
       updateSchedule: orig.updateSchedule || undefined,
     });
+  }
+
+  protected migrate(orig: LegacyDashboardDocument): DashboardInterface {
+    return DashboardModel.migrateDoc(orig);
+  }
+
+  // Cross-org lookup by globally-unique uid for the unauthenticated public
+  // dashboard endpoint. This bypasses org scoping and permission checks, so
+  // the caller MUST verify shareLevel === "public" before returning any data.
+  public static async dangerousGetByUid(
+    uid: string,
+  ): Promise<DashboardInterface | null> {
+    const doc = await getCollection(COLLECTION_NAME).findOne({
+      uid,
+      isDefault: false,
+      isDeleted: false,
+    });
+    if (!doc) return null;
+    return DashboardModel.migrateDoc(doc as unknown as LegacyDashboardDocument);
   }
 
   protected async customValidation(toSave: DashboardDocument) {
