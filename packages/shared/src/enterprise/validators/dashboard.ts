@@ -9,7 +9,12 @@ import {
 } from "./dashboard-block";
 
 export const dashboardEditLevel = z.enum(["published", "private"]);
-export const dashboardShareLevel = z.enum(["published", "private"]);
+// NOTE: "published" and "public" are distinct and easy to confuse.
+//   - "published" = visible to organization members (with read access)
+//   - "public"    = visible to ANYONE with the share URL, no authentication
+//   - "private"   = visible to the owner only
+// Treat any `shareLevel === "public"` check as a public-exposure boundary.
+export const dashboardShareLevel = z.enum(["published", "private", "public"]);
 export const dashboardUpdateSchedule = z.discriminatedUnion("type", [
   z
     .object({
@@ -94,11 +99,9 @@ export const apiCreateDashboardBody = z
       .describe(
         'Dashboards that are "published" are editable by organization members with appropriate permissions',
       ),
-    shareLevel: z
-      .enum(["published", "private"])
-      .describe(
-        'General Dashboards only. Dashboards that are "published" are viewable by organization members with appropriate permissions',
-      ),
+    shareLevel: dashboardShareLevel.describe(
+      'General Dashboards only. "published" dashboards are viewable by organization members with appropriate permissions; "public" dashboards are viewable by anyone with the share URL (no authentication); "private" dashboards are viewable only by the owner.',
+    ),
     enableAutoUpdates: z
       .boolean()
       .describe(
