@@ -22,7 +22,12 @@ import {
 import {
   getQueryStatusesByIds,
   getStaleQueries,
+  markPendingQueriesAsFailed,
 } from "back-end/src/models/QueryModel";
+import {
+  getExperimentById,
+  updateExperiment,
+} from "back-end/src/models/ExperimentModel";
 import {
   findReportsByQueryId,
   updateReport,
@@ -251,7 +256,7 @@ async function reapStalledSnapshots() {
     });
 
     const error = orphanedDag
-      ? "Snapshot stalled: queries were never started. This can happen when the server restarts mid-refresh. Please try updating results again."
+      ? "Snapshot stalled: queries were never started. This can happen when the server restarts mid-refresh. A retry has been scheduled."
       : "Snapshot stalled: queries finished but results were never finalized. This usually means the analysis step failed (check server logs) or the process was restarted.";
 
     const context = await getContextForAgendaJobByOrgId(snapshot.organization);
@@ -266,6 +271,53 @@ async function reapStalledSnapshots() {
         ? `Reaped orphaned snapshot ${snapshot.id} (experiment ${snapshot.experiment}): ${queued.length} of ${queryIds.length} queries stuck in "queued" with nothing running`
         : `Reaped stalled snapshot ${snapshot.id} (experiment ${snapshot.experiment}): all ${queryIds.length} queries terminal but status still running`,
     );
+
+    if (orphanedDag) {
+      // Fail the underlying queued Query docs so they don't linger forever
+      // (queued queries have no heartbeat, so getStaleQueries() will never
+      // touch them) and so any other runner reusing them via the query cache
+      // sees a terminal state.
+      await markPendingQueriesAsFailed(
+        context,
+        queued.map((q) => q.id),
+        "Query was never started: the snapshot driving it was reaped as stalled.",
+      ).catch((e) =>
+        logger.warn(e, "Failed to mark orphaned queued queries as failed"),
+      );
+
+      // Defense-in-depth retry: an orphaned DAG is almost always a lost
+      // in-memory driver (process restart / event-loop kill), not a
+      // deterministic data problem, so a fresh snapshot should succeed.
+      // Pull nextSnapshotAttempt forward so the 10-minute
+      // queueExperimentUpdates poll picks it up on its next pass instead of
+      // waiting up to EXPERIMENT_REFRESH_FREQUENCY hours. Re-enable
+      // autoSnapshots in case the original failing run already flipped it
+      // off. Reports reuse the snapshot model but have no schedule to bump.
+      if (snapshot.experiment && !snapshot.report) {
+        try {
+          const experiment = await getExperimentById(
+            context,
+            snapshot.experiment,
+          );
+          if (experiment) {
+            await updateExperiment({
+              context,
+              experiment,
+              changes: {
+                nextSnapshotAttempt: new Date(),
+                autoSnapshots: true,
+              },
+              bypassWebhooks: true,
+            });
+          }
+        } catch (e) {
+          logger.warn(
+            e,
+            "Failed to schedule retry snapshot after orphaned-DAG reap",
+          );
+        }
+      }
+    }
 
     await context.models.incrementalRefresh
       .releaseLock(snapshot.experiment, snapshot.id)

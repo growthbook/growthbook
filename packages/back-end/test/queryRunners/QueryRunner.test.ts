@@ -244,6 +244,55 @@ describe("QueryRunner", () => {
       clearTimeout(timerA);
     });
 
+    it("processes ready non-runAtEnd queries even when a runAtEnd query is iterated first", async () => {
+      // Regression: the runAtEnd "still pending, wait" branch used to `return`
+      // out of startReadyQueries entirely. If Map iteration order put a
+      // runAtEnd query before a ready non-runAtEnd queued query, the two
+      // would deadlock — runAtEnd waits for B, but B was never reached.
+      const queryEnd = createMockQuery("qry_end", "queued", []);
+      queryEnd.runAtEnd = true;
+      const queryB = createMockQuery("qry_B", "queued", []);
+
+      const model: InterfaceWithQueries = {
+        id: "test-model",
+        organization: "test-org",
+        queries: [
+          { name: "end", query: "qry_end", status: "queued" },
+          { name: "B", query: "qry_B", status: "queued" },
+        ],
+        runStarted: new Date(),
+      };
+
+      const runner = new TestQueryRunner(mockContext, model, mockIntegration);
+
+      const cb = {
+        run: jest.fn().mockResolvedValue({ rows: [], statistics: {} }),
+        process: jest.fn((rows) => rows),
+        onFailure: jest.fn(),
+      };
+      runner.runCallbacks["qry_end"] = cb;
+      runner.runCallbacks["qry_B"] = cb;
+
+      // Iteration order: runAtEnd query first, ready non-runAtEnd second.
+      const queryMap: QueryMap = new Map([
+        ["end", queryEnd],
+        ["B", queryB],
+      ]);
+
+      await runner.startReadyQueries(queryMap);
+
+      // runAtEnd query must NOT execute (B is still queued/non-terminal)
+      expect(runner.executeQuerySpy).not.toHaveBeenCalledWith(
+        expect.objectContaining({ id: "qry_end" }),
+        expect.anything(),
+      );
+      // B MUST execute despite being iterated after the runAtEnd query.
+      expect(runner.executeQuerySpy).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "qry_B" }),
+        expect.anything(),
+      );
+    });
+
     it("should not execute queries with pending dependencies", async () => {
       const depPending = createMockQuery("qry_dep_pending", "running", []);
       const queryA = createMockQuery("qry_A", "queued", ["qry_dep_pending"]);
@@ -547,7 +596,7 @@ describe("QueryRunner", () => {
       }
     }
 
-    it("re-arms the follow-up timer after persisting the query DAG", async () => {
+    it("gates onQueryFinish until the query DAG is persisted, then drives once", async () => {
       jest.useFakeTimers();
       try {
         const model: InterfaceWithQueries = {
@@ -562,6 +611,18 @@ describe("QueryRunner", () => {
           mockIntegration,
         );
 
+        // Simulate a fast dependency-free query finishing while
+        // startQueries() is still running (i.e. before startAnalysis() has
+        // called updateModel()). This must NOT arm the refresh timer — if it
+        // did, that timer's getLatestModel() could read the pre-persist
+        // model and the post-persist onQueryFinish() in startAnalysis()
+        // would be swallowed by the debounce.
+        await runner.onQueryFinish();
+        // @ts-expect-error reading private prop for assertion
+        expect(runner.timer).toBeNull();
+        // The early call was recorded against an empty persisted DAG.
+        expect(runner.onQueryFinishSpy).toHaveBeenLastCalledWith(0);
+
         const pointers: Queries = [
           { name: "drop_old", query: "qry_drop", status: "running" },
           { name: "create", query: "qry_create", status: "queued" },
@@ -574,10 +635,14 @@ describe("QueryRunner", () => {
           expect.objectContaining({ status: "running", queries: pointers }),
         );
         // ...and onQueryFinish must have been called AFTER that persist, i.e.
-        // with the full DAG visible in the "database". This is what re-drives
-        // the DAG if a fast dependency-free query already finished and its
-        // follow-up timer already fired before the DAG was persisted.
-        expect(runner.onQueryFinishSpy).toHaveBeenCalledWith(pointers.length);
+        // with the full DAG visible in the "database". Because the early call
+        // above was gated, the post-persist call is guaranteed to actually
+        // arm the refresh timer.
+        expect(runner.onQueryFinishSpy).toHaveBeenLastCalledWith(
+          pointers.length,
+        );
+        // @ts-expect-error reading private prop for assertion
+        expect(runner.timer).not.toBeNull();
       } finally {
         jest.clearAllTimers();
         jest.useRealTimers();
