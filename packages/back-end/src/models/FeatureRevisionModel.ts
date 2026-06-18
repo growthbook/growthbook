@@ -1339,8 +1339,14 @@ export async function markRevisionAsReviewRequested(
   if (enabledBy === null) unset.autoPublishEnabledBy = 1;
   // Re-requesting review without a (new) schedule clears any stale one. With a
   // new schedule, keep the schedule but still reset prior poller-failure state.
+  // Either way clear scheduledPublishBypassApproval — request-review never arms
+  // an admin-bypass schedule, so a stale flag from a prior schedule-publish arm
+  // must not carry over.
   if (!scheduled) Object.assign(unset, SCHEDULED_PUBLISH_UNSET);
-  else Object.assign(unset, SCHEDULED_PUBLISH_FAILURE_UNSET);
+  else
+    Object.assign(unset, SCHEDULED_PUBLISH_FAILURE_UNSET, {
+      scheduledPublishBypassApproval: 1,
+    });
 
   try {
     await FeatureRevisionModel.updateOne(

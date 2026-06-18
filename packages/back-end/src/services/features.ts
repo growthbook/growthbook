@@ -2079,6 +2079,14 @@ export function revisionToDiffableV2(
     "publishedBy",
     "definitions",
     "reviews",
+    // Scheduling/auto-publish state isn't feature content — excluded so arming,
+    // canceling, or a poller failure doesn't surface as a false diff.
+    "autoPublishOnApproval",
+    "scheduledPublishAt",
+    "scheduledPublishLockEdits",
+    "scheduledPublishLockOthers",
+    "scheduledPublishBypassApproval",
+    "scheduledPublishLastError",
   ]);
   const content: Record<string, unknown> = {};
   for (const [key, val] of Object.entries(api)) {
