@@ -456,6 +456,8 @@ const PUBLIC_SSR_SETTINGS_KEYS: Array<keyof OrganizationSettings> = [
   "sequentialTestingEnabled",
   "sequentialTestingTuningParameter",
   "displayCurrency",
+  // Needed by ExperimentTrafficBlock's health timeseries gate on the public page.
+  "runHealthTrafficQuery",
 ];
 
 // Metric fields that carry query/SQL/schema details. Stripped before a metric
