@@ -7,7 +7,7 @@ import {
   DashboardShareLevel,
   DashboardUpdateSchedule,
 } from "shared/enterprise";
-import Modal from "@/components/Modal";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
 import Checkbox from "@/ui/Checkbox";
 import { getExperimentRefreshFrequency } from "@/services/env";
@@ -188,7 +188,7 @@ export default function DashboardModal({
   );
 
   return (
-    <Modal
+    <ModalStandard
       open={true}
       size="md"
       trackingEventModalType={`${mode}-dashboard`}
@@ -205,7 +205,6 @@ export default function DashboardModal({
       submit={() => submit(form.getValues())}
       ctaEnabled={!!form.watch("title") && !cronError}
       close={close}
-      closeCta="Cancel"
     >
       <Flex direction="column" gap="3">
         <Field
@@ -304,6 +303,6 @@ export default function DashboardModal({
           </>
         ) : null}
       </Flex>
-    </Modal>
+    </ModalStandard>
   );
 }

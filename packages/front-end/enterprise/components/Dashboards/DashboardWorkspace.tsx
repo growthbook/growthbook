@@ -386,7 +386,7 @@ export default function DashboardWorkspace({
                 </Button>
               </Tooltip>
             )}
-            <Flex align="center" gap="2">
+            <Flex align="center" gap="4">
               {dashboardFirstSave && (
                 <Link
                   onClick={() => close()}
