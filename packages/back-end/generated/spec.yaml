@@ -370,18 +370,15 @@ tags:
   - name: FactTableFilter_model
     x-displayName: Fact Table Filter
     description: <SchemaDefinition schemaRef="#/components/schemas/FactTableFilter" />
-  - name: Feature_model
-    x-displayName: Feature
-    description: <SchemaDefinition schemaRef="#/components/schemas/Feature" />
   - name: FeatureBaseRule_model
     x-displayName: Feature Base Rule
     description: <SchemaDefinition schemaRef="#/components/schemas/FeatureBaseRule" />
   - name: FeatureDefinition_model
     x-displayName: Feature Definition
     description: <SchemaDefinition schemaRef="#/components/schemas/FeatureDefinition" />
-  - name: FeatureEnvironment_model
-    x-displayName: Feature Environment
-    description: <SchemaDefinition schemaRef="#/components/schemas/FeatureEnvironment" />
+  - name: FeatureEnvironmentV1_model
+    x-displayName: Feature Environment V1
+    description: <SchemaDefinition schemaRef="#/components/schemas/FeatureEnvironmentV1" />
   - name: FeatureEnvironmentV2_model
     x-displayName: Feature Environment V2
     description: <SchemaDefinition schemaRef="#/components/schemas/FeatureEnvironmentV2" />
@@ -398,18 +395,23 @@ tags:
   - name: FeatureForceRule_model
     x-displayName: Feature Force Rule
     description: <SchemaDefinition schemaRef="#/components/schemas/FeatureForceRule" />
-  - name: FeatureRevision_model
-    x-displayName: Feature Revision
-    description: <SchemaDefinition schemaRef="#/components/schemas/FeatureRevision" />
+  - name: FeatureRevisionSummary_model
+    x-displayName: Feature Revision Summary
+    description: >-
+      <SchemaDefinition schemaRef="#/components/schemas/FeatureRevisionSummary"
+      />
+  - name: FeatureRevisionV1_model
+    x-displayName: Feature Revision V1
+    description: <SchemaDefinition schemaRef="#/components/schemas/FeatureRevisionV1" />
   - name: FeatureRevisionV2_model
     x-displayName: Feature Revision V2
     description: <SchemaDefinition schemaRef="#/components/schemas/FeatureRevisionV2" />
   - name: FeatureRolloutRule_model
     x-displayName: Feature Rollout Rule
     description: <SchemaDefinition schemaRef="#/components/schemas/FeatureRolloutRule" />
-  - name: FeatureRule_model
-    x-displayName: Feature Rule
-    description: <SchemaDefinition schemaRef="#/components/schemas/FeatureRule" />
+  - name: FeatureRuleV1_model
+    x-displayName: Feature Rule V1
+    description: <SchemaDefinition schemaRef="#/components/schemas/FeatureRuleV1" />
   - name: FeatureRuleV2_model
     x-displayName: Feature Rule V2
     description: <SchemaDefinition schemaRef="#/components/schemas/FeatureRuleV2" />
@@ -418,12 +420,17 @@ tags:
     description: >-
       <SchemaDefinition schemaRef="#/components/schemas/FeatureSafeRolloutRule"
       />
+  - name: FeatureV1_model
+    x-displayName: Feature V1
+    description: <SchemaDefinition schemaRef="#/components/schemas/FeatureV1" />
   - name: FeatureV2_model
     x-displayName: Feature V2
     description: <SchemaDefinition schemaRef="#/components/schemas/FeatureV2" />
-  - name: FeatureWithRevisions_model
-    x-displayName: Feature With Revisions
-    description: <SchemaDefinition schemaRef="#/components/schemas/FeatureWithRevisions" />
+  - name: FeatureWithRevisionsV1_model
+    x-displayName: Feature With Revisions V1
+    description: >-
+      <SchemaDefinition schemaRef="#/components/schemas/FeatureWithRevisionsV1"
+      />
   - name: FeatureWithRevisionsV2_model
     x-displayName: Feature With Revisions V2
     description: >-
@@ -565,7 +572,7 @@ paths:
                       features:
                         type: array
                         items:
-                          $ref: '#/components/schemas/Feature'
+                          $ref: '#/components/schemas/FeatureV1'
                     required:
                       - features
                     additionalProperties: false
@@ -1340,7 +1347,7 @@ paths:
                 type: object
                 properties:
                   feature:
-                    $ref: '#/components/schemas/Feature'
+                    $ref: '#/components/schemas/FeatureV1'
                 required:
                   - feature
                 additionalProperties: false
@@ -1371,7 +1378,7 @@ paths:
                 type: object
                 properties:
                   feature:
-                    $ref: '#/components/schemas/FeatureWithRevisions'
+                    $ref: '#/components/schemas/FeatureWithRevisionsV1'
                 required:
                   - feature
                 additionalProperties: false
@@ -2154,7 +2161,7 @@ paths:
                 type: object
                 properties:
                   feature:
-                    $ref: '#/components/schemas/Feature'
+                    $ref: '#/components/schemas/FeatureV1'
                 required:
                   - feature
                 additionalProperties: false
@@ -2270,7 +2277,7 @@ paths:
                 type: object
                 properties:
                   feature:
-                    $ref: '#/components/schemas/Feature'
+                    $ref: '#/components/schemas/FeatureV1'
                 required:
                   - feature
                 additionalProperties: false
@@ -2333,7 +2340,7 @@ paths:
                 type: object
                 properties:
                   feature:
-                    $ref: '#/components/schemas/Feature'
+                    $ref: '#/components/schemas/FeatureV1'
                 required:
                   - feature
                 additionalProperties: false
@@ -2435,7 +2442,7 @@ paths:
                   revisions:
                     type: array
                     items:
-                      $ref: '#/components/schemas/FeatureRevision'
+                      $ref: '#/components/schemas/FeatureRevisionV1'
                   limit:
                     type: integer
                   offset:
@@ -2496,7 +2503,7 @@ paths:
                   revisions:
                     type: array
                     items:
-                      $ref: '#/components/schemas/FeatureRevision'
+                      $ref: '#/components/schemas/FeatureRevisionV1'
                   limit:
                     type: integer
                   offset:
@@ -2569,7 +2576,7 @@ paths:
                 type: object
                 properties:
                   revision:
-                    $ref: '#/components/schemas/FeatureRevision'
+                    $ref: '#/components/schemas/FeatureRevisionV1'
                 required:
                   - revision
                 additionalProperties: false
@@ -2632,7 +2639,7 @@ paths:
                 type: object
                 properties:
                   revision:
-                    $ref: '#/components/schemas/FeatureRevision'
+                    $ref: '#/components/schemas/FeatureRevisionV1'
                 required:
                   - revision
                 additionalProperties: false
@@ -2674,7 +2681,7 @@ paths:
                 type: object
                 properties:
                   revision:
-                    $ref: '#/components/schemas/FeatureRevision'
+                    $ref: '#/components/schemas/FeatureRevisionV1'
                 required:
                   - revision
                 additionalProperties: false
@@ -2841,7 +2848,7 @@ paths:
                 type: object
                 properties:
                   revision:
-                    $ref: '#/components/schemas/FeatureRevision'
+                    $ref: '#/components/schemas/FeatureRevisionV1'
                 required:
                   - revision
                 additionalProperties: false
@@ -2910,7 +2917,7 @@ paths:
                 type: object
                 properties:
                   revision:
-                    $ref: '#/components/schemas/FeatureRevision'
+                    $ref: '#/components/schemas/FeatureRevisionV1'
                 required:
                   - revision
                 additionalProperties: false
@@ -2990,7 +2997,7 @@ paths:
                 type: object
                 properties:
                   revision:
-                    $ref: '#/components/schemas/FeatureRevision'
+                    $ref: '#/components/schemas/FeatureRevisionV1'
                 required:
                   - revision
                 additionalProperties: false
@@ -3069,7 +3076,7 @@ paths:
                 type: object
                 properties:
                   revision:
-                    $ref: '#/components/schemas/FeatureRevision'
+                    $ref: '#/components/schemas/FeatureRevisionV1'
                 required:
                   - revision
                 additionalProperties: false
@@ -3136,7 +3143,7 @@ paths:
                 type: object
                 properties:
                   revision:
-                    $ref: '#/components/schemas/FeatureRevision'
+                    $ref: '#/components/schemas/FeatureRevisionV1'
                 required:
                   - revision
                 additionalProperties: false
@@ -3206,7 +3213,7 @@ paths:
                 type: object
                 properties:
                   revision:
-                    $ref: '#/components/schemas/FeatureRevision'
+                    $ref: '#/components/schemas/FeatureRevisionV1'
                 required:
                   - revision
                 additionalProperties: false
@@ -4004,7 +4011,7 @@ paths:
                 type: object
                 properties:
                   revision:
-                    $ref: '#/components/schemas/FeatureRevision'
+                    $ref: '#/components/schemas/FeatureRevisionV1'
                 required:
                   - revision
                 additionalProperties: false
@@ -4600,7 +4607,7 @@ paths:
                 type: object
                 properties:
                   revision:
-                    $ref: '#/components/schemas/FeatureRevision'
+                    $ref: '#/components/schemas/FeatureRevisionV1'
                 required:
                   - revision
                 additionalProperties: false
@@ -4668,7 +4675,7 @@ paths:
                 type: object
                 properties:
                   revision:
-                    $ref: '#/components/schemas/FeatureRevision'
+                    $ref: '#/components/schemas/FeatureRevisionV1'
                 required:
                   - revision
                 additionalProperties: false
@@ -4742,7 +4749,7 @@ paths:
                 type: object
                 properties:
                   revision:
-                    $ref: '#/components/schemas/FeatureRevision'
+                    $ref: '#/components/schemas/FeatureRevisionV1'
                 required:
                   - revision
                 additionalProperties: false
@@ -5210,7 +5217,7 @@ paths:
                 type: object
                 properties:
                   revision:
-                    $ref: '#/components/schemas/FeatureRevision'
+                    $ref: '#/components/schemas/FeatureRevisionV1'
                 required:
                   - revision
                 additionalProperties: false
@@ -5277,7 +5284,7 @@ paths:
                 type: object
                 properties:
                   revision:
-                    $ref: '#/components/schemas/FeatureRevision'
+                    $ref: '#/components/schemas/FeatureRevisionV1'
                 required:
                   - revision
                 additionalProperties: false
@@ -5331,7 +5338,7 @@ paths:
                 type: object
                 properties:
                   revision:
-                    $ref: '#/components/schemas/FeatureRevision'
+                    $ref: '#/components/schemas/FeatureRevisionV1'
                 required:
                   - revision
                 additionalProperties: false
@@ -5398,7 +5405,7 @@ paths:
                 type: object
                 properties:
                   revision:
-                    $ref: '#/components/schemas/FeatureRevision'
+                    $ref: '#/components/schemas/FeatureRevisionV1'
                   autoPublished:
                     type: boolean
                 required:
@@ -5541,7 +5548,7 @@ paths:
                 type: object
                 properties:
                   revision:
-                    $ref: '#/components/schemas/FeatureRevision'
+                    $ref: '#/components/schemas/FeatureRevisionV1'
                 required:
                   - revision
                 additionalProperties: false
@@ -5603,7 +5610,7 @@ paths:
                 type: object
                 properties:
                   revision:
-                    $ref: '#/components/schemas/FeatureRevision'
+                    $ref: '#/components/schemas/FeatureRevisionV1'
                 required:
                   - revision
                 additionalProperties: false
@@ -5655,7 +5662,7 @@ paths:
                 type: object
                 properties:
                   revision:
-                    $ref: '#/components/schemas/FeatureRevision'
+                    $ref: '#/components/schemas/FeatureRevisionV1'
                 required:
                   - revision
                 additionalProperties: false
@@ -5715,7 +5722,7 @@ paths:
                 type: object
                 properties:
                   revision:
-                    $ref: '#/components/schemas/FeatureRevision'
+                    $ref: '#/components/schemas/FeatureRevisionV1'
                 required:
                   - revision
                 additionalProperties: false
@@ -33017,7 +33024,7 @@ components:
           - required
           - never
   schemas:
-    Feature:
+    FeatureV1:
       type: object
       properties:
         id:
@@ -33061,7 +33068,7 @@ components:
           propertyNames:
             type: string
           additionalProperties:
-            $ref: '#/components/schemas/FeatureEnvironment'
+            $ref: '#/components/schemas/FeatureEnvironmentV1'
         prerequisites:
           description: Feature IDs. Each feature must evaluate to `true`
           type: array
@@ -33124,7 +33131,7 @@ components:
         - environments
         - revision
       additionalProperties: false
-    FeatureEnvironment:
+    FeatureEnvironmentV1:
       type: object
       properties:
         enabled:
@@ -33134,7 +33141,7 @@ components:
         rules:
           type: array
           items:
-            $ref: '#/components/schemas/FeatureRule'
+            $ref: '#/components/schemas/FeatureRuleV1'
         definition:
           description: A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model)
           type: string
@@ -33148,7 +33155,7 @@ components:
             rules:
               type: array
               items:
-                $ref: '#/components/schemas/FeatureRule'
+                $ref: '#/components/schemas/FeatureRuleV1'
             definition:
               description: >-
                 A JSON stringified
@@ -33164,7 +33171,7 @@ components:
         - defaultValue
         - rules
       additionalProperties: false
-    FeatureRule:
+    FeatureRuleV1:
       anyOf:
         - $ref: '#/components/schemas/FeatureForceRule'
         - $ref: '#/components/schemas/FeatureRolloutRule'
@@ -33788,17 +33795,17 @@ components:
         - hasMore
         - nextOffset
       additionalProperties: false
-    FeatureWithRevisions:
+    FeatureWithRevisionsV1:
       allOf:
-        - $ref: '#/components/schemas/Feature'
+        - $ref: '#/components/schemas/FeatureV1'
         - type: object
           properties:
             revisions:
               type: array
               items:
-                $ref: '#/components/schemas/FeatureRevision'
+                $ref: '#/components/schemas/FeatureRevisionV1'
           additionalProperties: false
-    FeatureRevision:
+    FeatureRevisionV1:
       type: object
       properties:
         featureId:
@@ -33829,7 +33836,7 @@ components:
           additionalProperties:
             type: array
             items:
-              $ref: '#/components/schemas/FeatureRule'
+              $ref: '#/components/schemas/FeatureRuleV1'
         definitions:
           type: object
           propertyNames:
@@ -34862,24 +34869,7 @@ components:
           items:
             type: string
         revision:
-          type: object
-          properties:
-            version:
-              type: integer
-            comment:
-              type: string
-            date:
-              format: date-time
-              type: string
-            createdBy:
-              $ref: '#/components/schemas/EventUser'
-            publishedBy:
-              $ref: '#/components/schemas/EventUser'
-          required:
-            - version
-            - comment
-            - date
-          additionalProperties: false
+          $ref: '#/components/schemas/FeatureRevisionSummary'
         customFields:
           type: object
           propertyNames:
@@ -34919,7 +34909,7 @@ components:
       additionalProperties: false
     FeatureRuleV2:
       allOf:
-        - $ref: '#/components/schemas/FeatureRule'
+        - $ref: '#/components/schemas/FeatureRuleV1'
         - type: object
           properties:
             allEnvironments:
@@ -34960,6 +34950,25 @@ components:
       required:
         - enabled
         - defaultValue
+      additionalProperties: false
+    FeatureRevisionSummary:
+      type: object
+      properties:
+        version:
+          type: integer
+        comment:
+          type: string
+        date:
+          format: date-time
+          type: string
+        createdBy:
+          $ref: '#/components/schemas/EventUser'
+        publishedBy:
+          $ref: '#/components/schemas/EventUser'
+      required:
+        - version
+        - comment
+        - date
       additionalProperties: false
     EventUser:
       description: The user (or automated actor) responsible for an action
@@ -46325,22 +46334,23 @@ x-tagGroups:
       - FactTable_model
       - FactTableColumn_model
       - FactTableFilter_model
-      - Feature_model
       - FeatureBaseRule_model
       - FeatureDefinition_model
-      - FeatureEnvironment_model
+      - FeatureEnvironmentV1_model
       - FeatureEnvironmentV2_model
       - FeatureExperimentRefRule_model
       - FeatureExperimentRule_model
       - FeatureForceRule_model
-      - FeatureRevision_model
+      - FeatureRevisionSummary_model
+      - FeatureRevisionV1_model
       - FeatureRevisionV2_model
       - FeatureRolloutRule_model
-      - FeatureRule_model
+      - FeatureRuleV1_model
       - FeatureRuleV2_model
       - FeatureSafeRolloutRule_model
+      - FeatureV1_model
       - FeatureV2_model
-      - FeatureWithRevisions_model
+      - FeatureWithRevisionsV1_model
       - FeatureWithRevisionsV2_model
       - InformationSchema_model
       - InformationSchemaTable_model
