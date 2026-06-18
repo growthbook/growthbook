@@ -144,9 +144,15 @@ export function HomeMarketingBanner() {
   const cta =
     config.button?.copy && config.button?.link ? config.button : undefined;
 
+  // Identity changes when the banner copy changes. The `key` forces a
+  // remount so useLocalStorage re-reads the dismissed state from the new
+  // slot, rather than carrying a stale `true` over to the new key.
+  const id = `home-marketing-banner:${slugify(config.title)}`;
+
   return (
     <MarketingBanner
-      id={`home-marketing-banner:${slugify(config.title)}`}
+      key={id}
+      id={id}
       pill={config.pill}
       title={config.title}
       subheader={config.subheader}
