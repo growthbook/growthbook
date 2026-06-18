@@ -142,14 +142,23 @@ export default function DashboardModal({
     <SelectField
       label="View access"
       disabled={disabled}
-      helpText={helpText}
+      helpText={
+        helpText ??
+        (form.watch("shareLevel") === "public"
+          ? "Anyone with the link can view this dashboard, including people outside your organization and without logging in."
+          : undefined)
+      }
       options={[
         { label: "Organization members", value: "published" },
         {
           label: form.watch("userId") === userId ? "Only me" : "Owner only",
           value: "private",
         },
-        // { label: "Anyone with the link", value: "public" }, //TODO: Need to build this logic
+        // Public sharing is gated on the same feature the back-end enforces in
+        // canCreate/canUpdate, so users can't pick an option that fails on save.
+        ...(hasGeneralDashboardSharing
+          ? [{ label: "Anyone with the link", value: "public" }]
+          : []),
       ]}
       value={form.watch("shareLevel")}
       onChange={(value) => {
