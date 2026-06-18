@@ -38,7 +38,6 @@ export const deleteAttribute = createApiRequestHandler(
   await syncManagedWarehouseIdentifiersOnAttributeChange(
     req.context,
     updatedAttributeSchema,
-    !!attribute.hashAttribute,
   );
 
   await syncEventForwarderAfterAttributeSchemaChange(req.context, {

@@ -70,6 +70,7 @@ function getBuiltInWarehouseResources(
         {
           datatype: c.datatype,
           ...(c.alwaysInlineFilter ? { alwaysInlineFilter: true } : {}),
+          ...(c.jsonFields ? { jsonFields: c.jsonFields } : {}),
         },
       ]),
     ),

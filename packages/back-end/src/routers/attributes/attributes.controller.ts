@@ -50,7 +50,6 @@ export const postAttribute = async (
   await syncManagedWarehouseIdentifiersOnAttributeChange(
     context,
     updatedAttributeSchema,
-    !!newAttribute.hashAttribute,
   );
 
   await syncEventForwarderAfterAttributeSchemaChange(context, {
@@ -139,7 +138,6 @@ export const putAttribute = async (
   await syncManagedWarehouseIdentifiersOnAttributeChange(
     context,
     attributeSchema,
-    !!existing.hashAttribute || !!attributeSchema[index].hashAttribute,
   );
 
   await syncEventForwarderAfterAttributeSchemaChange(context, {
@@ -187,7 +185,6 @@ export const deleteAttribute = async (
     context.permissions.throwPermissionError();
   }
 
-  const deletedAttribute = attributeSchema[index];
   const updatedArr = attributeSchema.filter((a) => a.property !== id);
 
   await updateOrganization(org.id, {
@@ -197,11 +194,7 @@ export const deleteAttribute = async (
     },
   });
 
-  await syncManagedWarehouseIdentifiersOnAttributeChange(
-    context,
-    updatedArr,
-    !!deletedAttribute.hashAttribute,
-  );
+  await syncManagedWarehouseIdentifiersOnAttributeChange(context, updatedArr);
 
   await syncEventForwarderAfterAttributeSchemaChange(context, {
     attributeSchema: updatedArr,

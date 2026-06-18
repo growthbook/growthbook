@@ -6,6 +6,7 @@ import {
   getManagedWarehouseUserIdTypes,
   getManagedWarehouseUserIdTypeSettings,
   isManagedWarehouseAwaitingProvisioning,
+  MANAGED_WAREHOUSE_ATTRIBUTES_COLUMN,
 } from "shared/util";
 import {
   GrowthbookClickhouseDataSource,
@@ -259,6 +260,27 @@ export async function syncManagedWarehouseIdentifiers(
     }
   });
 
+  // Keep the `attributes` JSON pseudo-columns in sync with the attribute schema:
+  // schema-declared fields win (so a type change propagates), while any extra
+  // fields discovered from data by the refresh job are preserved.
+  const desiredJsonFields = desiredColumns.find(
+    (c) => c.column === MANAGED_WAREHOUSE_ATTRIBUTES_COLUMN,
+  )?.jsonFields;
+  const attributesCol = newColumns.find(
+    (c) => c.column === MANAGED_WAREHOUSE_ATTRIBUTES_COLUMN,
+  );
+  if (attributesCol && desiredJsonFields) {
+    const mergedJsonFields = {
+      ...attributesCol.jsonFields,
+      ...desiredJsonFields,
+    };
+    if (!isEqual(attributesCol.jsonFields || {}, mergedJsonFields)) {
+      attributesCol.jsonFields = mergedJsonFields;
+      attributesCol.dateUpdated = new Date();
+      columnsMutated = true;
+    }
+  }
+
   const newSql = buildManagedWarehouseEventsFactTableSql(attributeSchema);
 
   // Skip the write when nothing changed (e.g. a tag/description-only edit on an
@@ -280,12 +302,13 @@ export async function syncManagedWarehouseIdentifiers(
 
 // Best-effort wrapper for attribute create/update/delete (internal + REST API):
 // a managed-warehouse sync failure must never fail the attribute change itself.
+// Runs for any attribute change (not just identifiers) so the `attributes` JSON
+// pseudo-columns track non-identifier attributes and their type changes too; the
+// underlying sync no-ops when nothing material actually changed.
 export async function syncManagedWarehouseIdentifiersOnAttributeChange(
   context: ReqContext | ApiReqContext,
   attributeSchema: SDKAttributeSchema | undefined,
-  involvesIdentifier: boolean,
 ): Promise<void> {
-  if (!involvesIdentifier) return;
   try {
     await syncManagedWarehouseIdentifiers(context, attributeSchema);
   } catch (e) {

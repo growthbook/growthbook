@@ -52,7 +52,6 @@ export const postAttribute = createApiRequestHandler(postAttributeValidator)(
     await syncManagedWarehouseIdentifiersOnAttributeChange(
       req.context,
       updatedAttributeSchema,
-      !!attribute.hashAttribute,
     );
 
     await syncEventForwarderAfterAttributeSchemaChange(req.context, {

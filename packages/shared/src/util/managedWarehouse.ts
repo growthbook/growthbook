@@ -3,8 +3,14 @@ import type {
   ExposureQuery,
   UserIdType,
 } from "shared/types/datasource";
-import type { SDKAttributeSchema } from "shared/types/organization";
-import type { FactTableColumnType } from "shared/types/fact-table";
+import type {
+  SDKAttributeSchema,
+  SDKAttributeType,
+} from "shared/types/organization";
+import type {
+  FactTableColumnType,
+  JSONColumnFields,
+} from "shared/types/fact-table";
 
 /** Docs: Managed Warehouse — sending events */
 export const MANAGED_WAREHOUSE_SENDING_EVENTS_DOC_URL =
@@ -227,6 +233,52 @@ export function getManagedWarehouseCustomIdentifiers(
   return out;
 }
 
+/** Map an SDK attribute datatype to the fact-table column type used for JSON fields. */
+function attributeDatatypeToFactColumnType(
+  datatype: SDKAttributeType,
+): FactTableColumnType {
+  switch (datatype) {
+    case "number":
+      return "number";
+    case "boolean":
+      return "boolean";
+    case "string[]":
+    case "number[]":
+    case "secureString[]":
+      return "other";
+    default:
+      // string, secureString, enum, "" — all treated as string.
+      return "string";
+  }
+}
+
+// Non-identifier attributes that live inside the `attributes` JSON column,
+// exposed as `attributes.<field>` pseudo-columns (with the attribute's declared
+// type) so they're discoverable without being materialized. Identifiers and
+// reserved keys are aliased/extracted to top-level columns, so they're excluded.
+export function getManagedWarehouseAttributesJsonFields(
+  attributeSchema: SDKAttributeSchema | undefined,
+): JSONColumnFields {
+  const identifiers = new Set(
+    getManagedWarehouseCustomIdentifiers(attributeSchema),
+  );
+  const fields: JSONColumnFields = {};
+  for (const a of attributeSchema || []) {
+    if (a.archived) continue;
+    // Extracted by the SDK to a dedicated top-level column (not in `attributes`).
+    if (RESERVED_TOP_LEVEL_ATTRIBUTE_KEYS.has(a.property)) continue;
+    // Collides with a real top-level column; prefer that column.
+    if (MANAGED_WAREHOUSE_RESERVED_COLUMN_NAMES.has(a.property.toLowerCase()))
+      continue;
+    // Aliased out to a top-level identifier column.
+    if (identifiers.has(a.property)) continue;
+    fields[a.property] = {
+      datatype: attributeDatatypeToFactColumnType(a.datatype),
+    };
+  }
+  return fields;
+}
+
 /** Full identifier/userIdType list: built-in identity columns + custom JSON identifiers. */
 export function getManagedWarehouseUserIdTypes(
   attributeSchema: SDKAttributeSchema | undefined,
@@ -259,12 +311,14 @@ function chIdentifier(name: string): string {
   return SAFE_IDENTIFIER.test(name) ? name : chQuoteIdentifier(name);
 }
 
-// Alias a custom identifier out of the `attributes` JSON column, cast to String
-// since identifier columns are string-compared join keys.
+// Alias a custom identifier out of the `attributes` JSON column. Cast to
+// Nullable(String) (mirroring SqlIntegration's jsonExtract) so off-type values
+// coerce to their string form and missing paths stay NULL, rather than ::String
+// which only surfaces String-typed values.
 function customIdentifierSelectExpr(property: string): string {
   const path = `${MANAGED_WAREHOUSE_ATTRIBUTES_COLUMN}.${chIdentifier(
     property,
-  )}::String`;
+  )}::Nullable(String)`;
   return `${path} AS ${chIdentifier(property)}`;
 }
 
@@ -312,6 +366,7 @@ export type ManagedWarehouseFactColumn = {
   column: string;
   datatype: FactTableColumnType;
   alwaysInlineFilter?: boolean;
+  jsonFields?: JSONColumnFields;
 };
 
 // Always-present `ch_events` fact-table columns (standard fields + JSON columns);
@@ -339,14 +394,22 @@ const MANAGED_WAREHOUSE_EVENTS_BASE_COLUMNS: ManagedWarehouseFactColumn[] = [
   { column: "url_path", datatype: "string" },
 ];
 
-// Base columns plus one String column per custom identifier.
+// Base columns (with non-identifier attributes attached as `attributes` JSON
+// fields) plus one String column per custom identifier.
 export function getManagedWarehouseEventsFactTableColumns(
   attributeSchema: SDKAttributeSchema | undefined,
 ): ManagedWarehouseFactColumn[] {
+  const jsonFields = getManagedWarehouseAttributesJsonFields(attributeSchema);
+  const base: ManagedWarehouseFactColumn[] =
+    MANAGED_WAREHOUSE_EVENTS_BASE_COLUMNS.map((c) =>
+      c.column === MANAGED_WAREHOUSE_ATTRIBUTES_COLUMN
+        ? { ...c, jsonFields }
+        : c,
+    );
   const custom: ManagedWarehouseFactColumn[] =
     getManagedWarehouseCustomIdentifiers(attributeSchema).map((property) => ({
       column: property,
       datatype: "string",
     }));
-  return [...MANAGED_WAREHOUSE_EVENTS_BASE_COLUMNS, ...custom];
+  return [...base, ...custom];
 }

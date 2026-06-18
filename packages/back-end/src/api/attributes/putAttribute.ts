@@ -51,7 +51,6 @@ export const putAttribute = createApiRequestHandler(putAttributeValidator)(
     await syncManagedWarehouseIdentifiersOnAttributeChange(
       req.context,
       updatedAttributeSchema,
-      !!attribute.hashAttribute || !!updatedAttribute.hashAttribute,
     );
 
     await syncEventForwarderAfterAttributeSchemaChange(req.context, {

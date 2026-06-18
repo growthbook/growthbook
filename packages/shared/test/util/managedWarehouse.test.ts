@@ -2,6 +2,7 @@ import { SDKAttributeSchema } from "../../types/organization";
 import {
   buildManagedWarehouseEventsFactTableSql,
   buildManagedWarehouseExposureQueries,
+  getManagedWarehouseAttributesJsonFields,
   getManagedWarehouseCustomIdentifiers,
   getManagedWarehouseEventsFactTableColumns,
   getManagedWarehouseUserIdTypes,
@@ -194,7 +195,9 @@ describe("buildManagedWarehouseEventsFactTableSql", () => {
       { property: "company_id", datatype: "string", hashAttribute: true },
     ];
     const sql = buildManagedWarehouseEventsFactTableSql(schema);
-    expect(sql).toContain("attributes.company_id::String AS company_id");
+    expect(sql).toContain(
+      "attributes.company_id::Nullable(String) AS company_id",
+    );
   });
 
   it("backtick-quotes identifiers that are not safe SQL identifiers", () => {
@@ -202,7 +205,9 @@ describe("buildManagedWarehouseEventsFactTableSql", () => {
       { property: "company id", datatype: "string", hashAttribute: true },
     ];
     const sql = buildManagedWarehouseEventsFactTableSql(schema);
-    expect(sql).toContain("attributes.`company id`::String AS `company id`");
+    expect(sql).toContain(
+      "attributes.`company id`::Nullable(String) AS `company id`",
+    );
   });
 });
 
@@ -228,7 +233,9 @@ describe("buildManagedWarehouseExposureQueries", () => {
       "company_id",
     ]);
     queries.forEach((q) => {
-      expect(q.query).toContain("attributes.company_id::String AS company_id");
+      expect(q.query).toContain(
+        "attributes.company_id::Nullable(String) AS company_id",
+      );
     });
   });
 });
@@ -252,5 +259,40 @@ describe("getManagedWarehouseEventsFactTableColumns", () => {
     const columns = getManagedWarehouseEventsFactTableColumns(schema);
     const company = columns.find((c) => c.column === "company_id");
     expect(company).toEqual({ column: "company_id", datatype: "string" });
+  });
+
+  it("attaches non-identifier attributes as `attributes` JSON fields", () => {
+    const columns = getManagedWarehouseEventsFactTableColumns(defaultSchema);
+    const attributes = columns.find((c) => c.column === "attributes");
+    // `id` folds into device_id (identifier) and `url` collides with the
+    // reserved top-level column, so only `browser` remains.
+    expect(attributes?.jsonFields).toEqual({
+      browser: { datatype: "string" },
+    });
+  });
+});
+
+describe("getManagedWarehouseAttributesJsonFields", () => {
+  it("maps datatypes and excludes identifiers, reserved keys, and collisions", () => {
+    const schema: SDKAttributeSchema = [
+      { property: "company_id", datatype: "string", hashAttribute: true },
+      { property: "plan", datatype: "enum", enum: "free,pro" },
+      { property: "age", datatype: "number" },
+      { property: "is_admin", datatype: "boolean" },
+      { property: "team_ids", datatype: "string[]" },
+      { property: "user_id", datatype: "string" }, // reserved top-level key
+      { property: "geo_country", datatype: "string" }, // collides with column
+      { property: "archived", datatype: "string", archived: true },
+    ];
+    expect(getManagedWarehouseAttributesJsonFields(schema)).toEqual({
+      plan: { datatype: "string" },
+      age: { datatype: "number" },
+      is_admin: { datatype: "boolean" },
+      team_ids: { datatype: "other" },
+    });
+  });
+
+  it("returns an empty object when there are no JSON attributes", () => {
+    expect(getManagedWarehouseAttributesJsonFields(undefined)).toEqual({});
   });
 });
