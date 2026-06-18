@@ -9243,6 +9243,12 @@ paths:
         already has a live ramp schedule, this stores an `update` action applied
         on publish; otherwise it stores a `create` action. No live schedule
         config changes are applied immediately by this endpoint.
+
+
+        You can build the ramp from a template (`templateId`) and set the
+        rollback anchor (`startState`) in the same request — e.g. pull in a
+        template and pass `startState: { "coverage": 0 }` so a rollback returns
+        the rule to 0%.
       tags:
         - feature-revisions-v2
       parameters:
