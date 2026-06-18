@@ -67,6 +67,7 @@ type WindowContext = Context & {
   antiFlickerTimeout?: number;
   additionalTrackingCallback?: TrackingCallback;
   sessionReplay?: SessionReplayConfig;
+  trackingHost?: string;
 };
 
 // Ensure dataLayer exists
@@ -198,7 +199,10 @@ const sessionReplayDisabled =
 if (!sessionReplayDisabled) {
   plugins.push(
     sessionReplayPlugin({
-      trackingHost: CLOUD_INGESTOR_HOST,
+      trackingHost:
+        dataContext.eventIngestorHost ||
+        windowContext.trackingHost ||
+        CLOUD_INGESTOR_HOST,
       enabled: windowContext.sessionReplay?.enabled,
       privacy: windowContext.sessionReplay?.privacy,
     }) as Plugin,
