@@ -1,17 +1,12 @@
-import {
-  Box,
-  Flex,
-  Heading,
-  IconButton,
-  Text,
-  Tooltip,
-} from "@radix-ui/themes";
+import { Box, Flex, IconButton, Tooltip } from "@radix-ui/themes";
 import { ReactNode } from "react";
 import { useFeatureValue } from "@growthbook/growthbook-react";
 import { PiX } from "react-icons/pi";
 import Badge from "@/ui/Badge";
 import Callout from "@/ui/Callout";
+import Heading from "@/ui/Heading";
 import LinkButton from "@/ui/LinkButton";
+import Text from "@/ui/Text";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 
 export type MarketingBannerProps = {
@@ -71,7 +66,7 @@ export default function MarketingBanner({
             size="sm"
           />
           <Box style={{ minWidth: 0, lineHeight: 1.4 }}>
-            <Heading as="h6" size="2" mb="1" style={{ color: "var(--gray-12)" }}>
+            <Heading as="h6" size="x-small" mb="1" color="text-high">
               {icon ? (
                 <Flex as="span" align="center" gap="2">
                   {icon}
@@ -82,7 +77,7 @@ export default function MarketingBanner({
               )}
             </Heading>
             {subheader ? (
-              <Text as="div" size="1" style={{ color: "var(--gray-11)" }}>
+              <Text as="div" size="small" color="text-mid">
                 {subheader}
               </Text>
             ) : null}
