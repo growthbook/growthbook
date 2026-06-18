@@ -197,11 +197,10 @@ import {
   getErrorMessage,
   ConcurrentIncrementalRefreshError,
   ExperimentIncrementalPipelineRequiresFullRefreshError,
-  ExperimentIncrementalPipelineRequiresOverallUpdateError,
 } from "back-end/src/util/errors";
 import {
   assertIncrementalRefreshPrerequisites,
-  getExploratoryMainSnapshotStaleness,
+  exploratoryOverallRequiresFullRefresh,
 } from "back-end/src/enterprise/services/data-pipeline";
 import {
   ExperimentUpdateLogPlan,
@@ -1272,11 +1271,13 @@ export function resolveSnapshotRunner({
     };
   }
 
-  if (snapshotType === "exploratory" && !hasSnapshotDimensions) {
-    // Dimension-less exploratory snapshots reuse the incremental runner in
-    // read-only mode (fullRefresh is always false on exploratory snapshots). That only
-    // works if the warehouse units table has already been created by a prior
-    // standard snapshot — otherwise fall back to the non-pipeline runner.
+  if (snapshotType === "exploratory") {
+    // Exploratory snapshots reuse the incremental runner in read-only mode
+    // (fullRefresh is always false on exploratory snapshots). That only works if
+    // the warehouse units table has already been created by a prior standard
+    // snapshot — otherwise fall back to the non-pipeline runner. This holds for
+    // both dimension-less Overall reads and on-demand dimension breakdowns,
+    // which read the same units table.
     if (!hasMaterializedUnitsTable) {
       return {
         runnerKind: "results",
@@ -1284,16 +1285,15 @@ export function resolveSnapshotRunner({
           "No materialized units table yet for Overall Results.",
       };
     }
-    return { runnerKind: "incremental", incrementalFallbackReason: null };
-  }
-
-  return {
-    runnerKind:
-      snapshotType === "exploratory"
+    return {
+      runnerKind: hasSnapshotDimensions
         ? "incremental-exploratory"
         : "incremental",
-    incrementalFallbackReason: null,
-  };
+      incrementalFallbackReason: null,
+    };
+  }
+
+  return { runnerKind: "incremental", incrementalFallbackReason: null };
 }
 
 /**
@@ -1444,7 +1444,6 @@ async function planSnapshotQueryRunner({
   integration,
   snapshotSettings,
   metricMap,
-  factTableMap,
   experiment,
   incrementalRefreshModel,
   snapshotType,
@@ -1458,7 +1457,6 @@ async function planSnapshotQueryRunner({
   integration: SourceIntegrationInterface;
   snapshotSettings: ExperimentSnapshotSettings;
   metricMap: Map<string, ExperimentMetricInterface>;
-  factTableMap: FactTableMap;
   experiment: ExperimentInterface;
   incrementalRefreshModel: IncrementalRefreshInterface | null;
   snapshotType: SnapshotType;
@@ -1484,40 +1482,33 @@ async function planSnapshotQueryRunner({
     return { ...decision, fullRefresh, fullRefreshReason };
   }
 
+  // A dimension breakdown reads the Overall Results' units table. If that table
+  // was built under different experiment settings (drifted hash), reading it
+  // would be wrong, so Overall Results need a full refresh first. Metric-level
+  // drift (a newly added metric not yet in the caches) does NOT block: the
+  // exploratory runner reads the table as-is and the breakdown omits the
+  // not-yet-cached metric until Overall Results are updated.
   if (
     decision.runnerKind === "incremental-exploratory" &&
-    incrementalRefreshModel
-  ) {
-    const staleness = getExploratoryMainSnapshotStaleness({
+    incrementalRefreshModel &&
+    exploratoryOverallRequiresFullRefresh({
       snapshotSettings,
       incrementalRefreshModel,
-      metricMap,
-      factTableMap,
-    });
-
-    if (staleness.kind !== "fresh") {
-      if (throwOnErrorInsteadOfFallback) {
-        if (staleness.kind === "full-refresh") {
-          throw new ExperimentIncrementalPipelineRequiresFullRefreshError(
-            "Overall Results require a full refresh before Dimension Results can be updated.",
-          );
-        }
-
-        throw new ExperimentIncrementalPipelineRequiresOverallUpdateError(
-          "Overall Results must be incrementally updated before Dimension Results are updated.",
-        );
-      }
-
-      return {
-        runnerKind: "results",
-        incrementalFallbackReason:
-          staleness.kind === "full-refresh"
-            ? "Overall Results need a full refresh; running non-incremental update instead of reading stale data."
-            : "Overall Results need an incremental update; running non-incremental update instead of reading stale data.",
-        fullRefresh,
-        fullRefreshReason,
-      };
+    })
+  ) {
+    if (throwOnErrorInsteadOfFallback) {
+      throw new ExperimentIncrementalPipelineRequiresFullRefreshError(
+        "Overall Results require a full refresh before Dimension Results can be updated.",
+      );
     }
+
+    return {
+      runnerKind: "results",
+      incrementalFallbackReason:
+        "Overall Results need a full refresh; running non-incremental update instead of reading stale data.",
+      fullRefresh,
+      fullRefreshReason,
+    };
   }
 
   const prerequisites: IncrementalRefreshPrerequisiteArgs = {
@@ -1717,7 +1708,6 @@ export async function planSnapshot({
     integration,
     snapshotSettings: data.settings,
     metricMap,
-    factTableMap,
     experiment,
     incrementalRefreshModel,
     snapshotType: type,

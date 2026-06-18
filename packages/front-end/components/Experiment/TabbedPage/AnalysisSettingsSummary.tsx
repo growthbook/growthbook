@@ -43,10 +43,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import ResultMoreMenu, {
   shouldOfferMenuRefresh,
 } from "@/components/Experiment/ResultMoreMenu";
-import {
-  type SnapshotRefreshBlocker,
-  useExperimentSnapshotUpdate,
-} from "@/hooks/useExperimentSnapshotUpdate";
+import { useExperimentSnapshotUpdate } from "@/hooks/useExperimentSnapshotUpdate";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -287,13 +284,11 @@ export default function AnalysisSettingsSummary({
     ],
   );
   const hasOverallResults = !!dimensionless && !dimensionless.dimension;
-  const dimensionResultsUseOverallResults =
-    isExperimentIncludedInIncrementalRefresh && !!dimension;
-  const selectedPrecomputedUnitDimensionNeedsOverallResults =
-    dimensionResultsUseOverallResults &&
-    !!dimension &&
-    honoredPrecomputedUnitDimensionIds.includes(dimension) &&
-    !dimensionless?.settings.precomputedUnitDimensionIds?.includes(dimension);
+  // Dimension Results are built on Overall Results only while incremental
+  // updates are actually active. When an unsupported reason forces a full
+  // rescan, the experiment behaves like non-incremental mode and breakdowns
+  // compute independently, so the Overall-first rules must not apply.
+  const dimensionResultsUseOverallResults = isIncremental && !!dimension;
 
   const fullRefreshReasons: string[] = useMemo(() => {
     if (!isIncremental || !dimensionless || !hasOverallResults) return [];
@@ -348,22 +343,19 @@ export default function AnalysisSettingsSummary({
   const overallNeverRanIncrementally =
     dimensionResultsUseOverallResults &&
     (!incrementalRefresh?.unitsTableFullName || !hasOverallResults);
-  // Precomputed experiment dimensions are built alongside Overall Results. Unit
-  // dimensions also need the current Overall Results snapshot to include their
-  // configured unit-dimension queries before their analysis can be computed.
+  // Precomputed dimensions (experiment dimensions and honored unit dimensions)
+  // are built alongside Overall Results and update together with them, so the
+  // user runs them via the same Update button (it resolves to an Overall Results
+  // update). Only on-demand dimensions must wait for Overall Results first.
   const dimensionIsPrecomputed = isDimensionPrecomputed(
     dimension,
     honoredPrecomputedUnitDimensionIds,
   );
   const viewingOnDemandDimension = !!dimension && !dimensionIsPrecomputed;
   const viewingDimensionThatRequiresOverallFirst =
-    dimensionResultsUseOverallResults &&
-    (viewingOnDemandDimension ||
-      selectedPrecomputedUnitDimensionNeedsOverallResults);
+    dimensionResultsUseOverallResults && viewingOnDemandDimension;
   const overallResultsRequiredBeforeDimensionRefresh =
-    overallNeedsFullRefresh ||
-    overallNeverRanIncrementally ||
-    selectedPrecomputedUnitDimensionNeedsOverallResults;
+    overallNeedsFullRefresh || overallNeverRanIncrementally;
   const hideOutdatedBadge =
     viewingDimensionThatRequiresOverallFirst && overallNeedsFullRefresh;
 
@@ -372,9 +364,11 @@ export default function AnalysisSettingsSummary({
     hasOverallResults ? dimensionless : undefined,
   );
 
-  const [mainSnapshotRefresh, setMainSnapshotRefresh] =
-    useState<SnapshotRefreshBlocker | null>(null);
   const [showMainRefreshModal, setShowMainRefreshModal] = useState(false);
+
+  const handleSnapshotRefreshBlocked = () => {
+    setShowMainRefreshModal(true);
+  };
 
   const { runSnapshot, fullRefreshConfirm } = useExperimentSnapshotUpdate({
     experiment,
@@ -383,12 +377,12 @@ export default function AnalysisSettingsSummary({
     mutate,
     mutateAdditional: mutateExperiment,
     setRefreshError,
+    // Dimension-only updates from UpdateDimensionBreakdownModal post through this
+    // instance. Wire the blocker handler so a requires_full_refresh from the
+    // server (Overall Results settings drifted) opens MainSnapshotRefreshDialog
+    // instead of failing silently.
+    onSnapshotRefreshBlocked: handleSnapshotRefreshBlocked,
   });
-
-  const handleSnapshotRefreshBlocked = (blocker: SnapshotRefreshBlocker) => {
-    setMainSnapshotRefresh(blocker);
-    setShowMainRefreshModal(true);
-  };
 
   const goToOverallResults = useCallback(() => {
     setSnapshotDimension("");
@@ -396,13 +390,10 @@ export default function AnalysisSettingsSummary({
     setDimension?.("", true);
   }, [setSnapshotDimension, setAnalysisSettings, setDimension]);
 
-  const updateMainResults = async (blocker: SnapshotRefreshBlocker) => {
+  const updateMainResults = async () => {
     setShowMainRefreshModal(false);
-    const started = await runSnapshot("", {
-      force: blocker.kind === "requires-full-refresh",
-    });
+    const started = await runSnapshot("", { force: true });
     if (!started) return;
-    setMainSnapshotRefresh(null);
     goToOverallResults();
     setSnapshotType?.(undefined);
   };
@@ -495,10 +486,11 @@ export default function AnalysisSettingsSummary({
   // In Incremental Pipeline mode, dimension results are built on top of overall
   // results (the dimensionless snapshot). When the user clicks 'Update' while
   // viewing a dimension breakdown that already covers the latest overall results
-  // (no newer overall data available), re-running won't fetch anything new, so we
-  // confirm and point them at updating overall results instead. This only applies
-  // when incremental updates are available — under a full-rescan fallback there is
-  // no overall/dimension split to reconcile.
+  // (no newer overall data available), re-running reads the same overall caches,
+  // so we confirm and point them at updating overall results to fetch newer data
+  // (including any newly added metrics). This only applies when incremental
+  // updates are available — under a full-rescan fallback there is no
+  // overall/dimension split to reconcile.
   const needsDimensionRefreshConfirm =
     !!sourceSnapshot &&
     !newerOverallResultsAvailable &&
@@ -1126,13 +1118,10 @@ export default function AnalysisSettingsSummary({
         </Callout>
       ) : null}
 
-      {showMainRefreshModal && mainSnapshotRefresh ? (
+      {showMainRefreshModal ? (
         <MainSnapshotRefreshDialog
-          requirement={mainSnapshotRefresh}
           onConfirm={() =>
-            updateMainResults(mainSnapshotRefresh).catch((e) =>
-              setRefreshError(e.message),
-            )
+            updateMainResults().catch((e) => setRefreshError(e.message))
           }
           onCancel={() => setShowMainRefreshModal(false)}
         />

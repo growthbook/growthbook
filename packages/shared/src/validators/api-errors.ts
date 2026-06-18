@@ -59,14 +59,6 @@ export const apiErrorRegistry = {
       reason: z.string(),
     }),
   },
-  requires_overall_update: {
-    status: 409,
-    description:
-      "The experiment's Overall Results must be updated before this operation can proceed",
-    detailsSchema: z.object({
-      reason: z.string(),
-    }),
-  },
 } satisfies Record<
   string,
   { status: number; description: string; detailsSchema: z.ZodTypeAny }

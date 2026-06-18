@@ -1756,7 +1756,7 @@ export const postExperimentSnapshotValidator = {
   tags: ["experiments", "snapshots"],
   method: "post" as const,
   path: "/experiments/:id/snapshot",
-  possibleErrors: ["requires_full_refresh", "requires_overall_update"] as const,
+  possibleErrors: ["requires_full_refresh"] as const,
   exampleRequest: { body: { triggeredBy: "schedule" } } as const,
 };
 

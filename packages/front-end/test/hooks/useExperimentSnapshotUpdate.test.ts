@@ -335,18 +335,18 @@ describe("useExperimentSnapshotUpdate", () => {
     expect(apiCall).not.toHaveBeenCalled();
   });
 
-  it("hands off a Dimension Results refresh blocker to onSnapshotRefreshBlocked", async () => {
+  it("hands off a Dimension Results full-refresh blocker to onSnapshotRefreshBlocked", async () => {
     const blocker = {
-      kind: "requires-overall-update",
-      reason: "stale metrics",
+      kind: "requires-full-refresh",
+      reason: "settings drifted",
     };
     mockApiInterruptionError({
       status: 409,
-      code: "requires_overall_update",
+      code: "requires_full_refresh",
       details: {
-        reason: "stale metrics",
+        reason: "settings drifted",
       },
-      message: "requires overall update",
+      message: "requires full refresh",
     });
     const onSnapshotRefreshBlocked = vi.fn();
     // A non-empty dimension routes through the hand-off path rather than the

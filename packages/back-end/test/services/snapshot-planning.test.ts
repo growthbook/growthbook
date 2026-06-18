@@ -12,12 +12,9 @@ import { MetricSnapshotSettings } from "shared/types/report";
 import { ApiReqContext } from "back-end/types/api";
 import {
   assertIncrementalRefreshPrerequisites,
-  getExploratoryMainSnapshotStaleness,
+  exploratoryOverallRequiresFullRefresh,
 } from "back-end/src/enterprise/services/data-pipeline";
-import {
-  ExperimentIncrementalPipelineRequiresFullRefreshError,
-  ExperimentIncrementalPipelineRequiresOverallUpdateError,
-} from "back-end/src/util/errors";
+import { ExperimentIncrementalPipelineRequiresFullRefreshError } from "back-end/src/util/errors";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import {
   getSnapshotSettings,
@@ -64,7 +61,7 @@ jest.mock("back-end/src/enterprise", () => ({
 
 jest.mock("back-end/src/enterprise/services/data-pipeline", () => ({
   assertIncrementalRefreshPrerequisites: jest.fn(),
-  getExploratoryMainSnapshotStaleness: jest.fn(),
+  exploratoryOverallRequiresFullRefresh: jest.fn(),
 }));
 
 const {
@@ -102,9 +99,9 @@ const assertIncrementalRefreshPrerequisitesMock =
   assertIncrementalRefreshPrerequisites as jest.MockedFunction<
     typeof assertIncrementalRefreshPrerequisites
   >;
-const getExploratoryMainSnapshotStalenessMock =
-  getExploratoryMainSnapshotStaleness as jest.MockedFunction<
-    typeof getExploratoryMainSnapshotStaleness
+const exploratoryOverallRequiresFullRefreshMock =
+  exploratoryOverallRequiresFullRefresh as jest.MockedFunction<
+    typeof exploratoryOverallRequiresFullRefresh
   >;
 const orgHasPremiumFeatureMock = orgHasPremiumFeature as jest.MockedFunction<
   typeof orgHasPremiumFeature
@@ -205,7 +202,7 @@ describe("snapshot planning", () => {
     jest.clearAllMocks();
     getDataSourceByIdMock.mockResolvedValue(makeDatasource());
     getSourceIntegrationObjectMock.mockReturnValue({} as never);
-    getExploratoryMainSnapshotStalenessMock.mockReturnValue({ kind: "fresh" });
+    exploratoryOverallRequiresFullRefreshMock.mockReturnValue(false);
   });
 
   it("plans a draft snapshot without persisting or mutating experiment state", async () => {
@@ -893,42 +890,38 @@ describe("snapshot planning", () => {
     return context;
   }
 
-  it("throws ExperimentIncrementalPipelineRequiresOverallUpdateError when exploratory staleness needs an update and prompting enabled", async () => {
+  it("uses the incremental-exploratory runner when the Overall units table does not require a full refresh", async () => {
     wireIncrementalIntegration(makeIncrementalDatasource());
     assertIncrementalRefreshPrerequisitesMock.mockResolvedValue(
       undefined as never,
     );
-    getExploratoryMainSnapshotStalenessMock.mockReturnValue({
-      kind: "incremental-update",
+    exploratoryOverallRequiresFullRefreshMock.mockReturnValue(false);
+
+    const plan = await planSnapshot({
+      experiment: makeExperiment(),
+      context: makeExploratoryContext(),
+      type: "exploratory",
+      triggeredBy: "manual",
+      phaseIndex: 0,
+      useCache: true,
+      defaultAnalysisSettings: makeAnalysisSettings({
+        dimensions: ["exp:country"],
+      }),
+      additionalAnalysisSettings: [],
+      settingsForSnapshotMetrics: [],
+      metricMap: new Map<string, ExperimentMetricInterface>(),
+      factTableMap: new Map() as FactTableMap,
     });
 
-    await expect(
-      planSnapshot({
-        experiment: makeExperiment(),
-        context: makeExploratoryContext(),
-        type: "exploratory",
-        triggeredBy: "manual",
-        phaseIndex: 0,
-        useCache: true,
-        defaultAnalysisSettings: makeAnalysisSettings({
-          dimensions: ["exp:country"],
-        }),
-        additionalAnalysisSettings: [],
-        settingsForSnapshotMetrics: [],
-        metricMap: new Map<string, ExperimentMetricInterface>(),
-        factTableMap: new Map() as FactTableMap,
-      }),
-    ).rejects.toThrow(ExperimentIncrementalPipelineRequiresOverallUpdateError);
+    expect(plan.runnerKind).toBe("incremental-exploratory");
   });
 
-  it("throws ExperimentIncrementalPipelineRequiresFullRefreshError when exploratory staleness needs a full refresh and prompting enabled", async () => {
+  it("throws ExperimentIncrementalPipelineRequiresFullRefreshError when the Overall units table requires a full refresh and prompting enabled", async () => {
     wireIncrementalIntegration(makeIncrementalDatasource());
     assertIncrementalRefreshPrerequisitesMock.mockResolvedValue(
       undefined as never,
     );
-    getExploratoryMainSnapshotStalenessMock.mockReturnValue({
-      kind: "full-refresh",
-    });
+    exploratoryOverallRequiresFullRefreshMock.mockReturnValue(true);
 
     await expect(
       planSnapshot({
@@ -949,14 +942,12 @@ describe("snapshot planning", () => {
     ).rejects.toThrow(ExperimentIncrementalPipelineRequiresFullRefreshError);
   });
 
-  it("falls back to results runner when exploratory staleness is full-refresh and triggered by a background job", async () => {
+  it("falls back to results runner when the Overall units table requires a full refresh and triggered by a background job", async () => {
     wireIncrementalIntegration(makeIncrementalDatasource());
     assertIncrementalRefreshPrerequisitesMock.mockResolvedValue(
       undefined as never,
     );
-    getExploratoryMainSnapshotStalenessMock.mockReturnValue({
-      kind: "full-refresh",
-    });
+    exploratoryOverallRequiresFullRefreshMock.mockReturnValue(true);
 
     const plan = await planSnapshot({
       experiment: makeExperiment(),

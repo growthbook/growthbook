@@ -4,10 +4,7 @@ import { findDimensionById } from "back-end/src/models/DimensionModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { findSnapshotById } from "back-end/src/models/ExperimentSnapshotModel";
 import { createExperimentSnapshot } from "back-end/src/services/experiments";
-import {
-  ExperimentIncrementalPipelineRequiresFullRefreshError,
-  ExperimentIncrementalPipelineRequiresOverallUpdateError,
-} from "back-end/src/util/errors";
+import { ExperimentIncrementalPipelineRequiresFullRefreshError } from "back-end/src/util/errors";
 import { snapshotFactory } from "back-end/test/factories/Snapshot.factory";
 import { setupApp } from "./api.setup";
 
@@ -553,57 +550,6 @@ describe("snapshots API", () => {
       reason: dimensionFullRefreshMessage,
     });
     expect(response.body.message).toContain('{"force": true, "dimension": ""}');
-  });
-
-  it("returns 409 when a dimension snapshot needs the main results incrementally updated", async () => {
-    setReqContext({
-      org,
-      permissions: {
-        canCreateExperimentSnapshot: () => true,
-        canReadSingleProjectResource: () => true,
-      },
-    });
-
-    const snapshot = snapshotFactory.build({
-      organization: org.id,
-    });
-    const experiment = {
-      id: snapshot.experiment,
-      datasource: "ds_123",
-      exposureQueryId: "eq_1",
-      phases: [{}],
-    };
-
-    getExperimentById.mockReturnValueOnce(experiment);
-    getDataSourceById.mockReturnValueOnce({
-      ...incrementalDatasource,
-      settings: {
-        ...incrementalDatasource.settings,
-        queries: {
-          exposure: [{ id: "eq_1", dimensions: ["country"] }],
-        },
-      },
-    });
-    const overallUpdateMessage =
-      "Overall Results must be updated before Dimension Results reflect recent metric changes.";
-    createExperimentSnapshot.mockRejectedValueOnce(
-      new ExperimentIncrementalPipelineRequiresOverallUpdateError(
-        overallUpdateMessage,
-      ),
-    );
-
-    const response = await request(app)
-      .post(`/api/v1/experiments/${snapshot.experiment}/snapshot`)
-      .set("Authorization", "Bearer foo")
-      .send({ dimension: "exp:country" });
-
-    expect(response.status).toBe(409);
-    expect(response.body.code).toBe("requires_overall_update");
-    expect(response.body.details).toEqual({
-      reason: overallUpdateMessage,
-    });
-    expect(response.body.message).toContain('without "dimension"');
-    expect(response.body.message).not.toContain('"force": true');
   });
 
   it("passes force: true without prompting for a full refresh", async () => {

@@ -184,17 +184,6 @@ export class ExperimentIncrementalPipelineRequiresFullRefreshError extends ApiEr
   }
 }
 
-export class ExperimentIncrementalPipelineRequiresOverallUpdateError extends ApiError<"requires_overall_update"> {
-  constructor(reason: string) {
-    super(
-      "requires_overall_update",
-      `${reason}\n\nFirst update Overall Results (create a snapshot without "dimension" in the request body), then re-issue this request.`,
-      { reason },
-    );
-    this.name = "ExperimentIncrementalPipelineRequiresOverallUpdateError";
-  }
-}
-
 // Snapshot failures that repeat on every retry; auto-updates get disabled, even for bandits
 export class UnrecoverableSnapshotError extends Error {
   constructor(message: string) {

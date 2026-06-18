@@ -36,13 +36,6 @@ export const INCREMENTAL_FULL_REFRESH_SETTINGS_FIELDS = [
   "experimentId",
 ] as const satisfies readonly (keyof ExperimentSnapshotSettings)[];
 
-// For Incremental pipeline, Dimension Results are built on top of Overall
-// Results. This type describes the Overall Results refresh required before
-// running Dimension Results.
-export type DimensionUpdateRequiresOverallResultsUpdate =
-  | { kind: "full-refresh" }
-  | { kind: "incremental-update" };
-
 export type IncrementalFullRefreshComparable = Pick<
   ExperimentSnapshotSettings,
   (typeof INCREMENTAL_FULL_REFRESH_SETTINGS_FIELDS)[number]

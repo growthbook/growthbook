@@ -35,6 +35,7 @@ import Link from "@/ui/Link";
 import AsyncQueriesModal from "@/components/Queries/AsyncQueriesModal";
 import { MetricDrilldownProvider } from "@/components/MetricDrilldown/MetricDrilldownContext";
 import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
+import { useIncrementalPipelineUnsupportedReason } from "@/hooks/useIncrementalPipelineUnsupportedReason";
 import { ExperimentTab } from "./TabbedPage";
 
 export type AnalysisBarSettings = {
@@ -134,6 +135,8 @@ const Results: FC<{
 
   const permissionsUtil = usePermissionsUtil();
   const { getDatasourceById } = useDefinitions();
+  const incrementalPipelineUnsupportedReason =
+    useIncrementalPipelineUnsupportedReason(experiment);
 
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
   const hasValidStatsEngine =
@@ -212,13 +215,19 @@ const Results: FC<{
   const datasource = experiment.datasource
     ? getDatasourceById(experiment.datasource)
     : null;
-  const dimensionNeedsOverallResultsFirst =
-    !!analysisBarSettings.dimension &&
+  // Mirror ResultMoreMenu's runsIncrementalRefresh: incremental is active only
+  // when the experiment is in scope and has no unsupported reason. An
+  // unsupported reason falls back to a full rescan, so a dimension breakdown no
+  // longer depends on Overall Results.
+  const isIncrementalActive =
     getIsExperimentIncludedInIncrementalRefresh(
       datasource ?? undefined,
       experiment.id,
       experiment.type,
-    ) &&
+    ) && !incrementalPipelineUnsupportedReason;
+  const dimensionNeedsOverallResultsFirst =
+    !!analysisBarSettings.dimension &&
+    isIncrementalActive &&
     !(dimensionless && !dimensionless.dimension);
 
   const hasMetrics =

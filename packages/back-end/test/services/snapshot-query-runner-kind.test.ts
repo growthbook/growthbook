@@ -85,6 +85,22 @@ describe("resolveSnapshotRunner", () => {
     });
   });
 
+  it("returns 'results' for exploratory snapshots with dimensions when the units table has not been materialized", () => {
+    expect(
+      resolveSnapshotRunner({
+        datasource: makeDatasource(),
+        experiment: makeExperiment(),
+        snapshotType: "exploratory",
+        hasSnapshotDimensions: true,
+        hasMaterializedUnitsTable: false,
+      }),
+    ).toEqual({
+      runnerKind: "results",
+      incrementalFallbackReason:
+        "No materialized units table yet for Overall Results.",
+    });
+  });
+
   it("returns 'incremental' for standard snapshots even when the units table has not been materialized (full refresh will create it)", () => {
     expect(
       resolveSnapshotRunner({

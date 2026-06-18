@@ -2,14 +2,12 @@ import md5 from "md5";
 import {
   ExperimentMetricInterface,
   getAutoSliceMetrics,
-  isFactMetric,
   isSliceMetric,
 } from "shared/experiments";
 import {
   getIncrementalPipelineUnsupportedReason,
   INCREMENTAL_FULL_REFRESH_SETTINGS_FIELDS,
 } from "shared/enterprise";
-import type { DimensionUpdateRequiresOverallResultsUpdate } from "shared/enterprise";
 import {
   AggregatedFactTableInterface,
   AggregatedFactTableMetricStateInterface,
@@ -30,7 +28,6 @@ import { ExperimentIncrementalPipelineRequiresFullRefreshError } from "back-end/
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { getFiltersForHash } from "back-end/src/services/experimentTimeSeries";
 import { getColumnsForMetric } from "back-end/src/integrations/sql/fact-metrics/columns-for-metric";
-import { planMetricFanOut } from "back-end/src/services/experimentQueries/planMetricFanOut";
 import type { MetricFanOut } from "back-end/src/services/experimentQueries/planMetricFanOut";
 
 /**
@@ -475,93 +472,22 @@ export function getAggregatedFactTableRestateReason({
   return null;
 }
 
-// Whether selected fact metrics are missing from the persisted incremental
-// caches or have drifted settings. A read-only exploratory breakdown would be
-// missing or stale until a main snapshot update rebuilds the affected caches.
-export function hasStaleExploratoryMetrics({
-  existingMetricSources,
-  desiredFanOut,
-  currentMetricSettingsHashes,
-}: {
-  existingMetricSources: IncrementalRefreshInterface["metricSources"];
-  desiredFanOut: MetricFanOut;
-  currentMetricSettingsHashes: Map<string, string>;
-}): boolean {
-  const storedHashByTuple = new Map<string, string>();
-  existingMetricSources.forEach((source) => {
-    source.metrics.forEach((m) => {
-      storedHashByTuple.set(`${source.factTableId}|${m.id}`, m.settingsHash);
-    });
-  });
-
-  for (const { factTableId, metrics } of desiredFanOut.perFt) {
-    for (const metric of metrics) {
-      const storedHash = storedHashByTuple.get(`${factTableId}|${metric.id}`);
-      if (storedHash === undefined) {
-        return true;
-      }
-      const currentHash = currentMetricSettingsHashes.get(metric.id);
-      if (currentHash === undefined || currentHash !== storedHash) {
-        return true;
-      }
-    }
-  }
-  return false;
-}
-
-// Whether a read-only exploratory (dimension) breakdown would read stale or
-// incomplete data from the main snapshot's persisted tables, and what kind of
-// main refresh fixes it. Experiment-level drift wins (it requires a full
-// refresh that rebuilds the units table); otherwise metric-level drift only
-// needs an incremental main update. Returns "fresh" when the breakdown can
-// safely read the caches as-is.
-export function getExploratoryMainSnapshotStaleness({
+// Whether a read-only exploratory (dimension) breakdown would read data built
+// under different experiment-level settings. A drifted experiment-settings hash
+// means the persisted units table was built with different settings, so the
+// breakdown is only valid after a full refresh of Overall Results rebuilds it.
+// Metric-level drift (a newly added metric not yet in the caches) does NOT
+// block: the exploratory runner reads the existing table and the breakdown
+// simply omits not-yet-cached metrics until Overall Results are updated.
+export function exploratoryOverallRequiresFullRefresh({
   snapshotSettings,
   incrementalRefreshModel,
-  metricMap,
-  factTableMap,
 }: {
   snapshotSettings: ExperimentSnapshotSettings;
   incrementalRefreshModel: IncrementalRefreshInterface;
-  metricMap: Map<string, ExperimentMetricInterface>;
-  factTableMap: Map<string, FactTableInterface>;
-}): { kind: "fresh" } | DimensionUpdateRequiresOverallResultsUpdate {
+}): boolean {
   const currentSettingsHash =
     getExperimentSettingsHashForIncrementalRefresh(snapshotSettings);
   const storedSettingsHash = incrementalRefreshModel.experimentSettingsHash;
-  if (!storedSettingsHash || currentSettingsHash !== storedSettingsHash) {
-    return { kind: "full-refresh" };
-  }
-
-  const factMetrics = snapshotSettings.metricSettings
-    .map((m) => metricMap.get(m.id))
-    .filter((m): m is FactMetricInterface => !!m && isFactMetric(m));
-
-  const desiredFanOut = planMetricFanOut(factMetrics);
-
-  const currentMetricSettingsHashes = new Map<string, string>();
-  factMetrics.forEach((m) => {
-    currentMetricSettingsHashes.set(
-      m.id,
-      getMetricSettingsHashForIncrementalRefresh({
-        factMetric: m,
-        factTableMap,
-        metricSettings: snapshotSettings.metricSettings.find(
-          (ms) => ms.id === m.id,
-        ),
-      }),
-    );
-  });
-
-  const hasStaleMetrics = hasStaleExploratoryMetrics({
-    existingMetricSources: incrementalRefreshModel.metricSources,
-    desiredFanOut,
-    currentMetricSettingsHashes,
-  });
-
-  if (hasStaleMetrics) {
-    return { kind: "incremental-update" };
-  }
-
-  return { kind: "fresh" };
+  return !storedSettingsHash || currentSettingsHash !== storedSettingsHash;
 }

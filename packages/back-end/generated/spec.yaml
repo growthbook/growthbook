@@ -12499,43 +12499,23 @@ paths:
           content:
             application/json:
               schema:
-                oneOf:
-                  - type: object
-                    description: >-
-                      The Incremental Pipeline data is outdated and must be
-                      rebuilt before an Incremental Update can proceed
-                    properties:
-                      message:
-                        type: string
-                      code:
-                        type: string
-                        enum:
-                          - requires_full_refresh
-                      details:
-                        $ref: >-
-                          #/components/schemas/ApiErrorRequiresFullRefreshDetails
-                    required:
-                      - message
-                      - code
-                      - details
-                  - type: object
-                    description: >-
-                      The experiment's Overall Results must be updated before
-                      this operation can proceed
-                    properties:
-                      message:
-                        type: string
-                      code:
-                        type: string
-                        enum:
-                          - requires_overall_update
-                      details:
-                        $ref: >-
-                          #/components/schemas/ApiErrorRequiresOverallUpdateDetails
-                    required:
-                      - message
-                      - code
-                      - details
+                type: object
+                description: >-
+                  The Incremental Pipeline data is outdated and must be rebuilt
+                  before an Incremental Update can proceed
+                properties:
+                  message:
+                    type: string
+                  code:
+                    type: string
+                    enum:
+                      - requires_full_refresh
+                  details:
+                    $ref: '#/components/schemas/ApiErrorRequiresFullRefreshDetails'
+                required:
+                  - message
+                  - code
+                  - details
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -44531,14 +44511,6 @@ components:
         - expectedStatuses
       additionalProperties: false
     ApiErrorRequiresFullRefreshDetails:
-      type: object
-      properties:
-        reason:
-          type: string
-      required:
-        - reason
-      additionalProperties: false
-    ApiErrorRequiresOverallUpdateDetails:
       type: object
       properties:
         reason:

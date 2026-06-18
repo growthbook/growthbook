@@ -1,38 +1,29 @@
 import Text from "@/ui/Text";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
-import { type SnapshotRefreshBlocker } from "@/hooks/useExperimentSnapshotUpdate";
 
 export default function MainSnapshotRefreshDialog({
-  requirement,
   onConfirm,
   onCancel,
 }: {
-  requirement: SnapshotRefreshBlocker;
   onConfirm: () => void | Promise<void>;
   onCancel: () => void;
 }) {
-  const isFullRefresh = requirement.kind === "requires-full-refresh";
   return (
     <ModalStandard
       open={true}
-      header="Update Overall Results first"
-      subheader="Dimension Results are built from Overall Results"
-      cta={isFullRefresh ? "Refresh Overall Results" : "Update Overall Results"}
+      header="Overall Results require a Full Refresh"
+      subheader="Dimension Results are computed from Overall Results"
+      cta="Run full refresh"
       trackingEventModalType="incremental-pipeline-main-snapshot-refresh"
       submit={onConfirm}
       close={onCancel}
     >
-      {isFullRefresh ? (
-        <Text size="medium" color="text-high" as="p">
-          Overall Results are out of date. Refresh them to apply your latest
-          analysis settings, then reopen this breakdown.
-        </Text>
-      ) : (
-        <Text size="medium" color="text-high" as="p">
-          Update Overall Results first so this breakdown uses the latest
-          analysis settings instead of stale data.
-        </Text>
-      )}
+      <Text size="medium" color="text-high" as="p">
+        Settings have changed, so Overall Results must be rebuilt with a full
+        refresh before this dimension breakdown can update. A full refresh can
+        take longer to run. Confirming starts it and switches you to Overall
+        Results.
+      </Text>
     </ModalStandard>
   );
 }

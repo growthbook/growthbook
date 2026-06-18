@@ -13,9 +13,10 @@ import { useUser } from "@/services/UserContext";
 import { getHonoredPrecomputedUnitDimensionIds } from "@/services/experiments";
 import { trackSnapshot } from "@/services/track";
 
-export type SnapshotRefreshBlocker =
-  | { kind: "requires-full-refresh"; reason: string }
-  | { kind: "requires-overall-update"; reason: string };
+export type SnapshotRefreshBlocker = {
+  kind: "requires-full-refresh";
+  reason: string;
+};
 
 type SubmitUpdateOptions = {
   force?: boolean;
@@ -84,13 +85,6 @@ function apiErrorToSnapshotRefreshBlocker(
 
   if (err?.code === "requires_full_refresh") {
     return { kind: "requires-full-refresh", reason: err.details.reason };
-  }
-
-  if (err?.code === "requires_overall_update") {
-    return {
-      kind: "requires-overall-update",
-      reason: err.details.reason,
-    };
   }
 
   return null;
@@ -241,16 +235,14 @@ export function useExperimentSnapshotUpdate({
       } catch (e) {
         const blocker = apiErrorToSnapshotRefreshBlocker(apiError);
         if (blocker) {
-          if (blocker.kind === "requires-full-refresh") {
-            if (dimensionToRun === "") {
-              if (force) {
-                setRefreshError(blocker.reason);
-                return { status: "failed" };
-              }
-              return { status: "needs-full-refresh", reason: blocker.reason };
+          // A dimensionless ("") refresh prompts inline for a full refresh and
+          // retries forced; a dimension refresh hands the blocker to the caller.
+          if (dimensionToRun === "") {
+            if (force) {
+              setRefreshError(blocker.reason);
+              return { status: "failed" };
             }
-            onSnapshotRefreshBlocked?.(blocker);
-            return { status: "failed" };
+            return { status: "needs-full-refresh", reason: blocker.reason };
           }
           onSnapshotRefreshBlocked?.(blocker);
           return { status: "failed" };
