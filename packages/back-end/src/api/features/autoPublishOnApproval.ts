@@ -119,18 +119,32 @@ async function revisionRequiresPreLaunchChecklist(
   );
 }
 
+// The dashboard user id an armed publish will run as: the explicit arming user
+// (autoPublishEnabledBy at fire time, or the current actor at arm time), else
+// the draft's author — but only when that author is a dashboard user. API-key
+// and system event users can carry an `id` that is NOT a resolvable user, so
+// they return null (the publish can't run with their authority).
+export function resolveArmedPublishUserId(
+  revision: Pick<
+    FeatureRevisionInterface,
+    "autoPublishEnabledBy" | "createdBy"
+  >,
+  armingUserId: string | null,
+): string | null {
+  const candidate = armingUserId ?? revision.autoPublishEnabledBy ?? null;
+  if (candidate) return candidate;
+  return revision.createdBy?.type === "dashboard"
+    ? revision.createdBy.id
+    : null;
+}
+
 // Resolve the context an armed publish runs with: whoever armed it
-// (autoPublishEnabledBy), falling back to the draft author when that's absent
-// (API keys, or revisions predating the field).
+// (autoPublishEnabledBy), falling back to the draft author when that's absent.
 async function getArmedPublishContext(
   context: ReqContext | ApiReqContext,
   revision: FeatureRevisionInterface,
 ): Promise<ReqContext | ApiReqContext | null> {
-  const enablerId =
-    revision.autoPublishEnabledBy ??
-    (revision.createdBy && "id" in revision.createdBy
-      ? revision.createdBy.id
-      : null);
+  const enablerId = resolveArmedPublishUserId(revision, null);
   if (!enablerId) return null;
   try {
     return await getContextForUserIdInOrg(context.org, enablerId);
