@@ -6,6 +6,15 @@ import { baseDialect } from "./base";
 const clickHouseEscapeStringLiteral = (value: string) =>
   value.replace(/\\/g, "\\\\").replace(/'/g, "''");
 
+const SAFE_CH_IDENTIFIER = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+
+// Quote a native-JSON subcolumn key. The key is a single top-level JSON field
+// (may contain spaces/dots/etc.), so backtick-quote it as one identifier when
+// it isn't a safe bare identifier — `attributes.company id` is invalid SQL,
+// `attributes.\`company id\`` is correct.
+const quoteClickHouseJsonPath = (path: string): string =>
+  SAFE_CH_IDENTIFIER.test(path) ? path : `\`${path.replace(/`/g, "``")}\``;
+
 export const clickHouseDialect: SqlDialect = {
   ...baseDialect,
   formatDialect: "clickhouse",
@@ -57,7 +66,7 @@ export const clickHouseDialect: SqlDialect = {
       return `
 if(
   toTypeName(${jsonCol}) = 'JSON',
-  toFloat64OrNull(${jsonCol}.${path}::Nullable(String)),
+  toFloat64OrNull(${jsonCol}.${quoteClickHouseJsonPath(path)}::Nullable(String)),
   JSONExtractFloat(${jsonCol}, '${path}')
 )
       `;
@@ -68,7 +77,7 @@ if(
     return `
 if(
   toTypeName(${jsonCol}) = 'JSON',
-  ${jsonCol}.${path}::Nullable(String),
+  ${jsonCol}.${quoteClickHouseJsonPath(path)}::Nullable(String),
   JSONExtractString(${jsonCol}, '${path}')
 )
       `;

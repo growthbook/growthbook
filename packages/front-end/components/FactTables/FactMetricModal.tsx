@@ -267,7 +267,10 @@ function getColumnOptions({
     for (const col of jsonColumns) {
       if (col.jsonFields) {
         for (const [field, data] of Object.entries(col.jsonFields)) {
-          if (col.name === "attributes" && excludedAttributeFields.has(field)) {
+          if (
+            col.column === "attributes" &&
+            excludedAttributeFields.has(field)
+          ) {
             continue;
           }
 
