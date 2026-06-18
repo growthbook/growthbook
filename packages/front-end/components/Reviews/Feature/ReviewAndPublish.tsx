@@ -40,7 +40,6 @@ import {
   PiGitMergeBold,
   PiCaretDownBold,
   PiHourglassHighFill,
-  PiInfo,
 } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
@@ -617,12 +616,21 @@ export default function ReviewAndPublish({
       ? new Date(revision.scheduledPublishAt).toISOString()
       : "",
   );
-  const [scheduleLockEdits, setScheduleLockEdits] = useState(
-    !!revision?.scheduledPublishLockEdits,
+  // The two underlying locks are surfaced as one checkbox + a scope selector
+  // (mirrors the "Automatically publish [mode]" control). The scope is its own
+  // state so the selector works even while the checkbox is off — picking a
+  // scope then only records the preference. lockEdits = enabled; lockOthers =
+  // enabled && scope === "feature" (feature scope is the superset).
+  const [scheduleLockEnabled, setScheduleLockEnabled] = useState(
+    !!revision?.scheduledPublishLockEdits ||
+      !!revision?.scheduledPublishLockOthers,
   );
-  const [scheduleLockOthers, setScheduleLockOthers] = useState(
-    !!revision?.scheduledPublishLockOthers,
-  );
+  const [scheduleLockScope, setScheduleLockScope] = useState<
+    "draft" | "feature"
+  >(revision?.scheduledPublishLockOthers ? "feature" : "draft");
+  const scheduleLockEdits = scheduleLockEnabled;
+  const scheduleLockOthers =
+    scheduleLockEnabled && scheduleLockScope === "feature";
   // Admin-only: dangerously arm the scheduled publish so it fires without the
   // normal approval. Distinct from the "publish now" admin bypass — this one
   // belongs to the schedule and is what gets persisted as scheduledPublishBypassApproval.
@@ -650,8 +658,13 @@ export default function ReviewAndPublish({
         ? new Date(revision.scheduledPublishAt).toISOString()
         : "",
     );
-    setScheduleLockEdits(!!revision?.scheduledPublishLockEdits);
-    setScheduleLockOthers(!!revision?.scheduledPublishLockOthers);
+    setScheduleLockEnabled(
+      !!revision?.scheduledPublishLockEdits ||
+        !!revision?.scheduledPublishLockOthers,
+    );
+    setScheduleLockScope(
+      revision?.scheduledPublishLockOthers ? "feature" : "draft",
+    );
     setScheduleBypassApproval(!!revision?.scheduledPublishBypassApproval);
   }, [
     revision?.autoPublishOnApproval,
@@ -1911,26 +1924,23 @@ export default function ReviewAndPublish({
     }
   };
 
-  // The two underlying locks are surfaced as one checkbox + a scope selector:
-  // off → no locks; "this draft" → freeze this draft's edits; "this feature" →
-  // freeze this draft's edits AND block publishing other drafts (superset).
-  const scheduleLocked = scheduleLockEdits || scheduleLockOthers;
-  const scheduleLockScope: "draft" | "feature" = scheduleLockOthers
-    ? "feature"
-    : "draft";
-
-  const applyScheduleLock = (lockEdits: boolean, lockOthers: boolean) => {
-    setScheduleLockEdits(lockEdits);
-    setScheduleLockOthers(lockOthers);
-    persistCurrentSchedule(lockEdits, lockOthers, scheduleBypassApproval);
+  const onScheduleLockToggle = (value: boolean) => {
+    setScheduleLockEnabled(value);
+    persistCurrentSchedule(
+      value,
+      value && scheduleLockScope === "feature",
+      scheduleBypassApproval,
+    );
   };
 
-  const onScheduleLockToggle = (value: boolean) =>
-    // Enabling defaults to draft scope; toggling off clears both.
-    applyScheduleLock(value, value ? scheduleLockOthers : false);
-
-  const onScheduleLockScopeChange = (scope: "draft" | "feature") =>
-    applyScheduleLock(true, scope === "feature");
+  const onScheduleLockScopeChange = (scope: "draft" | "feature") => {
+    setScheduleLockScope(scope);
+    // Mirror the publish-mode selector: changing scope while the lock is off
+    // only records the preference; it doesn't enable the lock.
+    if (scheduleLockEnabled) {
+      persistCurrentSchedule(true, scope === "feature", scheduleBypassApproval);
+    }
+  };
 
   const onScheduleBypassChange = (value: boolean) => {
     setScheduleBypassApproval(value);
@@ -2759,13 +2769,13 @@ export default function ReviewAndPublish({
                           <Checkbox
                             label="Lock edits to"
                             weight="regular"
-                            value={scheduleLocked}
+                            value={scheduleLockEnabled}
                             setValue={(v) => onScheduleLockToggle(!!v)}
                           />
                           <SelectField
                             containerClassName="select-dropdown-underline mb-0"
                             value={scheduleLockScope}
-                            disabled={!scheduleLocked || savingSchedule}
+                            disabled={savingSchedule}
                             isSearchable={false}
                             sort={false}
                             containerStyles={{
@@ -2773,8 +2783,8 @@ export default function ReviewAndPublish({
                               singleValue: (s) => ({ ...s, fontSize: 14 }),
                             }}
                             options={[
-                              { label: "this draft", value: "draft" },
                               { label: "this feature", value: "feature" },
+                              { label: "this draft", value: "draft" },
                             ]}
                             onChange={(v) =>
                               onScheduleLockScopeChange(
@@ -2782,13 +2792,6 @@ export default function ReviewAndPublish({
                               )
                             }
                           />
-                          <Text size="medium">while running</Text>
-                          <Tooltip content='"this draft" freezes content edits to the scheduled draft. "this feature" also blocks publishing other drafts of this feature until the schedule fires or is canceled.'>
-                            <PiInfo
-                              color="var(--color-text-low)"
-                              className="ml-1"
-                            />
-                          </Tooltip>
                         </Flex>
                         {canBypassScheduleApproval && (
                           <Box mt="2">
