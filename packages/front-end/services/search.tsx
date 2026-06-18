@@ -159,6 +159,11 @@ export interface SearchProps<T extends { id: string }> {
   // hook doesn't latch onto the outer hook's filter string.
   disableUrlSearchTerm?: boolean;
   pageSize?: number;
+  // Extra values that `searchTermFilters` closes over but that change
+  // asynchronously (e.g. lazily-fetched indexes). Including them here lets the
+  // filtered-results memo recompute when that data arrives instead of going
+  // stale. Must be a fixed-length array across renders.
+  searchTermFilterDeps?: unknown[];
 }
 
 export interface SearchReturn<T> {
@@ -206,6 +211,7 @@ export function useSearch<T extends { id: string }>({
   updateSearchQueryOnChange,
   disableUrlSearchTerm,
   pageSize,
+  searchTermFilterDeps = [],
 }: SearchProps<T>): SearchReturn<T> {
   const defaultSort = { field: defaultSortField, dir: defaultSortDir || 1 };
   const persistedSort = useLocalStorage(
@@ -347,6 +353,8 @@ export function useSearch<T extends { id: string }>({
     filterResults,
     syntaxFilterPassthrough,
     transformQuery,
+    // Recompute when async filter data (e.g. the dependents index) loads.
+    ...searchTermFilterDeps,
   ]);
 
   const previousSearchTerm = useRef(searchTerm);
