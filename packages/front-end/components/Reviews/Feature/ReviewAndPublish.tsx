@@ -119,6 +119,7 @@ import {
   DropdownMenuItem,
 } from "@/ui/DropdownMenu";
 import RevertModal from "@/components/Reviews/Feature/RevertModal";
+import DependentFeaturesWarning from "@/components/Features/DependentFeaturesWarning";
 import { getReviewAndPublishState } from "@/components/Reviews/reviewAndPublishState";
 
 export interface Props {
@@ -2354,6 +2355,12 @@ export default function ReviewAndPublish({
                         </Box>
                       )}
 
+                    {/* Heads-up that other features/experiments use this one
+                      as a prerequisite — compact helper text above Publish. */}
+                    <DependentFeaturesWarning
+                      featureId={feature.id}
+                      variant="helperText"
+                    />
                     <Button
                       onClick={primaryFooterEnabled ? doSubmit : undefined}
                       loading={

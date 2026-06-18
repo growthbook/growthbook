@@ -73,6 +73,7 @@ import BanditRefFields from "@/components/Features/RuleModal/BanditRefFields";
 import BanditRefNewFields from "@/components/Features/RuleModal/BanditRefNewFields";
 import { useIncrementer } from "@/hooks/useIncrementer";
 
+import DependentFeaturesWarning from "@/components/Features/DependentFeaturesWarning";
 import DraftSelectorForChanges, {
   DraftMode,
 } from "@/components/Features/DraftSelectorForChanges";
@@ -1799,16 +1800,19 @@ export default function RuleModal({
         submit={submit}
         useRadixButton={true}
         bodyPrefix={
-          <DraftSelectorForChanges
-            feature={feature}
-            revisionList={revisionList}
-            mode={draftMode}
-            setMode={setDraftMode}
-            selectedDraft={selectedDraft}
-            setSelectedDraft={setSelectedDraft}
-            canAutoPublish={false}
-            gatedEnvSet={gatedEnvSet}
-          />
+          <>
+            <DependentFeaturesWarning featureId={feature.id} />
+            <DraftSelectorForChanges
+              feature={feature}
+              revisionList={revisionList}
+              mode={draftMode}
+              setMode={setDraftMode}
+              selectedDraft={selectedDraft}
+              setSelectedDraft={setSelectedDraft}
+              canAutoPublish={false}
+              gatedEnvSet={gatedEnvSet}
+            />
+          </>
         }
       >
         {(ruleType === "force" || ruleType === "rollout") && (
