@@ -40,25 +40,33 @@ describe("getInsertAggregatedFactTableDataQuery", () => {
     exclusiveStart: false,
   };
 
-  it("emits a salted two-level GROUP BY on BigQuery with the default 8 buckets", () => {
+  it("emits a temp-table-barrier two-level GROUP BY script on BigQuery with the default 8 buckets", () => {
     expect(DEFAULT_SALT_BUCKETS).toBe(8);
     const sql = getInsertAggregatedFactTableDataQuery(
       bigQueryDialect,
       baseParams,
     );
-    // Level-1 partial CTE with the salt column.
-    expect(sql).toContain("__dailyValuesPartial");
-    expect(sql).toContain("__salt");
-    expect(sql).toMatch(/FARM_FINGERPRINT/i);
-    expect(sql).toMatch(/,\s*8\s*\)\s+AS\s+__salt/i);
-    // Level-2 merge CTE collapses salt back to (idType, event_date).
-    expect(sql).toMatch(/FROM\s+__dailyValuesPartial\s+GROUP BY/i);
+    // Multi-statement script: CREATE TEMP TABLE then INSERT. The temp table is
+    // a hard materialization barrier — BigQuery cannot fold SUM(SUM(x)) across
+    // it and eliminate the salt column the way it does with chained CTEs.
+    const stmts = sql.split(";").filter((s) => s.trim().length > 0);
+    expect(stmts.length).toBe(2);
+    expect(stmts[0]).toMatch(/CREATE\s+TEMP\s+TABLE\s+__dailyValuesPartial/i);
+    expect(stmts[1]).toMatch(/INSERT\s+INTO/i);
+    // Level-1 partial with the salt column physically in the temp-table schema.
+    expect(stmts[0]).toContain("__salt");
+    expect(stmts[0]).toMatch(/FARM_FINGERPRINT/i);
+    expect(stmts[0]).toMatch(/,\s*8\s*\)\s+AS\s+__salt/i);
+    expect(stmts[0]).toMatch(/GROUP BY\s+1,\s*2,\s*3/i);
+    // Level-2 merge collapses salt back to (idType, event_date) in the INSERT.
+    expect(stmts[1]).toMatch(/FROM\s+__dailyValuesPartial\s+GROUP BY/i);
     // $$count partial is COUNT(); its salt-merge must be SUM, not COUNT.
-    expect(sql).toMatch(/SUM\(\s*COALESCE\(\s*fact_count_value/i);
-    // __factTable referenced exactly once (no double-scan for max_timestamp).
-    expect(sql.match(/FROM\s+__factTable\b/gi)?.length).toBe(1);
+    expect(stmts[1]).toMatch(/SUM\(\s*COALESCE\(\s*fact_count_value/i);
+    // Watermark: per-partial-group MAX(timestamp) in stmt 1, lifted via window
+    // in stmt 2 — single scan of the fact-table SQL.
+    expect(stmts[0]).toMatch(/MAX\(timestamp\)\s+AS\s+__max_ts/i);
+    expect(stmts[1]).toMatch(/MAX\(dv\.__max_ts\)\s+OVER\s*\(\)/i);
     expect(sql).not.toContain("__maxTimestamp");
-    expect(sql).toMatch(/MAX\(dv\.slice_max_timestamp\)\s+OVER\s*\(\)/i);
   });
 
   it("threads params.saltBuckets into the MOD divisor", () => {
@@ -70,7 +78,7 @@ describe("getInsertAggregatedFactTableDataQuery", () => {
     expect(sql).not.toMatch(/,\s*8\s*\)\s+AS\s+__salt/i);
   });
 
-  it("falls back to a single-level GROUP BY when the dialect has no intHash", () => {
+  it("falls back to a single-statement single-level GROUP BY when the dialect has no intHash", () => {
     expect(postgresDialect.intHash).toBeUndefined();
     const sql = getInsertAggregatedFactTableDataQuery(
       postgresDialect,
@@ -78,6 +86,7 @@ describe("getInsertAggregatedFactTableDataQuery", () => {
     );
     expect(sql).not.toContain("__dailyValuesPartial");
     expect(sql).not.toContain("__salt");
+    expect(sql).not.toMatch(/CREATE\s+TEMP\s+TABLE/i);
     expect(sql).toContain("__dailyValues");
     // Double-scan fix still applies to the fallback path.
     expect(sql.match(/FROM\s+__factTable\b/gi)?.length).toBe(1);

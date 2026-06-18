@@ -14,17 +14,25 @@ import { getAggregatedFactTableSchema } from "back-end/src/integrations/sql/fact
 // partial-aggregation pass hashes on the join key, not the group-by key, so a
 // hot (idType, event_date) fans out into tens of thousands of wide partial rows
 // that all land in one hash bucket. Salting the first GROUP BY by `__salt`
-// spreads each key across N buckets, forcing a clean repartition between the
-// join and the merge; the second GROUP BY collapses the salt buckets back to
-// one row per key (cheap — at most N small rows per key). Dialects without
-// `intHash` skip the salt layer and emit the original single-level GROUP BY.
+// spreads each key across N buckets; the second GROUP BY collapses the salt
+// buckets back to one row per key (cheap — at most N small rows per key).
+//
+// On BigQuery the two GROUP BYs MUST be separated by a CREATE TEMP TABLE
+// barrier rather than chained as CTEs: BigQuery's optimizer rewrites
+// SUM(SUM(x)) → SUM(x), proves `__salt` is dead, eliminates it, and emits the
+// original single-level plan (verified via 3-column execution-graph hash and
+// observed 37,700× per-worker skew with the CTE form). A temp table is a hard
+// materialization boundary — `__salt` is in the persisted schema, so the
+// level-1 GROUP BY cannot be folded away.
+//
+// Dialects without `intHash` (i.e., everything except BigQuery today) skip the
+// salt layer and emit the original single-level GROUP BY in one statement.
 //
 // The default of 8 is a trade-off: each salt bucket multiplies the partial-row
-// shuffle volume between the join and the level-1 GROUP BY by N×, so a high
-// bucket count throttles the join+partial-agg stage on shuffle I/O, while a low
-// count leaves the final-merge bucket too large. 8 is enough to break the
-// final-merge OOM on observed wide-FT workloads without over-inflating the
-// partial shuffle. Override per fact table via
+// shuffle volume by N×, so a high bucket count throttles the join+partial-agg
+// stage on shuffle I/O, while a low count leaves the final-merge bucket too
+// large. 8 is enough to break the final-merge OOM on observed wide-FT workloads
+// without over-inflating the partial shuffle. Override per fact table via
 // `aggregatedFactTableSettings.saltBuckets` (range 1–64).
 export const DEFAULT_SALT_BUCKETS = 8;
 
@@ -168,65 +176,77 @@ export function getInsertAggregatedFactTableDataQuery(
     ? `MOD(${dialect.intHash(dialect.castToString("timestamp"))}, ${saltBuckets})`
     : null;
 
-  const dailyValuesCTEs = saltExpr
-    ? `, __dailyValuesPartial AS (
-        SELECT
-          ${idType} AS ${idType}
-          , ${dialect.castToDate("timestamp")} AS event_date
-          , ${saltExpr} AS __salt
-          , MAX(timestamp) AS slice_max_timestamp
-          ${partialAggregations}
-        FROM __factTable
-        WHERE ${idType} IS NOT NULL
-        GROUP BY
-          ${idType}
-          , ${dialect.castToDate("timestamp")}
-          , ${saltExpr}
-      )
-      , __dailyValues AS (
-        SELECT
-          ${idType}
-          , event_date
-          , MAX(slice_max_timestamp) AS slice_max_timestamp
-          ${mergeAggregations}
-        FROM __dailyValuesPartial
-        GROUP BY
-          ${idType}
-          , event_date
-      )`
-    : `, __dailyValues AS (
-        SELECT
-          ${idType} AS ${idType}
-          , ${dialect.castToDate("timestamp")} AS event_date
-          , MAX(timestamp) AS slice_max_timestamp
-          ${partialAggregations}
-        FROM __factTable
-        WHERE ${idType} IS NOT NULL
-        GROUP BY
-          ${idType}
-          , ${dialect.castToDate("timestamp")}
-      )`;
-
   // The watermark (max source timestamp seen) used to be a separate
   // `__maxTimestamp` CTE selecting from `__factTable`. Engines that inline CTEs
   // (BigQuery) re-evaluate the fact-table SQL for that second reference, so a
   // wide FT with a JOIN was scanned twice. Carrying the per-group MAX through
-  // __dailyValues and lifting it with a window in the final SELECT keeps it to
-  // one scan; the window runs over already-aggregated rows so it's cheap.
+  // and lifting it with a window in the final SELECT keeps it to one scan; the
+  // window runs over already-aggregated rows so it's cheap.
+
+  if (saltExpr) {
+    // BigQuery path: multi-statement script with a temp-table materialization
+    // barrier between the two GROUP BY levels. BigQuery's `createQueryJob`
+    // (jobs.insert, standard SQL) executes scripts natively; the temp table is
+    // session-scoped and dropped at job end.
+    return format(
+      `
+      CREATE TEMP TABLE __dailyValuesPartial AS
+      SELECT
+        ${idType} AS ${idType}
+        , ${dialect.castToDate("timestamp")} AS event_date
+        , ${saltExpr} AS __salt
+        , MAX(timestamp) AS __max_ts
+        ${partialAggregations}
+      FROM (${factTableCTE}) __factTable
+      WHERE ${idType} IS NOT NULL
+      GROUP BY 1, 2, 3;
+
+      INSERT INTO ${tableFullName}
+      (${columnNames.join(", \n")})
+      SELECT
+        dv.${idType} AS ${idType}
+        , dv.event_date AS event_date
+        , ${dialect.getCurrentTimestamp()} AS insertion_timestamp
+        , ${castToTimestamp("MAX(dv.__max_ts) OVER ()")} AS max_timestamp
+        ${finalMetricCols}
+      FROM (
+        SELECT
+          ${idType}
+          , event_date
+          , MAX(__max_ts) AS __max_ts
+          ${mergeAggregations}
+        FROM __dailyValuesPartial
+        GROUP BY 1, 2
+      ) dv;
+      `,
+      dialect.formatDialect,
+    );
+  }
+
+  // Single-statement fallback (no salt layer) for dialects without intHash.
   return format(
     `
     INSERT INTO ${tableFullName}
     (${columnNames.join(", \n")})
     SELECT * FROM (
       WITH __factTable AS (${factTableCTE})
-      ${dailyValuesCTEs}
+      , __dailyValues AS (
+        SELECT
+          ${idType} AS ${idType}
+          , ${dialect.castToDate("timestamp")} AS event_date
+          , MAX(timestamp) AS __max_ts
+          ${partialAggregations}
+        FROM __factTable
+        WHERE ${idType} IS NOT NULL
+        GROUP BY
+          ${idType}
+          , ${dialect.castToDate("timestamp")}
+      )
       SELECT
         dv.${idType} AS ${idType}
         , dv.event_date AS event_date
         , ${dialect.getCurrentTimestamp()} AS insertion_timestamp
-        , ${castToTimestamp(
-          "MAX(dv.slice_max_timestamp) OVER ()",
-        )} AS max_timestamp
+        , ${castToTimestamp("MAX(dv.__max_ts) OVER ()")} AS max_timestamp
         ${finalMetricCols}
       FROM __dailyValues dv
     )
