@@ -352,12 +352,34 @@ const COMPARE_OVERLAY_Z_CURRENT_OVER = 2;
 const COMPARE_OVERLAY_Z_PREVIOUS_LINE_ON_TOP = 3;
 
 const COMPARE_OVERLAY_BAR_GAP = "-100%";
-/** Opacity applied on hover to the bar/area being hovered, so the overlapping
- * period underneath shows through. Defaults stay solid; only hover dims. */
-const COMPARE_OVERLAY_CURRENT_BAR_HOVER_OPACITY = 0.72;
-const COMPARE_OVERLAY_PREVIOUS_BAR_HOVER_OPACITY = 0.55;
+/**
+ * Compare-mode bar widths (see `currentBarWidth` / `previousBarWidth`). The
+ * current bar uses a responsive percentage so it scales with the available width,
+ * and the previous bar is sized in px as `current + 2 * frame` (computed from the
+ * measured chart), so it frames the current bar by a fixed number of pixels per
+ * side at any category count — a percentage would scale the frame with the bar.
+ * Centering a wider bar behind a narrower one isn't possible on a single ECharts
+ * category axis (unequal widths render side-by-side), so the current and previous
+ * series are placed on two overlaid category axes that each center their own bars
+ * — see the axis wiring in ExplorerChart.
+ */
+/** Base opacity for the previous-period bar (kept soft, behind current). */
+const COMPARE_OVERLAY_PREVIOUS_BAR_BASE_OPACITY = 0.48;
+/** Current bar dims to this on hover so the previous bar shows through behind it. */
+const COMPARE_OVERLAY_CURRENT_BAR_HOVER_OPACITY = 0.8;
+/** Border width of the previous-period bar's outline-only hover state. */
+const COMPARE_OVERLAY_BAR_HOVER_BORDER_WIDTH = 2;
 const COMPARE_OVERLAY_AREA_HOVER_OPACITY = 0.38;
 const COMPARE_OVERLAY_PREVIOUS_AREA_HOVER_OPACITY = 0.42;
+
+/**
+ * ECharts axis-index key for the category axis (the axis bars are distributed
+ * along). Compare mode overlays the previous period on a second category axis of
+ * the same orientation so it can be a different width yet stay centered.
+ */
+export type CompareCategoryAxisKey = "xAxisIndex" | "yAxisIndex";
+/** The previous period draws on the second (overlaid, hidden) category axis. */
+const COMPARE_PREVIOUS_AXIS_INDEX = 1;
 
 const EXPLORER_BAR_CHART_TYPES: ExplorationConfig["chartType"][] = [
   "bar",
@@ -409,9 +431,6 @@ type ExplorerChartCompareSeriesMeta = {
   name: string;
 };
 
-/** Base opacity for previous-period bars under current (compare sparse-flat layout). */
-const COMPARE_OVERLAY_PREVIOUS_BAR_BASE_OPACITY = 0.48;
-
 /**
  * Compare mode for non-stacked bar / horizontalBar with multiple metrics (or grouped
  * series keys): flatten the category axis to one tick per (primary × seriesKey) and
@@ -432,6 +451,12 @@ export function buildExplorerCompareSparseFlatBarSeries(args: {
   seriesColor: (index: number) => string;
   comparisonSeriesColor: (index: number) => string;
   animate: boolean;
+  /** Category-axis key; the previous period is placed on its overlaid sibling. */
+  compareCategoryAxisKey: CompareCategoryAxisKey;
+  /** Current bar width — a responsive percentage string (e.g. "58%"). */
+  currentBarWidth: number | string;
+  /** Previous bar width — px (= current + a fixed per-side frame) once measured. */
+  previousBarWidth: number | string;
 }): { flatCategoryData: string[]; series: unknown[] } {
   const {
     sourceSortedXValues,
@@ -443,6 +468,9 @@ export function buildExplorerCompareSparseFlatBarSeries(args: {
     seriesColor,
     comparisonSeriesColor,
     animate,
+    compareCategoryAxisKey,
+    currentBarWidth,
+    previousBarWidth,
   } = args;
 
   const K = sourceSeriesKeys.length;
@@ -497,34 +525,40 @@ export function buildExplorerCompareSparseFlatBarSeries(args: {
       }
     }
 
+    // Current period: narrower, drawn on top. On hover it dims so the wider
+    // previous bar behind it shows through.
     series.push({
       name: currName,
       type: "bar" as const,
       data: currData,
       color: seriesColor(ki),
+      barWidth: currentBarWidth,
       barGap: COMPARE_OVERLAY_BAR_GAP,
       z: COMPARE_OVERLAY_Z_CURRENT_OVER,
       emphasis: {
-        itemStyle: {
-          opacity: COMPARE_OVERLAY_CURRENT_BAR_HOVER_OPACITY,
-        },
+        itemStyle: { opacity: COMPARE_OVERLAY_CURRENT_BAR_HOVER_OPACITY },
       },
       ...barAnim,
     });
 
+    // Previous period: wider and centered behind the current bar (via the
+    // overlaid category axis), so it frames it. On hover it becomes outline-only.
     series.push({
       name: prevName,
       type: "bar" as const,
       data: prevData,
       color: comparisonSeriesColor(ki),
-      itemStyle: {
-        opacity: COMPARE_OVERLAY_PREVIOUS_BAR_BASE_OPACITY,
-      },
+      [compareCategoryAxisKey]: COMPARE_PREVIOUS_AXIS_INDEX,
+      itemStyle: { opacity: COMPARE_OVERLAY_PREVIOUS_BAR_BASE_OPACITY },
+      barWidth: previousBarWidth,
       barGap: COMPARE_OVERLAY_BAR_GAP,
       z: COMPARE_OVERLAY_Z_PREVIOUS_UNDER,
       emphasis: {
         itemStyle: {
-          opacity: COMPARE_OVERLAY_PREVIOUS_BAR_HOVER_OPACITY,
+          color: "transparent",
+          opacity: 1,
+          borderColor: comparisonSeriesColor(ki),
+          borderWidth: COMPARE_OVERLAY_BAR_HOVER_BORDER_WIDTH,
         },
       },
       ...barAnim,
@@ -556,6 +590,15 @@ export function buildExplorerChartComparisonSeriesList(params: {
   seriesColor: (index: number) => string;
   comparisonSeriesColor: (index: number) => string;
   animate: boolean;
+  /**
+   * Category-axis key for compare-mode bars. When set, previous-period bars are
+   * placed on the overlaid sibling axis so they can be wider yet stay centered.
+   */
+  compareCategoryAxisKey?: CompareCategoryAxisKey;
+  /** Current bar width — a responsive percentage string (e.g. "58%"). */
+  currentBarWidth?: number | string;
+  /** Previous bar width — px (= current + a fixed per-side frame) once measured. */
+  previousBarWidth?: number | string;
 }): unknown[] {
   const {
     chartType,
@@ -571,6 +614,9 @@ export function buildExplorerChartComparisonSeriesList(params: {
     seriesColor,
     comparisonSeriesColor,
     animate,
+    compareCategoryAxisKey,
+    currentBarWidth,
+    previousBarWidth,
   } = params;
   const isPrevious = params.previous ?? false;
 
@@ -632,13 +678,39 @@ export function buildExplorerChartComparisonSeriesList(params: {
             color,
             type: "bar" as const,
             stack: getComparisonStackId(isPrevious, isStacked),
-            // Overlap only for non-stacked bars (single pair per category slot).
-            // Stacked current vs previous use separate stack ids; -100% barGap
-            // would collapse the two stacks onto the same slot.
-            ...(!isStacked ? { barGap: COMPARE_OVERLAY_BAR_GAP } : {}),
+            barGap: COMPARE_OVERLAY_BAR_GAP,
+            // The previous period is wider and drawn on the overlaid category
+            // axis so it stays centered behind the narrower current bar/stack.
+            barWidth: isPrevious ? previousBarWidth : currentBarWidth,
             z: isPrevious
               ? COMPARE_OVERLAY_Z_PREVIOUS_UNDER
               : COMPARE_OVERLAY_Z_CURRENT_OVER,
+            ...(isPrevious
+              ? {
+                  // Previous: soft fill behind current; outline-only on hover.
+                  ...(compareCategoryAxisKey
+                    ? { [compareCategoryAxisKey]: COMPARE_PREVIOUS_AXIS_INDEX }
+                    : {}),
+                  itemStyle: {
+                    opacity: COMPARE_OVERLAY_PREVIOUS_BAR_BASE_OPACITY,
+                  },
+                  emphasis: {
+                    itemStyle: {
+                      color: "transparent",
+                      opacity: 1,
+                      borderColor: color,
+                      borderWidth: COMPARE_OVERLAY_BAR_HOVER_BORDER_WIDTH,
+                    },
+                  },
+                }
+              : {
+                  // Current dims on hover so the previous bar shows through.
+                  emphasis: {
+                    itemStyle: {
+                      opacity: COMPARE_OVERLAY_CURRENT_BAR_HOVER_OPACITY,
+                    },
+                  },
+                }),
           };
         }
         return {

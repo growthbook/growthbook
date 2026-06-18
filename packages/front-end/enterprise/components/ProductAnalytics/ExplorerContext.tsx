@@ -299,8 +299,11 @@ export function ExplorerProvider({
     const customKey = customPrimaryBoundsKey(dr);
 
     if (customKey !== null) {
-      if (lastCustomPrimaryBoundsRef.current !== customKey) {
-        lastCustomPrimaryBoundsRef.current = customKey;
+      // Seed a sensible default prior only the first time we enter a custom
+      // range with none set for it yet. We intentionally don't keep the prior
+      // locked to the current range afterward — once seeded, the user can freely
+      // adjust it, and changing the current range won't overwrite their choice.
+      if (lastCustomPrimaryBoundsRef.current === null) {
         setDraftExploreState((prev) => ({
           ...prev,
           previousTimeFrame: buildContiguousPreviousCustomDateRange(
@@ -311,6 +314,7 @@ export function ExplorerProvider({
           ),
         }));
       }
+      lastCustomPrimaryBoundsRef.current = customKey;
       return;
     }
 

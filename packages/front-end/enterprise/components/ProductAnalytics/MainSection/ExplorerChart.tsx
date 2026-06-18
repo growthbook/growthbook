@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import EChartsReact from "echarts-for-react";
 import * as echarts from "echarts/core";
@@ -39,9 +39,11 @@ import {
   buildExplorerCompareSparseFlatBarSeries,
   computeBigNumberComparisonTrends,
   getComparisonPeriodLabels,
+  parseComparisonTooltipSeriesName,
   sortProductAnalyticsTooltipAxisItems,
   supportsAlwaysOnComparisonOverlay,
   buildExplorerChartTooltipFormatter,
+  type CompareCategoryAxisKey,
 } from "@/enterprise/components/ProductAnalytics/comparison-chart";
 import ComparisonTrendLabel from "@/enterprise/components/ProductAnalytics/ComparisonTrendLabel";
 
@@ -143,19 +145,39 @@ export default function ExplorerChart({
   // changes (e.g. a dashboard block being resized via react-grid-layout or the
   // editing drawer collapsing). Observe the wrapper and call resize() so the
   // chart always fills its block.
-  const chartWrapperRef = useRef<HTMLDivElement | null>(null);
   const chartInstanceRef = useRef<echarts.ECharts | null>(null);
-  useEffect(() => {
-    const el = chartWrapperRef.current;
+  const resizeObserverRef = useRef<ResizeObserver | null>(null);
+  // Measured plot box. Compare-mode bars are sized in px off this so the previous
+  // bar can frame the current one by a fixed pixel amount at any category count.
+  const [chartBoxSize, setChartBoxSize] = useState<{
+    width: number;
+    height: number;
+  } | null>(null);
+  // Callback ref: attaches the observer when the chart box mounts (it renders
+  // conditionally), keeps the chart filling its block, and tracks its size.
+  const attachChartWrapper = useCallback((el: HTMLDivElement | null) => {
+    resizeObserverRef.current?.disconnect();
+    resizeObserverRef.current = null;
     if (!el || typeof ResizeObserver === "undefined") return;
-    const ro = new ResizeObserver(() => {
+    const sync = () => {
       const chart = chartInstanceRef.current;
-      if (!chart || chart.isDisposed()) return;
-      chart.resize();
-    });
+      if (chart && !chart.isDisposed()) chart.resize();
+      const width = el.clientWidth;
+      const height = el.clientHeight;
+      setChartBoxSize((prev) =>
+        prev &&
+        Math.abs(prev.width - width) < 4 &&
+        Math.abs(prev.height - height) < 4
+          ? prev
+          : { width, height },
+      );
+    };
+    sync();
+    const ro = new ResizeObserver(sync);
     ro.observe(el);
-    return () => ro.disconnect();
+    resizeObserverRef.current = ro;
   }, []);
+  useEffect(() => () => resizeObserverRef.current?.disconnect(), []);
 
   const renderOpts: RenderOpts = useMemo(
     () => ({
@@ -313,6 +335,14 @@ export default function ExplorerChart({
       compareEnabled &&
       Boolean(comparisonExploration?.result?.rows?.length) &&
       supportsAlwaysOnComparisonOverlay(chartType);
+
+    // Compare-mode bars draw the (wider) previous period on a second category
+    // axis overlaid on the first, so it stays centered behind the current bar.
+    const compareCategoryAxisKey: CompareCategoryAxisKey = isHorizontalBar
+      ? "yAxisIndex"
+      : "xAxisIndex";
+    const needsDualCompareAxis = compareOverlayActive && isBarType;
+
     const comparisonPeriodLabels = compareOverlayActive
       ? getComparisonPeriodLabels(
           submittedExploreState.dateRange,
@@ -348,6 +378,46 @@ export default function ExplorerChart({
       Boolean(alignedComparisonOverlay) &&
       firstDimensionIsDate;
 
+    // Compare-mode bar widths. The current bar is sized in px to ~75% of the
+    // category band — matching ECharts' default bar width so it scales with the
+    // available space like a normal (compare-off) bar — and the previous bar is
+    // `current + 2 * frame`, framing it by a fixed pixel amount per side at any
+    // category count (a percentage would scale the frame). On dense charts the
+    // current width is capped so the wider previous bar still fits in the band.
+    // Until the plot is measured, both fall back to responsive percentages.
+    const COMPARE_BAR_FRAME_PX = 7;
+    const COMPARE_BAR_CURRENT_FRACTION = 0.75;
+    const compareBarWidths: {
+      current: number | string | undefined;
+      previous: number | string | undefined;
+    } = (() => {
+      if (!needsDualCompareAxis) {
+        return { current: undefined, previous: undefined };
+      }
+      if (!chartBoxSize) {
+        return { current: "75%", previous: "81%" };
+      }
+      const numTicks = Math.max(
+        1,
+        sparseFlatCompareBars
+          ? sortedXValues.length * sortedSeriesKeys.length
+          : sortedXValues.length,
+      );
+      // Plot extent along the category axis, matching the grid insets set on the
+      // ECharts option below (legend pushes the top down ~58px when shown).
+      const plotExtent = isHorizontalBar
+        ? Math.max(1, chartBoxSize.height - 58 - chartBoxSize.height * 0.1)
+        : chartBoxSize.width * (1 - 0.08 - 0.05);
+      const band = plotExtent / numTicks;
+      const frameTotal = 2 * COMPARE_BAR_FRAME_PX;
+      const maxCurrent = Math.max(4, band - frameTotal - 2);
+      const currentPx = Math.max(
+        4,
+        Math.min(Math.round(band * COMPARE_BAR_CURRENT_FRACTION), maxCurrent),
+      );
+      return { current: currentPx, previous: currentPx + frameTotal };
+    })();
+
     let categoryAxisValues: string[] = sortedXValues;
     let seriesConfigs: unknown[];
 
@@ -362,6 +432,9 @@ export default function ExplorerChart({
         seriesColor,
         comparisonSeriesColor,
         animate,
+        compareCategoryAxisKey,
+        currentBarWidth: compareBarWidths.current ?? "58%",
+        previousBarWidth: compareBarWidths.previous ?? "66%",
       });
       seriesConfigs = built.series;
       categoryAxisValues = built.flatCategoryData;
@@ -380,6 +453,11 @@ export default function ExplorerChart({
         seriesColor,
         comparisonSeriesColor,
         animate,
+        compareCategoryAxisKey: needsDualCompareAxis
+          ? compareCategoryAxisKey
+          : undefined,
+        currentBarWidth: compareBarWidths.current,
+        previousBarWidth: compareBarWidths.previous,
       });
 
       if (compareOverlayActive && alignedComparisonDataForCurrent) {
@@ -400,6 +478,11 @@ export default function ExplorerChart({
             seriesColor,
             comparisonSeriesColor,
             animate,
+            compareCategoryAxisKey: needsDualCompareAxis
+              ? compareCategoryAxisKey
+              : undefined,
+            currentBarWidth: compareBarWidths.current,
+            previousBarWidth: compareBarWidths.previous,
           }),
         ];
       }
@@ -470,9 +553,31 @@ export default function ExplorerChart({
       splitLine: { lineStyle: { color: gridLineColor, width: 1 } },
     };
 
+    // Compare-mode bars overlay the previous period on a second category axis
+    // (same categories, hidden) so a wider previous bar stays centered behind
+    // the current one. The value axis stays shared so both periods use the same
+    // scale and the auto-rounded value labels are preserved.
+    // Keep the overlaid axis "shown" (so its axisPointer participates and the
+    // linked axis tooltip still gathers the previous-period series — a fully
+    // hidden axis is dropped from the tooltip), but hide every visual so it
+    // overlays the primary axis invisibly.
+    const secondaryCategoryAxis = needsDualCompareAxis
+      ? {
+          ...categoryAxis,
+          axisLine: { show: false },
+          axisTick: { show: false },
+          axisLabel: { show: false },
+          splitLine: { show: false },
+          axisPointer: { label: { show: false } },
+        }
+      : null;
+    const categoryAxisOption = secondaryCategoryAxis
+      ? [categoryAxis, secondaryCategoryAxis]
+      : categoryAxis;
+
     // Swap axes for horizontal bar
-    const xAxis = isHorizontalBar ? valueAxis : categoryAxis;
-    const yAxis = isHorizontalBar ? categoryAxis : valueAxis;
+    const xAxis = isHorizontalBar ? valueAxis : categoryAxisOption;
+    const yAxis = isHorizontalBar ? categoryAxisOption : valueAxis;
 
     const tooltipFormatter = buildExplorerChartTooltipFormatter({
       resolvedGranularity,
@@ -505,6 +610,11 @@ export default function ExplorerChart({
         },
         formatter: tooltipFormatter,
       },
+      // Link the overlaid category axes so the axis tooltip gathers both the
+      // current and previous series (otherwise it only collects one axis).
+      ...(needsDualCompareAxis
+        ? { axisPointer: { link: [{ [compareCategoryAxisKey]: "all" }] } }
+        : {}),
       legend: {
         show: legendShow,
         type: "plain",
@@ -513,6 +623,26 @@ export default function ExplorerChart({
         width: "88%",
         padding: [8, 0, 20, 0],
         textStyle: { color: textColor },
+        // Show "(current)" / "(prior)" in the legend instead of the full date
+        // ranges (which are long and wrap). Series names keep the date ranges so
+        // the tooltip can still show the exact periods on hover.
+        ...(comparisonPeriodLabels
+          ? {
+              formatter: (name: string) => {
+                const { baseName, period } = parseComparisonTooltipSeriesName(
+                  name,
+                  comparisonPeriodLabels,
+                );
+                if (period === "current") {
+                  return baseName ? `${baseName} (current)` : "current";
+                }
+                if (period === "previous") {
+                  return baseName ? `${baseName} (prior)` : "prior";
+                }
+                return name;
+              },
+            }
+          : {}),
       },
       xAxis,
       yAxis,
@@ -530,6 +660,7 @@ export default function ExplorerChart({
     tooltipBackgroundColor,
     animate,
     valueAxisName,
+    chartBoxSize,
   ]);
 
   const hasEmptyData = useMemo(() => {
@@ -650,7 +781,7 @@ export default function ExplorerChart({
         </Flex>
       ) : chartConfig ? (
         <Box
-          ref={chartWrapperRef}
+          ref={attachChartWrapper}
           style={{ flex: 1, minHeight: 0, position: "relative" }}
         >
           <EChartsReact
