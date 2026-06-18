@@ -585,6 +585,9 @@ export async function generateDashboardSSRData({
       "phases",
       "status",
       "project",
+      // Lets the public page fall back to the experiment's default snapshot for
+      // blocks with no per-block snapshotId (mirrors useDashboardSnapshot).
+      "analysisSummary",
       // Dates (phases) are serialized to ISO strings by res.json before reaching
       // the client, matching ExperimentInterfaceStringDates on the wire.
     ]) as unknown as Partial<ExperimentInterfaceStringDates>;

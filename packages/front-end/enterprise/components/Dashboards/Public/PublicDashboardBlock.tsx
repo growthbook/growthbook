@@ -137,9 +137,11 @@ export default function PublicDashboardBlock({
     }
     case "experiment-traffic": {
       const experiment = ssrPolyfills.getExperimentById(block.experimentId);
-      const snapshot = block.snapshotId
-        ? snapshotsMap.get(block.snapshotId)
-        : undefined;
+      // Fall back to the experiment's default snapshot when the block has no
+      // per-block snapshotId (mirrors the authenticated useDashboardSnapshot).
+      const snapshotId =
+        block.snapshotId || experiment?.analysisSummary?.snapshotId;
+      const snapshot = snapshotId ? snapshotsMap.get(snapshotId) : undefined;
       const analysis = snapshot
         ? getBlockSnapshotAnalysis(snapshot, block)
         : null;
