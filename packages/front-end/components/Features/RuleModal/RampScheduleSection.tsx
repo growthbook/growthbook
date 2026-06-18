@@ -964,41 +964,41 @@ export default function RampScheduleSection({
 
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [presetOpen, setPresetOpen] = useState(false);
-  // Tracks the monitored-ness we last auto-selected a default for. Re-runs when
-  // it flips (e.g. switching between Ramp-up and Monitored Ramp-up) so the
-  // matching official default is applied for the new strategy — not just on the
-  // first template load.
-  const autoSelectedMonitored = useRef<boolean | null>(null);
+  const hasAutoSelected = useRef(false);
+  // The monitored-ness reflected by the last selection sync, so we can detect a
+  // strategy flip that bypassed `patchState` (e.g. a page-1 release-strategy
+  // switch reseeds the parent state directly).
+  const lastSyncedMonitored = useRef<boolean | null>(null);
 
-  // On template load, and whenever the ramp's monitored-ness changes, adopt a
-  // matching template or apply the first official default for that strategy.
   useEffect(() => {
     if (templates.length === 0) return;
     const stateMonitored = state.steps.some((s) => s.monitored);
-    if (autoSelectedMonitored.current === stateMonitored) return;
 
-    const matchId = findMatchingTemplate(state, templates);
-    if (matchId) {
-      setSelectedTemplateId(matchId);
-      autoSelectedMonitored.current = stateMonitored;
+    // Initial load: adopt an exact match, or pre-apply the first official
+    // template matching the chosen release strategy for a brand-new ramp.
+    if (!hasAutoSelected.current) {
+      hasAutoSelected.current = true;
+      lastSyncedMonitored.current = stateMonitored;
+      const matchId = findMatchingTemplate(state, templates);
+      if (matchId) {
+        setSelectedTemplateId(matchId);
+      } else if (!ruleRampSchedule && !hideTemplateSave) {
+        const defaultTemplate = templates.find(
+          (t) => t.official && isMonitoredTemplate(t) === stateMonitored,
+        );
+        if (defaultTemplate) applyTemplate(defaultTemplate);
+      }
       return;
     }
-    // For a new ramp, pre-apply the first official template whose monitored-ness
-    // matches the chosen release strategy — avoiding a monitored config on a
-    // plain ramp, or a plain template on a Monitored Ramp-up. Skip if the user
-    // already has a template pinned for this same strategy (a deliberate pick),
-    // but not if it's stale from before a strategy switch.
-    const currentSelection = templates.find((t) => t.id === selectedTemplateId);
-    const selectionIsForThisStrategy =
-      !!currentSelection &&
-      isMonitoredTemplate(currentSelection) === stateMonitored;
-    if (!ruleRampSchedule && !hideTemplateSave && !selectionIsForThisStrategy) {
-      const defaultTemplate = templates.find(
-        (t) => t.official && isMonitoredTemplate(t) === stateMonitored,
-      );
-      if (defaultTemplate) applyTemplate(defaultTemplate);
+
+    // After init, a strategy flip that didn't go through `patchState` (a page-1
+    // switch reseeds steps directly) re-syncs the selection to an exact match or
+    // none/custom — never re-applies a default, so a customized ramp is never
+    // clobbered. In-editor edits/toggles are handled by `patchState`.
+    if (lastSyncedMonitored.current !== stateMonitored) {
+      lastSyncedMonitored.current = stateMonitored;
+      setSelectedTemplateId(findMatchingTemplate(state, templates));
     }
-    autoSelectedMonitored.current = stateMonitored;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [templates, state.steps]);
 
@@ -1025,11 +1025,13 @@ export default function RampScheduleSection({
 
   function patchState(partial: Partial<RampSectionState>) {
     const newState = { ...state, ...partial };
-    if (
-      selectedTemplateId &&
-      findMatchingTemplate(newState, templates) !== selectedTemplateId
-    ) {
-      setSelectedTemplateId("");
+    // Any edit that ejects from the selected template re-syncs the selection to
+    // an exact template match or none/custom — it never pulls in a default, so a
+    // customized ramp (e.g. after toggling monitored) is preserved.
+    const match = findMatchingTemplate(newState, templates);
+    if (match !== selectedTemplateId) {
+      setSelectedTemplateId(match);
+      lastSyncedMonitored.current = newState.steps.some((s) => s.monitored);
     }
     setState(newState);
   }
