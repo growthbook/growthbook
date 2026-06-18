@@ -151,7 +151,7 @@ export const MANAGED_WAREHOUSE_DEFAULT_DIMENSIONS = [
 // Column names emitted by `SELECT *` on the per-org tables. A custom identifier
 // alias must not collide with one, else `SELECT *, attributes.x AS x` duplicates a
 // column and ClickHouse rejects the query. Keep in sync with the license server.
-const MANAGED_WAREHOUSE_RESERVED_COLUMN_NAMES = new Set(
+export const MANAGED_WAREHOUSE_RESERVED_COLUMN_NAMES = new Set(
   [
     // Base event columns + JSON columns
     "timestamp",

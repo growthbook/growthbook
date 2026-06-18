@@ -294,6 +294,26 @@ describe("syncManagedWarehouseIdentifiers", () => {
     });
   });
 
+  it("deletes removed custom identifiers but keeps refresh-discovered real columns", async () => {
+    const schema: SDKAttributeSchema = [
+      { property: "plan", datatype: "string" },
+    ];
+    const ft = makeManagedFactTable(schema, (cols) => {
+      // A real `SELECT *` column the refresh job discovered (reserved name).
+      cols.push(makeFactTableColumn("session_id"));
+      // A former custom identifier no longer in the schema (non-reserved).
+      cols.push(makeFactTableColumn("company_id"));
+    });
+    mockGetFactTableById.mockResolvedValue(ft);
+
+    await syncManagedWarehouseIdentifiers(context, schema);
+
+    expect(mockSyncFactTable).toHaveBeenCalledTimes(1);
+    const synced = getSyncedColumns();
+    expect(synced.find((c) => c.column === "session_id")?.deleted).toBe(false);
+    expect(synced.find((c) => c.column === "company_id")?.deleted).toBe(true);
+  });
+
   it("does not write the fact table when nothing changed", async () => {
     const schema: SDKAttributeSchema = [
       { property: "plan", datatype: "string" },

@@ -7,6 +7,7 @@ import {
   getManagedWarehouseUserIdTypeSettings,
   isManagedWarehouseAwaitingProvisioning,
   MANAGED_WAREHOUSE_ATTRIBUTES_COLUMN,
+  MANAGED_WAREHOUSE_RESERVED_COLUMN_NAMES,
 } from "shared/util";
 import {
   GrowthbookClickhouseDataSource,
@@ -249,11 +250,18 @@ export async function syncManagedWarehouseIdentifiers(
     }
   });
 
-  // Mark removed custom identifiers as deleted. Base columns are always in
-  // desiredColumnNames, so this never touches them; scanning columns directly
-  // avoids relying on a possibly-stale ft.userIdTypes.
+  // Mark removed custom identifiers as deleted. Only ever delete former
+  // identifier aliases, never real columns: a custom identifier is guaranteed
+  // non-reserved (reserved-name collisions are excluded when building
+  // identifiers), so skipping reserved columns protects every `SELECT *` column
+  // the refresh job discovered (e.g. `url`, `session_id`) from being removed on
+  // an unrelated attribute edit.
   newColumns.forEach((col) => {
-    if (!col.deleted && !desiredColumnNames.has(col.column)) {
+    if (
+      !col.deleted &&
+      !desiredColumnNames.has(col.column) &&
+      !MANAGED_WAREHOUSE_RESERVED_COLUMN_NAMES.has(col.column.toLowerCase())
+    ) {
       col.deleted = true;
       col.dateUpdated = new Date();
       columnsMutated = true;
