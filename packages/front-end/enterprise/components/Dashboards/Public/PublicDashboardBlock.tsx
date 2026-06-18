@@ -1,4 +1,5 @@
-import { ReactElement } from "react";
+import { ReactElement, ReactNode } from "react";
+import { Box, Flex } from "@radix-ui/themes";
 import {
   DashboardBlockInterface,
   MarkdownBlockInterface,
@@ -7,6 +8,7 @@ import {
 import { SavedQuery } from "shared/validators";
 import Callout from "@/ui/Callout";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
+import { BLOCK_TYPE_INFO } from "@/enterprise/components/Dashboards/DashboardEditor";
 import MarkdownBlock from "@/enterprise/components/Dashboards/DashboardEditor/DashboardBlock/MarkdownBlock";
 import SqlExplorerBlock from "@/enterprise/components/Dashboards/DashboardEditor/DashboardBlock/SqlExplorerBlock";
 import { BlockProps } from "@/enterprise/components/Dashboards/DashboardEditor/DashboardBlock";
@@ -15,6 +17,45 @@ export interface PublicDashboardBlockProps {
   block: DashboardBlockInterface;
   ssrPolyfills: SSRPolyfills;
   savedQueriesMap: Map<string, SavedQuery>;
+}
+
+// Mirrors the authenticated dispatcher's default title (empty for markdown).
+function getBlockTitle(block: DashboardBlockInterface): string {
+  if (block.title) return block.title;
+  return block.type === "markdown" ? "" : BLOCK_TYPE_INFO[block.type].name;
+}
+
+// The card chrome the authenticated dispatcher renders around every block
+// (appbox + title header). Without it, public blocks lose their name/styling.
+function BlockCard({
+  title,
+  children,
+}: {
+  title: string;
+  children: ReactNode;
+}): ReactElement {
+  return (
+    <Flex
+      direction="column"
+      className="appbox dashboard-block px-4 py-3 mb-0"
+      style={{ overflow: "auto", height: "100%", width: "100%" }}
+    >
+      {title ? (
+        <h4
+          style={{
+            margin: 0,
+            marginBottom: 8,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {title}
+        </h4>
+      ) : null}
+      <Box style={{ flex: 1, minHeight: 0 }}>{children}</Box>
+    </Flex>
+  );
 }
 
 // Read-only renderer for a single dashboard block on the public (no-auth) page.
@@ -40,38 +81,40 @@ export default function PublicDashboardBlock({
     ssrPolyfills,
   };
 
+  let content: ReactNode;
   switch (block.type) {
     case "markdown":
-      return (
+      content = (
         <MarkdownBlock
           {...(baseProps as unknown as BlockProps<MarkdownBlockInterface>)}
           block={block}
         />
       );
+      break;
     case "sql-explorer": {
       const savedQuery = block.savedQueryId
         ? savedQueriesMap.get(block.savedQueryId)
         : undefined;
-      if (!savedQuery) {
-        return (
-          <Callout status="info" size="sm">
-            This query result isn&apos;t available.
-          </Callout>
-        );
-      }
-      return (
+      content = savedQuery ? (
         <SqlExplorerBlock
           {...(baseProps as unknown as BlockProps<SqlExplorerBlockInterface>)}
           block={block}
           savedQuery={savedQuery}
         />
+      ) : (
+        <Callout status="info" size="sm">
+          This query result isn&apos;t available.
+        </Callout>
       );
+      break;
     }
     default:
-      return (
+      content = (
         <Callout status="info" size="sm">
           This block type isn&apos;t available in the public view yet.
         </Callout>
       );
   }
+
+  return <BlockCard title={getBlockTitle(block)}>{content}</BlockCard>;
 }
