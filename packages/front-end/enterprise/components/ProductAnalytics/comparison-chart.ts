@@ -26,14 +26,41 @@ type BigNumberComparisonTrend = {
   pctChange: number;
 };
 
+/**
+ * Formats a date range, collapsing the month/year shared by both endpoints to
+ * the end so it reads once:
+ * - same day:          "May 3, 2026"
+ * - same month + year: "May 3 – 7, 2026"
+ * - same year:         "May 3 – Jun 4, 2026"
+ * - otherwise:         "Dec 30, 2025 – Jan 2, 2026"
+ */
+export function formatCollapsedDateRange(
+  startDate: Date,
+  endDate: Date,
+  timeZone = "UTC",
+): string {
+  const fmt = (d: Date, pattern: string) =>
+    formatInTimeZone(d, timeZone, pattern);
+
+  const sameYear = fmt(startDate, "yyyy") === fmt(endDate, "yyyy");
+  const sameMonth = sameYear && fmt(startDate, "MMM") === fmt(endDate, "MMM");
+  const sameDay = sameMonth && fmt(startDate, "d") === fmt(endDate, "d");
+
+  if (sameDay) return fmt(startDate, "MMM d, yyyy");
+  if (sameMonth) {
+    return `${fmt(startDate, "MMM d")} – ${fmt(endDate, "d, yyyy")}`;
+  }
+  if (sameYear) {
+    return `${fmt(startDate, "MMM d")} – ${fmt(endDate, "MMM d, yyyy")}`;
+  }
+  return `${fmt(startDate, "MMM d, yyyy")} – ${fmt(endDate, "MMM d, yyyy")}`;
+}
+
 export function formatExplorerDateRangeHeading(dr: {
   startDate: Date;
   endDate: Date;
 }): string {
-  const pattern = "MMM d, yyyy";
-  const s = formatInTimeZone(dr.startDate, "UTC", pattern);
-  const e = formatInTimeZone(dr.endDate, "UTC", pattern);
-  return s === e ? s : `${s} – ${e}`;
+  return formatCollapsedDateRange(dr.startDate, dr.endDate);
 }
 
 export function getComparisonPeriodLabels(
@@ -860,12 +887,33 @@ function escapeHtmlForProductAnalyticsTooltip(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
+/**
+ * Period sub-header for compare tooltips whose main header isn't itself a date
+ * (e.g. category-axis bars): names the current and previous date ranges so the
+ * "Current" / "Previous" rows below have temporal context.
+ */
+function buildComparePeriodSubHeader(comparisonPeriodLabels: {
+  currentLabel: string;
+  previousLabel: string;
+}): string {
+  return (
+    `<div style="font-size:12px;margin-top:1px">${escapeHtmlForProductAnalyticsTooltip(
+      comparisonPeriodLabels.currentLabel,
+    )}</div>` +
+    `<div style="font-size:12px;opacity:0.6;margin-top:1px">${escapeHtmlForProductAnalyticsTooltip(
+      `Compared with ${comparisonPeriodLabels.previousLabel}`,
+    )}</div>`
+  );
+}
+
 type TooltipAxisItem = {
   axisValue: string | number;
   dataIndex?: number;
   marker: string;
   seriesName: string;
   value: number | [number, number];
+  /** Series color, surfaced by ECharts on each axis-tooltip item. */
+  color?: string;
 };
 
 /** Axis tooltips include every series; sparse bars use nulls so ECharts may omit `value`. */
@@ -879,14 +927,39 @@ function tooltipItemNumericValue(item: { value: unknown }): number | null {
   return typeof v === "number" && !Number.isNaN(v) ? v : null;
 }
 
-function buildGroupedLineAreaCompareTooltipRows(
+type CompareTooltipMarkerStyle = "line" | "bar";
+
+/**
+ * Swatch for a compare-mode tooltip row, matched to how the series is drawn:
+ * a line (solid current / dashed previous) or a bar (filled square, previous
+ * translucent like its softer overlay fill).
+ */
+function compareTooltipMarker(
+  color: string | undefined,
+  isPrevious: boolean,
+  markerStyle: CompareTooltipMarkerStyle,
+): string {
+  const c = color ?? "currentColor";
+  if (markerStyle === "bar") {
+    return `<span style="display:inline-block;width:11px;height:11px;border-radius:2px;background-color:${c};${
+      isPrevious ? `opacity:${COMPARE_OVERLAY_PREVIOUS_BAR_BASE_OPACITY};` : ""
+    }margin-right:8px;vertical-align:middle"></span>`;
+  }
+  return `<span style="display:inline-block;width:18px;border-top:3px ${
+    isPrevious ? "dashed" : "solid"
+  } ${c};border-radius:2px;margin-right:8px;vertical-align:middle"></span>`;
+}
+
+function buildGroupedCompareTooltipRows(
   formatNumber: (value: number) => string,
   items: Array<{
     marker: string;
     seriesName: string;
     value: number | [number, number];
+    color?: string;
   }>,
   comparisonPeriodLabels: { currentLabel: string; previousLabel: string },
+  markerStyle: CompareTooltipMarkerStyle,
 ): string {
   const groupKey = (seriesName: string) => {
     const { baseName } = parseComparisonTooltipSeriesName(
@@ -904,6 +977,30 @@ function buildGroupedLineAreaCompareTooltipRows(
       ? formatNumber(numValue)
       : String(numValue);
   };
+
+  // Stacked "Current" / "Previous" row: swatch + label on the left, value
+  // right-aligned. Previous is rendered muted to recede behind current.
+  const periodRow = (
+    item: (typeof items)[0],
+    label: string,
+    isPrevious: boolean,
+  ): string => {
+    const labelStyle = isPrevious ? "opacity:0.6" : "";
+    const valueStyle = isPrevious ? "opacity:0.6" : "font-weight:700";
+    return (
+      `<div style="display:flex;justify-content:space-between;align-items:center;gap:24px;margin-top:3px">` +
+      `<span style="display:flex;align-items:center">${compareTooltipMarker(
+        item.color,
+        isPrevious,
+        markerStyle,
+      )}<span style="${labelStyle}">${label}</span></span>` +
+      `<span style="${valueStyle}">${fmtVal(item)}</span>` +
+      `</div>`
+    );
+  };
+
+  const neutralRow = (item: (typeof items)[0]): string =>
+    `<div style="display:flex;justify-content:space-between;align-items:center;gap:24px;margin-top:3px"><span>${item.marker}${escapeHtmlForProductAnalyticsTooltip(item.seriesName)}</span><span style="font-weight:700">${fmtVal(item)}</span></div>`;
 
   let idx = 0;
   const blocks: string[] = [];
@@ -931,39 +1028,25 @@ function buildGroupedLineAreaCompareTooltipRows(
         ? escapeHtmlForProductAnalyticsTooltip(baseName)
         : null;
 
-    const marginTop = blockIndex === 0 ? "0" : "6px";
+    const marginTop = blockIndex === 0 ? "0" : "8px";
     blockIndex += 1;
 
     const inner: string[] = [];
     if (title) {
       inner.push(`<div style="font-weight:600">${title}</div>`);
     }
-    if (currentItem || previousItem) {
-      inner.push(
-        `<div style="display:flex;justify-content:space-between;gap:16px;margin-top:2px">`,
-      );
-      inner.push(
-        currentItem
-          ? `<span>${currentItem.marker}<b>${fmtVal(currentItem)}</b></span>`
-          : `<span></span>`,
-      );
-      inner.push(
-        previousItem
-          ? `<span>${previousItem.marker}<b>${fmtVal(previousItem)}</b></span>`
-          : `<span></span>`,
-      );
-      inner.push(`</div>`);
+    if (currentItem) {
+      inner.push(periodRow(currentItem, "Current", false));
+    }
+    if (previousItem) {
+      inner.push(periodRow(previousItem, "Previous", true));
     }
     for (const n of neutrals) {
-      inner.push(
-        `<div style="display:flex;justify-content:space-between;gap:16px;margin-top:2px"><span>${n.marker}${escapeHtmlForProductAnalyticsTooltip(n.seriesName)}</span><span><b>${fmtVal(n)}</b></span></div>`,
-      );
+      inner.push(neutralRow(n));
     }
     if (!title && !currentItem && !previousItem) {
       for (const it of group) {
-        inner.push(
-          `<div style="display:flex;justify-content:space-between;gap:16px;margin-top:2px"><span>${it.marker}${escapeHtmlForProductAnalyticsTooltip(it.seriesName)}</span><span><b>${fmtVal(it)}</b></span></div>`,
-        );
+        inner.push(neutralRow(it));
       }
     }
     blocks.push(`<div style="margin-top:${marginTop}">${inner.join("")}</div>`);
@@ -972,6 +1055,7 @@ function buildGroupedLineAreaCompareTooltipRows(
 }
 
 type BuildExplorerChartTooltipFormatterArgs = {
+  chartType: ExplorationConfig["chartType"];
   resolvedGranularity: ResolvedGranularity | null;
   /** When true, category axis labels are not raw dates (e.g. compare sparse-flat bars). */
   compositeCategoryAxisTooltip?: boolean;
@@ -988,6 +1072,7 @@ type BuildExplorerChartTooltipFormatterArgs = {
 };
 
 export function buildExplorerChartTooltipFormatter({
+  chartType,
   resolvedGranularity,
   compositeCategoryAxisTooltip = false,
   firstDimensionIsDate,
@@ -1062,7 +1147,7 @@ export function buildExplorerChartTooltipFormatter({
               dateGranularity,
             );
             groupedLineAreaCompareRows = true;
-            header = `<div>${escapeHtmlForProductAnalyticsTooltip(`Current: ${currentFormatted}`)}</div><div style="font-size:12px;opacity:0.9">${escapeHtmlForProductAnalyticsTooltip(`Previous: ${prevFormatted}`)}</div>`;
+            header = `<div style="font-weight:600;font-size:13px">${escapeHtmlForProductAnalyticsTooltip(currentFormatted)}</div><div style="font-size:12px;opacity:0.6;margin-top:1px">${escapeHtmlForProductAnalyticsTooltip(`Compared with ${prevFormatted}`)}</div>`;
           } else {
             header = escapeHtmlForProductAnalyticsTooltip(
               `Current: ${currentFormatted}`,
@@ -1079,12 +1164,20 @@ export function buildExplorerChartTooltipFormatter({
         );
       }
 
+      // Group into Current / Previous rows when comparing — for line/area (the
+      // date-aligned `groupedLineAreaCompareRows` case) and for bar/stacked-bar
+      // with a date dimension (which also lands in this branch).
+      const isBar = isExplorerBarChartType(chartType);
+      const useGroupedCompareRows =
+        Boolean(comparisonPeriodLabels) &&
+        (groupedLineAreaCompareRows || isBar);
       const seriesRows =
-        groupedLineAreaCompareRows && comparisonPeriodLabels
-          ? buildGroupedLineAreaCompareTooltipRows(
+        useGroupedCompareRows && comparisonPeriodLabels
+          ? buildGroupedCompareTooltipRows(
               formatNumber,
               items,
               comparisonPeriodLabels,
+              isBar ? "bar" : "line",
             )
           : items
               .map((item) => {
@@ -1095,7 +1188,8 @@ export function buildExplorerChartTooltipFormatter({
               })
               .join("");
 
-      return `<div><div style="margin-bottom:4px">${header}</div>${seriesRows}</div>`;
+      const headerMargin = useGroupedCompareRows ? "8px" : "4px";
+      return `<div><div style="margin-bottom:${headerMargin}">${header}</div>${seriesRows}</div>`;
     };
   }
 
@@ -1116,10 +1210,40 @@ export function buildExplorerChartTooltipFormatter({
       if (!items.length) return "";
 
       const rawAxisValue = items[0].axisValue;
-      const header =
+      let header =
         typeof rawAxisValue === "number"
           ? formatNumber(rawAxisValue)
           : String(rawAxisValue);
+
+      // Compare ON: group each metric/series into stacked Current / Previous
+      // rows (same layout as line/area). Bars use a square swatch; previous
+      // recedes via a muted value, matching the chart's softer previous fill.
+      if (comparisonPeriodLabels) {
+        // Sparse-flat bars label each slot "<category> — <metric>"; the metric
+        // is already shown as the group title, so trim it from the header to
+        // leave just the dimension value.
+        if (compositeCategoryAxisTooltip) {
+          const { baseName } = parseComparisonTooltipSeriesName(
+            items[0].seriesName,
+            comparisonPeriodLabels,
+          );
+          const suffix = ` — ${baseName}`;
+          if (baseName && header.endsWith(suffix)) {
+            header = header.slice(0, -suffix.length);
+          }
+        }
+        const seriesRows = buildGroupedCompareTooltipRows(
+          formatNumber,
+          items,
+          comparisonPeriodLabels,
+          isExplorerBarChartType(chartType) ? "bar" : "line",
+        );
+        const headerHtml =
+          `<div style="font-weight:600">${escapeHtmlForProductAnalyticsTooltip(
+            header,
+          )}</div>` + buildComparePeriodSubHeader(comparisonPeriodLabels);
+        return `<div><div style="margin-bottom:8px">${headerHtml}</div>${seriesRows}</div>`;
+      }
 
       const seriesRows = items
         .map((item) => {

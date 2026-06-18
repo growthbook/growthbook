@@ -6,11 +6,40 @@ import {
   alignComparisonOverlayToCategories,
   computeBigNumberComparisonTrendForMetricIndex,
   computeBigNumberComparisonTrends,
+  formatCollapsedDateRange,
   formatComparisonMetricLabel,
   getAlignedComparisonDimensionKeyForTooltip,
   parseComparisonTooltipSeriesName,
   sortProductAnalyticsTooltipAxisItems,
 } from "@/enterprise/components/ProductAnalytics/comparison-chart";
+
+describe("formatCollapsedDateRange", () => {
+  const utc = (y: number, m: number, d: number) => new Date(Date.UTC(y, m, d));
+
+  it("shows a single date when start and end are the same day", () => {
+    expect(formatCollapsedDateRange(utc(2026, 4, 3), utc(2026, 4, 3))).toBe(
+      "May 3, 2026",
+    );
+  });
+
+  it("collapses month and year when both fall in the same month", () => {
+    expect(formatCollapsedDateRange(utc(2026, 4, 3), utc(2026, 4, 7))).toBe(
+      "May 3 – 7, 2026",
+    );
+  });
+
+  it("collapses only the year when both fall in the same year", () => {
+    expect(formatCollapsedDateRange(utc(2026, 4, 3), utc(2026, 5, 4))).toBe(
+      "May 3 – Jun 4, 2026",
+    );
+  });
+
+  it("shows full dates when the years differ", () => {
+    expect(formatCollapsedDateRange(utc(2025, 11, 30), utc(2026, 0, 2))).toBe(
+      "Dec 30, 2025 – Jan 2, 2026",
+    );
+  });
+});
 
 describe("alignComparisonOverlayToCategories", () => {
   const seriesKeys = ["__single__"];

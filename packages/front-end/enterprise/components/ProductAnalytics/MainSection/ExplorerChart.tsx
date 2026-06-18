@@ -385,7 +385,7 @@ export default function ExplorerChart({
     // category count (a percentage would scale the frame). On dense charts the
     // current width is capped so the wider previous bar still fits in the band.
     // Until the plot is measured, both fall back to responsive percentages.
-    const COMPARE_BAR_FRAME_PX = 7;
+    const COMPARE_BAR_FRAME_PX = 12;
     const COMPARE_BAR_CURRENT_FRACTION = 0.75;
     const compareBarWidths: {
       current: number | string | undefined;
@@ -580,6 +580,7 @@ export default function ExplorerChart({
     const yAxis = isHorizontalBar ? categoryAxisOption : valueAxis;
 
     const tooltipFormatter = buildExplorerChartTooltipFormatter({
+      chartType,
       resolvedGranularity,
       compositeCategoryAxisTooltip: sparseFlatCompareBars,
       firstDimensionIsDate,
