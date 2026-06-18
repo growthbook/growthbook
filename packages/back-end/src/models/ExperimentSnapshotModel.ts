@@ -1137,7 +1137,7 @@ export async function getLatestSnapshotMultipleExperiments(
   experimentPhaseMap: Map<string, number>,
   dimension?: string,
   withResults: boolean = true,
-  metricIds?: string[],
+  hydrateMetricIds?: string[],
 ): Promise<ExperimentSnapshotInterface[]> {
   const experimentPhasesToGet = new Map(experimentPhaseMap);
   const query: FilterQuery<ExperimentSnapshotDocument> = {
@@ -1192,7 +1192,7 @@ export async function getLatestSnapshotMultipleExperiments(
     });
   }
 
-  return populateSnapshotAnalyses(context, snapshots, metricIds);
+  return populateSnapshotAnalyses(context, snapshots, hydrateMetricIds);
 }
 
 export async function createExperimentSnapshotModel({
