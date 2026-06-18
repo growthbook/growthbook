@@ -319,7 +319,7 @@ describe("snapshot planning", () => {
     // would attempt an incremental update against a non-existent units table.
     expect(plan.fullRefresh).toBe(true);
     expect(plan.fullRefreshReason).toBe(
-      "No prior incremental refresh state for this experiment.",
+      "No prior Incremental Pipeline state for this experiment.",
     );
     expect(assertIncrementalRefreshPrerequisitesMock).toHaveBeenCalledWith(
       expect.objectContaining({ analysisType: "main-fullRefresh" }),

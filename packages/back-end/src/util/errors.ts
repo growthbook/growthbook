@@ -177,7 +177,7 @@ export class ExperimentIncrementalPipelineRequiresFullRefreshError extends ApiEr
   constructor(reason: string) {
     super(
       "requires_full_refresh",
-      `${reason}\n\nRe-issue this request with {"force": true, dimension: ""} in the request body to run a full refresh.`,
+      `${reason}\n\nRe-issue this request with {"force": true, "dimension": ""} in the request body to run a full refresh.`,
       { reason },
     );
     this.name = "ExperimentIncrementalPipelineRequiresFullRefreshError";

@@ -58,7 +58,7 @@ export function normalizeIncrementalFullRefreshField(
   settings: IncrementalFullRefreshComparable,
 ): string | number | boolean | null {
   if (field === "startDate") {
-    return getValidDate(settings.startDate).getTime() ?? null;
+    return getValidDate(settings.startDate).getTime();
   }
   if (field === "attributionModel") {
     return settings.attributionModel || "firstExposure";

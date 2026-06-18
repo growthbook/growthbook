@@ -461,7 +461,7 @@ describe("snapshots API", () => {
     expect(response.status).toBe(409);
     expect(response.body.code).toBe("requires_full_refresh");
     expect(response.body.details).toEqual({ reason: staleConfigMessage });
-    expect(response.body.message).toContain('{"force": true, dimension: ""}');
+    expect(response.body.message).toContain('{"force": true, "dimension": ""}');
   });
 
   it("rejects force on a dimension snapshot when incremental refresh is enabled", async () => {
@@ -552,7 +552,7 @@ describe("snapshots API", () => {
     expect(response.body.details).toEqual({
       reason: dimensionFullRefreshMessage,
     });
-    expect(response.body.message).toContain('{"force": true, dimension: ""}');
+    expect(response.body.message).toContain('{"force": true, "dimension": ""}');
   });
 
   it("returns 409 when a dimension snapshot needs the main results incrementally updated", async () => {
@@ -589,7 +589,6 @@ describe("snapshots API", () => {
     createExperimentSnapshot.mockRejectedValueOnce(
       new ExperimentIncrementalPipelineRequiresOverallUpdateError(
         overallUpdateMessage,
-        ["met_1"],
       ),
     );
 

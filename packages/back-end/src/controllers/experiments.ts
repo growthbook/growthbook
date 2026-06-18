@@ -16,6 +16,7 @@ import {
   getAllVariations,
 } from "shared/experiments";
 import { getScopedSettings } from "shared/settings";
+import { isExperimentIncrementalEnabled } from "shared/enterprise";
 import { v4 as uuidv4 } from "uuid";
 import { IdeaInterface } from "shared/types/idea";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
@@ -130,6 +131,7 @@ import { PastExperimentsQueryRunner } from "back-end/src/queryRunners/PastExperi
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
+import { BadRequestError } from "back-end/src/util/errors";
 import {
   getFeature,
   getFeaturesByIds,
@@ -3180,7 +3182,22 @@ export async function postSnapshot(
     throw new Error("Could not find datasource for this experiment");
   }
 
-  const useCache = !req.query["force"];
+  const force = !!req.query["force"];
+  if (
+    dimension &&
+    force &&
+    isExperimentIncrementalEnabled(
+      datasource.settings.pipelineSettings,
+      experiment.id,
+      experiment.type,
+    )
+  ) {
+    throw new BadRequestError(
+      'The "force" parameter cannot be used on Dimension snapshots when Incremental Pipeline mode is enabled. You can re-issue this request with dimension: "" to force a Full Refresh on Overall Results.',
+    );
+  }
+
+  const useCache = !force;
 
   const { snapshot } = await createExperimentSnapshot({
     context,

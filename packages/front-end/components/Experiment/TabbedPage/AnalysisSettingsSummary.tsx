@@ -390,21 +390,21 @@ export default function AnalysisSettingsSummary({
     setShowMainRefreshModal(true);
   };
 
-  const updateMainResults = async (blocker: SnapshotRefreshBlocker) => {
-    await runSnapshot("", {
-      force: blocker.kind === "requires-full-refresh",
-    });
-    setMainSnapshotRefresh(null);
-    setShowMainRefreshModal(false);
-    setDimension?.("", true);
-    setSnapshotType?.(undefined);
-  };
-
   const goToOverallResults = useCallback(() => {
     setSnapshotDimension("");
     setAnalysisSettings(null);
     setDimension?.("", true);
   }, [setSnapshotDimension, setAnalysisSettings, setDimension]);
+
+  const updateMainResults = async (blocker: SnapshotRefreshBlocker) => {
+    setShowMainRefreshModal(false);
+    await runSnapshot("", {
+      force: blocker.kind === "requires-full-refresh",
+    });
+    setMainSnapshotRefresh(null);
+    goToOverallResults();
+    setSnapshotType?.(undefined);
+  };
 
   const handleDisableIncrementalRefresh = async () => {
     if (!datasource || !isExperimentIncludedInIncrementalRefresh) return;

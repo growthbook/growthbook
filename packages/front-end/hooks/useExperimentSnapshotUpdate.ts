@@ -159,6 +159,7 @@ export function useExperimentSnapshotUpdate({
 
   const promptFullRefresh = useCallback(
     (reasons: string[]): Promise<boolean> => {
+      fullRefreshResolveRef.current?.(false);
       setFullRefreshReasons(reasons);
       return new Promise<boolean>((resolve) => {
         fullRefreshResolveRef.current = resolve;
@@ -233,7 +234,11 @@ export function useExperimentSnapshotUpdate({
         if (blocker) {
           if (blocker.kind === "requires-full-refresh") {
             if (dimensionToRun === "") {
-              return force ? null : blocker.reason;
+              if (force) {
+                setRefreshError(blocker.reason);
+                return null;
+              }
+              return blocker.reason;
             }
             onSnapshotRefreshBlocked?.(blocker);
             return null;

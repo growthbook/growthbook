@@ -1320,7 +1320,7 @@ function resolveFullRefresh(
     return {
       fullRefresh: true,
       fullRefreshReason:
-        "No prior incremental refresh state for this experiment.",
+        "No prior Incremental Pipeline state for this experiment.",
     };
   }
 
@@ -1549,7 +1549,7 @@ async function planSnapshotQueryRunner({
       fullRefresh,
       fullRefreshReason,
       prerequisites,
-      throwOnErrorInsteadOfFallback: throwOnErrorInsteadOfFallback,
+      throwOnErrorInsteadOfFallback,
     });
   }
 }
