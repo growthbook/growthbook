@@ -363,4 +363,58 @@ describe("useExperimentSnapshotUpdate", () => {
     expect(result.current.fullRefreshConfirm.open).toBe(false);
     expect(apiCall).toHaveBeenCalledTimes(1);
   });
+
+  it("runSnapshot returns true when the post starts a refresh", async () => {
+    apiCall.mockResolvedValue({ status: 200, snapshot: { id: "snap_1" } });
+    const { result } = render();
+
+    let started: boolean | undefined;
+    await act(async () => {
+      started = await result.current.runSnapshot("", { force: true });
+    });
+
+    expect(started).toBe(true);
+  });
+
+  it("runSnapshot returns false when the full-refresh prompt is cancelled", async () => {
+    mockApiInterruptionError({
+      status: 409,
+      code: "requires_full_refresh",
+      details: { reason: "drifted" },
+      message: "requires full refresh",
+    });
+    const { result } = render();
+
+    let started: boolean | undefined;
+    await act(async () => {
+      void result.current.runSnapshot("").then((r) => {
+        started = r;
+      });
+    });
+
+    expect(result.current.fullRefreshConfirm.open).toBe(true);
+
+    await act(async () => {
+      result.current.fullRefreshConfirm.onCancel();
+    });
+
+    expect(started).toBe(false);
+    expect(apiCall).toHaveBeenCalledTimes(1);
+  });
+
+  it("runSnapshot returns false when the post fails without a blocker", async () => {
+    apiCall.mockImplementationOnce(async () => {
+      throw new Error("boom");
+    });
+    const setRefreshError = vi.fn();
+    const { result } = render({ setRefreshError });
+
+    let started: boolean | undefined;
+    await act(async () => {
+      started = await result.current.runSnapshot("", { force: false });
+    });
+
+    expect(started).toBe(false);
+    expect(setRefreshError).toHaveBeenCalledWith("boom");
+  });
 });

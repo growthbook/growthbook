@@ -22,6 +22,14 @@ type SubmitUpdateOptions = {
   fullRefreshReasons?: string[];
 };
 
+// A successful post (a refresh started) and a soft failure (error surfaced, no
+// refresh) are distinct outcomes so callers can avoid acting on a refresh that
+// never began.
+type PostSnapshotResult =
+  | { status: "success" }
+  | { status: "needs-full-refresh"; reason: string }
+  | { status: "failed" };
+
 type SnapshotStatusCacheEntry = {
   latest: SnapshotStatusSummary | null;
 };
@@ -174,15 +182,16 @@ export function useExperimentSnapshotUpdate({
     fullRefreshResolveRef.current = null;
   }, []);
 
-  // Low-level primitive: POST a snapshot for an explicit dimension. Returns the
-  // blocker reason when the backend needs a dimensionless full refresh, else null.
+  // Low-level primitive: POST a snapshot for an explicit dimension. Reports
+  // whether the post started a refresh, needs a dimensionless full-refresh
+  // confirmation, or soft-failed with an error already surfaced.
   const postSnapshot = useCallback(
     async (
       dimensionToRun: string,
       force: boolean,
       trackingSourceOverride?: string,
-    ): Promise<string | null> => {
-      if (!experiment) return null;
+    ): Promise<PostSnapshotResult> => {
+      if (!experiment) return { status: "failed" };
       setLoading(true);
       setLongResult(false);
       setRefreshError("");
@@ -228,7 +237,7 @@ export function useExperimentSnapshotUpdate({
           { revalidate: false },
         );
         onSuccess?.();
-        return null;
+        return { status: "success" };
       } catch (e) {
         const blocker = apiErrorToSnapshotRefreshBlocker(apiError);
         if (blocker) {
@@ -236,18 +245,18 @@ export function useExperimentSnapshotUpdate({
             if (dimensionToRun === "") {
               if (force) {
                 setRefreshError(blocker.reason);
-                return null;
+                return { status: "failed" };
               }
-              return blocker.reason;
+              return { status: "needs-full-refresh", reason: blocker.reason };
             }
             onSnapshotRefreshBlocked?.(blocker);
-            return null;
+            return { status: "failed" };
           }
           onSnapshotRefreshBlocked?.(blocker);
-          return null;
+          return { status: "failed" };
         }
         setRefreshError(e.message);
-        return null;
+        return { status: "failed" };
       } finally {
         clearTimeout(timer);
         setLoading(false);
@@ -275,20 +284,28 @@ export function useExperimentSnapshotUpdate({
   // overall results", dimension-only breakdown) use this directly. `submitUpdate`
   // resolves the dimension from props and gates on `customValidation` first. An
   // outdated incremental cache prompts for a full refresh, then re-posts forced.
+  // Returns true only when a post actually started a refresh, so callers can
+  // skip post-refresh side effects when the user cancels or the post fails.
   const runSnapshot = useCallback(
     async (
       dimensionToRun: string,
       opts?: { force?: boolean; trackingSource?: string },
-    ): Promise<void> => {
-      const reason = await postSnapshot(
+    ): Promise<boolean> => {
+      const result = await postSnapshot(
         dimensionToRun,
         opts?.force ?? false,
         opts?.trackingSource,
       );
-      if (reason === null) return;
-      if (await promptFullRefresh([reason])) {
-        await postSnapshot(dimensionToRun, true, opts?.trackingSource);
+      if (result.status !== "needs-full-refresh") {
+        return result.status === "success";
       }
+      if (!(await promptFullRefresh([result.reason]))) return false;
+      const retry = await postSnapshot(
+        dimensionToRun,
+        true,
+        opts?.trackingSource,
+      );
+      return retry.status === "success";
     },
     [postSnapshot, promptFullRefresh],
   );

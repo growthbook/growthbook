@@ -398,9 +398,10 @@ export default function AnalysisSettingsSummary({
 
   const updateMainResults = async (blocker: SnapshotRefreshBlocker) => {
     setShowMainRefreshModal(false);
-    await runSnapshot("", {
+    const started = await runSnapshot("", {
       force: blocker.kind === "requires-full-refresh",
     });
+    if (!started) return;
     setMainSnapshotRefresh(null);
     goToOverallResults();
     setSnapshotType?.(undefined);
