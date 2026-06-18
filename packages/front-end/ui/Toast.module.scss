@@ -1,0 +1,17 @@
+.toast {
+  position: fixed;
+  right: 20px;
+  // Sit above the in-app help button (a 50px FAB at bottom: 20px) with a gap so
+  // the toast never covers it.
+  bottom: 84px;
+  // Above the help button (z-index: 10) so it wins any overlap, but below the
+  // dropdown-menu layer (1200) and modals (#portal-root, 999999).
+  z-index: 1000;
+  max-width: min(360px, calc(100vw - 40px));
+  border-radius: var(--radius-4);
+  box-shadow: var(--shadow-5);
+  // Opaque background so page content never bleeds through the (translucent)
+  // Callout surface when the toast floats over it.
+  overflow: hidden;
+  background-color: var(--color-panel-solid);
+}
