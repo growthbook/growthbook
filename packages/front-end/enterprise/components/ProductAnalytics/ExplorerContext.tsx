@@ -392,12 +392,23 @@ export function ExplorerProvider({
         return;
       }
 
+      // When comparison is first enabled, the prior-period query has never
+      // been computed. A "required" fetch would return null for it (cache-only)
+      // and the comparison would silently stay empty until a page refresh, so
+      // run it like a first load instead.
+      const enablingComparison =
+        previousForRequest != null && submittedPreviousTimeFrame == null;
+
       let cache: CacheOption;
       if (options?.cache) {
         // explicitly set the cache option
         cache = options.cache;
-      } else if (!hasEverFetchedRef.current || isManagedWarehouse) {
-        // first load or managed warehouse: use preferred cache
+      } else if (
+        !hasEverFetchedRef.current ||
+        isManagedWarehouse ||
+        enablingComparison
+      ) {
+        // first load, managed warehouse, or newly-enabled comparison: run if missing
         cache = "preferred";
       } else {
         // otherwise, use required cache
@@ -496,6 +507,7 @@ export function ExplorerProvider({
     },
     [
       draftExploreState,
+      submittedPreviousTimeFrame,
       setSubmittedExploreState,
       fetchData,
       onRunComplete,
