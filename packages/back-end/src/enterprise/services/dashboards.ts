@@ -578,10 +578,14 @@ export async function generateDashboardSSRData({
       "name",
       "type",
       "hypothesis",
+      "description",
       "variations",
+      "phases",
       "status",
       "project",
-    ]) as Partial<ExperimentInterfaceStringDates>;
+      // Dates (phases) are serialized to ISO strings by res.json before reaching
+      // the client, matching ExperimentInterfaceStringDates on the wire.
+    ]) as unknown as Partial<ExperimentInterfaceStringDates>;
   }
 
   const projects: Record<string, ProjectInterface> = {};
@@ -713,7 +717,9 @@ export async function getPublicDashboardBlockData({
     ...new Set(
       dashboard.blocks
         .filter(
-          (block): block is Extract<
+          (
+            block,
+          ): block is Extract<
             DashboardBlockInterface,
             { savedQueryId: string }
           > =>
@@ -723,13 +729,16 @@ export async function getPublicDashboardBlockData({
         .map((block) => block.savedQueryId),
     ),
   ];
-  const savedQueries = await context.models.savedQueries.getByIds(savedQueryIds);
+  const savedQueries =
+    await context.models.savedQueries.getByIds(savedQueryIds);
 
   const metricAnalysisIds = [
     ...new Set(
       dashboard.blocks
         .filter(
-          (block): block is Extract<
+          (
+            block,
+          ): block is Extract<
             DashboardBlockInterface,
             { metricAnalysisId: string }
           > =>
@@ -746,7 +755,9 @@ export async function getPublicDashboardBlockData({
     ...new Set(
       dashboard.blocks
         .filter(
-          (block): block is DashboardBlockInterface & {
+          (
+            block,
+          ): block is DashboardBlockInterface & {
             explorerAnalysisId: string;
           } =>
             (block.type === "metric-exploration" ||
@@ -755,8 +766,8 @@ export async function getPublicDashboardBlockData({
             "explorerAnalysisId" in block &&
             typeof (block as { explorerAnalysisId?: string })
               .explorerAnalysisId === "string" &&
-            (block as { explorerAnalysisId: string }).explorerAnalysisId.length >
-              0,
+            (block as { explorerAnalysisId: string }).explorerAnalysisId
+              .length > 0,
         )
         .map((block) => block.explorerAnalysisId),
     ),

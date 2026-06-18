@@ -2,21 +2,29 @@ import { ReactElement, ReactNode } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import {
   DashboardBlockInterface,
+  ExperimentMetadataBlockInterface,
+  ExperimentTrafficBlockInterface,
+  getBlockSnapshotAnalysis,
   MarkdownBlockInterface,
   SqlExplorerBlockInterface,
 } from "shared/enterprise";
 import { SavedQuery } from "shared/validators";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import Callout from "@/ui/Callout";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { BLOCK_TYPE_INFO } from "@/enterprise/components/Dashboards/DashboardEditor";
 import MarkdownBlock from "@/enterprise/components/Dashboards/DashboardEditor/DashboardBlock/MarkdownBlock";
 import SqlExplorerBlock from "@/enterprise/components/Dashboards/DashboardEditor/DashboardBlock/SqlExplorerBlock";
+import ExperimentMetadataBlock from "@/enterprise/components/Dashboards/DashboardEditor/DashboardBlock/ExperimentMetadataBlock";
+import ExperimentTrafficBlock from "@/enterprise/components/Dashboards/DashboardEditor/DashboardBlock/ExperimentTrafficBlock";
 import { BlockProps } from "@/enterprise/components/Dashboards/DashboardEditor/DashboardBlock";
 
 export interface PublicDashboardBlockProps {
   block: DashboardBlockInterface;
   ssrPolyfills: SSRPolyfills;
   savedQueriesMap: Map<string, SavedQuery>;
+  snapshotsMap: Map<string, ExperimentSnapshotInterface>;
 }
 
 // Mirrors the authenticated dispatcher's default title (empty for markdown).
@@ -62,13 +70,15 @@ function BlockCard({
 // Reuses the real block components but feeds them data from the public endpoint
 // payload + ssrPolyfills instead of authenticated hooks/snapshot context.
 //
-// Scope (3a): blocks that need no authenticated data — markdown and
-// sql-explorer. Experiment-result, experiment-metadata, metric-explorer, and
-// exploration blocks render a placeholder until 3b/3c wire their data.
+// Supported: markdown, sql-explorer, experiment-metadata, experiment-traffic.
+// The metric-bearing experiment blocks (experiment-metric / -dimension /
+// -time-series), metric-explorer, and exploration blocks render a placeholder
+// until their data + metric resolution are wired.
 export default function PublicDashboardBlock({
   block,
   ssrPolyfills,
   savedQueriesMap,
+  snapshotsMap,
 }: PublicDashboardBlockProps): ReactElement {
   // Props every block component declares. The no-auth blocks ignore the
   // result-data fields (snapshot/analysis) and the edit callbacks, so passing
@@ -108,6 +118,47 @@ export default function PublicDashboardBlock({
           This query result isn&apos;t available.
         </Callout>
       );
+      break;
+    }
+    case "experiment-metadata": {
+      const experiment = ssrPolyfills.getExperimentById(block.experimentId);
+      content = experiment ? (
+        <ExperimentMetadataBlock
+          {...(baseProps as unknown as BlockProps<ExperimentMetadataBlockInterface>)}
+          block={block}
+          experiment={experiment as unknown as ExperimentInterfaceStringDates}
+        />
+      ) : (
+        <Callout status="info" size="sm">
+          This experiment isn&apos;t available.
+        </Callout>
+      );
+      break;
+    }
+    case "experiment-traffic": {
+      const experiment = ssrPolyfills.getExperimentById(block.experimentId);
+      const snapshot = block.snapshotId
+        ? snapshotsMap.get(block.snapshotId)
+        : undefined;
+      const analysis = snapshot
+        ? getBlockSnapshotAnalysis(snapshot, block)
+        : null;
+      content =
+        experiment && snapshot && analysis ? (
+          <ExperimentTrafficBlock
+            {...(baseProps as unknown as BlockProps<ExperimentTrafficBlockInterface>)}
+            block={block}
+            experiment={
+              experiment as unknown as ExperimentInterfaceStringDates
+            }
+            snapshot={snapshot}
+            analysis={analysis}
+          />
+        ) : (
+          <Callout status="info" size="sm">
+            Results for this block aren&apos;t available.
+          </Callout>
+        );
       break;
     }
     default:

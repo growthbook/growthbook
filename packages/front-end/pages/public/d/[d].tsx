@@ -65,6 +65,10 @@ export default function PublicDashboardPage({
     () => new Map((blockData?.savedQueries ?? []).map((q) => [q.id, q])),
     [blockData?.savedQueries],
   );
+  const snapshotsMap = useMemo(
+    () => new Map((blockData?.snapshots ?? []).map((s) => [s.id, s])),
+    [blockData?.snapshots],
+  );
 
   return (
     <div className="pagecontents container-fluid pt-3">
@@ -110,6 +114,7 @@ export default function PublicDashboardPage({
               block={block as DashboardBlockInterface}
               ssrPolyfills={ssrPolyfills}
               savedQueriesMap={savedQueriesMap}
+              snapshotsMap={snapshotsMap}
             />
           )}
         />
