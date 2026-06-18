@@ -9671,6 +9671,91 @@ paths:
                 environment:
                   deprecated: true
                   type: string
+                startState:
+                  description: >-
+                    The rule state to roll back to (the rollback/jump-to-start
+                    anchor). Merged onto the rule's current state, so `{
+                    "coverage": 0 }` keeps existing targeting but rolls back to
+                    0%. This affects rollbacks only — it is NOT applied when the
+                    ramp starts. On create, omitting it infers the anchor from
+                    the rule's current coverage (and returns a warning if that
+                    isn't 0%); on update of a live schedule, omitting it leaves
+                    the existing anchor unchanged.
+                  type: object
+                  properties:
+                    coverage:
+                      description: >-
+                        Traffic fraction (0–1). For monitored steps the rollout
+                        rule is promoted to an experiment: treatment = [0,
+                        coverage), control = [0.5, 0.5+coverage). Both arms are
+                        equal-sized and non-adjacent, so a step-up only adds new
+                        users to each arm — no existing user changes group. The
+                        REST API enforces coverage ≤ 0.5 on monitored steps so
+                        control end never exceeds 1.0. The SDK uses explicit
+                        hash ranges on bucketingV2 clients to keep bucketing
+                        stable across monitored/unmonitored transitions.
+                      anyOf:
+                        - type: number
+                          minimum: 0
+                          maximum: 1
+                        - type: 'null'
+                    condition:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                    savedGroups:
+                      anyOf:
+                        - type: array
+                          items:
+                            type: object
+                            properties:
+                              match:
+                                type: string
+                                enum:
+                                  - all
+                                  - none
+                                  - any
+                              ids:
+                                type: array
+                                items:
+                                  type: string
+                            required:
+                              - match
+                              - ids
+                            additionalProperties: false
+                        - type: 'null'
+                    prerequisites:
+                      anyOf:
+                        - type: array
+                          items:
+                            type: object
+                            properties:
+                              id:
+                                type: string
+                              condition:
+                                type: string
+                            required:
+                              - id
+                              - condition
+                            additionalProperties: false
+                        - type: 'null'
+                    allEnvironments:
+                      anyOf:
+                        - type: boolean
+                        - type: 'null'
+                    environments:
+                      anyOf:
+                        - type: array
+                          items:
+                            type: string
+                        - type: 'null'
+                    force:
+                      description: Force value (any JSON type)
+                    enabled:
+                      anyOf:
+                        - type: boolean
+                        - type: 'null'
+                  additionalProperties: false
                 revisionTitle:
                   description: >-
                     Title for a newly created draft. Only used when version is
@@ -9691,6 +9776,13 @@ paths:
                 properties:
                   revision:
                     $ref: '#/components/schemas/FeatureRevisionV2'
+                  warnings:
+                    description: >-
+                      Non-fatal advisories about how the request was
+                      interpreted.
+                    type: array
+                    items:
+                      type: string
                 required:
                   - revision
                 additionalProperties: false

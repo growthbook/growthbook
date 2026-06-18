@@ -27,6 +27,13 @@ export const featureRulePatch = z.object({
 });
 export type FeatureRulePatch = z.infer<typeof featureRulePatch>;
 
+// The rule's pre-ramp state, used purely as the rollback/jump-to-start anchor.
+// It is NOT applied when the ramp starts — step 0's coverage takes over
+// immediately on start. A partial patch is merged onto the rule's current
+// state, so `{ coverage: 0 }` keeps existing targeting but rolls back to 0%.
+export const rampStartState = featureRulePatch.omit({ ruleId: true });
+export type RampStartState = z.infer<typeof rampStartState>;
+
 export const lockdownModeArray = ["none", "locked"] as const;
 export type LockdownMode = (typeof lockdownModeArray)[number];
 

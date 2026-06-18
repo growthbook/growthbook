@@ -1,9 +1,11 @@
 import type { OrganizationInterface } from "shared/types/organization";
 import {
   RevisionRampUpdateAction,
+  RampStartState,
   putFeatureRevisionRuleRampScheduleValidator,
 } from "shared/validators";
 import { resetReviewOnChange } from "shared/util";
+import { resolveRampStartState } from "back-end/src/services/rampSchedule";
 import type { ApiReqContext } from "back-end/types/api";
 import { toApiRevision } from "back-end/src/services/features";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
@@ -101,11 +103,28 @@ export async function setRuleRampSchedule(
       canonicalRuleId,
       environment ?? undefined,
     );
+    const existingLiveSchedule = liveSchedules[0];
+
+    // Resolve the rollback anchor. An explicit `startState` is converted to
+    // startActions (merged onto the rule's current state); when omitted, the
+    // anchor is derived at publish from the rule's coverage — and we warn if
+    // that isn't 0% on create.
+    const { startActions: resolvedStartActions, warning: startStateWarning } =
+      resolveRampStartState({
+        rule: match,
+        ruleId: canonicalRuleId,
+        startState: scheduleInput.startState as RampStartState | undefined,
+        isCreate: !existingLiveSchedule,
+      });
+    if (resolvedStartActions) {
+      scheduleInput.startActions = resolvedStartActions;
+    }
+    delete scheduleInput.startState;
+
     const action = normalizeInlineRampSchedule(
       scheduleInput as Parameters<typeof normalizeInlineRampSchedule>[0],
       canonicalRuleId,
     );
-    const existingLiveSchedule = liveSchedules[0];
 
     // Replace any existing pending ramp action for this rule. Filter tolerant
     // to both the canonical id AND the caller-provided id, so stale entries
@@ -173,7 +192,11 @@ export async function setRuleRampSchedule(
       },
     );
 
-    return { feature, revision: finalRevision };
+    return {
+      feature,
+      revision: finalRevision,
+      warnings: startStateWarning ? [startStateWarning] : undefined,
+    };
   } catch (err) {
     await discardIfJustCreated(context, revision, created);
     throw err;
