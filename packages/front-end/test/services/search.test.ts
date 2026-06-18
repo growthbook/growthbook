@@ -660,6 +660,32 @@ describe("useSearch", () => {
         expect.arrayContaining(["search_test_key", "search-test-key"]),
       );
     });
+
+    it("handles long punctuation-dense fields without quadratic suffix blowup", () => {
+      // A saved-group condition can be a single whitespace-free JSON string
+      // with thousands of punctuation-separated parts. Suffix expansion on
+      // that is O(parts²) and OOMs the tab; the tokenizer must cap it while
+      // still indexing individual parts so single-word search keeps working.
+      const values = Array.from({ length: 5000 }, (_, i) => `"v${i}"`).join(
+        ",",
+      );
+      const longItems = [
+        { id: "1", name: "small", condition: `{"x":1}` },
+        { id: "2", name: "big", condition: `{"attr":{"$in":[${values}]}}` },
+      ];
+      const { result } = renderHook(() =>
+        useSearch<{ id: string; name: string; condition: string }>({
+          items: longItems,
+          searchFields: ["name", "condition"],
+          localStorageKey: "search-service-test-long-condition",
+          defaultSortField: "name",
+        }),
+      );
+      act(() => {
+        result.current.setSearchValue("v4321");
+      });
+      expect(result.current.filteredItems.map((i) => i.name)).toEqual(["big"]);
+    });
   });
 
   describe("filterSearchTerm", () => {
