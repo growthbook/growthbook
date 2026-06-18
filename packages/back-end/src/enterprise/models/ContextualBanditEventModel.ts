@@ -50,7 +50,7 @@ export class ContextualBanditEventModel extends BaseClass {
 
   public async listForContextualBandit(
     contextualBandit: string,
-    limit = 20,
+    limit?: number,
   ): Promise<ContextualBanditEventInterface[]> {
     return this._find(
       { contextualBandit },
@@ -80,9 +80,7 @@ export class ContextualBanditEventModel extends BaseClass {
   public async deleteForContextualBandit(
     contextualBandit: string,
   ): Promise<void> {
-    await this._dangerousGetCollection().deleteMany({
-      organization: this.context.org.id,
-      contextualBandit,
-    });
+    const events = await this._find({ contextualBandit });
+    await Promise.all(events.map((event) => this.delete(event))); // @teresayung - this will be one deletion per event for a CB? is it okay, or should I scope a dangerous method to bulk delete?
   }
 }

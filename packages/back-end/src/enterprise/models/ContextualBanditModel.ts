@@ -1,4 +1,7 @@
+import { z } from "zod";
 import {
+  apiContextualBanditLifecycleReturn,
+  apiContextualBanditRefreshReturn,
   apiCreateContextualBanditBody,
   apiUpdateContextualBanditBody,
   ApiContextualBanditInterface,
@@ -31,10 +34,9 @@ const BaseClass = MakeModelClass({
   collectionName: "contextualbandits",
   idPrefix: "cb_",
   globallyUniquePrimaryKeys: true,
-  // Defaults so the REST create can omit fields the schema requires (tree config, holdout, leaf weights, …).
   defaultValues: {
     holdoutPercent: 0,
-    disableStickyBucketing: false,
+    disableStickyBucketing: false, // @teresayung - will remove
     archived: false,
     minUsersPerLeaf: 100,
     maxLeaves: 12,
@@ -54,7 +56,9 @@ const BaseClass = MakeModelClass({
     customHandlers: [
       defineCustomApiHandler({
         ...startContextualBanditEndpoint,
-        reqHandler: async (req) => {
+        reqHandler: async (
+          req,
+        ): Promise<z.infer<typeof apiContextualBanditLifecycleReturn>> => {
           const cb = await req.context.models.contextualBandits.getById(
             req.params.id,
           );
@@ -75,7 +79,9 @@ const BaseClass = MakeModelClass({
       }),
       defineCustomApiHandler({
         ...stopContextualBanditEndpoint,
-        reqHandler: async (req) => {
+        reqHandler: async (
+          req,
+        ): Promise<z.infer<typeof apiContextualBanditLifecycleReturn>> => {
           const cb = await req.context.models.contextualBandits.getById(
             req.params.id,
           );
@@ -97,7 +103,9 @@ const BaseClass = MakeModelClass({
       }),
       defineCustomApiHandler({
         ...refreshContextualBanditEndpoint,
-        reqHandler: async (req) => {
+        reqHandler: async (
+          req,
+        ): Promise<z.infer<typeof apiContextualBanditRefreshReturn>> => {
           const cb = await req.context.models.contextualBandits.getById(
             req.params.id,
           );
@@ -118,7 +126,6 @@ const BaseClass = MakeModelClass({
   },
 });
 
-/** Curated CB → REST response shape; internal-only fields are omitted. Free function to avoid circular type inference. */
 export function toApiContextualBandit(
   doc: ContextualBanditInterface,
 ): ApiContextualBanditInterface {
@@ -128,7 +135,7 @@ export function toApiContextualBandit(
     dateUpdated: doc.dateUpdated.toISOString(),
     name: doc.name,
     description: doc.description,
-    hypothesis: doc.hypothesis,
+    hypothesis: doc.hypothesis, // @teresayung - to remove
     project: doc.project,
     owner: doc.owner,
     tags: doc.tags,
@@ -141,7 +148,7 @@ export function toApiContextualBandit(
     hashAttribute: doc.hashAttribute,
     fallbackAttribute: doc.fallbackAttribute,
     hashVersion: doc.hashVersion,
-    disableStickyBucketing: doc.disableStickyBucketing,
+    disableStickyBucketing: doc.disableStickyBucketing, // @teresayung - to remove
     variations: doc.variations.map((v) => ({
       id: v.id,
       key: v.key,
@@ -178,12 +185,10 @@ export class ContextualBanditModel extends BaseClass {
     return toApiContextualBandit(doc);
   }
 
-  /** Gate the REST surface on the commercial feature flag (internal app reads bypass via UI). */
   protected hasPremiumFeature(): boolean {
     return this.context.hasPremiumFeature("contextual-bandits");
   }
 
-  /** List with optional projectId/datasourceId/trackingKey filters; trackingKey supports create-form collision preflight. */
   public override async handleApiList(
     req: Parameters<InstanceType<typeof BaseClass>["handleApiList"]>[0],
   ): Promise<ApiContextualBanditInterface[]> {
@@ -201,7 +206,6 @@ export class ContextualBanditModel extends BaseClass {
     );
   }
 
-  /** Injects runtime-derived defaults (fresh Date, per-org settings) the static `defaultValues` can't carry. */
   protected async processApiCreateBody(rawBody: unknown) {
     const body = apiCreateContextualBanditBody.parse(rawBody);
     const orgPrior = this.context.org.settings?.metricDefaults?.priorSettings;
@@ -216,7 +220,7 @@ export class ContextualBanditModel extends BaseClass {
       minUsersPerLeaf: body.minUsersPerLeaf ?? 100,
       maxLeaves: body.maxLeaves ?? 12,
       hashAttribute: body.hashAttribute ?? "id",
-      hashVersion: body.hashVersion ?? (2 as const),
+      hashVersion: 2 as const,
       disableStickyBucketing: body.disableStickyBucketing ?? false,
       // Backfill per-variation id/screenshots so the internal validator accepts the doc.
       variations: body.variations.map((v) => ({
@@ -295,7 +299,8 @@ export class ContextualBanditModel extends BaseClass {
       this.context.permissions.throwPermissionError();
     }
 
-    const collection = this._dangerousGetCollection(); //@teresayung verify this is ok
+    // this runs in the snapshot/cron path and needs the dangerous method for performance
+    const collection = this._dangerousGetCollection();
     const now = new Date();
     const set: Record<string, unknown> = { dateUpdated: now };
     // Skip writing currentLeafWeights when empty so an empty-result run can't wipe existing weights.
@@ -325,41 +330,48 @@ export class ContextualBanditModel extends BaseClass {
     return refreshed;
   }
 
-  // Atomic linked-feature / pendingFeatureDraft updates; permission checks intentionally bypassed (sync runs post-auth).
   public async addLinkedFeature(
     cbId: string,
     featureId: string,
   ): Promise<void> {
-    await this._dangerousGetCollection().updateOne(
-      { organization: this.context.org.id, id: cbId },
-      { $addToSet: { linkedFeatures: featureId } },
-    );
+    const cb = await this.getById(cbId);
+    if (!cb) return;
+    if (cb.linkedFeatures?.includes(featureId)) return;
+    await this.update(cb, {
+      linkedFeatures: [...(cb.linkedFeatures ?? []), featureId],
+    });
   }
 
   public async removeLinkedFeature(
     cbId: string,
     featureId: string,
   ): Promise<void> {
-    await this._dangerousGetCollection().updateOne(
-      { organization: this.context.org.id, id: cbId },
-      { $pull: { linkedFeatures: featureId } },
-    );
+    const cb = await this.getById(cbId);
+    if (!cb || !cb.linkedFeatures?.includes(featureId)) return;
+    await this.update(cb, {
+      linkedFeatures: cb.linkedFeatures.filter((f) => f !== featureId),
+    });
   }
 
-  // $addToSet is atomic and idempotent on (featureId, revisionVersion); multiple drafts intentionally allowed.
   public async addPendingFeatureDraft(
     cbId: string,
     featureId: string,
     revisionVersion: number,
   ): Promise<void> {
-    await this._dangerousGetCollection().updateOne(
-      { organization: this.context.org.id, id: cbId },
-      {
-        $addToSet: {
-          pendingFeatureDrafts: { featureId, revisionVersion },
-        },
-      },
-    );
+    const cb = await this.getById(cbId);
+    if (!cb) return;
+    const drafts = cb.pendingFeatureDrafts ?? [];
+    if (
+      drafts.some(
+        (d) =>
+          d.featureId === featureId && d.revisionVersion === revisionVersion,
+      )
+    ) {
+      return;
+    }
+    await this.update(cb, {
+      pendingFeatureDrafts: [...drafts, { featureId, revisionVersion }],
+    });
   }
 
   public async removePendingFeatureDraft(
@@ -367,12 +379,18 @@ export class ContextualBanditModel extends BaseClass {
     featureId: string,
     revisionVersion?: number,
   ): Promise<void> {
-    const pullFilter =
-      revisionVersion != null ? { featureId, revisionVersion } : { featureId };
-    await this._dangerousGetCollection().updateOne(
-      { organization: this.context.org.id, id: cbId },
-      { $pull: { pendingFeatureDrafts: pullFilter } },
+    const cb = await this.getById(cbId);
+    if (!cb) return;
+    const drafts = cb.pendingFeatureDrafts ?? [];
+    const remaining = drafts.filter((d) =>
+      revisionVersion != null
+        ? !(d.featureId === featureId && d.revisionVersion === revisionVersion)
+        : d.featureId !== featureId,
     );
+    if (remaining.length === drafts.length) return;
+    await this.update(cb, {
+      pendingFeatureDrafts: remaining,
+    });
   }
 
   // Strip pending drafts for `featureId` on every CB not in `keepIds`.
@@ -380,22 +398,20 @@ export class ContextualBanditModel extends BaseClass {
     featureId: string,
     keepIds: string[],
   ): Promise<void> {
-    await this._dangerousGetCollection().updateMany(
-      {
-        organization: this.context.org.id,
-        "pendingFeatureDrafts.featureId": featureId,
-        id: { $nin: keepIds },
-      },
-      // Cast required: Mongo's $pull typing is invariant over the element shape.
-      {
-        $pull: {
-          pendingFeatureDrafts: { featureId },
-        },
-      } as unknown as Parameters<
-        ReturnType<
-          ContextualBanditModel["_dangerousGetCollection"]
-        >["updateMany"]
-      >[1],
+    const keep = new Set(keepIds);
+    const contextualbandits = await this._find({
+      "pendingFeatureDrafts.featureId": featureId,
+    });
+    await Promise.all(
+      contextualbandits
+        .filter((cb: ContextualBanditInterface) => !keep.has(cb.id))
+        .map((cb: ContextualBanditInterface) =>
+          this.update(cb, {
+            pendingFeatureDrafts: (cb.pendingFeatureDrafts ?? []).filter(
+              (d) => d.featureId !== featureId,
+            ),
+          }),
+        ),
     );
   }
 }

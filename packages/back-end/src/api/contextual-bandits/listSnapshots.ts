@@ -1,4 +1,7 @@
-import { listContextualBanditSnapshotsValidator } from "shared/validators";
+import {
+  ContextualBanditSnapshotInterface,
+  listContextualBanditSnapshotsValidator,
+} from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { loadContextualBanditForRead } from "./_shared";
 
@@ -9,15 +12,13 @@ export const listContextualBanditSnapshots = createApiRequestHandler(
     req.context,
     req.params.id,
   );
-  const DEFAULT_CONTEXTUAL_BANDIT_SNAPSHOT_LIMIT = 20;
-  const limit = req.query?.limit ?? DEFAULT_CONTEXTUAL_BANDIT_SNAPSHOT_LIMIT;
   const snapshots =
     await req.context.models.contextualBanditSnapshots.listForContextualBandit(
       contextualBandit.id,
-      limit,
+      req.query?.limit,
     );
   return {
-    snapshots: snapshots.map((s) => ({
+    snapshots: snapshots.map((s: ContextualBanditSnapshotInterface) => ({
       id: s.id,
       contextualBandit: s.contextualBandit,
       status: s.status,

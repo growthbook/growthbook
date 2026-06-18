@@ -50,7 +50,7 @@ export class ContextualBanditSnapshotModel extends BaseClass {
 
   public async listForContextualBandit(
     contextualBandit: string,
-    limit = 20,
+    limit?: number,
   ): Promise<ContextualBanditSnapshotInterface[]> {
     return this._find(
       { contextualBandit },
@@ -68,9 +68,7 @@ export class ContextualBanditSnapshotModel extends BaseClass {
   public async deleteForContextualBandit(
     contextualBandit: string,
   ): Promise<void> {
-    await this._dangerousGetCollection().deleteMany({
-      organization: this.context.org.id,
-      contextualBandit,
-    });
+    const snapshots = await this._find({ contextualBandit });
+    await Promise.all(snapshots.map((snapshot) => this.delete(snapshot)));
   }
 }

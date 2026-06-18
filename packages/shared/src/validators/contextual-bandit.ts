@@ -211,8 +211,6 @@ export const apiCreateContextualBanditBody = z.strictObject({
   trackingKey: z.string(),
   hashAttribute: z.string().optional(),
 
-  // @teresayung remove below fields, hash version is always 2 (do the same for the update payload as well)
-  hashVersion: z.union([z.literal(1), z.literal(2)]).optional(),
   disableStickyBucketing: z.boolean().optional(),
   fallbackAttribute: z.string().optional(),
   hypothesis: z.string().optional(),
@@ -260,7 +258,6 @@ export const apiUpdateContextualBanditBody = z.object({
   trackingKey: z.string().optional(),
   hashAttribute: z.string().optional(),
   fallbackAttribute: z.string().optional(),
-  hashVersion: z.union([z.literal(1), z.literal(2)]).optional(),
   disableStickyBucketing: z.boolean().optional(),
 
   variations: z.array(variation).optional(),
@@ -306,7 +303,6 @@ export const CONTEXTUAL_BANDIT_API_UPDATE_FIELDS = [
   "trackingKey",
   "hashAttribute",
   "fallbackAttribute",
-  "hashVersion",
   "disableStickyBucketing",
   "variations",
   "datasource",
