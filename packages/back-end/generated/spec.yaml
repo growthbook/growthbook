@@ -43287,12 +43287,18 @@ components:
                 - mode
               additionalProperties: false
             - type: 'null'
+        order:
+          description: >-
+            Manual display order within the org (read-only; managed via the
+            app).
+          type: number
       required:
         - id
         - dateCreated
         - dateUpdated
         - name
         - steps
+        - order
       additionalProperties: false
     ExperimentSnapshot:
       type: object

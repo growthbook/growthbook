@@ -378,6 +378,15 @@ export function formatRampStepSummary(
   return parts.join(", ");
 }
 
+// A template is "monitored" if it carries monitoring config or any monitored
+// step. Used to keep auto-selected defaults aligned with the rule's release
+// strategy (plain Ramp-up vs Monitored Ramp-up).
+export function isMonitoredTemplate(
+  t: Pick<RampScheduleTemplateInterface, "monitoringConfig" | "steps">,
+): boolean {
+  return !!t.monitoringConfig || t.steps.some((s) => s.monitored);
+}
+
 const COL = {
   num: 30, // "1" / "2" / "start" / "end"
   trigger: 175, // trigger type select
@@ -967,11 +976,16 @@ export default function RampScheduleSection({
       setSelectedTemplateId(matchId);
       return;
     }
-    if (!ruleRampSchedule && !hideTemplateSave && selectedTemplateId) {
-      const first = [...templates].sort(
-        (a, b) => (b.official ? 1 : 0) - (a.official ? 1 : 0),
-      )[0];
-      if (first) applyTemplate(first);
+    // For a new ramp, pre-apply the first official template — but only one whose
+    // monitored-ness matches the release strategy already chosen on the rule
+    // (encoded in the seeded steps). This avoids forcing a monitored config onto
+    // a plain ramp, or a plain template onto a Monitored Ramp-up.
+    if (!ruleRampSchedule && !hideTemplateSave) {
+      const stateMonitored = state.steps.some((s) => s.monitored);
+      const defaultTemplate = templates.find(
+        (t) => t.official && isMonitoredTemplate(t) === stateMonitored,
+      );
+      if (defaultTemplate) applyTemplate(defaultTemplate);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [templates]);
@@ -2646,19 +2660,31 @@ export default function RampScheduleSection({
       gap="2"
       style={{ width: 430, overflow: "hidden" }}
     >
-      <span
-        style={{
-          flex: 1,
-          minWidth: 0,
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap",
-          color: selectedTemplate ? undefined : "var(--gray-a9)",
-        }}
-      >
-        {selectedTemplate?.name ??
-          (templates.length === 0 ? "No templates" : "None")}
-      </span>
+      <Flex align="center" gap="1" style={{ flex: 1, minWidth: 0 }}>
+        {selectedTemplate?.official && (
+          <HiBadgeCheck
+            style={{
+              fontSize: "1.2em",
+              lineHeight: "1em",
+              color: "var(--blue-11)",
+              flexShrink: 0,
+              display: "block",
+            }}
+          />
+        )}
+        <span
+          style={{
+            minWidth: 0,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+            color: selectedTemplate ? undefined : "var(--gray-a9)",
+          }}
+        >
+          {selectedTemplate?.name ??
+            (templates.length === 0 ? "No templates" : "None")}
+        </span>
+      </Flex>
       <PiCaretDownBold style={{ flexShrink: 0 }} />
     </Flex>
   );
@@ -3360,7 +3386,7 @@ export default function RampScheduleSection({
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           {[...templates]
-            .sort((a, b) => (b.official ? 1 : 0) - (a.official ? 1 : 0))
+            .sort((a, b) => a.order - b.order)
             .map((t) => (
               <React.Fragment key={t.id}>
                 <DropdownMenuItem
@@ -3399,9 +3425,23 @@ export default function RampScheduleSection({
                         {t.name}
                       </span>
                     </Flex>
-                    <Text as="span" size="small" color="text-low">
-                      {formatRampStepSummary(t.steps)}
-                    </Text>
+                    <Flex align="center" gap="2" style={{ flexShrink: 0 }}>
+                      <Text as="span" size="small" color="text-low">
+                        {formatRampStepSummary(t.steps)}
+                      </Text>
+                      {/* Fixed-width slot keeps the icon column aligned across
+                          rows (empty for non-monitored templates). */}
+                      <Box
+                        style={{
+                          width: 16,
+                          flexShrink: 0,
+                          display: "flex",
+                          justifyContent: "center",
+                        }}
+                      >
+                        {isMonitoredTemplate(t) && <MonitoredIcon size={16} />}
+                      </Box>
+                    </Flex>
                   </Flex>
                 </DropdownMenuItem>
               </React.Fragment>
@@ -4374,7 +4414,7 @@ export function buildTemplatePayload(
   state: RampSectionState,
 ): Omit<
   RampScheduleTemplateInterface,
-  "id" | "organization" | "dateCreated" | "dateUpdated"
+  "id" | "organization" | "dateCreated" | "dateUpdated" | "order"
 > {
   const PLACEHOLDER_TARGET = "template-target";
   const PLACEHOLDER_RULE = "template-rule";
