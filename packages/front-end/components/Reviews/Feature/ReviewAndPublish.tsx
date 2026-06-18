@@ -812,7 +812,11 @@ export default function ReviewAndPublish({
   // offer "on a date".
   const canArmWhenApproved =
     autopublishOnApproval && isArmingOwner && revision?.status !== "approved";
-  const canArmOnDate = isArmingOwner;
+  // Arming/editing a dated schedule needs only publish authority — not draft /
+  // review-request ownership — matching the backend `canScheduleFeaturePublish`
+  // gate, so a reviewer with publish permission can manage the schedule from the
+  // UI. The premium (`scheduled-revisions`) gate is applied at render.
+  const canArmOnDate = permissionsUtil.canPublishFeature(feature, envIds);
   const effectivePublishMode: "approve" | "date" = canArmWhenApproved
     ? publishMode
     : "date";
@@ -827,13 +831,6 @@ export default function ReviewAndPublish({
     canManageAutoPublish && (!scheduledPending || editingSchedule);
   const showManagerScheduleReadonly =
     canManageAutoPublish && scheduledPending && !editingSchedule;
-  // A schedule on an approved revision can be canceled by anyone with publish
-  // authority, even if they aren't the arming owner.
-  const canCancelStartedSchedule =
-    scheduledPending &&
-    revision?.status === "approved" &&
-    !canManageAutoPublish &&
-    permissionsUtil.canPublishFeature(feature, envIds);
 
   // Status card for a dated schedule. Used by both reviewer and owner views so
   // they read identically; onChange/onCancel are omitted for viewers.
@@ -2518,12 +2515,7 @@ export default function ReviewAndPublish({
           {showAutoPublishReadonly &&
             revision &&
             (scheduledPending ? (
-              !armingRendersBelow &&
-              renderScheduleCard({
-                onCancel: canCancelStartedSchedule
-                  ? doClearSchedule
-                  : undefined,
-              })
+              !armingRendersBelow && renderScheduleCard({})
             ) : (
               // "When approved" is just a toggle — show a disabled checkbox.
               <Checkbox
@@ -2716,14 +2708,9 @@ export default function ReviewAndPublish({
                 onCancel: () => doSetAutoPublishArmed(false),
               })
             ) : showAutoPublishReadonly && revision && scheduledPending ? (
-              // Reviewers / non-managers: read-only card in the same spot as the
-              // owner's (below the rebase notice), cancelable only on a started
-              // schedule by anyone with publish authority.
-              renderScheduleCard({
-                onCancel: canCancelStartedSchedule
-                  ? doClearSchedule
-                  : undefined,
-              })
+              // Viewers without publish authority: read-only card in the same
+              // spot as the owner's (below the rebase notice), no Cancel/Change.
+              renderScheduleCard({})
             ) : null;
 
             return (
