@@ -292,21 +292,31 @@ export function createComparisonAlignmentResolver(
   };
 }
 
+/** Join a full dimension tuple into a single lookup key. */
+function dimensionsTupleKey(dimensions: (string | null)[]): string {
+  // Unit separator (U+001F) won't collide with real dimension values.
+  return dimensions.map((d) => String(d ?? "")).join("");
+}
+
 /**
- * Returns a lookup from current `dimensions[0]` to the aligned comparison row,
- * using the same rules as the explorer chart overlay.
+ * Returns a lookup from a current row's full dimension tuple to the aligned
+ * comparison row, using the same rules as the explorer chart overlay. The key
+ * includes every rendered dimension so breakdown rows that share a first
+ * dimension (e.g. `2024-01-01 / Chrome` vs `2024-01-01 / Safari`) each pair
+ * with their own comparison row; date alignment is applied only to the first
+ * dimension when it is a date.
  */
 export function buildAlignedComparisonRowLookup(
   primaryRows: ProductAnalyticsResultRow[],
   comparisonRows: ProductAnalyticsResultRow[],
   firstDimensionIsDate: boolean,
-): (currentDim0: string) => ProductAnalyticsResultRow | null {
+): (currentDims: (string | null)[]) => ProductAnalyticsResultRow | null {
   if (!firstDimensionIsDate) {
     const byKey = new Map<string, ProductAnalyticsResultRow>();
     for (const r of comparisonRows) {
-      byKey.set(String(r.dimensions[0] ?? ""), r);
+      byKey.set(dimensionsTupleKey(r.dimensions), r);
     }
-    return (currentDim0) => byKey.get(currentDim0) ?? null;
+    return (currentDims) => byKey.get(dimensionsTupleKey(currentDims)) ?? null;
   }
 
   const primaryKeys = primaryRows.map((r) => String(r.dimensions[0] ?? ""));
@@ -319,17 +329,19 @@ export function buildAlignedComparisonRowLookup(
     comparisonXValues,
     true,
   );
-  const rowByExactCompDim = new Map<string, ProductAnalyticsResultRow>();
+  const rowByCompTuple = new Map<string, ProductAnalyticsResultRow>();
   for (const r of comparisonRows) {
-    const k = String(r.dimensions[0] ?? "");
-    if (!rowByExactCompDim.has(k)) {
-      rowByExactCompDim.set(k, r);
+    const k = dimensionsTupleKey(r.dimensions);
+    if (!rowByCompTuple.has(k)) {
+      rowByCompTuple.set(k, r);
     }
   }
-  return (currentDim0) => {
-    const aligned = resolver(currentDim0);
+  return (currentDims) => {
+    const aligned = resolver(String(currentDims[0] ?? ""));
     if (aligned === undefined) return null;
-    return rowByExactCompDim.get(aligned) ?? null;
+    // Align the date dimension, keep the remaining dimensions as-is.
+    const compKey = dimensionsTupleKey([aligned, ...currentDims.slice(1)]);
+    return rowByCompTuple.get(compKey) ?? null;
   };
 }
 
@@ -673,7 +685,7 @@ export function computeExplorationComparisonPayload(
   );
 
   const tableTrendsByRow = sortedRows.map((row) => {
-    const cmpRow = getAlignedCmpRow(String(row.dimensions[0] ?? ""));
+    const cmpRow = getAlignedCmpRow(row.dimensions);
     const trendRecord: Record<string, number | null> = {};
     for (const col of columns) {
       if (col.kind !== "metric" || col.sub !== "single") continue;

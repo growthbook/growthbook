@@ -316,8 +316,11 @@ describe("explorerDimensionDateToUtcYyyyMmDd", () => {
 });
 
 describe("buildAlignedComparisonRowLookup", () => {
-  const row = (dim: string, n: number): ProductAnalyticsResultRow => ({
-    dimensions: [dim],
+  const row = (
+    dims: (string | null)[],
+    n: number,
+  ): ProductAnalyticsResultRow => ({
+    dimensions: dims,
     values: [
       {
         metricId: "m1",
@@ -329,31 +332,59 @@ describe("buildAlignedComparisonRowLookup", () => {
 
   it("pairs sparse primary rows to YoY comparison buckets when present", () => {
     const primary: ProductAnalyticsResultRow[] = [
-      row("2024-01-05", 10),
-      row("2024-01-07", 20),
+      row(["2024-01-05"], 10),
+      row(["2024-01-07"], 20),
     ];
     const comparison: ProductAnalyticsResultRow[] = [
-      row("2023-01-01T00:00:00.000Z", 1),
-      row("2023-01-05T00:00:00.000Z", 99),
-      row("2023-01-07T00:00:00.000Z", 88),
+      row(["2023-01-01T00:00:00.000Z"], 1),
+      row(["2023-01-05T00:00:00.000Z"], 99),
+      row(["2023-01-07T00:00:00.000Z"], 88),
     ];
     const lookup = buildAlignedComparisonRowLookup(primary, comparison, true);
-    expect(lookup("2024-01-05")?.values[0]?.numerator).toBe(99);
-    expect(lookup("2024-01-07")?.values[0]?.numerator).toBe(88);
+    expect(lookup(["2024-01-05"])?.values[0]?.numerator).toBe(99);
+    expect(lookup(["2024-01-07"])?.values[0]?.numerator).toBe(88);
   });
 
   it("falls back to chronological rank when YoY calendar bucket is missing", () => {
     const primary: ProductAnalyticsResultRow[] = [
-      row("2024-01-05", 10),
-      row("2024-01-06", 20),
+      row(["2024-01-05"], 10),
+      row(["2024-01-06"], 20),
     ];
     const comparison: ProductAnalyticsResultRow[] = [
-      row("2024-01-01", 100),
-      row("2024-01-02", 200),
+      row(["2024-01-01"], 100),
+      row(["2024-01-02"], 200),
     ];
     const lookup = buildAlignedComparisonRowLookup(primary, comparison, true);
-    expect(lookup("2024-01-05")?.values[0]?.numerator).toBe(100);
-    expect(lookup("2024-01-06")?.values[0]?.numerator).toBe(200);
+    expect(lookup(["2024-01-05"])?.values[0]?.numerator).toBe(100);
+    expect(lookup(["2024-01-06"])?.values[0]?.numerator).toBe(200);
+  });
+
+  it("pairs breakdown rows by the full dimension tuple, not just the date", () => {
+    const primary: ProductAnalyticsResultRow[] = [
+      row(["2024-01-01", "Chrome"], 10),
+      row(["2024-01-01", "Safari"], 20),
+    ];
+    const comparison: ProductAnalyticsResultRow[] = [
+      row(["2023-01-01T00:00:00.000Z", "Chrome"], 100),
+      row(["2023-01-01T00:00:00.000Z", "Safari"], 200),
+    ];
+    const lookup = buildAlignedComparisonRowLookup(primary, comparison, true);
+    expect(lookup(["2024-01-01", "Chrome"])?.values[0]?.numerator).toBe(100);
+    expect(lookup(["2024-01-01", "Safari"])?.values[0]?.numerator).toBe(200);
+  });
+
+  it("keys non-date breakdowns by the full dimension tuple", () => {
+    const primary: ProductAnalyticsResultRow[] = [
+      row(["US", "Chrome"], 1),
+      row(["US", "Safari"], 2),
+    ];
+    const comparison: ProductAnalyticsResultRow[] = [
+      row(["US", "Chrome"], 10),
+      row(["US", "Safari"], 20),
+    ];
+    const lookup = buildAlignedComparisonRowLookup(primary, comparison, false);
+    expect(lookup(["US", "Chrome"])?.values[0]?.numerator).toBe(10);
+    expect(lookup(["US", "Safari"])?.values[0]?.numerator).toBe(20);
   });
 });
 

@@ -318,7 +318,7 @@ export default function useExplorationTableData(
         // Pair by dimension key for both timeseries and categorical charts.
         // Positional pairing (cmpSorted[idx]) would mis-match categories when
         // the two periods sort differently (e.g. "USA" current vs "Canada" prev).
-        const cmpRow = getAlignedCmpRow(String(row.dimensions[0] ?? ""));
+        const cmpRow = getAlignedCmpRow(row.dimensions);
         const entries: [string, unknown][] = [];
         for (const col of columns) {
           if (col.kind === "dimension") {
