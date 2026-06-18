@@ -26,7 +26,7 @@ import {
 import DocumentationSidebar from "@/components/GetStarted/DocumentationSidebar";
 import YouTubeLightBox from "@/components/GetStarted/YoutubeLightbox";
 import WorkspaceLinks from "@/components/GetStarted/WorkspaceLinks";
-import { HomeMarketingBanner } from "@/components/GetStarted/MarketingBanner";
+import { HomeMarketingBanner } from "@/components/Marketing/MarketingBanner";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import useSDKConnections from "@/hooks/useSDKConnections";
