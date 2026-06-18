@@ -129,6 +129,13 @@ export function getInsertAggregatedFactTableDataQuery(
           , ${dialect.castToDate("timestamp")} AS event_date
           ${dailyAggregations}
         FROM __factTable
+        -- NULL idType rows can never join to experiment exposures, so they
+        -- contribute nothing to any analysis read path. Dropping them here is
+        -- zero data loss and avoids a single mega-partition in the GROUP BY
+        -- when the source has high-volume unauthenticated/anonymous traffic.
+        -- __maxTimestamp intentionally still scans the unfiltered slice so the
+        -- watermark advances past these rows and they are never re-scanned.
+        WHERE ${idType} IS NOT NULL
         GROUP BY
           ${idType}
           , ${dialect.castToDate("timestamp")}

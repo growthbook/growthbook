@@ -14,6 +14,7 @@ import {
   foldAggregatedFactTableCoverage,
 } from "back-end/src/queryRunners/AggregatedFactTableQueryRunner";
 import { bigQueryDialect } from "back-end/src/integrations/dialects/bigquery";
+import { getInsertAggregatedFactTableDataQuery } from "back-end/src/integrations/sql/queries/insert-aggregated-fact-table-data-query";
 import { factMetricFactory } from "./factories/FactMetric.factory";
 import { factTableFactory } from "./factories/FactTable.factory";
 
@@ -197,6 +198,31 @@ describe("getFactTableSettingsHashForAggregatedFactTable", () => {
     expect(getFactTableSettingsHashForAggregatedFactTable(a)).not.toEqual(
       getFactTableSettingsHashForAggregatedFactTable(b),
     );
+  });
+});
+
+describe("getInsertAggregatedFactTableDataQuery", () => {
+  it("filters NULL idType rows out of the daily GROUP BY", () => {
+    const factTable = factTableFactory.build({
+      id: FT_ID,
+      userIdTypes: ["user_id", "anonymous_id"],
+      sql: "SELECT user_id, anonymous_id, timestamp, value FROM events",
+    });
+    const metric = factMetricFactory.build({
+      metricType: "mean",
+      numerator: { factTableId: FT_ID, column: "value", aggregation: "sum" },
+    });
+    const sql = getInsertAggregatedFactTableDataQuery(bigQueryDialect, {
+      factTable,
+      idType: "user_id",
+      tableFullName: "proj.ds.agg",
+      metrics: [metric],
+      windowStartDate: new Date("2024-01-01T00:00:00Z"),
+      exclusiveStart: false,
+    });
+    // The __dailyValues CTE must drop NULL-idType rows to avoid key skew;
+    // they can never join to experiment exposures.
+    expect(sql).toMatch(/WHERE\s+user_id\s+IS\s+NOT\s+NULL/i);
   });
 });
 
