@@ -10,7 +10,6 @@ import { useRouter } from "next/router";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { filterEnvironmentsByFeature, getReviewSetting } from "shared/util";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
-import { RiAlertLine } from "react-icons/ri";
 import { RxCircleBackslash } from "react-icons/rx";
 import {
   PiArrowBendRightDown,
@@ -26,6 +25,7 @@ import {
   PiLockSimple,
   PiCaretDoubleUp,
   PiCaretDoubleDown,
+  PiSpinnerGapBold,
 } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { format as formatTimeZone } from "date-fns-tz";
@@ -53,6 +53,11 @@ import {
   getAttributesWithVersionStringMismatches,
 } from "@/services/features";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
+import {
+  ConflictBanner,
+  ConflictCallout,
+  getConflictBadge,
+} from "@/services/rule-conflicts";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -205,6 +210,10 @@ interface SortableProps {
     detachRampOnSave?: boolean;
   }) => void;
   unreachable?: boolean;
+  // Conflict banners for the callout. One per shared status; in the all-envs
+  // view each names the environments it covers (hard = "will not reach", soft =
+  // "may not reach", unreachable = the rule(s) consuming it).
+  conflictBanners?: ConflictBanner[];
   version: number;
   setVersion: (version: number) => void;
   locked: boolean;
@@ -281,6 +290,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       mutate,
       handle,
       unreachable,
+      conflictBanners,
       version,
       setVersion,
       locked,
@@ -429,6 +439,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       experimentsMap,
       isDraft,
       unreachable,
+      conflictBanners,
       rampSchedule,
     });
 
@@ -1328,7 +1339,13 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
             isReadyForApproval(rampSchedule) &&
             rampSchedule.steps[rampSchedule.currentStepIndex]
               ?.approvalNotes && (
-              <Callout status="info" mt="3" color="orange" size="sm">
+              <Callout
+                status="info"
+                mt="3"
+                color="orange"
+                size="sm"
+                icon={<PiSpinnerGapBold />}
+              >
                 <strong>Approval Notes:</strong>{" "}
                 {
                   rampSchedule.steps[rampSchedule.currentStepIndex]
@@ -1644,12 +1661,14 @@ export function getRuleMetaInfo({
   experimentsMap,
   isDraft,
   unreachable,
+  conflictBanners,
   rampSchedule,
 }: {
   rule: FeatureRule;
   experimentsMap: Map<string, ExperimentInterfaceStringDates>;
   isDraft: boolean;
   unreachable?: boolean;
+  conflictBanners?: ConflictBanner[];
   rampSchedule?: RampScheduleInterface;
 }): RuleMetaInfo {
   const linkedExperiment =
@@ -1770,44 +1789,66 @@ export function getRuleMetaInfo({
     };
   }
 
+  // One callout per conflict banner (in the all-envs view there can be several,
+  // each scoped to the environments that share a status).
+  const callouts: ReactElement[] = (conflictBanners ?? []).map((banner, i) => (
+    <ConflictCallout
+      key={`conflict-${i}`}
+      isUnreachable={banner.isUnreachable}
+      conflicts={banner.conflicts}
+      environments={banner.environments}
+      allEnvironments={banner.allEnvironments}
+    />
+  ));
+
+  // The status badge is derived from the same banners as the callouts, so its
+  // colour + icon always mirror the callout: orange/octagon for unreachable,
+  // amber/triangle for a softer "may not reach" conflict.
+  const conflictBadge = getConflictBadge(conflictBanners);
+  const conflictPill = conflictBadge ? (
+    <Badge
+      color={conflictBadge.color}
+      title={conflictBadge.title}
+      label={
+        <>
+          {conflictBadge.icon}
+          {conflictBadge.label}
+        </>
+      }
+    />
+  ) : undefined;
+
   if (unreachable) {
     return {
-      pill: (
-        <Badge
-          color="orange"
-          title="Rule not reachable"
-          label={
-            <>
-              <RiAlertLine />
-              Unreachable
-            </>
-          }
-        />
-      ),
-      callout: (
-        <Callout status="warning" size="sm">
-          Rules above will serve 100% of traffic and this rule will never be
-          used
-        </Callout>
-      ),
+      pill: conflictPill,
+      callout:
+        callouts.length > 0 ? (
+          <Flex direction="column" gap="2">
+            {callouts}
+          </Flex>
+        ) : undefined,
       sideColor: "unreachable",
     };
   }
 
   if (upcomingScheduleRule && upcomingScheduleRule.timestamp) {
-    return {
-      callout: (
-        <Callout status="info">
-          Will be disabled on{" "}
-          {new Date(upcomingScheduleRule.timestamp).toLocaleDateString()} at{" "}
-          {formatTimeZone(new Date(upcomingScheduleRule.timestamp), "h:mm a z")}
-        </Callout>
-      ),
-      sideColor: "active",
-    };
+    callouts.push(
+      <Callout key="schedule" status="info">
+        Will be disabled on{" "}
+        {new Date(upcomingScheduleRule.timestamp).toLocaleDateString()} at{" "}
+        {formatTimeZone(new Date(upcomingScheduleRule.timestamp), "h:mm a z")}
+      </Callout>,
+    );
   }
 
   return {
+    pill: conflictPill,
+    callout:
+      callouts.length > 0 ? (
+        <Flex direction="column" gap="2">
+          {callouts}
+        </Flex>
+      ) : undefined,
     sideColor: "active",
   };
 }

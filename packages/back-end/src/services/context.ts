@@ -76,6 +76,7 @@ import { RevisionModel } from "back-end/src/models/RevisionModel";
 import { AIConversationModel } from "back-end/src/models/AIConversationModel";
 import { InsightModel } from "back-end/src/models/InsightModel";
 import { InsightsFindCacheModel } from "back-end/src/models/InsightsFindCacheModel";
+import { EventForwarderConfigModel } from "back-end/src/models/EventForwarderConfigModel";
 import { PresentationThemeModel } from "back-end/src/models/PresentationThemeModel";
 import { WatchModel } from "back-end/src/models/WatchModel";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
@@ -130,7 +131,8 @@ export type ModelName =
   | "rampScheduleTemplates"
   | "aiConversations"
   | "insights"
-  | "insightsFindCache";
+  | "insightsFindCache"
+  | "eventForwarderConfigs";
 
 export const modelClasses = {
   agreements: AgreementModel,
@@ -174,6 +176,7 @@ export const modelClasses = {
   aiConversations: AIConversationModel,
   insights: InsightModel,
   insightsFindCache: InsightsFindCacheModel,
+  eventForwarderConfigs: EventForwarderConfigModel,
 };
 export type ModelClass = (typeof modelClasses)[ModelName];
 type ModelInstances = {
@@ -227,6 +230,7 @@ export class ReqContextClass {
       aiConversations: new AIConversationModel(this),
       insights: new InsightModel(this),
       insightsFindCache: new InsightsFindCacheModel(this),
+      eventForwarderConfigs: new EventForwarderConfigModel(this),
     };
   }
 

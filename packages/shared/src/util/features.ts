@@ -333,6 +333,59 @@ export function validateFeatureValue(
   return value;
 }
 
+// Validate the values a revert restores against the value type / JSON schema
+// that will be live afterward. Returns one warning per value that no longer
+// parses/validates; callers surface these as a bypassable soft warning.
+export function getRevertValueValidationWarnings(
+  feature: Pick<FeatureInterface, "valueType" | "jsonSchema">,
+  changes: Pick<MergeResultChanges, "defaultValue" | "rules" | "metadata">,
+): string[] {
+  // When the revert also restores a different valueType, take the schema from
+  // the revert's metadata too (the current schema belongs to the old type).
+  const revertsValueType = changes.metadata?.valueType !== undefined;
+  const target: Pick<FeatureInterface, "valueType" | "jsonSchema"> = {
+    valueType: changes.metadata?.valueType ?? feature.valueType,
+    jsonSchema: revertsValueType
+      ? changes.metadata?.jsonSchema
+      : (changes.metadata?.jsonSchema ?? feature.jsonSchema),
+  };
+
+  const warnings: string[] = [];
+  const check = (value: string, label: string) => {
+    try {
+      validateFeatureValue(target, value, label);
+    } catch (e) {
+      warnings.push(e instanceof Error ? e.message : String(e));
+    }
+  };
+
+  if (changes.defaultValue !== undefined) {
+    check(changes.defaultValue, "Default value");
+  }
+
+  (changes.rules ?? []).forEach((rule, i) => {
+    const label = `Rule #${i + 1}`;
+    switch (rule.type) {
+      case "force":
+      case "rollout":
+        check(rule.value, label);
+        break;
+      case "experiment":
+        rule.values.forEach((v, j) =>
+          check(v.value, `${label} variation #${j + 1}`),
+        );
+        break;
+      case "experiment-ref":
+        rule.variations.forEach((v, j) =>
+          check(v.value, `${label} variation #${j + 1}`),
+        );
+        break;
+    }
+  });
+
+  return warnings;
+}
+
 // Ensure a feature's enabled validation schema is compatible with its value type.
 export function assertSchemaMatchesValueType(
   jsonSchema: Pick<
@@ -532,6 +585,7 @@ interface IsFeatureStaleInterface {
   featuresMap?: Map<string, FeatureInterface>;
   experimentMap?: Map<string, ExperimentInterfaceStringDates>;
   reverseDependencyIndex?: ReverseDependencyIndex;
+  experimentDependencyIndex?: ExperimentDependencyIndex;
   mostRecentDraftDate?: Date | null;
 }
 
@@ -684,6 +738,7 @@ export function isFeatureStale({
   featuresMap: prebuiltFeaturesMap,
   experimentMap: prebuiltExperimentMap,
   reverseDependencyIndex,
+  experimentDependencyIndex,
   mostRecentDraftDate,
 }: IsFeatureStaleInterface): IsFeatureStaleResult {
   const featuresMap =
@@ -721,7 +776,12 @@ export function isFeatureStale({
         return !f || !visit(f).stale;
       });
       dependentExperiments =
-        dependentExperiments ?? getDependentExperiments(feature, experiments);
+        dependentExperiments ??
+        getDependentExperiments(
+          feature,
+          experiments,
+          experimentDependencyIndex,
+        );
 
       const envResults = buildEnvResults(
         feature,
@@ -1016,6 +1076,183 @@ export function mergeResultHasChanges(mergeResult: AutoMergeResult): boolean {
   return false;
 }
 
+// A single field that the live feature changed relative to a draft's base
+// version — i.e. a change "published since this draft was created". The `key`
+// mirrors the conflict keys used by `autoMerge` (e.g. "rules",
+// "environmentsEnabled.prod", "metadata.description") and `name` is a
+// human-readable label suitable for UI/notifications.
+export interface LiveChange {
+  key: string;
+  name: string;
+}
+
+// Compute the set of fields that differ between the current live revision and
+// the revision a draft was branched from (its base). This powers the
+// "published in live since this draft's base" panel and the divergence
+// warning/count surfaced before publish, as well as REST API friction
+// payloads. It is purely descriptive — it never resolves or merges anything.
+export function getLiveChangesSinceBase(
+  live: RevisionFields,
+  base: RevisionFields,
+  environments: string[],
+): LiveChange[] {
+  const changes: LiveChange[] = [];
+
+  if (live.defaultValue !== base.defaultValue) {
+    changes.push({ key: "defaultValue", name: "Default Value" });
+  }
+
+  if (
+    !isEqual(naiveFlattenV1Rules(live.rules), naiveFlattenV1Rules(base.rules))
+  ) {
+    changes.push({ key: "rules", name: "Rules" });
+  }
+
+  for (const env of environments) {
+    const liveVal = live.environmentsEnabled?.[env];
+    const baseVal = base.environmentsEnabled?.[env];
+    if (!isEqual(liveVal, baseVal)) {
+      changes.push({
+        key: `environmentsEnabled.${env}`,
+        name: `Env Enabled - ${env}`,
+      });
+    }
+  }
+
+  if (!isEqual(live.prerequisites ?? [], base.prerequisites ?? [])) {
+    changes.push({ key: "prerequisites", name: "Prerequisites" });
+  }
+
+  if ((live.archived ?? false) !== (base.archived ?? false)) {
+    changes.push({ key: "archived", name: "Archived" });
+  }
+
+  if (!isEqual(live.holdout ?? null, base.holdout ?? null)) {
+    changes.push({ key: "holdout", name: "Holdout" });
+  }
+
+  const metadataKeys = new Set<keyof RevisionMetadata>([
+    ...((Object.keys(live.metadata ?? {}) as (keyof RevisionMetadata)[]) || []),
+    ...((Object.keys(base.metadata ?? {}) as (keyof RevisionMetadata)[]) || []),
+  ]);
+  for (const k of metadataKeys) {
+    if (
+      !isEqual(
+        normalizeMetadataValue(k, live.metadata?.[k]),
+        normalizeMetadataValue(k, base.metadata?.[k]),
+      )
+    ) {
+      changes.push({ key: `metadata.${k}`, name: `Metadata - ${k}` });
+    }
+  }
+
+  return changes;
+}
+
+// Classifies how a draft relates to the current live version:
+//   "current"  — built on the live version; nothing changed underneath it
+//   "diverged" — live advanced since the draft's base, but changes auto-merge
+//   "conflict" — live advanced with changes that conflict and need resolution
+export type DivergenceClass = "current" | "diverged" | "conflict";
+
+export interface PublishGovernanceInput {
+  // Status of the draft revision being acted on.
+  revisionStatus: FeatureRevisionInterface["status"];
+  // The version the draft was branched from.
+  baseVersion: number;
+  // The current live version of the feature.
+  liveVersion: number;
+  // Whether autoMerge produced a result with no unresolved conflicts.
+  mergeSuccess: boolean;
+  // The set of fields live changed since the draft's base (descriptive only).
+  liveChanges: LiveChange[];
+  // The live version captured at the moment the draft was approved. Null for
+  // legacy approvals created before this was tracked.
+  approvedBaseVersion?: number | null;
+  // Org setting: when true, a stale draft must be rebased before publishing.
+  requireRebaseBeforePublish?: boolean;
+}
+
+export interface PublishGovernanceResult {
+  diverged: boolean;
+  divergence: DivergenceClass;
+  liveChanges: LiveChange[];
+  // An approved draft whose approval no longer reflects the current live state
+  // because changes were published after approval.
+  staleApproval: boolean;
+  // Rebasing is advisable (divergence or a stale approval). UI should surface
+  // a "Rebase with live" affordance.
+  recommendRebase: boolean;
+  // Rebasing/conflict-resolution is mandatory before publishing (hard conflict,
+  // or org policy requires same-base merges, or a stale approval under policy).
+  rebaseRequired: boolean;
+  // Whether publishing is allowed in the current state.
+  canPublish: boolean;
+  // Human-readable reason publishing is blocked (null when allowed).
+  blockReason: string | null;
+}
+
+// Central governance decision for publishing/reviewing a draft revision. Pure
+// and side-effect free so it can be unit tested and shared between the publish
+// UI (callouts + CTA gating) and back-end enforcement. It does NOT perform the
+// merge itself — callers pass in the merge outcome and the live-vs-base delta.
+export function evaluatePublishGovernance({
+  revisionStatus,
+  baseVersion,
+  liveVersion,
+  mergeSuccess,
+  liveChanges,
+  approvedBaseVersion = null,
+  requireRebaseBeforePublish = false,
+}: PublishGovernanceInput): PublishGovernanceResult {
+  const diverged = liveVersion !== baseVersion;
+  const divergence: DivergenceClass = !mergeSuccess
+    ? "conflict"
+    : diverged
+      ? "diverged"
+      : "current";
+
+  // An approval is stale when live moved past the point it was approved
+  // against. When we have a tracked approval point, compare against it
+  // precisely; otherwise (legacy approvals) fall back to raw divergence.
+  const staleApproval =
+    revisionStatus === "approved" &&
+    ((approvedBaseVersion ?? null) !== null
+      ? liveVersion !== approvedBaseVersion
+      : diverged);
+
+  const recommendRebase = divergence !== "current" || staleApproval;
+
+  const rebaseRequired =
+    divergence === "conflict" ||
+    (requireRebaseBeforePublish &&
+      (divergence === "diverged" || staleApproval));
+
+  let canPublish = true;
+  let blockReason: string | null = null;
+  if (divergence === "conflict") {
+    canPublish = false;
+    blockReason =
+      "Resolve conflicts with the live version before publishing this draft.";
+  } else if (rebaseRequired) {
+    canPublish = false;
+    blockReason = staleApproval
+      ? "Changes were published after this draft was approved. Rebase with live and get re-approval before publishing."
+      : "This draft is based on an older version. Rebase with live before publishing.";
+  }
+
+  return {
+    diverged,
+    divergence,
+    liveChanges,
+    staleApproval,
+    recommendRebase,
+    rebaseRequired,
+    canPublish,
+    blockReason,
+  };
+}
+
 // True if publishing the draft would change anything outside the target
 // experiment's experiment-ref rule(s). Compares effective post-publish state
 // (live overlaid with draft-set fields) vs live, sidestepping autoMerge's
@@ -1118,14 +1355,24 @@ function revisionHasMetadataOnlyGlobalChange(
   );
 }
 
-// Try to merge two diverged rule arrays at the individual rule level (matched by id).
-// Returns the merged array when each modified rule was only touched by one side,
-// or null when the same rule was modified by both sides (a genuine conflict).
-function tryRuleLevelMerge(
+// Granular three-way merge of two diverged rule arrays (matched by id).
+// Rules that only one side touched merge automatically. A rule that both
+// sides changed differently — including delete-vs-modify — produces its own
+// `rules.<ruleId>` conflict, resolvable independently via the strategies map
+// (`overwrite` = take the draft's version, `discard` = take live's). When
+// both sides reordered the surviving rules differently, a `rules.order`
+// conflict is emitted with the competing id sequences. The blanket "rules"
+// strategy key is honored as a fallback that applies to every rule-level
+// conflict, preserving the older all-or-nothing resolution contract.
+//
+// Returns the conflicts found (resolved or not) and the merged array — or
+// `merged: null` while any rule-level conflict remains unresolved.
+function mergeRulesGranular(
   base: FeatureRule[],
   live: FeatureRule[],
   revision: FeatureRule[],
-): FeatureRule[] | null {
+  strategies: Record<string, MergeStrategy>,
+): { merged: FeatureRule[] | null; conflicts: MergeConflict[] } {
   // Defensive: callers route through `naiveFlattenV1Rules` which already
   // filters nullish slots, but the merge keys by `r.id` and a stray nullish
   // entry would collapse every other rule into the `undefined` map slot.
@@ -1142,6 +1389,16 @@ function tryRuleLevelMerge(
   const liveById = new Map(live.map((r) => [r.id, r]));
   const revById = new Map(revision.map((r) => [r.id, r]));
 
+  const conflicts: MergeConflict[] = [];
+  // Per-key strategy with the blanket "rules" key as a legacy fallback.
+  const strategyFor = (key: string): MergeStrategy =>
+    strategies[key] || strategies["rules"] || "";
+  const stringifySide = (rule: FeatureRule | undefined): string =>
+    rule === undefined ? "" : JSON.stringify(rule, null, 2);
+
+  // Decide a winner per rule id: the rule's merged content, or null when the
+  // winning side deleted it. Ids with unresolved conflicts get no entry.
+  const winners = new Map<string, FeatureRule | null>();
   const allIds = new Set([
     ...base.map((r) => r.id),
     ...live.map((r) => r.id),
@@ -1149,43 +1406,142 @@ function tryRuleLevelMerge(
   ]);
 
   for (const id of allIds) {
-    const liveChanged = !isEqual(liveById.get(id), baseById.get(id));
-    const revChanged = !isEqual(revById.get(id), baseById.get(id));
-    if (
-      liveChanged &&
-      revChanged &&
-      !isEqual(liveById.get(id), revById.get(id))
-    ) {
-      return null;
-    }
-  }
+    const baseRule = baseById.get(id);
+    const liveRule = liveById.get(id);
+    const revRule = revById.get(id);
+    const liveChanged = !isEqual(liveRule, baseRule);
+    const revChanged = !isEqual(revRule, baseRule);
 
-  // No per-rule conflicts. Walk live ordering, applying revision-side changes.
-  const merged: FeatureRule[] = [];
-  const handledIds = new Set<string>();
-
-  for (const liveRule of live) {
-    handledIds.add(liveRule.id);
-    const revRule = revById.get(liveRule.id);
-    const revChanged =
-      revRule !== undefined && !isEqual(revRule, baseById.get(liveRule.id));
-    merged.push(revChanged ? revRule! : liveRule);
-  }
-
-  // Append rules added or modified by the revision that are not present in live.
-  // Skip rules that were in base, unchanged in revision, but deleted from live —
-  // those deletions happened server-side and should be respected.
-  for (const revRule of revision) {
-    if (!handledIds.has(revRule.id)) {
-      const isNew = !baseById.has(revRule.id);
-      const revChanged = !isEqual(revRule, baseById.get(revRule.id));
-      if (isNew || revChanged) {
-        merged.push(revRule);
+    if (liveChanged && revChanged && !isEqual(liveRule, revRule)) {
+      // Both sides changed the same rule differently (an absent side means
+      // that side deleted it) — a genuine per-rule conflict.
+      const sourceRule = revRule ?? liveRule ?? baseRule;
+      const desc =
+        typeof sourceRule?.description === "string"
+          ? sourceRule.description.trim()
+          : "";
+      const conflictInfo: MergeConflict = {
+        name: desc ? `Rule – ${desc}` : `Rule – ${id}`,
+        key: `rules.${id}`,
+        base: stringifySide(baseRule),
+        live: stringifySide(liveRule),
+        revision: stringifySide(revRule),
+        resolved: false,
+      };
+      const strategy = strategyFor(conflictInfo.key);
+      if (strategy === "overwrite") {
+        conflictInfo.resolved = true;
+        winners.set(id, revRule ?? null);
+      } else if (strategy === "discard") {
+        conflictInfo.resolved = true;
+        winners.set(id, liveRule ?? null);
       }
+      conflicts.push(conflictInfo);
+      continue;
+    }
+
+    // At most one side changed (or both made the identical change): the
+    // changed side wins. An absent winner is a deletion — honoring it here is
+    // what keeps draft deletions from being silently resurrected and live
+    // deletions from reappearing.
+    winners.set(id, (revChanged ? revRule : liveRule) ?? null);
+  }
+
+  // Ordering: compare each side's relative order of the ids it shares with
+  // base. If only the draft reordered, its order wins; if only live did (or
+  // neither), live's order wins; if both reordered differently, that is an
+  // order conflict the caller must resolve via `rules.order`.
+  const relativeOrder = (
+    rules: FeatureRule[],
+    others: Map<string, FeatureRule>,
+  ): string[] => rules.map((r) => r.id).filter((id) => others.has(id));
+  const liveReordered = !isEqual(
+    relativeOrder(live, baseById),
+    relativeOrder(base, liveById),
+  );
+  const revReordered = !isEqual(
+    relativeOrder(revision, baseById),
+    relativeOrder(base, revById),
+  );
+
+  let useDraftOrder = revReordered && !liveReordered;
+  if (liveReordered && revReordered) {
+    const liveCommon = relativeOrder(live, revById);
+    const revCommon = relativeOrder(revision, liveById);
+    if (!isEqual(liveCommon, revCommon)) {
+      const conflictInfo: MergeConflict = {
+        name: "Rule Order",
+        key: "rules.order",
+        base: JSON.stringify(
+          base.map((r) => r.id),
+          null,
+          2,
+        ),
+        live: JSON.stringify(
+          live.map((r) => r.id),
+          null,
+          2,
+        ),
+        revision: JSON.stringify(
+          revision.map((r) => r.id),
+          null,
+          2,
+        ),
+        resolved: false,
+      };
+      const strategy = strategyFor(conflictInfo.key);
+      if (strategy === "overwrite") {
+        conflictInfo.resolved = true;
+        useDraftOrder = true;
+      } else if (strategy === "discard") {
+        conflictInfo.resolved = true;
+      }
+      conflicts.push(conflictInfo);
     }
   }
 
-  return merged;
+  if (conflicts.some((c) => !c.resolved)) {
+    return { merged: null, conflicts };
+  }
+
+  // Walk the winning side's ordering pushing each id's winner, then append
+  // winners only present on the other side (that side's additions).
+  const primary = useDraftOrder ? revision : live;
+  const secondary = useDraftOrder ? live : revision;
+  const merged: FeatureRule[] = [];
+  const placed = new Set<string>();
+  for (const rule of [...primary, ...secondary]) {
+    if (placed.has(rule.id)) continue;
+    placed.add(rule.id);
+    const winner = winners.get(rule.id);
+    if (winner) merged.push(winner);
+  }
+
+  return { merged, conflicts };
+}
+
+// Pending ramp actions reference draft rules by id. After a rebase the
+// referenced rule may no longer exist (e.g. live deleted a rule the draft
+// never touched, so the merge dropped it) — such actions can never execute
+// and would otherwise ride along silently until publish-time orphan cleanup.
+// Returns the surviving actions plus the orphans so callers can persist the
+// prune and record it in the audit log. Actions without a rule reference are
+// kept as-is.
+export function pruneOrphanedRampActions<T extends { ruleId?: string }>(
+  rampActions: T[] | undefined,
+  rules: FeatureRule[],
+): { kept: T[]; pruned: T[] } {
+  const ruleIds = new Set(rules.map((r) => r?.id).filter(Boolean));
+  const kept: T[] = [];
+  const pruned: T[] = [];
+  for (const action of rampActions ?? []) {
+    if (!action.ruleId || ruleIds.has(action.ruleId)) {
+      kept.push(action);
+    } else {
+      pruned.push(action);
+    }
+  }
+  return { kept, pruned };
 }
 
 export function autoMerge(
@@ -1305,35 +1661,27 @@ export function autoMerge(
     }
   }
 
-  // rules (flat v2 array — one conflict bucket for the whole rule set)
+  // rules (flat v2 array — granular per-rule merge)
   if (revision.rules !== undefined && !isEqual(revRules, baseRules)) {
     if (!isEqual(revRules, liveRules)) {
       if (!isEqual(liveRules, baseRules)) {
-        // Both sides diverged from base. Try a per-rule id-level merge before
-        // escalating to a conflict. The merge walks live order, substitutes
-        // revision-side edits for rules the revision changed, and appends
-        // rules the revision added. Rules the revision-didn't touch but live
-        // deleted stay deleted.
-        const autoMerged = tryRuleLevelMerge(baseRules, liveRules, revRules);
-        if (autoMerged !== null) {
-          result.rules = autoMerged;
-        } else {
-          const conflictInfo: MergeConflict = {
-            name: "Rules",
-            key: "rules",
-            base: JSON.stringify(baseRules, null, 2),
-            live: JSON.stringify(liveRules, null, 2),
-            revision: JSON.stringify(revRules, null, 2),
-            resolved: false,
-          };
-          const strategy = strategies[conflictInfo.key];
-          if (strategy === "overwrite") {
-            conflictInfo.resolved = true;
-            result.rules = revRules;
-          } else if (strategy === "discard") {
-            conflictInfo.resolved = true;
-          }
-          conflicts.push(conflictInfo);
+        // Both sides diverged from base. Merge rule-by-rule: untouched/
+        // one-sided changes merge automatically, while rules both sides
+        // changed differently surface as individual `rules.<ruleId>`
+        // conflicts (plus `rules.order` for competing reorders), each
+        // resolvable independently.
+        const ruleMerge = mergeRulesGranular(
+          baseRules,
+          liveRules,
+          revRules,
+          strategies,
+        );
+        conflicts.push(...ruleMerge.conflicts);
+        if (
+          ruleMerge.merged !== null &&
+          !isEqual(ruleMerge.merged, liveRules)
+        ) {
+          result.rules = ruleMerge.merged;
         }
       } else {
         // Only revision changed; adopt its rules wholesale.
@@ -1973,10 +2321,42 @@ export function getDependentFeatures(
   return features.filter(isDependent).map((f) => f.id);
 }
 
+export type ExperimentDependencyIndex = Map<
+  string,
+  ExperimentInterfaceStringDates[]
+>;
+
+export function buildExperimentDependencyIndex(
+  experiments: ExperimentInterfaceStringDates[],
+): ExperimentDependencyIndex {
+  const index: ExperimentDependencyIndex = new Map();
+  for (const e of experiments) {
+    const phase = e.phases.slice(-1)?.[0] ?? null;
+    const seen = new Set<string>();
+    for (const p of phase?.prerequisites ?? []) {
+      if (seen.has(p.id)) continue;
+      seen.add(p.id);
+      let arr = index.get(p.id);
+      if (!arr) {
+        arr = [];
+        index.set(p.id, arr);
+      }
+      arr.push(e);
+    }
+  }
+  return index;
+}
+
 export function getDependentExperiments(
   feature: FeatureInterface,
   experiments: ExperimentInterfaceStringDates[],
+  experimentDependencyIndex?: ExperimentDependencyIndex,
 ): ExperimentInterfaceStringDates[] {
+  if (experimentDependencyIndex) {
+    // Copy so callers can't mutate the array stored in the index; also keeps
+    // this path's aliasing contract identical to the `.filter()` scan below.
+    return experimentDependencyIndex.get(feature.id)?.slice() ?? [];
+  }
   return experiments.filter((e) => {
     const phase = e.phases.slice(-1)?.[0] ?? null;
     return phase?.prerequisites?.some((p) => p.id === feature.id);
@@ -2017,6 +2397,14 @@ export function getReviewSetting(
       return reviewSetting;
     }
   }
+}
+
+export function getFeatureAutopublishOnApproval(
+  requireReviews: boolean | RequireReview[] | undefined,
+  feature: FeatureInterface,
+): boolean {
+  if (!Array.isArray(requireReviews)) return false;
+  return !!getReviewSetting(requireReviews, feature)?.autopublishOnApproval;
 }
 
 export function checkEnvironmentsMatch(
@@ -2213,6 +2601,61 @@ export function getDraftAffectedEnvironments(
     return "all";
   }
   return [...envs];
+}
+
+/** Draft experiments whose rules would go live when this revision is published. */
+export function getNewDraftExperimentsToPublish({
+  environments,
+  feature,
+  revision,
+  experimentsMap,
+}: {
+  feature: FeatureInterface;
+  revision: FeatureRevisionInterface;
+  environments: Environment[];
+  experimentsMap: Map<string, ExperimentInterfaceStringDates>;
+}): ExperimentInterfaceStringDates[] {
+  const environmentIds = environments.map((e) => e.id);
+
+  const liveExperimentIds = new Set(
+    getMatchingRules(
+      feature,
+      (rule) => rule.type === "experiment-ref",
+      environmentIds,
+    ).map((result) => (result.rule as ExperimentRefRule).experimentId),
+  );
+
+  function isExp(
+    exp: ExperimentInterfaceStringDates | undefined,
+  ): exp is ExperimentInterfaceStringDates {
+    return !!exp;
+  }
+
+  const draftExperiments = getMatchingRules(
+    feature,
+    (rule) => {
+      if (rule.enabled === false) return false;
+      if (rule.type !== "experiment-ref") return false;
+
+      const exp = experimentsMap.get(rule.experimentId);
+      if (!exp) return false;
+
+      if (liveExperimentIds.has(rule.experimentId)) return false;
+      if (exp.status !== "draft") return false;
+      if (exp.archived) return false;
+      if (exp.hasVisualChangesets) return false;
+
+      return true;
+    },
+    environmentIds,
+    revision,
+  )
+    .map((result) =>
+      experimentsMap.get((result.rule as ExperimentRefRule).experimentId),
+    )
+    .filter(isExp);
+
+  return [...new Set(draftExperiments)];
 }
 
 export function checkIfRevisionNeedsReview({

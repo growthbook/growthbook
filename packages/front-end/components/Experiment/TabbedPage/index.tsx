@@ -46,6 +46,7 @@ import { useExperimentDashboards } from "@/hooks/useDashboards";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import CompareExperimentEventsModal from "@/components/Experiment/CompareExperimentEventsModal";
+import { PreLaunchChecklistProvider } from "@/components/PreLaunchChecklist/PreLaunchChecklistProvider";
 import ExperimentHeader from "./ExperimentHeader";
 import SetupTabOverview from "./SetupTabOverview";
 import Implementation from "./Implementation";
@@ -74,11 +75,7 @@ export interface Props {
   mutate: () => void;
   duplicate?: (() => void) | null;
   editTags?: (() => void) | null;
-  checklistItemsRemaining: number | null;
-  checklistHardBlockerCount: number;
   envs: string[];
-  setChecklistItemsRemaining: (value: number | null) => void;
-  setChecklistHardBlockerCount: (value: number) => void;
   editVariations?: (() => void) | null;
   visualChangesets: VisualChangesetInterface[];
   urlRedirects: URLRedirectInterface[];
@@ -86,6 +83,7 @@ export interface Props {
   editPhase?: ((i: number | null) => void) | null;
   editPhases?: (() => void) | null;
   editTargeting?: (() => void) | null;
+  editTraffic?: (() => void) | null;
   editMetrics?: (() => void) | null;
   editResult?: (() => void) | null;
   editSchedule?: (() => void) | null;
@@ -107,14 +105,11 @@ export default function TabbedPage({
   envs,
   urlRedirects,
   editTargeting,
+  editTraffic,
   newPhase,
   editPhases,
   editMetrics,
   editResult,
-  checklistItemsRemaining,
-  checklistHardBlockerCount,
-  setChecklistItemsRemaining,
-  setChecklistHardBlockerCount,
   editSchedule,
   visualChangesetEnvStates,
   urlRedirectEnvStates,
@@ -382,16 +377,6 @@ export default function TabbedPage({
   const { data: sdkConnectionsData } = useSDKConnections();
   const connections = sdkConnectionsData?.connections || [];
 
-  const projectConnections = connections.filter(
-    (connection) =>
-      !connection.projects.length ||
-      connection.projects.includes(experiment.project || ""),
-  );
-  const matchingConnections = projectConnections.filter(
-    (connection) =>
-      !visualChangesets.length || connection.includeVisualExperiments,
-  );
-
   const { data, mutate: mutateWatchers } = useApi<{
     userIds: string[];
   }>(`/experiment/${experiment.id}/watchers`);
@@ -443,7 +428,15 @@ export default function TabbedPage({
     experiment.status === "stopped" && tab !== "dashboards";
 
   return (
-    <>
+    <PreLaunchChecklistProvider
+      experiment={experiment}
+      linkedFeatures={linkedFeatures}
+      visualChangesets={visualChangesets}
+      connections={connections}
+      mutateExperiment={mutate}
+      editTargeting={editTargeting}
+      envs={envs}
+    >
       {compareModal && (
         <CompareExperimentEventsModal
           experiment={experiment}
@@ -534,9 +527,9 @@ export default function TabbedPage({
         newPhase={newPhase}
         editPhases={editPhases}
         healthNotificationCount={healthNotificationCount}
-        checklistItemsRemaining={checklistItemsRemaining}
-        checklistHardBlockerCount={checklistHardBlockerCount}
         linkedFeatures={linkedFeatures}
+        visualChangesets={visualChangesets}
+        urlRedirects={urlRedirects}
         showDashboardView={showDashboardView}
         safeToEdit={safeToEdit}
         editSchedule={editSchedule}
@@ -607,14 +600,6 @@ export default function TabbedPage({
             holdoutExperiments={holdoutExperiments}
             mutate={mutate}
             disableEditing={viewingOldPhase}
-            linkedFeatures={linkedFeatures}
-            visualChangesets={visualChangesets}
-            editTargeting={editTargeting}
-            matchingConnections={matchingConnections}
-            checklistItemsRemaining={checklistItemsRemaining}
-            setChecklistItemsRemaining={setChecklistItemsRemaining}
-            setChecklistHardBlockerCount={setChecklistHardBlockerCount}
-            envs={envs}
             editSchedule={editSchedule}
           />
           <Implementation
@@ -630,6 +615,7 @@ export default function TabbedPage({
             visualChangesets={visualChangesets}
             urlRedirects={urlRedirects}
             editTargeting={editTargeting}
+            editTraffic={editTraffic}
             linkedFeatures={linkedFeatures}
             envs={envs}
             visualChangesetEnvStates={visualChangesetEnvStates}
@@ -766,6 +752,6 @@ export default function TabbedPage({
           </div>
         </div>
       )}
-    </>
+    </PreLaunchChecklistProvider>
   );
 }

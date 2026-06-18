@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
+import ReactDiffViewer, { DiffMethod } from "react-diff-viewer-continued";
 import Collapsible from "react-collapsible";
 import { FaAngleDown, FaAngleRight } from "react-icons/fa";
 import { PiCheckBold, PiGitMergeBold } from "react-icons/pi";
@@ -26,6 +26,10 @@ export interface Props {
   currentState: Record<string, unknown>;
   close: () => void;
   mutate: () => void | Promise<void>;
+  // Called with the server's updated revision immediately after a successful
+  // rebase, so the parent can update its view without waiting for the
+  // background refetch (new activity entry, demoted approvals, etc.).
+  onRebased?: (revision: Revision) => void;
 }
 
 type MergeStrategy = "discard" | "overwrite" | "";
@@ -172,6 +176,7 @@ export default function FixRevisionConflictsModal({
   currentState,
   close,
   mutate,
+  onRebased,
 }: Props) {
   const { apiCall } = useAuth();
 
@@ -254,20 +259,28 @@ export default function FixRevisionConflictsModal({
       step={step}
       setStep={setStep}
       submit={async () => {
+        let res: { revision?: Revision };
         try {
-          await apiCall(`/revision/${revision.id}/rebase`, {
-            method: "POST",
-            body: JSON.stringify({
-              // Must match the server's checkMergeConflicts() output exactly,
-              // not the wrapper mergeResult object used for UI state above.
-              mergeResultSerialized: JSON.stringify(rawConflictCheck),
-              strategies,
-            }),
-          });
+          res = await apiCall<{ revision: Revision }>(
+            `/revision/${revision.id}/rebase`,
+            {
+              method: "POST",
+              body: JSON.stringify({
+                // Must match the server's checkMergeConflicts() output exactly,
+                // not the wrapper mergeResult object used for UI state above.
+                mergeResultSerialized: JSON.stringify(rawConflictCheck),
+                strategies,
+              }),
+            },
+          );
         } catch (e) {
           await mutate();
           throw e;
         }
+        // Apply the server's updated revision immediately — the background
+        // refetch can take a beat, and the timeline/review states should
+        // reflect the rebase as soon as the modal closes.
+        if (res?.revision) onRebased?.(res.revision);
         await mutate();
       }}
       cta={step === 1 ? "Update Draft" : "Next"}

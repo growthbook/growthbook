@@ -18,11 +18,15 @@ import {
 } from "back-end/src/services/experiments";
 import { planMetricFanOut } from "back-end/src/services/experimentQueries/planMetricFanOut";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
-import { createExperimentSnapshotModel } from "back-end/src/models/ExperimentSnapshotModel";
+import {
+  createExperimentSnapshotModel,
+  findSnapshotById,
+} from "back-end/src/models/ExperimentSnapshotModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { updateExperimentDashboards } from "back-end/src/enterprise/services/dashboards";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
+import { IncrementalUpdateRequiresFullRefreshError } from "back-end/src/util/errors";
 import { factMetricFactory } from "../factories/FactMetric.factory";
 import { factTableFactory } from "../factories/FactTable.factory";
 
@@ -32,6 +36,7 @@ jest.mock("back-end/src/models/ExperimentModel", () => ({
 
 jest.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
   createExperimentSnapshotModel: jest.fn(),
+  findSnapshotById: jest.fn(),
 }));
 
 jest.mock("back-end/src/models/DataSourceModel", () => ({
@@ -72,6 +77,9 @@ const createExperimentSnapshotModelMock =
   createExperimentSnapshotModel as jest.MockedFunction<
     typeof createExperimentSnapshotModel
   >;
+const findSnapshotByIdMock = findSnapshotById as jest.MockedFunction<
+  typeof findSnapshotById
+>;
 const getDataSourceByIdMock = getDataSourceById as jest.MockedFunction<
   typeof getDataSourceById
 >;
@@ -462,7 +470,7 @@ describe("snapshot planning", () => {
     ).toEqual(new Set(["ft_a"]));
   });
 
-  it("falls back to the results runner when incremental state is outdated", async () => {
+  it("does not promote to full refresh when stale config is detected outside the scheduled job", async () => {
     getDataSourceByIdMock.mockResolvedValue(
       makeDatasource({
         settings: {
@@ -477,7 +485,7 @@ describe("snapshot planning", () => {
     const staleConfigMessage =
       "The experiment configuration is outdated. Please run a Full Refresh.";
     assertIncrementalRefreshPrerequisitesMock.mockRejectedValue(
-      new Error(staleConfigMessage),
+      new IncrementalUpdateRequiresFullRefreshError(staleConfigMessage),
     );
 
     const context = makeContext();
@@ -502,13 +510,271 @@ describe("snapshot planning", () => {
       factTableMap: new Map() as FactTableMap,
     });
 
+    expect(assertIncrementalRefreshPrerequisitesMock).toHaveBeenCalledTimes(1);
     expect(assertIncrementalRefreshPrerequisitesMock).toHaveBeenCalledWith(
       expect.objectContaining({ analysisType: "main-update" }),
     );
-    expect(assertIncrementalRefreshPrerequisitesMock).toHaveBeenCalledTimes(1);
+    expect(assertIncrementalRefreshPrerequisitesMock).not.toHaveBeenCalledWith(
+      expect.objectContaining({ analysisType: "main-fullRefresh" }),
+    );
     expect(plan.runnerKind).toBe("results");
     expect(plan.incrementalFallbackReason).toBe(staleConfigMessage);
     expect(plan.fullRefresh).toBe(false);
     expect(plan.fullRefreshReason).toBeNull();
+  });
+
+  it("runs a scheduled incremental update when prerequisites pass", async () => {
+    getDataSourceByIdMock.mockResolvedValue(
+      makeDatasource({
+        settings: {
+          queries: {},
+          pipelineSettings: {
+            allowWriting: true,
+            mode: "incremental",
+          },
+        },
+      }),
+    );
+    assertIncrementalRefreshPrerequisitesMock.mockResolvedValue(
+      undefined as never,
+    );
+
+    const context = makeContext();
+    context.models.incrementalRefresh = {
+      getByExperimentId: jest.fn().mockResolvedValue({
+        unitsTableFullName: "db.schema.units_exp_123",
+        experimentSettingsHash: "current_hash",
+      }),
+    } as never;
+
+    const plan = await planSnapshot({
+      experiment: makeExperiment(),
+      context,
+      type: "standard",
+      triggeredBy: "schedule",
+      phaseIndex: 0,
+      useCache: true,
+      defaultAnalysisSettings: makeAnalysisSettings(),
+      additionalAnalysisSettings: [],
+      settingsForSnapshotMetrics: [],
+      metricMap: new Map<string, ExperimentMetricInterface>(),
+      factTableMap: new Map() as FactTableMap,
+    });
+
+    expect(assertIncrementalRefreshPrerequisitesMock).toHaveBeenCalledTimes(1);
+    expect(assertIncrementalRefreshPrerequisitesMock).toHaveBeenCalledWith(
+      expect.objectContaining({ analysisType: "main-update" }),
+    );
+    expect(plan.runnerKind).toBe("incremental");
+    expect(plan.fullRefresh).toBe(false);
+    expect(plan.fullRefreshReason).toBeNull();
+    expect(plan.incrementalFallbackReason).toBeNull();
+  });
+
+  it("promotes the scheduled job to a full refresh when incremental state is outdated", async () => {
+    getDataSourceByIdMock.mockResolvedValue(
+      makeDatasource({
+        settings: {
+          queries: {},
+          pipelineSettings: {
+            allowWriting: true,
+            mode: "incremental",
+          },
+        },
+      }),
+    );
+    const staleConfigMessage =
+      "The experiment configuration is outdated. Please run a Full Refresh.";
+    // First pass (main-update) rejects with the outdated-config error; the
+    // full-refresh retry succeeds.
+    assertIncrementalRefreshPrerequisitesMock
+      .mockRejectedValueOnce(
+        new IncrementalUpdateRequiresFullRefreshError(staleConfigMessage),
+      )
+      .mockResolvedValueOnce(undefined as never);
+
+    const context = makeContext();
+    context.models.incrementalRefresh = {
+      getByExperimentId: jest.fn().mockResolvedValue({
+        unitsTableFullName: "db.schema.units_exp_123",
+        experimentSettingsHash: "stale_hash",
+      }),
+    } as never;
+
+    const plan = await planSnapshot({
+      experiment: makeExperiment(),
+      context,
+      type: "standard",
+      triggeredBy: "schedule",
+      phaseIndex: 0,
+      useCache: true,
+      defaultAnalysisSettings: makeAnalysisSettings(),
+      additionalAnalysisSettings: [],
+      settingsForSnapshotMetrics: [],
+      metricMap: new Map<string, ExperimentMetricInterface>(),
+      factTableMap: new Map() as FactTableMap,
+    });
+
+    expect(assertIncrementalRefreshPrerequisitesMock).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ analysisType: "main-update" }),
+    );
+    expect(assertIncrementalRefreshPrerequisitesMock).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ analysisType: "main-fullRefresh" }),
+    );
+    // The incremental runner is kept and promoted to a full refresh instead of
+    // silently downgrading to the non-incremental results runner.
+    expect(plan.runnerKind).toBe("incremental");
+    expect(plan.fullRefresh).toBe(true);
+    expect(plan.fullRefreshReason).toBe(staleConfigMessage);
+    expect(plan.incrementalFallbackReason).toBeNull();
+  });
+
+  it("falls back to results for the scheduled job when even a full refresh is unsupported", async () => {
+    getDataSourceByIdMock.mockResolvedValue(
+      makeDatasource({
+        settings: {
+          queries: {},
+          pipelineSettings: {
+            allowWriting: true,
+            mode: "incremental",
+          },
+        },
+      }),
+    );
+    assertIncrementalRefreshPrerequisitesMock
+      .mockRejectedValueOnce(
+        new IncrementalUpdateRequiresFullRefreshError(
+          "The experiment configuration is outdated. Please run a Full Refresh.",
+        ),
+      )
+      .mockRejectedValueOnce(new Error("metric not compatible"));
+
+    const context = makeContext();
+    context.models.incrementalRefresh = {
+      getByExperimentId: jest.fn().mockResolvedValue({
+        unitsTableFullName: "db.schema.units_exp_123",
+        experimentSettingsHash: "stale_hash",
+      }),
+    } as never;
+
+    const plan = await planSnapshot({
+      experiment: makeExperiment(),
+      context,
+      type: "standard",
+      triggeredBy: "schedule",
+      phaseIndex: 0,
+      useCache: true,
+      defaultAnalysisSettings: makeAnalysisSettings(),
+      additionalAnalysisSettings: [],
+      settingsForSnapshotMetrics: [],
+      metricMap: new Map<string, ExperimentMetricInterface>(),
+      factTableMap: new Map() as FactTableMap,
+    });
+
+    expect(assertIncrementalRefreshPrerequisitesMock).toHaveBeenCalledTimes(2);
+    expect(plan.runnerKind).toBe("results");
+    expect(plan.incrementalFallbackReason).toBe("metric not compatible");
+    expect(plan.fullRefresh).toBe(false);
+    expect(plan.fullRefreshReason).toBeNull();
+  });
+
+  it("records exploratory provenance from materializedBySnapshotId when present", async () => {
+    wireIncrementalIntegration(makeIncrementalDatasource());
+    assertIncrementalRefreshPrerequisitesMock.mockResolvedValue(
+      undefined as never,
+    );
+
+    const materializedBySnapshotId = "snap_pipeline_producer";
+    const producerDateCreated = new Date("2025-01-10T12:00:00.000Z");
+    findSnapshotByIdMock.mockResolvedValue({
+      id: materializedBySnapshotId,
+      dateCreated: producerDateCreated,
+    } as never);
+
+    const context = makeContext();
+    context.models.incrementalRefresh = {
+      getByExperimentId: jest.fn().mockResolvedValue({
+        unitsTableFullName: "db.schema.units_exp_123",
+        experimentSettingsHash: "current_hash",
+        materializedBySnapshotId,
+      }),
+    } as never;
+
+    const plan = await planSnapshot({
+      experiment: makeExperiment(),
+      context,
+      type: "exploratory",
+      triggeredBy: "manual-dashboard",
+      phaseIndex: 0,
+      useCache: true,
+      defaultAnalysisSettings: makeAnalysisSettings({
+        dimensions: ["dim_country"],
+      }),
+      additionalAnalysisSettings: [],
+      settingsForSnapshotMetrics: [],
+      metricMap: new Map<string, ExperimentMetricInterface>(),
+      factTableMap: new Map() as FactTableMap,
+    });
+
+    expect(plan.runnerKind).toBe("incremental-exploratory");
+    expect(findSnapshotByIdMock).toHaveBeenCalledWith(
+      context,
+      materializedBySnapshotId,
+    );
+    expect(plan.snapshot.sourceSnapshotId).toBe(materializedBySnapshotId);
+    expect(plan.snapshot.sourceSnapshotDateCreated).toBe(producerDateCreated);
+  });
+
+  it("leaves exploratory provenance unset when materializedBySnapshotId is null", async () => {
+    wireIncrementalIntegration(makeIncrementalDatasource());
+    assertIncrementalRefreshPrerequisitesMock.mockResolvedValue(
+      undefined as never,
+    );
+
+    const context = makeContext();
+    context.models.incrementalRefresh = {
+      getByExperimentId: jest.fn().mockResolvedValue({
+        unitsTableFullName: "db.schema.units_exp_123",
+        experimentSettingsHash: "current_hash",
+        materializedBySnapshotId: null,
+      }),
+    } as never;
+
+    const plan = await planSnapshot({
+      experiment: makeExperiment(),
+      context,
+      type: "exploratory",
+      triggeredBy: "manual-dashboard",
+      phaseIndex: 0,
+      useCache: true,
+      defaultAnalysisSettings: makeAnalysisSettings({
+        dimensions: ["dim_country"],
+      }),
+      additionalAnalysisSettings: [],
+      settingsForSnapshotMetrics: [],
+      metricMap: new Map<string, ExperimentMetricInterface>(),
+      factTableMap: new Map() as FactTableMap,
+    });
+
+    expect(plan.runnerKind).toBe("incremental-exploratory");
+    expect(findSnapshotByIdMock).not.toHaveBeenCalled();
+    expect(plan.snapshot.sourceSnapshotId).toBeUndefined();
+    expect(plan.snapshot.sourceSnapshotDateCreated).toBeUndefined();
+  });
+
+  describe("getMetricSnapshotSettings read contract", () => {
+    it("applies a positive override stddev", () => {
+      const { metricSnapshotSettings } = getMetricSnapshotSettings({
+        metric: factMetricFactory.build({ id: "m1" }),
+        denominatorMetrics: [],
+        experimentRegressionAdjustmentEnabled: false,
+        metricOverrides: [
+          { id: "m1", properPriorOverride: true, properPriorStdDev: 0.5 },
+        ],
+      });
+      expect(metricSnapshotSettings.properPriorStdDev).toBe(0.5);
+    });
   });
 });

@@ -111,6 +111,7 @@ import { bucketRulesByEnv } from "back-end/src/util/toLegacy";
 import { ReqContext } from "back-end/types/request";
 import { getSDKPayloadCacheLocation } from "back-end/src/models/SdkConnectionCacheModel";
 import { logger } from "back-end/src/util/logger";
+import { Counter, Histogram, metrics } from "back-end/src/util/metrics";
 import { getEnvironments } from "back-end/src/util/organization.util";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
@@ -612,6 +613,34 @@ export function isSDKConnectionAffectedByPayloadKey(
   return connection.projects.includes(payloadKey.project);
 }
 
+let sdkPayloadRefreshesCounter: Counter | null = null;
+let sdkPayloadRefreshDurationHistogram: Histogram | null = null;
+
+function getSdkPayloadRefreshesCounter() {
+  if (!sdkPayloadRefreshesCounter) {
+    sdkPayloadRefreshesCounter = metrics.getCounter("sdk_payload.refreshes");
+  }
+  return sdkPayloadRefreshesCounter;
+}
+
+function getSdkPayloadRefreshDurationHistogram() {
+  if (!sdkPayloadRefreshDurationHistogram) {
+    sdkPayloadRefreshDurationHistogram = metrics.getHistogram(
+      "sdk_payload.refresh_duration_ms",
+    );
+  }
+  return sdkPayloadRefreshDurationHistogram;
+}
+
+function recordSdkPayloadRefreshMetrics(durationMs: number) {
+  try {
+    getSdkPayloadRefreshesCounter().increment();
+    getSdkPayloadRefreshDurationHistogram().record(durationMs);
+  } catch (e) {
+    logger.error({ err: e }, "Error recording sdk_payload refresh metrics");
+  }
+}
+
 // This is a synchronous wrapper around refreshSDKPayloadCache
 // We shouldn't need to await the refresh in most cases
 export function queueSDKPayloadRefresh(data: {
@@ -670,9 +699,15 @@ export async function refreshSDKPayloadCache({
 
   // If no environments are affected, we don't need to update anything
   if (!payloadKeys.length && !sdkConnectionsToUpdate.length) {
-    logger.debug("Skipping SDK Payload refresh - no environments affected");
+    logger.debug(
+      { orgId: context.org.id, auditContext: initialAuditContext },
+      "[sdk-payload] refresh skipped — no environments affected",
+    );
     return;
   }
+
+  const storageLocation = getSDKPayloadCacheLocation();
+  const refreshStartedAt = performance.now();
 
   // Clear any cache entries for legacy API keys since they can't be tracked individually
   try {
@@ -811,7 +846,6 @@ export async function refreshSDKPayloadCache({
               }
             : undefined;
 
-        const storageLocation = getSDKPayloadCacheLocation();
         if (storageLocation !== "none") {
           await context.models.sdkConnectionCache.upsert(
             connection.key,
@@ -826,11 +860,39 @@ export async function refreshSDKPayloadCache({
   });
 
   // If there are no changes, we don't need to do anything
-  if (!promises.length) return;
+  if (!promises.length) {
+    const durationMs = Math.round(performance.now() - refreshStartedAt);
+    recordSdkPayloadRefreshMetrics(durationMs);
+    logger.info(
+      {
+        orgId: context.org.id,
+        payloadKeys,
+        auditContext: initialAuditContext,
+        durationMs,
+      },
+      "[sdk-payload] refresh skipped — no matching SDK connections",
+    );
+    return;
+  }
 
   // There may be many SDK connection caches to update
   // Batch the promises in chunks of 4 at a time to avoid overloading Mongo
   await promiseAllChunks(promises, 4);
+
+  const durationMs = Math.round(performance.now() - refreshStartedAt);
+  recordSdkPayloadRefreshMetrics(durationMs);
+  logger.info(
+    {
+      orgId: context.org.id,
+      connectionKeys: connectionsUpdated.map((c) => c.key),
+      connectionCount: connectionsUpdated.length,
+      payloadKeys,
+      cacheLocation: storageLocation,
+      auditContext: initialAuditContext,
+      durationMs,
+    },
+    "[sdk-payload] refresh completed",
+  );
 
   triggerWebhookJobs(context, payloadKeys, connectionsUpdated, true).catch(
     (e) => {
@@ -1963,7 +2025,47 @@ export function revisionToApiInterfaceV2(
     ...(rev.rampActions !== undefined && {
       rampActions: rev.rampActions,
     }),
+    ...(rev.reviews !== undefined && {
+      reviews: rev.reviews.map((r) => {
+        const user = eventUserToApiEventUser(r.user);
+        return {
+          userId: r.userId,
+          ...(user !== undefined ? { user } : {}),
+          status: r.status,
+          timestamp:
+            r.timestamp?.toISOString?.() || new Date(r.timestamp).toISOString(),
+        };
+      }),
+    }),
   };
+}
+
+// Diffable subset of a revision: the content fields, stripped of
+// lifecycle/identity metadata that always differs across revisions (version,
+// baseVersion, status, comment, date, createdBy, publishedBy, featureId).
+// What's left is exactly what the diff endpoint compares.
+export function revisionToDiffableV2(
+  rev: FeatureRevisionInterface,
+): Record<string, unknown> {
+  const api = revisionToApiInterfaceV2(rev) as Record<string, unknown>;
+  const excluded = new Set([
+    "featureId",
+    "baseVersion",
+    "version",
+    "comment",
+    "date",
+    "status",
+    "createdBy",
+    "publishedBy",
+    "definitions",
+    "reviews",
+  ]);
+  const content: Record<string, unknown> = {};
+  for (const [key, val] of Object.entries(api)) {
+    if (excluded.has(key)) continue;
+    content[key] = val;
+  }
+  return content;
 }
 
 // Mirrors `toApiRevision` at call sites; v2 serialization is context-free.

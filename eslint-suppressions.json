@@ -222,11 +222,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Experiment/EditTargetingModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Experiment/ExperimentCarouselModal.tsx": {
     "no-restricted-imports": {
       "count": 2
@@ -323,11 +318,6 @@
       "count": 3
     }
   },
-  "packages/front-end/components/Experiment/TabbedPage/AnalysisSettingsSummary.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Experiment/TabbedPage/BanditUpdateStatus.tsx": {
     "local/no-alert-classname": {
       "count": 1
@@ -376,11 +366,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Experiment/TabbedPage/TrafficAndTargeting.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Experiment/TabbedPage/index.tsx": {
     "no-restricted-imports": {
       "count": 2
@@ -421,7 +406,7 @@
   },
   "packages/front-end/components/Experiment/VariationsTable.tsx": {
     "no-restricted-imports": {
-      "count": 2
+      "count": 1
     }
   },
   "packages/front-end/components/Experiment/holdout/HoldoutTimeline.tsx": {
@@ -488,17 +473,7 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Features/CompareRevisionsModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Features/CustomHookModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Features/DraftModal.tsx": {
     "no-restricted-imports": {
       "count": 1
     }
@@ -543,22 +518,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Features/FeaturesHeader.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    },
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Features/FeaturesOverview.tsx": {
-    "local/no-alert-classname": {
-      "count": 2
-    },
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Features/HoldoutRule.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -584,23 +543,8 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Features/RequestReviewModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Features/RevertModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Features/RevisionDropdown.tsx": {
     "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Features/RevisionLog.tsx": {
-    "local/no-alert-classname": {
       "count": 1
     }
   },

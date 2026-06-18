@@ -1,5 +1,5 @@
 import { generateProductAnalyticsSQL } from "shared/enterprise";
-import { format } from "shared/sql";
+import { format, createLikeStringMatchFn } from "shared/sql";
 import { ExplorationConfig } from "shared/validators";
 import { SqlDialect } from "shared/types/sql";
 import {
@@ -15,6 +15,10 @@ describe("productAnalytics", () => {
 
   const helpers: SqlDialect = {
     escapeStringLiteral: (value) => value,
+    stringMatch: createLikeStringMatchFn({
+      escapeStringLiteral: (value) => value,
+      emitEscapeClause: false,
+    }),
     jsonExtract: (jsonCol, path, isNumeric) =>
       `${jsonCol}:'${path}'::${isNumeric ? "float" : "text"}`,
     evalBoolean: (col, value) => `${col} IS ${value ? "TRUE" : "FALSE"}`,

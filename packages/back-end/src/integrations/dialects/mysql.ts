@@ -1,5 +1,9 @@
+import { createLikeStringMatchFn } from "shared/sql";
 import type { DateTruncGranularity, SqlDialect } from "shared/types/sql";
 import { baseDialect } from "./base";
+
+const mysqlEscapeStringLiteral = (value: string) =>
+  value.replace(/\\/g, "\\\\").replace(/'/g, "''");
 
 export const mysqlDialect: SqlDialect = {
   ...baseDialect,
@@ -89,6 +93,10 @@ export const mysqlDialect: SqlDialect = {
 
   stringLength: (column: string) => `CHAR_LENGTH(${column})`,
 
-  escapeStringLiteral: (value: string) =>
-    value.replace(/\\/g, "\\\\").replace(/'/g, "''"),
+  stringMatch: createLikeStringMatchFn({
+    escapeStringLiteral: mysqlEscapeStringLiteral,
+    emitEscapeClause: false,
+  }),
+
+  escapeStringLiteral: mysqlEscapeStringLiteral,
 };
