@@ -148,9 +148,8 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
   const initialHashAttributes = initialAttributeSchema
     .filter((a) => a.hashAttribute)
     .map((a) => a.property);
-  const initialHashAttribute = initialHashAttributes.includes("id")
-    ? "id"
-    : initialHashAttributes[0] || "id";
+  const initialHashAttribute =
+    initialHashAttributes.length === 1 ? initialHashAttributes[0] : "";
 
   const form = useForm<Partial<ExperimentInterfaceStringDates>>({
     defaultValues: {
@@ -172,9 +171,8 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
     .filter((a) => a.hashAttribute)
     .map((a) => a.property);
   const hasHashAttributes = hashAttributes.length > 0;
-  const defaultHashAttribute = hashAttributes.includes("id")
-    ? "id"
-    : hashAttributes[0] || "id";
+  const defaultHashAttribute =
+    hashAttributes.length === 1 ? hashAttributes[0] : "";
 
   const customFields = filterCustomFieldsForSectionAndProject(
     useCustomFields(),
@@ -321,7 +319,7 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
     }
 
     const project = rawValue.project || "";
-    const hashAttribute = rawValue.hashAttribute || "id";
+    const hashAttribute = rawValue.hashAttribute;
 
     const datasource = getAutoDatasourceId({
       datasources,
@@ -493,7 +491,8 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
       />
 
       <SelectField
-        label="Hash Attribute"
+        required
+        label="Assignment Attribute"
         value={form.watch("hashAttribute") ?? ""}
         helpText="Will be hashed together with the Tracking Key to determine which variation to assign"
         onChange={(v) => form.setValue("hashAttribute", v)}
