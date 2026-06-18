@@ -79,6 +79,8 @@ export default function PublicDashboardBlock({
     mutate: () => {},
     isEditing: false,
     ssrPolyfills,
+    // Public view: SQL is stripped server-side, so hide the SQL tab.
+    hideSql: true,
   };
 
   let content: ReactNode;

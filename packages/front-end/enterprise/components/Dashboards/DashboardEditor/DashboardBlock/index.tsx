@@ -85,6 +85,9 @@ export type BlockProps<T extends DashboardBlockInterface> = {
   mutate: () => void;
   isEditing: boolean;
   ssrPolyfills?: SSRPolyfills;
+  // Read-only public rendering: hide the rendered-SQL view (SQL is stripped
+  // server-side on the public dashboard endpoint). Only sql-explorer reads it.
+  hideSql?: boolean;
 } & ObjectProps<T>;
 
 interface Props<DashboardBlock extends DashboardBlockInterface> {
