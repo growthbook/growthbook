@@ -12,6 +12,7 @@ import {
   standaloneRampScheduleInput,
   revisionVersionParam,
 } from "./feature-revisions";
+import { rampStartState } from "./ramp-schedule";
 import { apiFeatureRevisionV2Validator } from "./features-v2";
 import { JSONSchemaDef, revisionStatusFilterSchema } from "./features";
 import { ownerInputField } from "./owner-field";
@@ -47,6 +48,30 @@ const newDraftMetadataFields = {
 // ---- Shared response schemas ----
 
 const revisionResponse = z.object({ revision: apiFeatureRevisionV2Validator });
+
+// Ramp-schedule body accepting an optional `startState` (the rollback anchor).
+const rampScheduleInputV2 = standaloneRampScheduleInput.extend({
+  startState: rampStartState
+    .optional()
+    .describe(
+      "The rule state to roll back to (the rollback/jump-to-start anchor). " +
+        'Merged onto the rule\'s current state, so `{ "coverage": 0 }` keeps ' +
+        "existing targeting but rolls back to 0%. This affects rollbacks only — " +
+        "it is NOT applied when the ramp starts. On create, omitting it infers " +
+        "the anchor from the rule's current coverage (and returns a warning if " +
+        "that isn't 0%); on update of a live schedule, omitting it leaves the " +
+        "existing anchor unchanged.",
+    ),
+});
+
+// Response variant that can carry non-fatal advisories (e.g. an inferred
+// rollback anchor that isn't 0%).
+const revisionResponseWithWarnings = revisionResponse.extend({
+  warnings: z
+    .array(z.string())
+    .optional()
+    .describe("Non-fatal advisories about how the request was interpreted."),
+});
 
 // Mirrors MergeConflict in shared/util/features.ts.
 const mergeConflictSchema = z
@@ -1018,12 +1043,12 @@ export const putFeatureRevisionRuleRampScheduleV2Validator = {
   operationId: "putFeatureRevisionRuleRampScheduleV2",
   summary: "Set ramp schedule for a rule",
   description:
-    "Queues a revision-controlled ramp action for this rule. If the rule already has a live ramp schedule, this stores an `update` action applied on publish; otherwise it stores a `create` action. No live schedule config changes are applied immediately by this endpoint.",
+    'Queues a revision-controlled ramp action for this rule. If the rule already has a live ramp schedule, this stores an `update` action applied on publish; otherwise it stores a `create` action. No live schedule config changes are applied immediately by this endpoint.\n\nYou can build the ramp from a template (`templateId`) and set the rollback anchor (`startState`) in the same request — e.g. pull in a template and pass `startState: { "coverage": 0 }` so a rollback returns the rule to 0%.',
   tags: ["feature-revisions-v2"],
   paramsSchema: ruleParams,
-  bodySchema: standaloneRampScheduleInput.extend(newDraftMetadataFields),
+  bodySchema: rampScheduleInputV2.extend(newDraftMetadataFields),
   querySchema: z.never(),
-  responseSchema: revisionResponse,
+  responseSchema: revisionResponseWithWarnings,
   version: "v2" as const,
 };
 
