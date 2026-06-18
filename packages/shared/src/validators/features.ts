@@ -379,6 +379,13 @@ const minimalFeatureRevisionInterface = z
     comment: z.string(),
     title: z.string().optional(),
     contributors: z.array(z.string()).optional(),
+    // Surfaced so revision lists/dropdowns can show schedule status + lock
+    // indicators without fetching full revisions.
+    autoPublishOnApproval: z.boolean().optional(),
+    scheduledPublishAt: z.union([z.null(), z.date()]).optional(),
+    scheduledPublishLockEdits: z.boolean().optional(),
+    scheduledPublishLockOthers: z.boolean().optional(),
+    scheduledPublishBypassApproval: z.boolean().optional(),
   })
   .strict();
 
@@ -584,6 +591,26 @@ const featureRevisionInterface = minimalFeatureRevisionInterface
     // an actor without a user ID (e.g. an API key), in which case the
     // publish falls back to `createdBy`.
     autoPublishEnabledBy: z.string().optional(),
+    // Defers an armed revision's auto-publish until on/after this date (and, if
+    // required, approved). null/absent = publish as soon as approved.
+    scheduledPublishAt: z.union([z.null(), z.date()]).optional(),
+    // While pending, freeze content edits to this draft (rebase still allowed).
+    scheduledPublishLockEdits: z.boolean().optional(),
+    // While pending, block publishing other drafts of this feature.
+    scheduledPublishLockOthers: z.boolean().optional(),
+    // True when an admin armed this schedule via the bypass-approval override.
+    // The schedule is then treated as "dangerous": it can't be edited inline
+    // (only canceled and re-armed) and anyone with publish authority may cancel
+    // it. Fire-time bypass still derives from the armer's live role, not this
+    // flag. Cleared whenever the schedule is canceled or the revision leaves the
+    // review cycle (part of SCHEDULED_PUBLISH_UNSET).
+    scheduledPublishBypassApproval: z.boolean().optional(),
+    // Set by the scheduled-publish poller when a due publish can't go through
+    // (e.g. still awaiting approval, merge conflict). Lets the UI surface a
+    // stuck schedule instead of it silently retrying forever. Cleared on a
+    // successful publish or when the schedule is canceled.
+    scheduledPublishAttempts: z.number().optional(),
+    scheduledPublishLastError: z.string().optional(),
     // Active reviewer verdicts for the current review cycle (one entry per
     // reviewer). Kept in sync by the review lifecycle mutations:
     // submit review upserts, undo review removes, request/recall review
