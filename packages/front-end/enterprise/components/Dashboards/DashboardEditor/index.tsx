@@ -826,7 +826,7 @@ function DashboardEditor({
   );
 }
 
-interface DashboardGridProps {
+export interface DashboardGridProps {
   blocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
   isEditing: boolean;
   editSidebarDirty: boolean;
@@ -842,7 +842,7 @@ interface DashboardGridProps {
 // Drag/resize are disabled outside edit mode and while a staged block is being
 // added/edited. We only persist layout changes from the canonical (lg)
 // breakpoint; smaller breakpoints are auto-derived for responsive viewing only.
-function DashboardGrid({
+export function DashboardGrid({
   blocks,
   isEditing,
   editSidebarDirty,
