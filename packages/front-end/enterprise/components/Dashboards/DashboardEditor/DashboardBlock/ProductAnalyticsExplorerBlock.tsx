@@ -72,6 +72,7 @@ export default function ProductAnalyticsExplorerBlock({
           exploration={data.exploration}
           comparisonExploration={comparisonExploration}
           compareEnabled={compareEnabled}
+          submittedPreviousTimeFrame={submittedPreviousTimeFrame}
           error={data.exploration.error ?? error?.message ?? null}
           submittedExploreState={block.config ?? data.exploration.config}
           loading={isLoading}
