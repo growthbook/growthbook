@@ -132,6 +132,13 @@ export const deleteRampScheduleTemplate = async (
   res: Response,
 ) => {
   const context = getContextFromReq(req);
+
+  if (!context.hasPremiumFeature("ramp-schedules")) {
+    context.throwPlanDoesNotAllowError(
+      "Ramp schedule templates require an Enterprise plan.",
+    );
+  }
+
   const template = await context.models.rampScheduleTemplates.getById(
     req.params.id,
   );

@@ -964,31 +964,43 @@ export default function RampScheduleSection({
 
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [presetOpen, setPresetOpen] = useState(false);
-  const hasAutoSelected = useRef(false);
+  // Tracks the monitored-ness we last auto-selected a default for. Re-runs when
+  // it flips (e.g. switching between Ramp-up and Monitored Ramp-up) so the
+  // matching official default is applied for the new strategy — not just on the
+  // first template load.
+  const autoSelectedMonitored = useRef<boolean | null>(null);
 
-  // Keep the local display string in sync when simpleDurationDays is changed
-  // On first template load, match the existing state or apply the first default.
+  // On template load, and whenever the ramp's monitored-ness changes, adopt a
+  // matching template or apply the first official default for that strategy.
   useEffect(() => {
-    if (hasAutoSelected.current || templates.length === 0) return;
-    hasAutoSelected.current = true;
+    if (templates.length === 0) return;
+    const stateMonitored = state.steps.some((s) => s.monitored);
+    if (autoSelectedMonitored.current === stateMonitored) return;
+
     const matchId = findMatchingTemplate(state, templates);
     if (matchId) {
       setSelectedTemplateId(matchId);
+      autoSelectedMonitored.current = stateMonitored;
       return;
     }
-    // For a new ramp, pre-apply the first official template — but only one whose
-    // monitored-ness matches the release strategy already chosen on the rule
-    // (encoded in the seeded steps). This avoids forcing a monitored config onto
-    // a plain ramp, or a plain template onto a Monitored Ramp-up.
-    if (!ruleRampSchedule && !hideTemplateSave) {
-      const stateMonitored = state.steps.some((s) => s.monitored);
+    // For a new ramp, pre-apply the first official template whose monitored-ness
+    // matches the chosen release strategy — avoiding a monitored config on a
+    // plain ramp, or a plain template on a Monitored Ramp-up. Skip if the user
+    // already has a template pinned for this same strategy (a deliberate pick),
+    // but not if it's stale from before a strategy switch.
+    const currentSelection = templates.find((t) => t.id === selectedTemplateId);
+    const selectionIsForThisStrategy =
+      !!currentSelection &&
+      isMonitoredTemplate(currentSelection) === stateMonitored;
+    if (!ruleRampSchedule && !hideTemplateSave && !selectionIsForThisStrategy) {
       const defaultTemplate = templates.find(
         (t) => t.official && isMonitoredTemplate(t) === stateMonitored,
       );
       if (defaultTemplate) applyTemplate(defaultTemplate);
     }
+    autoSelectedMonitored.current = stateMonitored;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [templates]);
+  }, [templates, state.steps]);
 
   // Auto-derive monitoring cadence from step durations on initial mount,
   // but only if no explicit cadence override was already saved.

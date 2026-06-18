@@ -424,7 +424,8 @@ export default function RampScheduleTemplates() {
       { project: undefined },
       { project: undefined },
     );
-  const canDelete = permissionsUtil.canDeleteFeature({ project: undefined });
+  const canDelete =
+    hasFeature && permissionsUtil.canDeleteFeature({ project: undefined });
 
   const [editingTemplate, setEditingTemplate] = useState<
     RampScheduleTemplateInterface | null | false
