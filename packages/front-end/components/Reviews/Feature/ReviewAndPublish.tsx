@@ -2625,6 +2625,7 @@ export default function ReviewAndPublish({
                     <SelectField
                       containerClassName="select-dropdown-underline mb-0"
                       value={effectivePublishMode}
+                      disabled={savingSchedule}
                       isSearchable={false}
                       sort={false}
                       containerStyles={{

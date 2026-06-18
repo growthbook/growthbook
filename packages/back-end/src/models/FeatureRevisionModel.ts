@@ -131,6 +131,9 @@ const featureRevisionSchema = new mongoose.Schema({
   ],
 });
 
+// Named so we can recognize its duplicate-key errors and translate them.
+const PUBLISH_LOCK_OTHERS_INDEX = "uniqueArmedPublishLockOthers";
+
 featureRevisionSchema.index(
   { organization: 1, featureId: 1, version: 1 },
   { unique: true },
@@ -139,6 +142,20 @@ featureRevisionSchema.index({ organization: 1, status: 1 });
 // Sparse: only scheduled revisions carry scheduledPublishAt, so the cross-org
 // due-poller scans a tiny set.
 featureRevisionSchema.index({ scheduledPublishAt: 1 }, { sparse: true });
+// At most one armed "lock other drafts" schedule per feature — the atomic
+// backstop for assertNoConflictingPublishLock against concurrent arming. Partial
+// so canceling/publishing (which unsets the fields) drops the doc automatically.
+featureRevisionSchema.index(
+  { organization: 1, featureId: 1 },
+  {
+    name: PUBLISH_LOCK_OTHERS_INDEX,
+    unique: true,
+    partialFilterExpression: {
+      autoPublishOnApproval: true,
+      scheduledPublishLockOthers: true,
+    },
+  },
+);
 
 type FeatureRevisionDocument = mongoose.Document & FeatureRevisionInterface;
 
@@ -1318,34 +1335,41 @@ export async function markRevisionAsReviewRequested(
   // Re-requesting review without a (new) schedule clears any stale one.
   if (!scheduled) Object.assign(unset, SCHEDULED_PUBLISH_UNSET);
 
-  await FeatureRevisionModel.updateOne(
-    {
-      organization: revision.organization,
-      featureId: revision.featureId,
-      version: revision.version,
-    },
-    {
-      $set: {
-        status: "pending-review",
-        datePublished: null,
-        dateUpdated: new Date(),
-        comment: comment,
-        autoPublishOnApproval: armed,
-        ...(scheduled
-          ? {
-              scheduledPublishAt,
-              scheduledPublishLockEdits: !!scheduledPublishLockEdits,
-              scheduledPublishLockOthers: !!scheduledPublishLockOthers,
-            }
-          : {}),
-        ...(enabledBy !== null ? { autoPublishEnabledBy: enabledBy } : {}),
-        // Requesting review starts a new review cycle — prior verdicts no
-        // longer stand (mirrors the revision-log replay semantics).
-        reviews: [],
+  try {
+    await FeatureRevisionModel.updateOne(
+      {
+        organization: revision.organization,
+        featureId: revision.featureId,
+        version: revision.version,
       },
-      ...(Object.keys(unset).length > 0 ? { $unset: unset } : {}),
-    },
-  );
+      {
+        $set: {
+          status: "pending-review",
+          datePublished: null,
+          dateUpdated: new Date(),
+          comment: comment,
+          autoPublishOnApproval: armed,
+          ...(scheduled
+            ? {
+                scheduledPublishAt,
+                scheduledPublishLockEdits: !!scheduledPublishLockEdits,
+                scheduledPublishLockOthers: !!scheduledPublishLockOthers,
+              }
+            : {}),
+          ...(enabledBy !== null ? { autoPublishEnabledBy: enabledBy } : {}),
+          // Requesting review starts a new review cycle — prior verdicts no
+          // longer stand (mirrors the revision-log replay semantics).
+          reviews: [],
+        },
+        ...(Object.keys(unset).length > 0 ? { $unset: unset } : {}),
+      },
+    );
+  } catch (e) {
+    if (isPublishLockIndexConflict(e)) {
+      throw new Error(PUBLISH_LOCK_CONFLICT_MESSAGE);
+    }
+    throw e;
+  }
 
   // Fire and forget - no route that marks the revision as Review Requested expects the log to be there immediately
   context.models.featureRevisionLogs
@@ -1496,17 +1520,24 @@ export async function setRevisionScheduledPublish(
     );
   }
 
-  await FeatureRevisionModel.updateOne(filter, {
-    $set: {
-      autoPublishOnApproval: true,
-      scheduledPublishAt,
-      scheduledPublishLockEdits: !!lockEdits,
-      scheduledPublishLockOthers: !!lockOthers,
-      dateUpdated: new Date(),
-      ...(enabledBy !== null ? { autoPublishEnabledBy: enabledBy } : {}),
-    },
-    ...(enabledBy === null ? { $unset: { autoPublishEnabledBy: 1 } } : {}),
-  });
+  try {
+    await FeatureRevisionModel.updateOne(filter, {
+      $set: {
+        autoPublishOnApproval: true,
+        scheduledPublishAt,
+        scheduledPublishLockEdits: !!lockEdits,
+        scheduledPublishLockOthers: !!lockOthers,
+        dateUpdated: new Date(),
+        ...(enabledBy !== null ? { autoPublishEnabledBy: enabledBy } : {}),
+      },
+      ...(enabledBy === null ? { $unset: { autoPublishEnabledBy: 1 } } : {}),
+    });
+  } catch (e) {
+    if (isPublishLockIndexConflict(e)) {
+      throw new Error(PUBLISH_LOCK_CONFLICT_MESSAGE);
+    }
+    throw e;
+  }
 
   logScheduledPublishChange(context, revision, {
     // Distinguish a first-time arm from an edit to an already-armed schedule.
@@ -1519,9 +1550,10 @@ export async function setRevisionScheduledPublish(
   });
 }
 
-// Record a failed attempt by the scheduled-publish poller so a stuck schedule is
-// visible (UI + REST) instead of silently retrying. Cleared on the next
-// successful publish or when the schedule is canceled.
+// Record a failed poller attempt so a stuck schedule is visible (UI + REST)
+// instead of silently retrying; cleared on the next publish or cancel.
+// Intentionally a raw write — no dateUpdated bump, audit, timeline, or webhook —
+// so per-tick retries don't generate notification noise. Keep it that way.
 export async function recordScheduledPublishFailure(
   revision: Pick<
     FeatureRevisionInterface,
@@ -1587,9 +1619,12 @@ export async function hasPublishLockingScheduledSibling(
   return !!doc;
 }
 
-// Reject arming a second "lock other drafts" schedule while one is already
-// pending on the feature. Two such schedules would mutually block each other at
-// fire time (each is a publish-locking sibling of the other) and hold forever.
+const PUBLISH_LOCK_CONFLICT_MESSAGE =
+  "Another draft of this feature already has a scheduled publish that locks other drafts. Cancel it before scheduling another.";
+
+// Reject arming a second "lock other drafts" schedule on a feature — two would
+// mutually block each other at fire time and hold forever. Fast pre-check for a
+// clear error; the partial unique index is the atomic guard against the race.
 async function assertNoConflictingPublishLock(
   organization: string,
   featureId: string,
@@ -1611,9 +1646,24 @@ async function assertNoConflictingPublishLock(
   }
 }
 
+// True for the duplicate-key error from the lock-others partial unique index —
+// i.e. a concurrent arming request won the race for this feature's lock.
+function isPublishLockIndexConflict(e: unknown): boolean {
+  return (
+    !!e &&
+    typeof e === "object" &&
+    (e as { code?: number }).code === 11000 &&
+    String((e as { message?: string }).message ?? "").includes(
+      PUBLISH_LOCK_OTHERS_INDEX,
+    )
+  );
+}
+
 // Cancel pending schedules across a feature's revisions (e.g. on archive).
 // Disarms and clears schedule/locks; safe to call when none are pending.
 // Logs a cancellation against each affected revision so the timeline reflects it.
+// find→updateMany isn't atomic: a schedule armed between the two is still cleared
+// (same filter) but won't get a timeline entry. Accepted — log completeness only.
 export async function cancelScheduledPublishesForFeature(
   context: ReqContext | ApiReqContext,
   organization: string,
@@ -1633,7 +1683,7 @@ export async function cancelScheduledPublishesForFeature(
       organization,
       featureId,
       autoPublishOnApproval: true,
-      scheduledPublishAt: { $exists: true },
+      scheduledPublishAt: { $exists: true, $ne: null },
     },
     {
       $set: { autoPublishOnApproval: false, dateUpdated: new Date() },

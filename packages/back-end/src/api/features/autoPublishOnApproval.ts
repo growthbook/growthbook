@@ -156,6 +156,13 @@ async function publishArmedRevision(
     throw new Error("pre-launch checklist required");
   }
 
+  // Concurrency note: this shared path can be entered by the poller, by
+  // auto-on-approval, and by a manual publish at nearly the same instant.
+  // publishFeatureRevision re-fetches and rejects an already-published revision,
+  // so in practice the loser throws and is caught upstream. Accepted residual: a
+  // sub-second cross-path overlap before either commits could double-fire publish
+  // side effects; not guarded with an atomic claim to avoid reworking the shared
+  // publish core, and the window requires a coincident trigger at the exact tick.
   const { revision: published } = await publishFeatureRevision(
     {
       context: enablerContext,

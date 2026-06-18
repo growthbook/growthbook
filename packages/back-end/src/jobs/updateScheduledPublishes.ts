@@ -28,6 +28,9 @@ async function queueScheduledPublish(
     PUBLISH_SCHEDULED_REVISION,
     item,
   ) as PublishScheduledRevisionJob;
+  // Dedup per revision: overlapping poll ticks (and multiple back-end instances)
+  // can't queue two concurrent publishes for the same revision. The publish also
+  // re-fetches and re-checks status, so a stale re-run after a success no-ops.
   job.unique({
     organization: item.organization,
     featureId: item.featureId,
