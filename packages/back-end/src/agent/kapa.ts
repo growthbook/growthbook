@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import { fetch } from "back-end/src/util/http.util";
 import { KAPA_AI_API_KEY, KAPA_AI_MCP_URL } from "back-end/src/util/secrets";
 
@@ -63,12 +64,20 @@ async function readMcpResponse(
 ): Promise<unknown> {
   const contentType = response.headers.get("content-type") || "";
   if (contentType.includes("text/event-stream")) {
-    // MCP may respond with SSE — find the first data line with a JSON-RPC body.
+    // MCP-over-SSE may emit preamble events before the result, so scan for the
+    // line that actually carries the JSON-RPC envelope (result or error).
     const text = await response.text();
     for (const line of text.split("\n")) {
       if (line.startsWith("data: ") && line.length > 6) {
         try {
-          return JSON.parse(line.slice(6));
+          const parsed = JSON.parse(line.slice(6));
+          if (
+            parsed &&
+            typeof parsed === "object" &&
+            ("result" in parsed || "error" in parsed)
+          ) {
+            return parsed;
+          }
         } catch {
           // keep scanning
         }
@@ -101,14 +110,33 @@ export async function searchKapaDocumentation(
         name: KAPA_MCP_TOOL_NAME,
         arguments: { query },
       },
-      id: 1,
+      id: randomUUID(),
     }),
   });
 
+  // node-fetch doesn't throw on non-2xx — surface it so the tool layer logs
+  // and falls back instead of silently degrading to "no results".
+  if (!response.ok) {
+    const body = await response.text().catch(() => "");
+    throw new Error(
+      `Kapa MCP request failed: ${response.status} ${response.statusText}` +
+        (body ? ` — ${body.slice(0, 200)}` : ""),
+    );
+  }
+
   const data = await readMcpResponse(response);
-  const result = (
-    data as { result?: { content?: unknown[]; isError?: boolean } } | undefined
-  )?.result;
+  const envelope = data as
+    | {
+        result?: { content?: unknown[]; isError?: boolean };
+        error?: { message?: string };
+      }
+    | undefined;
+  if (envelope?.error) {
+    throw new Error(
+      `Kapa MCP error: ${envelope.error.message || "unknown error"}`,
+    );
+  }
+  const result = envelope?.result;
   if (!result?.content) return { sources: [] };
 
   // Kapa signals a tool-level failure (e.g. unknown tool name) with isError;
