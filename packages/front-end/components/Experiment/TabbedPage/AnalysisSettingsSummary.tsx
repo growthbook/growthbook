@@ -26,6 +26,8 @@ import {
 import {
   isNewerOverallResultsDataAvailable,
   getIncrementalFullRefreshReasons,
+  overallResultsBuiltWithoutIncrementalPipeline,
+  OVERALL_NON_INCREMENTAL_FULL_REFRESH_REASON,
   IncrementalFullRefreshComparable,
 } from "shared/enterprise";
 import { getSnapshotAnalysis } from "shared/util";
@@ -284,10 +286,7 @@ export default function AnalysisSettingsSummary({
     ],
   );
   const hasOverallResults = !!dimensionless && !dimensionless.dimension;
-  // Dimension Results are built on Overall Results only while incremental
-  // updates are actually active. When an unsupported reason forces a full
-  // rescan, the experiment behaves like non-incremental mode and breakdowns
-  // compute independently, so the Overall-first rules must not apply.
+  // Overall-first rules apply only while incremental updates are active.
   const dimensionResultsUseOverallResults = isIncremental && !!dimension;
 
   const fullRefreshReasons: string[] = useMemo(() => {
@@ -295,15 +294,13 @@ export default function AnalysisSettingsSummary({
     const phaseStart = experiment.phases?.[phase]?.dateStarted;
     const currentComparable: IncrementalFullRefreshComparable = {
       activationMetric: experiment.activationMetric ?? null,
-      attributionModel:
-        experiment.attributionModel ?? ("firstExposure" as const),
+      attributionModel: experiment.attributionModel ?? "firstExposure",
       queryFilter: experiment.queryFilter ?? "",
       segment: experiment.segment ?? "",
       skipPartialData: experiment.skipPartialData ?? false,
       datasourceId: experiment.datasource,
       exposureQueryId: experiment.exposureQueryId ?? "",
-      // Mirror isOutdated's effective-RA logic: commercial feature gates whether
-      // the setting is honored, so compare the effective value, not the raw flag.
+      // Match isOutdated's commercial-feature gate for regression adjustment.
       regressionAdjustmentEnabled: hasRegressionAdjustmentFeature
         ? !!experiment.regressionAdjustmentEnabled
         : false,
@@ -325,10 +322,20 @@ export default function AnalysisSettingsSummary({
       experimentId: dimensionless.settings.experimentId,
       startDate: dimensionless.settings.startDate,
     };
-    return getIncrementalFullRefreshReasons(
+    const reasons = getIncrementalFullRefreshReasons(
       currentComparable,
       baselineComparable,
     );
+    if (
+      overallResultsBuiltWithoutIncrementalPipeline({
+        unitsTableFullName: incrementalRefresh?.unitsTableFullName ?? null,
+        materializedBySnapshotId: incrementalRefresh?.materializedBySnapshotId,
+        latestOverallSnapshotId: dimensionless?.id ?? null,
+      })
+    ) {
+      reasons.push(OVERALL_NON_INCREMENTAL_FULL_REFRESH_REASON);
+    }
+    return reasons;
   }, [
     isIncremental,
     dimensionless,
@@ -336,6 +343,7 @@ export default function AnalysisSettingsSummary({
     experiment,
     phase,
     hasRegressionAdjustmentFeature,
+    incrementalRefresh,
   ]);
 
   const overallNeedsFullRefresh =
@@ -343,10 +351,6 @@ export default function AnalysisSettingsSummary({
   const overallNeverRanIncrementally =
     dimensionResultsUseOverallResults &&
     (!incrementalRefresh?.unitsTableFullName || !hasOverallResults);
-  // Precomputed dimensions (experiment dimensions and honored unit dimensions)
-  // are built alongside Overall Results and update together with them, so the
-  // user runs them via the same Update button (it resolves to an Overall Results
-  // update). Only on-demand dimensions must wait for Overall Results first.
   const dimensionIsPrecomputed = isDimensionPrecomputed(
     dimension,
     honoredPrecomputedUnitDimensionIds,
@@ -377,10 +381,6 @@ export default function AnalysisSettingsSummary({
     mutate,
     mutateAdditional: mutateExperiment,
     setRefreshError,
-    // Dimension-only updates from UpdateDimensionBreakdownModal post through this
-    // instance. Wire the blocker handler so a requires_full_refresh from the
-    // server (Overall Results settings drifted) opens MainSnapshotRefreshDialog
-    // instead of failing silently.
     onSnapshotRefreshBlocked: handleSnapshotRefreshBlocked,
   });
 
@@ -483,24 +483,14 @@ export default function AnalysisSettingsSummary({
       newerOverallResultsAvailable && !incrementalUpdatesUnavailable,
   });
 
-  // In Incremental Pipeline mode, dimension results are built on top of overall
-  // results (the dimensionless snapshot). When the user clicks 'Update' while
-  // viewing a dimension breakdown that already covers the latest overall results
-  // (no newer overall data available), re-running reads the same overall caches,
-  // so we confirm and point them at updating overall results to fetch newer data
-  // (including any newly added metrics). This only applies when incremental
-  // updates are available — under a full-rescan fallback there is no
-  // overall/dimension split to reconcile.
+  // If a dimension breakdown already covers the latest Overall Results, another
+  // dimension update would read the same caches. Point the user to Overall
+  // Results instead, where incremental updates can pull in newer data.
   const needsDimensionRefreshConfirm =
     !!sourceSnapshot &&
     !newerOverallResultsAvailable &&
     !incrementalUpdatesUnavailable;
 
-  // Single gate for the "Update" button. The two confirms are mutually exclusive
-  // by construction: the dimension modal only fires when incremental updates are
-  // available, and the fallback confirm only fires when they are not. Sequencing
-  // them in one gate keeps them from competing over the button's single
-  // customValidation slot.
   const confirmRefresh = useCallback(async (): Promise<boolean> => {
     if (needsDimensionRefreshConfirm) {
       setUpdateDimensionBreakdownModalOpen(true);

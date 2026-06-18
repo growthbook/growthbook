@@ -25,6 +25,7 @@ import { updateExperiment } from "back-end/src/models/ExperimentModel";
 import {
   createExperimentSnapshotModel,
   findSnapshotById,
+  getLatestSuccessfulSnapshot,
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
@@ -40,6 +41,7 @@ jest.mock("back-end/src/models/ExperimentModel", () => ({
 jest.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
   createExperimentSnapshotModel: jest.fn(),
   findSnapshotById: jest.fn(),
+  getLatestSuccessfulSnapshot: jest.fn(),
 }));
 
 jest.mock("back-end/src/models/DataSourceModel", () => ({
@@ -84,6 +86,10 @@ const createExperimentSnapshotModelMock =
 const findSnapshotByIdMock = findSnapshotById as jest.MockedFunction<
   typeof findSnapshotById
 >;
+const getLatestSuccessfulSnapshotMock =
+  getLatestSuccessfulSnapshot as jest.MockedFunction<
+    typeof getLatestSuccessfulSnapshot
+  >;
 const getDataSourceByIdMock = getDataSourceById as jest.MockedFunction<
   typeof getDataSourceById
 >;
@@ -738,6 +744,7 @@ describe("snapshot planning", () => {
     );
     expect(plan.snapshot.sourceSnapshotId).toBe(materializedBySnapshotId);
     expect(plan.snapshot.sourceSnapshotDateCreated).toBe(producerDateCreated);
+    expect(getLatestSuccessfulSnapshotMock).toHaveBeenCalled();
   });
 
   it("leaves exploratory provenance unset when materializedBySnapshotId is null", async () => {
@@ -773,6 +780,7 @@ describe("snapshot planning", () => {
 
     expect(plan.runnerKind).toBe("incremental-exploratory");
     expect(findSnapshotByIdMock).not.toHaveBeenCalled();
+    expect(getLatestSuccessfulSnapshotMock).not.toHaveBeenCalled();
     expect(plan.snapshot.sourceSnapshotId).toBeUndefined();
     expect(plan.snapshot.sourceSnapshotDateCreated).toBeUndefined();
   });

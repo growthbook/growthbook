@@ -18,11 +18,7 @@ import type {
 import type { ExperimentInterface } from "shared/types/experiment";
 import type { PipelineIntegration } from "shared/types/integrations";
 
-// Ordered list of ExperimentSnapshotSettings fields whose change forces a full
-// refresh under Incremental Pipeline mode. The order is load-bearing: it
-// determines JSON.stringify key order and therefore the md5 produced by
-// getExperimentSettingsHashForIncrementalRefresh.
-// Covered by a test that will need to be updated if this changes.
+// Keep this order stable: the settings hash depends on JSON.stringify key order.
 export const INCREMENTAL_FULL_REFRESH_SETTINGS_FIELDS = [
   "activationMetric",
   "attributionModel",
@@ -41,11 +37,7 @@ export type IncrementalFullRefreshComparable = Pick<
   (typeof INCREMENTAL_FULL_REFRESH_SETTINGS_FIELDS)[number]
 >;
 
-// Canonical value for one field in the frontend reason diff. This is only for
-// mapping changed settings to labels; backend hash enforcement remains the
-// source of truth for requiring a full refresh. Keep it aligned with
-// snapshotSettings construction so the UI does not show labels for
-// serialization-only differences.
+// Keep this aligned with snapshotSettings so UI labels match backend hash checks.
 export function normalizeIncrementalFullRefreshField(
   field: (typeof INCREMENTAL_FULL_REFRESH_SETTINGS_FIELDS)[number],
   settings: IncrementalFullRefreshComparable,
@@ -60,17 +52,6 @@ export function normalizeIncrementalFullRefreshField(
   return value ? value : null;
 }
 
-/**
- * Returns labels for user-facing fields in
- * INCREMENTAL_FULL_REFRESH_SETTINGS_FIELDS that differ between current and
- * baseline. datasourceId is labeled because moving data sources requires a full
- * refresh. experimentId stays unlabeled because comparing different experiments
- * is an invariant bug, not a product reason.
- *
- * Backend settings-hash enforcement remains the source of truth. This helper
- * compares normalized field values only to explain known full-refresh cases in
- * the UI.
- */
 export function getIncrementalFullRefreshReasons(
   current: IncrementalFullRefreshComparable,
   baseline: IncrementalFullRefreshComparable,
@@ -377,6 +358,26 @@ export function getExperimentSourceSnapshotRef(
     id: snapshot.sourceSnapshotId,
     dateCreated: getValidDate(snapshot.sourceSnapshotDateCreated),
   };
+}
+
+export const OVERALL_NON_INCREMENTAL_FULL_REFRESH_REASON =
+  "Overall Results were last updated without the Incremental Pipeline";
+
+// True when the latest Overall Results snapshot was not the incremental run
+// that built the current units table.
+export function overallResultsBuiltWithoutIncrementalPipeline({
+  unitsTableFullName,
+  materializedBySnapshotId,
+  latestOverallSnapshotId,
+}: {
+  unitsTableFullName: string | null;
+  materializedBySnapshotId: string | undefined;
+  latestOverallSnapshotId: string | null;
+}): boolean {
+  if (!unitsTableFullName) return false;
+  if (!materializedBySnapshotId) return false;
+  if (!latestOverallSnapshotId) return false;
+  return materializedBySnapshotId !== latestOverallSnapshotId;
 }
 
 export function isNewerOverallResultsDataAvailable(

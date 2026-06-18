@@ -7,6 +7,7 @@ import {
 import {
   getIncrementalPipelineUnsupportedReason,
   INCREMENTAL_FULL_REFRESH_SETTINGS_FIELDS,
+  overallResultsBuiltWithoutIncrementalPipeline,
 } from "shared/enterprise";
 import {
   AggregatedFactTableInterface,
@@ -472,22 +473,26 @@ export function getAggregatedFactTableRestateReason({
   return null;
 }
 
-// Whether a read-only exploratory (dimension) breakdown would read data built
-// under different experiment-level settings. A drifted experiment-settings hash
-// means the persisted units table was built with different settings, so the
-// breakdown is only valid after a full refresh of Overall Results rebuilds it.
-// Metric-level drift (a newly added metric not yet in the caches) does NOT
-// block: the exploratory runner reads the existing table and the breakdown
-// simply omits not-yet-cached metrics until Overall Results are updated.
+// True when a dimension breakdown would read a units table built under different
+// experiment-level settings.
 export function exploratoryOverallRequiresFullRefresh({
   snapshotSettings,
   incrementalRefreshModel,
+  latestOverallSnapshotId,
 }: {
   snapshotSettings: ExperimentSnapshotSettings;
   incrementalRefreshModel: IncrementalRefreshInterface;
+  latestOverallSnapshotId: string | null;
 }): boolean {
   const currentSettingsHash =
     getExperimentSettingsHashForIncrementalRefresh(snapshotSettings);
   const storedSettingsHash = incrementalRefreshModel.experimentSettingsHash;
-  return !storedSettingsHash || currentSettingsHash !== storedSettingsHash;
+  if (!storedSettingsHash || currentSettingsHash !== storedSettingsHash) {
+    return true;
+  }
+  return overallResultsBuiltWithoutIncrementalPipeline({
+    unitsTableFullName: incrementalRefreshModel.unitsTableFullName,
+    materializedBySnapshotId: incrementalRefreshModel.materializedBySnapshotId,
+    latestOverallSnapshotId,
+  });
 }

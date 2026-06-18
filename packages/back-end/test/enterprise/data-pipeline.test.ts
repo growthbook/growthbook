@@ -399,10 +399,8 @@ describe("getFactTablesNeedingRebuild", () => {
   });
 });
 
-// Golden test: changing the output of getExperimentSettingsHashForIncrementalRefresh
-// means every existing incremental experiment would get a spurious full refresh on
-// the next run. Any failure here requires intentional sign-off.
-describe("getExperimentSettingsHashForIncrementalRefresh — golden output", () => {
+// A hash change forces existing incremental experiments into full refresh.
+describe("getExperimentSettingsHashForIncrementalRefresh — output hash", () => {
   const GOLDEN_INPUT: ExperimentSnapshotSettings = {
     activationMetric: null,
     attributionModel: "firstExposure",
@@ -414,7 +412,6 @@ describe("getExperimentSettingsHashForIncrementalRefresh — golden output", () 
     startDate: new Date("2024-01-01T00:00:00.000Z"),
     regressionAdjustmentEnabled: false,
     experimentId: "exp_123",
-    // Non-hashed fields present in the real type
     dimensions: [],
     metricSettings: [],
     goalMetrics: [],
@@ -440,6 +437,7 @@ describe("exploratoryOverallRequiresFullRefresh", () => {
         incrementalRefreshModel: makeIncrementalRefreshModel({
           experimentSettingsHash: "stale_hash",
         }),
+        latestOverallSnapshotId: null,
       }),
     ).toBe(true);
   });
@@ -451,12 +449,11 @@ describe("exploratoryOverallRequiresFullRefresh", () => {
         incrementalRefreshModel: makeIncrementalRefreshModel({
           experimentSettingsHash: "",
         }),
+        latestOverallSnapshotId: null,
       }),
     ).toBe(true);
   });
 
-  // A metric missing from the caches no longer forces a full refresh — the
-  // exploratory runner reads the existing units table and omits it.
   it("returns false when the hash matches even though a metric is not cached", () => {
     const settingsWithMetric = makeSnapshotSettings({
       metricSettings: [{ id: "m1" }],
@@ -469,6 +466,52 @@ describe("exploratoryOverallRequiresFullRefresh", () => {
             getExperimentSettingsHashForIncrementalRefresh(settingsWithMetric),
           metricSources: [],
         }),
+        latestOverallSnapshotId: null,
+      }),
+    ).toBe(false);
+  });
+
+  it("returns true when hash matches but latest overall snapshot differs from materializer", () => {
+    const settings = makeSnapshotSettings({ metricSettings: [] });
+    expect(
+      exploratoryOverallRequiresFullRefresh({
+        snapshotSettings: settings,
+        incrementalRefreshModel: makeIncrementalRefreshModel({
+          experimentSettingsHash:
+            getExperimentSettingsHashForIncrementalRefresh(settings),
+          materializedBySnapshotId: "snp_old",
+        }),
+        latestOverallSnapshotId: "snp_new",
+      }),
+    ).toBe(true);
+  });
+
+  it("returns false when hash matches and latest overall snapshot equals materializer", () => {
+    const settings = makeSnapshotSettings({ metricSettings: [] });
+    expect(
+      exploratoryOverallRequiresFullRefresh({
+        snapshotSettings: settings,
+        incrementalRefreshModel: makeIncrementalRefreshModel({
+          experimentSettingsHash:
+            getExperimentSettingsHashForIncrementalRefresh(settings),
+          materializedBySnapshotId: "snp_old",
+        }),
+        latestOverallSnapshotId: "snp_old",
+      }),
+    ).toBe(false);
+  });
+
+  it("returns false when hash matches and no materializedBySnapshotId (legacy)", () => {
+    const settings = makeSnapshotSettings({ metricSettings: [] });
+    expect(
+      exploratoryOverallRequiresFullRefresh({
+        snapshotSettings: settings,
+        incrementalRefreshModel: makeIncrementalRefreshModel({
+          experimentSettingsHash:
+            getExperimentSettingsHashForIncrementalRefresh(settings),
+          materializedBySnapshotId: undefined,
+        }),
+        latestOverallSnapshotId: "snp_new",
       }),
     ).toBe(false);
   });

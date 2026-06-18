@@ -156,6 +156,7 @@ import {
   createExperimentSnapshotModel,
   findSnapshotById,
   getLatestSnapshotMultipleExperiments,
+  getLatestSuccessfulSnapshot,
   updateSnapshot,
   updateSnapshotAnalysis,
 } from "back-end/src/models/ExperimentSnapshotModel";
@@ -1272,12 +1273,8 @@ export function resolveSnapshotRunner({
   }
 
   if (snapshotType === "exploratory") {
-    // Exploratory snapshots reuse the incremental runner in read-only mode
-    // (fullRefresh is always false on exploratory snapshots). That only works if
-    // the warehouse units table has already been created by a prior standard
-    // snapshot — otherwise fall back to the non-pipeline runner. This holds for
-    // both dimension-less Overall reads and on-demand dimension breakdowns,
-    // which read the same units table.
+    // Exploratory snapshots can use the incremental runner only after Overall
+    // Results have materialized the units table.
     if (!hasMaterializedUnitsTable) {
       return {
         runnerKind: "results",
@@ -1446,6 +1443,7 @@ async function planSnapshotQueryRunner({
   metricMap,
   experiment,
   incrementalRefreshModel,
+  latestOverallSnapshotId,
   snapshotType,
   fullRefresh,
   fullRefreshReason,
@@ -1459,6 +1457,7 @@ async function planSnapshotQueryRunner({
   metricMap: Map<string, ExperimentMetricInterface>;
   experiment: ExperimentInterface;
   incrementalRefreshModel: IncrementalRefreshInterface | null;
+  latestOverallSnapshotId: string | null;
   snapshotType: SnapshotType;
   fullRefresh: boolean;
   fullRefreshReason: string | null;
@@ -1482,18 +1481,15 @@ async function planSnapshotQueryRunner({
     return { ...decision, fullRefresh, fullRefreshReason };
   }
 
-  // A dimension breakdown reads the Overall Results' units table. If that table
-  // was built under different experiment settings (drifted hash), reading it
-  // would be wrong, so Overall Results need a full refresh first. Metric-level
-  // drift (a newly added metric not yet in the caches) does NOT block: the
-  // exploratory runner reads the table as-is and the breakdown omits the
-  // not-yet-cached metric until Overall Results are updated.
+  // Dimension breakdowns read the Overall Results units table. If experiment
+  // settings drifted, Overall Results must rebuild that table first.
   if (
     decision.runnerKind === "incremental-exploratory" &&
     incrementalRefreshModel &&
     exploratoryOverallRequiresFullRefresh({
       snapshotSettings,
       incrementalRefreshModel,
+      latestOverallSnapshotId,
     })
   ) {
     if (throwOnErrorInsteadOfFallback) {
@@ -1559,13 +1555,10 @@ function shouldIncrementalThrowErrorInsteadOfFallback(
   useCache: boolean,
   triggeredBy: SnapshotTriggeredBy,
 ): boolean {
-  // No fallback for full refresh or non-incremental updates
   if (!useCache) {
     return false;
   }
 
-  // Only throw when it was because of a manual action so the user
-  // can recover
   switch (triggeredBy) {
     case "manual":
       return true;
@@ -1702,6 +1695,19 @@ export async function planSnapshot({
   };
   const integration = getSourceIntegrationObject(context, datasource, true);
 
+  let latestOverallSnapshotId: string | null = null;
+  if (
+    type === "exploratory" &&
+    incrementalRefreshModel?.materializedBySnapshotId
+  ) {
+    const latestOverallSnapshot = await getLatestSuccessfulSnapshot({
+      context,
+      experiment: experiment.id,
+      phase: phaseIndex,
+    });
+    latestOverallSnapshotId = latestOverallSnapshot?.id ?? null;
+  }
+
   const runnerPlan = await planSnapshotQueryRunner({
     organization,
     datasource,
@@ -1710,6 +1716,7 @@ export async function planSnapshot({
     metricMap,
     experiment,
     incrementalRefreshModel,
+    latestOverallSnapshotId,
     snapshotType: type,
     fullRefresh,
     fullRefreshReason,

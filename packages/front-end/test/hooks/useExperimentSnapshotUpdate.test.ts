@@ -349,8 +349,6 @@ describe("useExperimentSnapshotUpdate", () => {
       message: "requires full refresh",
     });
     const onSnapshotRefreshBlocked = vi.fn();
-    // A non-empty dimension routes through the hand-off path rather than the
-    // inline full-refresh confirm.
     const { result } = render({
       dimension: "country",
       onSnapshotRefreshBlocked,

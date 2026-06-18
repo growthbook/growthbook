@@ -4,6 +4,7 @@ import {
   getIncrementalPipelineUnsupportedReason,
   isExperimentIncrementalEnabled,
   isNewerOverallResultsDataAvailable,
+  overallResultsBuiltWithoutIncrementalPipeline,
 } from "shared/enterprise";
 import type { IncrementalFullRefreshComparable } from "shared/enterprise";
 import type { ExperimentMetricInterface } from "shared/experiments";
@@ -664,8 +665,6 @@ describe("getIncrementalFullRefreshReasons", () => {
     ]);
   });
 
-  // --- falsy-value equivalence (isDifferent semantics) ---
-
   it("treats undefined vs null as equal for a string field", () => {
     expect(
       getIncrementalFullRefreshReasons(
@@ -693,8 +692,6 @@ describe("getIncrementalFullRefreshReasons", () => {
     ).toEqual([]);
   });
 
-  // --- attributionModel defaults ---
-
   it("treats undefined vs 'firstExposure' for attributionModel as equal", () => {
     expect(
       getIncrementalFullRefreshReasons(
@@ -721,8 +718,6 @@ describe("getIncrementalFullRefreshReasons", () => {
       ),
     ).toEqual(["Attribution model changed"]);
   });
-
-  // --- startDate: Date vs ISO string ---
 
   it("treats startDate Date and ISO string for the same moment as equal", () => {
     expect(
@@ -755,8 +750,6 @@ describe("getIncrementalFullRefreshReasons", () => {
     ).toEqual([]);
   });
 
-  // --- non-date string fields are still compared as strings ---
-
   it("flags queryFilter 'a' vs 'b' as changed", () => {
     expect(
       getIncrementalFullRefreshReasons(
@@ -773,5 +766,57 @@ describe("getIncrementalFullRefreshReasons", () => {
         makeComparable({ queryFilter: "a" }),
       ),
     ).toEqual([]);
+  });
+});
+
+describe("overallResultsBuiltWithoutIncrementalPipeline", () => {
+  it("returns true when the latest overall snapshot differs from the materializer", () => {
+    expect(
+      overallResultsBuiltWithoutIncrementalPipeline({
+        unitsTableFullName: "proj.ds.gb_units_exp_1",
+        materializedBySnapshotId: "snp_old",
+        latestOverallSnapshotId: "snp_new",
+      }),
+    ).toBe(true);
+  });
+
+  it("returns false when the latest overall snapshot built the units table", () => {
+    expect(
+      overallResultsBuiltWithoutIncrementalPipeline({
+        unitsTableFullName: "proj.ds.gb_units_exp_1",
+        materializedBySnapshotId: "snp_1",
+        latestOverallSnapshotId: "snp_1",
+      }),
+    ).toBe(false);
+  });
+
+  it("returns false when there is no units table", () => {
+    expect(
+      overallResultsBuiltWithoutIncrementalPipeline({
+        unitsTableFullName: null,
+        materializedBySnapshotId: "snp_old",
+        latestOverallSnapshotId: "snp_new",
+      }),
+    ).toBe(false);
+  });
+
+  it("returns false when materializedBySnapshotId is absent (legacy)", () => {
+    expect(
+      overallResultsBuiltWithoutIncrementalPipeline({
+        unitsTableFullName: "proj.ds.gb_units_exp_1",
+        materializedBySnapshotId: undefined,
+        latestOverallSnapshotId: "snp_new",
+      }),
+    ).toBe(false);
+  });
+
+  it("returns false when there is no latest overall snapshot id", () => {
+    expect(
+      overallResultsBuiltWithoutIncrementalPipeline({
+        unitsTableFullName: "proj.ds.gb_units_exp_1",
+        materializedBySnapshotId: "snp_old",
+        latestOverallSnapshotId: null,
+      }),
+    ).toBe(false);
   });
 });

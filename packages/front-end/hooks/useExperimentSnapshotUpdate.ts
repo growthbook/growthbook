@@ -23,9 +23,6 @@ type SubmitUpdateOptions = {
   fullRefreshReasons?: string[];
 };
 
-// A successful post (a refresh started) and a soft failure (error surfaced, no
-// refresh) are distinct outcomes so callers can avoid acting on a refresh that
-// never began.
 type PostSnapshotResult =
   | { status: "success" }
   | { status: "needs-full-refresh"; reason: string }
@@ -72,22 +69,25 @@ function toSnapshotStatusSummary(
 }
 
 function apiErrorToSnapshotRefreshBlocker(
-  err: { code?: string; details?: unknown } | null,
+  err: unknown,
 ): SnapshotRefreshBlocker | null {
+  if (!err || typeof err !== "object" || !("code" in err)) {
+    return null;
+  }
+  if (err.code !== "requires_full_refresh" || !("details" in err)) {
+    return null;
+  }
+  const details = err.details;
   if (
-    !err?.details ||
-    typeof err.details !== "object" ||
-    !("reason" in err.details) ||
-    typeof err.details.reason !== "string"
+    !details ||
+    typeof details !== "object" ||
+    !("reason" in details) ||
+    typeof details.reason !== "string"
   ) {
     return null;
   }
 
-  if (err?.code === "requires_full_refresh") {
-    return { kind: "requires-full-refresh", reason: err.details.reason };
-  }
-
-  return null;
+  return { kind: "requires-full-refresh", reason: details.reason };
 }
 
 function getSnapshotDimensionForPostRequest({
@@ -176,9 +176,7 @@ export function useExperimentSnapshotUpdate({
     fullRefreshResolveRef.current = null;
   }, []);
 
-  // Low-level primitive: POST a snapshot for an explicit dimension. Reports
-  // whether the post started a refresh, needs a dimensionless full-refresh
-  // confirmation, or soft-failed with an error already surfaced.
+  // POST once and normalize structured full-refresh errors for callers.
   const postSnapshot = useCallback(
     async (
       dimensionToRun: string,
@@ -190,7 +188,7 @@ export function useExperimentSnapshotUpdate({
       setLongResult(false);
       setRefreshError("");
       const timer = setTimeout(() => setLongResult(true), 5000);
-      let apiError: { code?: string; details?: unknown } | null = null;
+      let apiError: unknown = null;
       try {
         const datasource = experiment.datasource
           ? (getDatasourceById(experiment.datasource) ?? undefined)
@@ -205,7 +203,7 @@ export function useExperimentSnapshotUpdate({
             body: JSON.stringify({ phase, dimension: dimensionToRun }),
           },
           (errBody) => {
-            apiError = errBody as { code?: string; details?: unknown };
+            apiError = errBody;
           },
         );
         const trackingSource =
@@ -235,8 +233,6 @@ export function useExperimentSnapshotUpdate({
       } catch (e) {
         const blocker = apiErrorToSnapshotRefreshBlocker(apiError);
         if (blocker) {
-          // A dimensionless ("") refresh prompts inline for a full refresh and
-          // retries forced; a dimension refresh hands the blocker to the caller.
           if (dimensionToRun === "") {
             if (force) {
               setRefreshError(blocker.reason);
@@ -272,12 +268,7 @@ export function useExperimentSnapshotUpdate({
     ],
   );
 
-  // Callers that already know the dimension to run (force re-run, "go to
-  // overall results", dimension-only breakdown) use this directly. `submitUpdate`
-  // resolves the dimension from props and gates on `customValidation` first. An
-  // outdated incremental cache prompts for a full refresh, then re-posts forced.
-  // Returns true only when a post actually started a refresh, so callers can
-  // skip post-refresh side effects when the user cancels or the post fails.
+  // Returns true only when a snapshot refresh starts.
   const runSnapshot = useCallback(
     async (
       dimensionToRun: string,

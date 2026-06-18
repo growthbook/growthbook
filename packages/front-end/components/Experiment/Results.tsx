@@ -215,10 +215,7 @@ const Results: FC<{
   const datasource = experiment.datasource
     ? getDatasourceById(experiment.datasource)
     : null;
-  // Mirror ResultMoreMenu's runsIncrementalRefresh: incremental is active only
-  // when the experiment is in scope and has no unsupported reason. An
-  // unsupported reason falls back to a full rescan, so a dimension breakdown no
-  // longer depends on Overall Results.
+  // Keep this in sync with ResultMoreMenu's incremental refresh check.
   const isIncrementalActive =
     getIsExperimentIncludedInIncrementalRefresh(
       datasource ?? undefined,
