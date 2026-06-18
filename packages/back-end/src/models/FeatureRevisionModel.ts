@@ -1870,18 +1870,22 @@ export async function submitReviewAndComments(
   // change to the rebase guard (expectedDraftDateUpdated) and "last modified" UI.
 
   // A changes-requested verdict cancels any pending schedule so it can't fire on
-  // a stale approval.
-  if (
-    verdict === "changes-requested" &&
-    (revision.scheduledPublishAt ?? null) !== null
-  ) {
-    await FeatureRevisionModel.updateOne(filter, {
-      $set: { autoPublishOnApproval: false, dateUpdated: new Date() },
-      $unset: { ...SCHEDULED_PUBLISH_UNSET, autoPublishEnabledBy: 1 },
-    });
-    logScheduledPublishChange(context, revision, {
-      action: "cancel scheduled publish",
-    });
+  // a stale approval. Gate the clear on the schedule still being set so concurrent
+  // changes-requested verdicts don't each log a duplicate cancellation — only the
+  // writer that actually clears it (modifiedCount > 0) logs.
+  if (verdict === "changes-requested") {
+    const res = await FeatureRevisionModel.updateOne(
+      { ...filter, scheduledPublishAt: { $exists: true, $ne: null } },
+      {
+        $set: { autoPublishOnApproval: false, dateUpdated: new Date() },
+        $unset: { ...SCHEDULED_PUBLISH_UNSET, autoPublishEnabledBy: 1 },
+      },
+    );
+    if (res.modifiedCount > 0) {
+      logScheduledPublishChange(context, revision, {
+        action: "cancel scheduled publish",
+      });
+    }
   }
 
   // Fire and forget - no route that submits the review and comments expects the log to be there immediately

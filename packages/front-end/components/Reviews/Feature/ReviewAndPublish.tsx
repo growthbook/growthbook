@@ -1818,8 +1818,8 @@ export default function ReviewAndPublish({
     date: string,
     lockEdits: boolean,
     lockOthers: boolean,
-  ) => {
-    if (!date || !revision) return;
+  ): Promise<boolean> => {
+    if (!date || !revision) return false;
     setScheduleError(null);
     setSavingSchedule(true);
     try {
@@ -1835,8 +1835,10 @@ export default function ReviewAndPublish({
         },
       );
       await mutate();
+      return true;
     } catch (e) {
       setScheduleError(e.message || "Could not schedule publish");
+      return false;
     } finally {
       setSavingSchedule(false);
     }
@@ -1910,12 +1912,18 @@ export default function ReviewAndPublish({
     } else {
       setPublishMode("date");
       setAutoPublishArmed(true);
+      // Revert the optimistic check if the immediate save fails, so the box
+      // doesn't read as armed when nothing was persisted.
       if (scheduleDate && schedulePersistsImmediately) {
-        await persistSchedule(
+        const ok = await persistSchedule(
           scheduleDate,
           scheduleLockEdits,
           scheduleLockOthers,
         );
+        if (!ok) {
+          setAutoPublishArmed(false);
+          setEditingSchedule(false);
+        }
       }
     }
   };
@@ -2162,6 +2170,50 @@ export default function ReviewAndPublish({
       Are you sure you want to discard this draft? This action cannot be undone.
     </ModalStandard>
   ) : null;
+
+  // Hoisted out of the footer render so the read-only schedule card (shown to
+  // reviewers/non-managers) can tell whether the arming control will already
+  // render it below the rebase/divergence notice — and avoid showing it twice.
+  // Step actions precede publish (Request Review / Submit Review / Next).
+  const isStepAction =
+    state.hasSubmit &&
+    state.submitAction !== "publish" &&
+    state.submitAction !== "none" &&
+    state.submitAction !== "next-experiments";
+  const continueToPublish =
+    state.submitAction === "next-experiments" && !experimentsStep;
+
+  // What's blocking publish (ignoring adminPublish so it stays visible while the
+  // checkbox is unchecked). `overridable` gates the admin-bypass checkbox.
+  type BlockInfo = { overridable: boolean } | null;
+  const blockInfo: BlockInfo = (() => {
+    if (!mergeResult.success) return { overridable: false };
+    if (!hasChanges) return { overridable: false };
+    if (!hasPublishPermission) return { overridable: false };
+    if (
+      requireReviews &&
+      !adminPublish &&
+      ["draft", "pending-review", "changes-requested"].includes(revision.status)
+    )
+      return { overridable: true };
+    if (!adminPublish && !governance?.canPublish) return { overridable: true };
+    if (!adminPublish && featureLockedByRamp) return { overridable: true };
+    if (!adminPublish && featureLockedBySchedule) return { overridable: true };
+    return null;
+  })();
+
+  // Publish section (divider, admin-bypass, Publish button) is hidden for
+  // not-yet-approved drafts unless an admin can bypass.
+  const adminCanBypassNow =
+    canAdminPublish &&
+    mergeResult.success &&
+    (blockInfo?.overridable || adminPublish);
+  const showPublishSection =
+    state.submitAction === "publish" || continueToPublish || adminCanBypassNow;
+  // The arming control (and thus a dated schedule card) renders in either the
+  // step block or the publish section. When neither shows, the read-only card
+  // falls back to the summary block above.
+  const armingRendersBelow = isStepAction || showPublishSection;
 
   // Hard merge conflicts no longer short-circuit the page: keep the
   // two-column layout so reviewers can still see draft-vs-live changes
@@ -2459,12 +2511,14 @@ export default function ReviewAndPublish({
           renderExperimentSelection()}
 
         <Box mt="6">
-          {/* Read-only arming summary for reviewers / non-managers. A started
-              schedule on an approved revision can still be canceled by any
-              publisher. */}
+          {/* Read-only arming summary for reviewers / non-managers. The dated
+              schedule card renders with the arming control below the rebase
+              notice when a publish/step section exists; here it's only a
+              fallback for when neither section is shown (e.g. pending review). */}
           {showAutoPublishReadonly &&
             revision &&
             (scheduledPending ? (
+              !armingRendersBelow &&
               renderScheduleCard({
                 onCancel: canCancelStartedSchedule
                   ? doClearSchedule
@@ -2527,45 +2581,7 @@ export default function ReviewAndPublish({
           )}
 
           {(() => {
-            // Step actions that come before publish (Request Review, Submit
-            // Review, Next). Not gated on conflict state — requesting a review
-            // is allowed while conflicts exist; only publishing is blocked.
-            const isStepAction =
-              state.hasSubmit &&
-              state.submitAction !== "publish" &&
-              state.submitAction !== "none" &&
-              // Pre-launch checklist uses the publish footer CTA instead.
-              state.submitAction !== "next-experiments";
-
-            const continueToPublish =
-              state.submitAction === "next-experiments" && !experimentsStep;
-
             const continueLabel = "Continue to Publish →";
-
-            // What's blocking publish (ignoring adminPublish so it stays visible
-            // while the checkbox is unchecked). `overridable` gates the
-            // admin-bypass checkbox.
-            type BlockInfo = { overridable: boolean } | null;
-            const blockInfo: BlockInfo = (() => {
-              if (!mergeResult.success) return { overridable: false };
-              if (!hasChanges) return { overridable: false };
-              if (!hasPublishPermission) return { overridable: false };
-              if (
-                requireReviews &&
-                !adminPublish &&
-                ["draft", "pending-review", "changes-requested"].includes(
-                  revision.status,
-                )
-              )
-                return { overridable: true };
-              if (!adminPublish && !governance?.canPublish)
-                return { overridable: true };
-              if (!adminPublish && featureLockedByRamp)
-                return { overridable: true };
-              if (!adminPublish && featureLockedBySchedule)
-                return { overridable: true };
-              return null;
-            })();
 
             // A pending schedule must be canceled before a manual publish (one
             // explicit path back to "approved"). Admin bypass overrides this.
@@ -2593,18 +2609,6 @@ export default function ReviewAndPublish({
                 : onlyScheduledSelected
                   ? "Schedule to Start"
                   : "Publish";
-
-            // Hide the publish section (divider, admin-bypass checkbox, Publish
-            // button) for not-yet-approved drafts — unless an admin can bypass
-            // checks. There, Request Review is the only relevant action.
-            const adminCanBypassNow =
-              canAdminPublish &&
-              mergeResult.success &&
-              (blockInfo?.overridable || adminPublish);
-            const showPublishSection =
-              state.submitAction === "publish" ||
-              continueToPublish ||
-              adminCanBypassNow;
 
             {
               /* Unified auto-publish arming: one checkbox + a mode selector
@@ -2710,6 +2714,15 @@ export default function ReviewAndPublish({
               renderScheduleCard({
                 onChange: () => setEditingSchedule(true),
                 onCancel: () => doSetAutoPublishArmed(false),
+              })
+            ) : showAutoPublishReadonly && revision && scheduledPending ? (
+              // Reviewers / non-managers: read-only card in the same spot as the
+              // owner's (below the rebase notice), cancelable only on a started
+              // schedule by anyone with publish authority.
+              renderScheduleCard({
+                onCancel: canCancelStartedSchedule
+                  ? doClearSchedule
+                  : undefined,
               })
             ) : null;
 
