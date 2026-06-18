@@ -131,6 +131,7 @@ export const bigQueryDialect: SqlDialect = {
   escapeStringLiteral: bigQueryEscapeStringLiteral,
   castUserDateCol: (column: string) => `CAST(${column} as DATETIME)`,
   hasCountDistinctHLL: () => true,
+  intHash: (col: string) => `ABS(FARM_FINGERPRINT(${col}))`,
   hllAggregate: (col: string) => `HLL_COUNT.INIT(${col})`,
   hllReaggregate: (col: string) => `HLL_COUNT.MERGE_PARTIAL(${col})`,
   hllCardinality: (col: string) => `HLL_COUNT.EXTRACT(${col})`,

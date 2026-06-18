@@ -124,4 +124,9 @@ export interface SqlDialect {
     pairs: UnpivotLabeledPair[],
   ) => UnpivotLabeledPairsResult;
   stringLength: (column: string) => string;
+  // Non-negative integer hash of a string column. Optional; dialects that omit
+  // it skip the salted two-level pre-aggregation in the aggregated-fact-table
+  // INSERT path (which is a no-op for engines that already repartition between
+  // a join and the downstream GROUP BY).
+  intHash?: (column: string) => string;
 }
