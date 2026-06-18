@@ -3046,7 +3046,13 @@ Triggered when a new draft revision is created for a saved group
             title?: string | undefined;
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
             authorId: string;
-            authorEmail?: string | undefined;
+            /** The user (or automated actor) responsible for an action */
+            createdBy?: {
+                type: "dashboard" | "api_key" | "system";
+                id?: string | undefined;
+                name?: string | undefined;
+                email?: string | undefined;
+            } | undefined;
             contributors?: string[] | undefined;
             revertedFrom?: string | undefined;
             reviews: {
@@ -3065,6 +3071,13 @@ Triggered when a new draft revision is created for a saved group
             resolution?: {
                 action: "merged" | "discarded";
                 userId: string;
+                /** The user (or automated actor) responsible for an action */
+                user?: {
+                    type: "dashboard" | "api_key" | "system";
+                    id?: string | undefined;
+                    name?: string | undefined;
+                    email?: string | undefined;
+                } | undefined;
                 dateCreated: string;
             } | undefined;
             dateCreated: string;
@@ -3160,7 +3173,13 @@ Triggered when a draft revision's proposed changes are modified (values, conditi
             title?: string | undefined;
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
             authorId: string;
-            authorEmail?: string | undefined;
+            /** The user (or automated actor) responsible for an action */
+            createdBy?: {
+                type: "dashboard" | "api_key" | "system";
+                id?: string | undefined;
+                name?: string | undefined;
+                email?: string | undefined;
+            } | undefined;
             contributors?: string[] | undefined;
             revertedFrom?: string | undefined;
             reviews: {
@@ -3179,6 +3198,13 @@ Triggered when a draft revision's proposed changes are modified (values, conditi
             resolution?: {
                 action: "merged" | "discarded";
                 userId: string;
+                /** The user (or automated actor) responsible for an action */
+                user?: {
+                    type: "dashboard" | "api_key" | "system";
+                    id?: string | undefined;
+                    name?: string | undefined;
+                    email?: string | undefined;
+                } | undefined;
                 dateCreated: string;
             } | undefined;
             dateCreated: string;
@@ -3275,7 +3301,13 @@ Triggered when a draft revision is submitted for review
             title?: string | undefined;
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
             authorId: string;
-            authorEmail?: string | undefined;
+            /** The user (or automated actor) responsible for an action */
+            createdBy?: {
+                type: "dashboard" | "api_key" | "system";
+                id?: string | undefined;
+                name?: string | undefined;
+                email?: string | undefined;
+            } | undefined;
             contributors?: string[] | undefined;
             revertedFrom?: string | undefined;
             reviews: {
@@ -3294,6 +3326,13 @@ Triggered when a draft revision is submitted for review
             resolution?: {
                 action: "merged" | "discarded";
                 userId: string;
+                /** The user (or automated actor) responsible for an action */
+                user?: {
+                    type: "dashboard" | "api_key" | "system";
+                    id?: string | undefined;
+                    name?: string | undefined;
+                    email?: string | undefined;
+                } | undefined;
                 dateCreated: string;
             } | undefined;
             dateCreated: string;
@@ -3389,7 +3428,13 @@ Triggered when a draft revision is approved by a reviewer
             title?: string | undefined;
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
             authorId: string;
-            authorEmail?: string | undefined;
+            /** The user (or automated actor) responsible for an action */
+            createdBy?: {
+                type: "dashboard" | "api_key" | "system";
+                id?: string | undefined;
+                name?: string | undefined;
+                email?: string | undefined;
+            } | undefined;
             contributors?: string[] | undefined;
             revertedFrom?: string | undefined;
             reviews: {
@@ -3408,6 +3453,13 @@ Triggered when a draft revision is approved by a reviewer
             resolution?: {
                 action: "merged" | "discarded";
                 userId: string;
+                /** The user (or automated actor) responsible for an action */
+                user?: {
+                    type: "dashboard" | "api_key" | "system";
+                    id?: string | undefined;
+                    name?: string | undefined;
+                    email?: string | undefined;
+                } | undefined;
                 dateCreated: string;
             } | undefined;
             dateCreated: string;
@@ -3509,7 +3561,13 @@ Triggered when a reviewer requests changes on a draft revision
             title?: string | undefined;
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
             authorId: string;
-            authorEmail?: string | undefined;
+            /** The user (or automated actor) responsible for an action */
+            createdBy?: {
+                type: "dashboard" | "api_key" | "system";
+                id?: string | undefined;
+                name?: string | undefined;
+                email?: string | undefined;
+            } | undefined;
             contributors?: string[] | undefined;
             revertedFrom?: string | undefined;
             reviews: {
@@ -3528,6 +3586,13 @@ Triggered when a reviewer requests changes on a draft revision
             resolution?: {
                 action: "merged" | "discarded";
                 userId: string;
+                /** The user (or automated actor) responsible for an action */
+                user?: {
+                    type: "dashboard" | "api_key" | "system";
+                    id?: string | undefined;
+                    name?: string | undefined;
+                    email?: string | undefined;
+                } | undefined;
                 dateCreated: string;
             } | undefined;
             dateCreated: string;
@@ -3629,7 +3694,13 @@ Triggered when a comment is added to a draft revision
             title?: string | undefined;
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
             authorId: string;
-            authorEmail?: string | undefined;
+            /** The user (or automated actor) responsible for an action */
+            createdBy?: {
+                type: "dashboard" | "api_key" | "system";
+                id?: string | undefined;
+                name?: string | undefined;
+                email?: string | undefined;
+            } | undefined;
             contributors?: string[] | undefined;
             revertedFrom?: string | undefined;
             reviews: {
@@ -3648,6 +3719,13 @@ Triggered when a comment is added to a draft revision
             resolution?: {
                 action: "merged" | "discarded";
                 userId: string;
+                /** The user (or automated actor) responsible for an action */
+                user?: {
+                    type: "dashboard" | "api_key" | "system";
+                    id?: string | undefined;
+                    name?: string | undefined;
+                    email?: string | undefined;
+                } | undefined;
                 dateCreated: string;
             } | undefined;
             dateCreated: string;
@@ -3749,7 +3827,13 @@ Triggered when a draft revision is discarded
             title?: string | undefined;
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
             authorId: string;
-            authorEmail?: string | undefined;
+            /** The user (or automated actor) responsible for an action */
+            createdBy?: {
+                type: "dashboard" | "api_key" | "system";
+                id?: string | undefined;
+                name?: string | undefined;
+                email?: string | undefined;
+            } | undefined;
             contributors?: string[] | undefined;
             revertedFrom?: string | undefined;
             reviews: {
@@ -3768,6 +3852,13 @@ Triggered when a draft revision is discarded
             resolution?: {
                 action: "merged" | "discarded";
                 userId: string;
+                /** The user (or automated actor) responsible for an action */
+                user?: {
+                    type: "dashboard" | "api_key" | "system";
+                    id?: string | undefined;
+                    name?: string | undefined;
+                    email?: string | undefined;
+                } | undefined;
                 dateCreated: string;
             } | undefined;
             dateCreated: string;
@@ -3863,7 +3954,13 @@ Triggered when a draft revision is rebased onto the latest live state
             title?: string | undefined;
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
             authorId: string;
-            authorEmail?: string | undefined;
+            /** The user (or automated actor) responsible for an action */
+            createdBy?: {
+                type: "dashboard" | "api_key" | "system";
+                id?: string | undefined;
+                name?: string | undefined;
+                email?: string | undefined;
+            } | undefined;
             contributors?: string[] | undefined;
             revertedFrom?: string | undefined;
             reviews: {
@@ -3882,6 +3979,13 @@ Triggered when a draft revision is rebased onto the latest live state
             resolution?: {
                 action: "merged" | "discarded";
                 userId: string;
+                /** The user (or automated actor) responsible for an action */
+                user?: {
+                    type: "dashboard" | "api_key" | "system";
+                    id?: string | undefined;
+                    name?: string | undefined;
+                    email?: string | undefined;
+                } | undefined;
                 dateCreated: string;
             } | undefined;
             dateCreated: string;
@@ -3977,7 +4081,13 @@ Triggered when a draft revision is published. Overlaps with `savedGroup.updated`
             title?: string | undefined;
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
             authorId: string;
-            authorEmail?: string | undefined;
+            /** The user (or automated actor) responsible for an action */
+            createdBy?: {
+                type: "dashboard" | "api_key" | "system";
+                id?: string | undefined;
+                name?: string | undefined;
+                email?: string | undefined;
+            } | undefined;
             contributors?: string[] | undefined;
             revertedFrom?: string | undefined;
             reviews: {
@@ -3996,6 +4106,13 @@ Triggered when a draft revision is published. Overlaps with `savedGroup.updated`
             resolution?: {
                 action: "merged" | "discarded";
                 userId: string;
+                /** The user (or automated actor) responsible for an action */
+                user?: {
+                    type: "dashboard" | "api_key" | "system";
+                    id?: string | undefined;
+                    name?: string | undefined;
+                    email?: string | undefined;
+                } | undefined;
                 dateCreated: string;
             } | undefined;
             dateCreated: string;
@@ -4091,7 +4208,13 @@ Triggered when a saved group is reverted to a previous published revision
             title?: string | undefined;
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
             authorId: string;
-            authorEmail?: string | undefined;
+            /** The user (or automated actor) responsible for an action */
+            createdBy?: {
+                type: "dashboard" | "api_key" | "system";
+                id?: string | undefined;
+                name?: string | undefined;
+                email?: string | undefined;
+            } | undefined;
             contributors?: string[] | undefined;
             revertedFrom?: string | undefined;
             reviews: {
@@ -4110,6 +4233,13 @@ Triggered when a saved group is reverted to a previous published revision
             resolution?: {
                 action: "merged" | "discarded";
                 userId: string;
+                /** The user (or automated actor) responsible for an action */
+                user?: {
+                    type: "dashboard" | "api_key" | "system";
+                    id?: string | undefined;
+                    name?: string | undefined;
+                    email?: string | undefined;
+                } | undefined;
                 dateCreated: string;
             } | undefined;
             dateCreated: string;
@@ -4206,7 +4336,13 @@ Triggered when a discarded revision is reopened
             title?: string | undefined;
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
             authorId: string;
-            authorEmail?: string | undefined;
+            /** The user (or automated actor) responsible for an action */
+            createdBy?: {
+                type: "dashboard" | "api_key" | "system";
+                id?: string | undefined;
+                name?: string | undefined;
+                email?: string | undefined;
+            } | undefined;
             contributors?: string[] | undefined;
             revertedFrom?: string | undefined;
             reviews: {
@@ -4225,6 +4361,13 @@ Triggered when a discarded revision is reopened
             resolution?: {
                 action: "merged" | "discarded";
                 userId: string;
+                /** The user (or automated actor) responsible for an action */
+                user?: {
+                    type: "dashboard" | "api_key" | "system";
+                    id?: string | undefined;
+                    name?: string | undefined;
+                    email?: string | undefined;
+                } | undefined;
                 dateCreated: string;
             } | undefined;
             dateCreated: string;
