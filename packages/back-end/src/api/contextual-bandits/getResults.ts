@@ -10,7 +10,7 @@ export const getContextualBanditResults = createApiRequestHandler(
     req.context,
     req.params.id,
   );
-  const { contextualBanditSnapshot, latestSnapshotSummary } =
+  const { contextualBanditSnapshot, latestSnapshotSummary, srm } =
     await getContextualBanditResultsForUi(req.context, contextualBandit);
   return {
     contextualBanditSnapshot: contextualBanditSnapshot
@@ -18,6 +18,7 @@ export const getContextualBanditResults = createApiRequestHandler(
           attributes: contextualBanditSnapshot.attributes,
           responses: contextualBanditSnapshot.responses,
           leaf_map: contextualBanditSnapshot.leaf_map,
+          leaf_stats: contextualBanditSnapshot.leaf_stats,
         }
       : null,
     latest: latestSnapshotSummary
@@ -33,6 +34,13 @@ export const getContextualBanditResults = createApiRequestHandler(
           multipleExposures: latestSnapshotSummary.multipleExposures,
           type: latestSnapshotSummary.type ?? "standard",
           triggeredBy: latestSnapshotSummary.triggeredBy ?? "manual",
+          srm: srm
+            ? {
+                statistic: srm.statistic,
+                pValue: srm.pValue,
+                degreesOfFreedom: srm.degreesOfFreedom,
+              }
+            : null,
         }
       : null,
   };

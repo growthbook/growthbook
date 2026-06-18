@@ -12958,9 +12958,11 @@ paths:
       operationId: getContextualBanditResults
       summary: Get latest Contextual Bandit results
       description: >-
-        Returns the latest contextual-bandit stats engine output and the status
-        of the most recent snapshot run for the contextual bandit. Same payload
-        the GrowthBook UI uses to render the contextual bandit results table.
+        Returns the latest contextual-bandit stats engine output (per-context
+        responses, the context-to-leaf map, and per-leaf aggregated stats), the
+        SRM of the most recent run, and the status of the most recent snapshot
+        run for the contextual bandit. Same payload the GrowthBook UI uses to
+        render the contextual bandit results table.
       tags:
         - contextual-bandits
       parameters:
@@ -12990,6 +12992,9 @@ paths:
                             type: array
                             items: {}
                           leaf_map:
+                            type: array
+                            items: {}
+                          leaf_stats:
                             type: array
                             items: {}
                         required:
@@ -13026,6 +13031,23 @@ paths:
                             type: string
                           triggeredBy:
                             type: string
+                          srm:
+                            anyOf:
+                              - type: object
+                                properties:
+                                  statistic:
+                                    type: number
+                                  pValue:
+                                    type: number
+                                  degreesOfFreedom:
+                                    type: integer
+                                    minimum: 0
+                                required:
+                                  - statistic
+                                  - pValue
+                                  - degreesOfFreedom
+                                additionalProperties: false
+                              - type: 'null'
                         required:
                           - id
                           - status
@@ -13036,6 +13058,7 @@ paths:
                           - multipleExposures
                           - type
                           - triggeredBy
+                          - srm
                         additionalProperties: false
                       - type: 'null'
                 required:
@@ -28129,8 +28152,6 @@ paths:
                   type: string
                 description:
                   type: string
-                hypothesis:
-                  type: string
                 project:
                   type: string
                 owner:
@@ -28144,16 +28165,9 @@ paths:
                   type: array
                   items:
                     type: string
-                customFields:
-                  type: object
-                  propertyNames:
-                    type: string
-                  additionalProperties: {}
                 trackingKey:
                   type: string
                 hashAttribute:
-                  type: string
-                fallbackAttribute:
                   type: string
                 hashVersion:
                   anyOf:
@@ -28163,6 +28177,21 @@ paths:
                       const: 2
                 disableStickyBucketing:
                   type: boolean
+                fallbackAttribute:
+                  type: string
+                hypothesis:
+                  type: string
+                segment:
+                  type: string
+                customFields:
+                  type: object
+                  propertyNames:
+                    type: string
+                  additionalProperties: {}
+                goalMetrics:
+                  type: array
+                  items:
+                    type: string
                 variations:
                   type: array
                   items:
@@ -28182,18 +28211,12 @@ paths:
                   type: string
                 contextualBanditQueryId:
                   type: string
-                segment:
+                skipPartialData:
+                  type: boolean
+                activationMetric:
                   type: string
                 queryFilter:
                   type: string
-                goalMetrics:
-                  type: array
-                  items:
-                    type: string
-                activationMetric:
-                  type: string
-                skipPartialData:
-                  type: boolean
                 regressionAdjustmentEnabled:
                   type: boolean
                 contextualAttributes:
@@ -28211,10 +28234,10 @@ paths:
               required:
                 - name
                 - trackingKey
+                - goalMetrics
                 - variations
                 - datasource
                 - contextualBanditQueryId
-                - goalMetrics
                 - contextualAttributes
               additionalProperties: false
       responses:

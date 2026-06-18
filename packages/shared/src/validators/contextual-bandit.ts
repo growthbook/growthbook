@@ -498,6 +498,7 @@ export const getContextualBanditResultsValidator = {
           // Loose to avoid pulling the heavier stats validators into this file.
           responses: z.array(z.unknown()),
           leaf_map: z.array(z.unknown()).optional(),
+          leaf_stats: z.array(z.unknown()).optional(),
         })
         .nullable(),
       latest: z
@@ -511,13 +512,20 @@ export const getContextualBanditResultsValidator = {
           multipleExposures: z.number(),
           type: z.string(),
           triggeredBy: z.string(),
+          srm: z
+            .object({
+              statistic: z.number(),
+              pValue: z.number(),
+              degreesOfFreedom: z.number().int().nonnegative(),
+            })
+            .nullable(),
         })
         .nullable(),
     })
     .strict(),
   summary: "Get latest Contextual Bandit results",
   description:
-    "Returns the latest contextual-bandit stats engine output and the status of the most recent snapshot run for the contextual bandit. Same payload the GrowthBook UI uses to render the contextual bandit results table.",
+    "Returns the latest contextual-bandit stats engine output (per-context responses, the context-to-leaf map, and per-leaf aggregated stats), the SRM of the most recent run, and the status of the most recent snapshot run for the contextual bandit. Same payload the GrowthBook UI uses to render the contextual bandit results table.",
   operationId: "getContextualBanditResults",
   tags: ["contextual-bandits"],
   method: "get" as const,

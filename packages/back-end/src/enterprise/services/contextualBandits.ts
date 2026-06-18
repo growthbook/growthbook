@@ -32,6 +32,8 @@ import {
 export type ContextualBanditResultsForUi = {
   contextualBanditSnapshot: ContextualBanditSnapshot | null;
   latestSnapshotSummary: SnapshotStatusSummary | null;
+  /** SRM of the latest snapshot run; null when the run has no SRM result. */
+  srm: ContextualBanditSrmResult | null;
 };
 
 function mapCbsStatusToSnapshotStatus(
@@ -87,7 +89,11 @@ export async function getContextualBanditResultsForUi(
     ? toContextualBanditSnapshotStatusSummary(latestSnapshot)
     : null;
 
-  return { contextualBanditSnapshot, latestSnapshotSummary };
+  return {
+    contextualBanditSnapshot,
+    latestSnapshotSummary,
+    srm: latestSnapshot?.srm ?? null,
+  };
 }
 
 export async function runContextualBanditSnapshot(
