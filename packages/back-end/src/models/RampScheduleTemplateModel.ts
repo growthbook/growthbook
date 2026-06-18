@@ -1,4 +1,4 @@
-import { UpdateProps } from "shared/types/base-model";
+import { CreateProps, UpdateProps } from "shared/types/base-model";
 import {
   RampScheduleTemplateInterface,
   rampScheduleTemplateValidator,
@@ -77,6 +77,18 @@ export class RampScheduleTemplateModel extends BaseClass {
   public async getNextOrder(): Promise<number> {
     const all = await this.getAll();
     return all.reduce((max, t) => Math.max(max, t.order), -1) + 1;
+  }
+
+  // REST create: append to the end unless the caller pins an explicit order, so
+  // API-created templates behave like app-created ones instead of defaulting to
+  // order 0 and jumping to the top.
+  protected async processApiCreateBody(
+    rawBody: unknown,
+  ): Promise<CreateProps<RampScheduleTemplateInterface>> {
+    const body = rawBody as CreateProps<RampScheduleTemplateInterface> & {
+      order?: number;
+    };
+    return { ...body, order: body.order ?? (await this.getNextOrder()) };
   }
 
   // Move `oldId` into the slot held by `newId`, then renumber so `order`

@@ -31427,6 +31427,9 @@ paths:
                   required:
                     - mode
                   additionalProperties: false
+                order:
+                  description: Display order within the org (lower sorts first).
+                  type: number
               additionalProperties: false
       responses:
         '200':
@@ -31722,6 +31725,11 @@ paths:
                   required:
                     - mode
                   additionalProperties: false
+                order:
+                  description: >-
+                    Display order within the org (lower sorts first). Omit to
+                    append to the end.
+                  type: number
               required:
                 - name
                 - steps
