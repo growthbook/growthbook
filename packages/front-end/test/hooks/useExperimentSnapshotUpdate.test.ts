@@ -1,6 +1,4 @@
 import { act, renderHook } from "@testing-library/react";
-import { createElement, type ReactNode } from "react";
-import { SWRConfig } from "swr";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { useExperimentSnapshotUpdate } from "@/hooks/useExperimentSnapshotUpdate";
@@ -18,13 +16,6 @@ const experiment = {
   datasource: "ds_1",
   precomputedUnitDimensionIds: [],
 } as unknown as ExperimentInterfaceStringDates;
-
-type SwrTestCacheState = {
-  data?: unknown;
-  error?: unknown;
-  isValidating?: boolean;
-  isLoading?: boolean;
-};
 
 const runningSnapshot = {
   id: "snap_running",
@@ -106,26 +97,16 @@ describe("useExperimentSnapshotUpdate", () => {
   function render(
     overrides: Partial<Parameters<typeof useExperimentSnapshotUpdate>[0]> = {},
   ) {
-    const cache = new Map<string, SwrTestCacheState>();
-    const hook = renderHook(
-      () =>
-        useExperimentSnapshotUpdate({
-          experiment,
-          phase: 0,
-          mutate: vi.fn(),
-          setRefreshError: vi.fn(),
-          ...overrides,
-        }),
-      {
-        wrapper: ({ children }: { children: ReactNode }) =>
-          createElement(
-            SWRConfig,
-            { value: { provider: () => cache } },
-            children,
-          ),
-      },
+    const hook = renderHook(() =>
+      useExperimentSnapshotUpdate({
+        experiment,
+        phase: 0,
+        mutate: vi.fn(),
+        setRefreshError: vi.fn(),
+        ...overrides,
+      }),
     );
-    return { ...hook, cache };
+    return hook;
   }
 
   it("posts immediately when there is no customValidation", async () => {
@@ -186,35 +167,18 @@ describe("useExperimentSnapshotUpdate", () => {
     );
   });
 
-  it("runSnapshot primes the overall snapshot-summary cache from a dimension view", async () => {
+  it("runSnapshot reports the requested dimension to onSnapshotCreated", async () => {
     apiCall.mockResolvedValue({ status: 200, snapshot: runningSnapshot });
-    const { result, cache } = render({ dimension: "country" });
+    const onSnapshotCreated = vi.fn();
+    const { result } = render({ dimension: "country", onSnapshotCreated });
 
     await act(() => result.current.runSnapshot(""));
 
-    const overallSummaryKey = "org_1::/experiment/exp_1/snapshot-summary/0";
-    const cacheEntry = cache.get(overallSummaryKey);
-    if (
-      typeof cacheEntry !== "object" ||
-      cacheEntry === null ||
-      !("data" in cacheEntry)
-    ) {
-      throw new Error("Expected overall snapshot-summary cache data");
-    }
-    expect(cacheEntry.data).toEqual({
-      latest: {
-        id: "snap_running",
-        status: "running",
-        error: undefined,
-        queries: [],
-        runStarted: new Date("2026-01-01T00:00:01Z"),
-        dateCreated: new Date("2026-01-01T00:00:00Z"),
-        multipleExposures: 0,
-        health: undefined,
-        banditResult: undefined,
-        type: "standard",
-        triggeredBy: undefined,
-      },
+    expect(onSnapshotCreated).toHaveBeenCalledTimes(1);
+    expect(onSnapshotCreated).toHaveBeenCalledWith({
+      snapshot: runningSnapshot,
+      phase: 0,
+      dimension: "",
     });
   });
 

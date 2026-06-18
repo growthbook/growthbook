@@ -5,6 +5,7 @@ import React, {
   useCallback,
   useEffect,
 } from "react";
+import { useSWRConfig } from "swr";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   SnapshotType,
@@ -56,6 +57,7 @@ const snapshotContext = React.createContext<{
   sourceSnapshot?: SourceSnapshotRef;
   loading?: boolean;
   error?: Error;
+  primeSnapshotStatus: (event: PrimeSnapshotStatusEvent) => Promise<void>;
 }>({
   phase: 0,
   dimension: "",
@@ -74,7 +76,72 @@ const snapshotContext = React.createContext<{
     // do nothing
   },
   mutate: () => Promise.resolve(),
+  primeSnapshotStatus: () => Promise.resolve(),
 });
+
+type SnapshotStatusCacheEntry = {
+  latest: SnapshotStatusSummary | null;
+};
+
+export type PrimeSnapshotStatusEvent = {
+  snapshot: ExperimentSnapshotInterface;
+  phase: number;
+  dimension: string;
+  snapshotType?: SnapshotType;
+};
+
+export function getSnapshotSummaryPath({
+  experimentId,
+  phase,
+  dimension,
+  snapshotType,
+}: {
+  experimentId: string;
+  phase: number;
+  dimension: string;
+  snapshotType?: SnapshotType;
+}): string {
+  const query = new URLSearchParams({
+    ...(dimension && { dimension }),
+    ...(snapshotType && { type: snapshotType }),
+  }).toString();
+  return (
+    `/experiment/${experimentId}/snapshot-summary/${phase}` +
+    (query ? `?${query}` : "")
+  );
+}
+
+function toSnapshotStatusSummary(
+  snapshot: ExperimentSnapshotInterface,
+): SnapshotStatusSummary {
+  return {
+    id: snapshot.id,
+    status: snapshot.status,
+    error: snapshot.error,
+    queries: snapshot.queries,
+    runStarted: snapshot.runStarted,
+    dateCreated: snapshot.dateCreated,
+    multipleExposures: snapshot.multipleExposures,
+    health: snapshot.health,
+    banditResult: snapshot.banditResult,
+    type: snapshot.type,
+    triggeredBy: snapshot.triggeredBy,
+  };
+}
+
+function getSnapshotStatusCacheTypes({
+  snapshot,
+  snapshotType,
+}: {
+  snapshot: ExperimentSnapshotInterface;
+  snapshotType?: SnapshotType;
+}): (SnapshotType | undefined)[] {
+  if (snapshotType) return [snapshotType];
+  if (snapshot.type && snapshot.type !== "standard") {
+    return [undefined, snapshot.type];
+  }
+  return [undefined];
+}
 
 export function getPrecomputedDimensions(
   snapshot: ExperimentSnapshotInterface | undefined,
@@ -201,6 +268,8 @@ export default function SnapshotProvider({
   const [snapshotType, setSnapshotType] = useState<SnapshotType | undefined>(
     undefined,
   );
+  const { orgId } = useAuth();
+  const { mutate: mutateCache } = useSWRConfig();
 
   // The heavy snapshot fetch opts out of focus/reconnect revalidation. The
   // cheap status fetch below still revalidates on focus/reconnect and is the
@@ -244,6 +313,32 @@ export default function SnapshotProvider({
       }
     },
     [mutateHeavy, mutateStatus],
+  );
+
+  const primeSnapshotStatus = useCallback(
+    async ({
+      snapshot,
+      phase,
+      dimension,
+      snapshotType,
+    }: PrimeSnapshotStatusEvent) => {
+      const latest = toSnapshotStatusSummary(snapshot);
+      await Promise.all(
+        getSnapshotStatusCacheTypes({ snapshot, snapshotType }).map((type) =>
+          mutateCache<SnapshotStatusCacheEntry>(
+            `${orgId}::${getSnapshotSummaryPath({
+              experimentId: experiment.id,
+              phase,
+              dimension,
+              snapshotType: type,
+            })}`,
+            { latest },
+            { revalidate: false },
+          ),
+        ),
+      );
+    },
+    [experiment.id, mutateCache, orgId],
   );
 
   const statusLatest = statusData?.latest ?? undefined;
@@ -298,6 +393,7 @@ export default function SnapshotProvider({
         setDimension,
         setAnalysisSettings,
         setSnapshotType,
+        primeSnapshotStatus,
         error,
         loading: isValidating,
       }}
@@ -412,6 +508,7 @@ export function LocalSnapshotProvider({
         setSnapshotType: () => {
           // do nothing
         },
+        primeSnapshotStatus: () => Promise.resolve(),
         loading,
       }}
     >

@@ -177,6 +177,7 @@ export default function AnalysisSettingsSummary({
     setAnalysisSettings,
     setSnapshotType,
     setDimension: setSnapshotDimension,
+    primeSnapshotStatus,
     phase,
   } = useSnapshot();
 
@@ -382,6 +383,7 @@ export default function AnalysisSettingsSummary({
     mutateAdditional: mutateExperiment,
     setRefreshError,
     onSnapshotRefreshBlocked: handleSnapshotRefreshBlocked,
+    onSnapshotCreated: primeSnapshotStatus,
   });
 
   const goToOverallResults = useCallback(() => {

@@ -1,10 +1,6 @@
 import { useCallback, useRef, useState } from "react";
-import { useSWRConfig } from "swr";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import {
-  ExperimentSnapshotInterface,
-  SnapshotStatusSummary,
-} from "shared/types/experiment-snapshot";
+import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { isDimensionPrecomputed } from "shared/experiments";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { useAuth } from "@/services/auth";
@@ -28,45 +24,15 @@ type PostSnapshotResult =
   | { status: "needs-full-refresh"; reason: string }
   | { status: "failed" };
 
-type SnapshotStatusCacheEntry = {
-  latest: SnapshotStatusSummary | null;
-};
-
-function getSnapshotSummaryPath({
-  experimentId,
-  phase,
-  dimension,
-}: {
-  experimentId: string;
+export type SnapshotCreatedEvent = {
+  snapshot: ExperimentSnapshotInterface;
   phase: number;
   dimension: string;
-}): string {
-  const query = new URLSearchParams({
-    ...(dimension && { dimension }),
-  }).toString();
-  return (
-    `/experiment/${experimentId}/snapshot-summary/${phase}` +
-    (query ? `?${query}` : "")
-  );
-}
+};
 
-function toSnapshotStatusSummary(
-  snapshot: ExperimentSnapshotInterface,
-): SnapshotStatusSummary {
-  return {
-    id: snapshot.id,
-    status: snapshot.status,
-    error: snapshot.error,
-    queries: snapshot.queries,
-    runStarted: snapshot.runStarted,
-    dateCreated: snapshot.dateCreated,
-    multipleExposures: snapshot.multipleExposures,
-    health: snapshot.health,
-    banditResult: snapshot.banditResult,
-    type: snapshot.type,
-    triggeredBy: snapshot.triggeredBy,
-  };
-}
+type SnapshotCreatedCallback = (
+  event: SnapshotCreatedEvent,
+) => void | Promise<void>;
 
 function apiErrorToSnapshotRefreshBlocker(
   err: unknown,
@@ -123,6 +89,7 @@ export function useExperimentSnapshotUpdate({
   onSuccess,
   customValidation,
   onSnapshotRefreshBlocked,
+  onSnapshotCreated,
   experimentSnapshotTrackingProps,
 }: {
   // Optional so a host component that also serves non-experiment entities (e.g.
@@ -139,13 +106,13 @@ export function useExperimentSnapshotUpdate({
   // instead). Mirrors Modal's customValidation. Side effects are allowed.
   customValidation?: () => boolean | Promise<boolean>;
   onSnapshotRefreshBlocked?: (blocker: SnapshotRefreshBlocker) => void;
+  onSnapshotCreated?: SnapshotCreatedCallback;
   experimentSnapshotTrackingProps?: {
     trackingSource: string;
     datasourceType: string | null;
   };
 }) {
-  const { apiCall, orgId } = useAuth();
-  const { mutate: mutateCache } = useSWRConfig();
+  const { apiCall } = useAuth();
   const { getDatasourceById } = useDefinitions();
   const { hasCommercialFeature } = useUser();
 
@@ -219,15 +186,11 @@ export function useExperimentSnapshotUpdate({
             res.snapshot,
           );
         }
-        await mutateCache<SnapshotStatusCacheEntry>(
-          `${orgId}::${getSnapshotSummaryPath({
-            experimentId: experiment.id,
-            phase,
-            dimension: dimensionToRun,
-          })}`,
-          { latest: toSnapshotStatusSummary(res.snapshot) },
-          { revalidate: false },
-        );
+        await onSnapshotCreated?.({
+          snapshot: res.snapshot,
+          phase,
+          dimension: dimensionToRun,
+        });
         onSuccess?.();
         return { status: "success" };
       } catch (e) {
@@ -256,10 +219,9 @@ export function useExperimentSnapshotUpdate({
       apiCall,
       experiment,
       getDatasourceById,
-      mutateCache,
-      orgId,
       phase,
       experimentSnapshotTrackingProps,
+      onSnapshotCreated,
       onSuccess,
       onSnapshotRefreshBlocked,
       setRefreshError,
