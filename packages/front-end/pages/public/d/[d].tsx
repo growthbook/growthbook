@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
 import { GetServerSidePropsContext } from "next";
 import {
@@ -10,11 +10,15 @@ import {
 import { truncateString } from "shared/util";
 import { useUser } from "@/services/UserContext";
 import useSSRPolyfills from "@/hooks/useSSRPolyfills";
+import { getApiHost } from "@/services/env";
 import Callout from "@/ui/Callout";
 import PageHead from "@/components/Layout/PageHead";
 import { DashboardGrid } from "@/enterprise/components/Dashboards/DashboardEditor";
 import PublicDashboardBlock from "@/enterprise/components/Dashboards/Public/PublicDashboardBlock";
 
+// Only the lightweight shell (dashboard config + ssrData) is server-rendered.
+// The heavy block result data is fetched client-side (see below) so it never
+// bloats the page document.
 export async function getServerSideProps(context: GetServerSidePropsContext) {
   const { d } = context.params as { d: string };
   const apiHost =
@@ -32,11 +36,9 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
       props: {
         dashboard: dashboard || null,
         ssrData: data?.ssrData || null,
-        blockData: data?.blockData || null,
       },
     };
   } catch (e) {
-     
     console.error(e);
     return { notFound: true };
   }
@@ -45,13 +47,11 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
 interface PublicDashboardPageProps {
   dashboard: DashboardInterface | null;
   ssrData: DashboardSSRData | null;
-  blockData: DashboardPublicBlockData | null;
 }
 
 export default function PublicDashboardPage({
   dashboard,
   ssrData,
-  blockData,
 }: PublicDashboardPageProps) {
   const { userId, organization: userOrganization, superAdmin } = useUser();
   const ssrPolyfills = useSSRPolyfills(ssrData);
@@ -60,6 +60,47 @@ export default function PublicDashboardPage({
   const isOrgMember =
     (!!userId && dashboard?.organization === userOrganization.id) ||
     !!superAdmin;
+
+  // Block result data is heavy (snapshots, query result rows), so it's fetched
+  // client-side from the public /blocks endpoint rather than serialized into the
+  // page. Blocks show a loading state until it arrives.
+  const [blockData, setBlockData] = useState<DashboardPublicBlockData | null>(
+    null,
+  );
+  const uid = dashboard?.uid;
+  useEffect(() => {
+    if (!uid) return;
+    let cancelled = false;
+    setBlockData(null);
+    fetch(`${getApiHost()}/api/dashboard/public/${uid}/blocks`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (cancelled) return;
+        setBlockData(
+          d?.blockData ?? {
+            snapshots: [],
+            savedQueries: [],
+            metricAnalyses: [],
+            explorations: [],
+          },
+        );
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setBlockData({
+            snapshots: [],
+            savedQueries: [],
+            metricAnalyses: [],
+            explorations: [],
+          });
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [uid]);
+
+  const blockDataLoading = !!dashboard && blockData === null;
 
   const savedQueriesMap = useMemo(
     () => new Map((blockData?.savedQueries ?? []).map((q) => [q.id, q])),
@@ -115,6 +156,7 @@ export default function PublicDashboardPage({
               ssrPolyfills={ssrPolyfills}
               savedQueriesMap={savedQueriesMap}
               snapshotsMap={snapshotsMap}
+              blockDataLoading={blockDataLoading}
             />
           )}
         />

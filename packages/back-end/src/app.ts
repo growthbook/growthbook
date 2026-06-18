@@ -372,7 +372,7 @@ app.get(
   }),
   experimentsController.getExperimentPublic,
 );
-// public shareable dashboards
+// public shareable dashboards (shell + lazy-loaded block data)
 app.get(
   "/api/dashboard/public/:uid",
   cors({
@@ -380,6 +380,14 @@ app.get(
     origin: "*",
   }),
   dashboardsController.getDashboardPublic,
+);
+app.get(
+  "/api/dashboard/public/:uid/blocks",
+  cors({
+    credentials: false,
+    origin: "*",
+  }),
+  dashboardsController.getDashboardPublicBlocks,
 );
 
 // public image signed URLs for shared experiments

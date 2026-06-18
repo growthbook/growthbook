@@ -12,6 +12,7 @@ import { SavedQuery } from "shared/validators";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import Callout from "@/ui/Callout";
+import LoadingSpinner from "@/components/LoadingSpinner";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { BLOCK_TYPE_INFO } from "@/enterprise/components/Dashboards/DashboardEditor";
 import MarkdownBlock from "@/enterprise/components/Dashboards/DashboardEditor/DashboardBlock/MarkdownBlock";
@@ -25,6 +26,9 @@ export interface PublicDashboardBlockProps {
   ssrPolyfills: SSRPolyfills;
   savedQueriesMap: Map<string, SavedQuery>;
   snapshotsMap: Map<string, ExperimentSnapshotInterface>;
+  // Block result data is lazy-loaded client-side; true while it's in flight so
+  // data-dependent blocks show a spinner instead of a "not available" message.
+  blockDataLoading: boolean;
 }
 
 // Mirrors the authenticated dispatcher's default title (empty for markdown).
@@ -79,6 +83,7 @@ export default function PublicDashboardBlock({
   ssrPolyfills,
   savedQueriesMap,
   snapshotsMap,
+  blockDataLoading,
 }: PublicDashboardBlockProps): ReactElement {
   // Props every block component declares. The no-auth blocks ignore the
   // result-data fields (snapshot/analysis) and the edit callbacks, so passing
@@ -113,6 +118,8 @@ export default function PublicDashboardBlock({
           block={block}
           savedQuery={savedQuery}
         />
+      ) : blockDataLoading ? (
+        <LoadingSpinner />
       ) : (
         <Callout status="info" size="sm">
           This query result isn&apos;t available.
@@ -156,6 +163,8 @@ export default function PublicDashboardBlock({
             snapshot={snapshot}
             analysis={analysis}
           />
+        ) : blockDataLoading ? (
+          <LoadingSpinner />
         ) : (
           <Callout status="info" size="sm">
             Results for this block aren&apos;t available.
