@@ -1271,9 +1271,10 @@ export async function markRevisionAsPublished(
       version: revision.version,
     },
     {
-      $set: changes,
-      // A published revision's schedule is spent — drop it.
-      $unset: { ...SCHEDULED_PUBLISH_UNSET },
+      // A published revision's schedule and auto-publish arming are spent —
+      // disarm so consumers don't see a published revision still "armed".
+      $set: { ...changes, autoPublishOnApproval: false },
+      $unset: { ...SCHEDULED_PUBLISH_UNSET, autoPublishEnabledBy: 1 },
     },
   );
 

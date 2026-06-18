@@ -177,6 +177,23 @@ async function publishArmedRevision(
   return published;
 }
 
+// Whether an armed publish may force-merge past rebase governance at fire time.
+// Requires BOTH the persisted admin-bypass intent on the schedule AND that the
+// armer still holds bypass permission. Gating on the armer's role alone would
+// force-publish a stale approval for an ordinary (non-bypass) schedule whenever
+// the armer happens to be an admin — see governance handling in
+// publishFeatureRevision.
+function scheduledPublishMayForceMerge(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  revision: FeatureRevisionInterface,
+): boolean {
+  return (
+    !!revision.scheduledPublishBypassApproval &&
+    context.permissions.canBypassApprovalChecks(feature)
+  );
+}
+
 export async function maybeAutoPublishFeatureRevision(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
@@ -205,7 +222,7 @@ export async function maybeAutoPublishFeatureRevision(
       enablerContext,
       feature,
       revision,
-      enablerContext.permissions.canBypassApprovalChecks(feature),
+      scheduledPublishMayForceMerge(enablerContext, feature, revision),
     );
   } catch (e) {
     logger.error(
@@ -254,7 +271,7 @@ export async function maybePublishScheduledRevision(
       enablerContext,
       feature,
       revision,
-      enablerContext.permissions.canBypassApprovalChecks(feature),
+      scheduledPublishMayForceMerge(enablerContext, feature, revision),
     );
   } catch (e) {
     await recordFailure(e instanceof Error ? e.message : String(e));
