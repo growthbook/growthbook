@@ -117,6 +117,7 @@ const featureRevisionSchema = new mongoose.Schema({
   scheduledPublishAt: Date,
   scheduledPublishLockEdits: Boolean,
   scheduledPublishLockOthers: Boolean,
+  scheduledPublishBypassApproval: Boolean,
   scheduledPublishAttempts: Number,
   scheduledPublishLastError: String,
   log: [
@@ -363,7 +364,7 @@ export async function getMinimalRevisions(
     featureId,
   })
     .select(
-      "version datePublished dateUpdated createdBy status comment title contributors autoPublishOnApproval scheduledPublishAt scheduledPublishLockEdits scheduledPublishLockOthers",
+      "version datePublished dateUpdated createdBy status comment title contributors autoPublishOnApproval scheduledPublishAt scheduledPublishLockEdits scheduledPublishLockOthers scheduledPublishBypassApproval",
     )
     .sort({ version: -1 })
     .limit(200);
@@ -394,6 +395,9 @@ export async function getMinimalRevisions(
       : {}),
     ...(m.scheduledPublishLockOthers
       ? { scheduledPublishLockOthers: m.scheduledPublishLockOthers }
+      : {}),
+    ...(m.scheduledPublishBypassApproval
+      ? { scheduledPublishBypassApproval: m.scheduledPublishBypassApproval }
       : {}),
   }));
 }
@@ -1442,6 +1446,7 @@ const SCHEDULED_PUBLISH_UNSET = {
   scheduledPublishAt: 1,
   scheduledPublishLockEdits: 1,
   scheduledPublishLockOthers: 1,
+  scheduledPublishBypassApproval: 1,
   ...SCHEDULED_PUBLISH_FAILURE_UNSET,
 } as const;
 
@@ -1450,6 +1455,10 @@ export type ScheduledPublishInput = {
   scheduledPublishAt: Date | null;
   lockEdits?: boolean;
   lockOthers?: boolean;
+  // Mark the schedule as an admin bypass-approval override. Callers must only
+  // pass true after confirming canBypassApprovalChecks. Persisted so the UI can
+  // lock the schedule to cancel-and-re-arm; ignored when canceling.
+  bypassApproval?: boolean;
 };
 
 // Log a schedule change so additions/changes/cancellations show in the review
@@ -1500,7 +1509,12 @@ export function logScheduledPublishChange(
 export async function setRevisionScheduledPublish(
   context: ReqContext | ApiReqContext,
   revision: FeatureRevisionInterface,
-  { scheduledPublishAt, lockEdits, lockOthers }: ScheduledPublishInput,
+  {
+    scheduledPublishAt,
+    lockEdits,
+    lockOthers,
+    bypassApproval,
+  }: ScheduledPublishInput,
   enabledBy: string | null,
 ) {
   const filter = {
@@ -1536,12 +1550,14 @@ export async function setRevisionScheduledPublish(
         scheduledPublishLockEdits: !!lockEdits,
         scheduledPublishLockOthers: !!lockOthers,
         dateUpdated: new Date(),
+        ...(bypassApproval ? { scheduledPublishBypassApproval: true } : {}),
         ...(enabledBy !== null ? { autoPublishEnabledBy: enabledBy } : {}),
       },
       // Clear any prior poller-failure state so a reschedule doesn't keep the
       // "stuck" UI or prematurely escalate logging on the next fire.
       $unset: {
         ...SCHEDULED_PUBLISH_FAILURE_UNSET,
+        ...(bypassApproval ? {} : { scheduledPublishBypassApproval: 1 }),
         ...(enabledBy === null ? { autoPublishEnabledBy: 1 } : {}),
       },
     });

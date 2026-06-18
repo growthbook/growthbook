@@ -2039,6 +2039,9 @@ export function revisionToApiInterfaceV2(
     ...(rev.scheduledPublishLockOthers !== undefined && {
       scheduledPublishLockOthers: rev.scheduledPublishLockOthers,
     }),
+    ...(rev.scheduledPublishBypassApproval !== undefined && {
+      scheduledPublishBypassApproval: rev.scheduledPublishBypassApproval,
+    }),
     ...(rev.scheduledPublishLastError !== undefined && {
       scheduledPublishLastError: rev.scheduledPublishLastError,
     }),

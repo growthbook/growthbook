@@ -27,6 +27,7 @@ export async function schedulePublish(
       scheduledPublishAt: string | null;
       lockEdits?: boolean;
       lockOthers?: boolean;
+      bypassApproval?: boolean;
     };
   },
 ) {
@@ -58,6 +59,12 @@ export async function schedulePublish(
     req.context.permissions.throwPermissionError();
   }
 
+  // Persist the admin bypass-approval intent only when the caller actually has
+  // that permission — a requested bypass from a non-admin is silently ignored.
+  const bypassApproval =
+    !!req.body.bypassApproval &&
+    req.context.permissions.canBypassApprovalChecks(feature);
+
   // Committing a schedule on a draft is the no-approval path (fires without a
   // review cycle). Only allow it when the change doesn't require review, failing
   // closed if the base can't be resolved. Review-required drafts arm via
@@ -86,6 +93,7 @@ export async function schedulePublish(
       scheduledPublishAt: date,
       lockEdits: req.body.lockEdits,
       lockOthers: req.body.lockOthers,
+      bypassApproval,
     },
     req.context.userId || null,
   );

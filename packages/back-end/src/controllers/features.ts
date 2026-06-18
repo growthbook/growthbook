@@ -1077,6 +1077,7 @@ export async function postFeatureScheduledPublish(
       scheduledPublishAt: string | null;
       lockEdits?: boolean;
       lockOthers?: boolean;
+      bypassApproval?: boolean;
     },
     { id: string; version: string }
   >,
@@ -1140,10 +1141,16 @@ export async function postFeatureScheduledPublish(
     }
   }
 
+  // Persist the admin bypass-approval intent only when the caller actually has
+  // that permission — a requested bypass from a non-admin is silently ignored.
+  const bypassApproval =
+    !!req.body.bypassApproval &&
+    context.permissions.canBypassApprovalChecks(feature);
+
   await setRevisionScheduledPublish(
     context,
     revision,
-    { scheduledPublishAt: date, lockEdits, lockOthers },
+    { scheduledPublishAt: date, lockEdits, lockOthers, bypassApproval },
     context.userId || null,
   );
 

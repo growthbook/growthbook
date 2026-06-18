@@ -158,6 +158,12 @@ export const apiFeatureRevisionV2Validator = namedSchema(
           "When true, publishing other drafts of this feature is blocked while the schedule is pending.",
         )
         .optional(),
+      scheduledPublishBypassApproval: z
+        .boolean()
+        .describe(
+          "When true, this schedule was armed by an admin via the bypass-approval override. It cannot be edited inline (only canceled and re-armed) and anyone with publish authority may cancel it.",
+        )
+        .optional(),
       scheduledPublishLastError: z
         .string()
         .describe(

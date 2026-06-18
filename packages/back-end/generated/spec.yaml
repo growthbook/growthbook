@@ -9851,7 +9851,9 @@ paths:
         publishing other drafts of this feature until the schedule fires or is
         canceled. Requires publish permission; the publish executes with the
         caller's authority. An admin with bypass-approval permission can
-        schedule even without approval.
+        schedule even without approval — pass `bypassApproval: true` to mark it
+        as an admin override, which locks the schedule to cancel-and-re-arm
+        only.
       tags:
         - feature-revisions-v2
       parameters:
@@ -9877,6 +9879,8 @@ paths:
                 lockEdits:
                   type: boolean
                 lockOthers:
+                  type: boolean
+                bypassApproval:
                   type: boolean
               required:
                 - scheduledPublishAt
@@ -35763,6 +35767,12 @@ components:
           description: >-
             When true, publishing other drafts of this feature is blocked while
             the schedule is pending.
+          type: boolean
+        scheduledPublishBypassApproval:
+          description: >-
+            When true, this schedule was armed by an admin via the
+            bypass-approval override. It cannot be edited inline (only canceled
+            and re-armed) and anyone with publish authority may cancel it.
           type: boolean
         scheduledPublishLastError:
           description: >-

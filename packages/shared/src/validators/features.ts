@@ -385,6 +385,7 @@ const minimalFeatureRevisionInterface = z
     scheduledPublishAt: z.union([z.null(), z.date()]).optional(),
     scheduledPublishLockEdits: z.boolean().optional(),
     scheduledPublishLockOthers: z.boolean().optional(),
+    scheduledPublishBypassApproval: z.boolean().optional(),
   })
   .strict();
 
@@ -597,6 +598,13 @@ const featureRevisionInterface = minimalFeatureRevisionInterface
     scheduledPublishLockEdits: z.boolean().optional(),
     // While pending, block publishing other drafts of this feature.
     scheduledPublishLockOthers: z.boolean().optional(),
+    // True when an admin armed this schedule via the bypass-approval override.
+    // The schedule is then treated as "dangerous": it can't be edited inline
+    // (only canceled and re-armed) and anyone with publish authority may cancel
+    // it. Fire-time bypass still derives from the armer's live role, not this
+    // flag. Cleared whenever the schedule is canceled or the revision leaves the
+    // review cycle (part of SCHEDULED_PUBLISH_UNSET).
+    scheduledPublishBypassApproval: z.boolean().optional(),
     // Set by the scheduled-publish poller when a due publish can't go through
     // (e.g. still awaiting approval, merge conflict). Lets the UI surface a
     // stuck schedule instead of it silently retrying forever. Cleared on a
