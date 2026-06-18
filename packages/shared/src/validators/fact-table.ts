@@ -91,6 +91,10 @@ export const aggregatedFactTableSettingsValidator = z
       })
       .strict(),
     lookbackWindow: z.number().int().positive(),
+    // Salt-bucket count for the two-level GROUP BY in the daily INSERT. Higher
+    // values cut the final-merge bucket size but inflate the partial shuffle
+    // by N×; default 8 balances both. See DEFAULT_SALT_BUCKETS.
+    saltBuckets: z.number().int().min(1).max(64).optional(),
   })
   .strict();
 

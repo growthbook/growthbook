@@ -1,6 +1,6 @@
 import {
   getInsertAggregatedFactTableDataQuery,
-  SALT_BUCKETS,
+  DEFAULT_SALT_BUCKETS,
 } from "back-end/src/integrations/sql/queries/insert-aggregated-fact-table-data-query";
 import { getAggregationMetadata } from "back-end/src/integrations/sql/fact-metrics/aggregation-metadata";
 import { bigQueryDialect } from "back-end/src/integrations/dialects/bigquery";
@@ -40,7 +40,8 @@ describe("getInsertAggregatedFactTableDataQuery", () => {
     exclusiveStart: false,
   };
 
-  it("emits a salted two-level GROUP BY on BigQuery", () => {
+  it("emits a salted two-level GROUP BY on BigQuery with the default 8 buckets", () => {
+    expect(DEFAULT_SALT_BUCKETS).toBe(8);
     const sql = getInsertAggregatedFactTableDataQuery(
       bigQueryDialect,
       baseParams,
@@ -49,7 +50,7 @@ describe("getInsertAggregatedFactTableDataQuery", () => {
     expect(sql).toContain("__dailyValuesPartial");
     expect(sql).toContain("__salt");
     expect(sql).toMatch(/FARM_FINGERPRINT/i);
-    expect(sql).toContain(`${SALT_BUCKETS}`);
+    expect(sql).toMatch(/,\s*8\s*\)\s+AS\s+__salt/i);
     // Level-2 merge CTE collapses salt back to (idType, event_date).
     expect(sql).toMatch(/FROM\s+__dailyValuesPartial\s+GROUP BY/i);
     // $$count partial is COUNT(); its salt-merge must be SUM, not COUNT.
@@ -58,6 +59,15 @@ describe("getInsertAggregatedFactTableDataQuery", () => {
     expect(sql.match(/FROM\s+__factTable\b/gi)?.length).toBe(1);
     expect(sql).not.toContain("__maxTimestamp");
     expect(sql).toMatch(/MAX\(dv\.slice_max_timestamp\)\s+OVER\s*\(\)/i);
+  });
+
+  it("threads params.saltBuckets into the MOD divisor", () => {
+    const sql = getInsertAggregatedFactTableDataQuery(bigQueryDialect, {
+      ...baseParams,
+      saltBuckets: 16,
+    });
+    expect(sql).toMatch(/,\s*16\s*\)\s+AS\s+__salt/i);
+    expect(sql).not.toMatch(/,\s*8\s*\)\s+AS\s+__salt/i);
   });
 
   it("falls back to a single-level GROUP BY when the dialect has no intHash", () => {

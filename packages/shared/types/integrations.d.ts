@@ -458,6 +458,9 @@ export interface InsertAggregatedFactTableDataQueryParams {
   // exclusiveStart=true; restate uses the window start with exclusiveStart=false.
   windowStartDate: Date;
   exclusiveStart: boolean;
+  // Number of salt buckets for the two-level GROUP BY (default 8; range 1–64).
+  // Threaded from `factTable.aggregatedFactTableSettings.saltBuckets`.
+  saltBuckets?: number;
 }
 
 export interface AggregatedFactTableMaxTimestampQueryParams {

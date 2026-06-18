@@ -14,12 +14,19 @@ import { getAggregatedFactTableSchema } from "back-end/src/integrations/sql/fact
 // partial-aggregation pass hashes on the join key, not the group-by key, so a
 // hot (idType, event_date) fans out into tens of thousands of wide partial rows
 // that all land in one hash bucket. Salting the first GROUP BY by `__salt`
-// spreads each key across SALT_BUCKETS buckets, forcing a clean repartition
-// between the join and the merge; the second GROUP BY collapses the salt
-// buckets back to one row per key (cheap — at most SALT_BUCKETS small rows per
-// key). Dialects without `intHash` skip the salt layer and emit the original
-// single-level GROUP BY.
-export const SALT_BUCKETS = 32;
+// spreads each key across N buckets, forcing a clean repartition between the
+// join and the merge; the second GROUP BY collapses the salt buckets back to
+// one row per key (cheap — at most N small rows per key). Dialects without
+// `intHash` skip the salt layer and emit the original single-level GROUP BY.
+//
+// The default of 8 is a trade-off: each salt bucket multiplies the partial-row
+// shuffle volume between the join and the level-1 GROUP BY by N×, so a high
+// bucket count throttles the join+partial-agg stage on shuffle I/O, while a low
+// count leaves the final-merge bucket too large. 8 is enough to break the
+// final-merge OOM on observed wide-FT workloads without over-inflating the
+// partial shuffle. Override per fact table via
+// `aggregatedFactTableSettings.saltBuckets` (range 1–64).
+export const DEFAULT_SALT_BUCKETS = 8;
 
 // Append-only INSERT materializing a new slice of daily aggregates per
 // `(idType, event_date)`. Each output row is a disjoint partial of one event
@@ -156,8 +163,9 @@ export function getInsertAggregatedFactTableDataQuery(
   // Salt expression — hash on the raw event timestamp so a single
   // (idType, event_date) group's events spread across buckets. Dialects without
   // intHash get an empty layer (single-level GROUP BY, original behavior).
+  const saltBuckets = params.saltBuckets ?? DEFAULT_SALT_BUCKETS;
   const saltExpr = dialect.intHash
-    ? `MOD(${dialect.intHash(dialect.castToString("timestamp"))}, ${SALT_BUCKETS})`
+    ? `MOD(${dialect.intHash(dialect.castToString("timestamp"))}, ${saltBuckets})`
     : null;
 
   const dailyValuesCTEs = saltExpr

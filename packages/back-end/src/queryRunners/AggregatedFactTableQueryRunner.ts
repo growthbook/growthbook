@@ -317,6 +317,7 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
         tableFullName,
         windowStartDate,
         exclusiveStart,
+        saltBuckets: factTable.aggregatedFactTableSettings?.saltBuckets,
       },
     );
 

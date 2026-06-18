@@ -88,6 +88,7 @@ const factTableSchema = new mongoose.Schema({
         },
       },
       lookbackWindow: Number,
+      saltBuckets: Number,
     },
     default: undefined,
   },
