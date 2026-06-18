@@ -20,6 +20,8 @@ import {
   getInclusiveUtcCalendarDayCount,
   isUtcYyyyMmDdWithinInclusiveRange,
   productAnalyticsDateDimensionBucketMergeKey,
+  resolveBlockComparison,
+  resolveComparisonPreviousTimeFrame,
 } from "shared/enterprise";
 import type { FactMetricInterface } from "shared/types/fact-table";
 
@@ -182,6 +184,83 @@ describe("buildComparisonDateRange", () => {
     expect(out.lookbackUnit).toBe("day");
     expect(out.startDate).toBe("2026-05-03");
     expect(out.endDate).toBe("2026-05-12");
+  });
+});
+
+describe("resolveComparisonPreviousTimeFrame", () => {
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  const predefined: ExplorationDateRange = {
+    predefined: "last7Days",
+    lookbackValue: null,
+    lookbackUnit: null,
+    startDate: null,
+    endDate: null,
+  };
+
+  it("derives (and rolls) the previous window for predefined ranges", () => {
+    jest.useFakeTimers({ doNotFake: ["nextTick", "setImmediate"] });
+    jest.setSystemTime(new Date("2024-06-15T12:00:00.000Z"));
+    const out = resolveComparisonPreviousTimeFrame(predefined, {});
+    expect(out.startDate).toBe("2024-05-31");
+    expect(out.endDate).toBe("2024-06-07");
+
+    // A day later the derived window has rolled forward.
+    jest.setSystemTime(new Date("2024-06-16T12:00:00.000Z"));
+    const next = resolveComparisonPreviousTimeFrame(predefined, {});
+    expect(next.startDate).toBe("2024-06-01");
+    expect(next.endDate).toBe("2024-06-08");
+  });
+
+  it("uses an explicit previousTimeFrame as-is (fixed window)", () => {
+    jest.useFakeTimers({ doNotFake: ["nextTick", "setImmediate"] });
+    jest.setSystemTime(new Date("2024-06-15T12:00:00.000Z"));
+    const fixed: ExplorationDateRange = {
+      predefined: "customDateRange",
+      lookbackValue: null,
+      lookbackUnit: null,
+      startDate: "2024-01-01",
+      endDate: "2024-01-31",
+    };
+    const out = resolveComparisonPreviousTimeFrame(predefined, {
+      previousTimeFrame: fixed,
+    });
+    expect(out).toEqual(fixed);
+  });
+});
+
+describe("resolveBlockComparison", () => {
+  const enabled = { enabled: true };
+  const disabled = { enabled: false };
+
+  it("returns the block comparison when enabled", () => {
+    expect(resolveBlockComparison({ comparison: enabled })).toEqual(enabled);
+  });
+
+  it("returns null when disabled or unset", () => {
+    expect(resolveBlockComparison({ comparison: disabled })).toBeNull();
+    expect(resolveBlockComparison({})).toBeNull();
+  });
+
+  it("lets a dashboard-wide comparison override the block (forward-compat)", () => {
+    const dashboardCmp = {
+      enabled: true,
+      previousTimeFrame: {
+        predefined: "customDateRange" as const,
+        lookbackValue: null,
+        lookbackUnit: null,
+        startDate: "2024-01-01",
+        endDate: "2024-01-31",
+      },
+    };
+    expect(
+      resolveBlockComparison(
+        { comparison: disabled },
+        { comparison: dashboardCmp },
+      ),
+    ).toEqual(dashboardCmp);
   });
 });
 

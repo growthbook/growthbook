@@ -278,7 +278,7 @@ export default function MetricExplorerSettings({ block, setBlock }: Props) {
                   })
                 }
               >
-                <SelectItem value="bigNumber">Big Number</SelectItem>
+                <SelectItem value="bigNumber">Big Numbers</SelectItem>
                 <SelectItem value="timeseries">Timeseries</SelectItem>
                 {metric?.metricType === "mean" && (
                   <SelectItem value="histogram">Histogram</SelectItem>

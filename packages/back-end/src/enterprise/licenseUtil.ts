@@ -766,7 +766,7 @@ export async function licenseInit(
   org?: OrgMemberInfo,
   getUserCodesForOrg?: (org: OrgMemberInfo) => Promise<LicenseUserCodes>,
   getLicenseMetaData?: () => Promise<LicenseMetaData>,
-  forceRefresh = true,
+  forceRefresh = false,
 ): Promise<Partial<LicenseInterface> | undefined> {
   const key = org?.licenseKey || process.env.LICENSE_KEY || null;
 

@@ -215,6 +215,23 @@ export function buildComparisonDateRange(
   };
 }
 
+/**
+ * Resolves the previous-period date range to run for a comparison. An explicit
+ * `previousTimeFrame` (a fixed/custom window) is used as-is; otherwise the
+ * window is derived from the primary range via {@link buildComparisonDateRange}.
+ * Since derivation resolves relative to "now", predefined primaries roll
+ * forward each time this is called while custom windows stay fixed — this is
+ * the single seam dashboards re-run on refresh so both periods stay current.
+ */
+export function resolveComparisonPreviousTimeFrame(
+  primaryDateRange: ExplorationConfig["dateRange"],
+  comparison: { previousTimeFrame?: ExplorationDateRange | null },
+): ExplorationConfig["dateRange"] {
+  return (
+    comparison.previousTimeFrame ?? buildComparisonDateRange(primaryDateRange)
+  );
+}
+
 // --- Current/previous row alignment -----------------------------------------
 
 function compareDateStringsAsc(a: string, b: string): number {

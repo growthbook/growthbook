@@ -12,6 +12,9 @@ import {
   DashboardInterface,
   MetricExplorerBlockInterface,
   DashboardBlockInterface,
+  BlockComparison,
+  resolveBlockComparison,
+  resolveComparisonPreviousTimeFrame,
 } from "shared/enterprise";
 import { ExplorationConfig } from "shared/validators";
 import {
@@ -222,6 +225,7 @@ export async function updateExperimentDashboards({
     const explorationsUpdated = await updateDashboardExplorations(
       context,
       editableBlocks,
+      dashboard,
     );
     if (metricAnalysesUpdated || explorationsUpdated) {
       await context.models.dashboards.dangerousUpdateBypassPermission(
@@ -240,7 +244,7 @@ export async function updateNonExperimentDashboard(
   const newBlocks = dashboard.blocks.map((block) => ({ ...block }));
   await updateDashboardMetricAnalyses(context, newBlocks);
   await updateDashboardSavedQueries(context, newBlocks);
-  await updateDashboardExplorations(context, newBlocks);
+  await updateDashboardExplorations(context, newBlocks, dashboard);
   await context.models.dashboards.dangerousUpdateBypassPermission(dashboard, {
     blocks: newBlocks,
     nextUpdate:
@@ -330,6 +334,8 @@ function isProductAnalyticsExplorationBlock(
 ): block is DashboardInterface["blocks"][number] & {
   explorerAnalysisId: string;
   config: ExplorationConfig;
+  comparison?: BlockComparison;
+  comparisonExplorerAnalysisId?: string;
 } {
   return (
     PRODUCT_ANALYTICS_EXPLORATION_BLOCK_TYPES.includes(
@@ -348,6 +354,9 @@ function isProductAnalyticsExplorationBlock(
 export async function updateDashboardExplorations(
   context: ReqContext | ApiReqContext,
   blocks: DashboardInterface["blocks"],
+  // Optional so the future dashboard-wide compare toggle can drive every block
+  // through resolveBlockComparison without changing this signature again.
+  dashboard?: DashboardInterface,
 ): Promise<boolean> {
   const explorationBlocks = blocks.filter(isProductAnalyticsExplorationBlock);
   if (explorationBlocks.length === 0) return false;
@@ -355,16 +364,34 @@ export async function updateDashboardExplorations(
   let anyUpdated = false;
   for (const block of explorationBlocks) {
     try {
-      const exploration = await runProductAnalyticsExploration(
-        context,
-        block.config,
-        { cache: "never" },
-      );
+      // Re-resolve the comparison every refresh so predefined previous windows
+      // roll forward with the primary range (custom windows stay fixed).
+      const comparison = resolveBlockComparison(block, dashboard);
+      const [exploration, comparisonExploration] = await Promise.all([
+        runProductAnalyticsExploration(context, block.config, {
+          cache: "never",
+        }),
+        comparison
+          ? runProductAnalyticsExploration(
+              context,
+              {
+                ...block.config,
+                dateRange: resolveComparisonPreviousTimeFrame(
+                  block.config.dateRange,
+                  comparison,
+                ),
+              },
+              { cache: "never" },
+            )
+          : Promise.resolve(null),
+      ]);
       // This should never happen when cache="never", but just in case
       if (!exploration) {
         throw new Error("Failed run to run product analytics query");
       }
       block.explorerAnalysisId = exploration.id;
+      // Clear a stale comparison id when comparison is off (e.g. toggled off).
+      block.comparisonExplorerAnalysisId = comparisonExploration?.id;
       anyUpdated = true;
     } catch (e) {
       logger.warn(

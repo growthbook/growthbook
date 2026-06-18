@@ -3,6 +3,7 @@ import {
   MetricExplorationBlockInterface,
   FactTableExplorationBlockInterface,
   DataSourceExplorationBlockInterface,
+  resolveBlockComparison,
 } from "shared/enterprise";
 import { ProductAnalyticsExploration } from "shared/validators";
 import { QueryInterface } from "shared/types/query";
@@ -28,6 +29,23 @@ export default function ProductAnalyticsExplorerBlock({
     shouldRun: () => !!block.explorerAnalysisId,
   });
 
+  // Comparison is resolved through the shared seam so a future dashboard-wide
+  // compare toggle drives this the same way. The previous-period exploration is
+  // a separate entity produced on refresh; fetch it when present.
+  const comparison = resolveBlockComparison(block);
+  const compareEnabled = !!comparison?.enabled;
+  const { data: comparisonData } = useApi<{
+    status: number;
+    exploration: ProductAnalyticsExploration;
+    query: QueryInterface | null;
+  }>(`/product-analytics/exploration/${block.comparisonExplorerAnalysisId}`, {
+    shouldRun: () => compareEnabled && !!block.comparisonExplorerAnalysisId,
+  });
+  const comparisonExploration = comparisonData?.exploration ?? null;
+  // The resolved previous window lives on the comparison exploration's config.
+  const submittedPreviousTimeFrame =
+    comparisonExploration?.config?.dateRange ?? null;
+
   if (isLoading) {
     return <LoadingSpinner />;
   }
@@ -52,6 +70,8 @@ export default function ProductAnalyticsExplorerBlock({
       {shouldShowTable ? (
         <ExplorerDataTable
           exploration={data.exploration}
+          comparisonExploration={comparisonExploration}
+          compareEnabled={compareEnabled}
           error={data.exploration.error ?? error?.message ?? null}
           submittedExploreState={block.config ?? data.exploration.config}
           loading={isLoading}
@@ -61,6 +81,9 @@ export default function ProductAnalyticsExplorerBlock({
       ) : (
         <ExplorerChart
           exploration={data?.exploration}
+          comparisonExploration={comparisonExploration}
+          compareEnabled={compareEnabled}
+          submittedPreviousTimeFrame={submittedPreviousTimeFrame}
           error={data?.exploration.error || error?.message || null}
           loading={isLoading}
           submittedExploreState={block.config ?? data?.exploration.config}

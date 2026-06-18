@@ -23,6 +23,7 @@ import DataSourceDropdown from "@/enterprise/components/ProductAnalytics/MainSec
 import {
   createEmptyValue,
   showAsAppliesTo,
+  stripExplorerDraftFields,
 } from "@/enterprise/components/ProductAnalytics/util";
 import SaveToDashboardModal from "@/enterprise/components/ProductAnalytics/SaveToDashboardModal";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
@@ -48,6 +49,8 @@ export default function ExplorerSideBar({
     draftExploreState,
     setDraftExploreState,
     exploration,
+    compareEnabled,
+    comparisonExploration,
     loading,
     handleSubmit,
     isSubmittable,
@@ -90,8 +93,11 @@ export default function ExplorerSideBar({
       {showSaveToDashboardModal && (
         <SaveToDashboardModal
           close={() => setShowSaveToDashboardModal(false)}
-          config={draftExploreState}
+          config={stripExplorerDraftFields(draftExploreState)}
           exploration={exploration}
+          compareEnabled={compareEnabled}
+          previousTimeFrame={draftExploreState.previousTimeFrame ?? null}
+          comparisonExplorationId={comparisonExploration?.id ?? null}
           trackingSource={trackingSource}
         />
       )}
