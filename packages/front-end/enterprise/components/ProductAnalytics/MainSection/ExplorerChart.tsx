@@ -43,9 +43,11 @@ import {
   sortProductAnalyticsTooltipAxisItems,
   supportsAlwaysOnComparisonOverlay,
   buildExplorerChartTooltipFormatter,
+  buildCompareChartLegendModel,
   type CompareCategoryAxisKey,
 } from "@/enterprise/components/ProductAnalytics/comparison-chart";
 import ComparisonTrendLabel from "@/enterprise/components/ProductAnalytics/ComparisonTrendLabel";
+import ComparisonChartLegend from "@/enterprise/components/ProductAnalytics/ComparisonChartLegend";
 
 const CHART_ID = "explorer-chart";
 
@@ -381,11 +383,14 @@ export default function ExplorerChart({
     // Compare-mode bar widths. The current bar is sized in px to ~75% of the
     // category band — matching ECharts' default bar width so it scales with the
     // available space like a normal (compare-off) bar — and the previous bar is
-    // `current + 2 * frame`, framing it by a fixed pixel amount per side at any
-    // category count (a percentage would scale the frame). On dense charts the
-    // current width is capped so the wider previous bar still fits in the band.
-    // Until the plot is measured, both fall back to responsive percentages.
-    const COMPARE_BAR_FRAME_PX = 12;
+    // `current + 2 * frame`, framing it by a fixed pixel amount per side. The
+    // frame scales with the bar width (~25% per side, clamped to [6, 12]px) so a
+    // thin bar on a narrow screen isn't dominated by a fat frame. On dense
+    // charts the current width is capped so the wider previous bar still fits in
+    // the band. Until the plot is measured, both fall back to percentages.
+    const COMPARE_BAR_FRAME_MIN_PX = 6;
+    const COMPARE_BAR_FRAME_MAX_PX = 12;
+    const COMPARE_BAR_FRAME_FRACTION = 0.25;
     const COMPARE_BAR_CURRENT_FRACTION = 0.75;
     const compareBarWidths: {
       current: number | string | undefined;
@@ -409,11 +414,21 @@ export default function ExplorerChart({
         ? Math.max(1, chartBoxSize.height - 58 - chartBoxSize.height * 0.1)
         : chartBoxSize.width * (1 - 0.08 - 0.05);
       const band = plotExtent / numTicks;
-      const frameTotal = 2 * COMPARE_BAR_FRAME_PX;
+      // Derive the frame from the ideal (uncapped) bar width so it doesn't feed
+      // back into the fit-cap below.
+      const idealCurrent = band * COMPARE_BAR_CURRENT_FRACTION;
+      const framePx = Math.max(
+        COMPARE_BAR_FRAME_MIN_PX,
+        Math.min(
+          COMPARE_BAR_FRAME_MAX_PX,
+          Math.round(idealCurrent * COMPARE_BAR_FRAME_FRACTION),
+        ),
+      );
+      const frameTotal = 2 * framePx;
       const maxCurrent = Math.max(4, band - frameTotal - 2);
       const currentPx = Math.max(
         4,
-        Math.min(Math.round(band * COMPARE_BAR_CURRENT_FRACTION), maxCurrent),
+        Math.min(Math.round(idealCurrent), maxCurrent),
       );
       return { current: currentPx, previous: currentPx + frameTotal };
     })();
@@ -523,6 +538,19 @@ export default function ExplorerChart({
         color: textColor,
         rotate: isHorizontalBar ? 0 : -45,
         hideOverlap: true,
+        // Sparse-flat compare bars use "<dimension> — <metric>" categories
+        // internally to position each bar pair. Show just the dimension value,
+        // once per group, so the axis reads the same as compare-off.
+        ...(sparseFlatCompareBars
+          ? {
+              interval: 0,
+              formatter: (value: string, index: number) => {
+                const k = Math.max(1, sortedSeriesKeys.length);
+                if (index % k !== Math.floor((k - 1) / 2)) return "";
+                return sortedXValues[Math.floor(index / k)] ?? "";
+              },
+            }
+          : {}),
       },
       // Only attach the axisPointer key when we actually have a formatter to
       // apply. Setting `axisPointer: undefined` overwrites ECharts' default
@@ -617,7 +645,10 @@ export default function ExplorerChart({
         ? { axisPointer: { link: [{ [compareCategoryAxisKey]: "all" }] } }
         : {}),
       legend: {
-        show: legendShow,
+        // In compare mode a custom HTML legend (ComparisonChartLegend) renders
+        // above the chart instead. The ECharts legend stays in the option (so
+        // legendSelect/legendUnSelect actions still toggle series) but hidden.
+        show: comparisonPeriodLabels ? false : legendShow,
         type: "plain",
         left: "center",
         top: 8,
@@ -663,6 +694,58 @@ export default function ExplorerChart({
     valueAxisName,
     chartBoxSize,
   ]);
+
+  // Custom compare-mode legend model, derived from the chart's actual series so
+  // its swatch colors and toggle targets stay in sync. Null when not comparing.
+  const compareLegend = useMemo(() => {
+    if (!compareEnabled) return null;
+    const series = chartConfig?.series;
+    if (!Array.isArray(series)) return null;
+    const labels = getComparisonPeriodLabels(
+      submittedExploreState.dateRange,
+      submittedPreviousTimeFrame ?? undefined,
+    );
+    const items = buildCompareChartLegendModel(series, labels);
+    if (!items.length) return null;
+    return { ...labels, items };
+  }, [
+    compareEnabled,
+    chartConfig,
+    submittedExploreState.dateRange,
+    submittedPreviousTimeFrame,
+  ]);
+
+  // Series toggled off via the custom compare legend. Reset whenever the legend
+  // model changes — new data recreates the chart, clearing its selection too.
+  const [hiddenCompareSeries, setHiddenCompareSeries] = useState<Set<string>>(
+    new Set(),
+  );
+  useEffect(() => {
+    setHiddenCompareSeries(new Set());
+  }, [compareLegend]);
+
+  const toggleCompareSeries = useCallback(
+    (seriesNames: string[]) => {
+      if (!seriesNames.length) return;
+      // If any are visible, hide them all; otherwise show them all. For a
+      // single-element array this is a plain per-series toggle.
+      const anyVisible = seriesNames.some((n) => !hiddenCompareSeries.has(n));
+      const next = new Set(hiddenCompareSeries);
+      const chart = chartInstanceRef.current;
+      for (const name of seriesNames) {
+        if (anyVisible) next.add(name);
+        else next.delete(name);
+        if (chart && !chart.isDisposed()) {
+          chart.dispatchAction({
+            type: anyVisible ? "legendUnSelect" : "legendSelect",
+            name,
+          });
+        }
+      }
+      setHiddenCompareSeries(next);
+    },
+    [hiddenCompareSeries],
+  );
 
   const hasEmptyData = useMemo(() => {
     if (!exploration?.result?.rows?.length) return true;
@@ -781,37 +864,49 @@ export default function ExplorerChart({
           </Box>
         </Flex>
       ) : chartConfig ? (
-        <Box
-          ref={attachChartWrapper}
-          style={{ flex: 1, minHeight: 0, position: "relative" }}
-        >
-          <EChartsReact
-            key={`${submittedExploreState.chartType}:${JSON.stringify(chartConfig)}`}
-            notMerge
-            option={{
-              ...chartConfig,
-              ...(animate ? {} : { animation: false }),
-              padding: [0, 0, 0, 0],
-              grid: {
-                left:
-                  submittedExploreState?.chartType === "horizontalBar" ||
-                  submittedExploreState?.chartType === "stackedHorizontalBar"
-                    ? "10%"
-                    : "8%",
-                right: "5%",
-                top: chartConfig.legend?.show ? 58 : "8%",
-                bottom: "10%",
-              },
-            }}
-            style={{ width: "100%", height: "100%" }}
-            onChartReady={(chart) => {
-              chartInstanceRef.current = chart ?? null;
-              if (chartsContext && chart) {
-                chartsContext.registerChart(CHART_ID, chart);
-              }
-            }}
-          />
-        </Box>
+        <Flex direction="column" style={{ flex: 1, minHeight: 0 }}>
+          {compareLegend ? (
+            <ComparisonChartLegend
+              currentLabel={compareLegend.currentLabel}
+              previousLabel={compareLegend.previousLabel}
+              items={compareLegend.items}
+              hiddenSeries={hiddenCompareSeries}
+              onToggleSeries={toggleCompareSeries}
+              textColor={textColor}
+            />
+          ) : null}
+          <Box
+            ref={attachChartWrapper}
+            style={{ flex: 1, minHeight: 0, position: "relative" }}
+          >
+            <EChartsReact
+              key={`${submittedExploreState.chartType}:${JSON.stringify(chartConfig)}`}
+              notMerge
+              option={{
+                ...chartConfig,
+                ...(animate ? {} : { animation: false }),
+                padding: [0, 0, 0, 0],
+                grid: {
+                  left:
+                    submittedExploreState?.chartType === "horizontalBar" ||
+                    submittedExploreState?.chartType === "stackedHorizontalBar"
+                      ? "10%"
+                      : "8%",
+                  right: "5%",
+                  top: chartConfig.legend?.show ? 58 : "8%",
+                  bottom: "10%",
+                },
+              }}
+              style={{ width: "100%", height: "100%" }}
+              onChartReady={(chart) => {
+                chartInstanceRef.current = chart ?? null;
+                if (chartsContext && chart) {
+                  chartsContext.registerChart(CHART_ID, chart);
+                }
+              }}
+            />
+          </Box>
+        </Flex>
       ) : (
         <Box p="4" style={{ textAlign: "center" }}>
           <HelperText status="error">Unknown chart type</HelperText>

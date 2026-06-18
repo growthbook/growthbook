@@ -130,6 +130,66 @@ function comparisonTooltipPeriodOrder(
   return period === "previous" ? 1 : 0;
 }
 
+/** One legend row per metric/series: current + previous swatch and the ECharts
+ * series names needed to toggle each period on the chart. */
+export type CompareChartLegendItem = {
+  baseName: string;
+  currentColor?: string;
+  previousColor?: string;
+  currentSeriesName?: string;
+  previousSeriesName?: string;
+};
+
+function seriesConfigStringField(
+  s: unknown,
+  field: "name" | "color",
+): string | undefined {
+  if (s && typeof s === "object" && field in s) {
+    const v = (s as Record<string, unknown>)[field];
+    if (typeof v === "string") return v;
+  }
+  return undefined;
+}
+
+/**
+ * Groups compare-mode ECharts series into per-metric legend rows, preserving
+ * series order. Returns `[]` for non-compare charts (their series names carry
+ * no period suffix, so nothing groups).
+ */
+export function buildCompareChartLegendModel(
+  seriesConfigs: unknown[],
+  comparisonPeriodLabels: { currentLabel: string; previousLabel: string },
+): CompareChartLegendItem[] {
+  const order: string[] = [];
+  const byBase = new Map<string, CompareChartLegendItem>();
+  for (const s of seriesConfigs) {
+    const name = seriesConfigStringField(s, "name");
+    if (name === undefined) continue;
+    const { baseName, period } = parseComparisonTooltipSeriesName(
+      name,
+      comparisonPeriodLabels,
+    );
+    if (period === "neutral") continue;
+    if (!byBase.has(baseName)) {
+      byBase.set(baseName, { baseName });
+      order.push(baseName);
+    }
+    const item = byBase.get(baseName);
+    if (!item) continue;
+    const color = seriesConfigStringField(s, "color");
+    if (period === "current") {
+      item.currentColor = color;
+      item.currentSeriesName = name;
+    } else {
+      item.previousColor = color;
+      item.previousSeriesName = name;
+    }
+  }
+  return order
+    .map((b) => byBase.get(b))
+    .filter((i): i is CompareChartLegendItem => i !== undefined);
+}
+
 /**
  * Orders axis-tooltip rows: alphabetically by metric/series label, and for
  * period-compare charts keeps current vs previous for the same metric adjacent

@@ -5,6 +5,7 @@ import type {
 import {
   alignComparisonOverlayToCategories,
   computeBigNumberComparisonTrendForMetricIndex,
+  buildCompareChartLegendModel,
   computeBigNumberComparisonTrends,
   formatCollapsedDateRange,
   formatComparisonMetricLabel,
@@ -12,6 +13,44 @@ import {
   parseComparisonTooltipSeriesName,
   sortProductAnalyticsTooltipAxisItems,
 } from "@/enterprise/components/ProductAnalytics/comparison-chart";
+
+describe("buildCompareChartLegendModel", () => {
+  const labels = { currentLabel: "C", previousLabel: "P" };
+
+  it("groups series by metric, preserving order and pairing current/previous", () => {
+    const series = [
+      { name: "Any Purchases (C)", color: "#111" },
+      { name: "Any Purchases (P)", color: "#222" },
+      { name: "Revenue (C)", color: "#333" },
+      { name: "Revenue (P)", color: "#444" },
+    ];
+
+    expect(buildCompareChartLegendModel(series, labels)).toEqual([
+      {
+        baseName: "Any Purchases",
+        currentColor: "#111",
+        currentSeriesName: "Any Purchases (C)",
+        previousColor: "#222",
+        previousSeriesName: "Any Purchases (P)",
+      },
+      {
+        baseName: "Revenue",
+        currentColor: "#333",
+        currentSeriesName: "Revenue (C)",
+        previousColor: "#444",
+        previousSeriesName: "Revenue (P)",
+      },
+    ]);
+  });
+
+  it("ignores series whose names carry no period suffix", () => {
+    const series = [
+      { name: "Just a series", color: "#111" },
+      { name: 42, color: "#222" },
+    ];
+    expect(buildCompareChartLegendModel(series, labels)).toEqual([]);
+  });
+});
 
 describe("formatCollapsedDateRange", () => {
   const utc = (y: number, m: number, d: number) => new Date(Date.UTC(y, m, d));
