@@ -428,6 +428,7 @@ export default function DashboardWorkspace({
             <DashboardEditor
               isTabActive={isTabActive}
               id={dashboard.id}
+              uid={dashboard.uid}
               ownerId={dashboard.userId}
               initialEditLevel={dashboard.editLevel}
               updateSchedule={dashboard.updateSchedule || undefined}

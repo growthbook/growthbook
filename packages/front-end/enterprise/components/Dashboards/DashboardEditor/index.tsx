@@ -325,6 +325,7 @@ interface Props {
   title: string;
   blocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
   id: string;
+  uid: string;
   isEditing: boolean;
   projects: string[];
   enableAutoUpdates: boolean;
@@ -360,6 +361,7 @@ function DashboardEditor({
   initialEditLevel,
   initialShareLevel,
   id,
+  uid,
   dashboardOwnerId,
   nextUpdate,
   dashboardLastUpdated,
@@ -556,6 +558,7 @@ function DashboardEditor({
         }}
         isGeneralDashboard={isGeneralDashboard}
         dashboardId={id}
+        uid={uid}
       />
       <div className="mb-3">
         <Flex align="center" height={DASHBOARD_TOPBAR_HEIGHT} gap="1">
