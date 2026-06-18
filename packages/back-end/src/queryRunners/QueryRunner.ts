@@ -153,11 +153,7 @@ export abstract class QueryRunner<
       onFailure: () => void;
     };
   } = {};
-  // True once startAnalysis() has written the full `queries` array to the
-  // model document. Gates onQueryFinish(): a refresh issued before this point
-  // would re-read a model with no (or partial) queries and accomplish nothing
-  // — and worse, can swallow the post-persist refresh via the `this.timer`
-  // debounce. See onQueryFinish() for the full race description.
+  // Prevent early query completions from refreshing against a partial DAG.
   private dagPersisted = false;
   private useCache: boolean;
   private pendingTimers: Record<string, NodeJS.Timeout> = {};
@@ -240,29 +236,9 @@ export abstract class QueryRunner<
   }
 
   async onQueryFinish() {
-    // Queries with no dependencies are dispatched fire-and-forget inside
-    // startQueries() (see startQuery's readyToRun branch), so a fast one
-    // (e.g. a DROP TABLE during an Incremental Pipeline full refresh) can
-    // finish — and call here — while startQueries() is still generating SQL
-    // for the remaining queries and before startAnalysis() has persisted the
-    // full `queries` array via updateModel().
-    //
-    // If we armed `this.timer` now, the callback's getLatestModel() would
-    // read a model with an empty `queries` array and do nothing useful. The
-    // previous mitigation (#5885) tolerated that and relied on a second
-    // post-persist onQueryFinish() in startAnalysis() to re-drive — but the
-    // `if (!this.timer)` debounce below means that post-persist call is a
-    // no-op whenever an early-finish timer is still pending, and the pending
-    // timer's getLatestModel() read can race the updateModel() write (no
-    // read-your-writes guarantee across pooled Mongo connections / replica
-    // reads). When that stale read lands *and* it was the last query to
-    // finish before persist, the refresh chain dies and every dependent
-    // query stays "queued" forever.
-    //
-    // Gating on dagPersisted removes the race entirely: early finishes are
-    // recorded as no-ops, `this.timer` stays null, and the post-persist
-    // onQueryFinish() in startAnalysis() is guaranteed to arm a timer whose
-    // getLatestModel() observes the committed DAG.
+    // Dependency-free queries can finish while startAnalysis() is still
+    // persisting the query DAG. Wait until the DAG is durable so the debounced
+    // refresh cannot read an empty query list and swallow the real refresh.
     if (!this.dagPersisted) {
       logger.debug(
         "Query finished for " +
@@ -412,21 +388,13 @@ export abstract class QueryRunner<
       error: error,
     });
     this.model = newModel;
-    // The full `queries` array is now durable. Unblocks onQueryFinish() —
-    // any query that finished while we were generating/persisting the DAG
-    // had its onQueryFinish() call short-circuited; the call below picks
-    // those up. Because every earlier call was gated, `this.timer` is null
-    // here, so the call below is guaranteed to actually arm the timer (the
-    // debounce can no longer swallow it).
     this.dagPersisted = true;
 
     if (error || result) {
       this.setStatus("finished", error, result);
     } else {
       this.setStatus("running");
-      // Drive the first refresh now that the DAG is persisted. This is the
-      // sole entry point for the refresh chain; see the dagPersisted gate in
-      // onQueryFinish() for why earlier calls were deferred to here.
+      // Pick up any query completions that happened before the DAG write.
       this.onQueryFinish();
     }
 
@@ -544,11 +512,7 @@ export abstract class QueryRunner<
           logger.debug(
             `${query.id}: "Run at end query" waiting for other queries to finish...`,
           );
-          // `continue`, not `return`: a runAtEnd query iterated before a
-          // ready non-runAtEnd queued query must not stop the whole pass —
-          // otherwise the two block on each other forever and the DAG stalls
-          // with nothing running. Map iteration order is insertion order,
-          // which is Mongo fetch order, so this is not hypothetical.
+          // Keep scanning. A later non-runAtEnd query may be ready.
           continue;
         }
       }
@@ -586,14 +550,6 @@ export abstract class QueryRunner<
       )
     ) {
       if (this.status !== "finished") {
-        // Being asked to refresh a non-terminal runner whose persisted model
-        // has no active queries is unexpected. The original cause — a fast
-        // query finishing before startAnalysis() persisted the DAG — is now
-        // prevented by the dagPersisted gate in onQueryFinish(), so this path
-        // should only be reachable from external callers (e.g. a controller
-        // polling refreshQueryStatuses() on a freshly-loaded model) or if a
-        // concurrent write truncated the queries array. Keep the warn so any
-        // recurrence is visible.
         logger.warn(
           `No running or queued queries for ${this.model.id} but runner status is "${this.status}". ` +
             `The persisted query DAG is empty or fully terminal; nothing to refresh.`,
