@@ -10,10 +10,10 @@ GrowthBook itself:
 
 1. Call the `searchDocs` tool FIRST with a natural-language version of the
    question. It searches the live GrowthBook docs and community Q&A.
-2. On `status: "ok"`, ground your answer in the returned `sources`. Keep it
-   brief (1-3 sentences) and cite the source `url`s as Markdown links so the
-   user can dig deeper. Prefer these results over your own training knowledge,
-   which may be stale.
+2. On `status: "ok"`, ground your answer in each source's `content`. Keep it
+   brief (1-3 sentences) and cite its `url` when present, otherwise the
+   `docs.growthbook.io` links embedded in the content, as Markdown links.
+   Prefer these results over your own training knowledge, which may be stale.
 3. If `searchDocs` returns `unavailable`, `no_results`, or `error`, fall back
    to your own knowledge — but only if you're confident — and link to the most
    relevant section from the list below. If you're not confident, say so

@@ -459,9 +459,10 @@ const SEARCH_DOCS_DESCRIPTION =
   "Search the GrowthBook documentation and community Q&A for technical " +
   "questions about how GrowthBook works: setup, configuration, SDK " +
   "integration, API usage, feature behaviour, and troubleshooting. Returns " +
-  "{ status, sources }, where each source has a `url` and a `content` excerpt " +
-  "to ground your answer and cite. Do NOT use this for questions about the " +
-  "user's own experiments, features, or metrics — use callApi for those.";
+  "{ status, sources }: ground your answer in each source's `content`, citing " +
+  "its `url` when present or the links embedded in the content otherwise. Do " +
+  "NOT use this for questions about the user's own experiments, features, or " +
+  "metrics — use callApi for those.";
 
 // =============================================================================
 // AgentConfig
