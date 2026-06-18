@@ -464,15 +464,20 @@ export default function RampScheduleTemplates() {
     over: { id: string } | null;
   }) {
     const { active, over } = event;
-    if (over && active.id !== over.id) {
-      const oldIndex = items.findIndex((t) => t.id === active.id);
-      const newIndex = items.findIndex((t) => t.id === over.id);
-      if (oldIndex >= 0 && newIndex >= 0) {
-        setItems(arrayMove(items, oldIndex, newIndex));
-        await reorderTemplates(String(active.id), String(over.id));
-      }
-    }
     setActiveId(undefined);
+    if (!over || active.id === over.id) return;
+    const oldIndex = items.findIndex((t) => t.id === active.id);
+    const newIndex = items.findIndex((t) => t.id === over.id);
+    if (oldIndex < 0 || newIndex < 0) return;
+    // Optimistically reorder, then revert if the persist fails so the list
+    // never shows an order the server didn't accept.
+    const previous = items;
+    setItems(arrayMove(items, oldIndex, newIndex));
+    try {
+      await reorderTemplates(String(active.id), String(over.id));
+    } catch {
+      setItems(previous);
+    }
   }
 
   const deleteTemplate = async (template: RampScheduleTemplateInterface) => {
