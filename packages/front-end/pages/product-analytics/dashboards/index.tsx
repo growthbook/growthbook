@@ -246,6 +246,7 @@ export default function DashboardsPage() {
           }}
           isGeneralDashboard={true}
           dashboardId={selectedDashboard.id}
+          uid={selectedDashboard.uid}
         />
       )}
       <div className="p-3 container-fluid pagecontents">
