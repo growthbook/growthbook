@@ -14,6 +14,10 @@ import {
   foldAggregatedFactTableCoverage,
 } from "back-end/src/queryRunners/AggregatedFactTableQueryRunner";
 import { bigQueryDialect } from "back-end/src/integrations/dialects/bigquery";
+import {
+  getAggregatedFactTableMetrics,
+  getMetricsForAggregatedFactTable,
+} from "back-end/src/services/aggregatedFactTables";
 import { factMetricFactory } from "./factories/FactMetric.factory";
 import { factTableFactory } from "./factories/FactTable.factory";
 
@@ -197,6 +201,135 @@ describe("getFactTableSettingsHashForAggregatedFactTable", () => {
     expect(getFactTableSettingsHashForAggregatedFactTable(a)).not.toEqual(
       getFactTableSettingsHashForAggregatedFactTable(b),
     );
+  });
+});
+
+describe("getMetricsForAggregatedFactTable", () => {
+  const numerator = (factTableId: string) => ({
+    factTableId,
+    column: "value",
+    aggregation: "sum" as const,
+  });
+
+  it("excludes metrics that reference the fact table but are not in a running experiment", () => {
+    const active = factMetricFactory.build({
+      id: "m_active",
+      metricType: "mean",
+      numerator: numerator(FT_ID),
+    });
+    const inactive = factMetricFactory.build({
+      id: "m_inactive",
+      metricType: "mean",
+      numerator: numerator(FT_ID),
+    });
+
+    const result = getMetricsForAggregatedFactTable(
+      [active, inactive],
+      FT_ID,
+      new Set([active.id]),
+    );
+
+    expect(result.map((m) => m.id)).toEqual([active.id]);
+  });
+
+  it("returns no metrics when the active set is empty", () => {
+    const metric = factMetricFactory.build({
+      id: "m1",
+      metricType: "mean",
+      numerator: numerator(FT_ID),
+    });
+    expect(
+      getMetricsForAggregatedFactTable([metric], FT_ID, new Set()),
+    ).toEqual([]);
+  });
+
+  it("excludes active metrics that reference a different fact table", () => {
+    const otherTableMetric = factMetricFactory.build({
+      id: "m_other",
+      metricType: "mean",
+      numerator: numerator(OTHER_FT_ID),
+    });
+    expect(
+      getMetricsForAggregatedFactTable(
+        [otherTableMetric],
+        FT_ID,
+        new Set([otherTableMetric.id]),
+      ),
+    ).toEqual([]);
+  });
+
+  it("includes an active ratio metric whose denominator references the fact table", () => {
+    const ratio = factMetricFactory.build({
+      id: "m_ratio",
+      metricType: "ratio",
+      numerator: numerator(OTHER_FT_ID),
+      denominator: numerator(FT_ID),
+    });
+    const result = getMetricsForAggregatedFactTable(
+      [ratio],
+      FT_ID,
+      new Set([ratio.id]),
+    );
+    expect(result.map((m) => m.id)).toEqual([ratio.id]);
+  });
+});
+
+describe("getAggregatedFactTableMetrics", () => {
+  const factTable = factTableFactory.build({
+    id: FT_ID,
+    sql: "SELECT * FROM events",
+    eventName: "purchase",
+    columns: [
+      {
+        column: "country",
+        name: "Country",
+        description: "",
+        datatype: "string",
+        numberFormat: "",
+        deleted: false,
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        isAutoSliceColumn: true,
+        autoSlices: ["US", "UK"],
+      },
+    ],
+  });
+
+  const buildBaseMetric = (id: string) =>
+    factMetricFactory.build({
+      id,
+      metricType: "mean",
+      numerator: { factTableId: FT_ID, column: "value", aggregation: "sum" },
+      metricAutoSlices: ["country"],
+    });
+
+  it("keeps the auto-slice metrics of an active base metric", () => {
+    const baseMetric = buildBaseMetric("m_active");
+    const expectedSliceCount = getAutoSliceMetrics({
+      metric: baseMetric,
+      factTable,
+    }).length;
+    expect(expectedSliceCount).toBeGreaterThan(0);
+
+    const result = getAggregatedFactTableMetrics({
+      factMetrics: [baseMetric],
+      factTable,
+      activeMetricIds: new Set([baseMetric.id]),
+    });
+
+    // base metric + its auto-slice metrics
+    expect(result).toHaveLength(1 + expectedSliceCount);
+    expect(result[0].id).toEqual(baseMetric.id);
+  });
+
+  it("drops a base metric (and its slices) when it is not active", () => {
+    const baseMetric = buildBaseMetric("m_inactive");
+    const result = getAggregatedFactTableMetrics({
+      factMetrics: [baseMetric],
+      factTable,
+      activeMetricIds: new Set(),
+    });
+    expect(result).toEqual([]);
   });
 });
 
