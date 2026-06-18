@@ -119,7 +119,11 @@ const advancedFeatureList: AdvancedFeature[] = [
   ...dataScientistFeatureList,
 ];
 
-const GetStartedAndHomePage = (): React.ReactElement => {
+const GetStartedAndHomePage = ({
+  showMarketingBanner = false,
+}: {
+  showMarketingBanner?: boolean;
+} = {}): React.ReactElement => {
   const [showVideoId, setShowVideoId] = useState<string>("");
   const [upgradeModal, setUpgradeModal] = useState<boolean>(false);
   const { clearStep } = useGetStarted();
@@ -236,7 +240,7 @@ const GetStartedAndHomePage = (): React.ReactElement => {
         px={{ initial: "2", xs: "4", sm: "7" }}
         py={{ initial: "1", xs: "3", sm: "6" }}
       >
-        <HomeMarketingBanner />
+        {showMarketingBanner && <HomeMarketingBanner />}
         <Grid columns={`minmax(0, 1fr) ${DOCUMENTATION_SIDEBAR_WIDTH}`}>
           <Text size="7" weight="regular" mb="5" as="div">
             Home
