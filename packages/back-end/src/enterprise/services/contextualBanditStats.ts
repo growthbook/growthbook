@@ -17,11 +17,6 @@ import {
   computeContextualBanditWeights,
   ContextualBanditWeightsInput,
 } from "stats-ts";
-// DEBUG CSV (gitignored): uncomment to dump weight-update output to CSVs.
-import {
-  writeContextualBanditDebugCsvs,
-  type ContextualBanditSrmDebugValues,
-} from "back-end/src/enterprise/services/contextualBanditDebugCsv";
 import { logger } from "back-end/src/util/logger";
 import {
   getAnalysisSettingsForStatsEngine,
@@ -55,10 +50,6 @@ export type RunContextualStatsEngineOptions = {
   variations: { id: string; name: string; weight: number }[];
   coverage: number;
   phaseLengthDays: number;
-  /** Current weight-update generation of the CB; used to suffix debug CSV filenames. */
-  banditVersion: number;
-  /** Optional SRM values dumped to the debug `srm_<n>.csv` file. */
-  srm?: ContextualBanditSrmDebugValues;
 };
 
 /** SQL rows often use variation keys (`"0"`, `"1"`); gbstats expects variation ids. */
@@ -96,14 +87,6 @@ export async function runContextualStatsEngine(
       runParams,
     );
     const result = computeContextualBanditWeights(input);
-    // DEBUG CSV (gitignored): uncomment to dump weight-update output to CSVs.
-    writeContextualBanditDebugCsvs(
-      result,
-      runParams.banditVersion,
-      rows,
-      input.metricSettings,
-      runParams.srm,
-    );
     return result;
   }
   return runContextualStatsEngineWithPython(
