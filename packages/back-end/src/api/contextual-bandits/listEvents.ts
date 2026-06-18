@@ -1,4 +1,7 @@
-import { listContextualBanditEventsValidator } from "shared/validators";
+import {
+  ContextualBanditEventInterface,
+  listContextualBanditEventsValidator,
+} from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { loadContextualBanditForRead } from "./_shared";
 
@@ -17,7 +20,7 @@ export const listContextualBanditEvents = createApiRequestHandler(
       limit,
     );
   return {
-    events: events.map((e) => ({
+    events: events.map((e: ContextualBanditEventInterface) => ({
       id: e.id,
       contextualBandit: e.contextualBandit,
       snapshotId: e.snapshotId,
