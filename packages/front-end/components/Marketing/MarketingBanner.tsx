@@ -21,8 +21,6 @@ export type MarketingBannerProps = {
   cta?: { copy: string; link: string };
   /** Open the CTA in a new tab (external marketing URLs). Default true. */
   external?: boolean;
-  /** "feature" = violet announcement, "beta" = teal sign-up */
-  tone?: "feature" | "beta";
   /** Whether the user can dismiss it (persists in localStorage). Default true. */
   dismissible?: boolean;
   /** Optional leading icon shown before the title */
@@ -36,7 +34,6 @@ export default function MarketingBanner({
   subheader,
   cta,
   external = true,
-  tone = "feature",
   dismissible = true,
   icon,
 }: MarketingBannerProps) {
@@ -44,23 +41,16 @@ export default function MarketingBanner({
     `marketing-banner:${id}`,
     false,
   );
-  const badgeColor = tone === "beta" ? "teal" : "violet";
 
   if (dismissible && dismissed) return null;
 
   return (
-    <Callout
-      status="info"
-      color={badgeColor}
-      icon={null}
-      contentsAs="div"
-      mb="5"
-    >
+    <Callout status="info" icon={null} contentsAs="div" mb="5">
       <Flex align="center" gap="4" wrap="wrap">
         <Flex align="center" gap="3" flexGrow="1" style={{ minWidth: 0 }}>
           <Badge
             label={pill}
-            color={badgeColor}
+            color="violet"
             variant="soft"
             radius="full"
             size="sm"
@@ -87,7 +77,7 @@ export default function MarketingBanner({
           <LinkButton
             href={cta.link}
             external={external}
-            color={badgeColor}
+            color="violet"
             size="sm"
           >
             {cta.copy}
