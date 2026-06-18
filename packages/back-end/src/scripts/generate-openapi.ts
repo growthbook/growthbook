@@ -361,13 +361,27 @@ type RequestBody = {
 };
 
 type Response = {
-  description?: string;
+  description: string;
   content: {
     "application/json": {
       schema: z.core.JSONSchema.BaseSchema;
     };
   };
 };
+
+function defaultResponseDescription(method: string): string {
+  switch (method.toLowerCase()) {
+    case "post":
+      return "Resource created";
+    case "put":
+    case "patch":
+      return "Resource updated";
+    case "delete":
+      return "Resource deleted";
+    default:
+      return "Successful response";
+  }
+}
 
 type Path = {
   operationId: string;
@@ -765,7 +779,7 @@ curl https://api.growthbook.io/api/v1/features \
 
     const responses: Record<string, Response> = {
       "200": {
-        ...(responseDescription && { description: responseDescription }),
+        description: responseDescription || defaultResponseDescription(method),
         content: {
           "application/json": {
             schema: responseSchema,
