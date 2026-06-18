@@ -32,6 +32,7 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { findSnapshotsByIds } from "back-end/src/models/ExperimentSnapshotModel";
 import {
   generateDashboardSSRData,
+  getPublicDashboardBlockData,
   updateDashboardMetricAnalyses,
   updateDashboardExplorations,
   updateDashboardSavedQueries,
@@ -79,8 +80,9 @@ export async function getDashboardPublic(
 
   const context = await getContextForAgendaJobByOrgId(dashboard.organization);
   const ssrData = await generateDashboardSSRData({ context, dashboard });
+  const blockData = await getPublicDashboardBlockData({ context, dashboard });
 
-  return res.status(200).json({ status: 200, dashboard, ssrData });
+  return res.status(200).json({ status: 200, dashboard, ssrData, blockData });
 }
 
 export async function getAllDashboards(

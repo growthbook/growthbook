@@ -10,6 +10,10 @@ import type { DimensionInterface } from "shared/types/dimension";
 import type { ProjectInterface } from "shared/types/project";
 import type { OrganizationSettings } from "shared/types/organization";
 import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import type { MetricAnalysisInterface } from "shared/types/metric-analysis";
+import type { SavedQuery } from "../../validators/saved-queries";
+import type { ProductAnalyticsExploration } from "../../validators/product-analytics";
 import { namedSchema } from "../../validators/openapi-helpers";
 
 import {
@@ -195,4 +199,15 @@ export type DashboardSSRData = {
   settings: OrganizationSettings;
   experiments: Record<string, Partial<ExperimentInterfaceStringDates>>;
   commercialFeatures?: CommercialFeature[];
+};
+
+// Block result data for the public dashboard page, AFTER server-side redaction
+// (raw SQL stripped from snapshots + saved queries, adhoc SQL filters stripped
+// from metric analyses). Same shapes as the authenticated endpoint with the
+// sensitive fields blanked — see getPublicDashboardBlockData.
+export type DashboardPublicBlockData = {
+  snapshots: ExperimentSnapshotInterface[];
+  savedQueries: SavedQuery[];
+  metricAnalyses: MetricAnalysisInterface[];
+  explorations: ProductAnalyticsExploration[];
 };

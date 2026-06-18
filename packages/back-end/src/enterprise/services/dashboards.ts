@@ -1,5 +1,5 @@
 import { isEqual, omit, pick, uniq, uniqWith } from "lodash";
-import { isString } from "shared/util";
+import { isDefined, isString } from "shared/util";
 import {
   ExperimentMetricInterface,
   expandMetricGroups,
@@ -10,6 +10,7 @@ import {
   blockHasFieldOfType,
   BlockSnapshotSettings,
   CommercialFeature,
+  DashboardPublicBlockData,
   DashboardSSRData,
   getBlockAnalysisSettings,
   getBlockSnapshotAnalysis,
@@ -19,7 +20,11 @@ import {
   MetricExplorerBlockInterface,
   DashboardBlockInterface,
 } from "shared/enterprise";
-import { ExplorationConfig } from "shared/validators";
+import {
+  ExplorationConfig,
+  ProductAnalyticsExploration,
+  SavedQuery,
+} from "shared/validators";
 import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
@@ -34,7 +39,10 @@ import { ProjectInterface } from "shared/types/project";
 import { OrganizationSettings } from "shared/types/organization";
 import { MetricSnapshotSettings } from "shared/types/report";
 import { StatsEngine } from "shared/types/stats";
-import { MetricAnalysisSettings } from "shared/types/metric-analysis";
+import {
+  MetricAnalysisInterface,
+  MetricAnalysisSettings,
+} from "shared/types/metric-analysis";
 import { findSnapshotsByIds } from "back-end/src/models/ExperimentSnapshotModel";
 
 import { ReqContext } from "back-end/types/request";
@@ -610,5 +618,162 @@ export async function generateDashboardSSRData({
     settings,
     experiments,
     commercialFeatures,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Public block result data + redaction
+//
+// Resolves the data referenced by a public dashboard's blocks (snapshots,
+// saved-query results, metric analyses, explorations) and redacts each through
+// per-type serializers before it leaves for an anonymous viewer. Every fetch
+// here bypasses per-resource permission checks (agenda-job context), so these
+// serializers ARE the authorization boundary for block data.
+// ---------------------------------------------------------------------------
+
+// Snapshots embed raw SQL inside `settings` (metric SQL, dimension SQL, and the
+// authored queryFilter). Blank those while keeping the analyses/results the UI
+// renders. Targeted strip rather than a full allow-list: settings has ~40
+// nested fields and allow-listing it would be brittle and break rendering. The
+// `queries` field is only QueryPointer[] (id/status/name) — no SQL.
+export function redactSnapshotForPublic(
+  snapshot: ExperimentSnapshotInterface,
+): ExperimentSnapshotInterface {
+  return {
+    ...snapshot,
+    settings: {
+      ...snapshot.settings,
+      queryFilter: "",
+      metricSettings: snapshot.settings.metricSettings.map((m) =>
+        m.settings ? { ...m, settings: { ...m.settings, sql: "" } } : m,
+      ),
+      dimensions: snapshot.settings.dimensions.map((d) =>
+        d.settings ? { ...d, settings: { ...d.settings, sql: "" } } : d,
+      ),
+    },
+  };
+}
+
+// sql-explorer blocks: strip the raw SQL (top-level and the copy nested in
+// results) and keep the result rows + viz config the author chose to display.
+export function redactSavedQueryForPublic(query: SavedQuery): SavedQuery {
+  return {
+    ...query,
+    sql: "",
+    results: { ...query.results, sql: undefined },
+  };
+}
+
+// Metric analyses carry no inline SQL, but settings can hold adhoc SQL filter
+// expressions — strip those; keep the result + display settings.
+export function redactMetricAnalysisForPublic(
+  analysis: MetricAnalysisInterface,
+): MetricAnalysisInterface {
+  return {
+    ...analysis,
+    settings: {
+      ...analysis.settings,
+      additionalNumeratorFilters: undefined,
+      additionalDenominatorFilters: undefined,
+    },
+  };
+}
+
+// Explorations are structured builder specs (no raw SQL, no credentials;
+// datasource is an id) that the author intentionally publishes, so config +
+// result are returned as-is. NOTE: this does expose the analytics query
+// structure (dimensions, filter values). Tighten here if that's not desired.
+export function redactExplorationForPublic(
+  exploration: ProductAnalyticsExploration,
+): ProductAnalyticsExploration {
+  return exploration;
+}
+
+export async function getPublicDashboardBlockData({
+  context,
+  dashboard,
+}: {
+  context: ReqContext;
+  dashboard: DashboardInterface;
+}): Promise<DashboardPublicBlockData> {
+  // Snapshots only exist for experiment dashboards
+  let snapshots: ExperimentSnapshotInterface[] = [];
+  if (dashboard.experimentId) {
+    const experiment = await getExperimentById(context, dashboard.experimentId);
+    const snapshotIds = [
+      ...new Set([
+        experiment?.analysisSummary?.snapshotId,
+        ...dashboard.blocks.map((block) => block.snapshotId),
+      ]),
+    ].filter((id): id is string => isDefined(id) && id.length > 0);
+    snapshots = await findSnapshotsByIds(context, snapshotIds);
+  }
+
+  const savedQueryIds = [
+    ...new Set(
+      dashboard.blocks
+        .filter(
+          (block): block is Extract<
+            DashboardBlockInterface,
+            { savedQueryId: string }
+          > =>
+            blockHasFieldOfType(block, "savedQueryId", isString) &&
+            block.savedQueryId.length > 0,
+        )
+        .map((block) => block.savedQueryId),
+    ),
+  ];
+  const savedQueries = await context.models.savedQueries.getByIds(savedQueryIds);
+
+  const metricAnalysisIds = [
+    ...new Set(
+      dashboard.blocks
+        .filter(
+          (block): block is Extract<
+            DashboardBlockInterface,
+            { metricAnalysisId: string }
+          > =>
+            blockHasFieldOfType(block, "metricAnalysisId", isString) &&
+            block.metricAnalysisId.length > 0,
+        )
+        .map((block) => block.metricAnalysisId),
+    ),
+  ];
+  const metricAnalyses =
+    await context.models.metricAnalysis.getByIds(metricAnalysisIds);
+
+  const explorerAnalysisIds = [
+    ...new Set(
+      dashboard.blocks
+        .filter(
+          (block): block is DashboardBlockInterface & {
+            explorerAnalysisId: string;
+          } =>
+            (block.type === "metric-exploration" ||
+              block.type === "fact-table-exploration" ||
+              block.type === "data-source-exploration") &&
+            "explorerAnalysisId" in block &&
+            typeof (block as { explorerAnalysisId?: string })
+              .explorerAnalysisId === "string" &&
+            (block as { explorerAnalysisId: string }).explorerAnalysisId.length >
+              0,
+        )
+        .map((block) => block.explorerAnalysisId),
+    ),
+  ];
+  const explorations: ProductAnalyticsExploration[] =
+    explorerAnalysisIds.length > 0
+      ? (
+          await context.models.analyticsExplorations.getByIds(
+            explorerAnalysisIds,
+          )
+        ).filter((e): e is ProductAnalyticsExploration => e != null)
+      : [];
+
+  return {
+    snapshots: snapshots.map(redactSnapshotForPublic),
+    savedQueries: savedQueries.map(redactSavedQueryForPublic),
+    metricAnalyses: metricAnalyses.map(redactMetricAnalysisForPublic),
+    explorations: explorations.map(redactExplorationForPublic),
   };
 }
