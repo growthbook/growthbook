@@ -5,7 +5,7 @@ import Tooltip from "@/ui/Tooltip";
 import Text from "@/ui/Text";
 
 export const SPARSE_PATCH_HELP =
-  "Treat the value as a partial object. Only the keys you include override the feature's default value; every other key falls back to the default.";
+  "Treat the value as a partial object. Only the top-level keys you include override the feature's default value; every other key falls back to the default. Merging is top-level only — a nested object you include replaces the default's value for that key entirely (it is not deep-merged).";
 
 // Readonly "Sparse patch (i)" badge — for contexts where sparse is inherited
 // from the rule and can't be toggled here (e.g. ramp step editors, fullscreen).

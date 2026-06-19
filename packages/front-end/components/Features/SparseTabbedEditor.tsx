@@ -167,33 +167,34 @@ export default function SparseTabbedEditor({
   );
 
   return (
-    <>
-      <style>{`
-        .sparse-tabbed-fullscreen {
-          position: fixed;
-          inset: 0;
-          z-index: 1050;
-          background-color: var(--color-surface-solid);
-          padding: 1rem;
-          display: flex;
-          flex-direction: column;
-        }
-      `}</style>
-      <div className={clsx({ "sparse-tabbed-fullscreen": fullscreen })}>
-        {fullscreen ? (
-          <Flex align="center" gap="3" mb="2">
-            {label ? <Box className="font-weight-bold">{label}</Box> : null}
-            <SparsePatchIndicator />
-          </Flex>
-        ) : showInlineLabel && label ? (
-          <Box mb="1">
-            <Text as="label" weight="semibold" mb="0">
-              {label}
-            </Text>
-          </Box>
-        ) : null}
-        {tabs}
-      </div>
-    </>
+    <div
+      style={
+        fullscreen
+          ? {
+              position: "fixed",
+              inset: 0,
+              zIndex: 1050,
+              backgroundColor: "var(--color-surface-solid)",
+              padding: "1rem",
+              display: "flex",
+              flexDirection: "column",
+            }
+          : undefined
+      }
+    >
+      {fullscreen ? (
+        <Flex align="center" gap="3" mb="2">
+          {label ? <Box className="font-weight-bold">{label}</Box> : null}
+          <SparsePatchIndicator />
+        </Flex>
+      ) : showInlineLabel && label ? (
+        <Box mb="1">
+          <Text as="label" weight="semibold" mb="0">
+            {label}
+          </Text>
+        </Box>
+      ) : null}
+      {tabs}
+    </div>
   );
 }

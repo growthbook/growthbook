@@ -4086,6 +4086,20 @@ describe("sparse JSON rule helpers", () => {
       });
     });
 
+    it("replaces nested objects wholesale (top-level merge, not deep merge)", () => {
+      // A nested object in the patch overwrites the default's entire object for
+      // that key — keys only present in the default's nested object are dropped.
+      expect(
+        resolveSparseJSONValue('{"theme":{"primary":"green"}}', {
+          theme: { primary: "blue", secondary: "red" },
+          other: 1,
+        }),
+      ).toEqual({
+        theme: { primary: "green" },
+        other: 1,
+      });
+    });
+
     it("returns the parsed value as-is when the default isn't an object", () => {
       expect(resolveSparseJSONValue('{"a":"over"}', null)).toEqual({
         a: "over",

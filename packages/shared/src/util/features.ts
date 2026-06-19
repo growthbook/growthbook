@@ -356,9 +356,17 @@ export function parsePlainJSONObject(
 
 // Merges a sparse `json` rule value onto the feature's default object. Only the
 // keys present in the rule value override the default; the rest fall back to
-// the default at evaluation time. If either side isn't a plain object the rule
-// value is returned parsed as-is, so a misconfigured sparse flag degrades to
-// normal (full-value) behavior rather than producing surprising output.
+// the default at evaluation time.
+//
+// The merge is TOP-LEVEL ONLY (a shallow spread) — it is not a deep merge. A key
+// in the rule value replaces the default's value for that key wholesale, so a
+// nested object in the patch overwrites the default's entire object for that key
+// rather than merging into it. E.g. default `{"theme":{"a":1,"b":2}}` patched
+// with `{"theme":{"a":9}}` resolves to `{"theme":{"a":9}}` ("b" is dropped).
+//
+// If either side isn't a plain object the rule value is returned parsed as-is, so
+// a misconfigured sparse flag degrades to normal (full-value) behavior rather
+// than producing surprising output.
 export function resolveSparseJSONValue(
   ruleValueStr: string,
   defaultObj: Record<string, unknown> | null,
