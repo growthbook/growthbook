@@ -15,7 +15,6 @@ import {
   useExperimentSnapshotUpdate,
 } from "@/hooks/useExperimentSnapshotUpdate";
 import FullRefreshRequiredDialog from "@/components/Experiment/FullRefreshRequiredDialog";
-import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import Tooltip from "@/ui/Tooltip";
 
 export type EntityType = "experiment" | "holdout" | "safe-rollout";
@@ -170,7 +169,6 @@ function RefreshRunQueriesButton<T extends RefreshResultsModel>({
   disabled: boolean;
 }) {
   const { apiCall } = useAuth();
-  const { primeSnapshotStatus } = useSnapshot();
   const { submitUpdate, fullRefreshConfirm } = useExperimentSnapshotUpdate({
     experiment,
     phase: phase ?? 0,
@@ -181,7 +179,6 @@ function RefreshRunQueriesButton<T extends RefreshResultsModel>({
     onSuccess,
     customValidation,
     onSnapshotRefreshBlocked,
-    onSnapshotCreated: primeSnapshotStatus,
     experimentSnapshotTrackingProps,
   });
 

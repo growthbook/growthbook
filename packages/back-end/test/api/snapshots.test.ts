@@ -37,16 +37,6 @@ describe("snapshots API", () => {
 
   const org = { id: "org" };
 
-  const incrementalDatasource = {
-    id: "ds_123",
-    settings: {
-      pipelineSettings: {
-        allowWriting: true,
-        mode: "incremental" as const,
-      },
-    },
-  };
-
   it("can get a snapshot", async () => {
     setReqContext({
       org,
@@ -423,7 +413,7 @@ describe("snapshots API", () => {
     expect(createExperimentSnapshot).not.toHaveBeenCalled();
   });
 
-  it("returns 409 when incremental state requires a full refresh", async () => {
+  it("auto-promotes a non-forced request when a full refresh is required", async () => {
     setReqContext({
       org,
       permissions: {
@@ -445,23 +435,26 @@ describe("snapshots API", () => {
 
     getExperimentById.mockReturnValueOnce(experiment);
     getDataSourceById.mockReturnValueOnce({ id: "ds_123" });
-    createExperimentSnapshot.mockRejectedValueOnce(
-      new ExperimentIncrementalPipelineRequiresFullRefreshError(
-        staleConfigMessage,
-      ),
-    );
+    createExperimentSnapshot
+      .mockRejectedValueOnce(
+        new ExperimentIncrementalPipelineRequiresFullRefreshError(
+          staleConfigMessage,
+        ),
+      )
+      .mockResolvedValueOnce({ snapshot, queryRunner: {} });
 
     const response = await request(app)
       .post(`/api/v1/experiments/${snapshot.experiment}/snapshot`)
       .set("Authorization", "Bearer foo");
 
-    expect(response.status).toBe(409);
-    expect(response.body.code).toBe("requires_full_refresh");
-    expect(response.body.details).toEqual({ reason: staleConfigMessage });
-    expect(response.body.message).toContain('{"force": true, "dimension": ""}');
+    expect(response.status).toBe(200);
+    expect(createExperimentSnapshot).toHaveBeenCalledTimes(2);
+    expect(createExperimentSnapshot).toHaveBeenLastCalledWith(
+      expect.objectContaining({ useCache: false }),
+    );
   });
 
-  it("rejects force on a dimension snapshot when incremental refresh is enabled", async () => {
+  it("auto-promotes a non-forced dimension request when a full refresh is required", async () => {
     setReqContext({
       org,
       permissions: {
@@ -482,50 +475,12 @@ describe("snapshots API", () => {
 
     getExperimentById.mockReturnValueOnce(experiment);
     getDataSourceById.mockReturnValueOnce({
-      ...incrementalDatasource,
+      id: "ds_123",
       settings: {
-        ...incrementalDatasource.settings,
-        queries: {
-          exposure: [{ id: "eq_1", dimensions: ["country"] }],
+        pipelineSettings: {
+          allowWriting: true,
+          mode: "incremental" as const,
         },
-      },
-    });
-
-    const response = await request(app)
-      .post(`/api/v1/experiments/${snapshot.experiment}/snapshot`)
-      .set("Authorization", "Bearer foo")
-      .send({ dimension: "exp:country", force: true });
-
-    expect(response.status).toBe(400);
-    expect(response.body.message).toContain('"force"');
-    expect(response.body.message).toContain('dimension: ""');
-    expect(createExperimentSnapshot).not.toHaveBeenCalled();
-  });
-
-  it("returns 409 when a dimension snapshot needs the main results fully refreshed", async () => {
-    setReqContext({
-      org,
-      permissions: {
-        canCreateExperimentSnapshot: () => true,
-        canReadSingleProjectResource: () => true,
-      },
-    });
-
-    const snapshot = snapshotFactory.build({
-      organization: org.id,
-    });
-    const experiment = {
-      id: snapshot.experiment,
-      datasource: "ds_123",
-      exposureQueryId: "eq_1",
-      phases: [{}],
-    };
-
-    getExperimentById.mockReturnValueOnce(experiment);
-    getDataSourceById.mockReturnValueOnce({
-      ...incrementalDatasource,
-      settings: {
-        ...incrementalDatasource.settings,
         queries: {
           exposure: [{ id: "eq_1", dimensions: ["country"] }],
         },
@@ -533,62 +488,21 @@ describe("snapshots API", () => {
     });
     const dimensionFullRefreshMessage =
       "Overall Results require a full refresh before Dimension Results can be updated.";
-    createExperimentSnapshot.mockRejectedValueOnce(
-      new ExperimentIncrementalPipelineRequiresFullRefreshError(
-        dimensionFullRefreshMessage,
-      ),
-    );
+    createExperimentSnapshot
+      .mockRejectedValueOnce(
+        new ExperimentIncrementalPipelineRequiresFullRefreshError(
+          dimensionFullRefreshMessage,
+        ),
+      )
+      .mockResolvedValueOnce({ snapshot, queryRunner: {} });
 
     const response = await request(app)
       .post(`/api/v1/experiments/${snapshot.experiment}/snapshot`)
       .set("Authorization", "Bearer foo")
       .send({ dimension: "exp:country" });
 
-    expect(response.status).toBe(409);
-    expect(response.body.code).toBe("requires_full_refresh");
-    expect(response.body.details).toEqual({
-      reason: dimensionFullRefreshMessage,
-    });
-    expect(response.body.message).toContain('{"force": true, "dimension": ""}');
-  });
-
-  it("passes force: true without prompting for a full refresh", async () => {
-    setReqContext({
-      org,
-      permissions: {
-        canCreateExperimentSnapshot: () => true,
-        canReadSingleProjectResource: () => true,
-      },
-    });
-
-    const snapshot = snapshotFactory.build({
-      organization: org.id,
-    });
-    const experiment = {
-      id: snapshot.experiment,
-      datasource: "ds_123",
-      phases: [{}],
-    };
-    const datasource = { id: "ds_123" };
-
-    getExperimentById.mockReturnValueOnce(experiment);
-    getDataSourceById.mockReturnValueOnce(datasource);
-    createExperimentSnapshot.mockResolvedValueOnce({
-      snapshot,
-      queryRunner: {},
-    });
-
-    const response = await request(app)
-      .post(`/api/v1/experiments/${snapshot.experiment}/snapshot`)
-      .set("Authorization", "Bearer foo")
-      .send({ force: true });
-
     expect(response.status).toBe(200);
-    expect(createExperimentSnapshot).toHaveBeenCalledWith(
-      expect.objectContaining({
-        useCache: false,
-      }),
-    );
+    expect(createExperimentSnapshot).toHaveBeenCalledTimes(2);
   });
 
   it("post fails without datasource permission", async () => {
@@ -618,5 +532,6 @@ describe("snapshots API", () => {
 
     expect(response.status).toBe(400);
     expect(response.body).toEqual({ message: "permission error" });
+    expect(createExperimentSnapshot).not.toHaveBeenCalled();
   });
 });

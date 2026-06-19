@@ -173,14 +173,18 @@ export class ConcurrentIncrementalRefreshError extends Error {
   }
 }
 
-export class ExperimentIncrementalPipelineRequiresFullRefreshError extends ApiError<"requires_full_refresh"> {
+// Thrown by the Incremental Pipeline when an update can't proceed without a
+// full rebuild. Only the internal snapshot endpoint surfaces this (the public
+// API auto-promotes), so it carries its own code + details for the front-end
+// instead of joining the public REST API error registry.
+export class ExperimentIncrementalPipelineRequiresFullRefreshError extends Error {
+  readonly status = 409;
+  readonly code = "requires_full_refresh";
+  readonly details: { reason: string };
   constructor(reason: string) {
-    super(
-      "requires_full_refresh",
-      `${reason}\n\nRe-issue this request with {"force": true, "dimension": ""} in the request body to run a full refresh.`,
-      { reason },
-    );
+    super(reason);
     this.name = "ExperimentIncrementalPipelineRequiresFullRefreshError";
+    this.details = { reason };
   }
 }
 

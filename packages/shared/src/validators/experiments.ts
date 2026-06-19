@@ -1731,12 +1731,6 @@ export const postExperimentSnapshotValidator = {
           "Zero-based phase index to snapshot, where 0 is the first experiment phase. Defaults to the latest phase.",
         )
         .optional(),
-      force: z
-        .boolean()
-        .describe(
-          "Set to true to ignore cached query results. For experiments using Incremental Pipeline mode, this runs a Full Refresh for Overall Results and rebuilds the Incremental Pipeline cache. Defaults to false.",
-        )
-        .optional(),
     })
     .strict()
     .optional(),
@@ -1756,7 +1750,6 @@ export const postExperimentSnapshotValidator = {
   tags: ["experiments", "snapshots"],
   method: "post" as const,
   path: "/experiments/:id/snapshot",
-  possibleErrors: ["requires_full_refresh"] as const,
   exampleRequest: { body: { triggeredBy: "schedule" } } as const,
 };
 

@@ -24,16 +24,6 @@ type PostSnapshotResult =
   | { status: "needs-full-refresh"; reason: string }
   | { status: "failed" };
 
-export type SnapshotCreatedEvent = {
-  snapshot: ExperimentSnapshotInterface;
-  phase: number;
-  dimension: string;
-};
-
-type SnapshotCreatedCallback = (
-  event: SnapshotCreatedEvent,
-) => void | Promise<void>;
-
 function apiErrorToSnapshotRefreshBlocker(
   err: unknown,
 ): SnapshotRefreshBlocker | null {
@@ -89,7 +79,6 @@ export function useExperimentSnapshotUpdate({
   onSuccess,
   customValidation,
   onSnapshotRefreshBlocked,
-  onSnapshotCreated,
   experimentSnapshotTrackingProps,
 }: {
   // Optional so a host component that also serves non-experiment entities (e.g.
@@ -106,7 +95,6 @@ export function useExperimentSnapshotUpdate({
   // instead). Mirrors Modal's customValidation. Side effects are allowed.
   customValidation?: () => boolean | Promise<boolean>;
   onSnapshotRefreshBlocked?: (blocker: SnapshotRefreshBlocker) => void;
-  onSnapshotCreated?: SnapshotCreatedCallback;
   experimentSnapshotTrackingProps?: {
     trackingSource: string;
     datasourceType: string | null;
@@ -186,11 +174,6 @@ export function useExperimentSnapshotUpdate({
             res.snapshot,
           );
         }
-        await onSnapshotCreated?.({
-          snapshot: res.snapshot,
-          phase,
-          dimension: dimensionToRun,
-        });
         onSuccess?.();
         return { status: "success" };
       } catch (e) {
@@ -221,7 +204,6 @@ export function useExperimentSnapshotUpdate({
       getDatasourceById,
       phase,
       experimentSnapshotTrackingProps,
-      onSnapshotCreated,
       onSuccess,
       onSnapshotRefreshBlocked,
       setRefreshError,

@@ -1,6 +1,5 @@
 import { act, renderHook } from "@testing-library/react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { useExperimentSnapshotUpdate } from "@/hooks/useExperimentSnapshotUpdate";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -16,48 +15,6 @@ const experiment = {
   datasource: "ds_1",
   precomputedUnitDimensionIds: [],
 } as unknown as ExperimentInterfaceStringDates;
-
-const runningSnapshot = {
-  id: "snap_running",
-  organization: "org_1",
-  experiment: "exp_1",
-  phase: 0,
-  dimension: null,
-  dateCreated: new Date("2026-01-01T00:00:00Z"),
-  runStarted: new Date("2026-01-01T00:00:01Z"),
-  status: "running",
-  settings: {
-    manual: false,
-    dimensions: [],
-    metricSettings: [],
-    goalMetrics: [],
-    secondaryMetrics: [],
-    guardrailMetrics: [],
-    activationMetric: null,
-    defaultMetricPriorSettings: {
-      override: false,
-      proper: false,
-      mean: 0,
-      stddev: 1,
-    },
-    regressionAdjustmentEnabled: false,
-    attributionModel: "firstExposure",
-    experimentId: "exp_1",
-    queryFilter: "",
-    segment: "",
-    skipPartialData: false,
-    datasourceId: "ds_1",
-    exposureQueryId: "eq_1",
-    startDate: new Date("2026-01-01T00:00:00Z"),
-    endDate: new Date("2026-01-02T00:00:00Z"),
-    variations: [],
-  },
-  queries: [],
-  unknownVariations: [],
-  multipleExposures: 0,
-  analyses: [],
-  type: "standard",
-} satisfies ExperimentSnapshotInterface;
 
 describe("useExperimentSnapshotUpdate", () => {
   const apiCall = vi.fn();
@@ -167,19 +124,14 @@ describe("useExperimentSnapshotUpdate", () => {
     );
   });
 
-  it("runSnapshot reports the requested dimension to onSnapshotCreated", async () => {
-    apiCall.mockResolvedValue({ status: 200, snapshot: runningSnapshot });
-    const onSnapshotCreated = vi.fn();
-    const { result } = render({ dimension: "country", onSnapshotCreated });
+  it("revalidates through the caller-owned mutator after a snapshot post", async () => {
+    apiCall.mockResolvedValue({ status: 200, snapshot: { id: "snap_1" } });
+    const mutate = vi.fn();
+    const { result } = render({ mutate });
 
     await act(() => result.current.runSnapshot(""));
 
-    expect(onSnapshotCreated).toHaveBeenCalledTimes(1);
-    expect(onSnapshotCreated).toHaveBeenCalledWith({
-      snapshot: runningSnapshot,
-      phase: 0,
-      dimension: "",
-    });
+    expect(mutate).toHaveBeenCalledTimes(1);
   });
 
   it("surfaces a full-refresh interruption and confirms with force=true", async () => {

@@ -1,12 +1,12 @@
 import { postExperimentSnapshotValidator } from "shared/validators";
-import { isExperimentIncrementalEnabled } from "shared/enterprise";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { auditDetailsCreate } from "back-end/src/services/audit";
 import { createExperimentSnapshot } from "back-end/src/services/experiments";
 import { validateSnapshotDimension } from "back-end/src/services/snapshotDimension";
-import { BadRequestError } from "back-end/src/util/errors";
+import { ExperimentIncrementalPipelineRequiresFullRefreshError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { logger } from "back-end/src/util/logger";
 
 export const postExperimentSnapshot = createApiRequestHandler(
   postExperimentSnapshotValidator,
@@ -14,7 +14,7 @@ export const postExperimentSnapshot = createApiRequestHandler(
   const context = req.context;
   const id = req.params.id;
 
-  const { triggeredBy, dimension, phase, force } = req.body ?? {};
+  const { triggeredBy, dimension, phase } = req.body ?? {};
   const experiment = await getExperimentById(context, id);
 
   if (!experiment) {
@@ -57,32 +57,40 @@ export const postExperimentSnapshot = createApiRequestHandler(
       dimension,
       organization: context.org.id,
     });
-
-    if (
-      force &&
-      isExperimentIncrementalEnabled(
-        datasource.settings.pipelineSettings,
-        experiment.id,
-        experiment.type,
-      )
-    ) {
-      throw new BadRequestError(
-        'The "force" parameter cannot be used on Dimension snapshots when Incremental Pipeline mode is enabled. You can re-issue this request with dimension: "" to force a Full Refresh on Overall Results.',
-      );
-    }
   }
 
-  const useCache = !force;
+  const createSnapshot = (useCache: boolean) =>
+    createExperimentSnapshot({
+      context,
+      experiment,
+      datasource,
+      triggeredBy,
+      phase: phaseIndex,
+      dimension,
+      useCache,
+    });
 
-  const { snapshot } = await createExperimentSnapshot({
-    context,
-    experiment,
-    datasource,
-    triggeredBy,
-    phase: phaseIndex,
-    dimension,
-    useCache,
-  });
+  // A programmatic refresh is non-interactive. When the Incremental Pipeline
+  // requires a Full Refresh we run one transparently instead of surfacing an
+  // error the caller would have to act on. Lesser incremental shortfalls fall
+  // back to the non-incremental results runner during planning.
+  let useCache = true;
+  let result: Awaited<ReturnType<typeof createSnapshot>>;
+  try {
+    result = await createSnapshot(useCache);
+  } catch (error) {
+    if (
+      !(error instanceof ExperimentIncrementalPipelineRequiresFullRefreshError)
+    ) {
+      throw error;
+    }
+    logger.info(
+      `Experiment ${experiment.id}: ${error.details.reason} Running a Full Refresh automatically.`,
+    );
+    useCache = false;
+    result = await createSnapshot(useCache);
+  }
+  const { snapshot } = result;
 
   await req.audit({
     event: "experiment.refresh",

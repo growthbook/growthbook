@@ -12474,13 +12474,6 @@ paths:
                     experiment phase. Defaults to the latest phase.
                   type: integer
                   minimum: 0
-                force:
-                  description: >-
-                    Set to true to ignore cached query results. For experiments
-                    using Incremental Pipeline mode, this runs a Full Refresh
-                    for Overall Results and rebuilds the Incremental Pipeline
-                    cache. Defaults to false.
-                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -12494,28 +12487,6 @@ paths:
                 required:
                   - snapshot
                 additionalProperties: false
-        '409':
-          description: Conflict
-          content:
-            application/json:
-              schema:
-                type: object
-                description: >-
-                  The Incremental Pipeline data is outdated and must be rebuilt
-                  before an Incremental Update can proceed
-                properties:
-                  message:
-                    type: string
-                  code:
-                    type: string
-                    enum:
-                      - requires_full_refresh
-                  details:
-                    $ref: '#/components/schemas/ApiErrorRequiresFullRefreshDetails'
-                required:
-                  - message
-                  - code
-                  - details
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -44509,14 +44480,6 @@ components:
       required:
         - currentStatus
         - expectedStatuses
-      additionalProperties: false
-    ApiErrorRequiresFullRefreshDetails:
-      type: object
-      properties:
-        reason:
-          type: string
-      required:
-        - reason
       additionalProperties: false
     features:
       description: >-

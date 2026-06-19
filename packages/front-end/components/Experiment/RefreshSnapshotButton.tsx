@@ -12,7 +12,6 @@ import {
   useExperimentSnapshotUpdate,
 } from "@/hooks/useExperimentSnapshotUpdate";
 import FullRefreshRequiredDialog from "@/components/Experiment/FullRefreshRequiredDialog";
-import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 
 const RefreshSnapshotButton: FC<{
   mutate: () => void;
@@ -52,7 +51,6 @@ const RefreshSnapshotButton: FC<{
   disabledReason,
 }) => {
   const { getDatasourceById } = useDefinitions();
-  const { primeSnapshotStatus } = useSnapshot();
 
   const trackingProps = experimentSnapshotTrackingProps ?? {
     trackingSource: "RefreshSnapshotButton",
@@ -69,7 +67,6 @@ const RefreshSnapshotButton: FC<{
       onSuccess,
       customValidation,
       onSnapshotRefreshBlocked,
-      onSnapshotCreated: primeSnapshotStatus,
       experimentSnapshotTrackingProps: trackingProps,
     });
 

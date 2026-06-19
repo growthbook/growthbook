@@ -105,7 +105,12 @@ import { isEmailEnabled } from "./services/email";
 import { init } from "./init";
 import { aiRouter } from "./routers/ai/ai.router";
 import { getCustomLogProps, httpLogger, logger } from "./util/logger";
-import { ApiError, shouldSkipErrorLog, SoftWarningError } from "./util/errors";
+import {
+  ApiError,
+  ExperimentIncrementalPipelineRequiresFullRefreshError,
+  shouldSkipErrorLog,
+  SoftWarningError,
+} from "./util/errors";
 import { usersRouter } from "./routers/users/users.router";
 import { organizationsRouter } from "./routers/organizations/organizations.router";
 import { uploadRouter } from "./routers/upload/upload.router";
@@ -1273,9 +1278,12 @@ const errorHandler: ErrorRequestHandler = (
   if (err instanceof SoftWarningError) {
     body.warnings = err.warnings;
   }
-  // Structured errors carry a machine-readable code + details (same contract
-  // the REST API exposes) so the front-end can render richer error states.
-  if (err instanceof ApiError) {
+  // Structured errors carry a machine-readable code + details so the front-end
+  // can render richer error states.
+  if (
+    err instanceof ApiError ||
+    err instanceof ExperimentIncrementalPipelineRequiresFullRefreshError
+  ) {
     body.code = err.code;
     body.details = err.details;
   }
