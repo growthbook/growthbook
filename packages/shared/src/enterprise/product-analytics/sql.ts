@@ -352,6 +352,7 @@ function generateRowFilterSQL(
         rowFilter: filter,
         factTable,
         escapeStringLiteral: helpers.escapeStringLiteral,
+        stringMatch: helpers.stringMatch,
         jsonExtract: helpers.jsonExtract,
         evalBoolean: helpers.evalBoolean,
       });

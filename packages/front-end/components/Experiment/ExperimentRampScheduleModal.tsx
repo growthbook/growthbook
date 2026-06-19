@@ -84,7 +84,7 @@ import {
   getReleasePlanOptions,
   TargetingChangeImpactPanel,
 } from "@/components/Experiment/ReleaseChangesForm";
-import type { ReleasePlan } from "@/components/Experiment/EditTargetingModal";
+import type { ReleasePlan } from "@/components/Experiment/MakeChangesFlow";
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const UNIT_MULT: Record<IntervalUnit, number> = {

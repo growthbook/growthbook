@@ -55,6 +55,10 @@ export interface Props {
   sortableClassName?: string;
   onlySafeToEditVariationMetadata?: boolean;
   className?: string;
+  // JSON features only. When true, each variation value is rendered as a sparse
+  // patch (merged onto the feature default). Pass-through to the value editor;
+  // callers own the sparse toggle since it's a rule-level flag.
+  sparse?: boolean;
 }
 
 export default function FeatureVariationsInput({
@@ -86,6 +90,7 @@ export default function FeatureVariationsInput({
   sortableClassName,
   onlySafeToEditVariationMetadata,
   className,
+  sparse,
 }: Props) {
   const weights = variations?.map((v) => v.weight) || [];
   const isEqualWeights = weights?.every(
@@ -392,6 +397,7 @@ export default function FeatureVariationsInput({
                         feature={feature}
                         showDescription={showDescriptions}
                         className={sortableClassName}
+                        sparse={sparse}
                       />
                     ))}
                   </SortableVariationsList>

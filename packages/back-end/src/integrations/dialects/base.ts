@@ -1,9 +1,17 @@
 import type { DataType } from "shared/types/integrations";
+import { createLikeStringMatchFn } from "shared/sql";
 import type { DateTruncGranularity, SqlDialect } from "shared/types/sql";
 import { defaultPercentileCapSelectClause } from "back-end/src/integrations/sql/clauses/percentile-cap-select-clause";
 
+const baseEscapeStringLiteral = (value: string) => value.replace(/'/g, `''`);
+
 export const baseDialect: Omit<SqlDialect, "unpivotLabeledPairs"> = {
-  escapeStringLiteral: (value: string) => value.replace(/'/g, `''`),
+  escapeStringLiteral: baseEscapeStringLiteral,
+
+  stringMatch: createLikeStringMatchFn({
+    escapeStringLiteral: baseEscapeStringLiteral,
+    emitEscapeClause: true,
+  }),
 
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => {
     const raw = `json_extract_scalar(${jsonCol}, '$.${path}')`;

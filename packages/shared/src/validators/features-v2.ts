@@ -8,6 +8,7 @@ import {
 } from "./shared";
 import { ownerInputField, optionalOwnerInputField } from "./owner-field";
 import {
+  apiEventUserValidator,
   apiFeatureRuleValidator,
   apiRevisionPrerequisiteV2,
   apiRevisionMetadata,
@@ -87,8 +88,8 @@ export const apiFeatureRevisionV2Validator = namedSchema(
       comment: z.string(),
       date: z.string().meta({ format: "date-time" }),
       status: z.string(),
-      createdBy: z.string().optional(),
-      publishedBy: z.string().optional(),
+      createdBy: apiEventUserValidator.optional(),
+      publishedBy: apiEventUserValidator.optional(),
       defaultValue: z
         .string()
         .describe("The default value at the time this revision was created")
@@ -133,6 +134,66 @@ export const apiFeatureRevisionV2Validator = namedSchema(
           "Pending ramp schedule actions that will be applied when this draft is published",
         )
         .optional(),
+      autoPublishOnApproval: z
+        .boolean()
+        .describe(
+          "When true, the revision is armed to publish automatically once governance allows (immediately on approval, or on `scheduledPublishAt` if set).",
+        )
+        .optional(),
+      scheduledPublishAt: z
+        .union([z.string().meta({ format: "date-time" }), z.null()])
+        .describe(
+          "Target date for a deferred (scheduled) publish. Null/absent means publish as soon as approved.",
+        )
+        .optional(),
+      scheduledPublishLockEdits: z
+        .boolean()
+        .describe(
+          "When true, content edits to this draft are frozen while the schedule is pending (rebasing is still allowed).",
+        )
+        .optional(),
+      scheduledPublishLockOthers: z
+        .boolean()
+        .describe(
+          "When true, publishing other drafts of this feature is blocked while the schedule is pending.",
+        )
+        .optional(),
+      scheduledPublishBypassApproval: z
+        .boolean()
+        .describe(
+          "When true, this schedule was armed by an admin via the bypass-approval override. It cannot be edited inline (only canceled and re-armed) and anyone with publish authority may cancel it.",
+        )
+        .optional(),
+      scheduledPublishLastError: z
+        .string()
+        .describe(
+          "Set when a due scheduled publish keeps failing (e.g. still awaiting approval, merge conflict). Indicates the schedule is stuck and retrying.",
+        )
+        .optional(),
+      reviews: z
+        .array(
+          z
+            .object({
+              userId: z
+                .string()
+                .describe(
+                  "Stable reviewer identifier: the user ID for dashboard users, or the API key ID for service accounts",
+                ),
+              user: apiEventUserValidator.optional(),
+              status: z.enum([
+                "approved",
+                "changes-requested",
+                "approved-stale",
+                "changes-requested-stale",
+              ]),
+              timestamp: z.string().meta({ format: "date-time" }),
+            })
+            .strict(),
+        )
+        .describe(
+          "Reviewer verdicts for the current review cycle (one entry per reviewer). Verdicts flip to their -stale variants when draft content changes after submission; the list is cleared when a new review cycle starts. Absent on revisions that predate this field.",
+        )
+        .optional(),
     })
     .strict(),
 );
@@ -142,6 +203,23 @@ export type ApiFeatureRevisionV2 = z.infer<
 >;
 
 // ---- FeatureV2 (schemas/FeatureV2.yaml) ----
+
+// Slim summary of the current published revision returned inline on Feature
+// responses. Named explicitly so SDK code generators don't auto-name it
+// `FeatureRevision` (which would collide with FeatureRevisionV2 after
+// V2-suffix stripping).
+export const apiFeatureRevisionSummaryValidator = namedSchema(
+  "FeatureRevisionSummary",
+  z
+    .object({
+      version: z.coerce.number().int(),
+      comment: z.string(),
+      date: z.string().meta({ format: "date-time" }),
+      createdBy: apiEventUserValidator.optional(),
+      publishedBy: apiEventUserValidator.optional(),
+    })
+    .strict(),
+);
 
 export const apiFeatureV2Validator = namedSchema(
   "FeatureV2",
@@ -171,13 +249,7 @@ export const apiFeatureV2Validator = namedSchema(
         .array(z.string())
         .describe("Feature IDs. Each feature must evaluate to `true`")
         .optional(),
-      revision: z.object({
-        version: z.coerce.number().int(),
-        comment: z.string(),
-        date: z.string().meta({ format: "date-time" }),
-        createdBy: z.string(),
-        publishedBy: z.string(),
-      }),
+      revision: apiFeatureRevisionSummaryValidator,
       customFields: z.record(z.string(), z.any()).optional(),
       holdout: apiFeatureHoldout,
     })
@@ -259,6 +331,13 @@ const apiScheduleRule = z.object({
   enabled: z.boolean(),
 });
 
+const v2SparseRuleField = z
+  .boolean()
+  .describe(
+    "JSON features only. When true, the rule value is a partial object merged onto the feature's default value instead of replacing it.",
+  )
+  .optional();
+
 const v2RuleForceBase = z.object({
   description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   condition: z.string().optional(),
@@ -269,6 +348,7 @@ const v2RuleForceBase = z.object({
   enabled: z.boolean().optional(),
   type: z.literal("force"),
   value: z.string(),
+  sparse: v2SparseRuleField,
 });
 
 const v2RuleRolloutBase = z.object({
@@ -281,6 +361,7 @@ const v2RuleRolloutBase = z.object({
   enabled: z.boolean().optional(),
   type: z.literal("rollout"),
   value: z.string(),
+  sparse: v2SparseRuleField,
   coverage: z.number(),
   hashAttribute: z.string(),
   hashVersion: z.union([z.literal(1), z.literal(2)]).optional(),
@@ -297,6 +378,7 @@ const v2RuleExperimentRefBase = z.object({
   scheduleRules: z.array(apiScheduleRule).optional(),
   variations: z.array(z.object({ value: z.string(), variationId: z.string() })),
   experimentId: z.string(),
+  sparse: v2SparseRuleField,
 });
 
 // Preserve-only shape for safe-rollout rules. The bulk POST/PUT v2 endpoints
@@ -607,6 +689,8 @@ export const revertFeatureV2Validator = {
   paramsSchema: idParams,
   responseSchema: featureV2ResponseSchema,
   summary: "Revert a feature to a specific revision",
+  description:
+    'Creates a new revision whose rules and values match a previously-published revision, then immediately publishes it, leaving a clear audit trail of the revert in the revision history.\n\nReturns 403 if the API key lacks permission, or if approval rules are enabled for an affected environment and neither the "REST API always bypasses approval requirements" nor the "Allow reverts without approval" org setting is enabled.\n\nReturns 422 with a list of `warnings` if the restored values no longer validate against the feature\'s current value type or JSON schema (e.g. reverting to a config the current schema can no longer read). Re-submit with `?ignoreWarnings=true` to revert anyway.\n',
   operationId: "revertFeatureV2",
   tags: ["features-v2"],
   method: "post" as const,

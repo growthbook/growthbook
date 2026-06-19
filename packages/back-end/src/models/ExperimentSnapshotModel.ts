@@ -75,6 +75,8 @@ const experimentSnapshotSchema = new mongoose.Schema({
   triggeredBy: String,
   report: String,
   dateCreated: Date,
+  sourceSnapshotId: String,
+  sourceSnapshotDateCreated: Date,
   runStarted: Date,
   manual: Boolean,
   query: String,
@@ -293,16 +295,19 @@ function getAnalysisIndexBySettings(
 async function populateSnapshotAnalyses(
   context: Context,
   snapshot: ExperimentSnapshotInterface,
+  metricIds?: string[],
 ): Promise<ExperimentSnapshotInterface>;
 async function populateSnapshotAnalyses(
   context: Context,
   snapshots: ExperimentSnapshotInterface[],
+  metricIds?: string[],
 ): Promise<ExperimentSnapshotInterface[]>;
 async function populateSnapshotAnalyses(
   context: Context,
   snapshotOrSnapshots:
     | ExperimentSnapshotInterface
     | ExperimentSnapshotInterface[],
+  metricIds?: string[],
 ): Promise<ExperimentSnapshotInterface | ExperimentSnapshotInterface[]> {
   const snapshots = Array.isArray(snapshotOrSnapshots)
     ? snapshotOrSnapshots
@@ -310,6 +315,7 @@ async function populateSnapshotAnalyses(
 
   await context.models.experimentSnapshotAnalysisChunks.populateChunkedAnalyses(
     snapshots,
+    metricIds,
   );
   return snapshotOrSnapshots;
 }
@@ -1152,6 +1158,7 @@ export async function getLatestSnapshotMultipleExperiments(
   experimentPhaseMap: Map<string, number>,
   dimension?: string,
   withResults: boolean = true,
+  hydrateMetricIds?: string[],
 ): Promise<ExperimentSnapshotInterface[]> {
   const experimentPhasesToGet = new Map(experimentPhaseMap);
   const query: FilterQuery<ExperimentSnapshotDocument> = {
@@ -1206,7 +1213,7 @@ export async function getLatestSnapshotMultipleExperiments(
     });
   }
 
-  return populateSnapshotAnalyses(context, snapshots);
+  return populateSnapshotAnalyses(context, snapshots, hydrateMetricIds);
 }
 
 export async function createExperimentSnapshotModel({

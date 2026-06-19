@@ -3,6 +3,8 @@ import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
+import { URLRedirectInterface } from "shared/types/url-redirect";
+import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { FaAngleRight } from "react-icons/fa";
 import { useRouter } from "next/router";
 import { experimentHasLiveLinkedChanges } from "shared/util";
@@ -53,7 +55,10 @@ import HelperText from "@/ui/HelperText";
 import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator";
 import RunningExperimentDecisionBanner from "@/components/Experiment/TabbedPage/RunningExperimentDecisionBanner";
 import RampScheduleStatusBanner from "@/components/Experiment/RampScheduleStatusBanner";
-import StartExperimentModal from "@/components/Experiment/TabbedPage/StartExperimentModal";
+import StartExperimentModal, {
+  PendingDraftFailure,
+} from "@/components/Experiment/TabbedPage/StartExperimentModal";
+import { usePreLaunchChecklist } from "@/components/PreLaunchChecklist/PreLaunchChecklistProvider";
 import { useHoldouts } from "@/hooks/useHoldouts";
 import PhaseSelector from "@/components/Experiment/PhaseSelector";
 import TemplateForm from "@/components/Experiment/Templates/TemplateForm";
@@ -84,14 +89,14 @@ export interface Props {
   safeToEdit: boolean;
   mutateWatchers: () => void;
   usersWatching: (string | undefined)[];
-  checklistItemsRemaining: number | null;
-  checklistHardBlockerCount: number;
   newPhase?: (() => void) | null;
   editTargeting?: (() => void) | null;
   editPhases?: (() => void) | null;
   editTags?: (() => void) | null;
   healthNotificationCount: number;
   linkedFeatures: LinkedFeatureInfo[];
+  visualChangesets: VisualChangesetInterface[];
+  urlRedirects: URLRedirectInterface[];
   holdout?: HoldoutInterfaceStringDates;
   showDashboardView: boolean;
   editSchedule?: (() => void) | null;
@@ -145,14 +150,14 @@ export default function ExperimentHeader({
   usersWatching,
   mutateWatchers,
   editResult,
-  checklistItemsRemaining,
-  checklistHardBlockerCount,
   editTargeting,
   newPhase,
   editPhases,
   editTags,
   healthNotificationCount,
   linkedFeatures,
+  visualChangesets,
+  urlRedirects,
   holdout,
   showDashboardView,
   editSchedule,
@@ -166,6 +171,11 @@ export default function ExperimentHeader({
   const dataSource = getDatasourceById(experiment.datasource);
   const startCelebration = useCelebration();
   const { snapshot, phase, analysis } = useSnapshot();
+  const {
+    checklistItemsRemaining,
+    checklistHardBlockerCount,
+    incompleteChecklistItems,
+  } = usePreLaunchChecklist();
 
   const [showSdkForm, setShowSdkForm] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -217,6 +227,12 @@ export default function ExperimentHeader({
 
   const [showStartExperiment, setShowStartExperiment] = useState(false);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
+  // Structured per-feature failures from the last failed start attempt
+  // (pending_draft_publish_failed) — lets the start modal link each blocked
+  // feature draft instead of only showing the error string.
+  const [pendingDraftFailures, setPendingDraftFailures] = useState<
+    PendingDraftFailure[]
+  >([]);
 
   const hasMultiArmedBanditFeature = hasCommercialFeature(
     "multi-armed-bandits",
@@ -283,11 +299,14 @@ export default function ExperimentHeader({
     return () => observer.disconnect();
   }, [shouldHideTabs]);
 
+  // When the tab strip is hidden (e.g. an unstarted draft), the only
+  // reachable view is the overview, so force the active tab there. Once `tab`
+  // is already "overview" this is a no-op, so Back exits cleanly.
   useEffect(() => {
-    if (shouldHideTabs) {
+    if (shouldHideTabs && tab !== "overview") {
       setTab("overview");
     }
-  }, [shouldHideTabs, setTab]);
+  }, [shouldHideTabs, tab, setTab]);
 
   async function handleWatchUpdates(watch: boolean) {
     await apiCall(
@@ -311,6 +330,7 @@ export default function ExperimentHeader({
       }
     }
 
+    setPendingDraftFailures([]);
     if (isHoldout) {
       await apiCall(`/holdout/${holdout?.id}/edit-status`, {
         method: "POST",
@@ -320,12 +340,23 @@ export default function ExperimentHeader({
         }),
       });
     } else {
-      await apiCall(`/experiment/${experiment.id}/status`, {
-        method: "POST",
-        body: JSON.stringify({
-          status: "running",
-        }),
-      });
+      await apiCall(
+        `/experiment/${experiment.id}/status`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            status: "running",
+          }),
+        },
+        (responseData) => {
+          if (
+            responseData?.code === "pending_draft_publish_failed" &&
+            Array.isArray(responseData?.details?.failedFeatureDrafts)
+          ) {
+            setPendingDraftFailures(responseData.details.failedFeatureDrafts);
+          }
+        },
+      );
     }
     await mutate();
     startCelebration();
@@ -668,12 +699,20 @@ export default function ExperimentHeader({
       {showStartExperiment && experiment.status === "draft" && (
         <StartExperimentModal
           experiment={experiment}
-          close={() => setShowStartExperiment(false)}
+          close={() => {
+            setShowStartExperiment(false);
+            setPendingDraftFailures([]);
+          }}
           startExperiment={startExperiment}
+          pendingDraftFailures={pendingDraftFailures}
           scheduleExperiment={approveScheduledExperimentStart}
           checklistItemsRemaining={checklistItemsRemaining || 0}
           checklistHardBlockerCount={checklistHardBlockerCount}
+          incompleteChecklistItems={incompleteChecklistItems}
           isHoldout={isHoldout}
+          linkedFeatures={linkedFeatures}
+          visualChangesets={visualChangesets}
+          urlRedirects={urlRedirects}
         />
       )}
       {showScheduleModal && !isHoldout ? (

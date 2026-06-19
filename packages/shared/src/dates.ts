@@ -29,6 +29,30 @@ export function datetime(date: string | Date, inTimezone?: string): string {
     ? formatInTimeZone(d, inTimezone, formatStr)
     : format(d, formatStr);
 }
+export function datetimeAt(date: string | Date, inTimezone?: string): string {
+  if (!date) return "";
+  const d = getValidDate(date);
+  const formatStr = "MMM d, yyyy 'at' h:mm a";
+  return inTimezone
+    ? formatInTimeZone(d, inTimezone, formatStr)
+    : format(d, formatStr);
+}
+export function dateOnly(date: string | Date, inTimezone?: string): string {
+  if (!date) return "";
+  const d = getValidDate(date);
+  const formatStr = "yyyy-MM-dd";
+  return inTimezone
+    ? formatInTimeZone(d, inTimezone, formatStr)
+    : format(d, formatStr);
+}
+export function timestamp(date: string | Date, inTimezone?: string): string {
+  if (!date) return "";
+  const d = getValidDate(date);
+  const formatStr = "yyyy-MM-dd HH:mm:ss";
+  return inTimezone
+    ? formatInTimeZone(d, inTimezone, formatStr)
+    : format(d, formatStr);
+}
 export function relativeDate(date: string | Date): string {
   if (!date) return "";
   return formatRelative(getValidDate(date), new Date());
@@ -129,4 +153,15 @@ export function abbreviateAgo(date: string | Date | null | undefined): string {
     .replace("less than a", "<1")
     .replace(/second(s)?/g, "sec$1")
     .replace(/minute(s)?/g, "min$1");
+}
+
+export function snapToUtcDayStart(date: Date): Date {
+  const snapped = new Date(date);
+  snapped.setUTCHours(0, 0, 0, 0);
+  return snapped;
+}
+
+export function precedingUtcDayStart(date: Date): Date {
+  const dayStart = snapToUtcDayStart(date);
+  return new Date(dayStart.getTime() - 24 * 60 * 60 * 1000);
 }

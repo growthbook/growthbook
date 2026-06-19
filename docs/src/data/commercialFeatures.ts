@@ -65,6 +65,10 @@ export default {
     plan: "enterprise",
     displayName: "Environment Inheritance",
   },
+  "events-forwarder": {
+    plan: "pro",
+    displayName: "Events Forwarder",
+  },
   "experiment-impact": {
     plan: "enterprise",
     displayName: "Experiment Impact",
@@ -220,6 +224,10 @@ export default {
   "schedule-feature-flag": {
     plan: "pro",
     displayName: "Schedule Feature Flag",
+  },
+  "scheduled-revisions": {
+    plan: "enterprise",
+    displayName: "Scheduled Revisions",
   },
   scim: {
     plan: "enterprise",

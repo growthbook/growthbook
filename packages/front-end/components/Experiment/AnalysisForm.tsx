@@ -325,6 +325,7 @@ const AnalysisForm: FC<{
     getIsExperimentIncludedInIncrementalRefresh(
       datasource ?? undefined,
       experiment.id,
+      experiment.type,
     );
 
   const datasourceField = form.watch("datasource");
@@ -1024,6 +1025,7 @@ const AnalysisForm: FC<{
                 filterConversionWindowMetrics={isHoldout}
                 goalDisabled={isBandit && experiment.status !== "draft"}
                 experimentId={experiment.id}
+                experimentType={experiment.type}
               />
             )}
 

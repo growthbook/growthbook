@@ -34,7 +34,6 @@ export type Props = TrackingEventModalProps & {
   cta?: string;
   ctaColor?: "red" | "violet";
   ctaEnabled?: boolean;
-  cancelText?: string;
   size?: Size;
   maxWidth?: string;
   submit?: () => void | Promise<void>;
@@ -44,6 +43,7 @@ export type Props = TrackingEventModalProps & {
   // destructive or out-of-flow actions that shouldn't be the primary CTA.
   secondaryAction?: ReactNode;
   close: () => void;
+  closeCta?: string;
   children: ReactNode;
 };
 
@@ -59,12 +59,12 @@ export default function ModalStandard({
   cta = "Save",
   ctaColor = "violet",
   ctaEnabled = true,
-  cancelText = "Cancel",
   size = "md",
   maxWidth,
   submit,
   secondaryAction,
   close,
+  closeCta = "Cancel",
   children,
   trackingEventModalType,
   trackingEventModalSource,
@@ -85,7 +85,7 @@ export default function ModalStandard({
         <Flex gap="3" align="center">
           <Modal.Close>
             <Button variant="ghost" onClick={close}>
-              {cancelText}
+              {closeCta}
             </Button>
           </Modal.Close>
           {submit && (

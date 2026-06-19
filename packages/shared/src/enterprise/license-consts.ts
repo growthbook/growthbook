@@ -17,6 +17,7 @@ export type CommercialFeature =
   | "advanced-permissions"
   | "encrypt-features-endpoint"
   | "schedule-feature-flag"
+  | "events-forwarder"
   | "custom-metadata"
   | "override-metrics"
   | "regression-adjustment"
@@ -76,7 +77,8 @@ export type CommercialFeature =
   | "manage-official-resources"
   | "incremental-refresh"
   | "adv-presentations"
-  | "ramp-schedules";
+  | "ramp-schedules"
+  | "scheduled-revisions";
 
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
@@ -193,6 +195,7 @@ const commercialFeaturesPro: CommercialFeature[] = [
   "advanced-permissions",
   "encrypt-features-endpoint",
   "schedule-feature-flag",
+  "events-forwarder",
   "override-metrics",
   "regression-adjustment",
   "sequential-testing",
@@ -262,6 +265,7 @@ const commercialFeaturesEnterpriseOnly: CommercialFeature[] = [
   "share-product-analytics-dashboards",
   "incremental-refresh",
   "adv-presentations",
+  "scheduled-revisions",
 ];
 
 const commercialFeaturesEnterprise: CommercialFeature[] = [

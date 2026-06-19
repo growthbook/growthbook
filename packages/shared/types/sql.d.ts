@@ -1,5 +1,17 @@
 import type { SqlLanguage } from "sql-formatter";
-import { DataType } from "./integrations";
+import type { DataType } from "./integrations";
+
+export type StringMatchOperator =
+  | "starts_with"
+  | "ends_with"
+  | "contains"
+  | "not_contains";
+
+export type StringMatchFn = (
+  columnExpr: string,
+  operator: StringMatchOperator,
+  value: string,
+) => string;
 
 /** One labeled column expanded per base row by {@link SqlDialect.unpivotLabeledPairs}. */
 export type UnpivotLabeledPair = {
@@ -42,6 +54,7 @@ export type DateTruncGranularity = "hour" | "day" | "week" | "month" | "year";
 
 export interface SqlDialect {
   escapeStringLiteral: (s: string) => string;
+  stringMatch: StringMatchFn;
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => string;
   evalBoolean: (col: string, value: boolean) => string;
   dateTrunc: (

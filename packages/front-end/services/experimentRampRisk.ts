@@ -6,7 +6,7 @@
  * targeting pair rather than a full experiment.
  */
 import { FeaturePrerequisite, SavedGroupTargeting } from "shared/types/feature";
-import type { ReleasePlan } from "@/components/Experiment/EditTargetingModal";
+import type { ReleasePlan } from "@/components/Experiment/MakeChangesFlow";
 import type { RecommendedRolloutData } from "@/components/Experiment/ReleaseChangesForm";
 
 // ── Types ──────────────────────────────────────────────────────────────────

@@ -7,7 +7,7 @@ import { DropdownMenu as RadixDropdownMenu, Box, Flex } from "@radix-ui/themes";
 import { PiCaretDownBold } from "react-icons/pi";
 import RevisionLabel, {
   revisionLabelText,
-} from "@/components/Features/RevisionLabel";
+} from "@/components/Reviews/RevisionLabel";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Switch from "@/ui/Switch";
 import Text from "@/ui/Text";
@@ -16,7 +16,7 @@ import Link from "@/ui/Link";
 import EventUser from "@/components/Avatar/EventUser";
 import RevisionStatusBadge, {
   isRampGenerated,
-} from "@/components/Features/RevisionStatusBadge";
+} from "@/components/Reviews/RevisionStatusBadge";
 
 export interface Props {
   feature: FeatureInterface;
@@ -87,9 +87,9 @@ function RevisionRow({
             )}
       </Box>
       {!publishedOnly && (
-        <Box flexShrink="0">
+        <Flex flexShrink="0" align="center" gap="2">
           <RevisionStatusBadge revision={r} liveVersion={liveVersion} />
-        </Box>
+        </Flex>
       )}
     </Flex>
   );
@@ -246,12 +246,12 @@ export default function RevisionDropdown({
         </Text>
       </Box>
       {!publishedOnly && (selectedRevision || !draftsOnly) && (
-        <Box flexShrink="0">
+        <Flex flexShrink="0" align="center" gap="2">
           <RevisionStatusBadge
             revision={selectedRevision}
             liveVersion={liveVersion}
           />
-        </Box>
+        </Flex>
       )}
       <PiCaretDownBold style={{ flexShrink: 0 }} />
     </Flex>
