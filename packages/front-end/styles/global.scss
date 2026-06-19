@@ -736,12 +736,16 @@ pre {
       &.header-label {
         padding-bottom: 5px;
         font-size: 16px;
+        font-weight: var(--font-weight-bold);
+        color: var(--color-text-high);
       }
 
       &.label {
         color: var(--color-text-mid);
-        font-size: 13px;
+        font-size: 12px;
+        font-weight: var(--font-weight-bold);
         padding-bottom: 5px;
+        line-height: 16px;
       }
     }
   }

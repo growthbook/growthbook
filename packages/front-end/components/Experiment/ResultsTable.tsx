@@ -278,11 +278,11 @@ export default function ResultsTable({
     };
 
     const getIcon = () => {
-      if (!isActive) return <FaSort size={16} />;
+      if (!isActive) return <FaSort size={15} />;
       return sortDirection === "desc" ? (
-        <FaSortDown size={16} />
+        <FaSortDown size={15} />
       ) : (
-        <FaSortUp size={16} />
+        <FaSortUp size={15} />
       );
     };
 
@@ -291,6 +291,7 @@ export default function ResultsTable({
         usePortal={true}
         innerClassName={"text-left"}
         body={getTooltipText()}
+        style={{ display: "inline-flex", alignItems: "center" }}
       >
         <a
           role="button"
@@ -299,6 +300,9 @@ export default function ResultsTable({
             marginLeft: "2px",
             color: isActive ? "var(--blue-10)" : "var(--gray-a8)",
             userSelect: "none",
+            display: "inline-flex",
+            alignItems: "center",
+            lineHeight: 0,
           }}
         >
           {getIcon()}
@@ -568,13 +572,13 @@ export default function ResultsTable({
                             <div className="col d-flex align-items-end px-0">
                               <a
                                 role="button"
-                                className="ml-1 cursor-pointer link-purple"
+                                className="cursor-pointer link-purple"
                                 onClick={(e) => {
                                   e.preventDefault();
                                   editMetrics();
                                 }}
                               >
-                                <PiPencilSimpleFill />
+                                <PiPencilSimpleFill size={15} />
                               </a>
                             </div>
                           ) : null}
@@ -635,10 +639,10 @@ export default function ResultsTable({
                             })}
                           >
                             {statsEngine === "bayesian" ? (
-                              <>
+                              <Flex align="center">
                                 Chance to Win
                                 <SortButton column="significance" />
-                              </>
+                              </Flex>
                             ) : sequentialTestingEnabled ||
                               appliedPValueCorrection ? (
                               <Tooltip

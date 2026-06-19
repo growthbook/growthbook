@@ -34,7 +34,10 @@ export default function VariationLabel({
     if (!slot) return;
 
     const measure = () => {
-      setHideName(slot.clientWidth < MIN_NAME_WIDTH_PX);
+      // clientWidth is 0 when the label is in a hidden container (e.g. an
+      // inactive tab kept mounted via display:none). Don't collapse in that
+      // case, otherwise it gets stuck showing only the number when revealed.
+      setHideName(slot.clientWidth > 0 && slot.clientWidth < MIN_NAME_WIDTH_PX);
       const text = textRef.current;
       if (text) {
         setIsTruncated(text.scrollWidth > text.clientWidth);

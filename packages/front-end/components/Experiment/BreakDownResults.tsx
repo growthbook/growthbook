@@ -41,6 +41,7 @@ import { useExperimentDimensionRows } from "@/hooks/useExperimentDimensionRows";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useMetricDrilldownContext } from "@/components/MetricDrilldown/useMetricDrilldownContext";
 import Link from "@/ui/Link";
+import Text from "@/ui/Text";
 import UsersTable from "./UsersTable";
 
 export const includeVariation = (
@@ -248,9 +249,13 @@ const BreakDownResults: FC<{
       {tables.map((table, i) => {
         return (
           <Fragment key={table.metric.id + "_" + i}>
-            <h4
-              className="mt-2 mb-1 d-flex position-relative ml-2"
-              style={{ gap: 4 }}
+            <Text
+              size="large"
+              weight="semibold"
+              color="text-high"
+              mt="2"
+              mb="1"
+              ml="2"
             >
               {table.rows[0]?.resultGroup === "goal"
                 ? "Goal Metric"
@@ -259,7 +264,7 @@ const BreakDownResults: FC<{
                   : table.rows[0]?.resultGroup === "guardrail"
                     ? "Guardrail Metric"
                     : null}
-            </h4>
+            </Text>
             <ResultsTable
               key={i}
               experimentId={experimentId}
