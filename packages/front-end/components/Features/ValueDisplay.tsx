@@ -13,6 +13,7 @@ import React, {
 import stringify from "json-stringify-pretty-compact";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { PiCheck, PiCornersOut, PiCopy } from "react-icons/pi";
+import { parsePlainJSONObject } from "shared/util";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import styles from "@/components/Archetype/ArchetypeResults.module.scss";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -20,18 +21,6 @@ import { parseFeatureResult } from "@/hooks/useArchetype";
 import Modal from "@/components/Modal";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import Button from "@/ui/Button";
-
-function parsePlainObject(value: string): Record<string, unknown> | null {
-  try {
-    const p = JSON.parse(value);
-    if (p && typeof p === "object" && !Array.isArray(p)) {
-      return p as Record<string, unknown>;
-    }
-  } catch {
-    // ignore
-  }
-  return null;
-}
 
 // For sparse JSON rules, the stored `value` is only the patch. We display the
 // fully expanded value (default merged with the patch) and bold the keys that
@@ -41,9 +30,9 @@ function getSparseMerge(
   value: string,
   defaultValue: string | undefined,
 ): { merged: Record<string, unknown>; patchKeys: Set<string> } | null {
-  const patch = parsePlainObject(value);
+  const patch = parsePlainJSONObject(value);
   if (!patch) return null;
-  const defaultObj = parsePlainObject(defaultValue ?? "") ?? {};
+  const defaultObj = parsePlainJSONObject(defaultValue ?? "") ?? {};
   return {
     merged: { ...defaultObj, ...patch },
     patchKeys: new Set(Object.keys(patch)),
