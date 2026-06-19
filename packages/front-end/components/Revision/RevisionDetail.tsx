@@ -8,6 +8,7 @@ import {
   MergeResult,
   applyTopLevelPatchOps,
   isUserBlockedFromApproving,
+  isAutopublishOnApprovalEnabled,
 } from "shared/enterprise";
 import { SavedGroupInterface } from "shared/types/saved-group";
 import Text from "@/ui/Text";
@@ -59,6 +60,7 @@ function RevisionDetail<T>({
     useUser();
   const { apiCall } = useAuth();
   const [bypassApproval, setBypassApproval] = useState(false);
+  const [requestAutoPublish, setRequestAutoPublish] = useState(false);
   const [confirmReopen, setConfirmReopen] = useState(false);
   const [showFixConflicts, setShowFixConflicts] = useState(false);
   const [mergeError, setMergeError] = useState<string | null>(null);
@@ -177,6 +179,46 @@ function RevisionDetail<T>({
       userId,
     });
 
+  const autopublishOnApproval =
+    isAutopublishOnApprovalEnabled(
+      organization?.settings?.approvalFlows,
+      revision.target.type,
+    ) && hasCommercialFeature("require-approvals");
+
+  const revisionAutoPublishArmed = !!revision.autoPublishOnApproval;
+
+  // Saved groups gate review and publish on the same edit permission, so a
+  // reviewer who can approve can also publish.
+  const canReviewerPublish = permissionsUtil.canUpdateSavedGroup(
+    currentState as SavedGroupInterface,
+    {},
+  );
+
+  const canRequestAutoPublish =
+    autopublishOnApproval &&
+    requiresApproval &&
+    revision.status === "draft" &&
+    canReviewerPublish;
+
+  // After a draft is already in review, the author/contributor can still arm or
+  // disarm auto-publish (the draft case is handled by the checkbox above).
+  const isDraftOwner =
+    isRevisionAuthor ||
+    (!!userId && (revision.contributors ?? []).includes(userId));
+  const canToggleAutoPublishPostReview =
+    autopublishOnApproval &&
+    canReviewerPublish &&
+    isDraftOwner &&
+    (revision.status === "pending-review" ||
+      revision.status === "changes-requested");
+
+  // Reviewers (and anyone who can't toggle) still need to see that a draft is
+  // armed for auto-publish, so they know approving will publish it.
+  const showAutoPublishReadonly =
+    autopublishOnApproval &&
+    revisionAutoPublishArmed &&
+    !canToggleAutoPublishPostReview;
+
   const {
     isSubmitting,
     setIsSubmitting,
@@ -189,6 +231,7 @@ function RevisionDetail<T>({
     setReviewDropdownOpen,
     submitForReview: handleSubmitForReview,
     submitReview: handleSubmitReview,
+    approveAndPublish: handleApproveAndPublish,
   } = useRevisionReview({
     revision,
     isRevisionAuthor,
@@ -197,6 +240,22 @@ function RevisionDetail<T>({
     mutate,
     closeModal,
   });
+
+  const doToggleAutoPublish = async (enabled: boolean) => {
+    try {
+      const res = await apiCall<{ revision: Revision }>(
+        `/revision/${revision.id}/toggle-auto-publish`,
+        {
+          method: "POST",
+          body: JSON.stringify({ enabled }),
+        },
+      );
+      if (res.revision) setCurrentRevision(res.revision);
+      await mutate?.();
+    } catch {
+      // Checkbox re-renders from server state, so no optimistic rollback needed.
+    }
+  };
 
   // Prepare diff data
   const baseSnapshot =
@@ -215,6 +274,30 @@ function RevisionDetail<T>({
     proposedSnapshot,
     diffConfig,
   );
+
+  // Publishing is blocked when the draft conflicts with live or has nothing to
+  // publish. Reviewers can still approve, but the one-step publish can't
+  // proceed — so we suppress every "Submit and Publish" affordance.
+  const reviewerPublishBlocked =
+    (!!mergeResult && !mergeResult.success) || diffs.length === 0;
+
+  // Armed drafts publish on approve (via approve-and-publish), but only when
+  // nothing is blocking the publish.
+  const willPublishOnApprove =
+    reviewDecision === "approve" &&
+    revisionAutoPublishArmed &&
+    !reviewerPublishBlocked;
+
+  // Non-armed counterpart: when approve-&-publish is enabled, a reviewer with
+  // publish access can approve and publish an unarmed draft in one step —
+  // unless publishing is blocked.
+  const showReviewerPublishOption =
+    requiresApproval &&
+    reviewDecision === "approve" &&
+    !revisionAutoPublishArmed &&
+    autopublishOnApproval &&
+    canReviewerPublish &&
+    !reviewerPublishBlocked;
 
   const handleMerge = async () => {
     setIsSubmitting(true);
@@ -354,6 +437,7 @@ function RevisionDetail<T>({
           revision={revision}
           currentState={currentState as Record<string, unknown>}
           close={() => setShowFixConflicts(false)}
+          onRebased={(updated) => setCurrentRevision(updated)}
           mutate={async () => {
             setShowFixConflicts(false);
             await mutate?.();
@@ -506,6 +590,15 @@ function RevisionDetail<T>({
             // For drafts: show either "Request Approval" or "Publish" based on approval requirement
             requiresApproval ? (
               <>
+                {canRequestAutoPublish && (
+                  <Flex align="center" mr="2">
+                    <Checkbox
+                      label="Auto-publish when approved"
+                      value={requestAutoPublish}
+                      setValue={(val) => setRequestAutoPublish(!!val)}
+                    />
+                  </Flex>
+                )}
                 <Tooltip
                   content={
                     diffs.length === 0 ? "No changes to submit" : undefined
@@ -516,7 +609,11 @@ function RevisionDetail<T>({
                     <Button
                       variant="solid"
                       color="violet"
-                      onClick={handleSubmitForReview}
+                      onClick={() =>
+                        handleSubmitForReview({
+                          autoPublishOnApproval: requestAutoPublish,
+                        })
+                      }
                       disabled={isSubmitting || diffs.length === 0}
                       style={
                         diffs.length === 0
@@ -574,6 +671,26 @@ function RevisionDetail<T>({
           ) : (
             // For non-drafts: show review button and publish button
             <>
+              {canToggleAutoPublishPostReview && (
+                <Flex align="center" mr="2">
+                  <Checkbox
+                    label="Auto-publish when approved"
+                    value={revisionAutoPublishArmed}
+                    setValue={(val) => doToggleAutoPublish(!!val)}
+                  />
+                </Flex>
+              )}
+              {showAutoPublishReadonly && (
+                <Flex align="center" mr="2">
+                  <Checkbox
+                    label="Auto-publish when approved"
+                    weight="regular"
+                    value={true}
+                    setValue={() => {}}
+                    disabled
+                  />
+                </Flex>
+              )}
               <Popover.Root
                 open={reviewDropdownOpen}
                 onOpenChange={setReviewDropdownOpen}
@@ -654,19 +771,37 @@ function RevisionDetail<T>({
                       {reviewError}
                     </Text>
                   )}
-                  <Flex justify="end" mt="3">
+                  <Flex justify="end" mt="3" gap="2">
+                    {showReviewerPublishOption && (
+                      <Button
+                        variant="outline"
+                        color="violet"
+                        onClick={() => handleApproveAndPublish(reviewComment)}
+                        disabled={isSubmitting || !reviewComment.trim()}
+                      >
+                        Submit and Publish
+                      </Button>
+                    )}
                     <Button
                       variant="solid"
                       color="violet"
                       onClick={() => {
-                        handleSubmitReview(
-                          requiresApproval ? reviewDecision : "comment",
-                          reviewComment,
-                        );
+                        if (willPublishOnApprove) {
+                          handleApproveAndPublish(reviewComment);
+                        } else {
+                          handleSubmitReview(
+                            requiresApproval ? reviewDecision : "comment",
+                            reviewComment,
+                          );
+                        }
                       }}
                       disabled={isSubmitting || !reviewComment.trim()}
                     >
-                      {isSubmitting ? "Submitting..." : "Confirm"}
+                      {isSubmitting
+                        ? "Submitting..."
+                        : willPublishOnApprove
+                          ? "Submit and Publish"
+                          : "Confirm"}
                     </Button>
                   </Flex>
                 </Popover.Content>

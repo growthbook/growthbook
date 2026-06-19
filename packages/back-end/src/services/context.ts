@@ -74,8 +74,10 @@ import { TeamModel } from "back-end/src/models/TeamModel";
 import { AnalyticsExplorationModel } from "back-end/src/models/AnalyticsExplorationModel";
 import { RevisionModel } from "back-end/src/models/RevisionModel";
 import { AIConversationModel } from "back-end/src/models/AIConversationModel";
+import { EventForwarderConfigModel } from "back-end/src/models/EventForwarderConfigModel";
 import { PresentationThemeModel } from "back-end/src/models/PresentationThemeModel";
 import { WatchModel } from "back-end/src/models/WatchModel";
+import { FigmaConnectionModel } from "back-end/src/models/FigmaConnectionModel";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
 import { getUserByEmail, getUsersByIds } from "back-end/src/models/UserModel";
 import { getExperimentMetricsByIds } from "./experiments";
@@ -123,10 +125,12 @@ export type ModelName =
   | "presentationThemes"
   | "revisions"
   | "watch"
+  | "figmaConnections"
   | "apiKeys"
   | "rampSchedules"
   | "rampScheduleTemplates"
-  | "aiConversations";
+  | "aiConversations"
+  | "eventForwarderConfigs";
 
 export const modelClasses = {
   agreements: AgreementModel,
@@ -164,10 +168,12 @@ export const modelClasses = {
   revisions: RevisionModel,
   presentationThemes: PresentationThemeModel,
   watch: WatchModel,
+  figmaConnections: FigmaConnectionModel,
   apiKeys: ApiKeyModel,
   rampSchedules: RampScheduleModel,
   rampScheduleTemplates: RampScheduleTemplateModel,
   aiConversations: AIConversationModel,
+  eventForwarderConfigs: EventForwarderConfigModel,
 };
 export type ModelClass = (typeof modelClasses)[ModelName];
 type ModelInstances = {
@@ -215,10 +221,12 @@ export class ReqContextClass {
       revisions: new RevisionModel(this),
       presentationThemes: new PresentationThemeModel(this),
       watch: new WatchModel(this),
+      figmaConnections: new FigmaConnectionModel(this),
       apiKeys: new ApiKeyModel(this),
       rampSchedules: new RampScheduleModel(this),
       rampScheduleTemplates: new RampScheduleTemplateModel(this),
       aiConversations: new AIConversationModel(this),
+      eventForwarderConfigs: new EventForwarderConfigModel(this),
     };
   }
 

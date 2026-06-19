@@ -28,6 +28,7 @@ import {
   getColumnRefWhereClause,
   getSelectedColumnDatatype,
 } from "shared/experiments";
+import { createLikeStringMatchFn } from "shared/sql";
 import { PiArrowSquareOut, PiPlus } from "react-icons/pi";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -68,6 +69,7 @@ import HelperText from "@/ui/HelperText";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import { RowFilterInput } from "@/components/FactTables/RowFilterInput";
+import { getAttributeFieldsExposedAsColumns } from "@/components/FactTables/rowFilterUtils";
 import { MANAGED_BY_ADMIN } from "@/components/Metrics/MetricForm";
 import { DocLink } from "@/components/DocLink";
 
@@ -249,10 +251,12 @@ function getColumnOptions({
 
   // Add JSON fields
   if (includeJSONFields && factTable?.columns) {
-    const excludedAttributeFields = new Set<string>();
+    // When an attribute is surfaced as a top-level column — legacy materialized
+    // columns, or JSON-warehouse identifiers aliased out of `attributes` —
+    // point people at that column, not the JSON field.
+    const excludedAttributeFields =
+      getAttributeFieldsExposedAsColumns(factTable);
     if (datasource && datasource.type === "growthbook_clickhouse") {
-      // When an attribute has been materialized to the top-level,
-      // we want people to use the top-level column and not a JSON field
       datasource.settings.materializedColumns?.forEach((col) => {
         excludedAttributeFields.add(col.sourceField);
       });
@@ -264,7 +268,10 @@ function getColumnOptions({
     for (const col of jsonColumns) {
       if (col.jsonFields) {
         for (const [field, data] of Object.entries(col.jsonFields)) {
-          if (col.name === "attributes" && excludedAttributeFields.has(field)) {
+          if (
+            col.column === "attributes" &&
+            excludedAttributeFields.has(field)
+          ) {
             continue;
           }
 
@@ -683,6 +690,10 @@ function getWHERE({
           factTable,
           columnRef,
           escapeStringLiteral: (s) => s.replace(/'/g, "''"),
+          stringMatch: createLikeStringMatchFn({
+            escapeStringLiteral: (s) => s.replace(/'/g, "''"),
+            emitEscapeClause: false,
+          }),
           // This isn't real SQL syntax for most dialects, but it should get the point across
           jsonExtract: (jsonCol, path) => `${jsonCol}.${path}`,
           evalBoolean: (col, value) => `${col} IS ${value ? "TRUE" : "FALSE"}`,

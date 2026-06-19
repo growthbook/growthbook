@@ -173,6 +173,13 @@ export class ConcurrentIncrementalRefreshError extends Error {
   }
 }
 
+export class IncrementalUpdateRequiresFullRefreshError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "IncrementalUpdateRequiresFullRefreshError";
+  }
+}
+
 // Snapshot failures that repeat on every retry; auto-updates get disabled, even for bandits
 export class UnrecoverableSnapshotError extends Error {
   constructor(message: string) {
@@ -193,4 +200,16 @@ export function shouldSkipErrorLog(err: unknown): boolean {
   if (inner?.name === "TokenExpiredError") return true;
 
   return false;
+}
+
+export function getErrorMessage(error: unknown, fallback?: string): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "string") return error;
+  if (error && typeof error === "object" && "message" in error) {
+    const { message } = error as { message: unknown };
+    if (typeof message === "string") return message;
+    if (message != null) return String(message);
+  }
+  if (error == null) return fallback ?? "Unknown error";
+  return fallback ?? String(error);
 }

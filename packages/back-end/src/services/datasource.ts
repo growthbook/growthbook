@@ -11,6 +11,7 @@ import {
   DataSourceInterface,
   DataSourceParams,
   ExposureQuery,
+  FeatureUsageQuery,
 } from "shared/types/datasource";
 import { FactTableColumnType } from "shared/types/fact-table";
 import { QueryStatistics } from "shared/types/query";
@@ -398,6 +399,60 @@ export async function testQueryValidity(
       columns = new Set(columnNames);
     } else {
       // For other datasources, extract from first row (requires LIMIT 1+)
+      if (results.results.length === 0) {
+        return "No rows returned";
+      }
+      columns = new Set(Object.keys(results.results[0]));
+    }
+
+    const missingColumns: string[] = [];
+    for (const col of requiredColumns) {
+      if (!columns.has(col)) {
+        missingColumns.push(col);
+      }
+    }
+
+    if (missingColumns.length > 0) {
+      return `Missing required columns in response: ${missingColumns.join(
+        ", ",
+      )}`;
+    }
+
+    return undefined;
+  } catch (e) {
+    return e.message;
+  }
+}
+
+export async function testFeatureUsageQueryValidity(
+  integration: SourceIntegrationInterface,
+  query: FeatureUsageQuery,
+  testDays?: number,
+): Promise<string | undefined> {
+  if (!integration.getTestValidityQuery || !integration.runTestQuery) {
+    return undefined;
+  }
+
+  const requiredColumns = new Set(["timestamp", "feature_key"]);
+
+  const sql = integration.getTestValidityQuery(
+    query.query,
+    testDays,
+    undefined,
+    "timestamp",
+  );
+  try {
+    const results = await integration.runTestQuery(sql, undefined, "testQuery");
+
+    let columns: Set<string>;
+
+    if (results.columns) {
+      const columnNames = results.columns.map((c) => c.name);
+      if (columnNames.length === 0) {
+        return "Unable to determine columns from query";
+      }
+      columns = new Set(columnNames);
+    } else {
       if (results.results.length === 0) {
         return "No rows returned";
       }

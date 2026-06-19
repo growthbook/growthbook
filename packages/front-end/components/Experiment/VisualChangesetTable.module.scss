@@ -45,24 +45,6 @@
   border-bottom: 1px solid var(--gray-a4);
 }
 
-.monitorTile {
-  width: 30px;
-  height: 30px;
-  border-radius: var(--radius-3);
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--accent-3);
-  color: var(--accent-11);
-}
-
-// Sibling cards switch to green for visual distinction.
-.cardChrome:not(:first-of-type) .monitorTile {
-  background: var(--green-3);
-  color: var(--green-11);
-}
-
 .cardHeaderTitleBlock {
   min-width: 0;
   flex: 1;
@@ -234,20 +216,16 @@
   text-decoration: underline;
 }
 
-// ---- Variation row ----
 .variationRow {
-  border-bottom: 1px solid var(--gray-a4);
-}
-
-.variationRow:last-child {
-  border-bottom: none;
+  padding: 0px 24px;
 }
 
 .variationHead {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 14px 18px;
+  gap: 64px;
+  padding-top: 14px;
+  padding-bottom: 14px;
 }
 
 .variationSwatch {
@@ -378,7 +356,7 @@
 
 // Expanded change list under a variation row.
 .changeList {
-  padding: 2px 18px 18px 58px;
+  padding: 2px 0px 18px 35px;
   display: flex;
   flex-direction: column;
   gap: 8px;

@@ -205,6 +205,16 @@ export async function getFactTableMap(
   return new Map(factTables.map((f) => [f.id, f]));
 }
 
+// WARNING: bypasses project-read permission. Use only for system-driven
+// managed-warehouse sync (see dangerouslyGetGrowthbookDatasourceBypassPermission).
+export async function dangerouslyGetFactTableByIdBypassPermission(
+  organization: string,
+  id: string,
+): Promise<FactTableInterface | null> {
+  const doc = await FactTableModel.findOne({ organization, id });
+  return doc ? toInterface(doc) : null;
+}
+
 export async function getFactTable(
   context: ReqContext | ApiReqContext,
   id: string,
@@ -301,10 +311,13 @@ export async function updateFactTable(
   factTable: FactTableInterface,
   changes: UpdateFactTableProps,
 ) {
-  // Allow changing columns even for API-managed fact tables
+  // Allow changing columns even for API-managed fact tables. Also allow
+  // system/background contexts (which have no audit user) through, e.g. the
+  // event forwarder sync.
   if (
     factTable.managedBy === "api" &&
     context.auditUser?.type !== "api_key" &&
+    context.auditUser !== null &&
     Object.keys(changes).some((k) => k !== "columns")
   ) {
     throw new Error(
@@ -397,6 +410,43 @@ export async function updateFactTableColumns(
       });
     }
   }
+}
+
+// System-driven update of the managed-warehouse events fact table (managedBy "api").
+// Unlike updateFactTable, this is allowed from internal (non-API) requests because
+// GrowthBook itself owns this table's sql/columns/userIdTypes. Used when the org's
+// identifiers (hashAttribute attributes) change.
+export async function dangerouslySyncManagedWarehouseFactTable(
+  context: ReqContext | ApiReqContext,
+  factTable: FactTableInterface,
+  changes: Pick<UpdateFactTableProps, "sql" | "columns" | "userIdTypes">,
+) {
+  if (changes.columns) {
+    const removedColumns = detectRemovedColumns(
+      factTable.columns || [],
+      changes.columns,
+    );
+    if (removedColumns.length > 0) {
+      await cleanupMetricAutoSlices({
+        context,
+        factTableId: factTable.id,
+        removedColumns,
+      });
+    }
+  }
+
+  await FactTableModel.updateOne(
+    {
+      id: factTable.id,
+      organization: factTable.organization,
+    },
+    {
+      $set: {
+        ...changes,
+        dateUpdated: new Date(),
+      },
+    },
+  );
 }
 
 // Detect columns that were removed or had auto slice disabled

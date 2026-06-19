@@ -146,6 +146,7 @@ export const getSlackMessageForNotificationEvent = async (
     case "feature.revision.changesRequested":
     case "feature.revision.commented":
     case "feature.revision.discarded":
+    case "feature.revision.reopened":
     case "feature.revision.rebased":
     case "feature.revision.published":
     case "feature.revision.reverted":
@@ -624,6 +625,9 @@ const buildSlackMessageForRevisionEvent = (
       break;
     case "feature.revision.discarded":
       text = `Draft revision ${version} of feature ${feature} was discarded`;
+      break;
+    case "feature.revision.reopened":
+      text = `Discarded revision ${version} of feature ${feature} was reopened as a draft`;
       break;
     case "feature.revision.rebased":
       text = `Draft revision ${version} of feature ${feature} was rebased`;

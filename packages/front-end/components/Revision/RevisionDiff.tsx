@@ -3,7 +3,7 @@ import { Box, Flex } from "@radix-ui/themes";
 import Text from "@/ui/Text";
 import Badge from "@/ui/Badge";
 import Heading from "@/ui/Heading";
-import { ExpandableDiff } from "@/components/Features/DraftModal";
+import { ExpandableDiff } from "@/components/Reviews/Feature/RevisionDiffUtils";
 import { COMPACT_DIFF_STYLES } from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
 import { logBadgeColor } from "@/components/Features/FeatureDiffRenders";
 import { DiffItem, DiffBadge, CustomRenderGroup } from "./useRevisionDiff";

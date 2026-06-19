@@ -74,7 +74,10 @@ export default function FactTablesPage() {
 
     for (const datasource of datasources) {
       if (isProjectListValidForProject(datasource.projects, project)) {
-        const resources = getInitialDatasourceResources({ datasource });
+        const resources = getInitialDatasourceResources({
+          datasource,
+          attributeSchema: settings.attributeSchema,
+        });
         if (resources.factTables.length > 0) {
           return {
             datasource,
@@ -85,7 +88,7 @@ export default function FactTablesPage() {
     }
 
     return null;
-  }, [factTables.length, datasources, project]);
+  }, [factTables.length, datasources, project, settings.attributeSchema]);
 
   const permissionsUtil = usePermissionsUtil();
 

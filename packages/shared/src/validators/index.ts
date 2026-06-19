@@ -15,6 +15,7 @@ export * from "./attributes";
 export * from "./dimensions";
 export * from "./members";
 export * from "./api-settings";
+export * from "./api-meta";
 export * from "./bulk-import";
 export * from "./code-refs";
 export * from "./information-schema-tables";
@@ -29,15 +30,20 @@ export * from "./saved-group-revision-notifications";
 export * from "./saved-queries";
 export * from "./segment";
 export * from "./shared";
+export * from "./signup-attribution";
 export * from "./snapshot-analysis-chunks";
 export * from "./webhook-secrets";
 export * from "./webhooks";
+export * from "./event-forwarder-config";
+export * from "./event-forwarder-access-test";
+export * from "./event-forwarder-status";
 export * from "./event-webhook";
 export * from "./feature-webhook-schemas";
 // Load watch before events - events imports base-types which imports validators, creating a cycle.
 // Having watch (and apikey) loaded first ensures they're available when the cycle is hit.
 export * from "./watch";
 export * from "./apikey";
+export * from "./figma-connection";
 export * from "./events";
 export * from "./experiment-decision";
 export * from "./experiment-info";

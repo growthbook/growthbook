@@ -7,6 +7,7 @@ import {
   fillRevisionFromFeature,
   getDraftAffectedEnvironments,
   getReviewSetting,
+  getFeatureAutopublishOnApproval,
   mergeResultHasChanges,
   mergeRevision,
   RevisionFields,
@@ -1989,4 +1990,64 @@ describe("getReviewSetting", () => {
     const result = getReviewSetting([projectRule, catchAll], featureInProjA);
     expect(result?.blockSelfApproval).toBe(true);
   });
+});
+
+describe("getFeatureAutopublishOnApproval", () => {
+  const featureInProjA: FeatureInterface = {
+    ...baseFeature,
+    project: "proj-a",
+  };
+  const featureInProjB: FeatureInterface = {
+    ...baseFeature,
+    project: "proj-b",
+  };
+
+  it("returns true when the matching rule has autopublishOnApproval on", () => {
+    const rule = makeReviewSetting({ autopublishOnApproval: true });
+    expect(getFeatureAutopublishOnApproval([rule], featureInProjA)).toBe(true);
+  });
+
+  it("returns false when the matching rule has autopublishOnApproval off", () => {
+    const rule = makeReviewSetting({ autopublishOnApproval: false });
+    expect(getFeatureAutopublishOnApproval([rule], featureInProjA)).toBe(false);
+  });
+
+  it("returns false when the flag is absent from the rule", () => {
+    const rule = makeReviewSetting();
+    expect(getFeatureAutopublishOnApproval([rule], featureInProjA)).toBe(false);
+  });
+
+  it("returns false when no rule matches the feature's project", () => {
+    const rule = makeReviewSetting({
+      projects: ["proj-a"],
+      autopublishOnApproval: true,
+    });
+    expect(getFeatureAutopublishOnApproval([rule], featureInProjB)).toBe(false);
+  });
+
+  it("resolves the flag from the matching per-project rule", () => {
+    const ruleA = makeReviewSetting({
+      projects: ["proj-a"],
+      autopublishOnApproval: true,
+    });
+    const ruleB = makeReviewSetting({
+      projects: ["proj-b"],
+      autopublishOnApproval: false,
+    });
+    expect(
+      getFeatureAutopublishOnApproval([ruleA, ruleB], featureInProjA),
+    ).toBe(true);
+    expect(
+      getFeatureAutopublishOnApproval([ruleA, ruleB], featureInProjB),
+    ).toBe(false);
+  });
+
+  it.each([[true], [false], [undefined]] as const)(
+    "returns false for legacy boolean requireReviews shape (%s)",
+    (requireReviews) => {
+      expect(
+        getFeatureAutopublishOnApproval(requireReviews, featureInProjA),
+      ).toBe(false);
+    },
+  );
 });
