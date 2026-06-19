@@ -313,6 +313,16 @@ const DataSourcePage: FC = () => {
           </Flex>
         )}
       </Flex>
+      {d.type === "mixpanel" && (
+        <Callout status="warning" mt="3">
+          Using Mixpanel as a direct data source is deprecated and no longer
+          supported, because Mixpanel has placed their query language (JQL) in
+          maintenance mode. To keep using Mixpanel data in GrowthBook, export it
+          to a data warehouse (e.g. BigQuery or Snowflake) and connect that
+          warehouse instead.{" "}
+          <DocLink docSection="mixpanel">View migration guide</DocLink>
+        </Callout>
+      )}
       <Flex align="center" gap="4" my="2">
         <Text color="text-mid">
           <Text weight="medium">Type:</Text>{" "}
