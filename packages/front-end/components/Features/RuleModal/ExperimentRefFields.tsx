@@ -7,7 +7,11 @@ import React from "react";
 import { PiClock } from "react-icons/pi";
 import { Box, Flex } from "@radix-ui/themes";
 import { getLatestPhaseVariations } from "shared/experiments";
-import { parsePlainJSONObject } from "shared/util";
+import {
+  parsePlainJSONObject,
+  stripDefaultsForSparse,
+  expandSparseToFull,
+} from "shared/util";
 import Link from "@/ui/Link";
 import Field from "@/components/Forms/Field";
 import FeatureValueField from "@/components/Features/FeatureValueField";
@@ -164,7 +168,23 @@ export default function ExperimentRefFields({
               parsePlainJSONObject(feature.defaultValue) !== null && (
                 <SparsePatchToggle
                   checked={!!form.watch("sparse")}
-                  onChange={(v) => form.setValue("sparse", v)}
+                  onChange={(checked) => {
+                    // Rewrite every variation value so the editor isn't left
+                    // with a default-laden patch (on) or a bare patch shown as
+                    // the full value (off).
+                    const def = feature.defaultValue;
+                    (form.getValues("variations") || []).forEach(
+                      (variation, i) => {
+                        form.setValue(
+                          `variations.${i}.value`,
+                          checked
+                            ? stripDefaultsForSparse(variation.value, def)
+                            : expandSparseToFull(variation.value, def),
+                        );
+                      },
+                    );
+                    form.setValue("sparse", checked);
+                  }}
                 />
               )}
           </Flex>

@@ -40443,6 +40443,8 @@ components:
           type: string
         featureRegexValidator:
           type: string
+        sparseJSONRulesByDefault:
+          type: boolean
         banditScheduleValue:
           type: number
         banditScheduleUnit:

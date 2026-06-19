@@ -20,6 +20,9 @@ import {
   getReviewSetting,
   generateVariationId,
   naiveFlattenV1Rules,
+  parsePlainJSONObject,
+  stripDefaultsForSparse,
+  expandSparseToFull,
 } from "shared/util";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";
@@ -52,7 +55,7 @@ import Link from "@/ui/Link";
 import { getDefaultVariationValue } from "@/services/features";
 import Button from "@/ui/Button";
 import track from "@/services/track";
-import { SparsePatchIndicator } from "@/components/Features/SparsePatchToggle";
+import SparsePatchToggle from "@/components/Features/SparsePatchToggle";
 
 export interface Props {
   feature: FeatureInterface;
@@ -269,10 +272,14 @@ export default function EditFeatureFlagValuesModal({
     setSelectedDraft(v);
   };
 
-  // The matching experiment-ref rule stores its values as sparse JSON patches.
-  // Render the value editors in sparse mode so partials show their merged
-  // preview; the rule's sparse flag is preserved on save (partial overlay).
-  const sparse = !!linkedFeatureInfo.sparse;
+  // Sparse patch mode for this feature's experiment-ref rule. Eligible only for
+  // JSON features whose default is a plain object. The toggle rewrites every
+  // variation value (strip keys equal to the default ⇄ expand onto the default)
+  // and the new flag is persisted alongside the values on save.
+  const sparseEligible =
+    feature.valueType === "json" &&
+    parsePlainJSONObject(feature.defaultValue ?? "") !== null;
+  const [sparse, setSparse] = useState(!!linkedFeatureInfo.sparse);
 
   const watchedVariations = form.watch("variations");
 
@@ -435,6 +442,7 @@ export default function EditFeatureFlagValuesModal({
               features: {
                 [feature.id]: {
                   variations: updatedRefVariations,
+                  ...(sparseEligible && { sparse }),
                   revisionOptions,
                 },
               },
@@ -469,9 +477,26 @@ export default function EditFeatureFlagValuesModal({
       ) : (
         <>
           <Flex direction="column" gap="3" pt="2">
-            {sparse && (
+            {sparseEligible && (
               <Flex>
-                <SparsePatchIndicator />
+                <SparsePatchToggle
+                  checked={sparse}
+                  onChange={(checked) => {
+                    // Rewrite every variation value so the editor isn't left
+                    // with a default-laden patch (on) or a bare patch shown as
+                    // the full value (off).
+                    const def = feature.defaultValue ?? "";
+                    (form.getValues("variations") || []).forEach((v, i) => {
+                      form.setValue(
+                        `variations.${i}.value`,
+                        checked
+                          ? stripDefaultsForSparse(v.value ?? "", def)
+                          : expandSparseToFull(v.value ?? "", def),
+                      );
+                    });
+                    setSparse(checked);
+                  }}
+                />
               </Flex>
             )}
             {isEditingVariations && !isEqualWeights && (

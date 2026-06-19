@@ -383,6 +383,42 @@ export function resolveSparseJSONValue(
   return { ...defaultObj, ...sparse };
 }
 
+// Strips top-level keys from a full JSON value that are deep-equal to the
+// feature default's value for that key, leaving the minimal sparse patch. Used
+// when switching a JSON rule INTO sparse mode so the editor starts from a clean
+// diff (often `{}`) instead of the full, default-laden object the rule was
+// seeded with. Returns the input unchanged when either side isn't a plain
+// object (no meaningful patch can be computed).
+export function stripDefaultsForSparse(
+  valueStr: string,
+  defaultValueStr: string,
+): string {
+  const value = parsePlainJSONObject(valueStr);
+  const defaultObj = parsePlainJSONObject(defaultValueStr);
+  if (!value || !defaultObj) return valueStr;
+  const patch: Record<string, unknown> = {};
+  for (const [key, v] of Object.entries(value)) {
+    if (!(key in defaultObj) || !isEqual(v, defaultObj[key])) {
+      patch[key] = v;
+    }
+  }
+  return stringify(patch);
+}
+
+// Expands a sparse patch back into the full value by merging it onto the feature
+// default (the inverse of stripDefaultsForSparse). Used when switching a JSON
+// rule OUT of sparse mode so the editor shows the whole object again. Returns
+// the input unchanged when either side isn't a plain object.
+export function expandSparseToFull(
+  valueStr: string,
+  defaultValueStr: string,
+): string {
+  const patch = parsePlainJSONObject(valueStr);
+  const defaultObj = parsePlainJSONObject(defaultValueStr);
+  if (!patch || !defaultObj) return valueStr;
+  return stringify({ ...defaultObj, ...patch });
+}
+
 // Validate the values a revert restores against the value type / JSON schema
 // that will be live afterward. Returns one warning per value that no longer
 // parses/validates; callers surface these as a bypassable soft warning.

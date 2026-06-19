@@ -14,6 +14,8 @@ import {
   isProjectListValidForProject,
   getReviewSetting,
   stemRuleId,
+  parsePlainJSONObject,
+  stripDefaultsForSparse,
 } from "shared/util";
 import { PiCaretRight } from "react-icons/pi";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
@@ -744,6 +746,25 @@ export default function RuleModal({
     (newVal as Record<string, unknown>).hashAttribute = resolvedHash;
     if (existingSeed) {
       (newVal as Record<string, unknown>).seed = existingSeed;
+    }
+    // Org opt-in: new JSON rules start in sparse mode with a clean-slate value
+    // (strip keys equal to the default) so the editor isn't pre-filled with the
+    // whole default object. Only for eligible JSON features; new rules only.
+    if (mode === "create" && !rule && settings?.sparseJSONRulesByDefault) {
+      const def = getFeatureDefaultValue(feature);
+      if (feature.valueType === "json" && parsePlainJSONObject(def) !== null) {
+        const nv = newVal as Record<string, unknown>;
+        nv.sparse = true;
+        if (typeof nv.value === "string") {
+          nv.value = stripDefaultsForSparse(nv.value, def);
+        }
+        if (Array.isArray(nv.values)) {
+          nv.values = (nv.values as { value: string }[]).map((v) => ({
+            ...v,
+            value: stripDefaultsForSparse(v.value, def),
+          }));
+        }
+      }
     }
     form.reset(newVal);
     // Preserve the pre-generated rule ID so ramp patches stay in sync with

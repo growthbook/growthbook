@@ -44,6 +44,8 @@ import {
   toV2FeatureSnapshot,
   parsePlainJSONObject,
   resolveSparseJSONValue,
+  stripDefaultsForSparse,
+  expandSparseToFull,
 } from "../../src/util";
 import type { RampScheduleInterface } from "../../src/validators/ramp-schedule";
 
@@ -4114,6 +4116,63 @@ describe("sparse JSON rule helpers", () => {
 
     it("returns null when the rule value is unparseable and there's no object default", () => {
       expect(resolveSparseJSONValue("not json", null)).toBeNull();
+    });
+  });
+
+  describe("stripDefaultsForSparse", () => {
+    const def = JSON.stringify({ a: "x", b: { n: 1 }, c: [1, 2] });
+
+    it("drops keys equal to the default (full default → clean slate)", () => {
+      expect(JSON.parse(stripDefaultsForSparse(def, def))).toEqual({});
+    });
+
+    it("keeps changed and added keys, order-insensitive on nested values", () => {
+      expect(
+        JSON.parse(
+          stripDefaultsForSparse(
+            // b is deep-equal (key order flipped), so it's dropped; a changed, d added
+            JSON.stringify({ a: "y", b: { n: 1 }, d: true }),
+            def,
+          ),
+        ),
+      ).toEqual({ a: "y", d: true });
+    });
+
+    it("treats a nested object as changed when it differs", () => {
+      expect(
+        JSON.parse(
+          stripDefaultsForSparse(JSON.stringify({ b: { n: 2 } }), def),
+        ),
+      ).toEqual({ b: { n: 2 } });
+    });
+
+    it("returns the input unchanged when either side isn't a plain object", () => {
+      expect(stripDefaultsForSparse("[1,2]", def)).toBe("[1,2]");
+      expect(stripDefaultsForSparse('{"a":"x"}', "not json")).toBe('{"a":"x"}');
+    });
+  });
+
+  describe("expandSparseToFull", () => {
+    const def = JSON.stringify({ a: "x", b: 1 });
+
+    it("merges the patch onto the default (top-level)", () => {
+      expect(
+        JSON.parse(expandSparseToFull(JSON.stringify({ a: "y" }), def)),
+      ).toEqual({ a: "y", b: 1 });
+    });
+
+    it("round-trips with stripDefaultsForSparse", () => {
+      const full = JSON.stringify({ a: "y", b: 1 });
+      const patch = stripDefaultsForSparse(full, def);
+      expect(JSON.parse(patch)).toEqual({ a: "y" });
+      expect(JSON.parse(expandSparseToFull(patch, def))).toEqual({
+        a: "y",
+        b: 1,
+      });
+    });
+
+    it("returns the input unchanged when either side isn't a plain object", () => {
+      expect(expandSparseToFull("[1,2]", def)).toBe("[1,2]");
     });
   });
 });

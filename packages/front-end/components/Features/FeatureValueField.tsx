@@ -5,7 +5,12 @@ import {
   SimpleSchema,
 } from "shared/types/feature";
 import { ReactElement, ReactNode, useEffect, useId, useState } from "react";
-import { getValidation, parsePlainJSONObject } from "shared/util";
+import {
+  getValidation,
+  parsePlainJSONObject,
+  stripDefaultsForSparse,
+  expandSparseToFull,
+} from "shared/util";
 import { FaMagic, FaRegTrashAlt } from "react-icons/fa";
 import stringify from "json-stringify-pretty-compact";
 import { BsBoxArrowUpRight } from "react-icons/bs";
@@ -175,7 +180,18 @@ export default function FeatureValueField({
         )}
         <SparsePatchToggle
           checked={!!sparse}
-          onChange={setSparse}
+          onChange={(checked) => {
+            // Switching modes rewrites the value so the editor isn't left with a
+            // default-laden patch (on) or a bare patch shown as the full value
+            // (off). See stripDefaultsForSparse / expandSparseToFull.
+            const def = feature?.defaultValue ?? "";
+            setValue(
+              checked
+                ? stripDefaultsForSparse(value, def)
+                : expandSparseToFull(value, def),
+            );
+            setSparse?.(checked);
+          }}
           disabled={disabled}
         />
       </Flex>

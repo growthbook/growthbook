@@ -13,6 +13,8 @@ import { date } from "shared/dates";
 import {
   isProjectListValidForProject,
   parsePlainJSONObject,
+  stripDefaultsForSparse,
+  expandSparseToFull,
 } from "shared/util";
 import { PiCaretRightFill } from "react-icons/pi";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
@@ -463,7 +465,21 @@ export default function ExperimentRefNewFields({
               <Flex align="center" gap="3" mb="2">
                 <SparsePatchToggle
                   checked={!!form.watch("sparse")}
-                  onChange={(v) => form.setValue("sparse", v)}
+                  onChange={(checked) => {
+                    // Rewrite every variation value so the editor isn't left
+                    // with a default-laden patch (on) or a bare patch shown as
+                    // the full value (off).
+                    const def = feature ? getFeatureDefaultValue(feature) : "";
+                    setVariations?.(
+                      (variations || []).map((variation) => ({
+                        ...variation,
+                        value: checked
+                          ? stripDefaultsForSparse(variation.value, def)
+                          : expandSparseToFull(variation.value, def),
+                      })),
+                    );
+                    form.setValue("sparse", checked);
+                  }}
                 />
               </Flex>
             )}
