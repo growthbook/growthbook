@@ -1,4 +1,4 @@
-import { Flex, Text } from "@radix-ui/themes";
+import { Box, Flex, Text } from "@radix-ui/themes";
 import VariationLabel from "./VariationLabel";
 
 export default function VariationLabelStories() {
@@ -29,6 +29,57 @@ export default function VariationLabelStories() {
           <VariationLabel number={1} name="Variation 1" />
           <VariationLabel number={2} name="Variation 2" />
           <VariationLabel number={3} name="Variation 3" />
+        </Flex>
+      </Flex>
+
+      <Flex direction="column" gap="2">
+        <Text size="2" weight="bold">
+          Truncation
+        </Text>
+        <Flex direction="column" gap="2">
+          {(["small", "medium", "large"] as const).map((size) => (
+            <Flex key={size} gap="2" align="center">
+              <Text size="1" style={{ width: 64, color: "var(--gray-9)" }}>
+                {size}
+              </Text>
+              <Box
+                width="120px"
+                p="2"
+                style={{ border: "1px solid var(--gray-6)" }}
+              >
+                <VariationLabel
+                  number={1}
+                  name="A very long variation name that should truncate"
+                  size={size}
+                />
+              </Box>
+            </Flex>
+          ))}
+        </Flex>
+      </Flex>
+
+      <Flex direction="column" gap="2">
+        <Text size="2" weight="bold">
+          Number-only (very limited space)
+        </Text>
+        <Flex direction="column" gap="2">
+          {([60, 40, 30] as const).map((width) => (
+            <Flex key={width} gap="2" align="center">
+              <Text size="1" style={{ width: 64, color: "var(--gray-9)" }}>
+                {width}px
+              </Text>
+              <Box
+                width={`${width}px`}
+                p="2"
+                style={{ border: "1px solid var(--gray-6)" }}
+              >
+                <VariationLabel
+                  number={1}
+                  name="A very long variation name that should truncate"
+                />
+              </Box>
+            </Flex>
+          ))}
         </Flex>
       </Flex>
     </Flex>
