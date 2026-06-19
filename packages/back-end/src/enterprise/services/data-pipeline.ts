@@ -2,11 +2,9 @@ import md5 from "md5";
 import {
   ExperimentMetricInterface,
   getAutoSliceMetrics,
-  isFactMetric,
   isSliceMetric,
-  quantileMetricType,
 } from "shared/experiments";
-import { isExperimentIncrementalEnabled } from "shared/enterprise";
+import { getIncrementalPipelineUnsupportedReason } from "shared/enterprise";
 import {
   AggregatedFactTableInterface,
   AggregatedFactTableMetricStateInterface,
@@ -23,6 +21,7 @@ import {
   FactTableInterface,
 } from "shared/types/fact-table";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
+import { IncrementalUpdateRequiresFullRefreshError } from "back-end/src/util/errors";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { getFiltersForHash } from "back-end/src/services/experimentTimeSeries";
 import { getColumnsForMetric } from "back-end/src/integrations/sql/fact-metrics/columns-for-metric";
@@ -53,70 +52,27 @@ export async function assertIncrementalRefreshPrerequisites({
   incrementalRefreshModel: IncrementalRefreshInterface | null;
   analysisType: "main-update" | "main-fullRefresh" | "exploratory";
 }): Promise<void> {
-  if (snapshotSettings.skipPartialData) {
-    throw new Error(
-      "'Exclude In-Progress Conversions' is not supported for incremental refresh queries while in beta. Please select 'Include' in the Analysis Settings for Metric Conversion Windows.",
-    );
-  }
-
-  if (!integration.getSourceProperties().hasIncrementalRefresh) {
-    throw new Error("Integration does not support incremental refresh queries");
-  }
-
-  // Check if organization has the incremental refresh feature
-  const hasIncrementalRefreshFeature = orgHasPremiumFeature(
-    org,
-    "incremental-refresh",
-  );
-  if (!hasIncrementalRefreshFeature) {
-    throw new Error(
-      "Organization does not have access to incremental refresh feature",
-    );
-  }
-
-  const settings = integration.datasource.settings;
-  if (
-    !isExperimentIncrementalEnabled(settings.pipelineSettings, experiment.id)
-  ) {
-    throw new Error(
-      "This experiment is not enabled for incremental refresh on this data source.",
-    );
-  }
-
-  if (experiment.activationMetric) {
-    throw new Error(
-      "Activation metrics are not supported for incremental refresh while in beta.",
-    );
-  }
-
-  // Get selected metrics
   const selectedMetrics = snapshotSettings.metricSettings
     .map((m) => metricMap.get(m.id))
     .filter((m) => m !== undefined);
 
-  if (!selectedMetrics.length) {
-    throw new Error("Experiment must have at least 1 metric selected.");
-  }
-  if (selectedMetrics.some((m) => !isFactMetric(m))) {
-    throw new Error(
-      "Only fact metrics are supported with incremental refresh.",
-    );
-  }
-
-  selectedMetrics.filter(isFactMetric).forEach((metric) => {
-    // Unit quantiles store a float and re-aggregate via SUM, so they work on
-    // any incremental-capable warehouse. Only event quantiles need a quantile
-    // sketch (the quantile must be computed over raw event values, which
-    // requires a mergeable sketch for incremental aggregation).
-    if (
-      quantileMetricType(metric) === "event" &&
-      !integration.getSourceProperties().hasQuantileSketch
-    ) {
-      throw new Error(
-        "Event quantile metrics are not supported with incremental refresh on this data source.",
-      );
-    }
+  const unsupportedReason = getIncrementalPipelineUnsupportedReason({
+    datasourceProperties: integration.getSourceProperties(),
+    pipelineSettings: integration.datasource.settings.pipelineSettings,
+    experimentId: experiment.id,
+    orgHasIncrementalPipelineFeature: orgHasPremiumFeature(
+      org,
+      "incremental-refresh",
+    ),
+    skipPartialData: snapshotSettings.skipPartialData,
+    activationMetric: experiment.activationMetric,
+    metrics: selectedMetrics,
+    experimentType: experiment.type,
   });
+
+  if (unsupportedReason) {
+    throw new Error(unsupportedReason);
+  }
 
   // If not forcing a full refresh and we have a previous run, ensure the
   // experiment-level configuration matches what the incremental pipeline was
@@ -134,7 +90,7 @@ export async function assertIncrementalRefreshPrerequisites({
       getExperimentSettingsHashForIncrementalRefresh(snapshotSettings);
     const storedSettingsHash = incrementalRefreshModel.experimentSettingsHash;
     if (!storedSettingsHash || currentSettingsHash !== storedSettingsHash) {
-      throw new Error(
+      throw new IncrementalUpdateRequiresFullRefreshError(
         "The experiment configuration is outdated. Please run a Full Refresh.",
       );
     }

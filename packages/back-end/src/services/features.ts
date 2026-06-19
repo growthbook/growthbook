@@ -55,6 +55,7 @@ import { ProjectInterface } from "shared/types/project";
 import {
   HoldoutInterface,
   SdkConnectionCacheAuditContext,
+  ApiEventUser,
   apiFeatureRevisionValidator,
   ApiFeatureWithRevisions,
   ApiFeatureEnvironment,
@@ -110,6 +111,7 @@ import { bucketRulesByEnv } from "back-end/src/util/toLegacy";
 import { ReqContext } from "back-end/types/request";
 import { getSDKPayloadCacheLocation } from "back-end/src/models/SdkConnectionCacheModel";
 import { logger } from "back-end/src/util/logger";
+import { Counter, Histogram, metrics } from "back-end/src/util/metrics";
 import { getEnvironments } from "back-end/src/util/organization.util";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
@@ -611,6 +613,34 @@ export function isSDKConnectionAffectedByPayloadKey(
   return connection.projects.includes(payloadKey.project);
 }
 
+let sdkPayloadRefreshesCounter: Counter | null = null;
+let sdkPayloadRefreshDurationHistogram: Histogram | null = null;
+
+function getSdkPayloadRefreshesCounter() {
+  if (!sdkPayloadRefreshesCounter) {
+    sdkPayloadRefreshesCounter = metrics.getCounter("sdk_payload.refreshes");
+  }
+  return sdkPayloadRefreshesCounter;
+}
+
+function getSdkPayloadRefreshDurationHistogram() {
+  if (!sdkPayloadRefreshDurationHistogram) {
+    sdkPayloadRefreshDurationHistogram = metrics.getHistogram(
+      "sdk_payload.refresh_duration_ms",
+    );
+  }
+  return sdkPayloadRefreshDurationHistogram;
+}
+
+function recordSdkPayloadRefreshMetrics(durationMs: number) {
+  try {
+    getSdkPayloadRefreshesCounter().increment();
+    getSdkPayloadRefreshDurationHistogram().record(durationMs);
+  } catch (e) {
+    logger.error({ err: e }, "Error recording sdk_payload refresh metrics");
+  }
+}
+
 // This is a synchronous wrapper around refreshSDKPayloadCache
 // We shouldn't need to await the refresh in most cases
 export function queueSDKPayloadRefresh(data: {
@@ -669,9 +699,15 @@ export async function refreshSDKPayloadCache({
 
   // If no environments are affected, we don't need to update anything
   if (!payloadKeys.length && !sdkConnectionsToUpdate.length) {
-    logger.debug("Skipping SDK Payload refresh - no environments affected");
+    logger.debug(
+      { orgId: context.org.id, auditContext: initialAuditContext },
+      "[sdk-payload] refresh skipped — no environments affected",
+    );
     return;
   }
+
+  const storageLocation = getSDKPayloadCacheLocation();
+  const refreshStartedAt = performance.now();
 
   // Clear any cache entries for legacy API keys since they can't be tracked individually
   try {
@@ -810,7 +846,6 @@ export async function refreshSDKPayloadCache({
               }
             : undefined;
 
-        const storageLocation = getSDKPayloadCacheLocation();
         if (storageLocation !== "none") {
           await context.models.sdkConnectionCache.upsert(
             connection.key,
@@ -825,11 +860,39 @@ export async function refreshSDKPayloadCache({
   });
 
   // If there are no changes, we don't need to do anything
-  if (!promises.length) return;
+  if (!promises.length) {
+    const durationMs = Math.round(performance.now() - refreshStartedAt);
+    recordSdkPayloadRefreshMetrics(durationMs);
+    logger.info(
+      {
+        orgId: context.org.id,
+        payloadKeys,
+        auditContext: initialAuditContext,
+        durationMs,
+      },
+      "[sdk-payload] refresh skipped — no matching SDK connections",
+    );
+    return;
+  }
 
   // There may be many SDK connection caches to update
   // Batch the promises in chunks of 4 at a time to avoid overloading Mongo
   await promiseAllChunks(promises, 4);
+
+  const durationMs = Math.round(performance.now() - refreshStartedAt);
+  recordSdkPayloadRefreshMetrics(durationMs);
+  logger.info(
+    {
+      orgId: context.org.id,
+      connectionKeys: connectionsUpdated.map((c) => c.key),
+      connectionCount: connectionsUpdated.length,
+      payloadKeys,
+      cacheLocation: storageLocation,
+      auditContext: initialAuditContext,
+      durationMs,
+    },
+    "[sdk-payload] refresh completed",
+  );
 
   triggerWebhookJobs(context, payloadKeys, connectionsUpdated, true).catch(
     (e) => {
@@ -1726,6 +1789,37 @@ function eventUserToString(
   return user.name || undefined;
 }
 
+// API-safe projection of the internal EventUser union. Deliberately never
+// exposes the api_key actor's `apiKey` field — only stable identifying fields.
+export function eventUserToApiEventUser(
+  user: FeatureRevisionInterface["createdBy"] | undefined,
+): ApiEventUser | undefined {
+  if (!user) return undefined;
+  switch (user.type) {
+    case "dashboard":
+      return {
+        type: "dashboard",
+        id: user.id,
+        name: user.name,
+        email: user.email,
+      };
+    case "api_key":
+      return {
+        type: "api_key",
+        id: user.id,
+        name: user.name,
+        email: user.email,
+      };
+    case "system":
+      return {
+        type: "system",
+        id: user.id,
+      };
+  }
+  // Fail closed for legacy stored documents with an unrecognized type.
+  return undefined;
+}
+
 export function normalizeRuleForApi(rule: FeatureRule): ApiFeatureRule {
   const base = {
     description: rule.description,
@@ -1902,8 +1996,8 @@ export function revisionToApiInterfaceV2(
       rev.dateCreated?.toISOString?.() ||
       new Date(rev.dateCreated).toISOString(),
     status: rev.status,
-    createdBy: eventUserToString(rev.createdBy),
-    publishedBy: eventUserToString(rev.publishedBy),
+    createdBy: eventUserToApiEventUser(rev.createdBy),
+    publishedBy: eventUserToApiEventUser(rev.publishedBy),
     defaultValue: rev.defaultValue,
     rules,
     ...(rev.environmentsEnabled !== undefined && {
@@ -1931,7 +2025,75 @@ export function revisionToApiInterfaceV2(
     ...(rev.rampActions !== undefined && {
       rampActions: rev.rampActions,
     }),
+    ...(rev.autoPublishOnApproval !== undefined && {
+      autoPublishOnApproval: rev.autoPublishOnApproval,
+    }),
+    ...((rev.scheduledPublishAt ?? null) !== null && {
+      scheduledPublishAt: new Date(
+        rev.scheduledPublishAt as Date,
+      ).toISOString(),
+    }),
+    ...(rev.scheduledPublishLockEdits !== undefined && {
+      scheduledPublishLockEdits: rev.scheduledPublishLockEdits,
+    }),
+    ...(rev.scheduledPublishLockOthers !== undefined && {
+      scheduledPublishLockOthers: rev.scheduledPublishLockOthers,
+    }),
+    ...(rev.scheduledPublishBypassApproval !== undefined && {
+      scheduledPublishBypassApproval: rev.scheduledPublishBypassApproval,
+    }),
+    ...(rev.scheduledPublishLastError !== undefined && {
+      scheduledPublishLastError: rev.scheduledPublishLastError,
+    }),
+    ...(rev.reviews !== undefined && {
+      reviews: rev.reviews.map((r) => {
+        const user = eventUserToApiEventUser(r.user);
+        return {
+          userId: r.userId,
+          ...(user !== undefined ? { user } : {}),
+          status: r.status,
+          timestamp:
+            r.timestamp?.toISOString?.() || new Date(r.timestamp).toISOString(),
+        };
+      }),
+    }),
   };
+}
+
+// Diffable subset of a revision: the content fields, stripped of
+// lifecycle/identity metadata that always differs across revisions (version,
+// baseVersion, status, comment, date, createdBy, publishedBy, featureId).
+// What's left is exactly what the diff endpoint compares.
+export function revisionToDiffableV2(
+  rev: FeatureRevisionInterface,
+): Record<string, unknown> {
+  const api = revisionToApiInterfaceV2(rev) as Record<string, unknown>;
+  const excluded = new Set([
+    "featureId",
+    "baseVersion",
+    "version",
+    "comment",
+    "date",
+    "status",
+    "createdBy",
+    "publishedBy",
+    "definitions",
+    "reviews",
+    // Scheduling/auto-publish state isn't feature content — excluded so arming,
+    // canceling, or a poller failure doesn't surface as a false diff.
+    "autoPublishOnApproval",
+    "scheduledPublishAt",
+    "scheduledPublishLockEdits",
+    "scheduledPublishLockOthers",
+    "scheduledPublishBypassApproval",
+    "scheduledPublishLastError",
+  ]);
+  const content: Record<string, unknown> = {};
+  for (const [key, val] of Object.entries(api)) {
+    if (excluded.has(key)) continue;
+    content[key] = val;
+  }
+  return content;
 }
 
 // Mirrors `toApiRevision` at call sites; v2 serialization is context-free.
@@ -1994,19 +2156,6 @@ export function getApiFeatureObjV2({
 
   const revisionDefs = revisions?.map(revisionToApiInterfaceV2);
 
-  const createdBy =
-    revision?.createdBy?.type === "api_key"
-      ? "API"
-      : revision?.createdBy?.type === "system"
-        ? "SYSTEM"
-        : revision?.createdBy?.name;
-  const publishedBy =
-    revision?.publishedBy?.type === "api_key"
-      ? "API"
-      : revision?.publishedBy?.type === "system"
-        ? "SYSTEM"
-        : revision?.publishedBy?.name;
-
   return {
     id: feature.id,
     description: feature.description || "",
@@ -2024,8 +2173,8 @@ export function getApiFeatureObjV2({
     revision: {
       comment: revision?.comment || "",
       date: revision?.dateCreated.toISOString() || "",
-      createdBy: createdBy || "",
-      publishedBy: publishedBy || "",
+      createdBy: eventUserToApiEventUser(revision?.createdBy),
+      publishedBy: eventUserToApiEventUser(revision?.publishedBy),
       version: feature.version,
     },
     revisions: revisionDefs,
@@ -3046,14 +3195,20 @@ async function collectHoldoutAffectedEnvs(
   return [...envs];
 }
 
-// Throws if the draft requires approval and the caller cannot bypass.
-export async function assertCanAutoPublish(
-  context: ReqContext,
+// Whether a draft requires approval before publishing (org review settings, env
+// scoping, license). When the base can't be resolved the answer is ambiguous:
+// the default treats it as a no-approval change (false), but pass
+// `treatUnresolvedBaseAsReview` to fail closed (true) for flows that commit
+// locks/schedules and must not engage them on a draft that can't be evaluated.
+export async function revisionRequiresReview(
+  context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   draft: FeatureRevisionInterface,
-): Promise<void> {
-  const { org } = context;
-  const allEnvironments = getEnvironmentIdsFromOrg(org);
+  {
+    treatUnresolvedBaseAsReview = false,
+  }: { treatUnresolvedBaseAsReview?: boolean } = {},
+): Promise<boolean> {
+  const allEnvironments = getEnvironmentIdsFromOrg(context.org);
 
   const baseRevision = await getRevision({
     context,
@@ -3062,16 +3217,25 @@ export async function assertCanAutoPublish(
     feature,
     version: draft.baseVersion,
   });
-  if (!baseRevision) return; // can't determine — allow (legacy/missing base)
+  if (!baseRevision) return treatUnresolvedBaseAsReview;
 
-  const requiresReview = checkIfRevisionNeedsReview({
+  return checkIfRevisionNeedsReview({
     feature,
     baseRevision,
     revision: draft,
     allEnvironments,
-    settings: org.settings,
+    settings: context.org.settings,
     requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
   });
+}
+
+// Throws if the draft requires approval and the caller cannot bypass.
+export async function assertCanAutoPublish(
+  context: ReqContext,
+  feature: FeatureInterface,
+  draft: FeatureRevisionInterface,
+): Promise<void> {
+  const requiresReview = await revisionRequiresReview(context, feature, draft);
 
   if (requiresReview && !context.permissions.canBypassApprovalChecks(feature)) {
     context.permissions.throwPermissionError();

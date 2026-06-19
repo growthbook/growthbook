@@ -255,6 +255,25 @@ export const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
 // /v1beta/models to find an ID your account has access to and override.
 export const GEMINI_IMAGE_MODEL =
   process.env.GEMINI_IMAGE_MODEL || "gemini-2.5-flash-image";
+// Kraken.io credentials — AI-generated images are resized + re-encoded to
+// WebP via the Kraken API instead of any in-process codec (sharp/wasm-vips),
+// which proved unreliable in production. When unset, optimization is skipped
+// and the original image is uploaded untouched.
+export const KRAKEN_API_KEY = process.env.KRAKEN_API_KEY || "";
+export const KRAKEN_API_SECRET = process.env.KRAKEN_API_SECRET || "";
+// Kill-switch: when true, skip AI-image optimization entirely and upload
+// the original (larger but functional) image. Instant escape hatch — no
+// code change needed.
+export const DISABLE_AI_IMAGE_OPTIMIZATION = stringToBoolean(
+  process.env.DISABLE_AI_IMAGE_OPTIMIZATION,
+);
+// Wall-clock cap (ms) for the full Kraken round-trip (upload + result
+// download). On timeout we abort and fall back to the original image.
+export const AI_IMAGE_OPTIMIZATION_TIMEOUT_MS = parseEnvInt(
+  process.env.AI_IMAGE_OPTIMIZATION_TIMEOUT_MS,
+  20000,
+  { name: "AI_IMAGE_OPTIMIZATION_TIMEOUT_MS", min: 1000, max: 120000 },
+);
 // This is typically used for the Proxy Server, which only requires readonly access
 export const SECRET_API_KEY_ROLE =
   process.env.SECRET_API_KEY_ROLE || "readonly";

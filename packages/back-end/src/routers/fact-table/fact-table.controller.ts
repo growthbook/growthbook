@@ -52,8 +52,10 @@ import { needsColumnRefresh } from "back-end/src/api/fact-tables/updateFactTable
 import {
   AggregatedFactTableStatus,
   buildAggregatedFactTableStatus,
+  deriveAggregatedFactTableRunStatus,
   getAggregatedFactTableMetrics,
   runAggregatedFactTableUpdate,
+  toAggregatedTableRefreshTriggerResult,
 } from "back-end/src/services/aggregatedFactTables";
 import { buildAggregatedFactTableSchemaState } from "back-end/src/enterprise/services/data-pipeline";
 import { AggregatedFactTableQueryRunner } from "back-end/src/queryRunners/AggregatedFactTableQueryRunner";
@@ -527,26 +529,6 @@ type AggregatedFactTableRunSummary = {
   queryIds: string[];
 };
 
-function deriveRunStatus(
-  queries: { status: QueryStatus }[],
-  error: string | null,
-): QueryStatus {
-  // A recorded error is terminal; surface as failed even if query pointers are
-  // stale (e.g. a run finalized out-of-process by the expireOldQueries reaper).
-  if (error) return "failed";
-
-  const total = queries.length;
-  if (!total) return "queued";
-
-  const failed = queries.filter((q) => q.status === "failed").length;
-  const running = queries.filter((q) => q.status === "running").length;
-  const queued = queries.filter((q) => q.status === "queued").length;
-
-  if (queued + running > 0) return "running";
-  if (failed > 0) return "failed";
-  return "succeeded";
-}
-
 export const getAggregatedFactTableRuns = async (
   req: AuthRequest<null, { id: string; idType: string }>,
   res: Response<{
@@ -570,22 +552,25 @@ export const getAggregatedFactTableRuns = async (
     );
   }
 
-  const runDocs =
-    await context.models.aggregatedFactTableRuns.getRecentByFactTableAndIdType(
+  const aggregatedTableRuns =
+    await context.models.aggregatedFactTableRuns.getByFactTableAndIdType(
       factTable.id,
       idType,
+      { limit: 20, skip: 0 },
     );
 
-  const runs: AggregatedFactTableRunSummary[] = runDocs.map((run) => ({
-    id: run.id,
-    mode: run.mode,
-    status: deriveRunStatus(run.queries, run.error),
-    runStarted: run.runStarted,
-    dateCreated: run.dateCreated,
-    finishedAt: run.finishedAt,
-    error: run.error,
-    queryIds: run.queries.map((q) => q.query),
-  }));
+  const runs: AggregatedFactTableRunSummary[] = aggregatedTableRuns.runs.map(
+    (run) => ({
+      id: run.id,
+      mode: run.mode,
+      status: deriveAggregatedFactTableRunStatus(run.queries, run.error),
+      runStarted: run.runStarted,
+      dateCreated: run.dateCreated,
+      finishedAt: run.finishedAt,
+      error: run.error,
+      queryIds: run.queries.map((q) => q.query),
+    }),
+  );
 
   res.status(200).json({
     status: 200,
@@ -595,7 +580,10 @@ export const getAggregatedFactTableRuns = async (
 
 export const refreshAggregatedFactTables = async (
   req: AuthRequest<{ idType?: string; fullRestate?: boolean }, { id: string }>,
-  res: Response<{ status: 200; queued: string[] }>,
+  res: Response<{
+    status: 200;
+    runs: ReturnType<typeof toAggregatedTableRefreshTriggerResult>[];
+  }>,
 ) => {
   const context = getContextFromReq(req);
 
@@ -638,16 +626,23 @@ export const refreshAggregatedFactTables = async (
 
   // Kick off directly (not via the nightly agenda queue); each call returns
   // once the run doc + queries exist and finishes in the background.
+  const runs = [];
   for (const idType of idTypes) {
-    await runAggregatedFactTableUpdate(context, factTable, idType, {
-      forceRestate: !!req.body.fullRestate,
-      awaitResults: false,
-    });
+    const outcome = await runAggregatedFactTableUpdate(
+      context,
+      factTable,
+      idType,
+      {
+        forceRestate: !!req.body.fullRestate,
+        awaitResults: false,
+      },
+    );
+    runs.push(toAggregatedTableRefreshTriggerResult(idType, outcome));
   }
 
   res.status(200).json({
     status: 200,
-    queued: idTypes,
+    runs,
   });
 };
 
@@ -682,14 +677,15 @@ export const cancelAggregatedFactTableRun = async (
     );
   }
 
-  const runDocs =
-    await context.models.aggregatedFactTableRuns.getRecentByFactTableAndIdType(
+  const aggregatedTableRuns =
+    await context.models.aggregatedFactTableRuns.getByFactTableAndIdType(
       factTable.id,
       idType,
+      { limit: 20, skip: 0 },
     );
 
-  const run = runDocs.find(
-    (r) => deriveRunStatus(r.queries, r.error) === "running",
+  const run = aggregatedTableRuns.runs.find(
+    (r) => deriveAggregatedFactTableRunStatus(r.queries, r.error) === "running",
   );
   if (!run) {
     res.status(200).json({ status: 200 });

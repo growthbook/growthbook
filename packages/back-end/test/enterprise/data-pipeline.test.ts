@@ -4,6 +4,7 @@ import { OrganizationInterface } from "shared/types/organization";
 import { IncrementalRefreshInterface } from "shared/validators";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
+import { IncrementalUpdateRequiresFullRefreshError } from "back-end/src/util/errors";
 import {
   getExperimentSettingsHashForIncrementalRefresh,
   assertIncrementalRefreshPrerequisites,
@@ -130,9 +131,7 @@ describe("assertIncrementalRefreshPrerequisites experimentSettingsHash", () => {
         }),
         analysisType: "main-update",
       }),
-    ).rejects.toThrow(
-      "The experiment configuration is outdated. Please run a Full Refresh.",
-    );
+    ).rejects.toThrow(IncrementalUpdateRequiresFullRefreshError);
   });
 
   it("throws on main-update when the stored hash differs", async () => {
@@ -148,9 +147,41 @@ describe("assertIncrementalRefreshPrerequisites experimentSettingsHash", () => {
         }),
         analysisType: "main-update",
       }),
-    ).rejects.toThrow(
-      "The experiment configuration is outdated. Please run a Full Refresh.",
-    );
+    ).rejects.toThrow(IncrementalUpdateRequiresFullRefreshError);
+  });
+
+  it("skips hash validation on exploratory even when the stored hash differs", async () => {
+    await expect(
+      assertIncrementalRefreshPrerequisites({
+        org,
+        integration,
+        snapshotSettings: makeSnapshotSettings({ segment: "seg_changed" }),
+        metricMap,
+        experiment,
+        incrementalRefreshModel: makeIncrementalRefreshModel({
+          experimentSettingsHash: "stale_hash",
+        }),
+        analysisType: "exploratory",
+      }),
+    ).resolves.toBeUndefined();
+  });
+
+  it("allows exploratory when the stored hash matches", async () => {
+    const snapshotSettings = makeSnapshotSettings();
+    await expect(
+      assertIncrementalRefreshPrerequisites({
+        org,
+        integration,
+        snapshotSettings,
+        metricMap,
+        experiment,
+        incrementalRefreshModel: makeIncrementalRefreshModel({
+          experimentSettingsHash:
+            getExperimentSettingsHashForIncrementalRefresh(snapshotSettings),
+        }),
+        analysisType: "exploratory",
+      }),
+    ).resolves.toBeUndefined();
   });
 
   it("skips hash validation on main-fullRefresh even when hash is null", async () => {

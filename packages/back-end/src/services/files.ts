@@ -27,6 +27,7 @@ import {
   VISUAL_EDITOR_ASSETS_GCS_BUCKET_NAME,
   VISUAL_EDITOR_ASSETS_GCS_DOMAIN,
 } from "back-end/src/util/secrets";
+import { logger } from "back-end/src/util/logger";
 
 // "private" is the existing bucket served via signed URLs.
 // "visual-editor-assets" is the public, CDN-fronted bucket.
@@ -94,11 +95,32 @@ export function getUploadsDir() {
   return path.join(__dirname, "..", "..", "uploads");
 }
 
+// Join an upload key onto the uploads dir, rejecting anything that escapes it.
+// The separator-aware boundary check (vs. a bare prefix match) is what stops a
+// sibling like "uploads-evil" or a "../" traversal from slipping through.
+export function resolveUploadPath(key: string): string {
+  const rootDirectory = getUploadsDir();
+  const fullPath = path.join(rootDirectory, key);
+  if (
+    fullPath !== rootDirectory &&
+    !fullPath.startsWith(rootDirectory + path.sep)
+  ) {
+    throw new Error(
+      "Error: Path must not escape out of the 'uploads' directory.",
+    );
+  }
+  return fullPath;
+}
+
 export async function uploadFile(
   filePath: string,
   contentType: string,
   contents: Buffer,
   destination: UploadDestination = "private",
+  // Optional caller context (e.g. orgId, userId) merged into the upload-failure
+  // log so a single, richer entry is emitted per failure — callers should NOT
+  // catch-and-log again on top of this.
+  logContext: Record<string, unknown> = {},
 ) {
   // Watch out for poison null bytes
   if (filePath.indexOf("\0") !== -1) {
@@ -110,41 +132,69 @@ export async function uploadFile(
 
   if (UPLOAD_METHOD === "s3") {
     const client = getS3Client(cfg.s3Region);
-    await client.send(
-      new PutObjectCommand({
-        Bucket: cfg.s3Bucket,
-        Key: filePath,
-        Body: contents,
-        ContentType: contentType,
-        ...(cfg.cacheControl ? { CacheControl: cfg.cacheControl } : {}),
-      }),
-    );
+    try {
+      await client.send(
+        new PutObjectCommand({
+          Bucket: cfg.s3Bucket,
+          Key: filePath,
+          Body: contents,
+          ContentType: contentType,
+          ...(cfg.cacheControl ? { CacheControl: cfg.cacheControl } : {}),
+        }),
+      );
+    } catch (err) {
+      // The API handler returns thrown errors to the client without
+      // logging them, so without this the S3 push failing is invisible
+      // server-side. Log enough to tell "which bucket/region/key" before
+      // re-throwing so the original failure still surfaces to the caller.
+      logger.error(
+        {
+          ...logContext,
+          err,
+          destination,
+          bucket: cfg.s3Bucket,
+          region: cfg.s3Region,
+          key: filePath,
+          contentType,
+          bytes: contents.length,
+        },
+        "[files] S3 PutObject failed",
+      );
+      throw err;
+    }
     fileURL = cfg.s3Domain + (cfg.s3Domain.endsWith("/") ? "" : "/") + filePath;
   } else if (UPLOAD_METHOD === "google-cloud") {
     const storage = new Storage();
 
-    await storage
-      .bucket(cfg.gcsBucket)
-      .file(filePath)
-      .save(contents, {
-        contentType: contentType,
-        ...(cfg.cacheControl
-          ? { metadata: { cacheControl: cfg.cacheControl } }
-          : {}),
-      });
+    try {
+      await storage
+        .bucket(cfg.gcsBucket)
+        .file(filePath)
+        .save(contents, {
+          contentType: contentType,
+          ...(cfg.cacheControl
+            ? { metadata: { cacheControl: cfg.cacheControl } }
+            : {}),
+        });
+    } catch (err) {
+      logger.error(
+        {
+          ...logContext,
+          err,
+          destination,
+          bucket: cfg.gcsBucket,
+          key: filePath,
+          contentType,
+          bytes: contents.length,
+        },
+        "[files] GCS upload failed",
+      );
+      throw err;
+    }
     fileURL =
       cfg.gcsDomain + (cfg.gcsDomain.endsWith("/") ? "" : "/") + filePath;
   } else {
-    const rootDirectory = getUploadsDir();
-    const fullPath = path.join(rootDirectory, filePath);
-
-    // Prevent directory traversal
-    if (fullPath.indexOf(rootDirectory) !== 0) {
-      throw new Error(
-        "Error: Path must not escape out of the 'uploads' directory.",
-      );
-    }
-
+    const fullPath = resolveUploadPath(filePath);
     const dir = path.dirname(fullPath);
     await fs.promises.mkdir(dir, { recursive: true });
     await fs.promises.writeFile(fullPath, contents);
@@ -159,15 +209,7 @@ export function getImageData(filePath: string) {
     throw new Error("Error: Filename must not contain null bytes");
   }
 
-  const rootDirectory = getUploadsDir();
-  const fullPath = path.join(rootDirectory, filePath);
-
-  // Prevent directory traversal
-  if (fullPath.indexOf(rootDirectory) !== 0) {
-    throw new Error(
-      "Error: Path must not escape out of the 'uploads' directory.",
-    );
-  }
+  const fullPath = resolveUploadPath(filePath);
 
   if (!fs.existsSync(fullPath)) {
     throw new Error("File not found");
@@ -402,17 +444,8 @@ export async function promoteFile(
     return cfg.gcsDomain + (cfg.gcsDomain.endsWith("/") ? "" : "/") + destKey;
   } else {
     // Local filesystem (dev): just rename.
-    const rootDirectory = getUploadsDir();
-    const srcPath = path.join(rootDirectory, srcKey);
-    const destPath = path.join(rootDirectory, destKey);
-    if (
-      srcPath.indexOf(rootDirectory) !== 0 ||
-      destPath.indexOf(rootDirectory) !== 0
-    ) {
-      throw new Error(
-        "Error: Path must not escape out of the 'uploads' directory.",
-      );
-    }
+    const srcPath = resolveUploadPath(srcKey);
+    const destPath = resolveUploadPath(destKey);
     await fs.promises.mkdir(path.dirname(destPath), { recursive: true });
     await fs.promises.rename(srcPath, destPath);
     return `/upload/${destKey}`;
@@ -472,11 +505,7 @@ export async function listFiles(
     }));
   } else {
     // Local filesystem (dev).
-    const rootDirectory = getUploadsDir();
-    const dir = path.join(rootDirectory, prefix);
-    if (dir.indexOf(rootDirectory) !== 0) {
-      throw new Error("Error: Prefix must not escape the uploads directory.");
-    }
+    const dir = resolveUploadPath(prefix);
     let entries: import("fs").Dirent[];
     try {
       entries = await fs.promises.readdir(dir, { withFileTypes: true });
