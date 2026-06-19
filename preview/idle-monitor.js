@@ -1,4 +1,4 @@
-// Shell-free port of idle-monitor.sh for the Docker Hardened Image build.
+// Shell-free idle monitor for the Docker Hardened Image build.
 //
 // Shuts the container down after a period with no traffic on ports 3000/3100,
 // so idle Fly preview machines stop themselves. The distroless runtime has no
@@ -7,7 +7,7 @@
 // which tears down its children and exits gracefully.
 //
 // Launched as a child of bin/dhi-supervisor.js when PREVIEW_IDLE_TIMEOUT_SECONDS
-// is set (mirrors the idle-monitor entry in ecosystem.config.js).
+// is set.
 
 const fs = require("node:fs");
 

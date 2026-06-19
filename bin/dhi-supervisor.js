@@ -44,7 +44,7 @@ const allApps = [
     args: ["node_modules/next/dist/bin/next", "start"],
   },
   // Preview-only: shuts the container down after a period of inactivity. Gated
-  // on the env var (like ecosystem.config.js) so it never runs in production.
+  // on the env var so it never runs in production.
   ...(process.env.PREVIEW_IDLE_TIMEOUT_SECONDS
     ? [
         {
