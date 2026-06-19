@@ -333,6 +333,48 @@ export function validateFeatureValue(
   return value;
 }
 
+// Parses a string into a plain JSON object. Returns null when it doesn't parse
+// or isn't a plain key/val object (array, null, primitive). The null result is
+// how callers detect a feature whose default value can't support sparse rules.
+export function parsePlainJSONObject(
+  value: string,
+): Record<string, unknown> | null {
+  try {
+    const parsed = JSON.parse(value);
+    if (
+      parsed !== null &&
+      !Array.isArray(parsed) &&
+      typeof parsed === "object"
+    ) {
+      return parsed as Record<string, unknown>;
+    }
+  } catch {
+    // ignore
+  }
+  return null;
+}
+
+// Merges a sparse `json` rule value onto the feature's default object. Only the
+// keys present in the rule value override the default; the rest fall back to
+// the default at evaluation time. If either side isn't a plain object the rule
+// value is returned parsed as-is, so a misconfigured sparse flag degrades to
+// normal (full-value) behavior rather than producing surprising output.
+export function resolveSparseJSONValue(
+  ruleValueStr: string,
+  defaultObj: Record<string, unknown> | null,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+): any {
+  const sparse = parsePlainJSONObject(ruleValueStr);
+  if (!defaultObj || sparse === null) {
+    try {
+      return JSON.parse(ruleValueStr);
+    } catch {
+      return null;
+    }
+  }
+  return { ...defaultObj, ...sparse };
+}
+
 // Validate the values a revert restores against the value type / JSON schema
 // that will be live afterward. Returns one warning per value that no longer
 // parses/validates; callers surface these as a bypassable soft warning.

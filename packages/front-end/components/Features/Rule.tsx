@@ -1428,7 +1428,11 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
               ) : null}
             </Box>
             {rule.type === "force" && (
-              <ForceSummary value={rule.value} feature={feature} />
+              <ForceSummary
+                value={rule.value}
+                feature={feature}
+                sparse={rule.sparse}
+              />
             )}
             {rule.type === "rollout" && (
               <RolloutSummary
@@ -1436,6 +1440,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 coverage={rule.coverage ?? 1}
                 feature={feature}
                 hashAttribute={rule.hashAttribute || ""}
+                sparse={rule.sparse}
                 monitored={
                   rampSchedule?.currentStepIndex !== undefined &&
                   rampSchedule.currentStepIndex >= 0 &&

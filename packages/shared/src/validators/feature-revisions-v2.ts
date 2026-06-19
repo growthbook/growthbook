@@ -166,6 +166,12 @@ const targetingRuleCreateInputV2 = namedSchema(
           'Use "force" for a standard targeting rule, or "rollout" for a percentage rollout (coverage < 1). Defaults to "force". Both are functionally equivalent; a force rule with coverage < 1 behaves as a rollout.',
         ),
       value: z.string().describe("The value to serve when this rule matches."),
+      sparse: z
+        .boolean()
+        .optional()
+        .describe(
+          "JSON features only. When true, the rule value is a partial object merged onto the feature's default value instead of replacing it.",
+        ),
       coverage: z
         .number()
         .min(0)
@@ -209,6 +215,12 @@ const experimentRefCreateInputV2 = namedSchema(
           .object({ variationId: z.string().optional(), value: z.string() })
           .strict(),
       ),
+      sparse: z
+        .boolean()
+        .optional()
+        .describe(
+          "JSON features only. When true, each variation value is a partial object merged onto the feature's default value instead of replacing it.",
+        ),
     })
     .strict()
     .describe(
@@ -280,6 +292,7 @@ const rulePatchSchemaV2 = z
       .enum(["force", "rollout", "experiment-ref", "safe-rollout"])
       .optional(),
     value: z.string().optional(),
+    sparse: z.boolean().optional(),
     coverage: z.number().min(0).max(1).optional(),
     hashAttribute: z.string().optional(),
     seed: z.string().optional(),

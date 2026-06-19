@@ -3,8 +3,9 @@ import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { FeatureInterface } from "shared/types/feature";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import { date } from "shared/dates";
-import { Box } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { getLatestPhaseVariations } from "shared/experiments";
+import { parsePlainJSONObject } from "shared/util";
 import Link from "@/ui/Link";
 import Field from "@/components/Forms/Field";
 import FeatureValueField from "@/components/Features/FeatureValueField";
@@ -20,6 +21,7 @@ import Callout from "@/ui/Callout";
 import RuleEnvironmentScopeField, {
   type EnvScopeProps,
 } from "@/components/Features/RuleModal/EnvironmentScopeField";
+import SparsePatchToggle from "@/components/Features/SparsePatchToggle";
 
 export default function BanditRefFields({
   feature,
@@ -139,7 +141,16 @@ export default function BanditRefFields({
 
       {selectedExperiment && (
         <Box px="5" pt="5" pb="1" mb="4" className="bg-highlight rounded">
-          <label className="mb-3">Variation Values</label>
+          <Flex align="center" gap="3" mb="3">
+            <label className="mb-0">Variation Values</label>
+            {feature.valueType === "json" &&
+              parsePlainJSONObject(feature.defaultValue) !== null && (
+                <SparsePatchToggle
+                  checked={!!form.watch("sparse")}
+                  onChange={(v) => form.setValue("sparse", v)}
+                />
+              )}
+          </Flex>
           {getLatestPhaseVariations(selectedExperiment).map((v, i) => (
             <FeatureValueField
               key={v.id}
@@ -153,6 +164,7 @@ export default function BanditRefFields({
               useCodeInput={true}
               showFullscreenButton={true}
               codeInputDefaultHeight={80}
+              sparse={!!form.watch("sparse")}
             />
           ))}
         </Box>

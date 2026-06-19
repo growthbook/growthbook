@@ -42,6 +42,8 @@ import {
   getRevertValueValidationWarnings,
   pruneOrphanedRampActions,
   toV2FeatureSnapshot,
+  parsePlainJSONObject,
+  resolveSparseJSONValue,
 } from "../../src/util";
 import type { RampScheduleInterface } from "../../src/validators/ramp-schedule";
 
@@ -4041,5 +4043,63 @@ describe("pruneOrphanedRampActions", () => {
     const { kept, pruned } = pruneOrphanedRampActions(undefined, [rule("a")]);
     expect(kept).toEqual([]);
     expect(pruned).toEqual([]);
+  });
+});
+
+describe("sparse JSON rule helpers", () => {
+  describe("parsePlainJSONObject", () => {
+    it("returns the object for a plain key/val object", () => {
+      expect(parsePlainJSONObject('{"a":1,"b":"x"}')).toEqual({ a: 1, b: "x" });
+    });
+    it("returns null for arrays", () => {
+      expect(parsePlainJSONObject("[1,2,3]")).toBeNull();
+    });
+    it("returns null for null", () => {
+      expect(parsePlainJSONObject("null")).toBeNull();
+    });
+    it("returns null for primitives", () => {
+      expect(parsePlainJSONObject("42")).toBeNull();
+      expect(parsePlainJSONObject('"hi"')).toBeNull();
+    });
+    it("returns null for unparseable input", () => {
+      expect(parsePlainJSONObject("not json")).toBeNull();
+    });
+  });
+
+  describe("resolveSparseJSONValue", () => {
+    const defaultObj = { a: "default", b: 1, c: true };
+
+    it("merges the sparse value onto the default object", () => {
+      expect(resolveSparseJSONValue('{"a":"over"}', defaultObj)).toEqual({
+        a: "over",
+        b: 1,
+        c: true,
+      });
+    });
+
+    it("adds keys not present in the default (no schema filtering for json)", () => {
+      expect(resolveSparseJSONValue('{"d":"new"}', defaultObj)).toEqual({
+        a: "default",
+        b: 1,
+        c: true,
+        d: "new",
+      });
+    });
+
+    it("returns the parsed value as-is when the default isn't an object", () => {
+      expect(resolveSparseJSONValue('{"a":"over"}', null)).toEqual({
+        a: "over",
+      });
+    });
+
+    it("returns the parsed value as-is when the rule value isn't an object", () => {
+      // Misconfigured sparse flag degrades to full-value behavior.
+      expect(resolveSparseJSONValue("[1,2]", defaultObj)).toEqual([1, 2]);
+      expect(resolveSparseJSONValue("42", defaultObj)).toEqual(42);
+    });
+
+    it("returns null when the rule value is unparseable and there's no object default", () => {
+      expect(resolveSparseJSONValue("not json", null)).toBeNull();
+    });
   });
 });

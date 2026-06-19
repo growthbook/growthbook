@@ -83,10 +83,17 @@ export const baseRule = z
   })
   .strict();
 
+// `sparse` (JSON features only): the value is a partial object whose keys are
+// merged onto the feature's default value at SDK-payload time, rather than
+// replacing it. Ignored unless the feature's defaultValue is a plain JSON
+// object. See `resolveSparseJSONValue` in shared/util.
+const sparseRuleField = z.boolean().optional();
+
 export const forceRule = baseRule
   .extend({
     type: z.literal("force"),
     value: z.string(),
+    sparse: sparseRuleField,
   })
   .strict();
 
@@ -96,6 +103,7 @@ export const rolloutRule = baseRule
   .extend({
     type: z.literal("rollout"),
     value: z.string(),
+    sparse: sparseRuleField,
     coverage: z.number(),
     hashAttribute: z.string(),
     seed: z.string().optional(),
@@ -174,6 +182,7 @@ const experimentRefRule = baseRule
     type: z.literal("experiment-ref"),
     experimentId: z.string(),
     variations: z.array(experimentRefVariation),
+    sparse: sparseRuleField,
   })
   .strict();
 
@@ -781,6 +790,12 @@ export const apiFeatureForceRuleValidator = namedSchema(
     z.object({
       type: z.literal("force"),
       value: z.string(),
+      sparse: z
+        .boolean()
+        .describe(
+          "JSON features only. When true, `value` is a partial object merged onto the feature's default value instead of replacing it.",
+        )
+        .optional(),
     }),
   ),
 );
@@ -797,6 +812,12 @@ export const apiFeatureRolloutRuleValidator = namedSchema(
     z.object({
       type: z.literal("rollout"),
       value: z.string(),
+      sparse: z
+        .boolean()
+        .describe(
+          "JSON features only. When true, `value` is a partial object merged onto the feature's default value instead of replacing it.",
+        )
+        .optional(),
       coverage: z.coerce.number().gte(0).lte(1),
       hashAttribute: z.string(),
       seed: z
@@ -872,6 +893,12 @@ export const apiFeatureExperimentRefRuleValidator = namedSchema(
         }),
       ),
       experimentId: z.string(),
+      sparse: z
+        .boolean()
+        .describe(
+          "JSON features only. When true, each variation `value` is a partial object merged onto the feature's default value instead of replacing it.",
+        )
+        .optional(),
     }),
   ),
 );
@@ -1193,6 +1220,13 @@ const postFeaturePrerequisite = z.object({
   condition: z.string(),
 });
 
+const postSparseRuleField = z
+  .boolean()
+  .describe(
+    "JSON features only. When true, the rule value is a partial object merged onto the feature's default value instead of replacing it.",
+  )
+  .optional();
+
 const postFeatureForceRule = z.object({
   description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   condition: z.string().describe("Applied to everyone by default.").optional(),
@@ -1203,6 +1237,7 @@ const postFeatureForceRule = z.object({
   enabled: z.boolean().describe("Enabled by default").optional(),
   type: z.literal("force"),
   value: z.string(),
+  sparse: postSparseRuleField,
 });
 
 const postFeatureRolloutRule = z.object({
@@ -1215,6 +1250,7 @@ const postFeatureRolloutRule = z.object({
   enabled: z.boolean().describe("Enabled by default").optional(),
   type: z.literal("rollout"),
   value: z.string(),
+  sparse: postSparseRuleField,
   coverage: z
     .number()
     .describe(
@@ -1246,6 +1282,7 @@ const postFeatureExperimentRefRule = z.object({
     }),
   ),
   experimentId: z.string(),
+  sparse: postSparseRuleField,
 });
 
 const postFeatureExperimentRule = z.object({
