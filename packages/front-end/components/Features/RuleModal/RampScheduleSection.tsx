@@ -50,6 +50,7 @@ import {
   DEFAULT_NO_TRAFFIC_GRACE_PERIOD_HOURS,
 } from "shared/validators";
 import { date as formatDate } from "shared/dates";
+import { parsePlainJSONObject } from "shared/util";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { HiBadgeCheck } from "react-icons/hi";
 import {
@@ -75,6 +76,7 @@ import Text from "@/ui/Text";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MonitoredIcon from "@/components/Features/RuleModal/MonitoredIcon";
 import FeatureValueField from "@/components/Features/FeatureValueField";
+import { SparsePatchIndicator } from "@/components/Features/SparsePatchToggle";
 import Checkbox from "@/ui/Checkbox";
 import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
@@ -878,6 +880,9 @@ interface Props {
   attributeSchema?: SDKAttributeSchema;
   ruleId?: string;
   featureId?: string;
+  // Whether the parent rule is a sparse patch. The ramp's value edits inherit
+  // this — sparse interpretation belongs to the rule, not the schedule.
+  sparse?: boolean;
 }
 
 export default function RampScheduleSection({
@@ -901,6 +906,7 @@ export default function RampScheduleSection({
   attributeSchema,
   ruleId,
   featureId,
+  sparse = false,
 }: Props) {
   const [open, setOpen] = useState(embedded || state.mode !== "off");
   const [seedOpen, setSeedOpen] = useState(
@@ -1406,9 +1412,16 @@ export default function RampScheduleSection({
         effectRows.push(
           <Box>
             <Flex align="center" justify="between" mb="1">
-              <Text as="div" weight="semibold">
-                Default value
-              </Text>
+              <Flex align="center" gap="2">
+                <Text as="div" weight="semibold">
+                  Default value
+                </Text>
+                {sparse &&
+                  feature.valueType === "json" &&
+                  parsePlainJSONObject(feature.defaultValue) !== null && (
+                    <SparsePatchIndicator />
+                  )}
+              </Flex>
               {removeEffectButton(() => removePatchFieldFn("force"))}
             </Flex>
             <FeatureValueField
@@ -1419,6 +1432,8 @@ export default function RampScheduleSection({
               feature={feature}
               useDropdown={feature.valueType === "boolean"}
               hideCopyButton
+              sparse={sparse}
+              condensed
             />
           </Box>,
         );

@@ -302,6 +302,7 @@ export default function LinkedFeatureFlag({
                       <ForceSummary
                         value={orderedValues[j]}
                         feature={info.feature}
+                        sparse={info.sparse}
                         maxHeight={60}
                       />
                     )
