@@ -383,7 +383,11 @@ export async function migrateManagedWarehouseToJson(
   if (
     !datasource ||
     datasource.type !== "growthbook_clickhouse" ||
-    !isManagedWarehouseAwaitingJsonMigration(datasource)
+    !isManagedWarehouseAwaitingJsonMigration(datasource) ||
+    // Defer until provisioned: recreating tables for a never-provisioned org would
+    // race the normal provisioning flow (and spam Sentry). The runQuery enqueue runs
+    // before its guard, so a genuinely stuck mid-migration warehouse still recovers.
+    isManagedWarehouseAwaitingProvisioning(datasource)
   ) {
     return;
   }
@@ -444,9 +448,11 @@ export async function migrateManagedWarehouseToJson(
     { skipExposureQueryValidation: true },
   );
 
+  let recreated = false;
   try {
     // Recreate the per-org ClickHouse tables as JSON and repopulate from enriched_events.
     await dangerousRecreateClickhouseTables(datasource.organization);
+    recreated = true;
     // Regenerate the ch_events fact table + datasource userIdTypes/exposure queries.
     await syncManagedWarehouseIdentifiers(context);
     // Preserve each rewritten materialized column's datatype as an `attributes` JSON
@@ -480,12 +486,19 @@ export async function migrateManagedWarehouseToJson(
       );
     }
   } finally {
-    // Always leave the migrating state, even on failure: a partially-migrated
-    // warehouse still satisfies the awaiting-migration predicate and is retried
-    // on next use, and its legacy `SELECT *` SQL stays valid against the new tables.
     const finalDs =
       await dangerouslyGetGrowthbookDatasourceBypassPermission(context);
+    // Keep blocking queries when the tables were already recreated as JSON but the
+    // run failed before rewriting metric refs: those metrics still point at dropped
+    // top-level columns and would hit "Unknown identifier" ClickHouse errors. The
+    // re-triggered run finishes the rewrite and clears the state. If recreate never
+    // ran, the legacy tables are still valid, so clear the state and let queries proceed.
+    const keepBlocked =
+      recreated &&
+      finalDs?.type === "growthbook_clickhouse" &&
+      isManagedWarehouseAwaitingJsonMigration(finalDs);
     if (
+      !keepBlocked &&
       finalDs &&
       finalDs.type === "growthbook_clickhouse" &&
       finalDs.settings.migrating
