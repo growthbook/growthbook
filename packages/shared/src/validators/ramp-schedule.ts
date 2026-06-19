@@ -159,6 +159,60 @@ export const experimentEndStrategy = z
   });
 export type ExperimentEndStrategy = z.infer<typeof experimentEndStrategy>;
 
+// ---------------------------------------------------------------------------
+// Experiment ramp automation (shared by the experiment and ramp templates).
+// These live here (rather than in experiments.ts) so ramp templates can carry
+// them without creating an import cycle — experiments.ts imports them back.
+// ---------------------------------------------------------------------------
+
+// Controls automated shipping at the scheduled stop date.
+//   "off"        — manual: show recommended decision, no automation
+//   "auto"       — ship on stop date if DC says clear winner; keep running if not
+//   "auto-force" — ship on stop date regardless of criteria
+export const shippingCriteriaModeArray = ["off", "auto", "auto-force"] as const;
+export const shippingCriteriaMode = z.enum(shippingCriteriaModeArray);
+export type ShippingCriteriaMode = z.infer<typeof shippingCriteriaMode>;
+
+export const shippingCriteria = z
+  .object({
+    mode: shippingCriteriaMode,
+    plannedVariationId: z.string().optional(),
+    minimumRuntimeDays: z.number().positive().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.mode === "auto-force" && !data.plannedVariationId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          'Shipping criteria mode "auto-force" requires a plannedVariationId.',
+        path: ["plannedVariationId"],
+      });
+    }
+  });
+export type ShippingCriteria = z.infer<typeof shippingCriteria>;
+
+// Controls how ramp schedules respond to health signals.
+//   "hold-for-health" — (default) ramp pauses when health signals fire
+//   "ignore"          — ramp advances on schedule; health signals notify only
+export const rampProgressionMode = z.enum(["hold-for-health", "ignore"]);
+export type RampProgressionMode = z.infer<typeof rampProgressionMode>;
+
+// Controls whether rollback signals are executed automatically.
+//   "off"         — manual: prompt to rollback
+//   "all"         — auto-rollback for all signals (metric + health)
+//   "health-only" — auto-rollback for health signals only; prompt for metric
+export const autoRollbackMode = z.enum(["off", "all", "health-only"]);
+export type AutoRollbackMode = z.infer<typeof autoRollbackMode>;
+
+// Template-level shipping criteria: carries the automation mode + minimum
+// runtime. "auto-force" is excluded because it requires a plannedVariationId,
+// which is specific to an experiment and can't be templatized.
+export const templateShippingCriteria = z.object({
+  mode: z.enum(["off", "auto"]),
+  minimumRuntimeDays: z.number().positive().optional(),
+});
+export type TemplateShippingCriteria = z.infer<typeof templateShippingCriteria>;
+
 export const rampTarget = z.object({
   id: z.string(),
   entityType: z.enum(["feature", "experiment"]),
@@ -439,10 +493,17 @@ const templateFeatureRulePatch = featureRulePatch.omit({ force: true });
 const templateFeatureRuleStepAction = featureRuleStepAction.extend({
   patch: templateFeatureRulePatch,
 });
-// Templates only support feature-rule step actions. Experiment ramps configure
-// their schedule directly on the experiment and inherit ramp behavior from the
-// EDF; saving/loading experiment ramps as templates is intentionally unsupported.
-const templateRampStepAction = templateFeatureRuleStepAction;
+// Experiment template steps carry the full experiment patch (coverage ladder,
+// targeting, phase-control). `targetId` is a placeholder — the real experiment
+// id is injected at materialization. EDF automation (rollback/progression mode,
+// decision criteria) is intentionally NOT templatized; it stays on the experiment.
+const templateExperimentStepAction = experimentStepAction;
+// Templates support both feature-rule and experiment step actions. The
+// `entityType` on the template determines which kind a given template uses.
+const templateRampStepAction = z.discriminatedUnion("targetType", [
+  templateFeatureRuleStepAction,
+  templateExperimentStepAction,
+]);
 const templateRampStep = rampStep.extend({
   actions: z.array(templateRampStepAction),
 });
@@ -460,13 +521,20 @@ export type TemplateEndPatch = z.infer<typeof templateEndPatchValidator>;
 export const rampScheduleTemplateValidator = baseSchema.extend({
   name: z.string(),
   /**
-   * Templates are feature-only. The `entityType` field is retained (and pinned
-   * to "feature") for forward-compat with any existing documents that may have
-   * been written with the discriminator.
+   * Which entity kind this template targets. Feature templates carry
+   * feature-rule step actions; experiment templates carry experiment step
+   * actions. Optional/absent is treated as "feature" for backward compat with
+   * documents written before the discriminator existed.
    */
-  entityType: z.literal("feature").optional(),
+  entityType: z.enum(["feature", "experiment"]).optional(),
   steps: z.array(templateRampStep),
   endPatch: templateEndPatchValidator.optional(),
+  // Experiment-only ramp automation defaults, applied to the experiment when an
+  // experiment template is used. The decision-criteria selection is NOT
+  // templatized — it stays on the experiment.
+  autoRollbackMode: autoRollbackMode.optional(),
+  rampProgressionMode: rampProgressionMode.optional(),
+  shippingCriteria: templateShippingCriteria.optional(),
   official: z.boolean().optional(),
   lockdownConfig: lockdownConfigSchema.optional(),
   monitoringConfig: rampMonitoringConfig.nullish(),
@@ -503,7 +571,7 @@ const apiRampStepCommon = {
     .boolean()
     .optional()
     .describe(
-      "When true, this step runs A/B traffic analysis while active. Treatment = [0, coverage), control = [0.5, 0.5+coverage). Arms are equal-sized and non-adjacent: step-ups only add users, never reassign existing ones. The UI caps monitored-step coverage at 0.5 so control end never exceeds 1.0. The SDK uses explicit hash ranges on the experiment rule to prevent bucketing shifts across monitored/unmonitored transitions.",
+      "When true, this step runs A/B traffic analysis while active. For feature-rule steps the rollout rule is promoted to a safe-rollout-style experiment with treatment = [0, coverage), control = [0.5, 0.5+coverage); arms are equal-sized and non-adjacent (step-ups only add users), and coverage is capped at 0.5 so control end never exceeds 1.0. Experiment steps target an existing experiment and may use the full 0–1 coverage range. The SDK uses explicit hash ranges to keep bucketing stable across monitored/unmonitored transitions.",
     ),
   holdConditions: stepHoldConditions.optional(),
 };

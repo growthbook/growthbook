@@ -21,6 +21,10 @@ const BaseClass = MakeModelClass({
   defaultValues: {
     order: 0,
   },
+  // entityType is fixed at creation: it determines the permission tier and the
+  // allowed step-action kind, so flipping it post-create would bypass the
+  // create-time permission check.
+  readonlyFields: ["entityType"],
   // Reordering only touches `order`; don't bump dateUpdated or emit audit logs.
   skipDateUpdatedFields: ["order"],
   skipAuditLogFields: ["order"],
@@ -32,14 +36,12 @@ const BaseClass = MakeModelClass({
 
 export class RampScheduleTemplateModel extends BaseClass {
   protected migrate(legacyDoc: unknown): RampScheduleTemplateInterface {
-    // Drop experiment-specific fields from legacy template documents. Templates
-    // are feature-only now; any pre-existing experiment template fields would
-    // otherwise fail schema validation on read.
+    // Drop fields that no longer live on templates. `rampBehavior` was removed;
+    // `endStrategy` (EDF shipping automation) belongs to the experiment, not the
+    // template. `entityType` is preserved — templates may target experiments as
+    // well as features.
     const raw = legacyDoc as Record<string, unknown> | null;
     if (raw) {
-      if (raw.entityType && raw.entityType !== "feature") {
-        delete raw.entityType;
-      }
       delete raw.rampBehavior;
       delete raw.endStrategy;
     }
@@ -52,23 +54,72 @@ export class RampScheduleTemplateModel extends BaseClass {
     return { ...migrated, order: migrated.order ?? 0 };
   }
 
-  protected canRead() {
-    return this.context.permissions.canViewFeatureModal(undefined);
+  // Templates with no entityType predate the discriminator and are features.
+  private isExperimentTemplate(doc: {
+    entityType?: RampScheduleTemplateInterface["entityType"];
+  }) {
+    return doc.entityType === "experiment";
   }
-  protected canCreate() {
-    return this.context.permissions.canCreateFeature({ project: undefined });
+
+  // Enforce the entityType ⟺ step-action-kind invariant (the discriminated
+  // union in the schema can't express this cross-field constraint, and a
+  // schema-level superRefine would be stripped by BaseModel's create/update
+  // `.omit()`). Also keep the experiment-only automation fields off feature
+  // templates.
+  protected async customValidation(doc: RampScheduleTemplateInterface) {
+    const isExperiment = this.isExperimentTemplate(doc);
+    const allowed = isExperiment ? "experiment" : "feature-rule";
+    for (const step of doc.steps ?? []) {
+      for (const action of step.actions ?? []) {
+        if (action.targetType !== allowed) {
+          throw new Error(
+            `A ${
+              doc.entityType ?? "feature"
+            } ramp template may only contain ${allowed} step actions.`,
+          );
+        }
+      }
+    }
+    if (
+      !isExperiment &&
+      (doc.autoRollbackMode !== undefined ||
+        doc.rampProgressionMode !== undefined ||
+        doc.shippingCriteria !== undefined)
+    ) {
+      throw new Error(
+        "autoRollbackMode, rampProgressionMode, and shippingCriteria are only valid on experiment ramp templates.",
+      );
+    }
+  }
+
+  protected canRead(doc: RampScheduleTemplateInterface) {
+    return this.isExperimentTemplate(doc)
+      ? this.context.permissions.canViewExperimentModal(undefined)
+      : this.context.permissions.canViewFeatureModal(undefined);
+  }
+  protected canCreate(doc: RampScheduleTemplateInterface) {
+    return this.isExperimentTemplate(doc)
+      ? this.context.permissions.canCreateExperiment({ project: undefined })
+      : this.context.permissions.canCreateFeature({ project: undefined });
   }
   protected canUpdate(
-    _existing: RampScheduleTemplateInterface,
+    existing: RampScheduleTemplateInterface,
     _updates: UpdateProps<RampScheduleTemplateInterface>,
   ) {
-    return this.context.permissions.canUpdateFeature(
-      { project: undefined },
-      { project: undefined },
-    );
+    return this.isExperimentTemplate(existing)
+      ? this.context.permissions.canUpdateExperiment(
+          { project: undefined },
+          { project: undefined },
+        )
+      : this.context.permissions.canUpdateFeature(
+          { project: undefined },
+          { project: undefined },
+        );
   }
-  protected canDelete(_existing: RampScheduleTemplateInterface) {
-    return this.context.permissions.canDeleteFeature({ project: undefined });
+  protected canDelete(existing: RampScheduleTemplateInterface) {
+    return this.isExperimentTemplate(existing)
+      ? this.context.permissions.canDeleteExperiment({ project: undefined })
+      : this.context.permissions.canDeleteFeature({ project: undefined });
   }
 
   // Templates in manual order. Ties (e.g. legacy order=0) fall back to

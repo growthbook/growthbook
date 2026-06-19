@@ -228,6 +228,12 @@ export const postRampSchedule = createApiRequestHandler(
     if (!tmpl) {
       throw new NotFoundError(`Template '${body.templateId}' not found`);
     }
+    if (tmpl.entityType === "experiment") {
+      throw new BadRequestError(
+        `Template '${body.templateId}' is an experiment ramp template; ` +
+          `apply it via the experiment ramp schedule endpoint instead.`,
+      );
+    }
     template = tmpl;
   }
 

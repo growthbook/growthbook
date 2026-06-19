@@ -17,11 +17,7 @@ import {
   getExperimentResultStatus,
   getHealthSettings,
 } from "shared/enterprise";
-import {
-  AutoRollbackMode,
-  ExperimentAnalysisSummary,
-  ShippingCriteriaMode,
-} from "shared/validators";
+import { AutoRollbackMode, ExperimentAnalysisSummary } from "shared/validators";
 import { StatsEngine } from "shared/types/stats";
 import {
   ExperimentHealthSettings,
@@ -39,7 +35,8 @@ import { logger } from "back-end/src/util/logger";
 import { getLatestSuccessfulSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
 import {
   resolveHealthSignals,
-  applyExperimentEndStrategy,
+  applyShippingCriteria,
+  resolveShippingMode,
 } from "back-end/src/services/experimentRampSchedule";
 import { getExperimentMetricById } from "back-end/src/services/experiments";
 import {
@@ -809,17 +806,6 @@ async function applyHealthActions(
 // Shipping criteria evaluation
 // ---------------------------------------------------------------------------
 
-function resolveShippingMode(
-  experiment: ExperimentInterface,
-  org: { settings?: { defaultShippingCriteriaMode?: ShippingCriteriaMode } },
-): ShippingCriteriaMode {
-  return (
-    experiment.shippingCriteria?.mode ??
-    org.settings?.defaultShippingCriteriaMode ??
-    "off"
-  );
-}
-
 /**
  * Evaluates shipping criteria for running experiments. Called on every
  * snapshot update (same cadence as health actions).
@@ -839,46 +825,16 @@ async function evaluateShippingCriteria(
 ): Promise<void> {
   if (experiment.status !== "running") return;
 
-  const mode = resolveShippingMode(experiment, context.org);
-  if (mode === "off") return;
+  // Non-ramp experiments auto-ship on their scheduled stop date. (Ramp
+  // experiments are gated out before this is called and instead ship at ramp
+  // completion via completeRollout → applyShippingCriteria.)
+  if (resolveShippingMode(experiment, context.org) === "off") return;
 
-  // Auto-ship requires a scheduled stop date
   const stopAt = experiment.statusUpdateSchedule?.stopAt;
   if (!stopAt) return;
+  if (new Date(stopAt) > new Date()) return;
 
-  const now = new Date();
-  if (new Date(stopAt) > now) return;
-
-  const minDays = experiment.shippingCriteria?.minimumRuntimeDays;
-  if (minDays) {
-    const phases = experiment.phases;
-    const lastPhaseStart = phases?.[phases.length - 1]?.dateStarted;
-    if (lastPhaseStart) {
-      const runtimeMs = now.getTime() - new Date(lastPhaseStart).getTime();
-      const runtimeDays = runtimeMs / (1000 * 60 * 60 * 24);
-      if (runtimeDays < minDays) return;
-    }
-  }
-
-  if (mode === "auto") {
-    await applyExperimentEndStrategy(context, experiment, {
-      type: "soft-edf",
-      plannedVariationId: experiment.shippingCriteria?.plannedVariationId,
-      minimumRuntimeDays: minDays,
-    });
-    return;
-  }
-
-  if (mode === "auto-force") {
-    const plannedVariationId =
-      experiment.shippingCriteria?.plannedVariationId ??
-      experiment.variations[0]?.id;
-    if (!plannedVariationId) return;
-    await applyExperimentEndStrategy(context, experiment, {
-      type: "hard-planned",
-      plannedVariationId,
-      minimumRuntimeDays: minDays,
-    });
-    return;
-  }
+  // The stop date is the trigger; mode→strategy mapping + min-runtime gate are
+  // shared with the ramp-completion path.
+  await applyShippingCriteria(context, experiment);
 }

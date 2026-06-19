@@ -973,7 +973,12 @@ export default function RampScheduleSection({
   const { data: templatesData, mutate: mutateTemplates } = useApi<{
     rampScheduleTemplates: RampScheduleTemplateInterface[];
   }>("/ramp-schedule-templates");
-  const templates = templatesData?.rampScheduleTemplates ?? [];
+  // Feature rules can only use feature templates. Experiment templates carry
+  // experiment step actions and would produce a malformed feature rule if
+  // applied here. (Absent entityType = legacy feature template.)
+  const templates = (templatesData?.rampScheduleTemplates ?? []).filter(
+    (t) => t.entityType !== "experiment",
+  );
 
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [presetOpen, setPresetOpen] = useState(false);

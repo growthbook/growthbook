@@ -1,6 +1,11 @@
 import type { Response } from "express";
 import { z } from "zod";
-import { RampScheduleInterface, rampStep } from "shared/validators";
+import {
+  ExperimentInterface,
+  RampScheduleInterface,
+  RampStepAction,
+  rampStep,
+} from "shared/validators";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import {
@@ -12,7 +17,10 @@ import {
   advanceUntilBlocked,
   approveAndPublishStep,
   pauseSchedule,
+  remapTemplateExperimentEndActions,
+  remapTemplateExperimentSteps,
   resumeSchedule,
+  startSchedule,
 } from "back-end/src/services/rampSchedule";
 import {
   applyRampEvaluationDecision,
@@ -52,12 +60,19 @@ export async function getRampSchedule(
 // POST /experiments/:id/ramp-schedule  (attach / create)
 // ---------------------------------------------------------------------------
 
-const attachRampBody = z.object({
-  name: z.string().min(1),
-  steps: z.array(rampStep),
-  startDate: z.iso.datetime().nullish(),
-  cutoffDate: z.iso.datetime().nullish(),
-});
+const attachRampBody = z
+  .object({
+    name: z.string().min(1),
+    // Provide explicit steps, or a templateId to materialize them from an
+    // experiment ramp template. At least one is required.
+    steps: z.array(rampStep).optional(),
+    templateId: z.string().optional(),
+    startDate: z.iso.datetime().nullish(),
+    cutoffDate: z.iso.datetime().nullish(),
+  })
+  .refine((d) => (d.steps !== undefined) !== (d.templateId !== undefined), {
+    message: "Provide exactly one of steps or templateId",
+  });
 
 export async function postRampSchedule(
   req: AuthRequest<z.infer<typeof attachRampBody>, { id: string }>,
@@ -82,6 +97,70 @@ export async function postRampSchedule(
   }
 
   const body = attachRampBody.parse(req.body);
+
+  // Resolve steps (and optional end actions) from an explicit body or a
+  // template. Templates must be experiment templates; the experiment id is
+  // injected as each action's target at materialization time.
+  let steps: RampScheduleInterface["steps"] = body.steps ?? [];
+  let endActions: RampStepAction[] | undefined;
+  // Automation defaults carried by an experiment template are applied to the
+  // experiment itself (not the schedule). Decision criteria are not templatized.
+  const experimentChanges: Partial<
+    Pick<
+      ExperimentInterface,
+      "autoRollbackMode" | "rampProgressionMode" | "shippingCriteria"
+    >
+  > = {};
+  if (body.templateId) {
+    const template = await context.models.rampScheduleTemplates.getById(
+      body.templateId,
+    );
+    if (!template) {
+      return res
+        .status(404)
+        .json({ status: 404, message: "Template not found" });
+    }
+    if (template.entityType !== "experiment") {
+      return res.status(400).json({
+        status: 400,
+        message:
+          "Template is not an experiment ramp template; cannot apply it to an experiment.",
+      });
+    }
+    steps = remapTemplateExperimentSteps(template.steps, experiment.id);
+    endActions = remapTemplateExperimentEndActions(
+      template.endPatch,
+      experiment.id,
+    );
+    if (template.autoRollbackMode !== undefined) {
+      experimentChanges.autoRollbackMode = template.autoRollbackMode;
+    }
+    if (template.rampProgressionMode !== undefined) {
+      experimentChanges.rampProgressionMode = template.rampProgressionMode;
+    }
+    if (template.shippingCriteria !== undefined) {
+      // Merge so an experiment's existing plannedVariationId isn't wiped by a
+      // template (which only carries mode + minimumRuntimeDays).
+      experimentChanges.shippingCriteria = {
+        ...experiment.shippingCriteria,
+        ...template.shippingCriteria,
+      };
+    }
+  }
+
+  // A schedule with no steps only makes sense as a pure date-gated rollout;
+  // without a start or cutoff date it would never run. Reject rather than
+  // create an unbootable schedule that also blocks future attaches.
+  const startAt = body.startDate ? new Date(body.startDate) : null;
+  const cutoffAt = body.cutoffDate ? new Date(body.cutoffDate) : null;
+  if (steps.length === 0 && !startAt && !cutoffAt) {
+    return res.status(400).json({
+      status: 400,
+      message:
+        "Ramp schedule has no steps. Provide a startDate or cutoffDate, or a template with steps.",
+    });
+  }
+
   const startActions = buildExperimentStartActions(experiment);
 
   const schedule = await context.models.rampSchedules.create({
@@ -100,22 +179,39 @@ export async function postRampSchedule(
       },
     ],
     startActions,
-    steps: body.steps,
-    startDate: body.startDate ? new Date(body.startDate) : null,
-    cutoffDate: body.cutoffDate ? new Date(body.cutoffDate) : null,
+    steps,
+    ...(endActions ? { endActions } : {}),
+    startDate: startAt,
+    cutoffDate: cutoffAt,
     status: "ready" as const,
     currentStepIndex: -1,
     nextStepAt: null,
     nextProcessAt: null,
   });
 
-  await updateExperiment({
-    context,
-    experiment,
-    changes: { rampScheduleId: schedule.id },
-  });
+  try {
+    await updateExperiment({
+      context,
+      experiment,
+      changes: { ...experimentChanges, rampScheduleId: schedule.id },
+    });
+  } catch (e) {
+    // Don't leave an orphaned schedule the experiment doesn't point at (and
+    // which would let a retry create a second one).
+    await context.models.rampSchedules.delete(schedule);
+    throw e;
+  }
 
-  return res.status(200).json({ status: 200, rampSchedule: schedule });
+  // Start immediately when there's no future start date — experiment ramps have
+  // no revision-publish trigger (unlike feature ramps via
+  // onActivatingRevisionPublished), so a "ready" schedule would otherwise never
+  // be picked up by the agenda job.
+  const finalSchedule =
+    !startAt || startAt <= new Date()
+      ? await startSchedule(context, schedule)
+      : schedule;
+
+  return res.status(200).json({ status: 200, rampSchedule: finalSchedule });
 }
 
 // ---------------------------------------------------------------------------

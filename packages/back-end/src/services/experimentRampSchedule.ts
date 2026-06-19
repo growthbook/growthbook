@@ -14,6 +14,7 @@ import {
   ExperimentPhase,
   RampProgressionMode,
   RampScheduleInterface,
+  ShippingCriteriaMode,
 } from "shared/validators";
 import {
   getMidRampDecisionStatus,
@@ -441,6 +442,69 @@ export async function applyExperimentEndStrategy(
       });
     }
   }
+}
+
+// Resolve the effective shipping mode: experiment override, else org default,
+// else "off".
+export function resolveShippingMode(
+  experiment: ExperimentInterface,
+  org: { settings?: { defaultShippingCriteriaMode?: ShippingCriteriaMode } },
+): ShippingCriteriaMode {
+  return (
+    experiment.shippingCriteria?.mode ??
+    org.settings?.defaultShippingCriteriaMode ??
+    "off"
+  );
+}
+
+/**
+ * Apply an experiment's shippingCriteria as an auto-ship decision. Shared by
+ * the non-ramp stopAt-driven path (evaluateShippingCriteria) and ramp
+ * completion (completeRollout). The CALLER owns the trigger (stop date vs ramp
+ * completion); this function owns the mode→strategy mapping + min-runtime gate.
+ * No-op unless the experiment is running and a non-"off" mode is configured.
+ */
+export async function applyShippingCriteria(
+  ctx: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+): Promise<void> {
+  if (experiment.status !== "running") return;
+
+  const mode = resolveShippingMode(experiment, ctx.org);
+  if (mode === "off") return;
+
+  // Don't auto-ship before the experiment has run its minimum required time.
+  const minimumRuntimeDays = experiment.shippingCriteria?.minimumRuntimeDays;
+  if (minimumRuntimeDays) {
+    const lastPhaseStart =
+      experiment.phases?.[experiment.phases.length - 1]?.dateStarted;
+    if (lastPhaseStart) {
+      const runtimeDays =
+        (Date.now() - new Date(lastPhaseStart).getTime()) /
+        (1000 * 60 * 60 * 24);
+      if (runtimeDays < minimumRuntimeDays) return;
+    }
+  }
+
+  if (mode === "auto") {
+    await applyExperimentEndStrategy(ctx, experiment, {
+      type: "soft-edf",
+      plannedVariationId: experiment.shippingCriteria?.plannedVariationId,
+      minimumRuntimeDays,
+    });
+    return;
+  }
+
+  // auto-force
+  const plannedVariationId =
+    experiment.shippingCriteria?.plannedVariationId ??
+    experiment.variations[0]?.id;
+  if (!plannedVariationId) return;
+  await applyExperimentEndStrategy(ctx, experiment, {
+    type: "hard-planned",
+    plannedVariationId,
+    minimumRuntimeDays,
+  });
 }
 
 // ---------------------------------------------------------------------------

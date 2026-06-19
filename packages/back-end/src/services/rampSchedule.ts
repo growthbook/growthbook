@@ -3,6 +3,7 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { EventUser } from "shared/types/events/event-types";
 import {
   DEFAULT_NO_TRAFFIC_GRACE_PERIOD_HOURS,
+  ExperimentPatch,
   FeatureRulePatch,
   LockdownConfig,
   RampEvent,
@@ -13,6 +14,7 @@ import {
   RampScheduleTemplateInterface,
   RampStepAction,
   SafeRolloutInterface,
+  TemplateEndPatch,
 } from "shared/validators";
 import { ResourceEvents } from "shared/types/events/base-types";
 import { filterEnvironmentsByFeature, MergeResultChanges } from "shared/util";
@@ -267,6 +269,51 @@ export function remapTemplateActions(
     }
     return { targetType: "feature-rule" as const, targetId, patch };
   });
+}
+
+// Materialize an experiment template's steps into live ramp steps for a
+// specific experiment, injecting the experiment id as each action's target.
+// Non-experiment actions (shouldn't occur on an experiment template) are
+// dropped defensively.
+export function remapTemplateExperimentSteps(
+  steps: RampScheduleTemplateInterface["steps"],
+  experimentId: string,
+): RampScheduleInterface["steps"] {
+  return (steps ?? []).map((step) => ({
+    interval: step.interval,
+    actions: (step.actions ?? [])
+      .filter((a) => a.targetType === "experiment")
+      .map(
+        (a): RampStepAction => ({
+          targetType: "experiment" as const,
+          targetId: experimentId,
+          patch: a.patch as ExperimentPatch,
+        }),
+      ),
+    approvalNotes: step.approvalNotes ?? undefined,
+    monitored: !!step.monitored,
+    holdConditions: step.holdConditions ?? undefined,
+  }));
+}
+
+// Build the experiment ramp's end action from a template's endPatch. Only the
+// fields meaningful to an experiment are carried over (coverage + targeting);
+// feature-only fields (allEnvironments/environments) are ignored.
+export function remapTemplateExperimentEndActions(
+  endPatch: TemplateEndPatch | undefined,
+  experimentId: string,
+): RampStepAction[] | undefined {
+  if (!endPatch) return undefined;
+  const patch: ExperimentPatch = {};
+  if (endPatch.coverage !== undefined) patch.coverage = endPatch.coverage;
+  if (endPatch.condition !== undefined) patch.condition = endPatch.condition;
+  if (endPatch.savedGroups !== undefined)
+    patch.savedGroups = endPatch.savedGroups;
+  if (endPatch.prerequisites !== undefined) {
+    patch.prerequisites = endPatch.prerequisites;
+  }
+  if (Object.keys(patch).length === 0) return undefined;
+  return [{ targetType: "experiment" as const, targetId: experimentId, patch }];
 }
 
 // Sparse step patches accumulate through the target step.
@@ -1671,12 +1718,22 @@ async function applyEndActionsAndAwaitCutoff(
       patch,
     }),
   );
-  if (actionsToApply.length > 0) {
+
+  // computeEffectivePatch only accumulates feature-rule patches, so experiment
+  // endActions (targetType === "experiment") must be applied separately —
+  // mirroring completeRollout. Without this the final experiment coverage is
+  // silently dropped on the cutoff-await path.
+  const experimentEndActions: RampStepAction[] = (
+    schedule.endActions ?? []
+  ).filter((a) => a.targetType === "experiment");
+
+  const allActionsToApply = [...actionsToApply, ...experimentEndActions];
+  if (allActionsToApply.length > 0) {
     await executeStepActions(
       ctx,
       schedule,
       schedule.steps.length,
-      actionsToApply,
+      allActionsToApply,
     );
   }
 
@@ -1806,6 +1863,22 @@ export async function completeRollout(
   });
 
   await transitionLinkedSafeRollout(ctx, updated, "released");
+
+  // For experiment ramps, ramp completion is the auto-ship trigger (the
+  // stopAt-driven path in experimentNotifications is gated out for ramp
+  // experiments). Honor the experiment's shippingCriteria here.
+  if (updated.entityType === "experiment" && updated.entityId) {
+    const { getExperimentById } = await import(
+      "back-end/src/models/ExperimentModel"
+    );
+    const experiment = await getExperimentById(ctx, updated.entityId);
+    if (experiment) {
+      const { applyShippingCriteria } = await import(
+        "back-end/src/services/experimentRampSchedule"
+      );
+      await applyShippingCriteria(ctx, experiment);
+    }
+  }
 
   await dispatchRampEvent(ctx, updated, "rampSchedule.actions.completed", {
     object: {

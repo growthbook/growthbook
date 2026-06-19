@@ -18,58 +18,13 @@ import {
   ownerInputField,
   optionalOwnerInputField,
 } from "./owner-field";
-import { experimentEndStrategy } from "./ramp-schedule";
-
-// ── Shipping criteria ───────────────────────────────────────────────────────
-// Controls automated shipping at the scheduled stop date
-// (`statusUpdateSchedule.stopAt`). All auto modes require a scheduled stop date;
-// without one, the experiment runs until manually stopped.
-//   "off"        — manual: show recommended decision, no automation
-//   "auto"       — ship on stop date if DC says clear winner; keep running if not
-//   "auto-force" — ship on stop date regardless of criteria
-
-export const shippingCriteriaModeArray = ["off", "auto", "auto-force"] as const;
-
-export const shippingCriteriaMode = z.enum(shippingCriteriaModeArray);
-export type ShippingCriteriaMode = z.infer<typeof shippingCriteriaMode>;
-
-export const shippingCriteria = z
-  .object({
-    mode: shippingCriteriaMode,
-    plannedVariationId: z.string().optional(),
-    minimumRuntimeDays: z.number().positive().optional(),
-  })
-  .superRefine((data, ctx) => {
-    if (data.mode === "auto-force" && !data.plannedVariationId) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message:
-          'Shipping criteria mode "auto-force" requires a plannedVariationId.',
-        path: ["plannedVariationId"],
-      });
-    }
-  });
-export type ShippingCriteria = z.infer<typeof shippingCriteria>;
-
+import {
+  autoRollbackMode,
+  experimentEndStrategy,
+  rampProgressionMode,
+  shippingCriteria,
+} from "./ramp-schedule";
 import { namedSchema } from "./openapi-helpers";
-
-// ── Ramp progression mode ───────────────────────────────────────────────────
-// Controls how ramp schedules respond to health signals.
-//   "hold-for-health"  — (default) ramp pauses when health signals fire
-//                         (review or rollback, unless rollback was executed)
-//   "ignore"           — ramp advances on schedule; health signals notify only
-
-export const rampProgressionMode = z.enum(["hold-for-health", "ignore"]);
-export type RampProgressionMode = z.infer<typeof rampProgressionMode>;
-
-// ── Auto-rollback mode ─────────────────────────────────────────────────────
-// Controls whether rollback signals are executed automatically.
-//   "off"          — manual: prompt to rollback
-//   "all"          — auto-rollback for all signals (metric + health)
-//   "health-only"  — auto-rollback for health signals only; prompt for metric
-
-export const autoRollbackMode = z.enum(["off", "all", "health-only"]);
-export type AutoRollbackMode = z.infer<typeof autoRollbackMode>;
 
 export const customMetricSlice = z.object({
   slices: z.array(
