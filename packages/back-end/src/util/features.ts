@@ -15,6 +15,10 @@ import {
   getNamespaceRanges,
   getNamespaceHashAttribute,
   NamespaceValue,
+  buildReverseDependencyIndex,
+  ReverseDependencyIndex,
+  buildExperimentDependencyIndex,
+  ExperimentDependencyIndex,
 } from "shared/util";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { GroupMap, SavedGroupInterface } from "shared/types/saved-group";
@@ -41,13 +45,45 @@ import {
   FeatureRule,
   SavedGroupTargeting,
 } from "shared/types/feature";
-import { ExperimentInterface } from "shared/types/experiment";
+import {
+  ExperimentInterface,
+  ExperimentInterfaceStringDates,
+} from "shared/types/experiment";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { SafeRolloutInterface } from "shared/types/safe-rollout";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
+import { RampMonitoredRuleInfo } from "back-end/src/models/RampScheduleModel";
 import { logger } from "back-end/src/util/logger";
 import { getApplicableEnvIds } from "./flattenRules";
 import { getCurrentEnabledState } from "./scheduleRules";
+
+export interface FeatureLookups {
+  featuresMap: Map<string, FeatureInterface>;
+  reverseDependencyIndex: ReverseDependencyIndex;
+  experiments: ExperimentInterfaceStringDates[];
+  experimentMap: Map<string, ExperimentInterfaceStringDates>;
+  experimentDependencyIndex: ExperimentDependencyIndex;
+}
+
+/** Builds the shared lookup structures used by stale detection and dependents. */
+export function buildFeatureLookups(
+  allFeatures: FeatureInterface[],
+  allExperiments?: ExperimentInterface[],
+): FeatureLookups {
+  const featuresMap = new Map(allFeatures.map((f) => [f.id, f]));
+  const reverseDependencyIndex = buildReverseDependencyIndex(allFeatures);
+  const experiments =
+    (allExperiments as unknown as ExperimentInterfaceStringDates[]) ?? [];
+  const experimentMap = new Map(experiments.map((e) => [e.id, e]));
+  const experimentDependencyIndex = buildExperimentDependencyIndex(experiments);
+  return {
+    featuresMap,
+    reverseDependencyIndex,
+    experiments,
+    experimentMap,
+    experimentDependencyIndex,
+  };
+}
 
 export type MetadataOptions = {
   includeProjectIdInMetadata?: boolean;
@@ -490,9 +526,11 @@ export function getFeatureDefinition({
   savedGroupsMap,
   includeRuleIds,
   includeExperimentNames,
+  includeDraftExperimentRefs,
   namespaces,
   metadataOptions,
   projectsMap,
+  rampMonitoredRuleMap,
 }: {
   feature: FeatureInterface;
   environment: string;
@@ -505,19 +543,20 @@ export function getFeatureDefinition({
     string,
     { holdout: HoldoutInterface; holdoutExperiment: ExperimentInterface }
   >;
-  capabilities?: SDKCapability[]; // undefined = all capabilities
+  capabilities?: SDKCapability[];
   savedGroupReferencesEnabled?: boolean;
   organization?: OrganizationInterface;
   savedGroupsMap?: Record<string, SavedGroupInterface>;
   includeRuleIds?: boolean;
   includeExperimentNames?: boolean;
-  /** Optional override: if provided, skips derivation from organization.settings.namespaces */
+  includeDraftExperimentRefs?: boolean;
   namespaces?: Map<
     string,
     { hashAttribute?: string; seed?: string; format?: "legacy" | "multiRange" }
   >;
   metadataOptions?: MetadataOptions;
   projectsMap?: Map<string, ProjectInterface>;
+  rampMonitoredRuleMap?: Map<string, RampMonitoredRuleInfo>;
 }): FeatureDefinition | null {
   const settings = feature.environmentSettings?.[environment];
 
@@ -660,8 +699,8 @@ export function getFeatureDefinition({
 
           if (!includeExperimentInPayload(exp)) return null;
 
-          // Never include experiment drafts
-          if (exp.status === "draft") return null;
+          if (exp.status === "draft" && !includeDraftExperimentRefs)
+            return null;
 
           // Get current experiment phase and use it to set rule properties
           const phase = exp.phases[exp.phases.length - 1];
@@ -857,17 +896,89 @@ export function getFeatureDefinition({
             applyNamespaceToPayload(rule, r.namespace, namespacesMap);
           }
         } else if (r.type === "rollout") {
-          rule.force = getJSONValue(feature.valueType, r.value);
-          const clampedCoverage =
-            r.coverage > 1 ? 1 : r.coverage < 0 ? 0 : r.coverage;
-          // At 100% coverage, treat as a force rule so users without hashAttribute aren't excluded
-          if (clampedCoverage < 1) {
-            rule.coverage = clampedCoverage;
-            if (r.hashAttribute) {
-              rule.hashAttribute = r.hashAttribute;
+          const monitorInfo = rampMonitoredRuleMap?.get(r.id);
+
+          // Monitored rollout rules need hashAttribute + seed to emit experiment-mode
+          // payload (tracking key, stable bucketing). Fall back to feature.id (matches
+          // the SDK's own `rule.seed || featureId` fallback for force-coverage rules)
+          // for older rules that predate the seed-at-write-time backfill.
+          // New rules always have seed persisted as rule.id via addIdsToFlatRules.
+          if (monitorInfo && r.hashAttribute) {
+            const monitoredSeed = r.seed || feature.id;
+            // Reuse rollout bucketing so monitored steps do not cause variation hopping.
+            const clampedCoverage =
+              r.coverage > 1 ? 1 : r.coverage < 0 ? 0 : r.coverage;
+
+            const defaultValue = revision
+              ? (revision.defaultValue ?? feature.defaultValue)
+              : feature.defaultValue;
+
+            rule.variations = [
+              getJSONValue(feature.valueType, r.value),
+              getJSONValue(feature.valueType, defaultValue),
+            ];
+            rule.weights = [0.5, 0.5];
+            // Set coverage = 2 * step.coverage so getBucketRanges naturally
+            // produces the non-adjacent layout:
+            //   treatment (var 0) = [0, step.coverage)
+            //   control   (var 1) = [0.5, 0.5 + step.coverage)
+            //
+            // getBucketRanges accumulates start by raw weight (0.5), not by
+            // coverage*weight, so the control arm always starts at 0.5 regardless
+            // of coverage. This keeps arms disjoint and monotonically enrolled:
+            // on a step-up from C₁ → C₂ only users in [C₁,C₂) and [0.5+C₁,0.5+C₂)
+            // are newly enrolled — no existing user changes arm.
+            //
+            // Works identically for old SDKs (no bucketingV2) since they call the
+            // same getBucketRanges fallback with this coverage value.
+            rule.coverage = Math.min(clampedCoverage * 2, 1);
+
+            rule.hashAttribute = r.hashAttribute;
+            rule.seed = monitoredSeed;
+            // Match the rollout rule's hash version exactly to prevent variation
+            // hopping between monitored/unmonitored steps. New rules store hashVersion
+            // explicitly (defaulting to 2); old rules without the field stay on 1.
+            rule.hashVersion = r.hashVersion ?? 1;
+            rule.key = `ramp_${monitorInfo.rampScheduleId}`;
+            rule.meta = includeExperimentNames
+              ? [
+                  { key: "0", name: "Variation" },
+                  { key: "1", name: "Control", passthrough: true },
+                ]
+              : [{ key: "0" }, { key: "1", passthrough: true }];
+            rule.phase = "0";
+            // Sticky bucketing must be disabled for monitored steps: the ranges
+            // shift as coverage increases, and a stale sticky-bucket assignment
+            // would lock a user to the wrong arm or prevent new enrollment.
+            rule.disableStickyBucketing = true;
+            if (includeExperimentNames) {
+              rule.name = `${feature.id} - Monitored Ramp`;
             }
-            if (r.seed) {
-              rule.seed = r.seed;
+          } else {
+            if (monitorInfo && !r.hashAttribute) {
+              logger.warn(
+                {
+                  featureId: feature.id,
+                  ruleId: r.id,
+                  rampScheduleId: monitorInfo.rampScheduleId,
+                },
+                "Monitored ramp rule missing hashAttribute — falling back to force rollout payload",
+              );
+            }
+            rule.force = getJSONValue(feature.valueType, r.value);
+            const clampedCoverage =
+              r.coverage > 1 ? 1 : r.coverage < 0 ? 0 : r.coverage;
+            if (clampedCoverage < 1) {
+              rule.coverage = clampedCoverage;
+              if (r.hashAttribute) {
+                rule.hashAttribute = r.hashAttribute;
+              }
+              if (r.seed) {
+                rule.seed = r.seed;
+              }
+              if (r.hashVersion) {
+                rule.hashVersion = r.hashVersion;
+              }
             }
           }
         } else if (r.type === "safe-rollout") {
@@ -918,8 +1029,9 @@ export function getFeatureDefinition({
                 ]
               : [{ key: "0" }, { key: "1" }];
             rule.phase = "0";
-            if (includeExperimentNames)
+            if (includeExperimentNames) {
               rule.name = `${feature.id} - Safe Rollout`;
+            }
           }
         }
         if (shouldExpandSavedGroups && savedGroupsMap && organization) {

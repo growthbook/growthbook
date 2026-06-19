@@ -1,8 +1,13 @@
 import isEqual from "lodash/isEqual";
 import {
   autoMerge,
+  AutoMergeResult,
+  evaluatePublishGovernance,
+  fillRevisionFromFeature,
   getMatchingRules,
+  liveRevisionFromFeature,
   MatchingRule,
+  mergeResultHasChanges,
   resetReviewOnChange,
   checkIfRevisionNeedsReview,
 } from "shared/util";
@@ -23,9 +28,13 @@ import { applyPartialFeatureRuleUpdatesToRevision } from "back-end/src/util/feat
 import {
   editFeatureRules,
   getFeature,
+  prevalidatePublishRevision,
   publishRevision,
 } from "back-end/src/models/FeatureModel";
-import { getRevision } from "back-end/src/models/FeatureRevisionModel";
+import {
+  discardRevision,
+  getRevision,
+} from "back-end/src/models/FeatureRevisionModel";
 import { removePendingFeatureDraftFromExperiment } from "back-end/src/models/ExperimentModel";
 import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
@@ -278,6 +287,7 @@ export async function validateExperimentFeatureUpdates({
 
 export type PendingDraftFailureReason =
   | "merge-conflict"
+  | "needs-rebase"
   | "needs-approval"
   | "publish-error";
 
@@ -305,6 +315,7 @@ export function formatPendingDraftFailureMessage(
       ),
     );
   const conflictIds = ids("merge-conflict");
+  const rebaseIds = ids("needs-rebase");
   const approvalIds = ids("needs-approval");
   const errorIds = ids("publish-error");
 
@@ -313,6 +324,11 @@ export function formatPendingDraftFailureMessage(
   if (conflictIds.length) {
     parts.push(
       `merge conflict${conflictIds.length > 1 ? "s" : ""} in: ${conflictIds.join(", ")}`,
+    );
+  }
+  if (rebaseIds.length) {
+    parts.push(
+      `draft${rebaseIds.length > 1 ? "s" : ""} behind live (rebase needed, no conflicts) on: ${rebaseIds.join(", ")}`,
     );
   }
   if (approvalIds.length) {
@@ -328,25 +344,78 @@ export function formatPendingDraftFailureMessage(
 
 type ResolvedDraft = { featureId: string; revisionVersion: number };
 
-// Auto-publishes pendingFeatureDrafts on experiment start. Phase 1 prunes
-// stale entries and gates on approval; Phase 2 publishes sequentially,
-// re-merging each draft against fresh live state since earlier publishes
-// may have advanced feature.version. Halts on the first merge conflict or
-// publish error so the caller can abort the experiment transition.
+// Merges a draft against live exactly like the manual publish flow does:
+// the same fillRevisionFromFeature/liveRevisionFromFeature normalization the
+// FF detail page applies (raw sparse revisions produce phantom conflicts),
+// followed by the same publish governance. `rebaseRequired` is only set for
+// the mergeable-but-blocked case (org requires rebase-before-publish or the
+// approval went stale) — true conflicts are reported via `mergeResult`.
+function mergeDraftForAutoPublish(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  revision: FeatureRevisionInterface,
+  live: FeatureRevisionInterface,
+  base: FeatureRevisionInterface,
+): { mergeResult: AutoMergeResult; rebaseRequired: boolean } {
+  const mergeResult = autoMerge(
+    liveRevisionFromFeature(live, feature),
+    fillRevisionFromFeature(base, feature),
+    revision,
+    context.environments,
+    {},
+  );
+  const governance = evaluatePublishGovernance({
+    revisionStatus: revision.status,
+    baseVersion: revision.baseVersion,
+    liveVersion: live.version,
+    mergeSuccess: mergeResult.success,
+    liveChanges: [],
+    approvedBaseVersion: revision.approvedBaseVersion ?? null,
+    requireRebaseBeforePublish:
+      !!context.org.settings?.requireRebaseBeforePublish,
+  });
+  return {
+    mergeResult,
+    rebaseRequired: mergeResult.success && governance.rebaseRequired,
+  };
+}
+
+type ReadyDraft = ResolvedDraft & {
+  feature: FeatureInterface;
+  revision: FeatureRevisionInterface;
+  mergeResult: AutoMergeResult;
+};
+
+// Auto-publishes pendingFeatureDrafts on experiment start. Phase 1 resolves
+// each draft once (prune stale, gate on approval, merge against live with
+// the same normalization + governance as the manual publish flow);
+// Phase 1.5 prevalidates custom hooks; Phase 2 publishes sequentially,
+// reusing the resolved state except when an earlier publish in this run
+// advanced the same feature's live version, which forces a re-merge.
+// Halts on the first merge conflict or publish error so the caller can
+// abort the experiment transition.
 export async function publishPendingFeatureDraftsForExperiment(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
+  bypassLockdown = false,
 ): Promise<PendingDraftPublishResult> {
   const drafts = experiment.pendingFeatureDrafts ?? [];
   if (!drafts.length) return { published: [], failed: [] };
 
-  const orgEnvIds = context.environments;
   const failed: PendingDraftFailure[] = [];
-  const ready: ResolvedDraft[] = [];
+  const ready: ReadyDraft[] = [];
+  // Multiple drafts can target the same feature — fetch each feature once.
+  const featureCache = new Map<string, FeatureInterface | null>();
+  const getCachedFeature = async (featureId: string) => {
+    if (!featureCache.has(featureId)) {
+      featureCache.set(featureId, await getFeature(context, featureId));
+    }
+    return featureCache.get(featureId) ?? null;
+  };
 
-  // ── Phase 1: prune stale + gate on approval ──────────────────────────────
+  // ── Phase 1: prune stale + gate on approval + merge against live ─────────
   for (const { featureId, revisionVersion } of drafts) {
-    const feature = await getFeature(context, featureId);
+    const feature = await getCachedFeature(featureId);
     if (!feature) {
       await removePendingFeatureDraftFromExperiment(
         context,
@@ -378,7 +447,7 @@ export async function publishPendingFeatureDraftsForExperiment(
       continue;
     }
 
-    const { base } = await getLiveAndBaseRevisionsForFeature({
+    const { live, base } = await getLiveAndBaseRevisionsForFeature({
       context,
       feature,
       revision,
@@ -400,14 +469,43 @@ export async function publishPendingFeatureDraftsForExperiment(
       continue;
     }
 
-    ready.push({ featureId, revisionVersion });
+    const { mergeResult, rebaseRequired } = mergeDraftForAutoPublish(
+      context,
+      feature,
+      revision,
+      live,
+      base,
+    );
+    if (rebaseRequired) {
+      logger.warn(
+        { experimentId: experiment.id, featureId, revisionVersion },
+        "Cannot auto-publish pending feature draft: rebase with live required before publishing",
+      );
+      failed.push({ featureId, revisionVersion, reason: "needs-rebase" });
+      continue;
+    }
+    ready.push({ featureId, revisionVersion, feature, revision, mergeResult });
   }
 
   if (failed.length > 0) {
     return { published: [], failed };
   }
 
-  // ── Phase 2: sequential publish, re-merging each against fresh live ──────
+  // ── Phase 1.5: prevalidate custom hooks for every ready draft ────────────
+  // A hook rejection fails the whole batch before anything publishes.
+  for (const { feature, revision, mergeResult } of ready) {
+    // Merge conflicts and no-op drafts are handled by phase 2.
+    if (!mergeResult.success || !mergeResultHasChanges(mergeResult)) continue;
+    await prevalidatePublishRevision({
+      context,
+      feature,
+      revision,
+      result: mergeResult.result,
+      comment: `Experiment "${experiment.name}" started`,
+    });
+  }
+
+  // ── Phase 2: sequential publish ───────────────────────────────────────────
   // Ascending version per feature so each merge builds on the previous publish.
   ready.sort(
     (a, b) =>
@@ -416,31 +514,56 @@ export async function publishPendingFeatureDraftsForExperiment(
   );
 
   const published: ResolvedDraft[] = [];
+  // Features whose live version we advanced during this loop — later drafts
+  // of these features must re-merge against the fresh live state.
+  const publishedFeatureIds = new Set<string>();
 
-  for (const { featureId, revisionVersion } of ready) {
-    const feature = await getFeature(context, featureId);
-    if (!feature) continue;
-    const revision = await getRevision({
-      context,
-      organization: feature.organization,
-      featureId: feature.id,
-      feature,
-      version: revisionVersion,
-    });
-    if (
-      !revision ||
-      revision.status === "published" ||
-      revision.status === "discarded"
-    ) {
-      continue;
+  for (const entry of ready) {
+    const { featureId, revisionVersion } = entry;
+    let { feature, revision, mergeResult } = entry;
+
+    if (publishedFeatureIds.has(featureId)) {
+      const freshFeature = await getFeature(context, featureId);
+      if (!freshFeature) continue;
+      feature = freshFeature;
+      const freshRevision = await getRevision({
+        context,
+        organization: feature.organization,
+        featureId: feature.id,
+        feature,
+        version: revisionVersion,
+      });
+      if (
+        !freshRevision ||
+        freshRevision.status === "published" ||
+        freshRevision.status === "discarded"
+      ) {
+        continue;
+      }
+      revision = freshRevision;
+      const { live, base } = await getLiveAndBaseRevisionsForFeature({
+        context,
+        feature,
+        revision,
+      });
+      const remerged = mergeDraftForAutoPublish(
+        context,
+        feature,
+        revision,
+        live,
+        base,
+      );
+      mergeResult = remerged.mergeResult;
+      if (remerged.rebaseRequired) {
+        logger.warn(
+          { experimentId: experiment.id, featureId, revisionVersion },
+          "Cannot auto-publish pending feature draft: rebase with live required after an earlier publish advanced the feature",
+        );
+        failed.push({ featureId, revisionVersion, reason: "needs-rebase" });
+        break;
+      }
     }
 
-    const { live, base } = await getLiveAndBaseRevisionsForFeature({
-      context,
-      feature,
-      revision,
-    });
-    const mergeResult = autoMerge(live, base, revision, orgEnvIds, {});
     if (!mergeResult.success) {
       logger.warn(
         {
@@ -455,14 +578,30 @@ export async function publishPendingFeatureDraftsForExperiment(
       break;
     }
 
+    if (!mergeResultHasChanges(mergeResult)) {
+      logger.info(
+        { experimentId: experiment.id, featureId, revisionVersion },
+        "Discarding no-op pending feature draft on experiment start",
+      );
+      await discardRevision(context, revision, context.auditUser);
+      await removePendingFeatureDraftFromExperiment(
+        context,
+        experiment.id,
+        featureId,
+        revisionVersion,
+      );
+      continue;
+    }
+
     try {
-      await publishRevision(
+      await publishRevision({
         context,
         feature,
         revision,
-        mergeResult.result,
-        `Experiment "${experiment.name}" started`,
-      );
+        result: mergeResult.result,
+        comment: `Experiment "${experiment.name}" started`,
+        bypassLockdown,
+      });
       // Belt-and-suspenders: publishRevision's sweep keys off the revision's
       // own experiment-ref rules and would miss entries if those were deleted
       // pre-publish.
@@ -473,6 +612,7 @@ export async function publishPendingFeatureDraftsForExperiment(
         revisionVersion,
       );
       published.push({ featureId, revisionVersion });
+      publishedFeatureIds.add(featureId);
     } catch (err) {
       logger.error(
         { err, experimentId: experiment.id, featureId, revisionVersion },

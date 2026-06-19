@@ -37,7 +37,12 @@ export default async function (agenda: Agenda) {
       {},
     );
     updateResultsJob.unique({});
-    updateResultsJob.repeatEvery("10 minutes");
+    // 1-minute polling is safe: createSafeRolloutSnapshot advances
+    // nextSnapshotAttempt to the *next* scheduled window before starting
+    // the warehouse query, so a safe rollout that is mid-query won't match
+    // the nextSnapshotAttempt: { $lte: now } filter and won't be re-queued
+    // until its next scheduled window arrives.
+    updateResultsJob.repeatEvery("1 minute");
     await updateResultsJob.save();
   }
 
@@ -69,6 +74,27 @@ const updateSingleSafeRolloutSnapshot = async (
   if (!safeRolloutRule || !safeRolloutRule.enabled) return;
 
   try {
+    const latestSnapshot =
+      await context.models.safeRolloutSnapshots.getSnapshotForSafeRollout({
+        safeRolloutId: id,
+        withResults: false,
+      });
+
+    if (latestSnapshot?.status === "running") {
+      // Query is still in-flight. Defer rather than stack — the effective
+      // interval becomes max(configuredInterval, actualQueryDuration) naturally.
+      // Zombie queries (heartbeat lost, orphaned DAG) are handled system-wide
+      // by expireOldQueries, so no manual kill is needed here.
+      const intervalMs = (safeRollout.updateScheduleMinutes ?? 60) * 60 * 1000;
+      await context.models.safeRollout.update(safeRollout, {
+        nextSnapshotAttempt: new Date(Date.now() + intervalMs),
+      });
+      logger.debug(
+        `SafeRollout ${id}: snapshot still running, deferring next attempt by ${intervalMs / 60000}min`,
+      );
+      return;
+    }
+
     logger.info("Start Refreshing Results for SafeRollout " + id);
     await createSafeRolloutSnapshot({
       context,
@@ -76,6 +102,12 @@ const updateSingleSafeRolloutSnapshot = async (
       customFields: feature.customFields,
       triggeredBy: "schedule",
     });
+    // Fire-and-forget: SafeRolloutSnapshotModel.afterUpdate handles evaluation
+    // and notifications when warehouse results arrive. Awaiting waitForResults()
+    // here would hold an Agenda lock slot (defaultLockLimit: 5) for the full
+    // warehouse query duration, starving other jobs and risking a mid-run
+    // re-queue if the query exceeds defaultLockLifetime (10 min).
+    logger.info("Queued SafeRollout Snapshot refresh for " + id);
   } catch (e) {
     logger.error(e, "Failed to create SafeRollout Snapshot: " + id);
   }

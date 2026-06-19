@@ -1,0 +1,122 @@
+import React from "react";
+import { Flex } from "@radix-ui/themes";
+import { Revision, RevisionStatus } from "shared/enterprise";
+import Badge from "@/ui/Badge";
+import Tooltip from "@/ui/Tooltip";
+import { ExperimentDot } from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
+
+// Status → badge color & label. Colors mirror the feature revision badge
+// (`components/Features/RevisionStatusBadge.tsx`) so revisions render
+// consistently across features and saved groups.
+export type RevisionBadgeStatus = RevisionStatus | "live";
+
+export const STATUS_CONFIG: Record<
+  RevisionBadgeStatus,
+  {
+    color: "green" | "orange" | "grass" | "amber" | "red" | "gray";
+    label: string;
+    // Discarded renders as a solid (inverted) gray badge so it reads as
+    // muted but stays distinguishable from Locked's soft gray.
+    variant?: "solid" | "soft";
+  }
+> = {
+  live: { color: "green", label: "Live" },
+  draft: { color: "amber", label: "Draft" },
+  "pending-review": { color: "orange", label: "Pending review" },
+  approved: { color: "grass", label: "Approved" },
+  "changes-requested": { color: "red", label: "Changes requested" },
+  merged: { color: "gray", label: "Locked" },
+  discarded: { color: "gray", label: "Discarded", variant: "solid" },
+};
+
+export function getStatusBadge(
+  status: RevisionBadgeStatus,
+  requiresApproval: boolean = true,
+) {
+  // If approvals are not required, show pending-review as Draft
+  const effective: RevisionBadgeStatus =
+    status === "pending-review" && !requiresApproval ? "draft" : status;
+  const config = STATUS_CONFIG[effective];
+  if (!config) {
+    return <Badge label={String(status)} color="gray" radius="full" />;
+  }
+  return (
+    <Badge
+      label={config.label}
+      color={config.color}
+      variant={config.variant ?? "soft"}
+      radius="full"
+    />
+  );
+}
+
+// Colored-dot + label rendering used by the approvals inbox + saved-group
+// reviews tab. Mirrors the home-page "Feature flags requiring attention" style
+// so status rendering stays consistent across dashboards.
+export function renderRevisionStatusCell(status: RevisionStatus) {
+  switch (status) {
+    case "approved":
+      return (
+        <Flex gap="1" align="center">
+          <ExperimentDot color="green" />
+          Approved
+        </Flex>
+      );
+    case "pending-review":
+      return (
+        <Flex gap="1" align="center">
+          <ExperimentDot color="amber" />
+          Pending Review
+        </Flex>
+      );
+    case "draft":
+      return <span className="mr-3">Draft</span>;
+    case "changes-requested":
+      return (
+        <Flex gap="1" align="center">
+          <ExperimentDot color="red" />
+          Changes Requested
+        </Flex>
+      );
+    case "merged":
+      return <span className="mr-3">Locked</span>;
+    case "discarded":
+      return <span className="mr-3">Discarded</span>;
+    default:
+      return null;
+  }
+}
+
+// Builds the saved-group revision deep-link using `?v=<n>`. Falls back to the
+// base URL only when the revision has no version populated.
+export function buildSavedGroupRevisionUrl(
+  savedGroupId: string,
+  revision?: Pick<Revision, "version"> | null,
+): string {
+  const base = `/saved-groups/${savedGroupId}`;
+  if (revision?.version != null) return `${base}?v=${revision.version}`;
+  return base;
+}
+
+export function RevisionStatusDot({
+  hasOpenRevisions,
+}: {
+  hasOpenRevisions?: boolean;
+}) {
+  if (!hasOpenRevisions) return null;
+  const { color, label } = STATUS_CONFIG["pending-review"];
+  return (
+    <Tooltip content={label}>
+      <span
+        style={{
+          width: 8,
+          height: 8,
+          borderRadius: "50%",
+          backgroundColor: `var(--${color}-9)`,
+          display: "inline-block",
+          flexShrink: 0,
+        }}
+      />
+    </Tooltip>
+  );
+}

@@ -1,4 +1,5 @@
 import React, { FC, useMemo, useState } from "react";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { Flex } from "@radix-ui/themes";
 import {
   DataSourceInterfaceWithParams,
@@ -8,6 +9,7 @@ import { useForm } from "react-hook-form";
 import cloneDeep from "lodash/cloneDeep";
 import uniqId from "uniqid";
 import { FaExclamationTriangle, FaExternalLinkAlt } from "react-icons/fa";
+import { isEventForwarderManagedExposureQuery } from "shared/util";
 import { TestQueryRow } from "shared/types/integrations";
 import Code from "@/components/SyntaxHighlighting/Code";
 import StringArrayField from "@/components/Forms/StringArrayField";
@@ -36,6 +38,11 @@ export const AddEditExperimentAssignmentQueryModal: FC<
       : `Edit ${
           exposureQuery ? exposureQuery.name : "Experiment Assignment"
         } query`;
+
+  const isManaged =
+    mode === "edit" &&
+    !!exposureQuery &&
+    isEventForwarderManagedExposureQuery(exposureQuery);
 
   const userIdTypeOptions = dataSource?.settings?.userIdTypes?.map(
     ({ userIdType }) => ({
@@ -70,6 +77,10 @@ export const AddEditExperimentAssignmentQueryModal: FC<
   const userEnteredHasNameCol = form.watch("hasNameCol");
 
   const handleSubmit = form.handleSubmit(async (value) => {
+    if (isManaged && exposureQuery) {
+      value.userIdType = exposureQuery.userIdType;
+      value.managedBy = exposureQuery.managedBy;
+    }
     await onSave(value);
 
     form.reset({
@@ -248,12 +259,26 @@ export const AddEditExperimentAssignmentQueryModal: FC<
                 label="Description (optional)"
                 textarea
                 minRows={1}
+                maxLength={MAX_DESCRIPTION_LENGTH}
                 {...form.register("description")}
               />
               <Field
-                label="Identifier Type"
+                label={
+                  <>
+                    Identifier Type
+                    {isManaged ? (
+                      <Tooltip body="Identifier type is fixed for queries created by Event Forwarder and cannot be changed." />
+                    ) : null}
+                  </>
+                }
                 options={identityTypes.map((i) => i.userIdType)}
                 required
+                disabled={isManaged}
+                helpText={
+                  isManaged
+                    ? "Managed by Event Forwarder for this identifier."
+                    : undefined
+                }
                 {...form.register("userIdType")}
               />
               <div className="form-group">
@@ -273,19 +298,26 @@ export const AddEditExperimentAssignmentQueryModal: FC<
                   />
                 )}
                 <div>
-                  <button
-                    className="btn btn-primary mt-2"
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setUiMode("sql");
-                    }}
+                  <Tooltip
+                    body="SQL is managed by Event Forwarder and cannot be customized."
+                    shouldDisplay={isManaged}
                   >
-                    <div className="d-flex align-items-center">
-                      Customize SQL
-                      <FaExternalLinkAlt className="ml-2" />
-                    </div>
-                  </button>
+                    <button
+                      className="btn btn-primary mt-2"
+                      type="button"
+                      disabled={isManaged}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        if (isManaged) return;
+                        setUiMode("sql");
+                      }}
+                    >
+                      <div className="d-flex align-items-center">
+                        Customize SQL
+                        <FaExternalLinkAlt className="ml-2" />
+                      </div>
+                    </button>
+                  </Tooltip>
                 </div>
               </div>
 

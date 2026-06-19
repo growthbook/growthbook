@@ -5,6 +5,7 @@ import {
   RevisionRampCreateAction,
   postFeatureRevisionRuleAddValidator,
   RuleCreateInput,
+  SafeRolloutInterface,
 } from "shared/validators";
 import type {
   ExperimentRefRule,
@@ -15,6 +16,8 @@ import type {
 } from "shared/validators";
 import { resetReviewOnChange } from "shared/util";
 import { RevisionChanges } from "shared/types/feature-revision";
+import { ExperimentInterface } from "shared/types/experiment";
+import { CreateProps } from "shared/types/base-model";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { toApiRevision } from "back-end/src/services/features";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
@@ -26,8 +29,10 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import {
   getRevision,
+  prevalidateRevisionUpdate,
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
+import { generateId } from "back-end/src/util/uuid";
 import { validateCreateSafeRolloutFields } from "back-end/src/validators/safe-rollout";
 import {
   BadRequestError,
@@ -41,6 +46,7 @@ import {
   normalizeInlineRampSchedule,
   buildScheduleRampAction,
   resolveOrCreateRevision,
+  validateRuleAttributes,
   validateRuleConditions,
   validateRuleReferences,
 } from "./validations";
@@ -112,6 +118,7 @@ export function buildRuleFromInput(
       coverage: input.coverage ?? 1,
       hashAttribute: input.hashAttribute,
       ...(input.seed !== undefined && { seed: input.seed }),
+      hashVersion: (input.hashVersion as 1 | 2 | undefined) ?? 2,
     };
     return rule;
   }
@@ -155,6 +162,7 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
   let createdSafeRolloutId: string | undefined;
   let linkedExperimentId: string | undefined;
   let linkedHoldoutId: string | undefined;
+  let holdoutExperimentToLink: ExperimentInterface | null = null;
   try {
     if (!isDraftStatus(revision.status)) {
       throw new BadRequestError(
@@ -198,41 +206,38 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
         }
 
         if (needsHoldoutCheck && feature.holdout?.id) {
+          if (experiment.status !== "draft") {
+            throw new BadRequestError(
+              `Cannot add experiment rule: this feature uses a holdout, so the experiment must be in "draft" status (currently "${experiment.status}").`,
+            );
+          }
           const expHasLinkedChanges =
             (experiment.linkedFeatures?.length ?? 0) > 0 ||
             experiment.hasURLRedirects ||
             experiment.hasVisualChangesets;
-          if (
-            experiment.status !== "draft" ||
-            (experiment.holdoutId &&
-              experiment.holdoutId !== feature.holdout.id) ||
-            expHasLinkedChanges
-          ) {
+          if (expHasLinkedChanges) {
             throw new BadRequestError(
-              "Failed to create experiment rule. Experiment has linked changes, is not in draft status, or is not linked to the same holdout as the feature.",
+              `Cannot add experiment rule: this feature uses a holdout, but the experiment already has linked features, URL redirects, or visual changesets. Unlink them first.`,
+            );
+          }
+          if (
+            experiment.holdoutId &&
+            experiment.holdoutId !== feature.holdout.id
+          ) {
+            const featureHoldout = await req.context.models.holdout.getById(
+              feature.holdout.id,
+            );
+            const expHoldout = experiment.holdoutId
+              ? await req.context.models.holdout.getById(experiment.holdoutId)
+              : null;
+            throw new BadRequestError(
+              `Cannot add experiment rule: experiment belongs to holdout "${expHoldout?.name || experiment.holdoutId}" but this feature uses holdout "${featureHoldout?.name || feature.holdout.id}".`,
             );
           }
 
           if (!experiment.holdoutId) {
-            await updateExperiment({
-              context: req.context,
-              experiment,
-              changes: { holdoutId: feature.holdout.id },
-            });
-            linkedExperimentId = experiment.id;
-            const holdout = await req.context.models.holdout.getById(
-              feature.holdout.id,
-            );
-            await req.context.models.holdout.updateById(feature.holdout.id, {
-              linkedExperiments: {
-                ...holdout?.linkedExperiments,
-                [experiment.id]: {
-                  id: experiment.id,
-                  dateAdded: new Date(),
-                },
-              },
-            });
-            linkedHoldoutId = feature.holdout.id;
+            // Deferred until after custom-hook prevalidation below
+            holdoutExperimentToLink = experiment;
           }
         }
       }
@@ -242,8 +247,11 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
 
     // Validate condition JSON and references before any DB writes.
     validateRuleConditions(rule);
+    validateRuleAttributes(rule, req.context, feature.project);
     await validateRuleReferences(rule, req.context);
 
+    // Pre-generate the safeRollout id so hooks see the rule's final shape; the doc is created after prevalidation
+    let safeRolloutCreateProps: CreateProps<SafeRolloutInterface> | null = null;
     if (ruleInput.type === "safe-rollout" && rule.type === "safe-rollout") {
       if (!req.context.hasPremiumFeature("safe-rollout")) {
         req.context.throwPlanDoesNotAllowError(
@@ -267,9 +275,10 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
         { percent: 0.75 },
         { percent: 1 },
       ];
-      const safeRollout = await req.context.models.safeRollout.create({
+      const safeRolloutId = generateId("sr_");
+      safeRolloutCreateProps = {
+        id: safeRolloutId,
         ...validatedFields,
-        environment,
         featureId: feature.id,
         status: "running",
         autoSnapshots: true,
@@ -280,12 +289,8 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
           rampUpCompleted: false,
           nextUpdate: undefined,
         },
-      });
-
-      if (!safeRollout)
-        throw new InternalServerError("Failed to create safe rollout");
-      createdSafeRolloutId = safeRollout.id;
-      (rule as SafeRolloutRule).safeRolloutId = safeRollout.id;
+      };
+      (rule as SafeRolloutRule).safeRolloutId = safeRolloutId;
     }
 
     // Priority: rampSchedule > schedule shorthand > inline scheduleRules (legacy).
@@ -318,9 +323,57 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
       const existing = revision.rampActions ?? [];
       const filtered = existing.filter(
         (a) =>
+          !("ruleId" in a) ||
           a.ruleId !== (resolvedRampAction as RevisionRampCreateAction).ruleId,
       );
       changes.rampActions = [...filtered, resolvedRampAction];
+    }
+
+    const resetReview = resetReviewOnChange({
+      feature,
+      changedEnvironments: [environment],
+      defaultValueChanged: false,
+      settings: req.organization.settings,
+    });
+
+    // Run custom hooks before the side-effect writes below so a rejection doesn't orphan them
+    await prevalidateRevisionUpdate(
+      req.context,
+      feature,
+      revision,
+      changes,
+      resetReview,
+    );
+
+    if (safeRolloutCreateProps) {
+      const safeRollout = await req.context.models.safeRollout.create(
+        safeRolloutCreateProps,
+      );
+      if (!safeRollout)
+        throw new InternalServerError("Failed to create safe rollout");
+      createdSafeRolloutId = safeRollout.id;
+    }
+
+    if (holdoutExperimentToLink && feature.holdout?.id) {
+      await updateExperiment({
+        context: req.context,
+        experiment: holdoutExperimentToLink,
+        changes: { holdoutId: feature.holdout.id },
+      });
+      linkedExperimentId = holdoutExperimentToLink.id;
+      const holdout = await req.context.models.holdout.getById(
+        feature.holdout.id,
+      );
+      await req.context.models.holdout.updateById(feature.holdout.id, {
+        linkedExperiments: {
+          ...holdout?.linkedExperiments,
+          [holdoutExperimentToLink.id]: {
+            id: holdoutExperimentToLink.id,
+            dateAdded: new Date(),
+          },
+        },
+      });
+      linkedHoldoutId = feature.holdout.id;
     }
 
     await updateRevision(
@@ -334,12 +387,7 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
         subject: `to ${environment}`,
         value: JSON.stringify(rule),
       },
-      resetReviewOnChange({
-        feature,
-        changedEnvironments: [environment],
-        defaultValueChanged: false,
-        settings: req.organization.settings,
-      }),
+      resetReview,
     );
 
     const updated = await getRevision({

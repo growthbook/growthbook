@@ -1,6 +1,34 @@
 import type { SqlLanguage } from "sql-formatter";
 import { DataType } from "./integrations";
 
+export type StringMatchOperator =
+  | "starts_with"
+  | "ends_with"
+  | "contains"
+  | "not_contains";
+
+export type StringMatchFn = (
+  columnExpr: string,
+  operator: StringMatchOperator,
+  value: string,
+) => string;
+
+/** One labeled column expanded per base row by {@link SqlDialect.unpivotLabeledPairs}. */
+export type UnpivotLabeledPair = {
+  /** Logical name (unescaped); dialect may quote as a SQL string literal. */
+  keyLiteral: string;
+  /** SQL expression evaluated per base row (e.g. cast of a column). */
+  valueSql: string;
+};
+
+/** Join SQL and output expressions for static labeled-pair unpivot (engine-specific syntax). */
+export type UnpivotLabeledPairsResult = {
+  /** Placed after `FROM __factTable` (includes leading newline/CROSS JOIN/comma as needed). */
+  fromContinuation: string;
+  keyExpr: string;
+  valueExpr: string;
+};
+
 export type TemplateVariables = {
   eventName?: string;
   valueColumn?: string;
@@ -26,6 +54,11 @@ export type DateTruncGranularity = "hour" | "day" | "week" | "month" | "year";
 
 export interface SqlDialect {
   escapeStringLiteral: (s: string) => string;
+  // Builds a string-match condition (LIKE or a warehouse-native equivalent).
+  // Owns LIKE wildcard escaping and any ESCAPE clause. Build it with
+  // createLikeStringMatchFn from shared/sql, passing this dialect's own
+  // escapeStringLiteral — the two must always agree or patterns break.
+  stringMatch: StringMatchFn;
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => string;
   evalBoolean: (col: string, value: boolean) => string;
   dateTrunc: (
@@ -72,14 +105,23 @@ export interface SqlDialect {
   hllAggregate: (column: string) => string;
   hllReaggregate: (column: string) => string;
   hllCardinality: (column: string) => string;
-  kllInit: (column: string) => string;
-  kllMergePartial: (column: string) => string;
-  kllExtractPoint: (column: string, quantile: number) => string;
-  kllExtractQuantiles: (column: string, numQuantiles: number) => string;
-  kllRankApprox: (
+  quantileSketchInit: (column: string) => string;
+  quantileSketchMergePartial: (column: string) => string;
+  quantileSketchExtractPoint: (column: string, quantile: number) => string;
+  quantileSketchExtractQuantiles: (
+    column: string,
+    numQuantiles: number,
+  ) => string;
+  quantileSketchRankApprox: (
     sketchCol: string,
     thresholdCol: string,
     nEventsCol: string,
     numQuantiles: number,
   ) => string;
+  hasArrayQuantileGrid: () => boolean;
+  quantileGridArrayLiteral: (elements: string[]) => string;
+  unpivotLabeledPairs: (
+    pairs: UnpivotLabeledPair[],
+  ) => UnpivotLabeledPairsResult;
+  stringLength: (column: string) => string;
 }

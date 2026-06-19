@@ -1,7 +1,4 @@
-import { useMemo, useState } from "react";
-import { Box, Flex } from "@radix-ui/themes";
-import Collapsible from "react-collapsible";
-import { PiCaretRightBold } from "react-icons/pi";
+import { useMemo } from "react";
 import { FeatureInterface } from "shared/types/feature";
 import {
   FeatureRevisionInterface,
@@ -15,20 +12,18 @@ import {
   buildEffectiveDraft,
   filterEnvironmentsByFeature,
 } from "shared/util";
-import Button from "@/ui/Button";
-import HelperText from "@/ui/HelperText";
-import Text from "@/ui/Text";
-import { revisionLabelText } from "@/components/Features/RevisionLabel";
-import { isRampGenerated } from "@/components/Features/RevisionStatusBadge";
-import RadioGroup from "@/ui/RadioGroup";
+import { revisionLabelText } from "@/components/Reviews/RevisionLabel";
+import { isRampGenerated } from "@/components/Reviews/RevisionStatusBadge";
 import RevisionDropdown from "@/components/Features/RevisionDropdown";
 import AffectedEnvironmentsBadges from "@/components/Features/AffectedEnvironmentsBadges";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useApi from "@/hooks/useApi";
 import { useEnvironments } from "@/services/features";
 import { useFeatureRevisionsContext } from "@/contexts/FeatureRevisionsContext";
+import DraftSelector, { DraftMode } from "@/components/DraftSelector";
 
-export type DraftMode = "existing" | "new" | "publish";
+export type { DraftMode };
 
 export default function DraftSelectorForChanges({
   feature,
@@ -43,6 +38,7 @@ export default function DraftSelectorForChanges({
   defaultExpanded = false,
   hideExisting = false,
   triggerPrefix = "Changes will be",
+  allowNewDraftAtCap = false,
 }: {
   feature: FeatureInterface;
   // Un-merged live feature doc; fallback for env state on old sparse live revisions.
@@ -57,8 +53,12 @@ export default function DraftSelectorForChanges({
   defaultExpanded?: boolean;
   hideExisting?: boolean;
   triggerPrefix?: string;
+  // Keep "create a new draft" available even when the org's soft draft cap is
+  // reached — for critical flows (revert, archive) that shouldn't be blocked.
+  allowNewDraftAtCap?: boolean;
 }) {
-  const [isOpen, setIsOpen] = useState(defaultExpanded ?? false);
+  const permissionsUtil = usePermissionsUtil();
+  const isAdmin = permissionsUtil.canBypassApprovalChecks(feature);
 
   const activeDrafts = useMemo(
     () =>
@@ -69,6 +69,30 @@ export default function DraftSelectorForChanges({
       ),
     [revisionList],
   );
+
+  const singleOption = hideExisting
+    ? !canAutoPublish
+    : activeDrafts.length === 0 && !canAutoPublish;
+
+  // Soft per-feature draft cap (org setting). At/over the cap we steer users to
+  // an existing draft and block creating a new one — except admins and critical
+  // flows (revert, archive) that opt in via `allowNewDraftAtCap`.
+  const settings = useOrgSettings();
+  const maxDrafts = settings?.maxConcurrentDrafts || 0;
+  const atDraftCap =
+    !hideExisting && maxDrafts > 0 && activeDrafts.length >= maxDrafts;
+  const newDraftBlocked = atDraftCap && !isAdmin && !allowNewDraftAtCap;
+
+  // When there is only one mode available it must be "new"; keep the form in
+  // sync in case the parent initialised with a stale value.
+  if (singleOption && mode !== "new") {
+    setSelectedDraft(null);
+    setMode("new");
+  } else if (newDraftBlocked && mode === "new") {
+    // "new" is disabled at the cap — fall back to the most recent active draft.
+    setMode("existing");
+    setSelectedDraft(selectedDraft ?? activeDrafts[0]?.version ?? null);
+  }
 
   // Use context revisions if available; fetch only when rendered outside FeaturesOverview.
   const ctx = useFeatureRevisionsContext();
@@ -81,11 +105,10 @@ export default function DraftSelectorForChanges({
     revisions: FeatureRevisionInterface[];
   }>(
     `/feature/${feature.id}/revisions?versions=${feature.version},${draftVersionForFetch ?? 0}`,
-    { shouldRun: () => draftVersionForFetch != null },
+    { shouldRun: () => draftVersionForFetch !== null },
   );
 
   // Org-level approval scope for badge coloring; independent of this action's gating.
-  const settings = useOrgSettings();
   const approvalScopedEnvSet = useMemo<Set<string> | "all" | "none">(() => {
     const raw = settings?.requireReviews;
     if (!raw) return "none";
@@ -135,15 +158,23 @@ export default function DraftSelectorForChanges({
     allEnvironments,
   ]);
 
-  const existingDraftDisclosure = (
-    <Flex
-      direction="column"
-      gap="2"
-      pl="5"
-      pb="1"
-      mb="2"
-      style={{ width: "100%" }}
-    >
+  const selectedRevision =
+    mode === "existing"
+      ? revisionList.find(
+          (r) => r.version === (selectedDraft ?? activeDrafts[0]?.version),
+        )
+      : null;
+
+  const existingDraftLabel = selectedRevision
+    ? revisionLabelText(
+        selectedRevision.version,
+        selectedRevision.title,
+        !!selectedRevision.title,
+      )
+    : null;
+
+  const revisionDropdown = (
+    <>
       <RevisionDropdown
         feature={feature}
         revisions={revisionList}
@@ -151,7 +182,7 @@ export default function DraftSelectorForChanges({
         setVersion={setSelectedDraft}
         draftsOnly
       />
-      {affectedEnvs != null && (
+      {!!affectedEnvs && (
         <AffectedEnvironmentsBadges
           label="Affected in this draft:"
           affectedEnvs={affectedEnvs}
@@ -162,137 +193,30 @@ export default function DraftSelectorForChanges({
           gatedEnvSet={approvalScopedEnvSet}
         />
       )}
-    </Flex>
-  );
-
-  const options = [
-    ...(!hideExisting && activeDrafts.length > 0
-      ? [
-          {
-            value: "existing",
-            label: "Add to existing draft",
-            renderOnSelect: existingDraftDisclosure,
-            renderOutsideItem: true,
-          },
-        ]
-      : []),
-    { value: "new", label: "Create a new draft" },
-    ...(canAutoPublish
-      ? [
-          {
-            value: "publish",
-            label:
-              gatedEnvSet !== "none" ? (
-                <span style={{ color: "var(--red-11)" }}>
-                  Bypass approvals and publish now
-                </span>
-              ) : (
-                "Publish now"
-              ),
-          },
-        ]
-      : []),
-  ];
-
-  const selectedRevision =
-    mode === "existing"
-      ? revisionList.find(
-          (r) => r.version === (selectedDraft ?? activeDrafts[0]?.version),
-        )
-      : null;
-
-  const triggerLabel =
-    mode === "publish" ? (
-      <>
-        {" "}
-        <Text weight="semibold" as="span">
-          published immediately
-        </Text>
-      </>
-    ) : mode === "existing" && selectedRevision != null ? (
-      <>
-        {" added to draft: "}
-        <Text weight="semibold" as="span">
-          {revisionLabelText(
-            selectedRevision.version,
-            selectedRevision.title,
-            !!selectedRevision.title,
-          )}
-        </Text>
-      </>
-    ) : (
-      <>
-        {" added to "}
-        <Text weight="semibold" as="span">
-          a new draft
-        </Text>
-      </>
-    );
-
-  const trigger = (
-    <Flex
-      align="center"
-      justify="between"
-      gap="3"
-      px="3"
-      py="4"
-      style={{ cursor: "pointer", userSelect: "none" }}
-      className="draft-selector-collapsible-trigger"
-    >
-      <Box style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
-        <HelperText status="info">
-          <div
-            className="ml-1"
-            style={{
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-            }}
-          >
-            {triggerPrefix}
-            {triggerLabel}
-          </div>
-        </HelperText>
-      </Box>
-      <Button
-        variant="ghost"
-        size="xs"
-        onClick={async (e) => {
-          e?.stopPropagation();
-          setIsOpen((v) => !v);
-        }}
-        style={{ marginLeft: -5 }}
-      >
-        <Flex align="center" gap="1">
-          {!isOpen && <span style={{ marginRight: 4 }}>edit</span>}
-          <PiCaretRightBold
-            className="chevron-right"
-            size={14}
-            style={{ margin: "0 -4px" }}
-          />
-        </Flex>
-      </Button>
-    </Flex>
+    </>
   );
 
   return (
-    <Box mb="5" style={{ overflow: "hidden", borderRadius: "var(--radius-4)" }}>
-      <Collapsible
-        trigger={trigger}
-        transitionTime={75}
-        contentInnerClassName="draft-selector-collapsible-content"
-        open={isOpen}
-        handleTriggerClick={() => setIsOpen((v) => !v)}
-      >
-        <Box px="3" py="3" style={{ backgroundColor: "var(--violet-a3)" }}>
-          <RadioGroup
-            options={options}
-            value={mode}
-            setValue={(v) => setMode(v as DraftMode)}
-            width="100%"
-          />
-        </Box>
-      </Collapsible>
-    </Box>
+    <DraftSelector
+      hasActiveDrafts={!hideExisting && activeDrafts.length > 0}
+      mode={mode}
+      setMode={setMode}
+      canAutoPublish={canAutoPublish}
+      approvalRequired={gatedEnvSet !== "none"}
+      defaultExpanded={defaultExpanded}
+      triggerPrefix={triggerPrefix}
+      existingDraftLabel={existingDraftLabel}
+      revisionDropdown={revisionDropdown}
+      singleOption={singleOption}
+      recommendExisting={atDraftCap}
+      newDraftDisabled={newDraftBlocked}
+      newDraftDisabledReason={
+        newDraftBlocked
+          ? `This feature is at your organization's cap of ${maxDrafts} active draft${
+              maxDrafts === 1 ? "" : "s"
+            }. Add to an existing draft, or publish/discard one first.`
+          : undefined
+      }
+    />
   );
 }

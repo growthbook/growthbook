@@ -146,10 +146,46 @@ export const getSlackMessageForNotificationEvent = async (
     case "feature.revision.changesRequested":
     case "feature.revision.commented":
     case "feature.revision.discarded":
+    case "feature.revision.reopened":
     case "feature.revision.rebased":
     case "feature.revision.published":
     case "feature.revision.reverted":
       return buildSlackMessageForRevisionEvent(
+        event.event,
+        event.data.object,
+        eventId,
+      );
+
+    case "savedGroup.created":
+      return buildSlackMessageForSavedGroupCreatedEvent(
+        event.data.object,
+        eventId,
+      );
+
+    case "savedGroup.updated":
+      return buildSlackMessageForSavedGroupUpdatedEvent(
+        event.data.object,
+        eventId,
+      );
+
+    case "savedGroup.deleted":
+      return buildSlackMessageForSavedGroupDeletedEvent(
+        event.data.object,
+        eventId,
+      );
+
+    case "savedGroup.revision.created":
+    case "savedGroup.revision.updated":
+    case "savedGroup.revision.reviewRequested":
+    case "savedGroup.revision.approved":
+    case "savedGroup.revision.changesRequested":
+    case "savedGroup.revision.commented":
+    case "savedGroup.revision.discarded":
+    case "savedGroup.revision.rebased":
+    case "savedGroup.revision.published":
+    case "savedGroup.revision.reverted":
+    case "savedGroup.revision.reopened":
+      return buildSlackMessageForSavedGroupRevisionEvent(
         event.event,
         event.data.object,
         eventId,
@@ -590,6 +626,9 @@ const buildSlackMessageForRevisionEvent = (
     case "feature.revision.discarded":
       text = `Draft revision ${version} of feature ${feature} was discarded`;
       break;
+    case "feature.revision.reopened":
+      text = `Discarded revision ${version} of feature ${feature} was reopened as a draft`;
+      break;
     case "feature.revision.rebased":
       text = `Draft revision ${version} of feature ${feature} was rebased`;
       break;
@@ -621,6 +660,189 @@ const buildSlackMessageForRevisionEvent = (
 };
 
 // endregion Event-specific messages -> Feature Revision
+
+// region Event-specific messages -> Saved Group
+
+export const getSavedGroupUrlFormatted = (savedGroupId: string): string =>
+  `\n• <${APP_ORIGIN}/saved-groups/${savedGroupId}|View Saved Group>`;
+
+const buildSlackMessageForSavedGroupCreatedEvent = async (
+  savedGroup: { id: string; name: string },
+  eventId: string,
+): Promise<SlackMessage> => {
+  const eventUser = await getEventUserFormatted(eventId);
+  const text = `The saved group ${savedGroup.name} has been created by ${eventUser}.`;
+
+  return {
+    text,
+    blocks: [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text:
+            `The saved group *${savedGroup.name}* has been created by ${eventUser}.` +
+            getSavedGroupUrlFormatted(savedGroup.id) +
+            getEventUrlFormatted(eventId),
+        },
+      },
+    ],
+  };
+};
+
+const buildSlackMessageForSavedGroupUpdatedEvent = async (
+  savedGroup: { id: string; name: string },
+  eventId: string,
+): Promise<SlackMessage> => {
+  const eventUser = await getEventUserFormatted(eventId);
+  const event = await getEvent(eventId);
+
+  let changeBlocks: KnownBlock[] = [];
+  if (event?.data?.data && "changes" in event.data.data) {
+    const formattedDiff = formatDiffForSlack(
+      event.data.data.changes as DiffResult,
+      {
+        itemLabelFields: [
+          "name",
+          "condition",
+          "values",
+          "projects",
+          "archived",
+        ],
+      },
+    );
+    changeBlocks = formattedDiff.blocks;
+  }
+
+  const isUnknownUser = eventUser === "an unknown user";
+  const text = `The saved group ${savedGroup.name} has been updated ${isUnknownUser ? "automatically" : `by ${eventUser}`}`;
+
+  if (changeBlocks.length === 0) {
+    changeBlocks = [
+      {
+        type: "section",
+        text: { type: "mrkdwn", text: "_Changes cannot be displayed here._" },
+      },
+    ];
+  }
+
+  return {
+    text,
+    blocks: [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text:
+            `The saved group *${savedGroup.name}* has been updated ${isUnknownUser ? "automatically" : `by ${eventUser}`}.` +
+            getSavedGroupUrlFormatted(savedGroup.id) +
+            getEventUrlFormatted(eventId),
+        },
+      },
+      ...changeBlocks,
+    ],
+  };
+};
+
+const buildSlackMessageForSavedGroupDeletedEvent = async (
+  savedGroup: { id: string; name: string },
+  eventId: string,
+): Promise<SlackMessage> => {
+  const eventUser = await getEventUserFormatted(eventId);
+  const text = `The saved group ${savedGroup.name} has been deleted by ${eventUser}.`;
+
+  return {
+    text,
+    blocks: [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text:
+            `The saved group *${savedGroup.name}* has been deleted by ${eventUser}.` +
+            getEventUrlFormatted(eventId),
+        },
+      },
+    ],
+  };
+};
+
+type SavedGroupRevisionSlackData = {
+  version?: number;
+  baseSavedGroup: { id: string; name: string };
+  change?: string;
+  reviewComment?: string | null;
+  reviewer?: { id?: string; name?: string; email?: string };
+  revertedToVersion?: number;
+};
+
+const buildSlackMessageForSavedGroupRevisionEvent = (
+  eventType: string,
+  data: SavedGroupRevisionSlackData,
+  eventId: string,
+): SlackMessage => {
+  const group = `*${data.baseSavedGroup.name}*`;
+  const version = `v${data.version ?? "?"}`;
+  const reviewerName = data.reviewer?.name || data.reviewer?.email || "someone";
+  const commentSuffix = data.reviewComment ? ` — _${data.reviewComment}_` : "";
+
+  let text: string;
+  switch (eventType) {
+    case "savedGroup.revision.created":
+      text = `Draft revision ${version} created for saved group ${group}`;
+      break;
+    case "savedGroup.revision.updated":
+      text = `Draft revision ${version} of saved group ${group} was updated${data.change ? ` (${data.change})` : ""}`;
+      break;
+    case "savedGroup.revision.reviewRequested":
+      text = `Review requested for revision ${version} of saved group ${group}`;
+      break;
+    case "savedGroup.revision.approved":
+      text = `Revision ${version} of saved group ${group} approved by ${reviewerName}${commentSuffix}`;
+      break;
+    case "savedGroup.revision.changesRequested":
+      text = `Changes requested on revision ${version} of saved group ${group} by ${reviewerName}${commentSuffix}`;
+      break;
+    case "savedGroup.revision.commented":
+      text = `Comment on revision ${version} of saved group ${group} by ${reviewerName}${commentSuffix}`;
+      break;
+    case "savedGroup.revision.discarded":
+      text = `Draft revision ${version} of saved group ${group} was discarded`;
+      break;
+    case "savedGroup.revision.rebased":
+      text = `Draft revision ${version} of saved group ${group} was rebased`;
+      break;
+    case "savedGroup.revision.published":
+      text = `Revision ${version} of saved group ${group} was published`;
+      break;
+    case "savedGroup.revision.reverted":
+      text = `Saved group ${group} was reverted${data.revertedToVersion ? ` to revision v${data.revertedToVersion}` : ""}`;
+      break;
+    case "savedGroup.revision.reopened":
+      text = `Draft revision ${version} of saved group ${group} was reopened`;
+      break;
+    default:
+      text = `Saved group ${group} revision ${version}: ${eventType}`;
+  }
+
+  return {
+    text,
+    blocks: [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text:
+            text +
+            getSavedGroupUrlFormatted(data.baseSavedGroup.id) +
+            getEventUrlFormatted(eventId),
+        },
+      },
+    ],
+  };
+};
+
+// endregion Event-specific messages -> Saved Group
 
 // region Event-specific messages -> Experiment
 
@@ -1035,6 +1257,51 @@ const buildSlackMessageForExperimentWarningEvent = (
     case "srm": {
       const text = (experimentName: string) =>
         `Traffic imbalance detected for experiment detected for experiment ${experimentName} : Sample Ratio Mismatch (SRM) p-value below ${data.threshold}.`;
+
+      return {
+        text: text(data.experimentName),
+        blocks: [
+          {
+            type: "section",
+            text: {
+              type: "mrkdwn",
+              text:
+                text(`*${data.experimentName}*`) +
+                getExperimentUrlFormatted(data.experimentId),
+            },
+          },
+        ],
+      };
+    }
+
+    case "no-data": {
+      const text = (experimentName: string) =>
+        `No data yet for experiment ${experimentName}. The most recent update ran successfully but returned no results. Make sure your experiment is tracking properly.`;
+
+      return {
+        text: text(data.experimentName),
+        blocks: [
+          {
+            type: "section",
+            text: {
+              type: "mrkdwn",
+              text:
+                text(`*${data.experimentName}*`) +
+                getExperimentUrlFormatted(data.experimentId),
+            },
+          },
+        ],
+      };
+    }
+
+    case "scheduled-status-update-failed": {
+      const action =
+        data.scheduledStatusUpdateType === "start" ? "start" : "stop";
+      const tail = data.willRetry
+        ? `Will retry (attempt ${data.attempts} of ${data.maxAttempts}).`
+        : `Giving up after ${data.attempts} attempts; the schedule has been cleared and the experiment will not ${action} automatically.`;
+      const text = (experimentName: string) =>
+        `Scheduled ${action} for experiment ${experimentName} failed: ${data.reason}. ${tail}`;
 
       return {
         text: text(data.experimentName),

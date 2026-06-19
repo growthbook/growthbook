@@ -23,6 +23,7 @@ import {
   FEATURE_RULES_ALL_ENVS,
 } from "@/services/features";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
+import { isHoldoutEnabledAnyEnv } from "@/hooks/useHoldouts";
 import Switch from "@/ui/Switch";
 import Button from "@/ui/Button";
 import Badge from "@/ui/Badge";
@@ -39,6 +40,7 @@ export default function FeatureRules({
   environments,
   feature,
   isLocked,
+  lockedBySchedule,
   canEditDrafts,
   experimentsMap,
   mutate,
@@ -58,6 +60,8 @@ export default function FeatureRules({
   feature: FeatureInterface;
   baseFeature: FeatureInterface;
   isLocked: boolean;
+  // `isLocked` is due to a pending scheduled publish; ramp controls stay interactive.
+  lockedBySchedule?: boolean;
   canEditDrafts: boolean;
   experimentsMap: Map<string, ExperimentInterfaceStringDates>;
   mutate: () => Promise<unknown>;
@@ -163,20 +167,17 @@ export default function FeatureRules({
 
   const activeEnv =
     env === null ? null : (environments.find((e) => e.id === env) ?? null);
-  const liveHoldoutActive =
-    !!activeEnv &&
-    !!holdout &&
-    !!holdout?.environmentSettings?.[activeEnv.id]?.enabled;
+  const holdoutEnabledInActiveEnv =
+    !!activeEnv && !!holdout?.environmentSettings?.[activeEnv.id]?.enabled;
+  const liveHoldoutActive = !!holdout && holdoutEnabledInActiveEnv;
   const draftDeletesHoldout =
-    !!activeEnv &&
     !feature.holdout?.id &&
     !!baseFeature.holdout?.id &&
-    !!holdout?.environmentSettings?.[activeEnv.id]?.enabled;
+    holdoutEnabledInActiveEnv;
   const includeHoldoutRule = liveHoldoutActive || draftDeletesHoldout;
 
-  // Show holdout in All-Envs whenever it's enabled in any env.
-  const holdoutEnabledAnyEnv =
-    !!holdout && envs.some((id) => holdout?.environmentSettings?.[id]?.enabled);
+  // Show holdout in All-Envs whenever it's enabled in any of the org's envs.
+  const holdoutEnabledAnyEnv = isHoldoutEnabledAnyEnv(holdout, envs);
   const liveHoldoutActiveAnyEnv = !!feature.holdout?.id && holdoutEnabledAnyEnv;
   const draftDeletesHoldoutAnyEnv =
     !feature.holdout?.id && !!baseFeature.holdout?.id && holdoutEnabledAnyEnv;
@@ -487,6 +488,7 @@ export default function FeatureRules({
                 version={currentVersion}
                 setVersion={setVersion}
                 locked={isLocked}
+                lockedBySchedule={lockedBySchedule}
                 experimentsMap={experimentsMap}
                 hideInactive={hideInactive}
                 isDraft={isDraft}
@@ -504,9 +506,10 @@ export default function FeatureRules({
                 <em>No rules have been added yet</em>
               </Box>
             )}
-            {canEditDrafts && !isLocked && (
+            {!isLocked && (
               <Flex mt="5" mb="1" justify="end">
                 <Button
+                  disabled={!canEditDrafts}
                   onClick={() => {
                     // environment="" → rule modal defaults to allEnvironments scope
                     setRuleModal({
@@ -538,6 +541,7 @@ export default function FeatureRules({
                 version={currentVersion}
                 setVersion={setVersion}
                 locked={isLocked}
+                lockedBySchedule={lockedBySchedule}
                 experimentsMap={experimentsMap}
                 hideInactive={hideInactive}
                 isDraft={isDraft}
@@ -554,13 +558,14 @@ export default function FeatureRules({
                 <em>No rules have been added to this environment yet</em>
               </Box>
             )}
-            {canEditDrafts && !isLocked && (
+            {!isLocked && (
               <>
                 <Flex pt="4" justify="between" align="center">
                   <Text weight="semibold" size="large">
                     Add rule to {activeEnv.id}
                   </Text>
                   <Button
+                    disabled={!canEditDrafts}
                     onClick={() => {
                       setRuleModal({
                         environment: activeEnv.id,
@@ -580,6 +585,7 @@ export default function FeatureRules({
       {ruleModal !== null && (
         <RuleModal
           feature={feature}
+          baseFeature={baseFeature}
           close={() => setRuleModal(null)}
           i={ruleModal.i}
           ruleId={ruleModal.ruleId}

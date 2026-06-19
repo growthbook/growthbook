@@ -4,7 +4,7 @@ import {
   SchemaField,
   SimpleSchema,
 } from "shared/types/feature";
-import { ReactElement, ReactNode, useId, useState } from "react";
+import { ReactElement, ReactNode, useEffect, useId, useState } from "react";
 import { getValidation } from "shared/util";
 import { FaMagic, FaRegTrashAlt } from "react-icons/fa";
 import stringify from "json-stringify-pretty-compact";
@@ -23,6 +23,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import RadioGroup from "@/ui/RadioGroup";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
+import Text from "@/ui/Text";
 
 export interface Props {
   valueType?: FeatureValueType;
@@ -116,7 +117,9 @@ export default function FeatureValueField({
     return (
       <div className={clsx("form-group", { "mb-0": label === undefined })}>
         {label !== undefined && (
-          <label style={{ display: "block" }}>{label}</label>
+          <Text as="label" weight="semibold">
+            {label}
+          </Text>
         )}
         <div>
           <RadioGroup
@@ -227,6 +230,42 @@ export default function FeatureValueField({
     );
   }
 
+  // Schema-aware input for string/number flags; values are raw scalars, so bypass JSON encoding.
+  if (
+    validationEnabled &&
+    hasJsonValidator &&
+    (valueType === "string" || valueType === "number") &&
+    simpleSchema?.type === "primitive"
+  ) {
+    const field = simpleSchema.fields[0];
+    const typeMatches =
+      !!field &&
+      (valueType === "string"
+        ? field.type === "string"
+        : field.type === "integer" || field.type === "float");
+    if (field && typeMatches) {
+      return (
+        <>
+          <SimpleSchemaPrimitiveEditor
+            field={field}
+            value={
+              valueType === "number"
+                ? value === ""
+                  ? undefined
+                  : parseFloat(value)
+                : value
+            }
+            setValue={(v) => setValue(v == null ? "" : String(v))}
+            label={label}
+            showDescription={true}
+            disabled={disabled}
+          />
+          {helpText && <small className="text-muted">{helpText}</small>}
+        </>
+      );
+    }
+  }
+
   const copyButton = (
     <Tooltip body={copySuccess ? "Copied" : "Copy to clipboard"}>
       <IconButton
@@ -311,7 +350,7 @@ function SimpleSchemaPrimitiveEditor<T = unknown>({
 }): ReactElement {
   const uuid = useId();
 
-  const isset = value != null;
+  const isset = value !== null && value !== undefined;
 
   let containerClassName = "";
   let labelClassName = "";
@@ -458,29 +497,92 @@ function SimpleSchemaPrimitiveEditor<T = unknown>({
     case "integer":
     case "float":
       return (
-        <Field
-          containerClassName={containerClassName}
-          labelClassName={labelClassName}
+        <NumberSchemaField
+          field={field}
+          value={value}
+          setValue={setValue}
           label={label}
-          value={(value ?? "") + ""}
-          onChange={(e) => {
-            setValue(
-              (e.target.value === ""
-                ? undefined
-                : parseFloat(e.target.value)) as T,
-            );
-          }}
-          type="number"
-          step={field.type === "integer" ? "1" : "any"}
-          min={field.min}
-          max={field.max}
-          required={field.required}
-          style={{ minWidth: 80 }}
-          disabled={(!field.required && !isset) || disabled}
+          labelClassName={labelClassName}
+          containerClassName={containerClassName}
           helpText={helpText}
+          disabled={(!field.required && !isset) || disabled}
         />
       );
   }
+}
+
+function parseNumberInput(
+  value: string,
+): { valid: true; value: number | undefined } | { valid: false } {
+  if (value === "") {
+    return { valid: true, value: undefined };
+  }
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed)
+    ? { valid: true, value: parsed }
+    : { valid: false };
+}
+
+// Keeps in-progress text in local state so typing e.g. "1.05" isn't reformatted mid-keystroke.
+function NumberSchemaField<T = unknown>({
+  field,
+  value,
+  setValue,
+  label,
+  labelClassName,
+  containerClassName,
+  helpText,
+  disabled = false,
+}: {
+  field: SchemaField;
+  value: T;
+  setValue: (value: T) => void;
+  label?: ReactNode;
+  labelClassName?: string;
+  containerClassName?: string;
+  helpText?: ReactNode;
+  disabled?: boolean;
+}): ReactElement {
+  const numericValue =
+    (value ?? null) === null ? undefined : (value as unknown as number);
+
+  const [text, setText] = useState(
+    numericValue === undefined ? "" : String(numericValue),
+  );
+
+  useEffect(() => {
+    setText((currentText) => {
+      const parsed = parseNumberInput(currentText);
+      if (parsed.valid && parsed.value === numericValue) return currentText;
+      return numericValue === undefined ? "" : String(numericValue);
+    });
+  }, [numericValue]);
+
+  return (
+    <Field
+      containerClassName={containerClassName}
+      labelClassName={labelClassName}
+      label={label}
+      value={text}
+      onChange={(e) => {
+        const raw = e.target.value;
+        const parsed = parseNumberInput(raw);
+        setText(raw);
+        if (parsed.valid) {
+          setValue(parsed.value as T);
+        }
+      }}
+      type="number"
+      step={field.type === "integer" ? "1" : "any"}
+      min={field.min}
+      max={field.max}
+      required={field.required}
+      style={{ minWidth: 80 }}
+      disabled={disabled}
+      helpText={helpText}
+    />
+  );
 }
 
 function SimpleSchemaEditor({
