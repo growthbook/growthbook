@@ -4,9 +4,9 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
   buildAggregatedFactTableStatus,
   getActiveAggregatedFactTableMetrics,
+  getAggregatedFactTableEligibilityInputs,
   getAggregatedFactTableMetrics,
   getMaterializedMetricIds,
-  getRunningExperimentMetricIds,
 } from "back-end/src/services/aggregatedFactTables";
 import { buildAggregatedFactTableSchemaState } from "back-end/src/enterprise/services/data-pipeline";
 import { getNextUpdateOccurrence } from "back-end/src/util/factTable";
@@ -27,11 +27,9 @@ export const getAggregatedFactTables = createApiRequestHandler(
   const byIdType = new Map(registryDocs.map((doc) => [doc.idType, doc]));
 
   // Recompute the schema state the nightly driver would so callers can see when
-  // the next run will be forced to restate. Read-only; no warehouse query.
-  // The materialized metric set is per-idType (each idType has its own table),
-  // so recompute it for each registry doc.
-  const factMetrics = await req.context.models.factMetrics.getAll();
-  const activeMetricIds = await getRunningExperimentMetricIds(req.context);
+  // the next run will be forced to restate.
+  const { factMetrics, activeMetricIds } =
+    await getAggregatedFactTableEligibilityInputs(req.context);
 
   const hasActiveMetrics =
     getActiveAggregatedFactTableMetrics({

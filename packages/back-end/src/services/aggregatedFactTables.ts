@@ -18,8 +18,9 @@ import {
 import { QueryStatus } from "shared/types/query";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
-import { getRunningExperimentsAcrossProjects } from "back-end/src/models/ExperimentModel";
+import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { logger } from "back-end/src/util/logger";
 import {
@@ -126,18 +127,34 @@ export type AggregatedFactTableStatus = {
   pendingRestateReason: AggregatedFactTableRestateReason;
 };
 
+// Eligibility for the pre-aggregated table is org-wide: it depends on every
+// running experiment (across all projects) and the fact metrics they reference,
+// either of which can live in projects the caller can't read.
+export async function getAggregatedFactTableEligibilityInputs(
+  context: ReqContext | ApiReqContext,
+): Promise<{
+  factMetrics: FactMetricInterface[];
+  activeMetricIds: Set<string>;
+}> {
+  const backgroundContext = getContextForAgendaJobByOrgObject(context.org);
+  const [factMetrics, activeMetricIds] = await Promise.all([
+    backgroundContext.models.factMetrics.getAll(),
+    getRunningExperimentMetricIds(backgroundContext),
+  ]);
+  return { factMetrics, activeMetricIds };
+}
+
+// Expects an org-wide context (e.g. the background admin context built in
+// getAggregatedFactTableEligibilityInputs) so metric group references on
+// running experiments expand fully, regardless of the original caller's scope.
 export async function getRunningExperimentMetricIds(
   context: ReqContext | ApiReqContext,
 ): Promise<Set<string>> {
   const [running, metricGroups] = await Promise.all([
-    // Use the org-wide (non-permission-filtered) query so the computed metric
-    // state is identical whether this runs for a project-scoped user request or
-    // the nightly admin job.
-    getRunningExperimentsAcrossProjects(context, [
-      "standard",
-      "multi-armed-bandit",
-      "holdout",
-    ]),
+    getAllExperiments(context, {
+      types: ["standard", "multi-armed-bandit", "holdout"],
+      status: "running",
+    }),
     context.models.metricGroups.getAll(),
   ]);
   const ids = new Set<string>();
@@ -382,8 +399,11 @@ export async function runAggregatedFactTableUpdate(
     idType,
   };
 
-  const factMetrics = await context.models.factMetrics.getAll();
-  const activeMetricIds = await getRunningExperimentMetricIds(context);
+  // Read eligibility inputs org-wide so a manual/REST-triggered run (which uses
+  // the caller's context) decides eligibility and builds the materialized table
+  // from the same metric set as the nightly admin job.
+  const { factMetrics, activeMetricIds } =
+    await getAggregatedFactTableEligibilityInputs(context);
 
   // Refresh only while a running experiment references the table. When nothing
   // is active we stop, even if inactive metrics are still materialized; runs

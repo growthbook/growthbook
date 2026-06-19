@@ -54,9 +54,9 @@ import {
   buildAggregatedFactTableStatus,
   deriveAggregatedFactTableRunStatus,
   getActiveAggregatedFactTableMetrics,
+  getAggregatedFactTableEligibilityInputs,
   getAggregatedFactTableMetrics,
   getMaterializedMetricIds,
-  getRunningExperimentMetricIds,
   runAggregatedFactTableUpdate,
   toAggregatedTableRefreshTriggerResult,
 } from "back-end/src/services/aggregatedFactTables";
@@ -494,11 +494,9 @@ export const getAggregatedFactTables = async (
   const byIdType = new Map(registryDocs.map((doc) => [doc.idType, doc]));
 
   // Build the same schema state the nightly driver would, so the UI can warn
-  // when the next run will be forced to restate. Read-only; no warehouse query.
-  // The materialized metric set is per-idType (each idType has its own table),
-  // so recompute it for each registry doc.
-  const factMetrics = await context.models.factMetrics.getAll();
-  const activeMetricIds = await getRunningExperimentMetricIds(context);
+  // when the next run will be forced to restate.
+  const { factMetrics, activeMetricIds } =
+    await getAggregatedFactTableEligibilityInputs(context);
 
   // Allows us to say "no pending restate" when no running experiment references the table
   const hasActiveMetrics =
