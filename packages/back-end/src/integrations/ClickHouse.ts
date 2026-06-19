@@ -52,16 +52,18 @@ export default class ClickHouse extends SqlIntegration {
   }
 
   async runQuery(sql: string): Promise<QueryResponse> {
-    if (isManagedWarehouseAwaitingProvisioning(this.datasource)) {
-      throw new ManagedWarehousePendingError();
-    }
     // Legacy (materialized-column) managed warehouses migrate to native JSON
     // columns on first use — enqueued async + deduped so it never blocks the query.
+    // Runs before the provisioning guard so a warehouse left mid-migration (pending
+    // + matcols still present) can still re-trigger and recover itself on next use.
     if (isManagedWarehouseAwaitingJsonMigration(this.datasource)) {
       void queueMigrateManagedWarehouse(this.datasource.organization).catch(
         (e) =>
           logger.error(e, "Failed to queue managed warehouse JSON migration"),
       );
+    }
+    if (isManagedWarehouseAwaitingProvisioning(this.datasource)) {
+      throw new ManagedWarehousePendingError();
     }
     const client = createClient({
       url: getHost(this.params.url, this.params.port),

@@ -427,6 +427,13 @@ export async function migrateManagedWarehouseToJson(
         },
         { skipExposureQueryValidation: true },
       );
+    } else {
+      // Couldn't re-fetch the warehouse to clear materializedColumns: it stays
+      // awaiting-migration and will re-trigger on next use. Log so the (rare)
+      // re-trigger loop is visible rather than silent.
+      logger.error(
+        `Managed warehouse migration for org ${datasource.organization}: could not re-fetch datasource to clear materializedColumns; migration will re-trigger on next use`,
+      );
     }
   } finally {
     // Always leave the pending state, even on failure: a partially-migrated
