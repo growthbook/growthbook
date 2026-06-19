@@ -135,17 +135,14 @@ export function isMultiStatementSQL(sql: string, backslashEscapes: boolean) {
     backslashEscapes,
   );
   if (parseError) {
-    // Ignore a final trailing semicolon to avoid a common false positive
-    return stripSQLComments(sql).replace(/;\s*$/, "").includes(";");
+    // Parse failed, so string boundaries are unknown. Stay conservative and
+    // treat any non-trailing semicolon as a statement separator.
+    return sql.replace(/;\s*$/, "").includes(";");
   }
   // Otherwise, search the stripped SQL for semicolons
   else {
     return strippedSql.includes(";");
   }
-}
-
-function stripSQLComments(sql: string): string {
-  return sql.replace(/\/\*[\s\S]*?\*\//g, "").replace(/--.*$/gm, "");
 }
 
 function stripCommentsAndStrings(

@@ -377,8 +377,15 @@ describe("isMultiStatementSQL — dialect-aware backslash escaping", () => {
     const sql = `SELECT * FROM t WHERE id LIKE 'a\\_b' ESCAPE '\\'`;
     expect(isMultiStatementSQL(sql, false)).toBe(false);
   });
-  it("allows a dimension query whose comment header contains a ';' plus ESCAPE", () => {
-    const sql = `-- Dimension: Platform; Fact Table: Sessions (trino)\nSELECT id FROM t WHERE x LIKE 'ab' ESCAPE '\\'`;
+  it("allows multi-line  query with a ';' in a comment and a backslash ESCAPE literal", () => {
+    const sql = `-- Dimension: Country (by user_id); Fact Table: Sessions (by user_id)
+WITH __rawExperiment AS (
+  SELECT timestamp, experiment_id, user_id
+  FROM "fake-database".sessions
+  WHERE timestamp >= timestamp '2026-05-26 19:00:00'
+    AND experiment_id LIKE replace('my-experiment-id-here', '_', '\\_') ESCAPE '\\'
+)
+SELECT timestamp, user_id FROM __rawExperiment;`;
     expect(isMultiStatementSQL(sql, false)).toBe(false);
   });
   it("still blocks a real statement separator on a non-backslash dialect", () => {
@@ -388,9 +395,9 @@ describe("isMultiStatementSQL — dialect-aware backslash escaping", () => {
     const sql = `SELECT 1 WHERE x = '\\'; DROP TABLE t; --'`;
     expect(isMultiStatementSQL(sql, false)).toBe(true);
   });
-  it("does not flag a comment semicolon when a parse error forces the fallback", () => {
-    const sql = `-- header with ; inside\nSELECT * FROM t WHERE x = 'unterminated`;
-    expect(isMultiStatementSQL(sql, false)).toBe(false);
+  it("blocks a real statement separator when a -- sits inside a string and the query ends mid-string", () => {
+    const sql = `SELECT '--'; DROP TABLE users; SELECT 'unterminated`;
+    expect(isMultiStatementSQL(sql, false)).toBe(true);
   });
   it("blocks a backslash-escaped-quote injection on a backslash dialect", () => {
     const sql = `SELECT 'It\\'s a test'; DROP TABLE users`;
