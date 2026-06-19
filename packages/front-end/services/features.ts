@@ -263,6 +263,16 @@ export function useFeatureSearch({
     syntaxFilterPassthrough,
     updateSearchQueryOnChange: true,
     localStorageKey: localStorageKey,
+    // These back the `has`/`is`/`on`/`off` filters below and load asynchronously;
+    // listing them keeps results from going stale when the data arrives.
+    searchTermFilterDeps: [
+      environmentStatus,
+      draftStates,
+      staleStates,
+      rampStates,
+      dependencyIndex,
+      experimentStates,
+    ],
     searchTermFilters: {
       is: (item) => {
         const is: string[] = [item.valueType];

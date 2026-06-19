@@ -403,6 +403,27 @@ describe("getAggregatedFactTableMetrics", () => {
     expect(result).toHaveLength(1 + expectedSliceCount);
     expect(result[0].id).toEqual(baseMetric.id);
   });
+
+  it("excludes archived fact-metrics even when active", () => {
+    const active = factMetricFactory.build({
+      id: "m_active_unarchived",
+      metricType: "mean",
+      numerator: { factTableId: FT_ID, column: "value", aggregation: "sum" },
+    });
+    const archived = factMetricFactory.build({
+      id: "m_archived",
+      metricType: "mean",
+      archived: true,
+      numerator: { factTableId: FT_ID, column: "gone", aggregation: "sum" },
+    });
+    const metrics = getAggregatedFactTableMetrics({
+      factMetrics: [active, archived],
+      factTable,
+      activeMetricIds: new Set([active.id, archived.id]),
+      materializedMetricIds: new Set(),
+    });
+    expect(metrics.map((m) => m.id)).toEqual([active.id]);
+  });
 });
 
 describe("getAggregatedFactTableSchema", () => {

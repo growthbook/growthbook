@@ -364,20 +364,19 @@ export async function runAggregatedFactTableUpdate(
 
   const factMetrics = await context.models.factMetrics.getAll();
   const activeMetricIds = await getRunningExperimentMetricIds(context);
-  // Metrics already materialized into this idType's table stay eligible even if
-  // no running experiment references them anymore (see getMetricsForAggregatedFactTable).
-  const existingRegistry =
-    await context.models.aggregatedFactTables.getByKey(key);
-  const materializedMetricIds = getMaterializedMetricIds(existingRegistry);
-  const metrics = getAggregatedFactTableMetrics({
+
+  // Refresh only while a running experiment references the table. When nothing
+  // is active we stop, even if inactive metrics are still materialized; runs
+  // resume cleanly once an experiment references the table again.
+  const activeMetrics = getAggregatedFactTableMetrics({
     factMetrics,
     factTable,
     activeMetricIds,
-    materializedMetricIds,
+    materializedMetricIds: new Set(),
   });
-  if (!metrics.length) {
+  if (!activeMetrics.length) {
     logger.debug(
-      `Skipping aggregated fact table update for ${factTable.id}/${idType}: no regression-adjusted fact metrics reference this fact table`,
+      `Skipping aggregated fact table update for ${factTable.id}/${idType}: no active metrics reference this fact table`,
     );
     return { status: "skipped", reason: "no-eligible-metrics" };
   }
@@ -402,18 +401,43 @@ export async function runAggregatedFactTableUpdate(
     );
   }
 
-  const { factTableSettingsHash, metricState } =
-    buildAggregatedFactTableSchemaState({ factTable, metrics });
+  // Incremental runs also keep already-materialized metrics fresh to avoid
+  // churn. Read the materialized set from the locked registry so it can't drift
+  // from the mode decision below.
+  const keptMetrics = getAggregatedFactTableMetrics({
+    factMetrics,
+    factTable,
+    activeMetricIds,
+    materializedMetricIds: getMaterializedMetricIds(registry),
+  });
+
+  // Decide the mode against the kept set so a newly added active metric forces a
+  // restate while an inactive-but-materialized metric never reads as a removal.
+  const keptSchemaState = buildAggregatedFactTableSchemaState({
+    factTable,
+    metrics: keptMetrics,
+  });
 
   const restateReason = getAggregatedFactTableRestateReason({
     registry,
-    factTableSettingsHash,
-    metricState,
+    factTableSettingsHash: keptSchemaState.factTableSettingsHash,
+    metricState: keptSchemaState.metricState,
   });
   const mode: AggregatedFactTableRunMode =
     forceRestate || !registry.tableFullName || restateReason !== null
       ? "restate"
       : "incremental";
+
+  // A restate rebuilds from scratch, so slim out the inactive metrics we were
+  // only keeping to avoid churn. Gated above, so active set is non-empty.
+  const metrics = mode === "restate" ? activeMetrics : keptMetrics;
+  const { factTableSettingsHash, metricState } =
+    mode === "restate"
+      ? buildAggregatedFactTableSchemaState({
+          factTable,
+          metrics: activeMetrics,
+        })
+      : keptSchemaState;
 
   const run = await context.models.aggregatedFactTableRuns.create({
     aggregatedFactTableId: registry.id,

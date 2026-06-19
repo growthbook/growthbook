@@ -14,6 +14,11 @@ import {
   autoMerge,
   getLiveChangesSinceBase,
   evaluatePublishGovernance,
+  isScheduledPublishPending,
+  isScheduledPublishDue,
+  isScheduledPublishLockActive,
+  isRevisionEditLockedBySchedule,
+  findPublishLockingScheduledRevision,
   RevisionFields,
   MergeConflict,
   validateCondition,
@@ -1020,6 +1025,170 @@ describe("evaluatePublishGovernance", () => {
     expect(r.rebaseRequired).toBe(true);
     expect(r.canPublish).toBe(false);
     expect(r.blockReason).toMatch(/approved/i);
+  });
+});
+
+describe("scheduled / deferred publish helpers", () => {
+  const future = new Date(Date.now() + 60 * 60 * 1000);
+  const past = new Date(Date.now() - 60 * 60 * 1000);
+
+  type SchedRev = Parameters<typeof isScheduledPublishPending>[0] &
+    Partial<Parameters<typeof isRevisionEditLockedBySchedule>[0]>;
+
+  const rev = (over: Partial<SchedRev> = {}): SchedRev => ({
+    status: "approved",
+    autoPublishOnApproval: true,
+    scheduledPublishAt: future,
+    ...over,
+  });
+
+  describe("isScheduledPublishPending", () => {
+    it("true for an armed, dated, active draft", () => {
+      expect(isScheduledPublishPending(rev())).toBe(true);
+    });
+    it("false when not armed", () => {
+      expect(
+        isScheduledPublishPending(rev({ autoPublishOnApproval: false })),
+      ).toBe(false);
+    });
+    it("false when no date (on-approval, not deferred)", () => {
+      expect(isScheduledPublishPending(rev({ scheduledPublishAt: null }))).toBe(
+        false,
+      );
+    });
+    it("false once published or discarded", () => {
+      expect(isScheduledPublishPending(rev({ status: "published" }))).toBe(
+        false,
+      );
+      expect(isScheduledPublishPending(rev({ status: "discarded" }))).toBe(
+        false,
+      );
+    });
+  });
+
+  describe("isScheduledPublishDue", () => {
+    it("false while the target date is in the future", () => {
+      expect(isScheduledPublishDue(rev())).toBe(false);
+    });
+    it("true once the target date has passed", () => {
+      expect(isScheduledPublishDue(rev({ scheduledPublishAt: past }))).toBe(
+        true,
+      );
+    });
+    it("coerces ISO-string dates (front-end JSON shape)", () => {
+      expect(
+        isScheduledPublishDue(
+          rev({ scheduledPublishAt: past.toISOString() as unknown as Date }),
+        ),
+      ).toBe(true);
+    });
+    it("false when not pending even if date passed", () => {
+      expect(
+        isScheduledPublishDue(
+          rev({ scheduledPublishAt: past, status: "published" }),
+        ),
+      ).toBe(false);
+    });
+  });
+
+  describe("isScheduledPublishLockActive", () => {
+    it("true for an armed, dated, approved revision", () => {
+      expect(isScheduledPublishLockActive(rev())).toBe(true);
+    });
+    it("true for an armed draft (no-approval committed schedule)", () => {
+      // The schedule-publish endpoint only commits a schedule on a draft when
+      // the change doesn't require review, so a pending draft schedule is
+      // locked in and its locks engage.
+      expect(isScheduledPublishLockActive(rev({ status: "draft" }))).toBe(true);
+    });
+    it("false while still awaiting approval (locks don't apply yet)", () => {
+      expect(
+        isScheduledPublishLockActive(rev({ status: "pending-review" })),
+      ).toBe(false);
+      expect(
+        isScheduledPublishLockActive(rev({ status: "changes-requested" })),
+      ).toBe(false);
+    });
+  });
+
+  describe("isRevisionEditLockedBySchedule", () => {
+    it("true when an active (approved) schedule locks edits", () => {
+      expect(
+        isRevisionEditLockedBySchedule(
+          rev({ scheduledPublishLockEdits: true }),
+        ),
+      ).toBe(true);
+    });
+    it("true when a committed draft (no-approval) schedule locks edits", () => {
+      expect(
+        isRevisionEditLockedBySchedule(
+          rev({ scheduledPublishLockEdits: true, status: "draft" }),
+        ),
+      ).toBe(true);
+    });
+    it("false while still pending approval — edits stay open", () => {
+      expect(
+        isRevisionEditLockedBySchedule(
+          rev({ scheduledPublishLockEdits: true, status: "pending-review" }),
+        ),
+      ).toBe(false);
+      expect(
+        isRevisionEditLockedBySchedule(
+          rev({ scheduledPublishLockEdits: true, status: "changes-requested" }),
+        ),
+      ).toBe(false);
+    });
+    it("false when lock flag is off", () => {
+      expect(
+        isRevisionEditLockedBySchedule(
+          rev({ scheduledPublishLockEdits: false }),
+        ),
+      ).toBe(false);
+    });
+    it("false when the schedule isn't pending", () => {
+      expect(
+        isRevisionEditLockedBySchedule(
+          rev({ scheduledPublishLockEdits: true, scheduledPublishAt: null }),
+        ),
+      ).toBe(false);
+    });
+  });
+
+  describe("findPublishLockingScheduledRevision", () => {
+    const list = [
+      { version: 1, ...rev({ scheduledPublishLockOthers: true }) },
+      { version: 2, ...rev({ scheduledPublishLockOthers: false }) },
+    ];
+    it("finds a sibling whose pending schedule locks others", () => {
+      expect(findPublishLockingScheduledRevision(list, 2)?.version).toBe(1);
+    });
+    it("excludes the revision being published itself", () => {
+      expect(findPublishLockingScheduledRevision(list, 1)).toBe(null);
+    });
+    it("ignores schedules without the lock-others flag", () => {
+      expect(
+        findPublishLockingScheduledRevision(
+          [{ version: 2, ...rev({ scheduledPublishLockOthers: false }) }],
+          99,
+        ),
+      ).toBe(null);
+    });
+    it("ignores a sibling still pending approval (lock not active yet)", () => {
+      expect(
+        findPublishLockingScheduledRevision(
+          [
+            {
+              version: 1,
+              ...rev({
+                scheduledPublishLockOthers: true,
+                status: "pending-review",
+              }),
+            },
+          ],
+          99,
+        ),
+      ).toBe(null);
+    });
   });
 });
 

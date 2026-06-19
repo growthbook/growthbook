@@ -906,6 +906,10 @@ app.post(
   featuresController.postFeatureToggleAutoPublish,
 );
 app.post(
+  "/feature/:id/:version/schedule-publish",
+  featuresController.postFeatureScheduledPublish,
+);
+app.post(
   "/feature/:id/:version/recall-review",
   featuresController.postFeatureRecallReview,
 );
