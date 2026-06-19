@@ -82,9 +82,7 @@ const RefreshSnapshotButton: FC<{
             variant={radixVariant}
             size="sm"
             disabled={loading}
-            setError={(error) =>
-              setError(typeof error === "string" ? error : undefined)
-            }
+            setError={(error) => setError(error ?? undefined)}
             onClick={async () => {
               setLoading(true);
               setLongResult(false);

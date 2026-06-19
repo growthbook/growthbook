@@ -29,7 +29,7 @@ import Table, {
   TableRow,
 } from "@/ui/Table";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
-import { EAQ_ANCHOR_ID } from "@/components/Settings/EditDataSource/ExperimentAssignmentQueries/constants";
+import { EAQ_ANCHOR_ID } from "@/pages/datasources/[did]";
 import { OfficialBadge } from "@/components/Metrics/MetricName";
 import { useUser } from "@/services/UserContext";
 

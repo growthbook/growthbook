@@ -192,7 +192,7 @@ export async function getExperiments(
 
   const hasArchived = includeArchived
     ? experiments.some((e) => e.archived)
-    : await hasArchivedExperiments(context, project, type);
+    : await hasArchivedExperiments(context, project);
 
   res.status(200).json({
     status: 200,

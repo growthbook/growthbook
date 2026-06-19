@@ -1,4 +1,4 @@
-import { FC, useMemo, useState } from "react";
+import React, { FC, useMemo, useState } from "react";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { Flex } from "@radix-ui/themes";
 import {
@@ -30,11 +30,7 @@ type EditExperimentAssignmentQueryProps = {
 export const AddEditExperimentAssignmentQueryModal: FC<
   EditExperimentAssignmentQueryProps
 > = ({ exposureQuery, dataSource, mode, onSave, onCancel }) => {
-  const [showAdvancedMode, setShowAdvancedMode] = useState(
-    () =>
-      (exposureQuery?.dimensions?.length ?? 0) > 0 ||
-      !!exposureQuery?.hasNameCol,
-  );
+  const [showAdvancedMode, setShowAdvancedMode] = useState(false);
   const [uiMode, setUiMode] = useState<"view" | "sql" | "dimension">("view");
   const modalTitle =
     mode === "add"
@@ -63,10 +59,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<
   const form = useForm<ExposureQuery>({
     defaultValues:
       mode === "edit" && exposureQuery
-        ? {
-            ...cloneDeep<ExposureQuery>(exposureQuery),
-            dimensions: exposureQuery.dimensions ?? [],
-          }
+        ? cloneDeep<ExposureQuery>(exposureQuery)
         : {
             description: "",
             id: uniqId("tbl_"),
@@ -83,29 +76,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<
   const userEnteredDimensions = form.watch("dimensions");
   const userEnteredHasNameCol = form.watch("hasNameCol");
 
-  const composeExposureQueryPayload = (): ExposureQuery => {
-    const registered = form.getValues();
-    const base =
-      mode === "edit" && exposureQuery
-        ? cloneDeep<ExposureQuery>(exposureQuery)
-        : ({} as ExposureQuery);
-    return {
-      ...base,
-      ...registered,
-      id: registered.id ?? base.id,
-      query: registered.query ?? userEnteredQuery,
-      dimensions: [...(registered.dimensions ?? userEnteredDimensions ?? [])],
-      hasNameCol: !!(registered.hasNameCol ?? userEnteredHasNameCol),
-    };
-  };
-
-  const handleSubmit = form.handleSubmit(async () => {
-    // CreatableSelect only commits pending text on blur; force blur first so the last token is captured.
-    (document.activeElement as HTMLElement | null)?.blur?.();
-    await new Promise((resolve) => setTimeout(resolve, 0));
-
-    const value = composeExposureQueryPayload();
-
+  const handleSubmit = form.handleSubmit(async (value) => {
     if (isManaged && exposureQuery) {
       value.userIdType = exposureQuery.userIdType;
       value.managedBy = exposureQuery.managedBy;

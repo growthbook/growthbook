@@ -27,9 +27,11 @@ export default function BanditDecisionMetricSettings({
 }: BanditDecisionMetricSettingsProps) {
   const form = useFormContext();
   const settings = useOrgSettings();
-  const { getExperimentMetricById } = useDefinitions();
+  const { getDatasourceById, getExperimentMetricById } = useDefinitions();
 
-  const datasourceId = form.watch("datasource") ?? "";
+  const datasource = form.watch("datasource")
+    ? getDatasourceById(form.watch("datasource") ?? "")
+    : null;
   const exposureQueryId = form.watch("exposureQueryId");
 
   const goalMetricId = form.watch("goalMetrics")?.[0];
@@ -100,27 +102,16 @@ export default function BanditDecisionMetricSettings({
 
   const showConversionWindowWarning =
     (!settings?.useStickyBucketing || !!form.watch("disableStickyBucketing")) &&
-    !!goalMetricId &&
     conversionWindowHours &&
     scheduleHours < conversionWindowHours * 10;
 
   const showConversionWindowSection =
     !settings?.useStickyBucketing || !!form.watch("disableStickyBucketing");
 
-  const conversionWindowWarning = showConversionWindowWarning && !disabled && (
-    <Callout status="warning" my="4">
-      <Text>
-        Limit how many conversions are counted after a unit may have switched
-        variations by decreasing the metric conversion window to be &le; 10% of
-        the <Text weight="semibold">Update Cadence</Text>.
-      </Text>
-    </Callout>
-  );
-
   return (
     <>
       <ExperimentMetricsSelector
-        datasource={datasourceId || undefined}
+        datasource={datasource?.id}
         exposureQueryId={exposureQueryId}
         project={project}
         forceSingleGoalMetric={true}
@@ -135,7 +126,7 @@ export default function BanditDecisionMetricSettings({
         disabled={disabled}
       />
 
-      {showConversionWindowSection ? (
+      {showConversionWindowSection && (
         <Box my="5">
           <Text size="medium" weight="semibold">
             Decision Metric Conversion Window Override
@@ -212,9 +203,18 @@ export default function BanditDecisionMetricSettings({
                 variations during the experiment.
               </Callout>
             )}
-          {conversionWindowWarning}
+          {showConversionWindowWarning && !disabled && (
+            <Callout status="warning" my="4">
+              <Text>
+                Limit how many conversions are counted after a unit may have
+                switched variations by decreasing the metric conversion window
+                to be &le; 10% of the{" "}
+                <Text weight="semibold">Update Cadence</Text>.
+              </Text>
+            </Callout>
+          )}
         </Box>
-      ) : null}
+      )}
     </>
   );
 }

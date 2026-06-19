@@ -33,11 +33,6 @@ const StopExperimentForm: FC<{
   mutate: () => void;
   close: () => void;
   source?: string;
-  /** Override the write endpoint for post-stop edits. Defaults to `POST /experiment/:id`. */
-  updateEndpoint?: string;
-  updateMethod?: "POST" | "PUT";
-  /** Override the write endpoint used to stop the experiment. Defaults to `POST /experiment/:id/stop`. */
-  stopEndpoint?: string;
 }> = ({
   experiment,
   runningExperimentStatus,
@@ -45,9 +40,6 @@ const StopExperimentForm: FC<{
   close,
   mutate,
   source,
-  updateEndpoint,
-  updateMethod,
-  stopEndpoint,
 }) => {
   const [showModal, setShowModal] = useState(true);
   const isBandit = experiment.type == "multi-armed-bandit";
@@ -190,15 +182,15 @@ const StopExperimentForm: FC<{
       winner,
     };
 
-    const endpoint = isStopped
-      ? (updateEndpoint ?? `/experiment/${experiment.id}`)
-      : (stopEndpoint ?? `/experiment/${experiment.id}/stop`);
-    const method = isStopped ? (updateMethod ?? "POST") : "POST";
-
-    await apiCall<{ status: number; message?: string }>(endpoint, {
-      method,
-      body: JSON.stringify(body),
-    });
+    await apiCall<{ status: number; message?: string }>(
+      isStopped
+        ? `/experiment/${experiment.id}`
+        : `/experiment/${experiment.id}/stop`,
+      {
+        method: "POST",
+        body: JSON.stringify(body),
+      },
+    );
 
     const aiUsageData = computeAIUsageData({
       value: value.analysis,

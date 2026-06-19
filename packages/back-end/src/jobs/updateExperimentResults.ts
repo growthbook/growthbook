@@ -121,7 +121,7 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
     project: project ?? undefined,
   });
 
-  // Disable auto snapshots when schedule is off; MABs manage their own schedule and are skipped here.
+  // Disable auto snapshots for the experiment so it doesn't keep trying to update if schedule is off (non-bandits only)
   if (
     organization?.settings?.updateSchedule?.type === "never" &&
     experiment.type !== "multi-armed-bandit"

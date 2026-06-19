@@ -137,10 +137,7 @@ const EditMetricsForm: FC<{
   cancel: () => void;
   mutate: () => void;
   source?: string;
-  /** Override the write endpoint + HTTP method. Defaults to `POST /experiment/:id`. */
-  updateEndpoint?: string;
-  updateMethod?: "POST" | "PUT";
-}> = ({ experiment, cancel, mutate, source, updateEndpoint, updateMethod }) => {
+}> = ({ experiment, cancel, mutate, source }) => {
   const [upgradeModal, setUpgradeModal] = useState(false);
   const settings = useOrgSettings();
   const { hasCommercialFeature } = useUser();
@@ -199,8 +196,8 @@ const EditMetricsForm: FC<{
       submit={form.handleSubmit(async (value) => {
         const payload = cloneDeep<EditMetricsFormInterface>(value);
         fixMetricOverridesBeforeSaving(value.metricOverrides || []);
-        await apiCall(updateEndpoint ?? `/experiment/${experiment.id}`, {
-          method: updateMethod ?? "POST",
+        await apiCall(`/experiment/${experiment.id}`, {
+          method: "POST",
           body: JSON.stringify(payload),
         });
         mutate();

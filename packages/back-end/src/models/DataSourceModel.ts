@@ -526,7 +526,6 @@ export async function updateDataSource(
   }
 
   if (updates.settings) {
-    // Use updates' exposure when provided so a client-sent [] clears targetingAttributeColumns (lodash.merge would keep stale entries).
     updates.settings = await validateExposureQueriesAndAddMissingIds(
       context,
       datasource,

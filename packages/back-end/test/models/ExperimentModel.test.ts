@@ -1,8 +1,5 @@
 import { ExperimentInterface } from "shared/types/experiment";
-import {
-  applyExperimentTypeQuery,
-  hasActualChanges,
-} from "back-end/src/models/ExperimentModel";
+import { hasActualChanges } from "back-end/src/models/ExperimentModel";
 
 describe("ExperimentModel", () => {
   const experiment: ExperimentInterface = {
@@ -92,34 +89,6 @@ describe("ExperimentModel", () => {
         ],
       };
       expect(hasActualChanges(experiment, updates)).toEqual(true);
-    });
-  });
-
-  describe("applyExperimentTypeQuery", () => {
-    it("filters regular bandits", () => {
-      const query = {};
-
-      applyExperimentTypeQuery(query, "multi-armed-bandit");
-
-      expect(query).toEqual({
-        type: "multi-armed-bandit",
-      });
-    });
-
-    it("filters standard experiments including legacy missing type values", () => {
-      const query = {};
-
-      applyExperimentTypeQuery(query, "standard");
-
-      expect(query).toEqual({ type: { $in: ["standard", null] } });
-    });
-
-    it("excludes holdouts when no type is specified", () => {
-      const query = {};
-
-      applyExperimentTypeQuery(query);
-
-      expect(query).toEqual({ type: { $ne: "holdout" } });
     });
   });
 });

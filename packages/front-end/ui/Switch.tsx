@@ -27,7 +27,7 @@ type BaseProps = {
   id?: string;
   label?: React.ReactNode;
   size?: "1" | "2" | "3";
-  description?: React.ReactNode;
+  description?: string;
   state?: "default" | "warning" | "error";
   // stateLabel is only rendered if state is not default
   stateLabel?: string;

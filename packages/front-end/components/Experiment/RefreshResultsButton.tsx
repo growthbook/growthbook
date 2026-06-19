@@ -21,16 +21,6 @@ import SafeRolloutRefreshSnapshotButton from "@/components/SafeRollout/RefreshSn
 
 export type EntityType = "experiment" | "holdout" | "safe-rollout";
 
-function formatRefreshError(e: unknown): string {
-  if (e instanceof Error && e.message) {
-    return e.message;
-  }
-  if (typeof e === "string" && e) {
-    return e;
-  }
-  return "There was an error updating results";
-}
-
 export interface RefreshResultsButtonProps<
   T extends {
     id: string;
@@ -179,7 +169,7 @@ export default function RefreshResultsButton<
               onSuccess?.();
               setRefreshError("");
             } catch (e) {
-              setRefreshError(formatRefreshError(e));
+              setRefreshError(e.message);
             } finally {
               // Always refresh, regardless of success or failure
               // to give the UI a chance to catch up
