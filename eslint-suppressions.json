@@ -1642,28 +1642,13 @@
       "count": 1
     }
   },
-  "packages/front-end/pages/bandit/[bid].tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    }
-  },
   "packages/front-end/pages/correlations.tsx": {
     "no-restricted-imports": {
       "count": 2
     }
   },
-  "packages/front-end/pages/datasources/queries/[did].tsx": {
-    "local/no-alert-classname": {
-      "count": 3
-    }
-  },
   "packages/front-end/pages/environments.tsx": {
     "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/pages/experiments/lookup.tsx": {
-    "local/no-alert-classname": {
       "count": 1
     }
   },
@@ -1678,17 +1663,11 @@
     }
   },
   "packages/front-end/pages/fact-metrics/[fmid].tsx": {
-    "local/no-alert-classname": {
-      "count": 2
-    },
     "no-restricted-imports": {
       "count": 1
     }
   },
   "packages/front-end/pages/fact-tables/[ftid].tsx": {
-    "local/no-alert-classname": {
-      "count": 2
-    },
     "no-restricted-imports": {
       "count": 1
     }
@@ -1713,26 +1692,8 @@
       "count": 1
     }
   },
-  "packages/front-end/pages/product-analytics/dashboards/[did].tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    }
-  },
   "packages/front-end/pages/product-analytics/dashboards/index.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    },
     "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/pages/project/[pid].tsx": {
-    "local/no-alert-classname": {
-      "count": 3
-    }
-  },
-  "packages/front-end/pages/report/[rid].tsx": {
-    "local/no-alert-classname": {
       "count": 1
     }
   },
@@ -1749,11 +1710,6 @@
   "packages/front-end/pages/saved-groups/index.tsx": {
     "no-restricted-imports": {
       "count": 3
-    }
-  },
-  "packages/front-end/pages/sdks/index.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
     }
   },
   "packages/front-end/pages/settings/custom-hooks.tsx": {
@@ -1773,11 +1729,6 @@
   },
   "packages/front-end/pages/sql-explorer/[id].tsx": {
     "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/pages/sql-explorer/index.tsx": {
-    "local/no-alert-classname": {
       "count": 1
     }
   },
