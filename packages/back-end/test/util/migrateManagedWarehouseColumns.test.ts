@@ -18,8 +18,10 @@ function matCol(
   return { columnName, sourceField, datatype, type };
 }
 
+const eventsFT = "ch_events";
+
 function columnRef(overrides: Partial<ColumnRef>): ColumnRef {
-  return { factTableId: "ft", column: "$$count", ...overrides };
+  return { factTableId: eventsFT, column: "$$count", ...overrides };
 }
 
 describe("buildMaterializedColumnRewriteMap", () => {
@@ -89,6 +91,7 @@ describe("rewriteColumnRef", () => {
     const { columnRef: ref, changed } = rewriteColumnRef(
       columnRef({ column: "plan" }),
       map,
+      eventsFT,
     );
     expect(changed).toBe(true);
     expect(ref.column).toBe("attributes.plan");
@@ -105,6 +108,7 @@ describe("rewriteColumnRef", () => {
         ],
       }),
       map,
+      eventsFT,
     );
     expect(changed).toBe(true);
     expect(ref.aggregateFilterColumn).toBe("attributes.plan");
@@ -118,9 +122,25 @@ describe("rewriteColumnRef", () => {
       column: "$$distinctUsers",
       rowFilters: [{ operator: ">", column: "geo_country", values: ["US"] }],
     });
-    const { columnRef: ref, changed } = rewriteColumnRef(original, map);
+    const { columnRef: ref, changed } = rewriteColumnRef(
+      original,
+      map,
+      eventsFT,
+    );
     expect(changed).toBe(false);
     expect(ref).toEqual(original);
+  });
+
+  it("leaves a ref on a different fact table untouched even if its column matches", () => {
+    const original = columnRef({ factTableId: "custom_ft", column: "plan" });
+    const { columnRef: ref, changed } = rewriteColumnRef(
+      original,
+      map,
+      eventsFT,
+    );
+    expect(changed).toBe(false);
+    expect(ref).toEqual(original);
+    expect(ref.column).toBe("plan");
   });
 });
 
@@ -132,6 +152,7 @@ describe("rewriteFactMetricColumns", () => {
       rewriteFactMetricColumns(
         { numerator: columnRef({ column: "$$count" }), denominator: null },
         map,
+        eventsFT,
       ),
     ).toBeNull();
   });
@@ -140,6 +161,7 @@ describe("rewriteFactMetricColumns", () => {
     const result = rewriteFactMetricColumns(
       { numerator: columnRef({ column: "plan" }), denominator: null },
       map,
+      eventsFT,
     );
     expect(result).not.toBeNull();
     expect(result?.numerator.column).toBe("attributes.plan");
@@ -153,9 +175,25 @@ describe("rewriteFactMetricColumns", () => {
         denominator: columnRef({ column: "plan" }),
       },
       map,
+      eventsFT,
     );
     expect(result).not.toBeNull();
     expect(result?.numerator.column).toBe("$$count");
     expect(result?.denominator?.column).toBe("attributes.plan");
+  });
+
+  it("rewrites only the events-table ref in a ratio metric spanning two fact tables", () => {
+    const result = rewriteFactMetricColumns(
+      {
+        numerator: columnRef({ column: "plan" }),
+        denominator: columnRef({ factTableId: "custom_ft", column: "plan" }),
+      },
+      map,
+      eventsFT,
+    );
+    expect(result).not.toBeNull();
+    expect(result?.numerator.column).toBe("attributes.plan");
+    // denominator on a custom fact table keeps its original column
+    expect(result?.denominator?.column).toBe("plan");
   });
 });

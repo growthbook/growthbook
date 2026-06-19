@@ -57,11 +57,21 @@ export function buildMaterializedColumnJsonFields(
  * Rewrite the column references in a single ColumnRef (the metric column itself, the
  * aggregate-filter column, and each row-filter column) through the rewrite map.
  * Returns the (possibly unchanged) ColumnRef plus whether anything was rewritten.
+ *
+ * Only the managed-warehouse events fact table had materialized columns, so refs that
+ * point at any other fact table on the same datasource (e.g. a user's custom fact table
+ * that happens to share a column name) are left untouched to avoid rewriting them to a
+ * JSON path that doesn't exist there.
  */
 export function rewriteColumnRef(
   ref: ColumnRef,
   map: Record<string, string>,
+  eventsFactTableId: string,
 ): { columnRef: ColumnRef; changed: boolean } {
+  if (ref.factTableId !== eventsFactTableId) {
+    return { columnRef: ref, changed: false };
+  }
+
   let changed = false;
   const remap = (column: string): string => {
     const replacement = map[column];
@@ -94,10 +104,11 @@ export function rewriteColumnRef(
 export function rewriteFactMetricColumns(
   metric: Pick<FactMetricInterface, "numerator" | "denominator">,
   map: Record<string, string>,
+  eventsFactTableId: string,
 ): { numerator: ColumnRef; denominator: ColumnRef | null } | null {
-  const numerator = rewriteColumnRef(metric.numerator, map);
+  const numerator = rewriteColumnRef(metric.numerator, map, eventsFactTableId);
   const denominator = metric.denominator
-    ? rewriteColumnRef(metric.denominator, map)
+    ? rewriteColumnRef(metric.denominator, map, eventsFactTableId)
     : null;
 
   if (!numerator.changed && !(denominator?.changed ?? false)) return null;

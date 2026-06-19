@@ -359,7 +359,11 @@ async function rewriteManagedWarehouseFactMetrics(
     datasourceId,
   });
   for (const metric of factMetrics) {
-    const updates = rewriteFactMetricColumns(metric, rewriteMap);
+    const updates = rewriteFactMetricColumns(
+      metric,
+      rewriteMap,
+      MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID,
+    );
     if (!updates) continue;
     try {
       await context.models.factMetrics.update(metric, updates);
