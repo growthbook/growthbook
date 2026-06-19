@@ -24,10 +24,16 @@ import { buildMaterializedColumnRewriteMap } from "back-end/src/util/migrateMana
 // Reports every warehouse still on materialized columns and flags anything that needs
 // manual attention before (or instead of) an automated migration.
 
+// Anything not fully migrated. Matches the migration script's predicate so a
+// partially-migrated warehouse (flag flipped but materializedColumns not yet
+// cleared) is still surfaced here instead of silently reporting "0 legacy".
 function isLegacyManagedWarehouse(
   ds: DataSourceInterface,
 ): ds is GrowthbookClickhouseDataSource {
-  return ds.type === "growthbook_clickhouse" && !ds.settings.useJsonColumns;
+  return (
+    ds.type === "growthbook_clickhouse" &&
+    !(ds.settings.useJsonColumns && !ds.settings.materializedColumns?.length)
+  );
 }
 
 function columnRefReferences(ref: ColumnRef, names: Set<string>): boolean {
@@ -107,14 +113,18 @@ async function run() {
     const dependentFilters: string[] = [];
     for (const ft of factTables) {
       for (const filter of ft.filters || []) {
-        const hit = [...rewritable].find((name) =>
-          new RegExp(`\\b${name}\\b`).test(filter.value),
-        );
+        const hit = [...rewritable].find((name) => {
+          const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+          return new RegExp(`\\b${escaped}\\b`).test(filter.value);
+        });
         if (hit) dependentFilters.push(`${ft.id}/${filter.id} (${hit})`);
       }
     }
 
     const flags: string[] = [];
+    if (ds.settings.useJsonColumns) {
+      flags.push("PARTIALLY MIGRATED (resume: re-run migration to finish)");
+    }
     if (!ds.settings.hasBeenProvisioned) flags.push("NOT PROVISIONED");
     if (renamingIdentifiers.length) {
       flags.push(

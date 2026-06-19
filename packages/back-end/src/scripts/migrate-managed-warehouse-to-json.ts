@@ -74,7 +74,10 @@ async function rewriteFactMetrics(
   return { rewritten, failed };
 }
 
-async function migrateWarehouse(ds: GrowthbookClickhouseDataSource) {
+// Returns the number of metrics that need manual fixup (0 on a fully-clean run).
+async function migrateWarehouse(
+  ds: GrowthbookClickhouseDataSource,
+): Promise<number> {
   const context = await getContextForAgendaJobByOrgId(ds.organization);
   const attributeSchema = context.org.settings?.attributeSchema;
   const matCols: MaterializedColumn[] = ds.settings.materializedColumns || [];
@@ -95,7 +98,7 @@ async function migrateWarehouse(ds: GrowthbookClickhouseDataSource) {
     console.log(
       `    [dry-run] would flip useJsonColumns, recreate tables, re-sync identifiers, rewrite ${rewritten} metric(s), and clear materializedColumns`,
     );
-    return;
+    return 0;
   }
 
   // 1. Flip the flag (keep materializedColumns so a crash before the final clear
@@ -134,9 +137,13 @@ async function migrateWarehouse(ds: GrowthbookClickhouseDataSource) {
         : ""
     }).`,
   );
+  return failed.length;
 }
 
-async function run() {
+// Resolves to the number of warehouses that didn't migrate fully cleanly (a hard
+// per-warehouse failure or any metric left needing manual fixup), so the caller
+// can exit non-zero for CI/automation.
+async function run(): Promise<number> {
   await init();
 
   const allDatasources = await _dangerousGetAllDatasources();
@@ -146,22 +153,25 @@ async function run() {
     `${DRY_RUN ? "[dry-run] " : ""}Found ${legacy.length} legacy managed warehouse(s) to migrate.\n`,
   );
 
+  let incomplete = 0;
   for (const ds of legacy) {
     try {
-      await migrateWarehouse(ds);
+      if ((await migrateWarehouse(ds)) > 0) incomplete++;
     } catch (e) {
+      incomplete++;
       console.error(`  Failed to migrate '${ds.name}' (${ds.id}):`, e);
     }
   }
+  return incomplete;
 }
 
 run()
-  .then(() => {
+  .then((incomplete) => {
     console.log("\nDone!");
+    // Non-zero when any warehouse failed or left metrics needing manual fixup.
+    process.exit(incomplete > 0 ? 1 : 0);
   })
   .catch((e) => {
     console.error(e);
-  })
-  .finally(() => {
-    process.exit(0);
+    process.exit(1);
   });
