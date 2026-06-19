@@ -367,7 +367,10 @@ export async function updateDashboardExplorations(
       // Re-resolve the comparison every refresh so predefined previous windows
       // roll forward with the primary range (custom windows stay fixed).
       const comparison = resolveBlockComparison(block, dashboard);
-      const [exploration, comparisonExploration] = await Promise.all([
+      // allSettled (not all): a comparison failure (timeout, upstream schema
+      // change, transient warehouse issue) must not block the primary refresh
+      // and leave the whole block frozen at its last refresh.
+      const [primaryResult, comparisonResult] = await Promise.allSettled([
         runProductAnalyticsExploration(context, block.config, {
           cache: "never",
         }),
@@ -385,13 +388,28 @@ export async function updateDashboardExplorations(
             )
           : Promise.resolve(null),
       ]);
+      if (primaryResult.status === "rejected") {
+        throw primaryResult.reason;
+      }
       // This should never happen when cache="never", but just in case
-      if (!exploration) {
+      if (!primaryResult.value) {
         throw new Error("Failed run to run product analytics query");
       }
-      block.explorerAnalysisId = exploration.id;
-      // Clear a stale comparison id when comparison is off (e.g. toggled off).
-      block.comparisonExplorerAnalysisId = comparisonExploration?.id;
+      block.explorerAnalysisId = primaryResult.value.id;
+      if (comparisonResult.status === "fulfilled") {
+        // Clear a stale comparison id when comparison is off (null result).
+        block.comparisonExplorerAnalysisId = comparisonResult.value?.id;
+      } else {
+        // Keep the previous comparison id so the primary still refreshes.
+        logger.warn(
+          {
+            err: comparisonResult.reason,
+            blockId: block.id,
+            blockType: block.type,
+          },
+          "Failed to refresh product analytics comparison; keeping previous comparison",
+        );
+      }
       anyUpdated = true;
     } catch (e) {
       logger.warn(
