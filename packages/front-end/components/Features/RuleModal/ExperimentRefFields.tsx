@@ -88,13 +88,25 @@ export default function ExperimentRefFields({
             if (exp) {
               const controlValue = getFeatureDefaultValue(feature);
               const variationValue = getDefaultVariationValue(controlValue);
+              // When sparse is on (e.g. org default), seed each variation as a
+              // clean patch rather than the full default the rule is otherwise
+              // populated with.
+              const isSparse =
+                !!form.watch("sparse") &&
+                feature.valueType === "json" &&
+                parsePlainJSONObject(controlValue) !== null;
               form.setValue("experimentId", experimentId);
               form.setValue(
                 "variations",
-                getLatestPhaseVariations(exp).map((v, i) => ({
-                  variationId: v.id,
-                  value: i ? variationValue : controlValue,
-                })),
+                getLatestPhaseVariations(exp).map((v, i) => {
+                  const raw = i ? variationValue : controlValue;
+                  return {
+                    variationId: v.id,
+                    value: isSparse
+                      ? stripDefaultsForSparse(raw, controlValue)
+                      : raw,
+                  };
+                }),
               );
             }
           }}

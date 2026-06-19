@@ -750,16 +750,37 @@ export default function RuleModal({
     // Org opt-in: new JSON rules start in sparse mode with a clean-slate value
     // (strip keys equal to the default) so the editor isn't pre-filled with the
     // whole default object. Only for eligible JSON features; new rules only.
-    if (mode === "create" && !rule && settings?.sparseJSONRulesByDefault) {
+    // Sparse is supported only on force/rollout/experiment-ref rules (and the
+    // "experiment-ref-new" form type that becomes one). Legacy inline
+    // "experiment" and safe-rollout have no sparse field, so skip them.
+    const nv = newVal as Record<string, unknown>;
+    const sparseSupportedType =
+      nv.type === "force" ||
+      nv.type === "rollout" ||
+      nv.type === "experiment-ref" ||
+      nv.type === "experiment-ref-new";
+    if (
+      mode === "create" &&
+      !rule &&
+      settings?.sparseJSONRulesByDefault &&
+      sparseSupportedType
+    ) {
       const def = getFeatureDefaultValue(feature);
       if (feature.valueType === "json" && parsePlainJSONObject(def) !== null) {
-        const nv = newVal as Record<string, unknown>;
         nv.sparse = true;
         if (typeof nv.value === "string") {
           nv.value = stripDefaultsForSparse(nv.value, def);
         }
+        // `values` = experiment-ref-new; `variations` = experiment-ref / bandit.
+        // Both carry a per-entry `value` string.
         if (Array.isArray(nv.values)) {
           nv.values = (nv.values as { value: string }[]).map((v) => ({
+            ...v,
+            value: stripDefaultsForSparse(v.value, def),
+          }));
+        }
+        if (Array.isArray(nv.variations)) {
+          nv.variations = (nv.variations as { value: string }[]).map((v) => ({
             ...v,
             value: stripDefaultsForSparse(v.value, def),
           }));
