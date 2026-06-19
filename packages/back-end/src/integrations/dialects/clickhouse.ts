@@ -6,6 +6,15 @@ import { baseDialect } from "./base";
 const clickHouseEscapeStringLiteral = (value: string) =>
   value.replace(/\\/g, "\\\\").replace(/'/g, "''");
 
+const SAFE_CH_IDENTIFIER = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+
+// Quote a native-JSON subcolumn key. The key is a single top-level JSON field
+// (may contain spaces/dots/etc.), so backtick-quote it as one identifier when
+// it isn't a safe bare identifier — `attributes.company id` is invalid SQL,
+// `attributes.\`company id\`` is correct.
+const quoteClickHouseJsonPath = (path: string): string =>
+  SAFE_CH_IDENTIFIER.test(path) ? path : `\`${path.replace(/`/g, "``")}\``;
+
 export const clickHouseDialect: SqlDialect = {
   ...baseDialect,
   formatDialect: "clickhouse",
@@ -49,18 +58,26 @@ export const clickHouseDialect: SqlDialect = {
     `quantile(${quantile})(${value})`,
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => {
     if (isNumeric) {
+      // ::Nullable(String) + toFloat64OrNull so a native-JSON path with
+      // mixed/off-type values (e.g. an attribute retyped string<->number) yields
+      // NULL instead of throwing at query time. toFloat64 alone errors on any
+      // non-numeric value, and a plain ::String cast throws on a missing path
+      // (can't cast NULL to non-Nullable String) — Nullable(String) keeps NULL.
       return `
 if(
-  toTypeName(${jsonCol}) = 'JSON', 
-  toFloat64(${jsonCol}.${path}),
+  toTypeName(${jsonCol}) = 'JSON',
+  toFloat64OrNull(${jsonCol}.${quoteClickHouseJsonPath(path)}::Nullable(String)),
   JSONExtractFloat(${jsonCol}, '${path}')
 )
       `;
     }
+    // ::Nullable(String) (not .:String): coerce bool/date/array/number values to
+    // their string form instead of NULLing them out, while keeping NULL for missing
+    // paths (.:String only surfaces String-typed values; IS NULL stays correct).
     return `
 if(
   toTypeName(${jsonCol}) = 'JSON',
-  ${jsonCol}.${path}.:String,
+  ${jsonCol}.${quoteClickHouseJsonPath(path)}::Nullable(String),
   JSONExtractString(${jsonCol}, '${path}')
 )
       `;

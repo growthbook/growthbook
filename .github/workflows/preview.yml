@@ -61,6 +61,16 @@ jobs:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: flyctl auth docker
 
+      # The image push below targets registry.fly.io/<app>, which 404s if the
+      # app doesn't exist yet. Pre-create it so the first push on a new PR works.
+      - name: Ensure Fly app exists
+        if: ${{ github.event.action != 'closed' }}
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          flyctl apps create "${{ env.APP_NAME }}" --org growthbook || \
+            flyctl apps list | grep -qw "${{ env.APP_NAME }}"
+
       - name: Build and push preview image
         if: ${{ github.event.action != 'closed' }}
         uses: depot/build-push-action@v1
