@@ -36,6 +36,18 @@ export const databricksDialect: SqlDialect = {
     const raw = `${jsonCol}:${path}`;
     return isNumeric ? databricksDialect.castToFloat(raw) : raw;
   },
+  // Spark SQL (Databricks) — `collect_list` skips NULLs by default; we
+  // then sort the resulting array ascending. `min_by` is native.
+  arrayAggSorted: (col: string) => `array_sort(collect_list(${col}))`,
+  argMinByTimestamp: (valueCol: string, tsCol: string) =>
+    `min_by(${valueCol}, ${tsCol})`,
+  arrayMinInRange: (col, lowerBound, upperBound) => {
+    const preds: string[] = [];
+    if (lowerBound) preds.push(`x >= ${lowerBound}`);
+    if (upperBound) preds.push(`x <= ${upperBound}`);
+    const predicate = preds.length ? preds.join(" AND ") : "true";
+    return `array_min(filter(${col}, x -> ${predicate}))`;
+  },
   getDataType: (dataType: DataType): string => {
     switch (dataType) {
       case "string":

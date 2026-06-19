@@ -72,6 +72,26 @@ export const snowflakeDialect: SqlDialect = {
     `PARSE_JSON(${jsonCol}):${path}::${isNumeric ? "float" : "string"}`,
   evalBoolean: (col: string, value: boolean) =>
     `${col} = ${value ? "true" : "false"}`,
+  // Snowflake aggregate-with-sort uses `WITHIN GROUP`. NULLs are skipped
+  // by ARRAY_AGG by default, so no extra IGNORE NULLS needed.
+  arrayAggSorted: (col: string) =>
+    `ARRAY_AGG(${col}) WITHIN GROUP (ORDER BY ${col})`,
+  // MIN_BY has shipped on Snowflake since 2023 — picks `valueCol` from the
+  // row with the minimum `tsCol` (NULL timestamps are skipped).
+  argMinByTimestamp: (valueCol: string, tsCol: string) =>
+    `MIN_BY(${valueCol}, ${tsCol})`,
+  arrayMinInRange: (col, lowerBound, upperBound) => {
+    // Snowflake's array elements are VARIANT; cast each back to TIMESTAMP
+    // for the bounds comparison. `value` is the element column on the
+    // FLATTEN output table; aliasing it as `t` keeps the predicate prose
+    // identical to the other dialects.
+    const tExpr = `f.value::TIMESTAMP`;
+    const conditions: string[] = [];
+    if (lowerBound) conditions.push(`${tExpr} >= ${lowerBound}`);
+    if (upperBound) conditions.push(`${tExpr} <= ${upperBound}`);
+    const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+    return `(SELECT MIN(${tExpr}) FROM TABLE(FLATTEN(input => ${col})) f ${where})`;
+  },
   getDataType: (dataType: DataType): string => {
     switch (dataType) {
       case "string":
