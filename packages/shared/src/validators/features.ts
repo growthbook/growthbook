@@ -900,9 +900,9 @@ export const apiFeatureSafeRolloutRuleValidator = namedSchema(
   ),
 );
 
-// ---- FeatureRule (schemas/FeatureRule.yaml) - anyOf / discriminated by type ----
+// ---- FeatureRuleV1 (schemas/FeatureRuleV1.yaml) - anyOf / discriminated by type ----
 export const apiFeatureRuleValidator = namedSchema(
-  "FeatureRule",
+  "FeatureRuleV1",
   z.union([
     apiFeatureForceRuleValidator,
     apiFeatureRolloutRuleValidator,
@@ -967,9 +967,9 @@ export const apiFeatureDefinitionValidator = namedSchema(
     .strict(),
 );
 
-// ---- FeatureEnvironment (schemas/FeatureEnvironment.yaml) ----
+// ---- FeatureEnvironmentV1 (schemas/FeatureEnvironmentV1.yaml) ----
 export const apiFeatureEnvironmentValidator = namedSchema(
-  "FeatureEnvironment",
+  "FeatureEnvironmentV1",
   z
     .object({
       enabled: z.boolean(),
@@ -1072,9 +1072,9 @@ export const apiEventUserValidator = namedSchema(
 
 export type ApiEventUser = z.infer<typeof apiEventUserValidator>;
 
-// ---- FeatureRevision (schemas/FeatureRevision.yaml) ----
+// ---- FeatureRevisionV1 (schemas/FeatureRevisionV1.yaml) ----
 export const apiFeatureRevisionValidator = namedSchema(
-  "FeatureRevision",
+  "FeatureRevisionV1",
   z
     .object({
       featureId: z.string().describe("The feature this revision belongs to"),
@@ -1129,9 +1129,9 @@ export const apiFeatureRevisionValidator = namedSchema(
     .strict(),
 );
 
-// ---- Feature (schemas/Feature.yaml) ----
+// ---- FeatureV1 (schemas/FeatureV1.yaml) ----
 export const apiFeatureValidator = namedSchema(
-  "Feature",
+  "FeatureV1",
   z
     .object({
       id: z.string(),
@@ -1163,9 +1163,9 @@ export const apiFeatureValidator = namedSchema(
     .strict(),
 );
 
-// ---- FeatureWithRevisions (schemas/FeatureWithRevisions.yaml) ----
+// ---- FeatureWithRevisionsV1 (schemas/FeatureWithRevisionsV1.yaml) ----
 export const apiFeatureWithRevisionsValidator = namedSchema(
-  "FeatureWithRevisions",
+  "FeatureWithRevisionsV1",
   z.intersection(
     apiFeatureValidator,
     z.object({
