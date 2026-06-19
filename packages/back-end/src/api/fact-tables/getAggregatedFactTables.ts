@@ -4,6 +4,7 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
   buildAggregatedFactTableStatus,
   getAggregatedFactTableMetrics,
+  getMaterializedMetricIds,
   getRunningExperimentMetricIds,
 } from "back-end/src/services/aggregatedFactTables";
 import { buildAggregatedFactTableSchemaState } from "back-end/src/enterprise/services/data-pipeline";
@@ -26,20 +27,24 @@ export const getAggregatedFactTables = createApiRequestHandler(
 
   // Recompute the schema state the nightly driver would so callers can see when
   // the next run will be forced to restate. Read-only; no warehouse query.
+  // The materialized metric set is per-idType (each idType has its own table),
+  // so recompute it for each registry doc.
   const factMetrics = await req.context.models.factMetrics.getAll();
   const activeMetricIds = await getRunningExperimentMetricIds(req.context);
-  const metrics = getAggregatedFactTableMetrics({
-    factMetrics,
-    factTable,
-    activeMetricIds,
-  });
-  const { factTableSettingsHash, metricState } =
-    buildAggregatedFactTableSchemaState({ factTable, metrics });
 
   const aggregatedFactTables = idTypes.map((idType) => {
+    const doc = byIdType.get(idType);
+    const metrics = getAggregatedFactTableMetrics({
+      factMetrics,
+      factTable,
+      activeMetricIds,
+      materializedMetricIds: getMaterializedMetricIds(doc),
+    });
+    const { factTableSettingsHash, metricState } =
+      buildAggregatedFactTableSchemaState({ factTable, metrics });
     const status = buildAggregatedFactTableStatus({
       idType,
-      doc: byIdType.get(idType),
+      doc,
       factTableSettingsHash,
       metricState,
     });

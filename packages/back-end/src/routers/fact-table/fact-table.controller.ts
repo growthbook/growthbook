@@ -54,6 +54,7 @@ import {
   buildAggregatedFactTableStatus,
   deriveAggregatedFactTableRunStatus,
   getAggregatedFactTableMetrics,
+  getMaterializedMetricIds,
   getRunningExperimentMetricIds,
   runAggregatedFactTableUpdate,
   toAggregatedTableRefreshTriggerResult,
@@ -493,24 +494,29 @@ export const getAggregatedFactTables = async (
 
   // Build the same schema state the nightly driver would, so the UI can warn
   // when the next run will be forced to restate. Read-only; no warehouse query.
+  // The materialized metric set is per-idType (each idType has its own table),
+  // so recompute it for each registry doc.
   const factMetrics = await context.models.factMetrics.getAll();
   const activeMetricIds = await getRunningExperimentMetricIds(context);
-  const metrics = getAggregatedFactTableMetrics({
-    factMetrics,
-    factTable,
-    activeMetricIds,
-  });
-  const { factTableSettingsHash, metricState } =
-    buildAggregatedFactTableSchemaState({ factTable, metrics });
 
   const aggregatedFactTables: AggregatedFactTableStatus[] = idTypes.map(
-    (idType) =>
-      buildAggregatedFactTableStatus({
+    (idType) => {
+      const doc = byIdType.get(idType);
+      const metrics = getAggregatedFactTableMetrics({
+        factMetrics,
+        factTable,
+        activeMetricIds,
+        materializedMetricIds: getMaterializedMetricIds(doc),
+      });
+      const { factTableSettingsHash, metricState } =
+        buildAggregatedFactTableSchemaState({ factTable, metrics });
+      return buildAggregatedFactTableStatus({
         idType,
-        doc: byIdType.get(idType),
+        doc,
         factTableSettingsHash,
         metricState,
-      }),
+      });
+    },
   );
 
   const nextScheduledUpdate = factTable.aggregatedFactTableSettings

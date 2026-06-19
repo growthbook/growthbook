@@ -18,7 +18,7 @@ import {
 import { QueryStatus } from "shared/types/query";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
-import { getAllExperiments } from "back-end/src/models/ExperimentModel";
+import { getRunningExperimentsAcrossProjects } from "back-end/src/models/ExperimentModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { logger } from "back-end/src/util/logger";
@@ -130,10 +130,14 @@ export async function getRunningExperimentMetricIds(
   context: ReqContext | ApiReqContext,
 ): Promise<Set<string>> {
   const [running, metricGroups] = await Promise.all([
-    getAllExperiments(context, {
-      status: "running",
-      types: ["standard", "multi-armed-bandit", "holdout"],
-    }),
+    // Use the org-wide (non-permission-filtered) query so the computed metric
+    // state is identical whether this runs for a project-scoped user request or
+    // the nightly admin job.
+    getRunningExperimentsAcrossProjects(context, [
+      "standard",
+      "multi-armed-bandit",
+      "holdout",
+    ]),
     context.models.metricGroups.getAll(),
   ]);
   const ids = new Set<string>();
@@ -149,17 +153,32 @@ export async function getRunningExperimentMetricIds(
   return ids;
 }
 
+// The set of metric IDs already materialized into a fact table's pre-aggregated
+// table, including slice metrics
+export function getMaterializedMetricIds(
+  registry?: Pick<AggregatedFactTableInterface, "metricState"> | null,
+): Set<string> {
+  return new Set((registry?.metricState ?? []).map((m) => m.metricId));
+}
+
+// Keeps non-archived metrics that are either referenced by a running experiment
+// or already present in the table.
 export function getMetricsForAggregatedFactTable(
   factMetrics: FactMetricInterface[],
   factTableId: string,
   activeMetricIds: ReadonlySet<string>,
+  materializedMetricIds: ReadonlySet<string>,
 ): FactMetricInterface[] {
   return factMetrics.filter((metric) => {
+    if (metric.archived) return false;
     const referencesFactTable =
       metric.numerator.factTableId === factTableId ||
       (isRatioMetric(metric) &&
         metric.denominator?.factTableId === factTableId);
-    return referencesFactTable && activeMetricIds.has(metric.id);
+    return (
+      referencesFactTable &&
+      (activeMetricIds.has(metric.id) || materializedMetricIds.has(metric.id))
+    );
   });
 }
 
@@ -167,15 +186,18 @@ export function getAggregatedFactTableMetrics({
   factMetrics,
   factTable,
   activeMetricIds,
+  materializedMetricIds,
 }: {
   factMetrics: FactMetricInterface[];
   factTable: FactTableInterface;
   activeMetricIds: ReadonlySet<string>;
+  materializedMetricIds: ReadonlySet<string>;
 }): FactMetricInterface[] {
   const baseMetrics = getMetricsForAggregatedFactTable(
     factMetrics,
     factTable.id,
     activeMetricIds,
+    materializedMetricIds,
   );
   return baseMetrics.flatMap((metric) => [
     metric,
@@ -334,12 +356,24 @@ export async function runAggregatedFactTableUpdate(
     return { status: "skipped", reason: "unsupported-datasource" };
   }
 
+  const key = {
+    datasourceId: datasource.id,
+    factTableId: factTable.id,
+    idType,
+  };
+
   const factMetrics = await context.models.factMetrics.getAll();
   const activeMetricIds = await getRunningExperimentMetricIds(context);
+  // Metrics already materialized into this idType's table stay eligible even if
+  // no running experiment references them anymore (see getMetricsForAggregatedFactTable).
+  const existingRegistry =
+    await context.models.aggregatedFactTables.getByKey(key);
+  const materializedMetricIds = getMaterializedMetricIds(existingRegistry);
   const metrics = getAggregatedFactTableMetrics({
     factMetrics,
     factTable,
     activeMetricIds,
+    materializedMetricIds,
   });
   if (!metrics.length) {
     logger.debug(
@@ -347,12 +381,6 @@ export async function runAggregatedFactTableUpdate(
     );
     return { status: "skipped", reason: "no-eligible-metrics" };
   }
-
-  const key = {
-    datasourceId: datasource.id,
-    factTableId: factTable.id,
-    idType,
-  };
 
   const executionId = uniqid("aftexec_");
   const locked = await context.models.aggregatedFactTables.acquireLock(

@@ -211,7 +211,7 @@ describe("getMetricsForAggregatedFactTable", () => {
     aggregation: "sum" as const,
   });
 
-  it("excludes metrics that reference the fact table but are not in a running experiment", () => {
+  it("excludes metrics that reference the fact table but are neither active nor already materialized", () => {
     const active = factMetricFactory.build({
       id: "m_active",
       metricType: "mean",
@@ -227,19 +227,20 @@ describe("getMetricsForAggregatedFactTable", () => {
       [active, inactive],
       FT_ID,
       new Set([active.id]),
+      new Set(),
     );
 
     expect(result.map((m) => m.id)).toEqual([active.id]);
   });
 
-  it("returns no metrics when the active set is empty", () => {
+  it("returns no metrics when both the active and materialized sets are empty", () => {
     const metric = factMetricFactory.build({
       id: "m1",
       metricType: "mean",
       numerator: numerator(FT_ID),
     });
     expect(
-      getMetricsForAggregatedFactTable([metric], FT_ID, new Set()),
+      getMetricsForAggregatedFactTable([metric], FT_ID, new Set(), new Set()),
     ).toEqual([]);
   });
 
@@ -254,6 +255,7 @@ describe("getMetricsForAggregatedFactTable", () => {
         [otherTableMetric],
         FT_ID,
         new Set([otherTableMetric.id]),
+        new Set(),
       ),
     ).toEqual([]);
   });
@@ -269,8 +271,58 @@ describe("getMetricsForAggregatedFactTable", () => {
       [ratio],
       FT_ID,
       new Set([ratio.id]),
+      new Set(),
     );
     expect(result.map((m) => m.id)).toEqual([ratio.id]);
+  });
+
+  it("keeps an inactive metric that is already materialized in the table", () => {
+    const metric = factMetricFactory.build({
+      id: "m_materialized",
+      metricType: "mean",
+      numerator: numerator(FT_ID),
+    });
+    const result = getMetricsForAggregatedFactTable(
+      [metric],
+      FT_ID,
+      new Set(),
+      new Set([metric.id]),
+    );
+    expect(result.map((m) => m.id)).toEqual([metric.id]);
+  });
+
+  it("excludes an archived metric even when active", () => {
+    const metric = factMetricFactory.build({
+      id: "m_archived_active",
+      metricType: "mean",
+      numerator: numerator(FT_ID),
+      archived: true,
+    });
+    expect(
+      getMetricsForAggregatedFactTable(
+        [metric],
+        FT_ID,
+        new Set([metric.id]),
+        new Set(),
+      ),
+    ).toEqual([]);
+  });
+
+  it("excludes an archived metric even when already materialized", () => {
+    const metric = factMetricFactory.build({
+      id: "m_archived_materialized",
+      metricType: "mean",
+      numerator: numerator(FT_ID),
+      archived: true,
+    });
+    expect(
+      getMetricsForAggregatedFactTable(
+        [metric],
+        FT_ID,
+        new Set(),
+        new Set([metric.id]),
+      ),
+    ).toEqual([]);
   });
 });
 
@@ -315,6 +367,7 @@ describe("getAggregatedFactTableMetrics", () => {
       factMetrics: [baseMetric],
       factTable,
       activeMetricIds: new Set([baseMetric.id]),
+      materializedMetricIds: new Set(),
     });
 
     // base metric + its auto-slice metrics
@@ -322,14 +375,33 @@ describe("getAggregatedFactTableMetrics", () => {
     expect(result[0].id).toEqual(baseMetric.id);
   });
 
-  it("drops a base metric (and its slices) when it is not active", () => {
+  it("drops a base metric (and its slices) when it is neither active nor materialized", () => {
     const baseMetric = buildBaseMetric("m_inactive");
     const result = getAggregatedFactTableMetrics({
       factMetrics: [baseMetric],
       factTable,
       activeMetricIds: new Set(),
+      materializedMetricIds: new Set(),
     });
     expect(result).toEqual([]);
+  });
+
+  it("keeps an inactive base metric (and its slices) when it is already materialized", () => {
+    const baseMetric = buildBaseMetric("m_materialized");
+    const expectedSliceCount = getAutoSliceMetrics({
+      metric: baseMetric,
+      factTable,
+    }).length;
+
+    const result = getAggregatedFactTableMetrics({
+      factMetrics: [baseMetric],
+      factTable,
+      activeMetricIds: new Set(),
+      materializedMetricIds: new Set([baseMetric.id]),
+    });
+
+    expect(result).toHaveLength(1 + expectedSliceCount);
+    expect(result[0].id).toEqual(baseMetric.id);
   });
 });
 

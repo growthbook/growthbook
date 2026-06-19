@@ -520,6 +520,28 @@ export async function getAllExperiments(
   return await findExperiments(context, query, limit, sortBy);
 }
 
+// Returns running experiments across ALL projects in the org, bypassing the
+// caller's project read permissions.
+// Do NOT use this to return experiments to a user.
+export async function getRunningExperimentsAcrossProjects(
+  context: ReqContext | ApiReqContext,
+  types: ExperimentType[],
+): Promise<ExperimentInterface[]> {
+  const typeValues: (ExperimentType | null)[] = types.flatMap((t) =>
+    // "standard" must also match legacy docs where type is unset (null)
+    t === "standard" ? ["standard", null] : [t],
+  );
+  const docs = await getCollection(COLLECTION)
+    .find({
+      organization: context.org.id,
+      status: "running",
+      archived: { $ne: true },
+      type: { $in: typeValues },
+    })
+    .toArray();
+  return docs.map(toInterface);
+}
+
 export async function hasArchivedExperiments(
   context: ReqContext | ApiReqContext,
   project?: string,
