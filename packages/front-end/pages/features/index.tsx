@@ -692,7 +692,7 @@ export default function FeaturesPage() {
       )}
       <Flex align="center" justify="between" gap="3" mt="4" mb="2">
         <Box style={{ flex: 1 }}>
-          <h1>Features</h1>
+          <h1>Feature Flags</h1>
         </Box>
         {!showSetUpFlow && (
           <Box>

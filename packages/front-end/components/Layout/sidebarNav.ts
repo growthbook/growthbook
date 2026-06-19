@@ -21,7 +21,20 @@ export const navlinks: SidebarLinkProps[] = [
     name: "Features",
     href: "/features",
     Icon: BsFlag,
-    path: /^(features)/,
+    path: /^(features|constants)/,
+    navigateOnExpand: true,
+    subLinks: [
+      {
+        name: "Feature Flags",
+        href: "/features",
+        path: /^features/,
+      },
+      {
+        name: "Constants",
+        href: "/constants",
+        path: /^constants/,
+      },
+    ],
   },
   {
     name: "Experimentation",

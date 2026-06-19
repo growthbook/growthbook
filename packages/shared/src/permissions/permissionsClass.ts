@@ -28,6 +28,7 @@ import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { IdeaInterface } from "shared/types/idea";
 import { ArchetypeInterface } from "shared/types/archetype";
 import { SavedGroupInterface } from "shared/types/saved-group";
+import { ConstantInterface } from "shared/types/constant";
 import { CustomHookInterface } from "../validators/custom-hooks";
 import { EventForwarderConfigInterface } from "../validators/event-forwarder-config";
 import { HoldoutInterface } from "../validators/holdout";
@@ -1272,6 +1273,29 @@ export class Permissions {
     savedGroup: Pick<SavedGroupInterface, "projects">,
   ): boolean => {
     return this.checkProjectFilterPermission(savedGroup, "manageSavedGroups");
+  };
+
+  public canCreateConstant = (
+    constant: Pick<ConstantInterface, "projects">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(constant, "manageConstants");
+  };
+
+  public canUpdateConstant = (
+    existing: Pick<ConstantInterface, "projects">,
+    updates: Pick<ConstantInterface, "projects">,
+  ): boolean => {
+    return this.checkProjectFilterUpdatePermission(
+      existing,
+      updates,
+      "manageConstants",
+    );
+  };
+
+  public canDeleteConstant = (
+    constant: Pick<ConstantInterface, "projects">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(constant, "manageConstants");
   };
 
   public canBypassSavedGroupSizeLimit = (projects?: string[]): boolean => {

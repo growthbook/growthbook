@@ -1,0 +1,85 @@
+---
+title: Constants
+description: Define reusable values once and reference them from feature flags
+sidebar_label: Constants
+slug: /features/constants
+---
+
+Constants are reusable named values you define once in GrowthBook and reference from feature flag values. Change a constant in one place and every flag that references it picks up the new value the next time its SDK payload is built — no need to edit each flag.
+
+Common uses:
+
+- A shared endpoint or hostname used across many flags (e.g. an API server URL).
+- A block of JSON config reused by several flags.
+- Values that differ per environment (e.g. a production vs. staging URL) behind a single reference.
+
+## Constant types
+
+Each constant has one type:
+
+- **String** — a plain string value (URLs, keys, identifiers, etc.).
+- **JSON** — a JSON value (object, array, etc.).
+
+## Per-environment values
+
+A constant has a **default value** plus optional **per-environment overrides**. When a flag is built for an environment, the constant resolves to:
+
+```
+environmentValues[environment] ?? defaultValue
+```
+
+So a constant with a default of `https://api.example.com` and a `staging` override of `https://staging-api.example.com` resolves to the staging value when building the staging payload, and the default everywhere else.
+
+A constant must define at least a default value or one environment override.
+
+## Referencing constants
+
+Constants are referenced by their **key** — a slug auto-generated from the name (e.g. a constant named "API Server" gets the key `api-server`). The reference syntax depends on the constant's type:
+
+### String constants — `{{ @const:key }}`
+
+Interpolate a string constant anywhere inside a feature's string value (including inside a string field of a JSON value):
+
+```
+Connect to {{ @const:api-server }} on port {{ @const:api-port }}.
+```
+
+```json
+{
+  "endpoint": "{{ @const:api-server }}"
+}
+```
+
+### JSON constants — `{ "@const:key": true }`
+
+Reference a JSON constant as a whole value. Anywhere a JSON value is expected, an object whose only key is the constant reference is replaced by that constant's value:
+
+```json
+{
+  "@const:default-config": true
+}
+```
+
+This also works for a nested value:
+
+```json
+{
+  "limits": { "@const:default-limits": true }
+}
+```
+
+The `true` is just a required placeholder — its value is ignored.
+
+## How resolution works
+
+References are resolved **when the SDK payload is built**, on the server. SDKs receive the fully-resolved value, so no SDK changes or upgrades are required.
+
+A few rules:
+
+- **On by default.** Feature values are scanned for references automatically.
+- **Escape literals.** To keep a literal `{{ @const:... }}` or `@const:` key in a value, wrap it in backticks.
+- **Graceful failure.** A reference that can't be resolved — the constant doesn't exist, the type doesn't match the syntax (e.g. `{{ }}` pointing at a JSON constant), or it would form a cycle — is left in place as literal text rather than failing the build.
+
+## Permissions
+
+Creating, editing, and deleting constants requires the **Manage Constants** permission (the `ConstantsFullAccess` policy), which is included in the Engineer, Experimenter, and Admin roles by default. Constants can be scoped to specific projects.
