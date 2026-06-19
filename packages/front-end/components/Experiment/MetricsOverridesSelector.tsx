@@ -26,6 +26,7 @@ import { capitalizeFirstLetter } from "@/services/utils";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import MetricName from "@/components/Metrics/MetricName";
+import Link from "@/ui/Link";
 import { getDefaultMetricOverridesFormValue } from "./EditMetricsForm";
 import MetricSelector from "./MetricSelector";
 
@@ -167,16 +168,14 @@ export default function MetricsOverridesSelector({
           return (
             <div className="appbox px-3 pt-1 bg-light" key={i}>
               <div style={{ float: "right" }}>
-                <a
-                  href="#"
-                  className="text-danger"
-                  onClick={(e) => {
-                    e.preventDefault();
+                <Link
+                  color="red"
+                  onClick={() => {
                     metricOverrides.remove(i);
                   }}
                 >
                   remove
-                </a>
+                </Link>
               </div>
 
               <div>

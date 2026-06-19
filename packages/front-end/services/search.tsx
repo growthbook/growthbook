@@ -408,10 +408,7 @@ export function useSearch<T extends { id: string }>({
             }}
           >
             {children}{" "}
-            <a
-              href="#"
-              className={showSortDirection ? "activesort" : "inactivesort"}
-            >
+            <span className={showSortDirection ? "activesort" : "inactivesort"}>
               {showSortDirection ? (
                 sort.dir < 0 ? (
                   <FaSortDown />
@@ -421,7 +418,7 @@ export function useSearch<T extends { id: string }>({
               ) : (
                 <FaSort />
               )}
-            </a>
+            </span>
           </span>
         </th>
       );
@@ -452,10 +449,7 @@ export function useSearch<T extends { id: string }>({
             }}
           >
             {children}{" "}
-            <a
-              href="#"
-              className={showSortDirection ? "activesort" : "inactivesort"}
-            >
+            <span className={showSortDirection ? "activesort" : "inactivesort"}>
               {showSortDirection ? (
                 sort.dir < 0 ? (
                   <FaSortDown />
@@ -465,7 +459,7 @@ export function useSearch<T extends { id: string }>({
               ) : (
                 <FaSort />
               )}
-            </a>
+            </span>
           </span>
         </TableColumnHeader>
       );

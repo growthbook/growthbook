@@ -484,16 +484,12 @@ export default function FeatureFromExperimentModal({
               onChange={(tags) => form.setValue("tags", tags)}
             />
           ) : (
-            <a
-              href="#"
+            <Link
               className="badge badge-light badge-pill mr-3 mb-3"
-              onClick={(e) => {
-                e.preventDefault();
-                setShowTags(true);
-              }}
+              onClick={() => setShowTags(true)}
             >
               + tags
-            </a>
+            </Link>
           )}
 
           {showDescription ? (
@@ -506,16 +502,12 @@ export default function FeatureFromExperimentModal({
               />
             </div>
           ) : (
-            <a
-              href="#"
+            <Link
               className="badge badge-light badge-pill mb-3"
-              onClick={(e) => {
-                e.preventDefault();
-                setShowDescription(true);
-              }}
+              onClick={() => setShowDescription(true)}
             >
               + description
-            </a>
+            </Link>
           )}
 
           <ValueTypeField

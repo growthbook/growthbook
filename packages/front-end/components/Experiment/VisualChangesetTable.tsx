@@ -30,6 +30,7 @@ import EditDOMMutationsModal from "@/components/Experiment/EditDOMMutationsModal
 import EnvironmentStatesGrid from "@/components/Experiment/LinkedChanges/EnvironmentStatesGrid";
 import OpenVisualEditorLink from "@/components/OpenVisualEditorLink";
 import ConfirmDialog from "@/ui/ConfirmDialog";
+import Link from "@/ui/Link";
 import {
   ChangeType,
   Humanized,
@@ -520,7 +521,7 @@ function VariationRow({
         </Box>
         <Flex className={styles.rowActions}>
           {previewUrl && (
-            <a
+            <Link
               className={styles.ghostAction}
               href={previewUrl}
               target="_blank"
@@ -528,7 +529,7 @@ function VariationRow({
             >
               Preview
               <PiArrowSquareOutBold size={12} />
-            </a>
+            </Link>
           )}
           {canEdit && change && (
             <button
@@ -741,14 +742,14 @@ function UrlCard({
         <Box className={styles.cardHeaderTitleBlock}>
           <Flex className={styles.cardUrlRow}>
             {linkUrl ? (
-              <a
+              <Link
                 className={styles.cardUrl}
                 href={linkUrl}
                 target="_blank"
                 rel="noopener noreferrer"
               >
                 {editorUrl}
-              </a>
+              </Link>
             ) : (
               <span className={styles.cardUrl}>{editorUrl || "(no URL)"}</span>
             )}

@@ -1,4 +1,5 @@
 import { ReactNode, FC } from "react";
+import Link from "@/ui/Link";
 
 const RightRailSection: FC<{
   open?: () => void;
@@ -9,16 +10,12 @@ const RightRailSection: FC<{
   return (
     <div>
       {open && canOpen && (
-        <a
-          href="#"
+        <Link
           className="float-right text-purple font-weight-semibold"
-          onClick={(e) => {
-            e.preventDefault();
-            open();
-          }}
+          onClick={() => open()}
         >
           Edit
-        </a>
+        </Link>
       )}
       <h4>{title}</h4>
       {children}

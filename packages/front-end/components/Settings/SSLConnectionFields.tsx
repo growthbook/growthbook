@@ -2,6 +2,7 @@ import { ChangeEventHandler, useState } from "react";
 import { FaCaretDown, FaCaretRight } from "react-icons/fa";
 import Field from "@/components/Forms/Field";
 import Switch from "@/ui/Switch";
+import Link from "@/ui/Link";
 
 export interface Props {
   value: {
@@ -34,15 +35,13 @@ export default function SSLConnectionFields({
             }}
           />
           {value.ssl && (
-            <a
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
+            <Link
+              onClick={() => {
                 setCerts(!certs);
               }}
             >
               Advanced SSL Settings {certs ? <FaCaretDown /> : <FaCaretRight />}
-            </a>
+            </Link>
           )}
         </div>
       </div>

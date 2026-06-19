@@ -3,6 +3,7 @@ import clsx from "clsx";
 import { BsArrowRepeat } from "react-icons/bs";
 import { FaCheck } from "react-icons/fa";
 import Button from "@/components/Button";
+import Link from "@/ui/Link";
 import styles from "./CheckSDKConnectionResults.module.scss";
 
 type Props = {
@@ -59,9 +60,9 @@ export default function TestConnectionResults({
           <p>
             Something isn&apos;t quite right. Please double check that
             you&apos;ve implemented the SDK instructions correctly.{" "}
-            <a href="#" onClick={close} className="pl-1">
+            <Link onClick={close} className="pl-1">
               View Implementation Instructions.
-            </a>
+            </Link>
           </p>
         </>
       )}

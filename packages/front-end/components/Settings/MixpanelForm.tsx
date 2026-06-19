@@ -1,6 +1,7 @@
 import { FC, ChangeEventHandler } from "react";
 import { MixpanelConnectionParams } from "shared/types/integrations/mixpanel";
 import SelectField from "@/components/Forms/SelectField";
+import Link from "@/ui/Link";
 
 const MixpanelForm: FC<{
   params: Partial<MixpanelConnectionParams>;
@@ -12,13 +13,13 @@ const MixpanelForm: FC<{
     <>
       <div className="alert alert-info">
         To connect to Mixpanel, first create a Service Account from your{" "}
-        <a
+        <Link
           href="https://mixpanel.com/settings/project#serviceaccounts"
           target="_blank"
           rel="noreferrer noopener"
         >
           Mixpanel Project Settings
-        </a>
+        </Link>
         .
       </div>
       <div className="row">

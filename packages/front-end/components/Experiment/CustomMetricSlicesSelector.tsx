@@ -20,6 +20,7 @@ import { useUser } from "@/services/UserContext";
 import SelectField from "@/components/Forms/SelectField";
 import Field from "@/components/Forms/Field";
 import Button from "@/ui/Button";
+import Link from "@/ui/Link";
 import { DocLink } from "@/components/DocLink";
 
 interface MetricWithStringColumns extends FactMetricInterface {
@@ -347,14 +348,13 @@ export default function CustomMetricSlicesSelector({
           })}
 
           {editState === null ? (
-            <a
-              role="button"
+            <Link
               className="d-inline-block link-purple font-weight-bold mt-1"
               onClick={() => startEditing(-1)}
             >
               <FaPlusCircle className="mr-1" />
               Add custom slice
-            </a>
+            </Link>
           ) : editState === "adding" ? (
             // Adding new entry
             <div className="appbox px-2 py-1 mb-2">
@@ -520,16 +520,9 @@ function SliceSelector({
       </div>
     ) : null
   ) : shouldShowAndButton ? (
-    <a
-      role="button"
-      onClick={(e) => {
-        e.preventDefault();
-        setAddingSlice(true);
-      }}
-      className="link-purple mx-1"
-    >
+    <Link onClick={() => setAddingSlice(true)} className="link-purple mx-1">
       + AND
-    </a>
+    </Link>
   ) : null;
 }
 

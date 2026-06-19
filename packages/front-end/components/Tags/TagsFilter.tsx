@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { isDefined } from "shared/util";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import Link from "@/ui/Link";
 import TagsInput from "./TagsInput";
 
 interface ItemWithTags {
@@ -79,17 +80,14 @@ export default function TagsFilter({
 
   if (!open && !tags.length) {
     return (
-      <a
-        role="button"
-        className="link-purple"
-        onClick={(e) => {
-          e.preventDefault();
+      <Link
+        onClick={() => {
           setOpen(true);
           setAutofocus(true);
         }}
       >
         Filter by tags...
-      </a>
+      </Link>
     );
   }
 

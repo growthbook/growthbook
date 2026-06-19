@@ -1,6 +1,5 @@
 import { PiArrowRight, PiCheckCircleFill } from "react-icons/pi";
 import { useState, useEffect } from "react";
-import NextLink from "next/link";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { Box, Separator } from "@radix-ui/themes";
 import { useRouter } from "next/router";
@@ -169,7 +168,7 @@ const ExperimentGuide = (): React.ReactElement => {
                 )}
               </div>
               <div className="col">
-                <NextLink
+                <Link
                   href="/sdks"
                   style={{
                     fontSize: "17px",
@@ -186,7 +185,7 @@ const ExperimentGuide = (): React.ReactElement => {
                   }
                 >
                   Integrate the GrowthBook SDK into your app
-                </NextLink>
+                </Link>
                 <Box mt="2">Allow GrowthBook to communicate with your app.</Box>
                 <Separator size="4" my="4" />
               </div>
@@ -219,7 +218,7 @@ const ExperimentGuide = (): React.ReactElement => {
                   )}
                 </div>
                 <div className="col">
-                  <NextLink
+                  <Link
                     href={`/experiment/${generatedHypothesis.experiment}`}
                     style={{
                       fontSize: "17px",
@@ -240,7 +239,7 @@ const ExperimentGuide = (): React.ReactElement => {
                     }
                   >
                     Configure Your Auto-generated Experiment
-                  </NextLink>
+                  </Link>
                   <p className="mt-2">
                     Define any additional settings, rules and targeting as
                     desired. Then, click “Run experiment.”
@@ -274,7 +273,7 @@ const ExperimentGuide = (): React.ReactElement => {
                   )}
                 </div>
                 <div className="col">
-                  <NextLink
+                  <Link
                     href="/experiments"
                     style={{
                       fontSize: "17px",
@@ -294,7 +293,7 @@ const ExperimentGuide = (): React.ReactElement => {
                     {project
                       ? "Design the First Experiment for this Project"
                       : "Design Your Organization’s First Experiment"}
-                  </NextLink>
+                  </Link>
                   <Box mt="2">
                     Create an experiment and change variations. Choose from
                     Feature Flags, URL Redirects, or the Visual Editor (Pro).
@@ -331,7 +330,7 @@ const ExperimentGuide = (): React.ReactElement => {
                   )}
                 </div>
                 <div className="col">
-                  <NextLink
+                  <Link
                     href="/experiments"
                     style={{
                       fontSize: "17px",
@@ -372,7 +371,7 @@ const ExperimentGuide = (): React.ReactElement => {
                     >
                       Start the Test
                     </Tooltip>
-                  </NextLink>
+                  </Link>
                   <Box mt="2">
                     Define any additional settings, rules and targeting as
                     desired. Then, click “Run experiment.”
@@ -408,7 +407,7 @@ const ExperimentGuide = (): React.ReactElement => {
                 )}
               </div>
               <div className="col">
-                <NextLink
+                <Link
                   href="/datasources"
                   style={{
                     fontSize: "17px",
@@ -425,7 +424,7 @@ const ExperimentGuide = (): React.ReactElement => {
                   }
                 >
                   Connect to Your Data Warehouse
-                </NextLink>
+                </Link>
                 <Box mt="2">
                   Allow GrowthBook to query your warehouse to compute traffic
                   totals and metric results.

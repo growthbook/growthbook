@@ -12,6 +12,7 @@ import Button from "@/components/Button";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
+import Link from "@/ui/Link";
 
 const generatePlatformUrl = (
   platformUrl: string,
@@ -134,7 +135,7 @@ export default function FeaturesStats({
                 <div key={i} className="my-2 p-2">
                   <div className="px-1">
                     {codeRefsPlatformUrl && (
-                      <a
+                      <Link
                         href={generatePlatformUrl(
                           codeRefsPlatformUrl,
                           codeRef.repo,
@@ -145,7 +146,7 @@ export default function FeaturesStats({
                         )}
                       >
                         <FaExternalLinkAlt className="mr-2 cursor-pointer" />
-                      </a>
+                      </Link>
                     )}
                     <code>{ref.filePath}</code>
                   </div>

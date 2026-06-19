@@ -8,6 +8,7 @@ import UpgradeModal from "@/components/Settings/UpgradeModal";
 import AccountPlanNotices from "@/components/Layout/AccountPlanNotices";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
+import Link from "@/ui/Link";
 import { isCloud } from "@/services/env";
 import RefreshLicenseButton from "./RefreshLicenseButton";
 import DownloadLicenseUsageButton from "./DownloadLicenseUsageButton";
@@ -110,16 +111,14 @@ const ShowLicenseInfo: FC<{
                       >
                         {license ? "***************" : "(none)"}
                       </div>{" "}
-                      <a
-                        href="#"
+                      <Link
                         className="pl-1"
-                        onClick={(e) => {
-                          e.preventDefault();
+                        onClick={() => {
                           setEditLicenseOpen(true);
                         }}
                       >
                         <FaPencilAlt />
-                      </a>
+                      </Link>
                     </div>
                   )}
                   {license &&

@@ -17,6 +17,7 @@ import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
 import Checkbox from "@/ui/Checkbox";
+import Link from "@/ui/Link";
 
 type EditExperimentAssignmentQueryProps = {
   exposureQuery?: ExposureQuery;
@@ -292,17 +293,13 @@ export const AddEditExperimentAssignmentQueryModal: FC<
               </div>
 
               <div className="form-group">
-                <a
-                  href="#"
+                <Link
                   className="ml-auto"
                   style={{ fontSize: "0.9em" }}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setShowAdvancedMode(!showAdvancedMode);
-                  }}
+                  onClick={() => setShowAdvancedMode(!showAdvancedMode)}
                 >
                   {showAdvancedMode ? "Hide" : "Show"} Advanced Options
-                </a>
+                </Link>
                 {showAdvancedMode && (
                   <div>
                     <div>

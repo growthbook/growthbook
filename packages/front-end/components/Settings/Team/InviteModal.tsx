@@ -12,6 +12,7 @@ import StringArrayField from "@/components/Forms/StringArrayField";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { useUser } from "@/services/UserContext";
 import { isCloud } from "@/services/env";
+import Link from "@/ui/Link";
 import RoleSelector from "./RoleSelector";
 
 type InviteResult = {
@@ -88,9 +89,13 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
         <div className="my-3">
           Whoops! You reached the seat limit on your license. To increase your
           number of seats, please contact{" "}
-          <a href="mailto:sales@growthbook.io" target="_blank" rel="noreferrer">
+          <Link
+            href="mailto:sales@growthbook.io"
+            target="_blank"
+            rel="noreferrer"
+          >
             sales@growthbook.io
-          </a>
+          </Link>
           .
         </div>
       </Modal>

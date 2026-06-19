@@ -1,6 +1,5 @@
 import { PiCheckCircleFill } from "react-icons/pi";
 import { useState, useEffect } from "react";
-import Link from "next/link";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { Box, Grid, Separator } from "@radix-ui/themes";
 import DocumentationSidebar from "@/components/GetStarted/DocumentationSidebar";
@@ -14,6 +13,7 @@ import Frame from "@/ui/Frame";
 import DataSourceDiagram from "@/components/InitialSetup/DataSourceDiagram";
 import ViewSampleDataButton from "@/components/GetStarted/ViewSampleDataButton";
 import Callout from "@/ui/Callout";
+import Link from "@/ui/Link";
 
 // Also used for the `Launch Setup Flow` button to keep it aligned
 const DOCUMENTATION_SIDEBAR_WIDTH = "minmax(0, 245px)";

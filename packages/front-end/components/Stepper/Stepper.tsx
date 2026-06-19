@@ -1,6 +1,7 @@
 import { Flex } from "@radix-ui/themes";
 import clsx from "clsx";
 import { PiCheck, PiCircleDashed } from "react-icons/pi";
+import Link from "@/ui/Link";
 
 type Step = {
   label: string;
@@ -44,12 +45,10 @@ export default function Stepper({
             })}
             key={i}
           >
-            <a
+            <Link
               key={i}
-              role="button"
               className="nav-link"
-              onClick={async (e) => {
-                e.preventDefault();
+              onClick={async () => {
                 setError("");
                 try {
                   await validateSteps?.(i);
@@ -71,7 +70,7 @@ export default function Stepper({
                 )}
               </span>
               <span className="step-title">{label}</span>
-            </a>
+            </Link>
           </Flex>
         );
       })}

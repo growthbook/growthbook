@@ -1,5 +1,4 @@
 import { ReportInterface } from "shared/types/report";
-import Link from "next/link";
 import React from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useRouter } from "next/router";
@@ -12,6 +11,7 @@ import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import ShareStatusBadge from "@/components/Report/ShareStatusBadge";
+import Link from "@/ui/Link";
 
 export default function ExperimentReportsList({
   experiment,
@@ -107,7 +107,8 @@ export default function ExperimentReportsList({
 
                     <Link
                       href={`/report/${report.id}`}
-                      className={`text-dark font-weight-bold`}
+                      color="dark"
+                      weight="bold"
                     >
                       {report.title}
                     </Link>
@@ -120,7 +121,7 @@ export default function ExperimentReportsList({
                     router.push(`/report/${report.id}`);
                   }}
                 >
-                  <Link href={`/report/${report.id}`} className={`text-dark`}>
+                  <Link href={`/report/${report.id}`} color="dark">
                     {report.description}
                   </Link>
                 </td>

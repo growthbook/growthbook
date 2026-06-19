@@ -25,6 +25,7 @@ import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
+import Link from "@/ui/Link";
 
 const DataInput = ({
   form,
@@ -99,8 +100,7 @@ const ResetText = ({
   if (metricsEditable) {
     return (
       <Tooltip body="Reset to data values" usePortal={true} tipPosition="top">
-        <a
-          role="button"
+        <Link
           className="ml-1 mb-0"
           onClick={() => {
             const savedData = form.getValues("savedData");
@@ -136,14 +136,13 @@ const ResetText = ({
           }}
         >
           Reset to data values.
-        </a>
+        </Link>
       </Tooltip>
     );
   }
 
   return (
-    <a
-      role="button"
+    <Link
       className="ml-1 mb-0"
       onClick={() => {
         setMetricsEditable(true);
@@ -151,7 +150,7 @@ const ResetText = ({
       }}
     >
       Customize values.
-    </a>
+    </Link>
   );
 };
 

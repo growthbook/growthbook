@@ -2,6 +2,7 @@ import { SDKLanguage } from "shared/types/sdk-connection";
 import { useState } from "react";
 import { Box } from "@radix-ui/themes";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
+import Link from "@/ui/Link";
 import SDKLanguageLogo, {
   getLanguagesByFilter,
   LanguageFilter,
@@ -308,15 +309,7 @@ export default function SDKLanguageSelector({
           )}
         {!includeAll && limitLanguages && !hideShowAllLanguages && (
           <div className="col-auto align-self-center" style={{ marginTop: 10 }}>
-            <a
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                setIncludeAll(true);
-              }}
-            >
-              Show All Languages
-            </a>
+            <Link onClick={() => setIncludeAll(true)}>Show All Languages</Link>
           </div>
         )}
       </div>

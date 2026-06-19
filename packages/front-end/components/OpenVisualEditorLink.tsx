@@ -266,21 +266,19 @@ const OpenVisualEditorLink: FC<{
             <>
               You&apos;ll need to install the GrowthBook DevTools browser
               extension to use the visual editor.{" "}
-              <a
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
+              <Link
+                onClick={() =>
                   openVisualEditor({
                     vc: visualChangeset,
                     apiCall,
                     browser,
                     deviceType,
                     bypassChecks: true,
-                  });
-                }}
+                  })
+                }
               >
                 Click here to proceed anyway
-              </a>
+              </Link>
               .
             </>
           ) : (

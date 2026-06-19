@@ -325,16 +325,16 @@ export default function ResultsTable({
                     </div>
                     {editMetrics ? (
                       <div className="col d-flex align-items-end px-0">
-                        <a
-                          role="button"
-                          className="ml-1 cursor-pointer"
+                        <button
+                          type="button"
+                          className="ml-1 cursor-pointer border-0 bg-transparent p-0"
                           onClick={(e) => {
                             e.preventDefault();
                             editMetrics();
                           }}
                         >
                           <PiPencilSimpleFill />
-                        </a>
+                        </button>
                       </div>
                     ) : null}
                   </div>

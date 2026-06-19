@@ -6,6 +6,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Button from "@/ui/Button";
 import ClickToCopy from "@/components/Settings/ClickToCopy";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
+import DropdownLink from "@/components/Dropdown/DropdownLink";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
 import WebhookSecretModal from "@/components/EventWebHooks/WebhookSecretModal";
@@ -81,16 +82,13 @@ const WebhooksPage: FC = () => {
                   <td>{datetime(secret.dateUpdated)}</td>
                   <td>
                     <MoreMenu>
-                      <a
-                        href="#"
-                        className="dropdown-item"
-                        onClick={(e) => {
-                          e.preventDefault();
+                      <DropdownLink
+                        onClick={() => {
                           setEditSecretId(secret.id);
                         }}
                       >
                         Edit
-                      </a>
+                      </DropdownLink>
                       <DeleteButton
                         onClick={async () => {
                           await apiCall<void>(`/webhook-secrets/${secret.id}`, {
