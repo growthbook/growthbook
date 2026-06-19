@@ -19,6 +19,7 @@ import { SlackIntegrationAddEditModal } from "@/components/SlackIntegrations/Sla
 import { useEnvironments } from "@/services/features";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
 
 type SlackIntegrationsListViewProps = {
   onEditModalOpen: (id: string, data: SlackIntegrationEditParams) => void;
@@ -85,7 +86,7 @@ export const SlackIntegrationsListView: FC<SlackIntegrationsListViewProps> = ({
           <h1>Slack Integrations</h1>
         </div>
         <p>Get alerts in Slack when your GrowthBook data is updated.</p>
-        <div className="alert alert-premium">
+        <div className="alert-premium">
           <h4>Free while in Beta</h4>
           <p className="mb-0">
             This feature will be free while we build it out and work out the
@@ -96,7 +97,9 @@ export const SlackIntegrationsListView: FC<SlackIntegrationsListViewProps> = ({
 
       {/* Feedback messages */}
       {errorMessage && (
-        <div className="alert alert-danger my-3">{errorMessage}</div>
+        <Callout status="error" my="3">
+          {errorMessage}
+        </Callout>
       )}
 
       {/* Empty state */}

@@ -13,6 +13,7 @@ import ConfirmButton from "@/components/Modal/ConfirmButton";
 import { useAuth } from "@/services/auth";
 import Markdown from "@/components/Markdown/Markdown";
 import ResultsIndicator from "@/components/Experiment/ResultsIndicator";
+import Callout from "@/ui/Callout";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -107,7 +108,7 @@ export default function StoppedExperimentBanner({
       </div>
 
       {hasLiveLinkedChanges && !isHoldout && (
-        <div className="alert alert-warning m-3">
+        <Callout status="warning" m="3" contentsAs="div">
           <div className="d-flex align-items-center">
             <div>
               <FaClock /> <strong>Temporary Rollout Enabled</strong>
@@ -149,7 +150,7 @@ export default function StoppedExperimentBanner({
               </ConfirmButton>
             </div>
           </div>
-        </div>
+        </Callout>
       )}
       {experiment?.analysis && (
         <div className="border-top p-3">

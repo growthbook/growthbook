@@ -22,17 +22,18 @@ import Avatar from "@/ui/Avatar";
 import DSTooltip from "@/ui/Tooltip";
 import DatePicker from "@/components/DatePicker";
 import { GBInfo } from "@/components/Icons";
+import Callout from "@/ui/Callout";
 import { jamesSteinAdjustment } from "./JamesSteinAdjustment";
 import ExperimentImpactTab from "./ExperimentImpactTab";
 
 export function NoExperimentsForImpactBanner() {
   return (
-    <div className={`mt-2 alert alert-warning`}>
+    <Callout status="warning" mt="2">
       <span style={{ fontSize: "1.2em" }}>
         0 experiments for which we could compute scaled impact match your
         filters.
       </span>
-    </div>
+    </Callout>
   );
 }
 
@@ -549,7 +550,7 @@ export default function ExperimentImpact({
       ) : summaryObj ? (
         <>
           {experimentsWithNoImpact.length > 0 ? (
-            <div className={`mt-2 alert alert-warning`}>
+            <Callout status="warning" mt="2" contentsAs="div">
               <div className="row">
                 <div className="col-auto">
                   <span style={{ fontSize: "1.2em" }}>
@@ -570,7 +571,7 @@ export default function ExperimentImpact({
                   </button>
                 </div>
               </div>
-            </div>
+            </Callout>
           ) : null}
           {summaryObj.losers.experiments.length +
             summaryObj.winners.experiments.length +

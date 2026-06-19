@@ -353,7 +353,7 @@ export default function ExecExperimentImpact({
                 {summaryObj ? (
                   <>
                     {experimentsWithNoImpact.length > 0 ? (
-                      <div className={`mt-2 alert alert-warning`}>
+                      <Callout status="warning" mt="2" contentsAs="div">
                         <div className="row">
                           <div className="col-auto">
                             <span>
@@ -377,7 +377,7 @@ export default function ExecExperimentImpact({
                             </button>
                           </div>
                         </div>
-                      </div>
+                      </Callout>
                     ) : null}
                     <Box p="2" px="3" className="appbox" mb="3">
                       <Flex gap="2" align="center">
