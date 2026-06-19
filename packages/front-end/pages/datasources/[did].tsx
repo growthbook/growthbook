@@ -320,7 +320,9 @@ const DataSourcePage: FC = () => {
           maintenance mode. To keep using Mixpanel data in GrowthBook, export it
           to a data warehouse (e.g. BigQuery or Snowflake) and connect that
           warehouse instead.{" "}
-          <DocLink docSection="mixpanel">View migration guide</DocLink>
+          <DocLink docSection="mixpanel" useRadix>
+            View migration guide
+          </DocLink>
         </Callout>
       )}
       <Flex align="center" gap="4" my="2">
