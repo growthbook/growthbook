@@ -2,7 +2,7 @@ import { useRouter } from "next/router";
 import { FC, useCallback, useState } from "react";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import {
-  isManagedWarehouseAwaitingProvisioning,
+  isManagedWarehouseUnavailable,
   supportsEventForwarder,
 } from "shared/util";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
@@ -99,7 +99,7 @@ const DataSourcePage: FC = () => {
 
   const isManagedWarehouse = d?.type === "growthbook_clickhouse";
   const managedWarehouseAwaitingProvisioning = d
-    ? isManagedWarehouseAwaitingProvisioning(d)
+    ? isManagedWarehouseUnavailable(d)
     : false;
 
   const queryString = new URLSearchParams(

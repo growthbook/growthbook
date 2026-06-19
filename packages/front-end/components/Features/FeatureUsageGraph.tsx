@@ -20,10 +20,7 @@ import {
   FeatureValueType,
 } from "shared/types/feature";
 import { FeatureUsageLookback } from "shared/types/integrations";
-import {
-  isManagedWarehouseAwaitingProvisioning,
-  stemRuleId,
-} from "shared/util";
+import { isManagedWarehouseUnavailable, stemRuleId } from "shared/util";
 import { useRouter } from "next/router";
 import { Box, Flex, Grid } from "@radix-ui/themes";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
@@ -175,7 +172,7 @@ export function FeatureUsageProvider({
     (ds) => ds.type === "growthbook_clickhouse",
   );
   const managedWarehouseAwaitingProvisioning = growthbookManagedDatasource
-    ? isManagedWarehouseAwaitingProvisioning(growthbookManagedDatasource)
+    ? isManagedWarehouseUnavailable(growthbookManagedDatasource)
     : false;
   const showFeatureUsage = useDummyData || !!growthbookManagedDatasource;
 

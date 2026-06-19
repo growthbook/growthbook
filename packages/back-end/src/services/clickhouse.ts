@@ -8,6 +8,7 @@ import {
   isManagedWarehouseAwaitingJsonMigration,
   isManagedWarehouseAwaitingProvisioning,
   MANAGED_WAREHOUSE_ATTRIBUTES_COLUMN,
+  MANAGED_WAREHOUSE_DEFAULT_DIMENSIONS,
   MANAGED_WAREHOUSE_RESERVED_COLUMN_NAMES,
 } from "shared/util";
 import {
@@ -34,6 +35,7 @@ import {
   updateMaterializedColumnsInClickhouse,
 } from "back-end/src/services/licenseServerManagedClickhouse";
 import {
+  buildMaterializedColumnJsonFields,
   buildMaterializedColumnRewriteMap,
   rewriteFactMetricColumns,
 } from "back-end/src/util/migrateManagedWarehouseColumns";
@@ -346,6 +348,12 @@ async function rewriteManagedWarehouseFactMetrics(
 ): Promise<void> {
   if (!Object.keys(rewriteMap).length) return;
 
+  // The seed step just edited the `attributes` JSON fields via FactTableModel,
+  // bypassing FactMetricModel's fact-table cache — drop it so re-save validation
+  // sees the migrated datatypes (otherwise e.g. count-distinct on a now-typed JSON
+  // field is wrongly rejected against the stale, untyped fact table).
+  context.models.factMetrics.clearFactTableCache();
+
   const factMetrics = await context.models.factMetrics.getAllSorted({
     datasourceId,
   });
@@ -380,15 +388,47 @@ export async function migrateManagedWarehouseToJson(
     return;
   }
 
+  const matColumns = datasource.settings.materializedColumns || [];
+  const attributeSchema = context.org.settings?.attributeSchema;
+
+  // Re-deriving identifiers/dimensions from the attribute schema would silently drop
+  // any that aren't current hashAttributes / default dimensions, breaking experiments
+  // and metrics keyed on them. Rather than convert and break, leave the warehouse on
+  // the legacy model (it keeps working) and surface it to Sentry for manual migration.
+  const newUserIdTypes = new Set(
+    getManagedWarehouseUserIdTypes(attributeSchema),
+  );
+  const droppedIdentifiers = (datasource.settings.userIdTypes || [])
+    .map((u) => u.userIdType)
+    .filter((t) => !newUserIdTypes.has(t));
+  const droppedDimensions = [
+    ...new Set(
+      (datasource.settings.queries?.exposure || []).flatMap(
+        (q) => q.dimensions || [],
+      ),
+    ),
+  ].filter((d) => !MANAGED_WAREHOUSE_DEFAULT_DIMENSIONS.includes(d));
+  if (droppedIdentifiers.length || droppedDimensions.length) {
+    logger.error(
+      {
+        organization: datasource.organization,
+        droppedIdentifiers,
+        droppedDimensions,
+      },
+      "Managed warehouse JSON migration skipped: re-derived identifiers/dimensions would drop existing ones; needs manual migration",
+    );
+    return;
+  }
+
   const rewriteMap = buildMaterializedColumnRewriteMap(
-    datasource.settings.materializedColumns || [],
+    matColumns,
     MANAGED_WAREHOUSE_RESERVED_COLUMN_NAMES,
   );
 
-  // Enter the pending state so in-flight usage degrades to "warehouse preparing"
-  // instead of hitting tables mid-recreate, and flip the flag (the license server
-  // reads `useJsonColumns` to pick the JSON DDL). Keep `materializedColumns` until
-  // the end so a crash before the final clear leaves the warehouse re-runnable.
+  // Enter the transient "migrating" state (still provisioned) so in-flight usage
+  // degrades to "warehouse upgrading" instead of hitting tables mid-recreate, and flip
+  // the flag (the license server reads `useJsonColumns` to pick the JSON DDL). Keep
+  // `materializedColumns` until the end so a crash before the final clear is re-runnable.
   await updateDataSource(
     context,
     datasource,
@@ -396,7 +436,7 @@ export async function migrateManagedWarehouseToJson(
       settings: {
         ...datasource.settings,
         useJsonColumns: true,
-        hasBeenProvisioned: false,
+        migrating: true,
       },
     },
     // Never run live exposure-query validation here: the warehouse is about to be
@@ -409,6 +449,10 @@ export async function migrateManagedWarehouseToJson(
     await dangerousRecreateClickhouseTables(datasource.organization);
     // Regenerate the ch_events fact table + datasource userIdTypes/exposure queries.
     await syncManagedWarehouseIdentifiers(context);
+    // Preserve each rewritten materialized column's datatype as an `attributes` JSON
+    // field so rewritten metric refs pass the same aggregation validation they passed
+    // as real top-level columns (otherwise the field's datatype reads as unknown).
+    await seedMigratedAttributesJsonFields(context, matColumns);
     // Rewrite metric refs (before clearing, so a crash here keeps the mapping intact).
     await rewriteManagedWarehouseFactMetrics(
       context,
@@ -436,7 +480,7 @@ export async function migrateManagedWarehouseToJson(
       );
     }
   } finally {
-    // Always leave the pending state, even on failure: a partially-migrated
+    // Always leave the migrating state, even on failure: a partially-migrated
     // warehouse still satisfies the awaiting-migration predicate and is retried
     // on next use, and its legacy `SELECT *` SQL stays valid against the new tables.
     const finalDs =
@@ -444,16 +488,51 @@ export async function migrateManagedWarehouseToJson(
     if (
       finalDs &&
       finalDs.type === "growthbook_clickhouse" &&
-      finalDs.settings.hasBeenProvisioned === false
+      finalDs.settings.migrating
     ) {
       await updateDataSource(
         context,
         finalDs,
         {
-          settings: { ...finalDs.settings, hasBeenProvisioned: true },
+          settings: { ...finalDs.settings, migrating: false },
         },
         { skipExposureQueryValidation: true },
       );
     }
   }
+}
+
+// Merge the materialized columns' declared datatypes into the `attributes` JSON
+// column's `jsonFields` so rewritten metric refs resolve to a known datatype.
+// Existing (schema-derived / data-discovered) fields win; matcol types fill gaps.
+async function seedMigratedAttributesJsonFields(
+  context: ReqContext | ApiReqContext,
+  materializedColumns: MaterializedColumn[],
+): Promise<void> {
+  const migratedJsonFields = buildMaterializedColumnJsonFields(
+    materializedColumns,
+    MANAGED_WAREHOUSE_RESERVED_COLUMN_NAMES,
+  );
+  if (!Object.keys(migratedJsonFields).length) return;
+
+  const ft = await dangerouslyGetFactTableByIdBypassPermission(
+    context.org.id,
+    MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID,
+  );
+  const attributesCol = ft?.columns.find(
+    (c) => c.column === MANAGED_WAREHOUSE_ATTRIBUTES_COLUMN,
+  );
+  if (!ft || !attributesCol) return;
+
+  const merged = { ...migratedJsonFields, ...attributesCol.jsonFields };
+  if (isEqual(merged, attributesCol.jsonFields || {})) return;
+
+  const newColumns = ft.columns.map((c) =>
+    c.column === MANAGED_WAREHOUSE_ATTRIBUTES_COLUMN
+      ? { ...c, jsonFields: merged }
+      : c,
+  );
+  await dangerouslySyncManagedWarehouseFactTable(context, ft, {
+    columns: newColumns,
+  });
 }

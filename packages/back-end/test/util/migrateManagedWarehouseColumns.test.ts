@@ -1,6 +1,7 @@
 import { MaterializedColumn } from "shared/types/datasource";
-import { ColumnRef } from "shared/types/fact-table";
+import { ColumnRef, FactTableColumnType } from "shared/types/fact-table";
 import {
+  buildMaterializedColumnJsonFields,
   buildMaterializedColumnRewriteMap,
   rewriteColumnRef,
   rewriteFactMetricColumns,
@@ -12,8 +13,9 @@ function matCol(
   columnName: string,
   sourceField: string,
   type: MaterializedColumn["type"],
+  datatype: FactTableColumnType = "string",
 ): MaterializedColumn {
-  return { columnName, sourceField, datatype: "string", type };
+  return { columnName, sourceField, datatype, type };
 }
 
 function columnRef(overrides: Partial<ColumnRef>): ColumnRef {
@@ -53,6 +55,30 @@ describe("buildMaterializedColumnRewriteMap", () => {
   it("matches reserved names case-insensitively", () => {
     const cols = [matCol("Geo_Country", "Geo_Country", "dimension")];
     expect(buildMaterializedColumnRewriteMap(cols, reserved)).toEqual({});
+  });
+});
+
+describe("buildMaterializedColumnJsonFields", () => {
+  it("maps non-identifier, non-reserved columns by sourceField, carrying datatype", () => {
+    const cols = [
+      matCol("plan", "plan", "dimension", "string"),
+      matCol("age", "profile.age", "", "number"),
+    ];
+    expect(buildMaterializedColumnJsonFields(cols, reserved)).toEqual({
+      plan: { datatype: "string" },
+      "profile.age": { datatype: "number" },
+    });
+  });
+
+  it("skips identifier and reserved-collision columns", () => {
+    const cols = [
+      matCol("company_id", "company_id", "identifier"),
+      matCol("geo_country", "geo_country", "dimension"),
+      matCol("plan", "plan", "dimension"),
+    ];
+    expect(buildMaterializedColumnJsonFields(cols, reserved)).toEqual({
+      plan: { datatype: "string" },
+    });
   });
 });
 

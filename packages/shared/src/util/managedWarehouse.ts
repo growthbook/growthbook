@@ -19,6 +19,9 @@ export const MANAGED_WAREHOUSE_SENDING_EVENTS_DOC_URL =
 export const MANAGED_WAREHOUSE_NO_EVENTS_MESSAGE =
   "No events have been sent to your data warehouse yet.";
 
+export const MANAGED_WAREHOUSE_MIGRATING_MESSAGE =
+  "Your managed warehouse is being upgraded to a new storage format. This usually takes a few minutes — querying will be available again shortly.";
+
 /** Returned in API `error` fields so the front-end can show the managed-warehouse docs callout. */
 export const MANAGED_WAREHOUSE_PENDING_ERROR_CODE =
   "managed_warehouse_pending" as const;
@@ -113,6 +116,33 @@ export function isManagedWarehouseAwaitingJsonMigration(
     materializedColumns?: unknown[];
   };
   return !(settings?.useJsonColumns && !settings.materializedColumns?.length);
+}
+
+/**
+ * A provisioned managed warehouse whose per-org tables are mid-recreate for the
+ * JSON-columns migration. Transient and distinct from never-provisioned — the UI
+ * shows an "upgrading" state rather than the "no events sent" onboarding copy.
+ */
+export function isManagedWarehouseMigrating(
+  datasource: Pick<DataSourceInterface, "type" | "settings">,
+): boolean {
+  if (!isManagedWarehouse(datasource)) {
+    return false;
+  }
+  return (datasource.settings as { migrating?: boolean })?.migrating === true;
+}
+
+/**
+ * A managed warehouse that can't currently serve queries — either never provisioned
+ * or mid-migration. Use to gate query UIs; superset of `isManagedWarehouseAwaitingProvisioning`.
+ */
+export function isManagedWarehouseUnavailable(
+  datasource: Pick<DataSourceInterface, "type" | "settings">,
+): boolean {
+  return (
+    isManagedWarehouseAwaitingProvisioning(datasource) ||
+    isManagedWarehouseMigrating(datasource)
+  );
 }
 
 // Managed Warehouse JSON-columns model (replaces materialized columns). Per-org

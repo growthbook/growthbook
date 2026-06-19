@@ -347,6 +347,14 @@ export class FactMetricModel extends BaseClass {
     return this._factTableMap;
   }
 
+  // Drop the cached fact-table map so the next create/update validation re-reads
+  // from the DB. Needed when fact tables are mutated out-of-band of this model
+  // (e.g. the managed-warehouse migration edits the `attributes` JSON fields via
+  // FactTableModel, then re-saves metrics against the updated datatypes).
+  public clearFactTableCache() {
+    this._factTableMap = null;
+  }
+
   protected async customValidation(
     data: FactMetricInterface,
     previousData?: FactMetricInterface,

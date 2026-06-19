@@ -325,6 +325,12 @@ export interface GrowthbookClickhouseSettings extends DataSourceSettings {
    * (vs String + materialized columns), with identifiers aliased in the fact-table SQL.
    */
   useJsonColumns?: boolean;
+  /**
+   * Transient: set while a provisioned warehouse's per-org tables are being recreated
+   * for the JSON-columns migration. Queries are blocked and the UI shows an "upgrading"
+   * state during this window. Distinct from `hasBeenProvisioned: false` (never set up).
+   */
+  migrating?: boolean;
 }
 
 interface DataSourceBase {

@@ -9,6 +9,8 @@ import {
   getManagedWarehouseUserIdTypeSettings,
   isManagedWarehouse,
   isManagedWarehouseAwaitingJsonMigration,
+  isManagedWarehouseMigrating,
+  isManagedWarehouseUnavailable,
   isManagedWarehouseNoEventsGuidanceMessage,
   isManagedWarehousePendingQueryError,
   MANAGED_WAREHOUSE_NO_EVENTS_MESSAGE,
@@ -69,6 +71,35 @@ describe("isManagedWarehouseAwaitingJsonMigration", () => {
       isManagedWarehouseAwaitingJsonMigration(
         ds({ useJsonColumns: true, materializedColumns: [] }),
       ),
+    ).toBe(false);
+  });
+});
+
+describe("isManagedWarehouseMigrating / isManagedWarehouseUnavailable", () => {
+  const ds = (settings: Record<string, unknown>) =>
+    ({ type: "growthbook_clickhouse", settings }) as Parameters<
+      typeof isManagedWarehouseMigrating
+    >[0];
+
+  it("isManagedWarehouseMigrating is true only when migrating === true", () => {
+    expect(isManagedWarehouseMigrating(ds({ migrating: true }))).toBe(true);
+    expect(isManagedWarehouseMigrating(ds({ migrating: false }))).toBe(false);
+    expect(isManagedWarehouseMigrating(ds({}))).toBe(false);
+    expect(
+      isManagedWarehouseMigrating({
+        type: "clickhouse",
+        settings: { migrating: true },
+      }),
+    ).toBe(false);
+  });
+
+  it("isManagedWarehouseUnavailable covers both never-provisioned and migrating", () => {
+    expect(
+      isManagedWarehouseUnavailable(ds({ hasBeenProvisioned: false })),
+    ).toBe(true);
+    expect(isManagedWarehouseUnavailable(ds({ migrating: true }))).toBe(true);
+    expect(
+      isManagedWarehouseUnavailable(ds({ hasBeenProvisioned: true })),
     ).toBe(false);
   });
 });

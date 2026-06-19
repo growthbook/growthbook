@@ -1,5 +1,9 @@
 import { MaterializedColumn } from "shared/types/datasource";
-import { ColumnRef, FactMetricInterface } from "shared/types/fact-table";
+import {
+  ColumnRef,
+  FactMetricInterface,
+  JSONColumnFields,
+} from "shared/types/fact-table";
 import { MANAGED_WAREHOUSE_ATTRIBUTES_COLUMN } from "shared/util";
 
 /**
@@ -26,6 +30,27 @@ export function buildMaterializedColumnRewriteMap(
       `${MANAGED_WAREHOUSE_ATTRIBUTES_COLUMN}.${col.sourceField}`;
   }
   return map;
+}
+
+/**
+ * The `attributes` JSON sub-fields (keyed by `sourceField`, the JSON path) for the
+ * same rewritten materialized columns, carrying their declared `datatype`. Seeding
+ * these onto the `attributes` column during migration preserves the type metadata a
+ * rewritten metric ref (`attributes.<sourceField>`) needs to pass the exact same
+ * aggregation validation it passed as a real top-level column — otherwise the field's
+ * datatype reads as unknown and e.g. `count distinct` is wrongly rejected.
+ */
+export function buildMaterializedColumnJsonFields(
+  materializedColumns: MaterializedColumn[],
+  reservedColumnNames: Set<string>,
+): JSONColumnFields {
+  const fields: JSONColumnFields = {};
+  for (const col of materializedColumns) {
+    if (col.type === "identifier") continue;
+    if (reservedColumnNames.has(col.columnName.toLowerCase())) continue;
+    fields[col.sourceField] = { datatype: col.datatype };
+  }
+  return fields;
 }
 
 /**

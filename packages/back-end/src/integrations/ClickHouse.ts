@@ -10,6 +10,7 @@ import { ClickHouseConnectionParams } from "shared/types/integrations/clickhouse
 import {
   isManagedWarehouseAwaitingJsonMigration,
   isManagedWarehouseAwaitingProvisioning,
+  isManagedWarehouseMigrating,
   ManagedWarehousePendingError,
 } from "shared/util";
 import { SqlDialect } from "shared/types/sql";
@@ -62,7 +63,13 @@ export default class ClickHouse extends SqlIntegration {
           logger.error(e, "Failed to queue managed warehouse JSON migration"),
       );
     }
-    if (isManagedWarehouseAwaitingProvisioning(this.datasource)) {
+    // Block queries while never-provisioned OR mid-migration (tables being recreated).
+    // Reuse the pending error so existing UI surfaces show the managed-warehouse callout;
+    // the callout distinguishes the migrating case for honest "upgrading" copy.
+    if (
+      isManagedWarehouseAwaitingProvisioning(this.datasource) ||
+      isManagedWarehouseMigrating(this.datasource)
+    ) {
       throw new ManagedWarehousePendingError();
     }
     const client = createClient({

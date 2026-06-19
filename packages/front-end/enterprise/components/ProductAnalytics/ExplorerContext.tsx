@@ -16,7 +16,7 @@ import {
   ProductAnalyticsExploration,
 } from "shared/validators";
 import { QueryInterface } from "shared/types/query";
-import { isManagedWarehouseAwaitingProvisioning } from "shared/util";
+import { isManagedWarehouseUnavailable } from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   cleanConfigForSubmission,
@@ -217,9 +217,7 @@ export function ExplorerProvider({
     const datasource = datasources.find(
       (d) => d.id === draftExploreState.datasource,
     );
-    return datasource
-      ? isManagedWarehouseAwaitingProvisioning(datasource)
-      : false;
+    return datasource ? isManagedWarehouseUnavailable(datasource) : false;
   }, [datasources, draftExploreState.datasource]);
 
   const setSubmittedExploreState = useCallback((state: ExplorationConfig) => {
