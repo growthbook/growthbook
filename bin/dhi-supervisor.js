@@ -1,20 +1,16 @@
 #!/usr/bin/env node
 // Shell-free process supervisor for the Docker Hardened Image build.
 //
-// Replaces pm2-runtime, which shells out (`/bin/sh -c "getconf CLK_TCK"`) for
-// process metrics and therefore cannot run in a distroless runtime that has no
-// /bin/sh. This forks the same two processes ecosystem.config.js defines,
-// forwards termination signals, and brings the whole container down if either
-// child dies — so the orchestrator (k8s/ECS) restarts a clean container.
+// Replaces pm2-runtime, which shells out for metrics (`/bin/sh -c "getconf
+// CLK_TCK"`) and so can't run in a shell-less distroless runtime. Forks the
+// processes ecosystem.config.js defines, forwards termination signals, and
+// brings the container down if either child dies so the orchestrator (k8s/ECS)
+// restarts it. Not reimplemented from pm2: in-container autorestart
+// (PM2_AUTORESTART defaults off) and max_memory_restart — both left to the
+// platform.
 //
-// Deliberately NOT reimplemented from pm2:
-//   - in-container autorestart (PM2_AUTORESTART already defaulted to false here)
-//   - max_memory_restart
-// Both are delegated to the platform supervising the container.
-//
-// Tracing (Datadog / OpenTelemetry) is honored via `node --require`, mirroring
-// ecosystem.config.js. The preview idle-monitor is also launched here (as a
-// child) when PREVIEW_IDLE_TIMEOUT_SECONDS is set, mirroring ecosystem.config.js;
+// Tracing (Datadog / OpenTelemetry) is honored via `node --require`. The preview
+// idle-monitor is launched as a child when PREVIEW_IDLE_TIMEOUT_SECONDS is set;
 // on idle it signals this supervisor (its parent) to bring the container down.
 
 const { spawn } = require("node:child_process");
