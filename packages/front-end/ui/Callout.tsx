@@ -9,6 +9,7 @@ import React, { forwardRef, ReactNode } from "react";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { Responsive } from "@radix-ui/themes/dist/esm/props/prop-def.js";
 import { PiX } from "react-icons/pi";
+import clsx from "clsx";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { RadixStatusIcon, Status, getRadixColor, Size } from "./HelperText";
 import styles from "./Callout.module.scss";
@@ -44,6 +45,9 @@ export default forwardRef<
     icon?: ReactNode | null;
     contentsAs?: "text" | "div";
     variant?: "soft" | "surface" | "outline";
+    className?: string;
+    style?: React.CSSProperties;
+    role?: string;
   } & (DismissibleProps | UndismissibleProps) &
     MarginProps
 >(function Callout(
@@ -58,6 +62,9 @@ export default forwardRef<
     id,
     renderWhenDismissed,
     variant = "soft",
+    className,
+    style,
+    role,
     ...containerProps
   },
   ref,
@@ -84,14 +91,15 @@ export default forwardRef<
   return (
     <RadixCallout.Root
       ref={ref}
-      className={styles.callout}
+      className={clsx(styles.callout, className)}
       color={color || getRadixColor(status)}
-      role={status === "error" ? "alert" : undefined}
+      role={role ?? (status === "error" ? "alert" : undefined)}
       size={getRadixSize(size)}
       {...containerProps}
       style={{
         display: "flex",
         position: "relative",
+        ...style,
       }}
       variant={variant}
     >

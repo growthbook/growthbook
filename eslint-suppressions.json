@@ -179,11 +179,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Experiment/ImportExperimentList.tsx": {
-    "local/no-alert-classname": {
-      "count": 2
-    }
-  },
   "packages/front-end/components/Experiment/ImportExperimentModal.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -229,11 +224,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Experiment/StatusBanner.tsx": {
-    "local/no-alert-classname": {
-      "count": 3
-    }
-  },
   "packages/front-end/components/Experiment/TabbedPage/EditHoldoutInfoModal.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -261,11 +251,6 @@
   },
   "packages/front-end/components/Experiment/TabbedPage/RunningExperimentDecisionBanner.tsx": {
     "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Experiment/TabbedPage/StoppedExperimentBanner.tsx": {
-    "local/no-alert-classname": {
       "count": 1
     }
   },
@@ -619,16 +604,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/HomePage/ExperimentImpact/ExperimentImpactTab.tsx": {
-    "local/no-alert-classname": {
-      "count": 2
-    }
-  },
-  "packages/front-end/components/HomePage/ExperimentImpact/index.tsx": {
-    "local/no-alert-classname": {
-      "count": 2
-    }
-  },
   "packages/front-end/components/HomePage/NorthStar.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -671,11 +646,6 @@
   },
   "packages/front-end/components/Marketing/PremiumTooltip.tsx": {
     "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Marketing/UpgradeMessage.tsx": {
-    "local/no-alert-classname": {
       "count": 1
     }
   },
@@ -844,11 +814,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Settings/BigQueryForm.tsx": {
-    "local/no-alert-classname": {
-      "count": 2
-    }
-  },
   "packages/front-end/components/Settings/DataSourceForm.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -1014,11 +979,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Share/Presentation.tsx": {
-    "local/no-alert-classname": {
-      "count": 2
-    }
-  },
   "packages/front-end/components/Share/ShareModal.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -1027,11 +987,6 @@
   "packages/front-end/components/SlackIntegrations/SlackIntegrationAddEditModal/SlackIntegrationAddEditModal.tsx": {
     "no-restricted-imports": {
       "count": 1
-    }
-  },
-  "packages/front-end/components/SlackIntegrations/SlackIntegrationsListView/SlackIntegrationsListView.tsx": {
-    "local/no-alert-classname": {
-      "count": 2
     }
   },
   "packages/front-end/components/SqlExplorer/BigValueChart.tsx": {
@@ -1051,11 +1006,6 @@
   },
   "packages/front-end/components/Tags/TagsModal.tsx": {
     "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/TempMessage.tsx": {
-    "local/no-alert-classname": {
       "count": 1
     }
   },
@@ -1155,9 +1105,6 @@
     }
   },
   "packages/front-end/enterprise/components/ExecReports/ExecExperimentImpact.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    },
     "no-restricted-imports": {
       "count": 2
     }
