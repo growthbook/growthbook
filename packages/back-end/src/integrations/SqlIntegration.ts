@@ -21,6 +21,7 @@ import {
   format,
   isMultiStatementSQL,
   SQL_ROW_LIMIT,
+  usesBackslashStringEscapes,
 } from "shared/sql";
 import { TemplateVariables, SqlDialect } from "shared/types/sql";
 import {
@@ -228,7 +229,12 @@ export default abstract class SqlIntegration
       setExternalId?: ExternalIdCallback,
       metadata?: QueryMetadata,
     ) => {
-      if (isMultiStatementSQL(sql)) {
+      if (
+        isMultiStatementSQL(
+          sql,
+          usesBackslashStringEscapes(this.getSqlDialect()),
+        )
+      ) {
         throw new Error("Multi-statement queries are not supported");
       }
       metadata = {
