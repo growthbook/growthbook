@@ -1033,13 +1033,9 @@ export function HealthChecks({
                     <Callout status="warning" size="sm">
                       <strong>Sample Ratio Mismatch (SRM) detected.</strong>{" "}
                       P-value {pValueFmt(srmPValue!)} is below {srmThreshold}.{" "}
-                      <button
-                        type="button"
-                        className="a border-0 bg-transparent p-0"
-                        onClick={() => setSrmModalOpen(true)}
-                      >
+                      <Link className="a" onClick={() => setSrmModalOpen(true)}>
                         Learn More {">"}
-                      </button>
+                      </Link>
                     </Callout>
                   ) : (
                     <Callout status="success" size="sm">
@@ -1047,13 +1043,9 @@ export function HealthChecks({
                       {srmHealth === "healthy" && (
                         <> P-value above {srmThreshold}.</>
                       )}{" "}
-                      <button
-                        type="button"
-                        className="a border-0 bg-transparent p-0"
-                        onClick={() => setSrmModalOpen(true)}
-                      >
+                      <Link className="a" onClick={() => setSrmModalOpen(true)}>
                         Learn More {">"}
-                      </button>
+                      </Link>
                     </Callout>
                   )}
                 </div>
