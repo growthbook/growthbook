@@ -2025,6 +2025,26 @@ export function revisionToApiInterfaceV2(
     ...(rev.rampActions !== undefined && {
       rampActions: rev.rampActions,
     }),
+    ...(rev.autoPublishOnApproval !== undefined && {
+      autoPublishOnApproval: rev.autoPublishOnApproval,
+    }),
+    ...((rev.scheduledPublishAt ?? null) !== null && {
+      scheduledPublishAt: new Date(
+        rev.scheduledPublishAt as Date,
+      ).toISOString(),
+    }),
+    ...(rev.scheduledPublishLockEdits !== undefined && {
+      scheduledPublishLockEdits: rev.scheduledPublishLockEdits,
+    }),
+    ...(rev.scheduledPublishLockOthers !== undefined && {
+      scheduledPublishLockOthers: rev.scheduledPublishLockOthers,
+    }),
+    ...(rev.scheduledPublishBypassApproval !== undefined && {
+      scheduledPublishBypassApproval: rev.scheduledPublishBypassApproval,
+    }),
+    ...(rev.scheduledPublishLastError !== undefined && {
+      scheduledPublishLastError: rev.scheduledPublishLastError,
+    }),
     ...(rev.reviews !== undefined && {
       reviews: rev.reviews.map((r) => {
         const user = eventUserToApiEventUser(r.user);
@@ -2059,6 +2079,14 @@ export function revisionToDiffableV2(
     "publishedBy",
     "definitions",
     "reviews",
+    // Scheduling/auto-publish state isn't feature content — excluded so arming,
+    // canceling, or a poller failure doesn't surface as a false diff.
+    "autoPublishOnApproval",
+    "scheduledPublishAt",
+    "scheduledPublishLockEdits",
+    "scheduledPublishLockOthers",
+    "scheduledPublishBypassApproval",
+    "scheduledPublishLastError",
   ]);
   const content: Record<string, unknown> = {};
   for (const [key, val] of Object.entries(api)) {
@@ -3167,14 +3195,20 @@ async function collectHoldoutAffectedEnvs(
   return [...envs];
 }
 
-// Throws if the draft requires approval and the caller cannot bypass.
-export async function assertCanAutoPublish(
-  context: ReqContext,
+// Whether a draft requires approval before publishing (org review settings, env
+// scoping, license). When the base can't be resolved the answer is ambiguous:
+// the default treats it as a no-approval change (false), but pass
+// `treatUnresolvedBaseAsReview` to fail closed (true) for flows that commit
+// locks/schedules and must not engage them on a draft that can't be evaluated.
+export async function revisionRequiresReview(
+  context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   draft: FeatureRevisionInterface,
-): Promise<void> {
-  const { org } = context;
-  const allEnvironments = getEnvironmentIdsFromOrg(org);
+  {
+    treatUnresolvedBaseAsReview = false,
+  }: { treatUnresolvedBaseAsReview?: boolean } = {},
+): Promise<boolean> {
+  const allEnvironments = getEnvironmentIdsFromOrg(context.org);
 
   const baseRevision = await getRevision({
     context,
@@ -3183,16 +3217,25 @@ export async function assertCanAutoPublish(
     feature,
     version: draft.baseVersion,
   });
-  if (!baseRevision) return; // can't determine — allow (legacy/missing base)
+  if (!baseRevision) return treatUnresolvedBaseAsReview;
 
-  const requiresReview = checkIfRevisionNeedsReview({
+  return checkIfRevisionNeedsReview({
     feature,
     baseRevision,
     revision: draft,
     allEnvironments,
-    settings: org.settings,
+    settings: context.org.settings,
     requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
   });
+}
+
+// Throws if the draft requires approval and the caller cannot bypass.
+export async function assertCanAutoPublish(
+  context: ReqContext,
+  feature: FeatureInterface,
+  draft: FeatureRevisionInterface,
+): Promise<void> {
+  const requiresReview = await revisionRequiresReview(context, feature, draft);
 
   if (requiresReview && !context.permissions.canBypassApprovalChecks(feature)) {
     context.permissions.throwPermissionError();

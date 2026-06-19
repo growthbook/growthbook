@@ -114,10 +114,12 @@ import {
   updateExperiment,
 } from "./ExperimentModel";
 import {
+  cancelScheduledPublishesForFeature,
   createInitialRevision,
   createRevisionFromLegacyDraft,
   deleteAllRevisionsForFeature,
   getRevision,
+  hasPublishLockingScheduledSibling,
   markRevisionAsPublished,
   computeRevisionPublishChanges,
   updateRevision,
@@ -1181,7 +1183,18 @@ export async function archiveFeature(
   feature: FeatureInterface,
   isArchived: boolean,
 ) {
-  return await updateFeature(context, feature, { archived: isArchived });
+  const updated = await updateFeature(context, feature, {
+    archived: isArchived,
+  });
+  // Cancel pending schedules so an archived feature can't auto-publish a draft.
+  if (isArchived) {
+    await cancelScheduledPublishesForFeature(
+      context,
+      context.org.id,
+      feature.id,
+    );
+  }
+  return updated;
 }
 
 function setEnvironmentSettings(
@@ -2329,6 +2342,20 @@ export async function publishRevision({
 
   if (!bypassLockdown) {
     await assertFeatureNotLockedByRamp(context, feature.id);
+
+    // A sibling draft's "lock other drafts" schedule freezes other publishes.
+    if (
+      revision.version !== undefined &&
+      (await hasPublishLockingScheduledSibling(
+        context.org.id,
+        feature.id,
+        revision.version,
+      ))
+    ) {
+      throw new Error(
+        "Another draft of this feature is scheduled to publish and has locked publishing of other drafts. Cancel that schedule to publish this revision.",
+      );
+    }
   }
 
   // Run custom hooks before the side-effect writes below so a rejection doesn't orphan them

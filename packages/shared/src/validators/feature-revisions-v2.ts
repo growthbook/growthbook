@@ -12,6 +12,7 @@ import {
   standaloneRampScheduleInput,
   revisionVersionParam,
 } from "./feature-revisions";
+import { rampStartState } from "./ramp-schedule";
 import { apiFeatureRevisionV2Validator } from "./features-v2";
 import { JSONSchemaDef, revisionStatusFilterSchema } from "./features";
 import { ownerInputField } from "./owner-field";
@@ -47,6 +48,30 @@ const newDraftMetadataFields = {
 // ---- Shared response schemas ----
 
 const revisionResponse = z.object({ revision: apiFeatureRevisionV2Validator });
+
+// Ramp-schedule body accepting an optional `startState` (the rollback anchor).
+const rampScheduleInputV2 = standaloneRampScheduleInput.extend({
+  startState: rampStartState
+    .optional()
+    .describe(
+      "The rule state to roll back to (the rollback/jump-to-start anchor). " +
+        'Merged onto the rule\'s current state, so `{ "coverage": 0 }` keeps ' +
+        "existing targeting but rolls back to 0%. This affects rollbacks only — " +
+        "it is NOT applied when the ramp starts. On create, omitting it infers " +
+        "the anchor from the rule's current coverage (and returns a warning if " +
+        "that isn't 0%); on update of a live schedule, omitting it leaves the " +
+        "existing anchor unchanged.",
+    ),
+});
+
+// Response variant that can carry non-fatal advisories (e.g. an inferred
+// rollback anchor that isn't 0%).
+const revisionResponseWithWarnings = revisionResponse.extend({
+  warnings: z
+    .array(z.string())
+    .optional()
+    .describe("Non-fatal advisories about how the request was interpreted."),
+});
 
 // Mirrors MergeConflict in shared/util/features.ts.
 const mergeConflictSchema = z
@@ -607,13 +632,43 @@ export const postFeatureRevisionRequestReviewV2Validator = {
   operationId: "postFeatureRevisionRequestReviewV2",
   summary: "Request review for a draft revision",
   description:
-    "Moves the draft into the `pending-review` state and notifies reviewers.\n\nSet `autoPublishOnApproval` to `true` to publish the revision automatically the moment it is approved (GitHub auto-merge model). This requires the org to have auto-publish-on-approval enabled for the feature and the caller to have publish permission; the auto-publish then executes with the caller's authority.",
+    "Moves the draft into the `pending-review` state and notifies reviewers.\n\nSet `autoPublishOnApproval` to `true` to publish the revision automatically the moment it is approved (GitHub auto-merge model). This requires the org to have auto-publish-on-approval enabled for the feature and the caller to have publish permission; the auto-publish then executes with the caller's authority.\n\nSet `scheduledPublishAt` to a future ISO date-time to defer the auto-publish until that date (it still also requires approval when review is required). Use `scheduledPublishLockEdits` to freeze edits to this draft while the schedule is pending, and `scheduledPublishLockOthers` to block publishing other drafts of this feature in the meantime.",
   tags: ["feature-revisions-v2"],
   paramsSchema: revisionParamsStrict,
   bodySchema: z
     .object({
       comment: z.string().optional(),
       autoPublishOnApproval: z.boolean().optional(),
+      scheduledPublishAt: z
+        .union([z.string().meta({ format: "date-time" }), z.null()])
+        .optional(),
+      scheduledPublishLockEdits: z.boolean().optional(),
+      scheduledPublishLockOthers: z.boolean().optional(),
+    })
+    .strict(),
+  querySchema: z.never(),
+  responseSchema: revisionResponse,
+  version: "v2" as const,
+};
+
+export const postFeatureRevisionSchedulePublishV2Validator = {
+  method: "post" as const,
+  path: "/features/:id/revisions/:version/schedule-publish",
+  operationId: "postFeatureRevisionSchedulePublishV2",
+  summary: "Schedule (or cancel) a deferred publish for a draft revision",
+  description:
+    "Arms a deferred publish: the revision publishes automatically on/after `scheduledPublishAt` (and, when review is required, only once also approved). Send `scheduledPublishAt: null` to cancel the schedule.\n\nUse `lockEdits` to freeze content edits to this draft while the schedule is pending (rebasing is still allowed), and `lockOthers` to block publishing other drafts of this feature until the schedule fires or is canceled. Requires publish permission; the publish executes with the caller's authority. An admin with bypass-approval permission can schedule even without approval — pass `bypassApproval: true` to mark it as an admin override, which locks the schedule to cancel-and-re-arm only.",
+  tags: ["feature-revisions-v2"],
+  paramsSchema: revisionParamsStrict,
+  bodySchema: z
+    .object({
+      scheduledPublishAt: z.union([
+        z.string().meta({ format: "date-time" }),
+        z.null(),
+      ]),
+      lockEdits: z.boolean().optional(),
+      lockOthers: z.boolean().optional(),
+      bypassApproval: z.boolean().optional(),
     })
     .strict(),
   querySchema: z.never(),
@@ -988,12 +1043,12 @@ export const putFeatureRevisionRuleRampScheduleV2Validator = {
   operationId: "putFeatureRevisionRuleRampScheduleV2",
   summary: "Set ramp schedule for a rule",
   description:
-    "Queues a revision-controlled ramp action for this rule. If the rule already has a live ramp schedule, this stores an `update` action applied on publish; otherwise it stores a `create` action. No live schedule config changes are applied immediately by this endpoint.",
+    'Queues a revision-controlled ramp action for this rule. If the rule already has a live ramp schedule, this stores an `update` action applied on publish; otherwise it stores a `create` action. No live schedule config changes are applied immediately by this endpoint.\n\nYou can build the ramp from a template (`templateId`) and set the rollback anchor (`startState`) in the same request — e.g. pull in a template and pass `startState: { "coverage": 0 }` so a rollback returns the rule to 0%.',
   tags: ["feature-revisions-v2"],
   paramsSchema: ruleParams,
-  bodySchema: standaloneRampScheduleInput.extend(newDraftMetadataFields),
+  bodySchema: rampScheduleInputV2.extend(newDraftMetadataFields),
   querySchema: z.never(),
-  responseSchema: revisionResponse,
+  responseSchema: revisionResponseWithWarnings,
   version: "v2" as const,
 };
 

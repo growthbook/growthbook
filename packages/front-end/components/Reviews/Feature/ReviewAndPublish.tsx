@@ -21,6 +21,9 @@ import {
   checkIfRevisionNeedsReview,
   evaluatePublishGovernance,
   getLiveChangesSinceBase,
+  isScheduledPublishPending,
+  isScheduledPublishLockActive,
+  findPublishLockingScheduledRevision,
   MergeStrategy,
 } from "shared/util";
 import {
@@ -31,6 +34,8 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { FaArrowLeft } from "react-icons/fa";
 import {
   PiLockSimple,
+  PiLock,
+  PiClockFill,
   PiGitDiff,
   PiGitMergeBold,
   PiCaretDownBold,
@@ -72,6 +77,8 @@ import {
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
+import DatePicker from "@/components/DatePicker";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Tooltip from "@/ui/Tooltip";
 import Heading from "@/ui/Heading";
 import Avatar from "@/ui/Avatar";
@@ -85,6 +92,7 @@ import RevisionStatusBadge, {
 } from "@/components/Reviews/RevisionStatusBadge";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
+import SelectField from "@/components/Forms/SelectField";
 import { useHoldouts } from "@/hooks/useHoldouts";
 import { PreLaunchChecklistForDraftFeature } from "@/components/PreLaunchChecklist/PreLaunchChecklist";
 import { COMPACT_DIFF_STYLES } from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
@@ -109,6 +117,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
 // view (JSON diffs, full edit timeline, inline diff comments).
 type ReviewSubTab = "overview" | "changes";
 import DivergenceNotice from "@/components/Reviews/DivergenceNotice";
+import NoticeBanner from "@/components/Reviews/NoticeBanner";
 import HelperText from "@/ui/HelperText";
 import Metadata from "@/ui/Metadata";
 import ReviewCommentPopover from "@/components/Reviews/ReviewCommentPopover";
@@ -576,8 +585,15 @@ export default function ReviewAndPublish({
   // persists directly to the API and mutates the revision.
   const comment = revision?.comment || "";
   const [adminPublish, setAdminPublish] = useState(false);
-  const [requestAutoPublish, setRequestAutoPublish] = useState(
+  // ── Unified auto-publish arming ──
+  // A revision is "armed" (autoPublishOnApproval) in one of two mutually
+  // exclusive modes: publish "when approved" (no date) or "on a specific date"
+  // (scheduledPublishAt). The UI is a single checkbox plus a mode selector.
+  const [autoPublishArmed, setAutoPublishArmed] = useState(
     !!revision?.autoPublishOnApproval,
+  );
+  const [publishMode, setPublishMode] = useState<"approve" | "date">(
+    revision && isScheduledPublishPending(revision) ? "date" : "approve",
   );
   const [rebasing, setRebasing] = useState(false);
   const [experimentsStep, setExperimentsStep] = useState(false);
@@ -593,14 +609,78 @@ export default function ReviewAndPublish({
   const doSubmitRef = useRef<() => void>(() => {});
   const revisionLogRef = useRef<MutateLog>(null);
 
-  // The revision loads asynchronously, so the initial useState above can be
-  // stale (e.g. unchecked on reload of an armed draft). Re-sync whenever the
-  // persisted value or version changes. Keyed on the persisted boolean (not
-  // object identity) so it won't clobber an unsaved draft toggle, which doesn't
-  // change revision.autoPublishOnApproval.
+  // ── Scheduled (deferred) publish ──
+  const scheduledPending = !!revision && isScheduledPublishPending(revision);
+  const [scheduleDate, setScheduleDate] = useState<string>(
+    revision?.scheduledPublishAt
+      ? new Date(revision.scheduledPublishAt).toISOString()
+      : "",
+  );
+  // The two underlying locks are surfaced as one checkbox + a scope selector
+  // (mirrors the "Automatically publish [mode]" control). The scope is its own
+  // state so the selector works even while the checkbox is off — picking a
+  // scope then only records the preference. lockEdits = enabled; lockOthers =
+  // enabled && scope === "feature" (feature scope is the superset).
+  const [scheduleLockEnabled, setScheduleLockEnabled] = useState(
+    !!revision?.scheduledPublishLockEdits ||
+      !!revision?.scheduledPublishLockOthers,
+  );
+  const [scheduleLockScope, setScheduleLockScope] = useState<
+    "draft" | "feature"
+  >(revision?.scheduledPublishLockOthers ? "feature" : "draft");
+  const scheduleLockEdits = scheduleLockEnabled;
+  const scheduleLockOthers =
+    scheduleLockEnabled && scheduleLockScope === "feature";
+  // Admin-only: dangerously arm the scheduled publish so it fires without the
+  // normal approval. Distinct from the "publish now" admin bypass — this one
+  // belongs to the schedule and is what gets persisted as scheduledPublishBypassApproval.
+  const [scheduleBypassApproval, setScheduleBypassApproval] = useState(
+    !!revision?.scheduledPublishBypassApproval,
+  );
+  const [savingSchedule, setSavingSchedule] = useState(false);
+  const [scheduleError, setScheduleError] = useState<string | null>(null);
+  // Once a schedule is armed (persisted), owners/admins see a read-only summary
+  // (parity with reviewers) to avoid accidental edits. "Change" flips this on to
+  // reveal the editable controls; canceling/unarming flips it back off.
+  const [editingSchedule, setEditingSchedule] = useState(false);
+
+  // The revision loads asynchronously and changes on every mutation, so re-sync
+  // the unified arming UI whenever the persisted arming changes. Keyed on the
+  // persisted field VALUES (not the revision object identity) so an in-progress,
+  // not-yet-saved edit isn't clobbered when an auto-save's mutate() returns a new
+  // revision object whose values match what we already have. Depending on object
+  // identity here caused every checkbox to flicker on each toggle.
   useEffect(() => {
-    setRequestAutoPublish(!!revision?.autoPublishOnApproval);
-  }, [revision?.autoPublishOnApproval, revision?.version]);
+    setAutoPublishArmed(!!revision?.autoPublishOnApproval);
+    setPublishMode(scheduledPending ? "date" : "approve");
+    setScheduleDate(
+      revision?.scheduledPublishAt
+        ? new Date(revision.scheduledPublishAt).toISOString()
+        : "",
+    );
+    setScheduleLockEnabled(
+      !!revision?.scheduledPublishLockEdits ||
+        !!revision?.scheduledPublishLockOthers,
+    );
+    setScheduleLockScope(
+      revision?.scheduledPublishLockOthers ? "feature" : "draft",
+    );
+    setScheduleBypassApproval(!!revision?.scheduledPublishBypassApproval);
+  }, [
+    revision?.autoPublishOnApproval,
+    revision?.scheduledPublishAt,
+    revision?.scheduledPublishLockEdits,
+    revision?.scheduledPublishLockOthers,
+    revision?.scheduledPublishBypassApproval,
+    scheduledPending,
+  ]);
+
+  // Collapse back to the read-only schedule summary when switching revisions.
+  // Keyed on version only (not every mutation) so an in-progress edit isn't
+  // collapsed when an auto-saved schedule change re-fetches the revision.
+  useEffect(() => {
+    setEditingSchedule(false);
+  }, [revision?.version]);
 
   // ── Sub-tabs ──
   // "Overview" (human-readable changes + review activity) vs "Changes" (JSON
@@ -705,6 +785,14 @@ export default function ReviewAndPublish({
     rampSchedules?.some(
       (rs) => rs.lockdownConfig?.mode === "locked" && rs.status === "running",
     ) ?? false;
+  // Parallel to the ramp lock: another draft of this feature has a pending
+  // scheduled publish that locks publishing of other drafts. Blocks publishing
+  // THIS revision (the scheduled sibling is excluded so it can still publish).
+  const lockingScheduledSibling = findPublishLockingScheduledRevision(
+    revisions,
+    revision?.version,
+  );
+  const featureLockedBySchedule = !!lockingScheduledSibling;
 
   const isPendingReview =
     revision?.status === "pending-review" ||
@@ -733,12 +821,139 @@ export default function ReviewAndPublish({
 
   const isReviewRequester =
     !!userId && !!reviewRequesterId && userId === reviewRequesterId;
-  const canToggleAutoPublish =
-    autopublishOnApproval &&
+
+  // Only the draft / review-request owner can edit the arming; others see a
+  // read-only summary when armed (matching main's auto-publish-on-approval rule).
+  const isArmingOwner =
     permissionsUtil.canPublishFeature(feature, envIds) &&
     (revision?.status === "draft" || isReviewRequester);
+  const hasScheduledRevisions = hasCommercialFeature("scheduled-revisions");
+  // "when approved" only makes sense before approval — once approved it would
+  // just publish now (which Publish already does), so approved revisions only
+  // offer "on a date".
+  const canArmWhenApproved =
+    autopublishOnApproval && isArmingOwner && revision?.status !== "approved";
+  // Arming/editing a dated schedule needs only publish authority — not draft /
+  // review-request ownership — matching the backend `canScheduleFeaturePublish`
+  // gate, so a reviewer with publish permission can manage the schedule from the
+  // UI. The premium (`scheduled-revisions`) gate is applied at render.
+  const canArmOnDate = permissionsUtil.canPublishFeature(feature, envIds);
+  const effectivePublishMode: "approve" | "date" = canArmWhenApproved
+    ? publishMode
+    : "date";
+
+  // A schedule armed by an admin via the bypass-approval override is locked:
+  // nobody (not even the arming admin) can edit it inline — it can only be
+  // canceled and re-armed. Anyone with publish authority may cancel it, which
+  // clears the bypass flag (reverts the admin override).
+  const scheduleArmedByAdmin =
+    scheduledPending && !!revision?.scheduledPublishBypassApproval;
+  const canCancelAdminSchedule =
+    scheduleArmedByAdmin && permissionsUtil.canPublishFeature(feature, envIds);
+
+  const canManageAutoPublish = canArmWhenApproved || canArmOnDate;
+  // Admin-armed schedules render read-only for everyone, so route them through
+  // the read-only card (with an optional Cancel) rather than the editable/owner
+  // controls.
   const showAutoPublishReadonly =
-    autopublishOnApproval && revisionAutoPublishArmed && !canToggleAutoPublish;
+    (revisionAutoPublishArmed && !canManageAutoPublish) || scheduleArmedByAdmin;
+  // The read-only card (with Cancel + Change) is reserved for a dated schedule,
+  // guarding against accidental edits. "Auto-publish when approved" is just a
+  // toggle, so owners keep the plain editable checkbox.
+  const showAutoPublishEditable =
+    canManageAutoPublish &&
+    !scheduleArmedByAdmin &&
+    (!scheduledPending || editingSchedule);
+  const showManagerScheduleReadonly =
+    canManageAutoPublish &&
+    scheduledPending &&
+    !editingSchedule &&
+    !scheduleArmedByAdmin;
+
+  // Status card for a dated schedule. Used by both reviewer and owner views so
+  // they read identically; onChange/onCancel are omitted for viewers.
+  const renderScheduleCard = ({
+    onChange,
+    onCancel,
+    note,
+  }: {
+    onChange?: () => void;
+    onCancel?: () => void;
+    note?: string;
+  }) => {
+    if (!revision || !scheduledPending || !revision.scheduledPublishAt)
+      return null;
+    // Locks take effect only once approved; until then they're pending.
+    const lockActive = isScheduledPublishLockActive(revision);
+    const lockEdits = !!revision.scheduledPublishLockEdits;
+    const lockOthers = !!revision.scheduledPublishLockOthers;
+    const hasLocks = lockEdits || lockOthers;
+    const lockTargets =
+      lockOthers && lockEdits
+        ? "feature and draft"
+        : lockOthers
+          ? "feature"
+          : "draft";
+    return (
+      <NoticeBanner
+        icon={<PiClockFill />}
+        iconColor="violet"
+        title="Scheduled to publish"
+        body={
+          <>
+            {format(new Date(revision.scheduledPublishAt as Date), "PPp")}
+            {lockActive ? "" : " · pending approval"}
+          </>
+        }
+        footer={
+          <>
+            {hasLocks && (
+              <HelperText status="warning" size="sm" icon={<PiLock />} mt="2">
+                {lockActive ? "Locks " : "Will lock "}
+                {lockTargets}
+              </HelperText>
+            )}
+            {revision.scheduledPublishLastError && (
+              <HelperText status="error" size="sm" mt="2">
+                Publish is stuck and keeps retrying:{" "}
+                {revision.scheduledPublishLastError}
+              </HelperText>
+            )}
+            {note && (
+              <HelperText status="info" size="sm" mt="2">
+                {note}
+              </HelperText>
+            )}
+          </>
+        }
+        action={
+          onChange || onCancel ? (
+            <Flex gap="3" align="center">
+              {onCancel && (
+                <Button
+                  variant="ghost"
+                  color="red"
+                  disabled={savingSchedule}
+                  onClick={onCancel}
+                >
+                  Cancel schedule
+                </Button>
+              )}
+              {onChange && (
+                <Button
+                  variant="outline"
+                  disabled={savingSchedule}
+                  onClick={onChange}
+                >
+                  Change
+                </Button>
+              )}
+            </Flex>
+          ) : undefined
+        }
+      />
+    );
+  };
 
   const liveChanges = useMemo(() => {
     if (!liveRevision || !baseRevision) return [];
@@ -1488,7 +1703,8 @@ export default function ReviewAndPublish({
     !mergeResult.success ||
     !hasChanges ||
     !(governance ? governance.canPublish : true) ||
-    featureLockedByRamp;
+    featureLockedByRamp ||
+    featureLockedBySchedule;
 
   // Determine whether approvals are required by diffing the merged result
   // against live (mirrors the feature overview's gating calculation).
@@ -1558,6 +1774,7 @@ export default function ReviewAndPublish({
     onlyScheduledSelected,
     experimentsStep,
     featureLockedByRamp,
+    featureLockedBySchedule,
     checklistBlocked,
     governanceCanPublish: governance ? governance.canPublish : true,
   });
@@ -1569,20 +1786,29 @@ export default function ReviewAndPublish({
         case "next-experiments":
           openChecklistStep();
           return;
-        case "request-review":
+        case "request-review": {
           setSubmitting(true);
+          const dateArmed =
+            autoPublishArmed &&
+            effectivePublishMode === "date" &&
+            !!scheduleDate;
           await apiCall(`/feature/${feature.id}/${revision.version}/request`, {
             method: "POST",
             body: JSON.stringify({
               mergeResultSerialized: JSON.stringify(mergeResult),
               comment,
-              autoPublishOnApproval: requestAutoPublish,
+              autoPublishOnApproval:
+                autoPublishArmed && effectivePublishMode === "approve",
+              scheduledPublishAt: dateArmed ? scheduleDate : null,
+              scheduledPublishLockEdits: scheduleLockEdits,
+              scheduledPublishLockOthers: scheduleLockOthers,
             }),
           });
           // The review log drives reviewRequesterId (and thus the "Retract
           // review request" affordance) — refresh it alongside the revision.
           await Promise.all([mutate(), mutateReviewLog()]);
           return;
+        }
         case "publish":
           setSubmitting(true);
           await apiCall(`/feature/${feature.id}/${revision.version}/publish`, {
@@ -1609,8 +1835,9 @@ export default function ReviewAndPublish({
   };
   doSubmitRef.current = doSubmit;
 
+  // Persist (or, for drafts, stage) the "publish when approved" arming.
   const doToggleAutoPublish = async (enabled: boolean) => {
-    setRequestAutoPublish(enabled);
+    setAutoPublishArmed(enabled);
     if (revision.status !== "draft") {
       try {
         await apiCall(
@@ -1622,8 +1849,185 @@ export default function ReviewAndPublish({
         );
         await mutate();
       } catch (e) {
-        setRequestAutoPublish(!enabled);
+        setAutoPublishArmed(!enabled);
       }
+    }
+  };
+
+  // Persist the schedule. Called on every date/lock change (no separate save
+  // step), so the full armed state is always saved and visible to reviewers.
+  const persistSchedule = async (
+    date: string,
+    lockEdits: boolean,
+    lockOthers: boolean,
+    bypassApproval = false,
+  ): Promise<boolean> => {
+    if (!date || !revision) return false;
+    setScheduleError(null);
+    setSavingSchedule(true);
+    try {
+      await apiCall(
+        `/feature/${feature.id}/${revision.version}/schedule-publish`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            scheduledPublishAt: date,
+            lockEdits,
+            lockOthers,
+            bypassApproval,
+          }),
+        },
+      );
+      await mutate();
+      return true;
+    } catch (e) {
+      setScheduleError(e.message || "Could not schedule publish");
+      return false;
+    } finally {
+      setSavingSchedule(false);
+    }
+  };
+
+  // A review-required draft stages the schedule locally and arms it on "Request
+  // Review". Otherwise (review pending/later, or no-approval changes) it persists
+  // immediately. An admin engaging the bypass override also persists immediately
+  // — they're dangerously arming a schedule rather than entering the review flow.
+  const schedulePersistsImmediately =
+    revision?.status !== "draft" || !requireReviews || scheduleBypassApproval;
+
+  // The admin bypass toggle is only meaningful when this revision would
+  // otherwise need approval to publish (review required and not yet approved).
+  const canBypassScheduleApproval =
+    canAdminPublish && requireReviews && revision?.status !== "approved";
+
+  // Single source of truth for persisting the current schedule config.
+  const persistCurrentSchedule = (
+    lockEdits: boolean,
+    lockOthers: boolean,
+    bypassApproval: boolean,
+    persists = schedulePersistsImmediately,
+  ) => {
+    if (autoPublishArmed && scheduleDate && (persists || scheduledPending)) {
+      persistSchedule(scheduleDate, lockEdits, lockOthers, bypassApproval);
+    }
+  };
+
+  const onScheduleDateChange = (date: string) => {
+    setScheduleDate(date);
+    if (autoPublishArmed && date && schedulePersistsImmediately) {
+      persistSchedule(
+        date,
+        scheduleLockEdits,
+        scheduleLockOthers,
+        scheduleBypassApproval,
+      );
+    }
+  };
+
+  const onScheduleLockToggle = (value: boolean) => {
+    setScheduleLockEnabled(value);
+    persistCurrentSchedule(
+      value,
+      value && scheduleLockScope === "feature",
+      scheduleBypassApproval,
+    );
+  };
+
+  const onScheduleLockScopeChange = (scope: "draft" | "feature") => {
+    setScheduleLockScope(scope);
+    // Mirror the publish-mode selector: changing scope while the lock is off
+    // only records the preference; it doesn't enable the lock.
+    if (scheduleLockEnabled) {
+      persistCurrentSchedule(true, scope === "feature", scheduleBypassApproval);
+    }
+  };
+
+  const onScheduleBypassChange = (value: boolean) => {
+    setScheduleBypassApproval(value);
+    // Enabling bypass also flips schedulePersistsImmediately true for a
+    // review-required draft, so recompute persistence with the new value.
+    const persists = revision?.status !== "draft" || !requireReviews || value;
+    persistCurrentSchedule(
+      scheduleLockEdits,
+      scheduleLockOthers,
+      value,
+      persists,
+    );
+  };
+
+  const doClearSchedule = async () => {
+    if (!revision) return;
+    setScheduleError(null);
+    setSavingSchedule(true);
+    try {
+      await apiCall(
+        `/feature/${feature.id}/${revision.version}/schedule-publish`,
+        {
+          method: "POST",
+          body: JSON.stringify({ scheduledPublishAt: null }),
+        },
+      );
+      await mutate();
+      setScheduleDate("");
+    } catch (e) {
+      setScheduleError(e.message || "Could not cancel schedule");
+    } finally {
+      setSavingSchedule(false);
+    }
+  };
+
+  // Arming uses the mode currently chosen in the dropdown.
+  const doSetAutoPublishArmed = async (armed: boolean) => {
+    setScheduleError(null);
+    if (!armed) {
+      setAutoPublishArmed(false);
+      setEditingSchedule(false);
+      if (scheduledPending) {
+        await doClearSchedule();
+      } else {
+        await doToggleAutoPublish(false);
+      }
+      return;
+    }
+    // Keep the editable controls open while configuring a freshly armed schedule.
+    setEditingSchedule(true);
+    if (effectivePublishMode === "approve") {
+      await doToggleAutoPublish(true);
+    } else {
+      setPublishMode("date");
+      setAutoPublishArmed(true);
+      // Revert the optimistic check if the immediate save fails, so the box
+      // doesn't read as armed when nothing was persisted.
+      if (scheduleDate && schedulePersistsImmediately) {
+        const ok = await persistSchedule(
+          scheduleDate,
+          scheduleLockEdits,
+          scheduleLockOthers,
+          scheduleBypassApproval,
+        );
+        if (!ok) {
+          setAutoPublishArmed(false);
+          setEditingSchedule(false);
+        }
+      }
+    }
+  };
+
+  // Switch arming modes. When not yet armed this only records the preference.
+  const doSetPublishMode = async (mode: "approve" | "date") => {
+    setScheduleError(null);
+    setPublishMode(mode);
+    if (!autoPublishArmed) return;
+    if (mode === "approve") {
+      if (scheduledPending) await doClearSchedule();
+      await doToggleAutoPublish(true);
+    } else if (scheduleDate && schedulePersistsImmediately) {
+      await persistSchedule(
+        scheduleDate,
+        scheduleLockEdits,
+        scheduleLockOthers,
+        scheduleBypassApproval,
+      );
     }
   };
 
@@ -1852,6 +2256,50 @@ export default function ReviewAndPublish({
       Are you sure you want to discard this draft? This action cannot be undone.
     </ModalStandard>
   ) : null;
+
+  // Hoisted out of the footer render so the read-only schedule card (shown to
+  // reviewers/non-managers) can tell whether the arming control will already
+  // render it below the rebase/divergence notice — and avoid showing it twice.
+  // Step actions precede publish (Request Review / Submit Review / Next).
+  const isStepAction =
+    state.hasSubmit &&
+    state.submitAction !== "publish" &&
+    state.submitAction !== "none" &&
+    state.submitAction !== "next-experiments";
+  const continueToPublish =
+    state.submitAction === "next-experiments" && !experimentsStep;
+
+  // What's blocking publish (ignoring adminPublish so it stays visible while the
+  // checkbox is unchecked). `overridable` gates the admin-bypass checkbox.
+  type BlockInfo = { overridable: boolean } | null;
+  const blockInfo: BlockInfo = (() => {
+    if (!mergeResult.success) return { overridable: false };
+    if (!hasChanges) return { overridable: false };
+    if (!hasPublishPermission) return { overridable: false };
+    if (
+      requireReviews &&
+      !adminPublish &&
+      ["draft", "pending-review", "changes-requested"].includes(revision.status)
+    )
+      return { overridable: true };
+    if (!adminPublish && !governance?.canPublish) return { overridable: true };
+    if (!adminPublish && featureLockedByRamp) return { overridable: true };
+    if (!adminPublish && featureLockedBySchedule) return { overridable: true };
+    return null;
+  })();
+
+  // Publish section (divider, admin-bypass, Publish button) is hidden for
+  // not-yet-approved drafts unless an admin can bypass.
+  const adminCanBypassNow =
+    canAdminPublish &&
+    mergeResult.success &&
+    (blockInfo?.overridable || adminPublish);
+  const showPublishSection =
+    state.submitAction === "publish" || continueToPublish || adminCanBypassNow;
+  // The arming control (and thus a dated schedule card) renders in either the
+  // step block or the publish section. When neither shows, the read-only card
+  // falls back to the summary block above.
+  const armingRendersBelow = isStepAction || showPublishSection;
 
   // Hard merge conflicts no longer short-circuit the page: keep the
   // two-column layout so reviewers can still see draft-vs-live changes
@@ -2149,26 +2597,44 @@ export default function ReviewAndPublish({
           renderExperimentSelection()}
 
         <Box mt="6">
-          {/* Read-only auto-publish indicator for reviewers */}
-          {showAutoPublishReadonly && (
-            <Box mb="3">
+          {/* Read-only arming summary for reviewers / non-managers. The dated
+              schedule card renders with the arming control below the rebase
+              notice when a publish/step section exists; here it's only a
+              fallback for when neither section is shown (e.g. pending review). */}
+          {showAutoPublishReadonly &&
+            revision &&
+            (scheduledPending ? (
+              !armingRendersBelow &&
+              renderScheduleCard(
+                scheduleArmedByAdmin
+                  ? {
+                      onCancel: canCancelAdminSchedule
+                        ? () => doSetAutoPublishArmed(false)
+                        : undefined,
+                      note: "Armed by an admin (approval bypassed). Cancel and re-arm to change it.",
+                    }
+                  : {},
+              )
+            ) : (
+              // "When approved" is just a toggle — show a disabled checkbox.
               <Checkbox
                 label="Automatically publish when approved"
                 weight="regular"
-                value={revisionAutoPublishArmed}
-                setValue={() => {}}
                 disabled
+                value={true}
+                setValue={() => {}}
               />
-            </Box>
-          )}
+            ))}
 
           {/* Submit review — reviewer action, opens the comment/decision popover */}
           {canReview && isPendingReview && !approved && (
             <Flex direction="column" gap="3">
               <ReviewCommentPopover
                 submitUrl={`/feature/${feature.id}/${revision.version}/submit-review`}
+                storageKey={`review-comment:${feature.id}:${revision.version}`}
                 allowPublishOnApprove={autopublishOnApproval}
                 autoPublishArmed={revisionAutoPublishArmed}
+                autoPublishScheduled={scheduledPending}
                 canReviewerPublish={hasPublishPermission}
                 publishBlocked={reviewerPublishBlocked}
                 publishHasMoreSteps={hasChecklistStep}
@@ -2206,53 +2672,26 @@ export default function ReviewAndPublish({
           )}
 
           {(() => {
-            // Step actions that come before publish (Request Review, Submit
-            // Review, Next). Not gated on conflict state — requesting a review
-            // is allowed while conflicts exist; only publishing is blocked.
-            const isStepAction =
-              state.hasSubmit &&
-              state.submitAction !== "publish" &&
-              state.submitAction !== "none" &&
-              // Pre-launch checklist uses the publish footer CTA instead.
-              state.submitAction !== "next-experiments";
-
-            const continueToPublish =
-              state.submitAction === "next-experiments" && !experimentsStep;
-
             const continueLabel = "Continue to Publish →";
 
-            // What's blocking publish right now (raw, ignoring adminPublish so
-            // the block is still visible while the checkbox is unchecked). The
-            // button label never changes — the surrounding context (status
-            // header, divergence notice, conflict callout) explains why it's
-            // disabled. `overridable` gates the admin-bypass checkbox.
-            type BlockInfo = { overridable: boolean } | null;
-            const blockInfo: BlockInfo = (() => {
-              if (!mergeResult.success) return { overridable: false };
-              if (!hasChanges) return { overridable: false };
-              if (!hasPublishPermission) return { overridable: false };
-              if (
-                requireReviews &&
-                !adminPublish &&
-                ["draft", "pending-review", "changes-requested"].includes(
-                  revision.status,
-                )
-              )
-                return { overridable: true };
-              if (!adminPublish && !governance?.canPublish)
-                return { overridable: true };
-              if (!adminPublish && featureLockedByRamp)
-                return { overridable: true };
-              return null;
-            })();
-
+            // A pending schedule must be canceled before a manual publish (one
+            // explicit path back to "approved"). An admin bypass override lets an
+            // admin publish now over someone else's pending schedule — but not
+            // over a schedule that was itself admin-armed (that reads as the
+            // intentional deferral, so it still blocks publish-now).
+            const scheduleBlocksPublish =
+              scheduledPending && (!adminPublish || scheduleArmedByAdmin);
             const publishEnabled =
               state.submitAction === "publish" &&
               state.ctaEnabled &&
-              canDoPrimary;
+              canDoPrimary &&
+              !scheduleBlocksPublish;
 
             const continueEnabled =
-              continueToPublish && state.ctaEnabled && canDoPrimary;
+              continueToPublish &&
+              state.ctaEnabled &&
+              canDoPrimary &&
+              !scheduleBlocksPublish;
 
             const primaryFooterEnabled = continueToPublish
               ? continueEnabled
@@ -2260,39 +2699,178 @@ export default function ReviewAndPublish({
 
             const primaryFooterLabel = continueToPublish
               ? continueLabel
-              : onlyScheduledSelected
-                ? "Schedule to Start"
-                : "Publish";
+              : scheduleBlocksPublish
+                ? "Publish scheduled"
+                : onlyScheduledSelected
+                  ? "Schedule to Start"
+                  : "Publish";
 
-            // Hide the publish section (divider, admin-bypass checkbox, Publish
-            // button) for not-yet-approved drafts — unless an admin can bypass
-            // checks. There, Request Review is the only relevant action.
-            const adminCanBypassNow =
-              canAdminPublish &&
-              mergeResult.success &&
-              (blockInfo?.overridable || adminPublish);
-            const showPublishSection =
-              state.submitAction === "publish" ||
-              continueToPublish ||
-              adminCanBypassNow;
+            {
+              /* Unified auto-publish arming: one checkbox + a mode selector
+                 ("when approved" vs "on a specific date" are mutually exclusive),
+                 rendered just above the primary CTA so it reads as related. */
+            }
+            const autoPublishArming = showAutoPublishEditable ? (
+              // Extra bottom margin separates the schedule widget from the admin
+              // bypass checkbox + Publish CTA group that follows.
+              <Box mb="5">
+                <Flex align="center" gap="1">
+                  <Checkbox
+                    label="Automatically publish"
+                    weight="regular"
+                    disabled={savingSchedule}
+                    value={autoPublishArmed}
+                    setValue={(val) => doSetAutoPublishArmed(!!val)}
+                  />
+                  {canArmWhenApproved ? (
+                    <SelectField
+                      containerClassName="select-dropdown-underline mb-0"
+                      value={effectivePublishMode}
+                      disabled={savingSchedule}
+                      isSearchable={false}
+                      sort={false}
+                      containerStyles={{
+                        control: (s) => ({ ...s, fontSize: 14 }),
+                        singleValue: (s) => ({ ...s, fontSize: 14 }),
+                      }}
+                      options={[
+                        {
+                          label: "when approved",
+                          value: "approve",
+                        },
+                        {
+                          label: "on a specific date",
+                          value: "date",
+                        },
+                      ]}
+                      onChange={(v) =>
+                        doSetPublishMode(v as "approve" | "date")
+                      }
+                    />
+                  ) : (
+                    // Approved revisions can only defer to a date — "when
+                    // approved" would just publish now, so show it as text.
+                    <Text size="medium">on a specific date</Text>
+                  )}
+                </Flex>
+                {autoPublishArmed && effectivePublishMode === "date" && (
+                  <Box mt="2" ml="4">
+                    {hasScheduledRevisions ? (
+                      <>
+                        <DatePicker
+                          date={scheduleDate || undefined}
+                          setDate={(d) =>
+                            onScheduleDateChange(d ? d.toISOString() : "")
+                          }
+                          precision="datetime"
+                          disableBefore={new Date().toISOString()}
+                        />
+                        <Flex align="center" gap="1" mt="2">
+                          <Checkbox
+                            label="Lock edits to"
+                            weight="regular"
+                            value={scheduleLockEnabled}
+                            setValue={(v) => onScheduleLockToggle(!!v)}
+                          />
+                          <SelectField
+                            containerClassName="select-dropdown-underline mb-0"
+                            value={scheduleLockScope}
+                            disabled={savingSchedule}
+                            isSearchable={false}
+                            sort={false}
+                            containerStyles={{
+                              control: (s) => ({ ...s, fontSize: 14 }),
+                              singleValue: (s) => ({ ...s, fontSize: 14 }),
+                            }}
+                            options={[
+                              { label: "this feature", value: "feature" },
+                              { label: "this draft", value: "draft" },
+                            ]}
+                            onChange={(v) =>
+                              onScheduleLockScopeChange(
+                                v as "draft" | "feature",
+                              )
+                            }
+                          />
+                        </Flex>
+                        {canBypassScheduleApproval && (
+                          <Box mt="2">
+                            <Checkbox
+                              label={
+                                <span style={{ color: "var(--red-11)" }}>
+                                  Admin: allow scheduled publish to bypass
+                                  checks
+                                </span>
+                              }
+                              weight="regular"
+                              value={scheduleBypassApproval}
+                              setValue={(v) => onScheduleBypassChange(!!v)}
+                            />
+                          </Box>
+                        )}
+                        {experiments.length > 0 && (
+                          <Callout status="warning" mt="2">
+                            This draft would start{" "}
+                            {experiments.length === 1
+                              ? "a linked draft experiment"
+                              : `${experiments.length} linked draft experiments`}
+                            . A scheduled publish won&apos;t start{" "}
+                            {experiments.length === 1 ? "it" : "them"} — it will
+                            be held at the scheduled time until{" "}
+                            {experiments.length === 1 ? "it is" : "they are"}{" "}
+                            started (or removed from this draft). Start{" "}
+                            {experiments.length === 1 ? "it" : "them"} before
+                            the scheduled time to avoid a stuck publish.
+                          </Callout>
+                        )}
+                      </>
+                    ) : (
+                      <PremiumTooltip commercialFeature="scheduled-revisions">
+                        <Text size="small" as="div">
+                          Upgrade to publish on a specific date.
+                        </Text>
+                      </PremiumTooltip>
+                    )}
+                    {scheduleError && (
+                      <Callout status="error" mt="2">
+                        {scheduleError}
+                      </Callout>
+                    )}
+                    {/* Unchecking "Automatically publish" cancels the schedule;
+                      the read-only card below carries Cancel + Change. */}
+                  </Box>
+                )}
+              </Box>
+            ) : showManagerScheduleReadonly && revision ? (
+              // Armed + not editing: owners see the read-only card with Cancel
+              // and Change (guards against accidental edits).
+              renderScheduleCard({
+                onChange: () => setEditingSchedule(true),
+                onCancel: () => doSetAutoPublishArmed(false),
+              })
+            ) : showAutoPublishReadonly && revision && scheduledPending ? (
+              // Read-only card: viewers without publish authority see no controls;
+              // an admin-armed schedule offers Cancel (to publishers) but never an
+              // inline Change — it must be canceled and re-armed.
+              renderScheduleCard(
+                scheduleArmedByAdmin
+                  ? {
+                      onCancel: canCancelAdminSchedule
+                        ? () => doSetAutoPublishArmed(false)
+                        : undefined,
+                      note: "Armed by an admin (approval bypassed). Cancel and re-arm to change it.",
+                    }
+                  : {},
+              )
+            ) : null;
 
             return (
               <>
-                {/* Auto-publish toggle (editable by requestor) */}
-                {canToggleAutoPublish && (
-                  <Box mb="3">
-                    <Checkbox
-                      label="Automatically publish when approved"
-                      weight="regular"
-                      value={requestAutoPublish}
-                      setValue={(val) => doToggleAutoPublish(!!val)}
-                    />
-                  </Box>
-                )}
-
-                {/* Step CTA: Request Review / Submit Review / Next */}
+                {/* Step CTA: Request Review / Submit Review / Next. The arming
+                  control renders here for drafts (no publish section yet). */}
                 {isStepAction && (
                   <Box mt="4">
+                    {!showPublishSection && autoPublishArming}
                     <Button
                       variant="soft"
                       onClick={doSubmit}
@@ -2332,6 +2910,10 @@ export default function ReviewAndPublish({
                       />
                     )}
 
+                    {/* Arming control sits below the separator so it reads as
+                    related to the Publish button. */}
+                    {autoPublishArming}
+
                     {/* Merge conflicts are never admin-overridable — hide the
                     bypass checkbox entirely while one exists. */}
                     {canAdminPublish &&
@@ -2339,7 +2921,11 @@ export default function ReviewAndPublish({
                       (blockInfo?.overridable || adminPublish) && (
                         <Box mb="3">
                           <Checkbox
-                            label="Admin: bypass checks and publish now"
+                            label={
+                              <span style={{ color: "var(--red-11)" }}>
+                                Admin: bypass checks and publish now
+                              </span>
+                            }
                             weight="regular"
                             value={adminPublish}
                             setValue={(val) => {
@@ -2354,18 +2940,26 @@ export default function ReviewAndPublish({
                         </Box>
                       )}
 
-                    <Button
-                      onClick={primaryFooterEnabled ? doSubmit : undefined}
-                      loading={
-                        submitting &&
-                        (state.submitAction === "publish" || continueToPublish)
-                      }
-                      disabled={!primaryFooterEnabled}
-                      icon={state.ctaLocked ? <PiLockSimple /> : undefined}
-                      style={{ width: "100%" }}
-                    >
-                      {primaryFooterLabel}
-                    </Button>
+                    {/* A live schedule blocks "publish now"; the scheduled
+                    status card above already explains this and offers
+                    Cancel/Change, so we hide the otherwise-dead disabled
+                    button. It reappears the moment the block clears (e.g. admin
+                    bypass toggled, or the experiments "continue" flow). */}
+                    {!(scheduleBlocksPublish && !continueToPublish) && (
+                      <Button
+                        onClick={primaryFooterEnabled ? doSubmit : undefined}
+                        loading={
+                          submitting &&
+                          (state.submitAction === "publish" ||
+                            continueToPublish)
+                        }
+                        disabled={!primaryFooterEnabled}
+                        icon={state.ctaLocked ? <PiLockSimple /> : undefined}
+                        style={{ width: "100%" }}
+                      >
+                        {primaryFooterLabel}
+                      </Button>
+                    )}
 
                     {/* ── Uniform status displays for the publish state ──
                     All callouts use the same size, spacing, and chrome so
@@ -2385,6 +2979,18 @@ export default function ReviewAndPublish({
                         <Callout status="info" size="sm">
                           No changes to publish. Discard the draft or add
                           changes first.
+                        </Callout>
+                      )}
+
+                      {featureLockedBySchedule && !adminPublish && (
+                        <Callout status="warning" size="sm">
+                          Another draft
+                          {lockingScheduledSibling?.version
+                            ? ` (revision ${lockingScheduledSibling.version})`
+                            : ""}{" "}
+                          is scheduled to publish and has locked publishing of
+                          other drafts. Cancel that schedule to publish this
+                          revision.
                         </Callout>
                       )}
 

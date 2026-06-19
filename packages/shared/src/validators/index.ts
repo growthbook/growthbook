@@ -15,6 +15,7 @@ export * from "./attributes";
 export * from "./dimensions";
 export * from "./members";
 export * from "./api-settings";
+export * from "./api-meta";
 export * from "./bulk-import";
 export * from "./code-refs";
 export * from "./information-schema-tables";
