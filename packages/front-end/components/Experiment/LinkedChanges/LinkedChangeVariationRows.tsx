@@ -3,6 +3,7 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import Text from "@/ui/Text";
+import VariationLabel from "@/ui/VariationLabel";
 import { decimalToPercent } from "@/services/utils";
 
 type VariationRowsProps = {
@@ -32,23 +33,11 @@ export default function LinkedChangeVariationRows({
             gap="9"
             minHeight="24px"
           >
-            <Flex
-              gap="1"
-              flexBasis="15%"
-              flexShrink="0"
-              className={`variation with-variation-label variation${j}`}
-            >
-              <Box as="span" className="label">
-                {j}
-              </Box>
-              <Box as="span" className="text-ellipsis" title={v.name}>
-                <Text color="text-high" weight="medium">
-                  {v.name}
-                </Text>
-              </Box>
-            </Flex>
+            <Box flexBasis="15%" flexShrink="0" minWidth="0">
+              <VariationLabel number={j} name={v.name} size="medium" />
+            </Box>
             <Flex flexBasis="90px" flexShrink="0" justify="end">
-              <Text>
+              <Text color="text-mid">
                 {decimalToPercent(latestPhase?.variationWeights?.[j] ?? 0)}%
                 Split
               </Text>

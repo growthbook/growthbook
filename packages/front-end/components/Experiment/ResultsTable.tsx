@@ -55,6 +55,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import HelperText from "@/ui/HelperText";
+import VariationLabel from "@/ui/VariationLabel";
 import { useMetricDrilldownContext } from "@/components/MetricDrilldown/useMetricDrilldownContext";
 import { DrilldownTooltip, isInteractiveElement } from "./DrilldownTooltip";
 import AlignedGraph from "./AlignedGraph";
@@ -1016,25 +1017,15 @@ export default function ResultsTable({
                                                   ? "pl-2" // less padding because no expansion buttons
                                                   : "pl-3"
                                             }`}
+                                            style={{
+                                              width: 200 * tableCellScale,
+                                            }}
                                           >
-                                            <span
-                                              className="label ml-2"
-                                              style={{
-                                                width: 20,
-                                                height: 20,
-                                              }}
-                                            >
-                                              {v.index}
-                                            </span>
-                                            <span
-                                              className="d-inline-block text-ellipsis"
-                                              title={v.name}
-                                              style={{
-                                                width: 200 * tableCellScale,
-                                              }}
-                                            >
-                                              {v.name}
-                                            </span>
+                                            <VariationLabel
+                                              number={v.index}
+                                              name={v.name}
+                                              size="small"
+                                            />
                                           </div>
                                         ) : (
                                           renderLabelColumn({

@@ -1,9 +1,10 @@
 import { Variation, VariationWithIndex } from "shared/types/experiment";
 import { ExperimentReportVariation } from "shared/types/report";
 import { useState } from "react";
-import { Flex, Text } from "@radix-ui/themes";
+import { Box, Flex, Text } from "@radix-ui/themes";
 import { PiCaretDownFill } from "react-icons/pi";
 import Checkbox from "@/ui/Checkbox";
+import VariationLabel from "@/ui/VariationLabel";
 import {
   DropdownMenu,
   DropdownMenuItem,
@@ -11,7 +12,6 @@ import {
   DropdownMenuLabel,
 } from "@/ui/DropdownMenu";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 
 export interface VariationChooserColumnLabelProps {
   variations: Variation[] | ExperimentReportVariation[];
@@ -195,29 +195,14 @@ export default function VariationChooserColumnLabel({
   if (singleSelected && !isHoldout) {
     const selectedVariation = filteredVariations[0];
     triggerContent = (
-      <Flex
-        align="center"
-        className={`variation variation${selectedVariation.index} with-variation-label`}
-      >
-        <span
-          className="label"
-          style={{
-            width: 16,
-            height: 16,
-            flex: "none",
-            marginRight: "4px",
-            marginLeft: "-4px",
-          }}
-        >
-          {selectedVariation.index}
-        </span>
-        <OverflowText
-          maxWidth={labelMaxWidth}
-          style={{ color: "var(--color-text-mid)", fontSize: "13px" }}
-        >
-          {selectedVariation.name}
-        </OverflowText>
-      </Flex>
+      <Box style={{ maxWidth: labelMaxWidth + 20, minWidth: 0 }}>
+        <VariationLabel
+          number={selectedVariation.index}
+          name={selectedVariation.name}
+          size="small"
+          disableTooltip
+        />
+      </Box>
     );
   } else {
     // Multiple selected or all selected - show plain "Variation" text

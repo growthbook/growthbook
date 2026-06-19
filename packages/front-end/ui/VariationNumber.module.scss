@@ -9,6 +9,9 @@ $text-colors:
   $variant-a-5, $variant-a-6, $variant-a-7, $variant-a-8;
 
 .variation {
+  display: inline-flex;
+  align-items: center;
+
   .label {
     display: inline-flex;
     flex-shrink: 0;

@@ -6,7 +6,7 @@ import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
 } from "shared/types/experiment-snapshot";
-import { Flex, Text } from "@radix-ui/themes";
+import { Box, Flex, Text } from "@radix-ui/themes";
 import { PiCaretDownFill } from "react-icons/pi";
 import { getSnapshotAnalysis } from "shared/util";
 import { useAuth } from "@/services/auth";
@@ -20,6 +20,7 @@ import {
 } from "@/ui/DropdownMenu";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
+import VariationLabel from "@/ui/VariationLabel";
 import { analysisUpdate } from "@/services/snapshots";
 
 export interface BaselineChooserColumnLabelProps {
@@ -199,30 +200,24 @@ export default function BaselineChooserColumnLabel({
       }
     >
       <Flex align="center" gap="1">
-        <Flex
-          align="center"
-          className={`variation variation${baselineVariation.index} with-variation-label`}
-        >
-          {!isHoldout && (
-            <span
-              className="label"
-              style={{
-                width: 16,
-                height: 16,
-                flex: "none",
-                marginRight: "4px",
-                marginLeft: "-4px",
-              }}
+        <Flex align="center">
+          {isHoldout ? (
+            <OverflowText
+              maxWidth={labelMaxWidth}
+              style={{ color: "var(--color-text-mid)", fontSize: "13px" }}
             >
-              {baselineVariation.index}
-            </span>
+              Holdout
+            </OverflowText>
+          ) : (
+            <Box style={{ maxWidth: labelMaxWidth + 20, minWidth: 0 }}>
+              <VariationLabel
+                number={baselineVariation.index}
+                name={baselineVariation.name}
+                size="small"
+                disableTooltip
+              />
+            </Box>
           )}
-          <OverflowText
-            maxWidth={labelMaxWidth}
-            style={{ color: "var(--color-text-mid)", fontSize: "13px" }}
-          >
-            {isHoldout ? "Holdout" : baselineVariation.name}
-          </OverflowText>
           {dropdownEnabled && setBaselineRow && (
             <Flex align="center" gap="1">
               <PiCaretDownFill style={{ fontSize: "12px" }} />

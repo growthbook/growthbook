@@ -404,11 +404,6 @@
       "count": 3
     }
   },
-  "packages/front-end/components/Experiment/VariationsTable.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Experiment/holdout/HoldoutTimeline.tsx": {
     "no-restricted-imports": {
       "count": 2

@@ -8,6 +8,10 @@ export interface VariationLabelProps {
   number: number;
   name: string;
   size?: "small" | "medium" | "large";
+  // The tooltip only reveals the name when it is truncated or hidden. Set this
+  // when the label is rendered inside an element that already has its own
+  // tooltip, to avoid a nested/duplicate tooltip.
+  disableTooltip?: boolean;
 }
 
 // Below this available width (px) for the name, we drop the name entirely and
@@ -18,6 +22,7 @@ export default function VariationLabel({
   number,
   name,
   size = "medium",
+  disableTooltip = false,
 }: VariationLabelProps) {
   const slotRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLDivElement>(null);
@@ -51,6 +56,28 @@ export default function VariationLabel({
     }
   }, [hideName]);
 
+  const content = (
+    <Flex align="center" gap="1" minWidth="0">
+      <VariationNumber number={number} />
+      <Box ref={slotRef} minWidth="0" flexGrow="1" overflow="hidden">
+        {!hideName ? (
+          <Text
+            ref={textRef}
+            as="div"
+            size={size}
+            weight={size === "large" ? "medium" : "semibold"}
+            color="text-mid"
+            truncate
+          >
+            {name}
+          </Text>
+        ) : null}
+      </Box>
+    </Flex>
+  );
+
+  if (disableTooltip) return content;
+
   return (
     <Tooltip
       body={name}
@@ -58,23 +85,7 @@ export default function VariationLabel({
       style={{ display: "block", minWidth: 0 }}
       tipPosition="top"
     >
-      <Flex align="center" gap="1" minWidth="0">
-        <VariationNumber number={number} />
-        <Box ref={slotRef} minWidth="0" flexGrow="1" overflow="hidden">
-          {!hideName ? (
-            <Text
-              ref={textRef}
-              as="div"
-              size={size}
-              weight="medium"
-              color="text-mid"
-              truncate
-            >
-              {name}
-            </Text>
-          ) : null}
-        </Box>
-      </Flex>
+      {content}
     </Tooltip>
   );
 }
