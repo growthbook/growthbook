@@ -356,6 +356,11 @@ export default {
             },
             {
               type: "doc",
+              id: "visual-editor/design-import",
+              label: "Figma & image import (beta)",
+            },
+            {
+              type: "doc",
               id: "visual-editor/running-on-your-site",
               label: "Running on your site",
             },
