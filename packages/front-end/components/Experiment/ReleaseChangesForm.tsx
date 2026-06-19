@@ -30,6 +30,7 @@ import SelectField from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { DocLink } from "@/components/DocLink";
 import { formatPercent } from "@/services/metrics";
+import Callout from "@/ui/Callout";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -215,7 +216,7 @@ export default function ReleaseChangesForm({
                 : "Sticky Bucketed users will be excluded from the experiment."
             : "No sticky bucketing."}
           {form.watch("newPhase") && isBandit && (
-            <div className="alert alert-warning text-danger mt-2">
+            <Callout status="warning" mt="2" className="text-danger">
               <FaExclamationCircle className="mr-2" />
               This Bandit will restart. Variation weights will reset (
               {(() => {
@@ -232,7 +233,7 @@ export default function ReleaseChangesForm({
                   .join(", ");
               })()}
               ).
-            </div>
+            </Callout>
           )}
         </div>
       </div>
@@ -247,11 +248,11 @@ export default function ReleaseChangesForm({
         />
       )}
       {changeType === "phase" && releasePlan === "new-phase-same-seed" && (
-        <div className="alert alert-warning">
+        <Callout status="warning">
           <FaExclamationCircle className="mr-1" /> Starting a new phase without
           re-randomizing can lead to carryover bias. Consider re-randomizing to
           mitigate.
-        </div>
+        </Callout>
       )}
 
       {changeType !== "phase" && (
@@ -422,13 +423,13 @@ function ImpactTooltips({
                   )}
                 </div>
 
-                <div className="alert mt-2 mb-0 alert-info">
+                <Callout status="info" mt="2" mb="0">
                   <BsLightbulb /> Re-randomize traffic{" "}
                   {recommendStickyBucketing && switchToSB
                     ? " or use Sticky Bucketing"
                     : ""}{" "}
                   to help mitigate.
-                </div>
+                </Callout>
               </>
             ) : null}
           </div>
@@ -457,10 +458,10 @@ function ImpactTooltips({
         {!isBandit &&
           variationHopping &&
           releasePlan !== "same-phase-sticky" && (
-            <div className="alert mt-2 mb-0 alert-info">
+            <Callout status="info" mt="2" mb="0">
               <BsLightbulb /> You may be able to use Sticky Bucketing to prevent
               variation hopping.
-            </div>
+            </Callout>
           )}
       </div>
 

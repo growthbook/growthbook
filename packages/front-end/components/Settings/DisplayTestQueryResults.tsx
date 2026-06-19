@@ -313,15 +313,17 @@ export default function DisplayTestQueryResults({
                   <ManagedWarehouseNoEventsCallout />
                 </div>
               ) : (
-                <div className="alert alert-danger mr-auto">{error}</div>
+                <Callout status="error" className="mr-auto">
+                  {error}
+                </Callout>
               )
             ) : (
               showNoRowsWarning &&
               !results.length && (
-                <div className="alert alert-warning mr-auto">
+                <Callout status="warning" className="mr-auto">
                   <FaExclamationTriangle /> No rows returned, could not verify
                   result
-                </div>
+                </Callout>
               )
             )}
             <Code

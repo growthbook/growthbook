@@ -463,9 +463,9 @@ export default function SDKConnectionForm({
         <div className="form-group">
           <label>SDK Language</label>
           {languageError ? (
-            <span className="ml-3 alert px-1 py-0 mb-0 alert-danger">
+            <Callout status="error" ml="3" mb="0" className="px-1 py-0">
               {languageError}
-            </span>
+            </Callout>
           ) : null}
           <SDKLanguageSelector
             value={form.watch("languages")}
@@ -974,23 +974,23 @@ export default function SDKConnectionForm({
                       />
                     </Box>
                     {isCloud() && (
-                      <div className="alert alert-info mb-0 mt-3 py-1 px-2 d-flex flex-row">
-                        <div className="pr-2">
-                          <FaExclamationCircle className="mr-1" />
-                        </div>
-                        <div>
-                          Cloud customers must self-host a remote evaluation
-                          service such as{" "}
-                          <a
-                            target="_blank"
-                            href="https://github.com/growthbook/growthbook-proxy"
-                            rel="noreferrer"
-                          >
-                            GrowthBook Proxy
-                          </a>{" "}
-                          or a CDN edge worker.
-                        </div>
-                      </div>
+                      <Callout
+                        status="info"
+                        mb="0"
+                        mt="3"
+                        icon={<FaExclamationCircle />}
+                      >
+                        Cloud customers must self-host a remote evaluation
+                        service such as{" "}
+                        <a
+                          target="_blank"
+                          href="https://github.com/growthbook/growthbook-proxy"
+                          rel="noreferrer"
+                        >
+                          GrowthBook Proxy
+                        </a>{" "}
+                        or a CDN edge worker.
+                      </Callout>
                     )}
                     {(() => {
                       if (!form.watch("remoteEvalEnabled")) return null;

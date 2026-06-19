@@ -1,7 +1,9 @@
 import { InformationSchemaInterface } from "shared/types/integrations";
 import { isManagedWarehouseNoEventsGuidanceMessage } from "shared/util";
+import { Flex } from "@radix-ui/themes";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
+import Callout from "@/ui/Callout";
 
 export default function RetryInformationSchemaCard({
   informationSchema,
@@ -42,24 +44,26 @@ export default function RetryInformationSchemaCard({
           </div>
         </div>
       ) : (
-        <div className="alert alert-warning d-flex align-items-center">
-          {combinedError ? <span>{combinedError}</span> : null}
-          <Tooltip
-            body="You do not have permission to retry generating an information schema for this datasource."
-            shouldDisplay={!canRunQueries}
-          >
-            <button
-              disabled={!canRunQueries}
-              className="btn btn-link"
-              onClick={async (e) => {
-                e.preventDefault();
-                refreshOrCreateInfoSchema("PUT");
-              }}
+        <Callout status="warning" contentsAs="div">
+          <Flex align="center" gap="2">
+            {combinedError ? <span>{combinedError}</span> : null}
+            <Tooltip
+              body="You do not have permission to retry generating an information schema for this datasource."
+              shouldDisplay={!canRunQueries}
             >
-              Retry
-            </button>
-          </Tooltip>
-        </div>
+              <button
+                disabled={!canRunQueries}
+                className="btn btn-link"
+                onClick={async (e) => {
+                  e.preventDefault();
+                  refreshOrCreateInfoSchema("PUT");
+                }}
+              >
+                Retry
+              </button>
+            </Tooltip>
+          </Flex>
+        </Callout>
       )}
     </div>
   );

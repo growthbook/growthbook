@@ -4,6 +4,7 @@ import { FaUpload } from "react-icons/fa";
 import { DocLink } from "@/components/DocLink";
 import BackupConfigYamlButton from "@/components/Settings/BackupConfigYamlButton";
 import RestoreConfigYamlButton from "@/components/Settings/RestoreConfigYamlButton";
+import Callout from "@/ui/Callout";
 
 export default function ImportSettings({
   hasFileConfig,
@@ -19,7 +20,7 @@ export default function ImportSettings({
   return (
     <>
       {hasFileConfig && (
-        <div className="alert alert-info my-3">
+        <Callout status="info" my="3">
           The below settings are controlled through your <code>config.yml</code>{" "}
           file and cannot be changed through the web UI.{" "}
           <DocLink
@@ -29,11 +30,11 @@ export default function ImportSettings({
             View Documentation
           </DocLink>
           .
-        </div>
+        </Callout>
       )}
 
       {!hasFileConfig && (
-        <div className="alert alert-info my-3">
+        <Callout status="info" my="3" contentsAs="div">
           <h3>Import/Export config.yml</h3>
           <p>
             {isCloud ? "GrowthBook Cloud stores" : "You are currently storing"}{" "}
@@ -64,7 +65,7 @@ export default function ImportSettings({
             not include data source connection secrets such as passwords. You
             must edit the file and add these yourself.
           </div>
-        </div>
+        </Callout>
       )}
 
       <div className="bg-white p-3 border position-relative my-3">

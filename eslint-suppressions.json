@@ -24,16 +24,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Auth/CreateOrJoinOrganization.tsx": {
-    "local/no-alert-classname": {
-      "count": 3
-    }
-  },
-  "packages/front-end/components/Auth/SelectInitialPlan.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/DataViz/DataVizConfigPanel.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -109,19 +99,9 @@
       "count": 1
     }
   },
-  "packages/front-end/components/EventWebHooks/EventWebHookList/EventWebHookList.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/EventWebHooks/WebhookSecretModal.tsx": {
     "no-restricted-imports": {
       "count": 1
-    }
-  },
-  "packages/front-end/components/Events/EventsPage/EventsPage.tsx": {
-    "local/no-alert-classname": {
-      "count": 3
     }
   },
   "packages/front-end/components/ExecReports/ExecExperimentsGraph.tsx": {
@@ -141,11 +121,6 @@
   },
   "packages/front-end/components/Experiment/BaselineChooserColumnLabel.tsx": {
     "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Experiment/BreakDownResults.tsx": {
-    "local/no-alert-classname": {
       "count": 1
     }
   },
@@ -182,11 +157,6 @@
   "packages/front-end/components/Experiment/EditHypothesisModal.tsx": {
     "no-restricted-imports": {
       "count": 2
-    }
-  },
-  "packages/front-end/components/Experiment/EditPhaseModal.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
     }
   },
   "packages/front-end/components/Experiment/ExperimentCarouselModal.tsx": {
@@ -239,16 +209,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Experiment/ReleaseChangesForm.tsx": {
-    "local/no-alert-classname": {
-      "count": 4
-    }
-  },
-  "packages/front-end/components/Experiment/Results.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Experiment/ResultsFilter/MigrateResultsToDashboardModalPages.tsx": {
     "no-restricted-imports": {
       "count": 2
@@ -272,11 +232,6 @@
   "packages/front-end/components/Experiment/StatusBanner.tsx": {
     "local/no-alert-classname": {
       "count": 3
-    }
-  },
-  "packages/front-end/components/Experiment/TabbedPage/BanditUpdateStatus.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
     }
   },
   "packages/front-end/components/Experiment/TabbedPage/EditHoldoutInfoModal.tsx": {
@@ -325,9 +280,6 @@
     }
   },
   "packages/front-end/components/Experiment/UrlRedirectModal.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    },
     "no-restricted-imports": {
       "count": 1
     }
@@ -393,9 +345,6 @@
     }
   },
   "packages/front-end/components/Features/CodeSnippetModal.tsx": {
-    "local/no-alert-classname": {
-      "count": 3
-    },
     "no-restricted-imports": {
       "count": 1
     }
@@ -481,9 +430,6 @@
     }
   },
   "packages/front-end/components/Features/RuleModal/SafeRolloutFields.tsx": {
-    "local/no-alert-classname": {
-      "count": 2
-    },
     "no-restricted-imports": {
       "count": 1
     }
@@ -493,20 +439,12 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Features/SDKConnections/ConnectionStatus.tsx": {
-    "local/no-alert-classname": {
-      "count": 2
-    }
-  },
   "packages/front-end/components/Features/SDKConnections/ProxyTestButton.tsx": {
     "no-restricted-imports": {
       "count": 1
     }
   },
   "packages/front-end/components/Features/SDKConnections/SDKConnectionForm.tsx": {
-    "local/no-alert-classname": {
-      "count": 2
-    },
     "no-restricted-imports": {
       "count": 1
     }
@@ -538,11 +476,6 @@
   },
   "packages/front-end/components/FlagCard/FlagCard.tsx": {
     "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Forms/InlineForm.tsx": {
-    "local/no-alert-classname": {
       "count": 1
     }
   },
@@ -578,11 +511,6 @@
   },
   "packages/front-end/components/GeneralSettings/FeatureSettings.tsx": {
     "no-restricted-imports": {
-      "count": 2
-    }
-  },
-  "packages/front-end/components/GeneralSettings/ImportSettings.tsx": {
-    "local/no-alert-classname": {
       "count": 2
     }
   },
@@ -651,11 +579,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/HealthTab/BanditSRMCard.tsx": {
-    "local/no-alert-classname": {
-      "count": 2
-    }
-  },
   "packages/front-end/components/HealthTab/DimensionIssues.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -706,19 +629,9 @@
       "count": 2
     }
   },
-  "packages/front-end/components/HomePage/ExperimentsGetStarted.tsx": {
-    "local/no-alert-classname": {
-      "count": 2
-    }
-  },
   "packages/front-end/components/HomePage/NorthStar.tsx": {
     "no-restricted-imports": {
       "count": 1
-    }
-  },
-  "packages/front-end/components/HomePage/NorthStarMetricDisplay.tsx": {
-    "local/no-alert-classname": {
-      "count": 3
     }
   },
   "packages/front-end/components/Ideas/IdeaForm.tsx": {
@@ -729,11 +642,6 @@
   "packages/front-end/components/InitialSetup/ManagedWarehouseModal.tsx": {
     "no-restricted-imports": {
       "count": 2
-    }
-  },
-  "packages/front-end/components/InitialSetup/VerifyConnectionPage.tsx": {
-    "local/no-alert-classname": {
-      "count": 4
     }
   },
   "packages/front-end/components/Layout/TopNav.tsx": {
@@ -811,11 +719,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/OAuthError.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/OfficialResourceModal.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -823,11 +726,6 @@
   },
   "packages/front-end/components/OutdatedBadge.tsx": {
     "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/PowerCalculation/PowerCalculationContent.tsx": {
-    "local/no-alert-classname": {
       "count": 1
     }
   },
@@ -891,16 +789,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/SafeRollout/AnalysisSettingsSummary.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/SafeRollout/Results/ResultsTable.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/SavedGroups/CompareSavedGroupRevisionsModal.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -941,31 +829,8 @@
       "count": 2
     }
   },
-  "packages/front-end/components/SchemaBrowser/PendingInformationSchemaCard.tsx": {
-    "local/no-alert-classname": {
-      "count": 2
-    }
-  },
-  "packages/front-end/components/SchemaBrowser/RetryInformationSchemaCard.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/SchemaBrowser/SaveQueryModal.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    },
     "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/SchemaBrowser/SchemaBrowser.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/SchemaBrowser/SchemaBrowserWrapper.tsx": {
-    "local/no-alert-classname": {
       "count": 1
     }
   },
@@ -975,16 +840,8 @@
     }
   },
   "packages/front-end/components/Segments/SegmentForm.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    },
     "no-restricted-imports": {
       "count": 1
-    }
-  },
-  "packages/front-end/components/Settings/ApiKeys.tsx": {
-    "local/no-alert-classname": {
-      "count": 2
     }
   },
   "packages/front-end/components/Settings/BigQueryForm.tsx": {
@@ -997,19 +854,9 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Settings/DataSourceSchemaChooser.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Settings/DataSourceTypeSelector.tsx": {
     "no-restricted-imports": {
       "count": 1
-    }
-  },
-  "packages/front-end/components/Settings/DisplayTestQueryResults.tsx": {
-    "local/no-alert-classname": {
-      "count": 2
     }
   },
   "packages/front-end/components/Settings/EditDataSource/ClickhouseMaterializedColumns/AddEditMaterializedColumnsModal.tsx": {
@@ -1024,11 +871,6 @@
   },
   "packages/front-end/components/Settings/EditDataSource/DataSourceExperimentProperties/DataSourceEditExperimentEventPropertiesModal.tsx": {
     "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Settings/EditDataSource/DataSourceInlineEditIdentifierTypes/DataSourceInlineEditIdentifierTypes.tsx": {
-    "local/no-alert-classname": {
       "count": 1
     }
   },
@@ -1068,9 +910,6 @@
     }
   },
   "packages/front-end/components/Settings/EditDataSource/DimensionMetadata/DimensionSlicesRunner.tsx": {
-    "local/no-alert-classname": {
-      "count": 2
-    },
     "no-restricted-imports": {
       "count": 1
     }
@@ -1116,9 +955,6 @@
     }
   },
   "packages/front-end/components/Settings/SubscriptionInfo.tsx": {
-    "local/no-alert-classname": {
-      "count": 4
-    },
     "no-restricted-imports": {
       "count": 2
     }
@@ -1130,11 +966,6 @@
   },
   "packages/front-end/components/Settings/Team/AdminSetPasswordModal.tsx": {
     "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Settings/Team/AutoApproveMembersToggle.tsx": {
-    "local/no-alert-classname": {
       "count": 1
     }
   },
@@ -1179,9 +1010,6 @@
     }
   },
   "packages/front-end/components/Settings/WebhooksModal.tsx": {
-    "local/no-alert-classname": {
-      "count": 4
-    },
     "no-restricted-imports": {
       "count": 1
     }
@@ -1346,11 +1174,6 @@
   },
   "packages/front-end/enterprise/components/Insights/MetricEffects.tsx": {
     "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/enterprise/components/ProductAnalytics/SideBar/DatasourceConfigurator.tsx": {
-    "local/no-alert-classname": {
       "count": 1
     }
   },
