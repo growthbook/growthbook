@@ -18,6 +18,7 @@ import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
 import Button from "@/components/Button";
 import Checkbox from "@/ui/Checkbox";
+import Callout from "@/ui/Callout";
 import FactTableSchema from "./FactTableSchema";
 
 export interface Props {
@@ -173,7 +174,7 @@ export default function FactFilterModal({ existing, factTable, close }: Props) {
           />
 
           {showExamples && (
-            <div className="alert alert-info">
+            <Callout status="info" contentsAs="div">
               <div className="mb-2">Here are some examples of Filter SQL:</div>
               <table className="table gbtable">
                 <tbody>
@@ -200,7 +201,7 @@ export default function FactFilterModal({ existing, factTable, close }: Props) {
                   </tr>
                 </tbody>
               </table>
-            </div>
+            </Callout>
           )}
 
           <Button

@@ -24,6 +24,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useUser } from "@/services/UserContext";
+import Callout from "@/ui/Callout";
 import EditSchemaOptions from "./EditSchemaOptions";
 
 const typeOptions = dataSourceConnections;
@@ -198,7 +199,7 @@ const DataSourceForm: FC<{
       }
     >
       {importSampleData && !datasource.type && (
-        <div className="alert alert-info">
+        <Callout status="info" contentsAs="div">
           <div className="row align-items-center">
             <div className="col">
               <div>
@@ -218,7 +219,7 @@ const DataSourceForm: FC<{
               </Button>
             </div>
           </div>
-        </div>
+        </Callout>
       )}
       <SelectField
         label="Data Source Type"

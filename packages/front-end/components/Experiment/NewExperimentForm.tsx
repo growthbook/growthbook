@@ -853,14 +853,14 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       >
         <Page display="Overview">
           <div className="px-2">
-            {msg && <div className="alert alert-info">{msg}</div>}
+            {msg && <Callout status="info">{msg}</Callout>}
 
             {currentProjectIsDemo && (
-              <div className="alert alert-warning">
+              <Callout status="warning">
                 You are creating an experiment under the demo datasource
                 project. This experiment will be deleted when the demo
                 datasource project is deleted.
-              </div>
+              </Callout>
             )}
             {availableTemplates.length >= 1 &&
               !isBandit &&
