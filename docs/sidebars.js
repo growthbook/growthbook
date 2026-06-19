@@ -398,6 +398,11 @@ export default {
           items: [
             {
               type: "doc",
+              id: "contextual-bandits/overview",
+              label: "Overview",
+            },
+            {
+              type: "doc",
               id: "contextual-bandits/config",
               label: "Setting up a Contextual Bandit",
             },

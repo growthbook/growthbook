@@ -4,13 +4,12 @@ import LinkButton from "@/ui/LinkButton";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import { docUrl } from "@/components/DocLink";
 
 export type ContextualBanditEmptyStateKind =
   | "no-data-source"
   | "no-assignment-table"
   | "ready";
-
-const CB_DOCS_URL = "https://docs.growthbook.io/bandits/overview";
 
 const FOOTNOTES: Record<ContextualBanditEmptyStateKind, string | null> = {
   "no-data-source":
@@ -52,7 +51,11 @@ export default function ContextualBanditEmptyState({
           </Text>
 
           <Flex justify="center" gap="5" pt="4">
-            <LinkButton href={CB_DOCS_URL} external variant="outline">
+            <LinkButton
+              href={docUrl("contextualBandits")}
+              external
+              variant="outline"
+            >
               View docs
             </LinkButton>
 
