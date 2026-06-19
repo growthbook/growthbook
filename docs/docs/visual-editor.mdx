@@ -13,6 +13,10 @@ import CommercialFeature from '@site/src/components/CommercialFeature';
 
 With the Visual Editor, you can design A/B tests on your site directly in your browser, run them in production, and analyze the results — all without writing a single line of code.
 
+<MaxWidthImage maxWidth={400}>
+  ![Editing a page in the Visual Editor side panel](/images/visual-editor/ve-ai-main.png)
+</MaxWidthImage>
+
 The Visual Editor is a **Chrome side-panel extension**. You open it next to your site, pick the page you want to test, and make changes a few ways:
 
 - **[AI mode](/app/visual/ai-mode)** — describe the change in plain language ("make the hero headline shorter and the CTA green") and the editor proposes the edits for you to preview and accept.
@@ -27,14 +31,15 @@ The Visual Editor is now a Chrome side panel. If you're using an older version o
 
 :::
 
-## Getting started
+## Quick start guide
 
-1. **[Install and connect](/app/visual/install-and-connect)** — add the extension from the Chrome Web Store and connect it to your GrowthBook account in one click.
-2. **[Running on your site](/app/visual/running-on-your-site)** — install an SDK so your variations render in production (and eliminate flicker).
-3. **[AI mode](/app/visual/ai-mode)** and **[Manual mode](/app/visual/manual-mode)** — make your changes.
-4. **[Preview and QA](/app/visual/preview-and-qa)** — review your draft variations before you start the experiment.
+Setup takes about a minute:
 
-Hitting a snag? See [Troubleshooting](/app/visual/troubleshooting).
+1. **Get the Chrome extension.** Install [GrowthBook Visual Editor](https://chromewebstore.google.com/detail/growthbook-visual-editor/nbomejknbpkcpjdagefhichaajpoempk) from the Chrome Web Store (works in Chrome, Edge, Brave, Arc, and most Chromium browsers).
+2. **Connect to your GrowthBook account.** Open the side panel and click **Connect with GrowthBook** — no tokens to copy or paste. See [Install and connect](/app/visual/install-and-connect) for details.
+3. **Open it on your site and start testing.** Go to the page you want to test, then make changes with [AI mode](/app/visual/ai-mode) or [Manual mode](/app/visual/manual-mode).
+
+Your variations render through a compatible SDK with visual experiments enabled — see [Requirements](#requirements) below and [Running on your site](/app/visual/running-on-your-site). Hitting a snag? See [Troubleshooting](/app/visual/troubleshooting).
 
 ## Requirements
 
