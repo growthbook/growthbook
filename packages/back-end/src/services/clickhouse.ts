@@ -7,6 +7,7 @@ import {
   getManagedWarehouseUserIdTypeSettings,
   isManagedWarehouseAwaitingJsonMigration,
   isManagedWarehouseAwaitingProvisioning,
+  isManagedWarehouseMigrating,
   MANAGED_WAREHOUSE_ATTRIBUTES_COLUMN,
   MANAGED_WAREHOUSE_DEFAULT_DIMENSIONS,
   MANAGED_WAREHOUSE_RESERVED_COLUMN_NAMES,
@@ -380,9 +381,27 @@ export async function migrateManagedWarehouseToJson(
 ): Promise<void> {
   const datasource =
     await dangerouslyGetGrowthbookDatasourceBypassPermission(context);
+  if (!datasource || datasource.type !== "growthbook_clickhouse") {
+    return;
+  }
+
+  // Recovery: a fully-migrated warehouse still flagged `migrating` (e.g. the
+  // finally-block flag clear failed after a successful run) is stuck — queries
+  // block but nothing re-derives migration work. Clear the flag and return.
   if (
-    !datasource ||
-    datasource.type !== "growthbook_clickhouse" ||
+    isManagedWarehouseMigrating(datasource) &&
+    !isManagedWarehouseAwaitingJsonMigration(datasource)
+  ) {
+    await updateDataSource(
+      context,
+      datasource,
+      { settings: { ...datasource.settings, migrating: false } },
+      { skipExposureQueryValidation: true },
+    );
+    return;
+  }
+
+  if (
     !isManagedWarehouseAwaitingJsonMigration(datasource) ||
     // Defer until provisioned: recreating tables for a never-provisioned org would
     // race the normal provisioning flow (and spam Sentry). The runQuery enqueue runs
@@ -503,14 +522,23 @@ export async function migrateManagedWarehouseToJson(
       finalDs.type === "growthbook_clickhouse" &&
       finalDs.settings.migrating
     ) {
-      await updateDataSource(
-        context,
-        finalDs,
-        {
-          settings: { ...finalDs.settings, migrating: false },
-        },
-        { skipExposureQueryValidation: true },
-      );
+      try {
+        await updateDataSource(
+          context,
+          finalDs,
+          {
+            settings: { ...finalDs.settings, migrating: false },
+          },
+          { skipExposureQueryValidation: true },
+        );
+      } catch (e) {
+        // Leaves the warehouse stuck `migrating: true`; the recovery branch on the
+        // next run (re-triggered by runQuery's enqueue) clears it without manual help.
+        logger.error(
+          e,
+          `Managed warehouse migration for org ${finalDs.organization}: failed to clear migrating flag; will self-heal on next use`,
+        );
+      }
     }
   }
 }
