@@ -842,11 +842,12 @@ async function evaluateShippingCriteria(
   const mode = resolveShippingMode(experiment, context.org);
   if (mode === "off") return;
 
-  // Auto-ship requires an end date
-  if (!experiment.endDate) return;
+  // Auto-ship requires a scheduled stop date
+  const stopAt = experiment.statusUpdateSchedule?.stopAt;
+  if (!stopAt) return;
 
   const now = new Date();
-  if (new Date(experiment.endDate) > now) return;
+  if (new Date(stopAt) > now) return;
 
   const minDays = experiment.shippingCriteria?.minimumRuntimeDays;
   if (minDays) {

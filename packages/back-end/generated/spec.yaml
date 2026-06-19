@@ -14143,6 +14143,8 @@ paths:
                     type: string
                 includeTagsInMetadata:
                   type: boolean
+                includeExperimentScheduleInMetadata:
+                  type: boolean
                 proxyEnabled:
                   type: boolean
                 proxyHost:
@@ -14253,6 +14255,8 @@ paths:
                   items:
                     type: string
                 includeTagsInMetadata:
+                  type: boolean
+                includeExperimentScheduleInMetadata:
                   type: boolean
                 proxyEnabled:
                   type: boolean
@@ -37492,6 +37496,8 @@ components:
           items:
             type: string
         includeTagsInMetadata:
+          type: boolean
+        includeExperimentScheduleInMetadata:
           type: boolean
         key:
           type: string

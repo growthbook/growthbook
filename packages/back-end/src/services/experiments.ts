@@ -2659,11 +2659,11 @@ export async function toExperimentApiInterface(
     precomputedUnitDimensionIds: experiment.precomputedUnitDimensionIds ?? [],
     defaultDashboardId: experiment.defaultDashboardId,
     templateId: experiment.templateId || undefined,
-    statusUpdateSchedule: experiment.statusUpdateSchedule
+    statusUpdateSchedule: experiment.statusUpdateSchedule?.startAt
       ? {
           startAt: experiment.statusUpdateSchedule.startAt.toISOString(),
         }
-      : experiment.statusUpdateSchedule,
+      : null,
     // Only "start" is produced for experiments; updateExperimentStatus.ts
     // clears any other type before it can be observed. Filter defensively
     // so the API response always matches the documented schema.
@@ -4085,15 +4085,24 @@ export function validateStatusUpdateSchedule(
   ) {
     throw new Error("statusUpdateSchedule.startAt must be in the future");
   }
+  if (
+    statusUpdateSchedule &&
+    statusUpdateSchedule.stopAt &&
+    statusUpdateSchedule.startAt &&
+    getValidDate(statusUpdateSchedule.stopAt) <=
+      getValidDate(statusUpdateSchedule.startAt)
+  ) {
+    throw new Error("statusUpdateSchedule.stopAt must be after startAt");
+  }
 }
 
 /**
  * Normalize `statusUpdateSchedule` / `nextScheduledStatusUpdate` on an in-progress
  * Changeset:
  *  - Explicit null clears both the schedule and any staged start.
- *  - An object resolves `startAt` via getValidDate; missing startAt is treated
- *    as "clear the schedule"; any existing staged start is reset so the schedule
- *    must be re-staged.
+ *  - An object resolves `startAt`/`stopAt` via getValidDate; when both are
+ *    missing the schedule is cleared; any existing staged start is reset so the
+ *    schedule must be re-staged.
  *  - If `statusUpdateSchedule` is not in the payload but `status` is moving out
  *    of draft, clear any pending staged start so the agenda job won't fire it.
  */
@@ -4110,7 +4119,11 @@ export function normalizeStatusUpdateScheduleChanges(
       const startAt = incoming?.startAt
         ? getValidDate(incoming.startAt)
         : undefined;
-      changes.statusUpdateSchedule = startAt ? { startAt } : null;
+      const stopAt = incoming?.stopAt
+        ? getValidDate(incoming.stopAt)
+        : undefined;
+      changes.statusUpdateSchedule =
+        startAt || stopAt ? { startAt, stopAt } : null;
       changes.nextScheduledStatusUpdate = null;
     }
   } else if (

@@ -80,6 +80,7 @@ export type MetadataOptions = {
   includeCustomFieldsInMetadata?: boolean;
   allowedCustomFieldsInMetadata?: string[];
   includeTagsInMetadata?: boolean;
+  includeExperimentScheduleInMetadata?: boolean;
 };
 
 export function buildPayloadMetadata<
@@ -89,6 +90,10 @@ export function buildPayloadMetadata<
     project?: string;
     customFields?: Record<string, unknown>;
     tags?: string[];
+    statusUpdateSchedule?: {
+      startAt?: Date | string;
+      stopAt?: Date | string;
+    } | null;
   },
   opts: MetadataOptions,
   projectsMap: Map<string, ProjectInterface> | undefined,
@@ -120,6 +125,21 @@ export function buildPayloadMetadata<
 
   if (opts.includeTagsInMetadata && entity.tags?.length) {
     metadata.tags = entity.tags;
+  }
+
+  if (opts.includeExperimentScheduleInMetadata) {
+    const schedule = entity.statusUpdateSchedule;
+    // Only experiment entities carry a statusUpdateSchedule; features won't.
+    if (schedule?.startAt) {
+      (metadata as ExperimentMetadata).startDate = new Date(
+        schedule.startAt,
+      ).toISOString();
+    }
+    if (schedule?.stopAt) {
+      (metadata as ExperimentMetadata).endDate = new Date(
+        schedule.stopAt,
+      ).toISOString();
+    }
   }
 
   return Object.keys(metadata).length > 0 ? metadata : undefined;
@@ -801,6 +821,7 @@ export function getFeatureDefinition({
                 project: exp.project,
                 customFields: exp.customFields,
                 tags: exp.tags,
+                statusUpdateSchedule: exp.statusUpdateSchedule,
               },
               metadataOptions,
               projectsMap,

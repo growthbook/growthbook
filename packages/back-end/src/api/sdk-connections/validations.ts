@@ -62,6 +62,7 @@ interface CreateSdkConnectionRequestBody
   includeCustomFieldsInMetadata?: boolean;
   allowedCustomFieldsInMetadata?: string[];
   includeTagsInMetadata?: boolean;
+  includeExperimentScheduleInMetadata?: boolean;
   proxyHost?: string;
   hashSecureAttributes?: boolean;
 }
@@ -193,6 +194,7 @@ export async function validatePostPayload(
     includeCustomFieldsInMetadata = false,
     allowedCustomFieldsInMetadata = [],
     includeTagsInMetadata = false,
+    includeExperimentScheduleInMetadata = false,
     proxyEnabled,
     proxyHost,
     hashSecureAttributes = false,
@@ -232,6 +234,7 @@ export async function validatePostPayload(
     includeCustomFieldsInMetadata,
     allowedCustomFieldsInMetadata,
     includeTagsInMetadata,
+    includeExperimentScheduleInMetadata,
     proxyEnabled,
     proxyHost,
     hashSecureAttributes,
@@ -263,6 +266,7 @@ export async function validatePutPayload(
     includeCustomFieldsInMetadata,
     allowedCustomFieldsInMetadata,
     includeTagsInMetadata,
+    includeExperimentScheduleInMetadata,
     proxyEnabled,
     proxyHost,
     hashSecureAttributes,
@@ -307,6 +311,7 @@ export async function validatePutPayload(
     includeCustomFieldsInMetadata,
     allowedCustomFieldsInMetadata,
     includeTagsInMetadata,
+    includeExperimentScheduleInMetadata,
     proxyEnabled,
     proxyHost,
     hashSecureAttributes,

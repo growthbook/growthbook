@@ -559,6 +559,7 @@ export const getMetricExperimentResults = async (
       ? {
           ...e.statusUpdateSchedule,
           startAt: e.statusUpdateSchedule.startAt?.toISOString(),
+          stopAt: e.statusUpdateSchedule.stopAt?.toISOString(),
         }
       : e.statusUpdateSchedule,
     snapshot: snapshots.find((s) => s.experiment === e.id),
@@ -676,6 +677,7 @@ export const getMetricNorthstarData = async (
       ? {
           ...e.statusUpdateSchedule,
           startAt: e.statusUpdateSchedule.startAt?.toISOString(),
+          stopAt: e.statusUpdateSchedule.stopAt?.toISOString(),
         }
       : e.statusUpdateSchedule,
   }));

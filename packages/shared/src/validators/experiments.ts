@@ -21,11 +21,12 @@ import {
 import { experimentEndStrategy } from "./ramp-schedule";
 
 // ── Shipping criteria ───────────────────────────────────────────────────────
-// Controls automated shipping at end date. All auto modes require an end date;
+// Controls automated shipping at the scheduled stop date
+// (`statusUpdateSchedule.stopAt`). All auto modes require a scheduled stop date;
 // without one, the experiment runs until manually stopped.
 //   "off"        — manual: show recommended decision, no automation
-//   "auto"       — ship on end date if DC says clear winner; keep running if not
-//   "auto-force" — ship on end date regardless of criteria
+//   "auto"       — ship on stop date if DC says clear winner; keep running if not
+//   "auto-force" — ship on stop date regardless of criteria
 
 export const shippingCriteriaModeArray = ["off", "auto", "auto-force"] as const;
 
@@ -397,10 +398,18 @@ export type ExperimentAnalysisSummary = z.infer<
   typeof experimentAnalysisSummary
 >;
 
-// TODO(schedule-status-updates): add stopAt
 export const statusUpdateScheduleValidator = z.object({
-  startAt: z.date(),
+  // Scheduled future start for a draft experiment.
+  startAt: z.date().optional(),
+  // Scheduled end timestamp. Distinct from `phases[last].dateEnded`, which
+  // records the actual moment the experiment was stopped. `stopAt` is the
+  // target/scheduled end, paired with `shippingCriteria` to describe what
+  // happens when that date is reached. Absent means "manual end".
+  stopAt: z.date().optional(),
 });
+export type StatusUpdateSchedule = z.infer<
+  typeof statusUpdateScheduleValidator
+>;
 
 const nextScheduledStatusUpdateValidator = z.object({
   type: z.enum(["start", "stop"]),
@@ -498,22 +507,15 @@ export const experimentInterface = z
     /** ID of the attached RampSchedule for this experiment. Set when a ramp is configured. */
     rampScheduleId: z.string().optional(),
     /**
-     * Scheduled end timestamp for the experiment. Distinct from
-     * `phases[last].dateEnded`, which records the actual moment the experiment
-     * was stopped. `endDate` is the target/scheduled end and is paired with
-     * `endStrategy` to describe what happens when that date is reached.
-     * Absent (or null) means "manual end" — no scheduled end date.
-     */
-    endDate: z.date().nullish(),
-    /**
      * @deprecated Use `shippingCriteria` instead. Kept for backward
      * compatibility during migration.
      */
     endStrategy: experimentEndStrategy.nullish(),
 
     /**
-     * Shipping criteria — automated shipping at end date.
-     * Replaces the narrower `endStrategy`. All auto modes require an end date.
+     * Shipping criteria — automated shipping at the scheduled stop date
+     * (`statusUpdateSchedule.stopAt`). Replaces the narrower `endStrategy`.
+     * All auto modes require a scheduled stop date.
      * Null means inherit from org default, which itself defaults to "off".
      */
     shippingCriteria: shippingCriteria.nullish(),

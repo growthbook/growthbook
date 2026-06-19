@@ -1773,7 +1773,6 @@ export async function postExperiment(
     "defaultDashboardId",
     "customMetricSlices",
     "precomputedUnitDimensionIds",
-    "endDate",
     "endStrategy",
     "shippingCriteria",
     "autoRollbackMode",
@@ -1818,12 +1817,6 @@ export async function postExperiment(
       type: "date",
       value: getValidDate(changes.lookbackOverride.value),
     };
-  }
-
-  // The experiment's scheduled end date arrives as an ISO string from the
-  // modal; coerce to Date so model validation accepts it.
-  if ("endDate" in changes) {
-    changes.endDate = changes.endDate ? getValidDate(changes.endDate) : null;
   }
 
   const shouldValidatePrecomputedUnitDimensionIds =

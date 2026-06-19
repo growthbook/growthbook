@@ -6,7 +6,13 @@
  * Always visible  — Start / End dates, Decision Criteria
  * Progressive opt-in — Ramp-up schedule (steps, health signal, end strategy)
  */
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { AlertDialog, Box, Flex, IconButton } from "@radix-ui/themes";
 import {
   PiArrowCounterClockwise,
@@ -65,7 +71,6 @@ import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import DecisionCriteriaModal from "@/components/DecisionCriteria/DecisionCriteriaModal";
 import {
   assessStepTargetingRisk,
-  riskReasonsToMessages,
   remediationToDescription,
   releasePlanToRemediation,
   remediationToReleasePlan,
@@ -187,8 +192,8 @@ function defaultState(
   // whether or not a ramp schedule exists.
   const sc = experiment.shippingCriteria ?? null;
   const es = experiment.endStrategy ?? null;
-  const endDate = experiment.endDate
-    ? new Date(experiment.endDate).toISOString()
+  const endDate = experiment.statusUpdateSchedule?.stopAt
+    ? new Date(experiment.statusUpdateSchedule.stopAt).toISOString()
     : "";
   const baseShipping = {
     endDate,
@@ -289,7 +294,9 @@ function buildExperimentSteps(
       patch.prerequisites = p.prerequisites;
     }
     if ("variationWeights" in p && p.variationWeights !== undefined) {
-      patch.variationWeights = (p as UIStepPatch & { variationWeights?: number[] }).variationWeights;
+      patch.variationWeights = (
+        p as UIStepPatch & { variationWeights?: number[] }
+      ).variationWeights;
     }
 
     // Intentional phase controls (set via the ⋯ menu, independent of risk)
@@ -315,7 +322,12 @@ function buildExperimentSteps(
         {
           targetType: "experiment" as const,
           targetId: experimentId,
-          patch: patch as RampScheduleInterface["steps"][number]["actions"][number] extends { patch: infer P } ? P : never,
+          patch:
+            patch as RampScheduleInterface["steps"][number]["actions"][number] extends {
+              patch: infer P;
+            }
+              ? P
+              : never,
         },
       ],
       monitored: true,
@@ -354,8 +366,7 @@ function RemediationDialog({
   const initialPlan =
     (initialRemediation
       ? remediationToReleasePlan(initialRemediation)
-      : undefined) ??
-    recommendedRolloutData.actualReleasePlan;
+      : undefined) ?? recommendedRolloutData.actualReleasePlan;
 
   const [releasePlan, setReleasePlan] = useState<ReleasePlan | undefined>(
     initialPlan,
@@ -365,12 +376,12 @@ function RemediationDialog({
     () =>
       releasePlan
         ? releasePlanToRemediation(releasePlan)
-        : risk.recommendedRemediation ?? {
+        : (risk.recommendedRemediation ?? {
             newPhase: false,
             reseed: false,
             bumpBucketVersion: false,
             blockPriorBucketed: false,
-          },
+          }),
     [releasePlan, risk.recommendedRemediation],
   );
 
@@ -404,12 +415,8 @@ function RemediationDialog({
                 value === recommendedRolloutData.recommendedReleasePlan;
               const disabled = requiresStickyBucketing && !stickyBucketing;
               return (
-                <div
-                  className={disabled ? "cursor-disabled" : undefined}
-                >
-                  <span style={{ opacity: disabled ? 0.5 : 1 }}>
-                    {label}{" "}
-                  </span>
+                <div className={disabled ? "cursor-disabled" : undefined}>
+                  <span style={{ opacity: disabled ? 0.5 : 1 }}>{label} </span>
                   {requiresStickyBucketing && (
                     <Tooltip
                       body={`${
@@ -464,12 +471,7 @@ function RemediationDialog({
         </div>
         <Flex gap="2" justify="end" mt="3">
           <AlertDialog.Cancel>
-            <Button
-              size="sm"
-              variant="ghost"
-              color="gray"
-              onClick={onCancel}
-            >
+            <Button size="sm" variant="ghost" color="gray" onClick={onCancel}>
               Cancel
             </Button>
           </AlertDialog.Cancel>
@@ -639,10 +641,13 @@ export default function ExperimentRampScheduleModal({
     // end strategy applies whether or not a ramp is configured — it's a
     // refinement of the experiment's scheduled end, not a ramp concept.
     const experimentPatch: Record<string, unknown> = {
-      ...(state.startDate
-        ? { statusUpdateSchedule: { startAt: state.startDate } }
-        : { statusUpdateSchedule: null }),
-      ...(state.endDate ? { endDate: state.endDate } : { endDate: null }),
+      statusUpdateSchedule:
+        state.startDate || state.endDate
+          ? {
+              ...(state.startDate ? { startAt: state.startDate } : {}),
+              ...(state.endDate ? { stopAt: state.endDate } : {}),
+            }
+          : null,
     };
     if (hasDecisionFramework) {
       experimentPatch.decisionFrameworkSettings = {
@@ -678,7 +683,11 @@ export default function ExperimentRampScheduleModal({
         }).catch(() => {});
       }
     } else {
-      const steps = buildExperimentSteps(state.steps, experiment.id, state.remediations);
+      const steps = buildExperimentSteps(
+        state.steps,
+        experiment.id,
+        state.remediations,
+      );
       // The end step fires immediately when all regular ramp steps complete
       // (no interval gate), applying the final coverage to the experiment.
       // Capture the pre-ramp experiment state: coverage=0 (no traffic until
@@ -785,9 +794,10 @@ export default function ExperimentRampScheduleModal({
   ) {
     const nextPatch = { ...state.steps[i].patch };
     delete (nextPatch as Record<string, unknown>)[field];
-    const hasEffects = (["condition", "savedGroups", "prerequisites"] as const).some(
-      (f) => f in nextPatch,
-    ) || "variationWeights" in nextPatch;
+    const hasEffects =
+      (["condition", "savedGroups", "prerequisites"] as const).some(
+        (f) => f in nextPatch,
+      ) || "variationWeights" in nextPatch;
     const steps = [...state.steps];
     steps[i] = {
       ...steps[i],
@@ -822,21 +832,23 @@ export default function ExperimentRampScheduleModal({
       const next: TargetingSnapshot = {
         condition:
           "condition" in p && p.condition !== undefined
-            ? p.condition ?? "{}"
+            ? (p.condition ?? "{}")
             : prior.condition,
         savedGroups:
           "savedGroups" in p && p.savedGroups !== undefined
-            ? p.savedGroups ?? []
+            ? (p.savedGroups ?? [])
             : prior.savedGroups,
         prerequisites:
           "prerequisites" in p && p.prerequisites !== undefined
-            ? p.prerequisites ?? []
+            ? (p.prerequisites ?? [])
             : prior.prerequisites,
         coverage: (p.coverage ?? 100) / 100,
         variationWeights:
           "variationWeights" in p &&
-          (p as UIStepPatch & { variationWeights?: number[] }).variationWeights !== undefined
-            ? (p as UIStepPatch & { variationWeights?: number[] }).variationWeights!
+          (p as UIStepPatch & { variationWeights?: number[] })
+            .variationWeights !== undefined
+            ? (p as UIStepPatch & { variationWeights?: number[] })
+                .variationWeights!
             : prior.variationWeights,
       };
       results.push(assessStepTargetingRisk(prior, next, stickyBucketing));
@@ -881,10 +893,7 @@ export default function ExperimentRampScheduleModal({
     if (prev === stepFingerprints) return;
     const stale: number[] = [];
     for (let i = 0; i < stepFingerprints.length; i++) {
-      if (
-        state.remediations[i]?.confirmed &&
-        prev[i] !== stepFingerprints[i]
-      ) {
+      if (state.remediations[i]?.confirmed && prev[i] !== stepFingerprints[i]) {
         stale.push(i);
       }
     }
@@ -946,286 +955,103 @@ export default function ExperimentRampScheduleModal({
           const isRisky =
             !stepRiskResults[i]?.safe && !state.remediations[i]?.confirmed;
           return (
-          <Box
-            key={i}
-            my="4"
-            style={{
-              position: "relative",
-              border: isRisky
-                ? "1px solid var(--amber-a8)"
-                : "1px solid var(--gray-a5)",
-              borderRadius: "var(--radius-2)",
-              paddingBlock: "var(--space-2)",
-            }}
-          >
-            <div
+            <Box
+              key={i}
+              my="4"
               style={{
-                position: "absolute",
-                left: 0,
-                top: 0,
-                bottom: 0,
-                width: 4,
-                borderRadius: "var(--radius-2) 0 0 var(--radius-2)",
-                backgroundColor: isRisky
-                  ? "var(--amber-9)"
-                  : "var(--gray-a5)",
+                position: "relative",
+                border: isRisky
+                  ? "1px solid var(--amber-a8)"
+                  : "1px solid var(--gray-a5)",
+                borderRadius: "var(--radius-2)",
+                paddingBlock: "var(--space-2)",
               }}
-            />
-            <Flex direction="column" pl="2">
-              {/* Main row */}
-              <Flex align="center" gap="4">
-                {/* Step number */}
-                <Box style={{ width: COL.num, flexShrink: 0 }} pl="3">
-                  <Text size="small" color="text-low">
-                    {i + 1}
-                  </Text>
-                </Box>
-
-                {/* Coverage */}
-                <Box style={{ width: COL.coverage, flexShrink: 0 }}>
-                  <div
-                    className={`position-relative ${styles.percentInputWrap}`}
-                  >
-                    <Field
-                      style={{ width: COL.coverage, minHeight: 38 }}
-                      type="number"
-                      min="0"
-                      max="100"
-                      onFocus={(e) => e.target.select()}
-                      value={String(step.patch.coverage ?? 0)}
-                      onChange={(e) =>
-                        updateStep(i, {
-                          patch: {
-                            ...step.patch,
-                            coverage: Math.min(
-                              100,
-                              Math.max(0, parseInt(e.target.value) || 0),
-                            ),
-                          },
-                        })
-                      }
-                    />
-                    <span>%</span>
-                  </div>
-                </Box>
-
-                {/* Trigger type + interval or approval notes */}
-                <Flex
-                  align="center"
-                  gap="2"
-                  style={
-                    step.triggerType === "approval"
-                      ? { flex: 1, minWidth: COL.trigger }
-                      : {
-                          width: COL.trigger + COL.duration + 80,
-                          flexShrink: 0,
-                        }
-                  }
-                >
-                  <Box style={{ width: COL.trigger, flexShrink: 0 }}>
-                    <SelectField
-                      value={step.triggerType}
-                      options={[
-                        { value: "interval", label: "Hold for" },
-                        { value: "approval", label: "Hold for approval" },
-                      ]}
-                      onChange={(v) => {
-                        const next = v as "interval" | "approval";
-                        if (next === "approval") {
-                          updateStep(i, {
-                            triggerType: next,
-                            holdConditions: {
-                              ...step.holdConditions,
-                              requiresApproval: undefined,
-                            },
-                            notesOpen: !!step.approvalNotes?.trim(),
-                          });
-                        } else {
-                          updateStep(i, {
-                            triggerType: next,
-                            intervalValue: step.intervalValue || 7,
-                            intervalUnit: step.intervalUnit || "days",
-                            holdConditions: {
-                              ...step.holdConditions,
-                              requiresApproval: true,
-                            },
-                          });
-                        }
-                      }}
-                      containerStyle={{ minHeight: 38 }}
-                    />
+            >
+              <div
+                style={{
+                  position: "absolute",
+                  left: 0,
+                  top: 0,
+                  bottom: 0,
+                  width: 4,
+                  borderRadius: "var(--radius-2) 0 0 var(--radius-2)",
+                  backgroundColor: isRisky
+                    ? "var(--amber-9)"
+                    : "var(--gray-a5)",
+                }}
+              />
+              <Flex direction="column" pl="2">
+                {/* Main row */}
+                <Flex align="center" gap="4">
+                  {/* Step number */}
+                  <Box style={{ width: COL.num, flexShrink: 0 }} pl="3">
+                    <Text size="small" color="text-low">
+                      {i + 1}
+                    </Text>
                   </Box>
 
-                  {step.triggerType === "interval" && (
-                    <>
+                  {/* Coverage */}
+                  <Box style={{ width: COL.coverage, flexShrink: 0 }}>
+                    <div
+                      className={`position-relative ${styles.percentInputWrap}`}
+                    >
                       <Field
-                        style={{ minHeight: 38 }}
+                        style={{ width: COL.coverage, minHeight: 38 }}
                         type="number"
                         min="0"
-                        step="any"
+                        max="100"
                         onFocus={(e) => e.target.select()}
-                        value={String(step.intervalValue)}
+                        value={String(step.patch.coverage ?? 0)}
                         onChange={(e) =>
                           updateStep(i, {
-                            intervalValue: parseFloat(e.target.value) || 0,
+                            patch: {
+                              ...step.patch,
+                              coverage: Math.min(
+                                100,
+                                Math.max(0, parseInt(e.target.value) || 0),
+                              ),
+                            },
                           })
                         }
-                        onBlur={(e) =>
-                          updateStep(i, {
-                            intervalValue: Math.max(
-                              0.01,
-                              parseFloat(e.target.value) || 0.01,
-                            ),
-                          })
-                        }
-                        containerStyle={{ width: 75, flexShrink: 0 }}
                       />
-                      <Box style={{ width: 95, flexShrink: 0 }}>
-                        <SelectField
-                          value={step.intervalUnit}
-                          options={[
-                            { value: "minutes", label: "minutes" },
-                            { value: "hours", label: "hours" },
-                            { value: "days", label: "days" },
-                          ]}
-                          onChange={(v) =>
-                            updateStep(i, { intervalUnit: v as IntervalUnit })
-                          }
-                          containerStyle={{ minHeight: 38 }}
-                        />
-                      </Box>
-                      {!step.holdConditions?.requiresApproval && (
-                        <Link
-                          size="1"
-                          color="gray"
-                          style={{ flexShrink: 0, whiteSpace: "nowrap" }}
-                          onClick={() =>
-                            updateStep(i, {
-                              holdConditions: {
-                                ...step.holdConditions,
-                                requiresApproval: true,
-                              },
-                              notesOpen: false,
-                            })
-                          }
-                        >
-                          <PiPlusBold
-                            style={{ marginRight: 3, verticalAlign: "middle" }}
-                          />
-                          Approval
-                        </Link>
-                      )}
-                    </>
-                  )}
+                      <span>%</span>
+                    </div>
+                  </Box>
 
-                  {step.triggerType === "approval" && (
-                    <Flex
-                      align="center"
-                      gap="2"
-                      style={{ flex: 1, minWidth: 0 }}
-                    >
-                      {!step.notesOpen ? (
-                        <Link
-                          size="1"
-                          ml="1"
-                          color="gray"
-                          style={{ flexShrink: 0 }}
-                          onClick={() =>
-                            updateStep(i, {
-                              notesOpen: true,
-                              approvalNotes: "",
-                            })
+                  {/* Trigger type + interval or approval notes */}
+                  <Flex
+                    align="center"
+                    gap="2"
+                    style={
+                      step.triggerType === "approval"
+                        ? { flex: 1, minWidth: COL.trigger }
+                        : {
+                            width: COL.trigger + COL.duration + 80,
+                            flexShrink: 0,
                           }
-                        >
-                          <PiPlusBold
-                            style={{ marginRight: 3, verticalAlign: "middle" }}
-                          />
-                          Add approval notes
-                        </Link>
-                      ) : (
-                        <Box style={{ flex: 1, minWidth: 192 }}>
-                          <Field
-                            label=""
-                            placeholder="ex: Check error rates"
-                            value={step.approvalNotes}
-                            onChange={(e) =>
-                              updateStep(i, { approvalNotes: e.target.value })
-                            }
-                            style={{ minHeight: 38 }}
-                          />
-                        </Box>
-                      )}
-                    </Flex>
-                  )}
-                </Flex>
-
-                <Box flexGrow="1" />
-
-                {/* ⋯ dropdown */}
-                <Flex align="center" gap="2" pr="3" style={{ flexShrink: 0 }}>
-                  <DropdownMenu
-                    open={openMenuIndex === i}
-                    onOpenChange={(o) => setOpenMenuIndex(o ? i : null)}
-                    trigger={
-                      <IconButton
-                        type="button"
-                        variant="ghost"
-                        color="gray"
-                        radius="full"
-                        size="2"
-                        highContrast
-                      >
-                        <BsThreeDotsVertical size={18} />
-                      </IconButton>
                     }
-                    variant="soft"
-                    menuPlacement="end"
                   >
-                    <DropdownMenuGroup label="Hold conditions">
-                      <DropdownMenuItem
-                        onClick={() => {
-                          setOpenMenuIndex(null);
-                          setMinSamplePopoverIndex(i);
-                        }}
-                      >
-                        <Flex align="center" gap="1">
-                          {(step.holdConditions?.minSampleSize ?? null) !==
-                            null && <PiCheck size={16} />}
-                          Minimum sample size
-                        </Flex>
-                      </DropdownMenuItem>
-                      {step.triggerType === "interval" && (
-                        <DropdownMenuItem
-                          onClick={() => {
-                            const turningOn =
-                              !step.holdConditions?.requiresApproval;
-                            setOpenMenuIndex(null);
+                    <Box style={{ width: COL.trigger, flexShrink: 0 }}>
+                      <SelectField
+                        value={step.triggerType}
+                        options={[
+                          { value: "interval", label: "Hold for" },
+                          { value: "approval", label: "Hold for approval" },
+                        ]}
+                        onChange={(v) => {
+                          const next = v as "interval" | "approval";
+                          if (next === "approval") {
                             updateStep(i, {
+                              triggerType: next,
                               holdConditions: {
                                 ...step.holdConditions,
-                                requiresApproval: turningOn,
+                                requiresApproval: undefined,
                               },
-                              notesOpen: false,
-                              approvalNotes: turningOn
-                                ? step.approvalNotes
-                                : "",
+                              notesOpen: !!step.approvalNotes?.trim(),
                             });
-                          }}
-                        >
-                          <Flex align="center" gap="1">
-                            {step.holdConditions?.requiresApproval && (
-                              <PiCheck size={16} />
-                            )}
-                            Require approval
-                          </Flex>
-                        </DropdownMenuItem>
-                      )}
-                      {step.triggerType === "approval" && (
-                        <DropdownMenuItem
-                          onClick={() => {
-                            setOpenMenuIndex(null);
+                          } else {
                             updateStep(i, {
-                              triggerType: "interval",
+                              triggerType: next,
                               intervalValue: step.intervalValue || 7,
                               intervalUnit: step.intervalUnit || "days",
                               holdConditions: {
@@ -1233,188 +1059,432 @@ export default function ExperimentRampScheduleModal({
                                 requiresApproval: true,
                               },
                             });
+                          }
+                        }}
+                        containerStyle={{ minHeight: 38 }}
+                      />
+                    </Box>
+
+                    {step.triggerType === "interval" && (
+                      <>
+                        <Field
+                          style={{ minHeight: 38 }}
+                          type="number"
+                          min="0"
+                          step="any"
+                          onFocus={(e) => e.target.select()}
+                          value={String(step.intervalValue)}
+                          onChange={(e) =>
+                            updateStep(i, {
+                              intervalValue: parseFloat(e.target.value) || 0,
+                            })
+                          }
+                          onBlur={(e) =>
+                            updateStep(i, {
+                              intervalValue: Math.max(
+                                0.01,
+                                parseFloat(e.target.value) || 0.01,
+                              ),
+                            })
+                          }
+                          containerStyle={{ width: 75, flexShrink: 0 }}
+                        />
+                        <Box style={{ width: 95, flexShrink: 0 }}>
+                          <SelectField
+                            value={step.intervalUnit}
+                            options={[
+                              { value: "minutes", label: "minutes" },
+                              { value: "hours", label: "hours" },
+                              { value: "days", label: "days" },
+                            ]}
+                            onChange={(v) =>
+                              updateStep(i, { intervalUnit: v as IntervalUnit })
+                            }
+                            containerStyle={{ minHeight: 38 }}
+                          />
+                        </Box>
+                        {!step.holdConditions?.requiresApproval && (
+                          <Link
+                            size="1"
+                            color="gray"
+                            style={{ flexShrink: 0, whiteSpace: "nowrap" }}
+                            onClick={() =>
+                              updateStep(i, {
+                                holdConditions: {
+                                  ...step.holdConditions,
+                                  requiresApproval: true,
+                                },
+                                notesOpen: false,
+                              })
+                            }
+                          >
+                            <PiPlusBold
+                              style={{
+                                marginRight: 3,
+                                verticalAlign: "middle",
+                              }}
+                            />
+                            Approval
+                          </Link>
+                        )}
+                      </>
+                    )}
+
+                    {step.triggerType === "approval" && (
+                      <Flex
+                        align="center"
+                        gap="2"
+                        style={{ flex: 1, minWidth: 0 }}
+                      >
+                        {!step.notesOpen ? (
+                          <Link
+                            size="1"
+                            ml="1"
+                            color="gray"
+                            style={{ flexShrink: 0 }}
+                            onClick={() =>
+                              updateStep(i, {
+                                notesOpen: true,
+                                approvalNotes: "",
+                              })
+                            }
+                          >
+                            <PiPlusBold
+                              style={{
+                                marginRight: 3,
+                                verticalAlign: "middle",
+                              }}
+                            />
+                            Add approval notes
+                          </Link>
+                        ) : (
+                          <Box style={{ flex: 1, minWidth: 192 }}>
+                            <Field
+                              label=""
+                              placeholder="ex: Check error rates"
+                              value={step.approvalNotes}
+                              onChange={(e) =>
+                                updateStep(i, { approvalNotes: e.target.value })
+                              }
+                              style={{ minHeight: 38 }}
+                            />
+                          </Box>
+                        )}
+                      </Flex>
+                    )}
+                  </Flex>
+
+                  <Box flexGrow="1" />
+
+                  {/* ⋯ dropdown */}
+                  <Flex align="center" gap="2" pr="3" style={{ flexShrink: 0 }}>
+                    <DropdownMenu
+                      open={openMenuIndex === i}
+                      onOpenChange={(o) => setOpenMenuIndex(o ? i : null)}
+                      trigger={
+                        <IconButton
+                          type="button"
+                          variant="ghost"
+                          color="gray"
+                          radius="full"
+                          size="2"
+                          highContrast
+                        >
+                          <BsThreeDotsVertical size={18} />
+                        </IconButton>
+                      }
+                      variant="soft"
+                      menuPlacement="end"
+                    >
+                      <DropdownMenuGroup label="Hold conditions">
+                        <DropdownMenuItem
+                          onClick={() => {
+                            setOpenMenuIndex(null);
+                            setMinSamplePopoverIndex(i);
                           }}
                         >
-                          Add hold duration
+                          <Flex align="center" gap="1">
+                            {(step.holdConditions?.minSampleSize ?? null) !==
+                              null && <PiCheck size={16} />}
+                            Minimum sample size
+                          </Flex>
                         </DropdownMenuItem>
-                      )}
-                    </DropdownMenuGroup>
-                    <DropdownMenuSeparator />
-                    {(() => {
-                      const available = experimentTargetingFields.filter(
-                        (f) => !(f.field in step.patch),
-                      );
-                      if (!available.length) return null;
-                      return (
-                        <>
-                          <DropdownMenuGroup label="Targeting and traffic changes">
-                            {available.map((item) => (
-                              <DropdownMenuItem
-                                key={item.field}
-                                onClick={() => {
-                                  setOpenMenuIndex(null);
-                                  const defaultVal =
-                                    item.field === "condition"
-                                      ? "{}"
-                                      : item.field === "variationWeights"
-                                        ? baselineTargeting.variationWeights
-                                        : [];
-                                  updateStepPatch(i, item.field, defaultVal);
-                                }}
-                              >
-                                {item.label}
-                              </DropdownMenuItem>
-                            ))}
-                          </DropdownMenuGroup>
-                          <DropdownMenuSeparator />
-                        </>
-                      );
-                    })()}
-                    {(() => {
-                      const ext = step.patch as Record<string, unknown>;
-                      const hasNewPhase = !!ext.newPhase;
-                      const hasReseed = !!ext.reseed;
-                      return (
-                        <DropdownMenuGroup label="Phase controls">
+                        {step.triggerType === "interval" && (
                           <DropdownMenuItem
                             onClick={() => {
+                              const turningOn =
+                                !step.holdConditions?.requiresApproval;
                               setOpenMenuIndex(null);
-                              updateStepPatch(i, "newPhase" as keyof UIStepPatch, !hasNewPhase || undefined);
-                              if (hasNewPhase) {
-                                updateStepPatch(i, "reseed" as keyof UIStepPatch, undefined);
-                              }
+                              updateStep(i, {
+                                holdConditions: {
+                                  ...step.holdConditions,
+                                  requiresApproval: turningOn,
+                                },
+                                notesOpen: false,
+                                approvalNotes: turningOn
+                                  ? step.approvalNotes
+                                  : "",
+                              });
                             }}
                           >
                             <Flex align="center" gap="1">
-                              {hasNewPhase && <PiCheck size={16} />}
-                              Start new phase
+                              {step.holdConditions?.requiresApproval && (
+                                <PiCheck size={16} />
+                              )}
+                              Require approval
                             </Flex>
                           </DropdownMenuItem>
-                          {hasNewPhase && (
+                        )}
+                        {step.triggerType === "approval" && (
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setOpenMenuIndex(null);
+                              updateStep(i, {
+                                triggerType: "interval",
+                                intervalValue: step.intervalValue || 7,
+                                intervalUnit: step.intervalUnit || "days",
+                                holdConditions: {
+                                  ...step.holdConditions,
+                                  requiresApproval: true,
+                                },
+                              });
+                            }}
+                          >
+                            Add hold duration
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuGroup>
+                      <DropdownMenuSeparator />
+                      {(() => {
+                        const available = experimentTargetingFields.filter(
+                          (f) => !(f.field in step.patch),
+                        );
+                        if (!available.length) return null;
+                        return (
+                          <>
+                            <DropdownMenuGroup label="Targeting and traffic changes">
+                              {available.map((item) => (
+                                <DropdownMenuItem
+                                  key={item.field}
+                                  onClick={() => {
+                                    setOpenMenuIndex(null);
+                                    const defaultVal =
+                                      item.field === "condition"
+                                        ? "{}"
+                                        : item.field === "variationWeights"
+                                          ? baselineTargeting.variationWeights
+                                          : [];
+                                    updateStepPatch(i, item.field, defaultVal);
+                                  }}
+                                >
+                                  {item.label}
+                                </DropdownMenuItem>
+                              ))}
+                            </DropdownMenuGroup>
+                            <DropdownMenuSeparator />
+                          </>
+                        );
+                      })()}
+                      {(() => {
+                        const ext = step.patch as Record<string, unknown>;
+                        const hasNewPhase = !!ext.newPhase;
+                        const hasReseed = !!ext.reseed;
+                        return (
+                          <DropdownMenuGroup label="Phase controls">
                             <DropdownMenuItem
                               onClick={() => {
                                 setOpenMenuIndex(null);
-                                updateStepPatch(i, "reseed" as keyof UIStepPatch, !hasReseed || undefined);
+                                updateStepPatch(
+                                  i,
+                                  "newPhase" as keyof UIStepPatch,
+                                  !hasNewPhase || undefined,
+                                );
+                                if (hasNewPhase) {
+                                  updateStepPatch(
+                                    i,
+                                    "reseed" as keyof UIStepPatch,
+                                    undefined,
+                                  );
+                                }
                               }}
                             >
                               <Flex align="center" gap="1">
-                                {hasReseed && <PiCheck size={16} />}
-                                Re-randomize traffic
+                                {hasNewPhase && <PiCheck size={16} />}
+                                Start new phase
                               </Flex>
                             </DropdownMenuItem>
-                          )}
-                        </DropdownMenuGroup>
-                      );
-                    })()}
-                    <DropdownMenuSeparator />
-                    <DropdownMenuGroup>
-                      <DropdownMenuItem
-                        onClick={() => {
-                          setOpenMenuIndex(null);
-                          const last = state.steps[i];
-                          const newStep: UIStep = {
-                            patch: {
-                              coverage: Math.min(
-                                100,
-                                (last?.patch?.coverage ?? 50) + 10,
-                              ),
-                            },
-                            triggerType: "interval",
-                            intervalValue: last?.intervalValue ?? 7,
-                            intervalUnit: last?.intervalUnit ?? "days",
-                            approvalNotes: "",
-                            notesOpen: false,
-                            additionalEffectsOpen: false,
-                            monitored: true,
-                          };
-                          const steps = [...state.steps];
-                          steps.splice(i + 1, 0, newStep);
-                          patch({ steps });
-                        }}
-                      >
-                        Add step after
-                      </DropdownMenuItem>
-                    </DropdownMenuGroup>
-                    {state.steps.length > 1 && (
+                            {hasNewPhase && (
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  setOpenMenuIndex(null);
+                                  updateStepPatch(
+                                    i,
+                                    "reseed" as keyof UIStepPatch,
+                                    !hasReseed || undefined,
+                                  );
+                                }}
+                              >
+                                <Flex align="center" gap="1">
+                                  {hasReseed && <PiCheck size={16} />}
+                                  Re-randomize traffic
+                                </Flex>
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuGroup>
+                        );
+                      })()}
+                      <DropdownMenuSeparator />
                       <DropdownMenuGroup>
                         <DropdownMenuItem
-                          color="red"
                           onClick={() => {
                             setOpenMenuIndex(null);
-                            patch({
-                              steps: state.steps.filter((_, j) => j !== i),
-                            });
+                            const last = state.steps[i];
+                            const newStep: UIStep = {
+                              patch: {
+                                coverage: Math.min(
+                                  100,
+                                  (last?.patch?.coverage ?? 50) + 10,
+                                ),
+                              },
+                              triggerType: "interval",
+                              intervalValue: last?.intervalValue ?? 7,
+                              intervalUnit: last?.intervalUnit ?? "days",
+                              approvalNotes: "",
+                              notesOpen: false,
+                              additionalEffectsOpen: false,
+                              monitored: true,
+                            };
+                            const steps = [...state.steps];
+                            steps.splice(i + 1, 0, newStep);
+                            patch({ steps });
                           }}
                         >
-                          Remove step
+                          Add step after
                         </DropdownMenuItem>
                       </DropdownMenuGroup>
-                    )}
-                  </DropdownMenu>
+                      {state.steps.length > 1 && (
+                        <DropdownMenuGroup>
+                          <DropdownMenuItem
+                            color="red"
+                            onClick={() => {
+                              setOpenMenuIndex(null);
+                              patch({
+                                steps: state.steps.filter((_, j) => j !== i),
+                              });
+                            }}
+                          >
+                            Remove step
+                          </DropdownMenuItem>
+                        </DropdownMenuGroup>
+                      )}
+                    </DropdownMenu>
+                  </Flex>
                 </Flex>
-              </Flex>
 
-              {/* "Then:"/"Also:" hold condition sub-rows */}
-              {((step.triggerType === "interval" &&
-                step.holdConditions?.requiresApproval) ||
-                (step.holdConditions?.minSampleSize ?? null) !== null) && (
-                <Flex
-                  direction="column"
-                  gap="1"
-                  mt="2"
-                  style={{ paddingLeft: COL.num + 16 + COL.coverage + 16 }}
-                >
-                  <Text color="text-low" weight="medium">
-                    {step.triggerType === "approval" ? "Also:" : "Then:"}
-                  </Text>
+                {/* "Then:"/"Also:" hold condition sub-rows */}
+                {((step.triggerType === "interval" &&
+                  step.holdConditions?.requiresApproval) ||
+                  (step.holdConditions?.minSampleSize ?? null) !== null) && (
+                  <Flex
+                    direction="column"
+                    gap="1"
+                    mt="2"
+                    style={{ paddingLeft: COL.num + 16 + COL.coverage + 16 }}
+                  >
+                    <Text color="text-low" weight="medium">
+                      {step.triggerType === "approval" ? "Also:" : "Then:"}
+                    </Text>
 
-                  {step.triggerType === "interval" &&
-                    step.holdConditions?.requiresApproval && (
-                      <Flex
-                        align="center"
-                        gap="4"
-                        style={{ paddingLeft: 16, minHeight: 32 }}
-                      >
-                        <Flex align="center" gap="3" flexGrow="1">
-                          <Box style={{ flexShrink: 0 }}>
-                            <Text weight="medium">Hold for approval</Text>
-                          </Box>
-                          {!step.notesOpen ? (
-                            <Link
-                              size="1"
-                              color="gray"
-                              style={{ flexShrink: 0 }}
+                    {step.triggerType === "interval" &&
+                      step.holdConditions?.requiresApproval && (
+                        <Flex
+                          align="center"
+                          gap="4"
+                          style={{ paddingLeft: 16, minHeight: 32 }}
+                        >
+                          <Flex align="center" gap="3" flexGrow="1">
+                            <Box style={{ flexShrink: 0 }}>
+                              <Text weight="medium">Hold for approval</Text>
+                            </Box>
+                            {!step.notesOpen ? (
+                              <Link
+                                size="1"
+                                color="gray"
+                                style={{ flexShrink: 0 }}
+                                onClick={() =>
+                                  updateStep(i, {
+                                    notesOpen: true,
+                                    approvalNotes: "",
+                                  })
+                                }
+                              >
+                                <PiPlusBold
+                                  style={{
+                                    marginRight: 3,
+                                    verticalAlign: "middle",
+                                  }}
+                                />
+                                Add notes
+                              </Link>
+                            ) : (
+                              <Box style={{ flex: 1, minWidth: 120 }}>
+                                <Field
+                                  label=""
+                                  placeholder="ex: Check error rates"
+                                  value={step.approvalNotes}
+                                  onChange={(e) =>
+                                    updateStep(i, {
+                                      approvalNotes: e.target.value,
+                                    })
+                                  }
+                                  style={{ height: 32 }}
+                                />
+                              </Box>
+                            )}
+                          </Flex>
+                          <Tooltip body="Remove condition" tipMinWidth="50px">
+                            <IconButton
+                              type="button"
+                              variant="ghost"
+                              color="red"
+                              size="2"
+                              radius="full"
+                              style={{ marginRight: 11, marginTop: -2 }}
                               onClick={() =>
                                 updateStep(i, {
-                                  notesOpen: true,
+                                  holdConditions: {
+                                    ...step.holdConditions,
+                                    requiresApproval: false,
+                                  },
+                                  notesOpen: false,
                                   approvalNotes: "",
                                 })
                               }
                             >
-                              <PiPlusBold
-                                style={{
-                                  marginRight: 3,
-                                  verticalAlign: "middle",
-                                }}
-                              />
-                              Add notes
-                            </Link>
-                          ) : (
-                            <Box style={{ flex: 1, minWidth: 120 }}>
-                              <Field
-                                label=""
-                                placeholder="ex: Check error rates"
-                                value={step.approvalNotes}
-                                onChange={(e) =>
-                                  updateStep(i, {
-                                    approvalNotes: e.target.value,
-                                  })
-                                }
-                                style={{ height: 32 }}
-                              />
-                            </Box>
-                          )}
+                              <PiTrash />
+                            </IconButton>
+                          </Tooltip>
                         </Flex>
+                      )}
+
+                    {(step.holdConditions?.minSampleSize ?? null) !== null && (
+                      <Flex
+                        align="center"
+                        gap="3"
+                        style={{ paddingLeft: 16, minHeight: 32 }}
+                      >
+                        <Box style={{ flexShrink: 0 }}>
+                          <Text weight="medium">Hold for min. sample</Text>
+                        </Box>
+                        <Link
+                          size="2"
+                          color="gray"
+                          style={{ flexShrink: 0 }}
+                          onClick={() => setMinSamplePopoverIndex(i)}
+                        >
+                          {step.holdConditions!.minSampleSize!.toLocaleString()}
+                        </Link>
+                        <Box flexGrow="1" />
                         <Tooltip body="Remove condition" tipMinWidth="50px">
                           <IconButton
                             type="button"
@@ -1422,15 +1492,13 @@ export default function ExperimentRampScheduleModal({
                             color="red"
                             size="2"
                             radius="full"
-                            style={{ marginRight: 11, marginTop: -2 }}
+                            style={{ marginRight: 4 }}
                             onClick={() =>
                               updateStep(i, {
                                 holdConditions: {
                                   ...step.holdConditions,
-                                  requiresApproval: false,
+                                  minSampleSize: undefined,
                                 },
-                                notesOpen: false,
-                                approvalNotes: "",
                               })
                             }
                           >
@@ -1439,420 +1507,401 @@ export default function ExperimentRampScheduleModal({
                         </Tooltip>
                       </Flex>
                     )}
+                  </Flex>
+                )}
 
-                  {(step.holdConditions?.minSampleSize ?? null) !== null && (
-                    <Flex
-                      align="center"
-                      gap="3"
-                      style={{ paddingLeft: 16, minHeight: 32 }}
-                    >
-                      <Box style={{ flexShrink: 0 }}>
-                        <Text weight="medium">Hold for min. sample</Text>
-                      </Box>
-                      <Link
-                        size="2"
-                        color="gray"
-                        style={{ flexShrink: 0 }}
-                        onClick={() => setMinSamplePopoverIndex(i)}
-                      >
-                        {step.holdConditions!.minSampleSize!.toLocaleString()}
-                      </Link>
-                      <Box flexGrow="1" />
-                      <Tooltip body="Remove condition" tipMinWidth="50px">
-                        <IconButton
-                          type="button"
-                          variant="ghost"
-                          color="red"
-                          size="2"
-                          radius="full"
-                          style={{ marginRight: 4 }}
-                          onClick={() =>
-                            updateStep(i, {
-                              holdConditions: {
-                                ...step.holdConditions,
-                                minSampleSize: undefined,
-                              },
-                            })
-                          }
-                        >
-                          <PiTrash />
-                        </IconButton>
-                      </Tooltip>
-                    </Flex>
-                  )}
-                </Flex>
-              )}
-
-              {/* Targeting / variation weight / phase sub-rows */}
-              {(step.additionalEffectsOpen ||
-                !!(step.patch as Record<string, unknown>).newPhase) && (
-                <Box mt="2" pr="2" style={{ paddingLeft: COL.num + 16 }}>
-                  <Flex direction="column" gap="2">
-                    {"condition" in step.patch && (
-                      <Box
-                        px="2"
-                        py="2"
-                        style={{
-                          border: "1px solid var(--gray-a5)",
-                          borderRadius: "var(--radius-2)",
-                        }}
-                      >
-                        <Box mb="3">
-                          <ConditionInput
-                            key={`${i}-condition`}
-                            defaultValue={step.patch.condition ?? "{}"}
-                            onChange={(v) =>
-                              updateStepPatch(i, "condition", v)
-                            }
-                            project={experiment.project ?? ""}
-                            slimMode
-                            emptyText=""
-                            addRemoveMode
-                            addRemoveValue={
-                              step.patch.condition === null ? "remove" : "set"
-                            }
-                            onAddRemoveValueChange={(mode) =>
-                              updateStepPatch(
-                                i,
-                                "condition",
-                                mode === "remove" ? null : "{}",
-                              )
-                            }
-                            onRemoveEffect={() =>
-                              removeStepPatchField(i, "condition")
-                            }
-                            setModeLabel="Set attribute targeting"
-                            removeModeLabel="Remove attribute targeting"
-                            labelActions={
-                              <Tooltip
-                                body="Remove effect"
-                                tipMinWidth="50px"
-                              >
-                                <IconButton
-                                  variant="ghost"
-                                  color="red"
-                                  size="2"
-                                  radius="full"
-                                  onClick={() =>
-                                    removeStepPatchField(i, "condition")
-                                  }
-                                >
-                                  <PiTrash />
-                                </IconButton>
-                              </Tooltip>
-                            }
-                          />
-                        </Box>
-                      </Box>
-                    )}
-                    {"savedGroups" in step.patch && (
-                      <Box
-                        px="2"
-                        py="2"
-                        style={{
-                          border: "1px solid var(--gray-a5)",
-                          borderRadius: "var(--radius-2)",
-                        }}
-                      >
-                        <Box mb="3">
-                          <SavedGroupTargetingField
-                            value={step.patch.savedGroups ?? []}
-                            setValue={(v) =>
-                              updateStepPatch(i, "savedGroups", v)
-                            }
-                            project={experiment.project ?? ""}
-                            slimMode
-                            addRemoveMode
-                            addRemoveValue={
-                              step.patch.savedGroups === null
-                                ? "remove"
-                                : "set"
-                            }
-                            onAddRemoveValueChange={(mode) =>
-                              updateStepPatch(
-                                i,
-                                "savedGroups",
-                                mode === "remove" ? null : [],
-                              )
-                            }
-                            onRemoveEffect={() =>
-                              removeStepPatchField(i, "savedGroups")
-                            }
-                            setModeLabel="Set saved group targeting"
-                            removeModeLabel="Remove saved group targeting"
-                            labelActions={
-                              <Tooltip
-                                body="Remove effect"
-                                tipMinWidth="50px"
-                              >
-                                <IconButton
-                                  variant="ghost"
-                                  color="red"
-                                  size="2"
-                                  radius="full"
-                                  onClick={() =>
-                                    removeStepPatchField(i, "savedGroups")
-                                  }
-                                >
-                                  <PiTrash />
-                                </IconButton>
-                              </Tooltip>
-                            }
-                          />
-                        </Box>
-                      </Box>
-                    )}
-                    {"prerequisites" in step.patch && (
-                      <Box
-                        px="2"
-                        py="2"
-                        style={{
-                          border: "1px solid var(--gray-a5)",
-                          borderRadius: "var(--radius-2)",
-                        }}
-                      >
-                        <Box mb="3">
-                          <PrerequisiteInput
-                            value={step.patch.prerequisites ?? []}
-                            setValue={(v) =>
-                              updateStepPatch(i, "prerequisites", v)
-                            }
-                            project={experiment.project ?? ""}
-                            environments={[]}
-                            setPrerequisiteTargetingSdkIssues={() => {}}
-                            slimMode
-                            addRemoveMode
-                            addRemoveValue={
-                              step.patch.prerequisites === null
-                                ? "remove"
-                                : "set"
-                            }
-                            onAddRemoveValueChange={(mode) =>
-                              updateStepPatch(
-                                i,
-                                "prerequisites",
-                                mode === "remove" ? null : [],
-                              )
-                            }
-                            onRemoveEffect={() =>
-                              removeStepPatchField(i, "prerequisites")
-                            }
-                            setModeLabel="Set prerequisite targeting"
-                            removeModeLabel="Remove prerequisite targeting"
-                            labelActions={
-                              <Tooltip
-                                body="Remove effect"
-                                tipMinWidth="50px"
-                              >
-                                <IconButton
-                                  variant="ghost"
-                                  color="red"
-                                  size="2"
-                                  radius="full"
-                                  onClick={() =>
-                                    removeStepPatchField(i, "prerequisites")
-                                  }
-                                >
-                                  <PiTrash />
-                                </IconButton>
-                              </Tooltip>
-                            }
-                          />
-                        </Box>
-                      </Box>
-                    )}
-                    {"variationWeights" in step.patch && (
-                      <Box
-                        px="2"
-                        py="2"
-                        style={{
-                          border: "1px solid var(--gray-a5)",
-                          borderRadius: "var(--radius-2)",
-                          position: "relative",
-                        }}
-                      >
+                {/* Targeting / variation weight / phase sub-rows */}
+                {(step.additionalEffectsOpen ||
+                  !!(step.patch as Record<string, unknown>).newPhase) && (
+                  <Box mt="2" pr="2" style={{ paddingLeft: COL.num + 16 }}>
+                    <Flex direction="column" gap="2">
+                      {"condition" in step.patch && (
                         <Box
+                          px="2"
+                          py="2"
                           style={{
-                            position: "absolute",
-                            top: 8,
-                            right: 8,
+                            border: "1px solid var(--gray-a5)",
+                            borderRadius: "var(--radius-2)",
                           }}
                         >
-                          <Tooltip body="Remove effect" tipMinWidth="50px">
-                            <IconButton
-                              variant="ghost"
-                              color="red"
-                              size="2"
-                              radius="full"
-                              onClick={() =>
-                                removeStepPatchField(i, "variationWeights")
+                          <Box mb="3">
+                            <ConditionInput
+                              key={`${i}-condition`}
+                              defaultValue={step.patch.condition ?? "{}"}
+                              onChange={(v) =>
+                                updateStepPatch(i, "condition", v)
                               }
-                            >
-                              <PiTrash />
-                            </IconButton>
-                          </Tooltip>
-                        </Box>
-                        <FeatureVariationsInput
-                          valueType="string"
-                          hideCoverage
-                          showPreview={false}
-                          label="Variation Weights"
-                          startEditingSplits
-                          className="mb-0"
-                          setWeight={(vi, weight) => {
-                            const weights = [
-                              ...((step.patch as UIStepPatch & { variationWeights?: number[] })
-                                .variationWeights ??
-                                baselineTargeting.variationWeights),
-                            ];
-                            weights[vi] = weight;
-                            updateStepPatch(i, "variationWeights", weights);
-                          }}
-                          variations={experiment.variations.map((v, vi) => ({
-                            value: v.key || String(vi),
-                            name: v.name,
-                            weight:
-                              (step.patch as UIStepPatch & { variationWeights?: number[] })
-                                .variationWeights?.[vi] ??
-                              baselineTargeting.variationWeights[vi] ??
-                              0,
-                            id: v.id,
-                          }))}
-                        />
-                      </Box>
-                    )}
-
-                    {/* Phase control indicator */}
-                    {!!(step.patch as Record<string, unknown>).newPhase && (
-                      <Box
-                        px="2"
-                        py="2"
-                        style={{
-                          border: "1px solid var(--gray-a5)",
-                          borderRadius: "var(--radius-2)",
-                        }}
-                      >
-                        <Flex align="center" justify="between">
-                          <Flex align="center" gap="1">
-                            <Text size="small" weight="medium">
-                              Start new phase —
-                            </Text>
-                            <Popover
-                              trigger={
-                                <Link size="1">
-                                  {!!(step.patch as Record<string, unknown>).reseed
-                                    ? "re-randomize traffic"
-                                    : "same randomization seed"}
-                                </Link>
+                              project={experiment.project ?? ""}
+                              slimMode
+                              emptyText=""
+                              addRemoveMode
+                              addRemoveValue={
+                                step.patch.condition === null ? "remove" : "set"
                               }
-                              content={
-                                <Flex direction="column" gap="2" style={{ width: 240, padding: 4 }}>
-                                  <Text weight="medium" size="small">
-                                    Randomization
-                                  </Text>
-                                  <SelectField
-                                    className="select-unfixed"
-                                    value={
-                                      !!(step.patch as Record<string, unknown>).reseed
-                                        ? "reseed"
-                                        : "keep"
+                              onAddRemoveValueChange={(mode) =>
+                                updateStepPatch(
+                                  i,
+                                  "condition",
+                                  mode === "remove" ? null : "{}",
+                                )
+                              }
+                              onRemoveEffect={() =>
+                                removeStepPatchField(i, "condition")
+                              }
+                              setModeLabel="Set attribute targeting"
+                              removeModeLabel="Remove attribute targeting"
+                              labelActions={
+                                <Tooltip
+                                  body="Remove effect"
+                                  tipMinWidth="50px"
+                                >
+                                  <IconButton
+                                    variant="ghost"
+                                    color="red"
+                                    size="2"
+                                    radius="full"
+                                    onClick={() =>
+                                      removeStepPatchField(i, "condition")
                                     }
-                                    options={[
-                                      { value: "reseed", label: "Re-randomize traffic" },
-                                      { value: "keep", label: "Same randomization seed" },
-                                    ]}
-                                    sort={false}
-                                    isSearchable={false}
-                                    onChange={(v) =>
-                                      updateStepPatch(
-                                        i,
-                                        "reseed" as keyof UIStepPatch,
-                                        v === "reseed" || undefined,
-                                      )
-                                    }
-                                  />
-                                </Flex>
+                                  >
+                                    <PiTrash />
+                                  </IconButton>
+                                </Tooltip>
                               }
                             />
-                          </Flex>
-                          <Tooltip body="Remove effect" tipMinWidth="50px">
-                            <IconButton
-                              variant="ghost"
-                              color="red"
-                              size="2"
-                              radius="full"
-                              onClick={() => {
-                                const nextPatch = { ...step.patch };
-                                delete (nextPatch as Record<string, unknown>).newPhase;
-                                delete (nextPatch as Record<string, unknown>).reseed;
-                                const steps = [...state.steps];
-                                steps[i] = { ...steps[i], patch: nextPatch };
-                                patch({ steps });
-                              }}
-                            >
-                              <PiTrash />
-                            </IconButton>
-                          </Tooltip>
-                        </Flex>
-                      </Box>
-                    )}
-                  </Flex>
-                </Box>
-              )}
-
-              {/* Risk warning + remediation */}
-              {!stepRiskResults[i]?.safe && (
-                <Box mt="2" pr="2" style={{ paddingLeft: COL.num + 16 }}>
-                  <Callout
-                    status={state.remediations[i]?.confirmed ? "success" : "warning"}
-                    size="sm"
-                  >
-                    <Flex direction="column" gap="1" width="100%">
-                      <Flex align="center" justify="between">
-                        <Text size="small" weight="semibold">
-                          {state.remediations[i]?.confirmed
-                            ? "Changes resolved"
-                            : "The changes in this step may bias experiment results"}
-                        </Text>
-                        <Link
-                          size="1"
-                          style={{ flexShrink: 0 }}
-                          onClick={() => setRiskDetailIndex(i)}
+                          </Box>
+                        </Box>
+                      )}
+                      {"savedGroups" in step.patch && (
+                        <Box
+                          px="2"
+                          py="2"
+                          style={{
+                            border: "1px solid var(--gray-a5)",
+                            borderRadius: "var(--radius-2)",
+                          }}
                         >
-                          Learn more
-                        </Link>
-                      </Flex>
-                      {state.remediations[i]?.confirmed ? (
-                        <Flex align="center" gap="2" mt="1">
-                          <Text size="small" color="text-mid">
-                            {remediationToDescription(
-                              state.remediations[i].remediation,
-                            )}
-                          </Text>
-                          <Link
-                            size="1"
-                            onClick={() => setRemediationPopoverIndex(i)}
+                          <Box mb="3">
+                            <SavedGroupTargetingField
+                              value={step.patch.savedGroups ?? []}
+                              setValue={(v) =>
+                                updateStepPatch(i, "savedGroups", v)
+                              }
+                              project={experiment.project ?? ""}
+                              slimMode
+                              addRemoveMode
+                              addRemoveValue={
+                                step.patch.savedGroups === null
+                                  ? "remove"
+                                  : "set"
+                              }
+                              onAddRemoveValueChange={(mode) =>
+                                updateStepPatch(
+                                  i,
+                                  "savedGroups",
+                                  mode === "remove" ? null : [],
+                                )
+                              }
+                              onRemoveEffect={() =>
+                                removeStepPatchField(i, "savedGroups")
+                              }
+                              setModeLabel="Set saved group targeting"
+                              removeModeLabel="Remove saved group targeting"
+                              labelActions={
+                                <Tooltip
+                                  body="Remove effect"
+                                  tipMinWidth="50px"
+                                >
+                                  <IconButton
+                                    variant="ghost"
+                                    color="red"
+                                    size="2"
+                                    radius="full"
+                                    onClick={() =>
+                                      removeStepPatchField(i, "savedGroups")
+                                    }
+                                  >
+                                    <PiTrash />
+                                  </IconButton>
+                                </Tooltip>
+                              }
+                            />
+                          </Box>
+                        </Box>
+                      )}
+                      {"prerequisites" in step.patch && (
+                        <Box
+                          px="2"
+                          py="2"
+                          style={{
+                            border: "1px solid var(--gray-a5)",
+                            borderRadius: "var(--radius-2)",
+                          }}
+                        >
+                          <Box mb="3">
+                            <PrerequisiteInput
+                              value={step.patch.prerequisites ?? []}
+                              setValue={(v) =>
+                                updateStepPatch(i, "prerequisites", v)
+                              }
+                              project={experiment.project ?? ""}
+                              environments={[]}
+                              setPrerequisiteTargetingSdkIssues={() => {}}
+                              slimMode
+                              addRemoveMode
+                              addRemoveValue={
+                                step.patch.prerequisites === null
+                                  ? "remove"
+                                  : "set"
+                              }
+                              onAddRemoveValueChange={(mode) =>
+                                updateStepPatch(
+                                  i,
+                                  "prerequisites",
+                                  mode === "remove" ? null : [],
+                                )
+                              }
+                              onRemoveEffect={() =>
+                                removeStepPatchField(i, "prerequisites")
+                              }
+                              setModeLabel="Set prerequisite targeting"
+                              removeModeLabel="Remove prerequisite targeting"
+                              labelActions={
+                                <Tooltip
+                                  body="Remove effect"
+                                  tipMinWidth="50px"
+                                >
+                                  <IconButton
+                                    variant="ghost"
+                                    color="red"
+                                    size="2"
+                                    radius="full"
+                                    onClick={() =>
+                                      removeStepPatchField(i, "prerequisites")
+                                    }
+                                  >
+                                    <PiTrash />
+                                  </IconButton>
+                                </Tooltip>
+                              }
+                            />
+                          </Box>
+                        </Box>
+                      )}
+                      {"variationWeights" in step.patch && (
+                        <Box
+                          px="2"
+                          py="2"
+                          style={{
+                            border: "1px solid var(--gray-a5)",
+                            borderRadius: "var(--radius-2)",
+                            position: "relative",
+                          }}
+                        >
+                          <Box
+                            style={{
+                              position: "absolute",
+                              top: 8,
+                              right: 8,
+                            }}
                           >
-                            Change
-                          </Link>
-                        </Flex>
-                      ) : (
-                        <Box mt="1">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => setRemediationPopoverIndex(i)}
-                          >
-                            Choose release plan
-                          </Button>
+                            <Tooltip body="Remove effect" tipMinWidth="50px">
+                              <IconButton
+                                variant="ghost"
+                                color="red"
+                                size="2"
+                                radius="full"
+                                onClick={() =>
+                                  removeStepPatchField(i, "variationWeights")
+                                }
+                              >
+                                <PiTrash />
+                              </IconButton>
+                            </Tooltip>
+                          </Box>
+                          <FeatureVariationsInput
+                            valueType="string"
+                            hideCoverage
+                            showPreview={false}
+                            label="Variation Weights"
+                            startEditingSplits
+                            className="mb-0"
+                            setWeight={(vi, weight) => {
+                              const weights = [
+                                ...((
+                                  step.patch as UIStepPatch & {
+                                    variationWeights?: number[];
+                                  }
+                                ).variationWeights ??
+                                  baselineTargeting.variationWeights),
+                              ];
+                              weights[vi] = weight;
+                              updateStepPatch(i, "variationWeights", weights);
+                            }}
+                            variations={experiment.variations.map((v, vi) => ({
+                              value: v.key || String(vi),
+                              name: v.name,
+                              weight:
+                                (
+                                  step.patch as UIStepPatch & {
+                                    variationWeights?: number[];
+                                  }
+                                ).variationWeights?.[vi] ??
+                                baselineTargeting.variationWeights[vi] ??
+                                0,
+                              id: v.id,
+                            }))}
+                          />
+                        </Box>
+                      )}
+
+                      {/* Phase control indicator */}
+                      {!!(step.patch as Record<string, unknown>).newPhase && (
+                        <Box
+                          px="2"
+                          py="2"
+                          style={{
+                            border: "1px solid var(--gray-a5)",
+                            borderRadius: "var(--radius-2)",
+                          }}
+                        >
+                          <Flex align="center" justify="between">
+                            <Flex align="center" gap="1">
+                              <Text size="small" weight="medium">
+                                Start new phase —
+                              </Text>
+                              <Popover
+                                trigger={
+                                  <Link size="1">
+                                    {(step.patch as Record<string, unknown>)
+                                      .reseed
+                                      ? "re-randomize traffic"
+                                      : "same randomization seed"}
+                                  </Link>
+                                }
+                                content={
+                                  <Flex
+                                    direction="column"
+                                    gap="2"
+                                    style={{ width: 240, padding: 4 }}
+                                  >
+                                    <Text weight="medium" size="small">
+                                      Randomization
+                                    </Text>
+                                    <SelectField
+                                      className="select-unfixed"
+                                      value={
+                                        (step.patch as Record<string, unknown>)
+                                          .reseed
+                                          ? "reseed"
+                                          : "keep"
+                                      }
+                                      options={[
+                                        {
+                                          value: "reseed",
+                                          label: "Re-randomize traffic",
+                                        },
+                                        {
+                                          value: "keep",
+                                          label: "Same randomization seed",
+                                        },
+                                      ]}
+                                      sort={false}
+                                      isSearchable={false}
+                                      onChange={(v) =>
+                                        updateStepPatch(
+                                          i,
+                                          "reseed" as keyof UIStepPatch,
+                                          v === "reseed" || undefined,
+                                        )
+                                      }
+                                    />
+                                  </Flex>
+                                }
+                              />
+                            </Flex>
+                            <Tooltip body="Remove effect" tipMinWidth="50px">
+                              <IconButton
+                                variant="ghost"
+                                color="red"
+                                size="2"
+                                radius="full"
+                                onClick={() => {
+                                  const nextPatch = { ...step.patch };
+                                  delete (nextPatch as Record<string, unknown>)
+                                    .newPhase;
+                                  delete (nextPatch as Record<string, unknown>)
+                                    .reseed;
+                                  const steps = [...state.steps];
+                                  steps[i] = { ...steps[i], patch: nextPatch };
+                                  patch({ steps });
+                                }}
+                              >
+                                <PiTrash />
+                              </IconButton>
+                            </Tooltip>
+                          </Flex>
                         </Box>
                       )}
                     </Flex>
-                  </Callout>
-                </Box>
-              )}
-            </Flex>
-          </Box>
+                  </Box>
+                )}
+
+                {/* Risk warning + remediation */}
+                {!stepRiskResults[i]?.safe && (
+                  <Box mt="2" pr="2" style={{ paddingLeft: COL.num + 16 }}>
+                    <Callout
+                      status={
+                        state.remediations[i]?.confirmed ? "success" : "warning"
+                      }
+                      size="sm"
+                    >
+                      <Flex direction="column" gap="1" width="100%">
+                        <Flex align="center" justify="between">
+                          <Text size="small" weight="semibold">
+                            {state.remediations[i]?.confirmed
+                              ? "Changes resolved"
+                              : "The changes in this step may bias experiment results"}
+                          </Text>
+                          <Link
+                            size="1"
+                            style={{ flexShrink: 0 }}
+                            onClick={() => setRiskDetailIndex(i)}
+                          >
+                            Learn more
+                          </Link>
+                        </Flex>
+                        {state.remediations[i]?.confirmed ? (
+                          <Flex align="center" gap="2" mt="1">
+                            <Text size="small" color="text-mid">
+                              {remediationToDescription(
+                                state.remediations[i].remediation,
+                              )}
+                            </Text>
+                            <Link
+                              size="1"
+                              onClick={() => setRemediationPopoverIndex(i)}
+                            >
+                              Change
+                            </Link>
+                          </Flex>
+                        ) : (
+                          <Box mt="1">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setRemediationPopoverIndex(i)}
+                            >
+                              Choose release plan
+                            </Button>
+                          </Box>
+                        )}
+                      </Flex>
+                    </Callout>
+                  </Box>
+                )}
+              </Flex>
+            </Box>
           );
         })}
 
@@ -1986,8 +2035,7 @@ export default function ExperimentRampScheduleModal({
               <Flex direction="column" gap="3">
                 <AlertDialog.Title>
                   <Text weight="medium" size="medium">
-                    Targeting change impact — Step{" "}
-                    {riskDetailIndex + 1}
+                    Targeting change impact — Step {riskDetailIndex + 1}
                   </Text>
                 </AlertDialog.Title>
                 <TargetingChangeImpactPanel
@@ -1996,10 +2044,7 @@ export default function ExperimentRampScheduleModal({
                 />
                 <Flex justify="end">
                   <AlertDialog.Action>
-                    <Button
-                      size="sm"
-                      onClick={() => setRiskDetailIndex(null)}
-                    >
+                    <Button size="sm" onClick={() => setRiskDetailIndex(null)}>
                       Close
                     </Button>
                   </AlertDialog.Action>
