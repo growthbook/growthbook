@@ -13,7 +13,10 @@ frontend:
   podAnnotations: {}
   podLabels: {}
   podSecurityContext: {}
-  securityContext: {}
+  securityContext:
+    readOnlyRootFilesystem: true
+    runAsNonRoot: true
+    runAsUser: 1000
   resources: {}
   autoscaling:
     enabled: false
@@ -23,8 +26,22 @@ frontend:
     # targetMemoryUtilizationPercentage: 80
   service:
     port: 3000
-  command: [node_modules/.bin/pm2-runtime, start, ecosystem.config.js, --only, front-end]
+  # The hardened image is distroless (no shell), so launch the supervisor
+  # directly rather than pm2's .bin shim, and run only the front-end in this pod.
+  command: [/usr/local/bin/node, bin/dhi-supervisor.js, --only, front-end]
   args: []
+  # readOnlyRootFilesystem requires writable mounts for the paths the front-end
+  # writes at runtime: /tmp and Next.js's on-disk cache.
+  volumes:
+    - name: tmp
+      emptyDir: {}
+    - name: next-cache
+      emptyDir: {}
+  volumeMounts:
+    - name: tmp
+      mountPath: /tmp
+    - name: next-cache
+      mountPath: /usr/local/src/app/packages/front-end/.next/cache
   env:
     - name: API_HOST
       # full URL of your backend, e.g. https://gb-api.example.com
@@ -35,7 +52,10 @@ backend:
   podAnnotations: {}
   podLabels: {}
   podSecurityContext: {}
-  securityContext: {}
+  securityContext:
+    readOnlyRootFilesystem: true
+    runAsNonRoot: true
+    runAsUser: 1000
   resources: {}
   autoscaling:
     enabled: false
@@ -49,9 +69,19 @@ backend:
   # can be disabled when using UPLOAD_METHOD "s3" or "google-cloud"
   volumeClaim:
     enabled: true
+  # readOnlyRootFilesystem requires a writable /tmp. The uploads dir is mounted
+  # separately via volumeClaim above (when UPLOAD_METHOD is local).
+  volumes:
+    - name: tmp
+      emptyDir: {}
+  volumeMounts:
+    - name: tmp
+      mountPath: /tmp
   # For use when providing an existing MongoDB instance
   # mongodbUri:
-  command: [node_modules/.bin/pm2-runtime, start, ecosystem.config.js, --only, back-end]
+  # The hardened image is distroless (no shell), so launch the supervisor
+  # directly rather than pm2's .bin shim, and run only the back-end in this pod.
+  command: [/usr/local/bin/node, bin/dhi-supervisor.js, --only, back-end]
   # To enable tracing set TRACING_PROVIDER env var to "datadog" or "opentelemetry"
   args: []
   # Reference: https://docs.growthbook.io/self-host/env

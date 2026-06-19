@@ -13,13 +13,14 @@
 // Both are delegated to the platform supervising the container.
 //
 // Tracing (Datadog / OpenTelemetry) is honored via `node --require`, mirroring
-// ecosystem.config.js. The preview idle-monitor (a bash script) is not
-// supported in the hardened image.
+// ecosystem.config.js. The preview idle-monitor is also launched here (as a
+// child) when PREVIEW_IDLE_TIMEOUT_SECONDS is set, mirroring ecosystem.config.js;
+// on idle it signals this supervisor (PID 1) to bring the container down.
 
 const { spawn } = require("node:child_process");
 const path = require("node:path");
 
-const ROOT = path.resolve(__dirname, ".."); // /app
+const ROOT = path.resolve(__dirname, ".."); // /usr/local/src/app
 
 const tracing = process.env.TRACING_PROVIDER;
 const backendNodeArgs = [];
@@ -46,6 +47,17 @@ const allApps = [
     cwd: path.join(ROOT, "packages/front-end"),
     args: ["node_modules/next/dist/bin/next", "start"],
   },
+  // Preview-only: shuts the container down after a period of inactivity. Gated
+  // on the env var (like ecosystem.config.js) so it never runs in production.
+  ...(process.env.PREVIEW_IDLE_TIMEOUT_SECONDS
+    ? [
+        {
+          name: "idle-monitor",
+          cwd: ROOT,
+          args: ["preview/idle-monitor.js"],
+        },
+      ]
+    : []),
 ];
 
 const apps = allApps.filter((a) => !only || a.name === only);
