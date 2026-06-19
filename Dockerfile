@@ -121,6 +121,13 @@ RUN \
   && rm -f packages/stats/poetry.lock
 RUN pnpm postinstall
 
+# Drop front-end TS source + tsconfig so `next start` never tries to enable
+# TypeScript at runtime. The stock image did this in a final-stage RUN; the
+# distroless final stage has no shell, so it must happen here.
+RUN rm -f packages/front-end/tsconfig.json && \
+    find packages/front-end -maxdepth 1 -name "*.ts" -delete && \
+    find packages/front-end -maxdepth 1 -name "*.tsx" -delete
+
 # Force kerberos to compile from source. Its prebuilt binary is selected by
 # node-gyp-build's runtime libc detection, which fails on the distroless runtime
 # (no ldd, sparse /etc) and crashes at require time; a from-source
