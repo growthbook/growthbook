@@ -110,7 +110,7 @@ describe("src/license", () => {
     jest.resetModules();
     resetInMemoryLicenseCache();
     jest.clearAllMocks();
-    jest.useFakeTimers("modern");
+    jest.useFakeTimers();
     jest.setSystemTime(now);
     process.env = { ...env };
   });

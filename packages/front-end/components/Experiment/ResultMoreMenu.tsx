@@ -25,6 +25,7 @@ import {
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Badge from "@/ui/Badge";
 import { useUser } from "@/services/UserContext";
+import { useIncrementalPipelineUnsupportedReason } from "@/hooks/useIncrementalPipelineUnsupportedReason";
 import { useSnapshot } from "./SnapshotProvider";
 
 export function canShowRefreshMenuItem({
@@ -140,8 +141,18 @@ export default function ResultMoreMenu({
     ? getIsExperimentIncludedInIncrementalRefresh(
         datasource ?? undefined,
         experiment.id,
+        experiment.type,
       )
     : false;
+
+  // An experiment that is unsupported by Incremental Pipeline mode
+  // will always do a full rescan.
+  // So Full Refresh does not apply.
+  const incrementalPipelineUnsupportedReason =
+    useIncrementalPipelineUnsupportedReason(experiment);
+  const runsIncrementalRefresh =
+    isExperimentIncludedInIncrementalRefresh &&
+    !incrementalPipelineUnsupportedReason;
 
   const experimentExcludedFromIncrementalRefresh =
     isExperimentExcludedFromIncrementalRefresh({
@@ -154,7 +165,7 @@ export default function ResultMoreMenu({
 
   const { getExperimentMetricById, getDimensionById, ready } = useDefinitions();
 
-  const rerunAllQueriesText = isExperimentIncludedInIncrementalRefresh
+  const rerunAllQueriesText = runsIncrementalRefresh
     ? "Full refresh"
     : !hasData
       ? "Force update"
@@ -314,7 +325,7 @@ export default function ResultMoreMenu({
 
   // Re-enable Incremental Refresh: drops the experiment from the exclusion
   // list and (if the datasource defaults to ephemeral) adds it to the
-  // opt-in list. Mirror of handleDisableIncrementalRefresh.
+  // opt-in list.
   const handleReenableIncrementalRefresh = useCallback(async () => {
     if (!datasource || !experiment) return;
 
@@ -400,13 +411,13 @@ export default function ResultMoreMenu({
               (datasource &&
                 permissionsUtil.canRunExperimentQueries(datasource)) ??
               false,
-            isExperimentIncludedInIncrementalRefresh,
+            isExperimentIncludedInIncrementalRefresh: runsIncrementalRefresh,
             dimension,
           }) && (
             <DropdownMenuItem
               onClick={handleForceRefresh}
               confirmation={
-                isExperimentIncludedInIncrementalRefresh
+                runsIncrementalRefresh
                   ? {
                       confirmationTitle: "Full Refresh",
                       cta: "I understand",

@@ -559,9 +559,38 @@ export default {
       collapsed: true,
       items: [
         {
-          type: "doc",
-          id: "integrations/mcp",
-          label: "MCP Server",
+          type: "category",
+          label: "AI Agents",
+          collapsed: true,
+          link: { type: "doc", id: "integrations/ai-agents/index" },
+          items: [
+            {
+              type: "doc",
+              id: "integrations/mcp",
+              label: "MCP Server",
+            },
+            {
+              type: "category",
+              label: "Agent Skills",
+              collapsed: true,
+              link: {
+                type: "doc",
+                id: "integrations/ai-agents/agent-skills/index",
+              },
+              items: [
+                {
+                  type: "doc",
+                  id: "integrations/ai-agents/agent-skills/feature-flags",
+                  label: "Feature flag skills",
+                },
+                {
+                  type: "doc",
+                  id: "integrations/ai-agents/agent-skills/experiments",
+                  label: "Experiment skills",
+                },
+              ],
+            },
+          ],
         },
         {
           type: "doc",

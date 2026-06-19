@@ -3,7 +3,7 @@ import {
   LinkedFeatureInfo,
 } from "shared/types/experiment";
 import { FeatureInterface } from "shared/types/feature";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { FaCheck } from "react-icons/fa";
 import { PiCaretDown, PiCaretUp } from "react-icons/pi";
 import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunchChecklist";
@@ -44,7 +44,7 @@ function PreLaunchChecklistUI({
   loading?: boolean;
   className?: string;
   allowEditChecklist?: boolean;
-  title?: string;
+  title?: ReactNode;
   showHeader?: boolean;
 }) {
   const { apiCall } = useAuth();
@@ -158,7 +158,7 @@ function PreLaunchChecklistUI({
   );
 
   const header = (
-    <div className="d-flex flex-row align-items-center justify-content-between text-dark">
+    <div className="d-flex flex-row align-items-center justify-content-between text-dark mb-3">
       <h4 className="mb-0">
         {title}{" "}
         {!loading ? (
@@ -217,7 +217,15 @@ function PreLaunchChecklistFeatureExpRule({
         mutateExperiment={mutateExperiment}
         checklist={checklist}
         loading={false}
-        title={experiment.name}
+        title={
+          <Link
+            href={`/experiment/${experiment.id}`}
+            target="_blank"
+            rel="noreferrer"
+          >
+            {experiment.name}
+          </Link>
+        }
       />
       {failedRequired ? (
         <Callout status="error" mb="3">
@@ -256,41 +264,20 @@ export function PreLaunchChecklistForDraftFeature({
     (c) => !c.projects.length || c.projects.includes(experiment.project || ""),
   );
 
-  // Synthetic entry for the current feature: treat as "live" so the checklist
-  // passes the "Add at least one linked change" item.
-  const syntheticLinkedFeature: LinkedFeatureInfo = useMemo(
-    () => ({
-      feature,
-      state: "live",
-      values: [],
-      valuesFrom: "",
-      inconsistentValues: false,
-      rulesAbove: false,
-      environmentStates: {},
-    }),
-    [feature],
-  );
-
-  const linkedFeatures: LinkedFeatureInfo[] = useMemo(() => {
-    const others = (experimentData?.linkedFeatures ?? []).filter(
-      (f) => f.feature.id !== feature.id,
-    );
-    return [syntheticLinkedFeature, ...others];
-  }, [experimentData, feature.id, syntheticLinkedFeature]);
-
   const isLoading = checklistLoading || expLoading;
 
   const checklist = useMemo(
     () =>
       getChecklistItems({
         experiment,
-        linkedFeatures,
+        linkedFeatures: experimentData?.linkedFeatures ?? [],
         visualChangesets: [],
         checklist: checklistData?.checklist,
         checkLinkedChanges: true,
         connections,
+        publishingFeatureId: feature.id,
       }),
-    [experiment, linkedFeatures, checklistData, connections],
+    [experiment, experimentData, checklistData, connections, feature.id],
   );
 
   const failedRequired = checklist.some(

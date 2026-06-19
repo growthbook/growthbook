@@ -86,7 +86,7 @@ describe("getUsage", () => {
   beforeEach(() => {
     resetUsageCache();
     jest.clearAllMocks();
-    jest.useFakeTimers("modern");
+    jest.useFakeTimers();
     jest.setSystemTime(now);
     process.env = { ...env };
   });

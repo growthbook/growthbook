@@ -5,6 +5,7 @@ import {
   Output,
   tool as aiTool,
   stepCountIs,
+  NoObjectGeneratedError,
 } from "ai";
 import type { ToolSet, ModelMessage } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
@@ -101,19 +102,11 @@ export const getAIProviderClass = (
   }
 };
 
-type ChatCompletionRequestMessage = {
-  role: "user" | "assistant" | "system";
-  content: string;
-};
-
 /**
  * The docs say OpenAI might not always return token usage info in rare edge cases.
  * So this is a fallback, so we can keep track of token usage on cloud regardless.
  */
-const numTokensFromMessages = (
-  messages: ChatCompletionRequestMessage[],
-  model: AIModel,
-) => {
+const numTokensFromMessages = (messages: ModelMessage[], model: AIModel) => {
   logger.warn("Calculating token usage from messages as fallback");
   // Use tiktoken for OpenAI models
   let encoding;
@@ -127,9 +120,25 @@ const numTokensFromMessages = (
   let numTokens = 0;
   for (const message of messages) {
     numTokens += 4;
-    for (const [key, value] of Object.entries(message)) {
-      numTokens += encoding.encode(value as string).length;
-      if (key === "name") numTokens -= 1;
+    const { content } = message;
+    if (typeof content === "string") {
+      numTokens += encoding.encode(content).length;
+    } else if (Array.isArray(content)) {
+      // Multimodal content: only text parts are token-encodable here.
+      // Image/file parts are counted by the provider's own usage; this
+      // fallback under-counts them slightly, which is acceptable for the
+      // rare cloud edge case where `usage` is missing.
+      for (const part of content) {
+        if (
+          part &&
+          typeof part === "object" &&
+          "type" in part &&
+          part.type === "text" &&
+          typeof part.text === "string"
+        ) {
+          numTokens += encoding.encode(part.text).length;
+        }
+      }
     }
   }
 
@@ -151,8 +160,12 @@ export const secondsUntilAICanBeUsedAgain = async (
 const constructMessages = (
   prompt: string,
   instructions?: string,
-): ChatCompletionRequestMessage[] => {
-  const messages: ChatCompletionRequestMessage[] = [];
+  // Optional image inputs for vision models. When present, the user
+  // message becomes a content-part array (images first, then the text
+  // prompt) instead of a bare string. Base64-encoded, no data: prefix.
+  images?: Array<{ data: string; mimeType: string }>,
+): ModelMessage[] => {
+  const messages: ModelMessage[] = [];
 
   if (instructions) {
     messages.push({
@@ -161,10 +174,24 @@ const constructMessages = (
     });
   }
 
-  messages.push({
-    role: "user",
-    content: prompt,
-  });
+  if (images && images.length > 0) {
+    messages.push({
+      role: "user",
+      content: [
+        ...images.map((img) => ({
+          type: "image" as const,
+          image: Buffer.from(img.data, "base64"),
+          mediaType: img.mimeType,
+        })),
+        { type: "text" as const, text: prompt },
+      ],
+    });
+  } else {
+    messages.push({
+      role: "user",
+      content: prompt,
+    });
+  }
 
   return messages;
 };
@@ -341,10 +368,12 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
   isDefaultPrompt,
   zodObjectSchema,
   overrideModel,
+  images,
   tools,
   maxSteps = 1,
   cacheSystemPrompt = false,
   onStepFinish,
+  retryOnNoObject = true,
 }: {
   context: ReqContext | ApiReqContext;
   instructions?: string;
@@ -354,6 +383,15 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
   isDefaultPrompt: boolean;
   zodObjectSchema: T;
   overrideModel?: AIModel;
+  // Optional image inputs for vision-capable models. Threaded into the
+  // user message as content parts. The caller is responsible for picking
+  // a vision-capable `overrideModel` (see pickVisionModel in shared/ai).
+  images?: Array<{ data: string; mimeType: string }>;
+  // Retry once on NoObjectGeneratedError. Pass false from callers that
+  // are themselves a retry so attempts don't stack (e.g. postAIEdit's
+  // selector-correction retry — otherwise one request could fan out to
+  // 4 LLM calls).
+  retryOnNoObject?: boolean;
   // Optional tool-calling: when present, the model may emit tool calls
   // across up to `maxSteps` LLM round-trips before producing the final
   // structured output. Default of 1 keeps the no-tools shape identical.
@@ -385,7 +423,7 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
     );
   }
 
-  const messages = constructMessages(prompt, instructions);
+  const messages = constructMessages(prompt, instructions, images);
 
   // Attach a provider-specific cache breakpoint to the system message
   // when requested. Anthropic charges ~10% of input cost for cached
@@ -396,11 +434,7 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
   if (cacheSystemPrompt && instructions) {
     const sys = messages.find((m) => m.role === "system");
     if (sys) {
-      (
-        sys as ChatCompletionRequestMessage & {
-          providerOptions?: Record<string, unknown>;
-        }
-      ).providerOptions = {
+      sys.providerOptions = {
         anthropic: { cacheControl: { type: "ephemeral" } },
       };
     }
@@ -412,18 +446,60 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
     ? undefined
     : temperature;
 
-  const response = await generateText({
-    model: aiProvider(model) as Parameters<typeof generateText>[0]["model"],
-    messages: messages,
-    output: Output.object({
-      schema: zodObjectSchema,
-    }),
-    ...(effectiveTemperature != null
-      ? { temperature: effectiveTemperature }
-      : {}),
-    ...(tools ? { tools, stopWhen: stepCountIs(maxSteps) } : {}),
-    ...(onStepFinish ? { onStepFinish } : {}),
-  });
+  const generateOnce = () =>
+    generateText({
+      model: aiProvider(model) as Parameters<typeof generateText>[0]["model"],
+      messages: messages,
+      output: Output.object({
+        schema: zodObjectSchema,
+      }),
+      ...(effectiveTemperature != null
+        ? { temperature: effectiveTemperature }
+        : {}),
+      ...(tools ? { tools, stopWhen: stepCountIs(maxSteps) } : {}),
+      ...(onStepFinish ? { onStepFinish } : {}),
+    });
+
+  // Output.object steers the model toward the schema but doesn't
+  // grammar-constrain it, so conformance is probabilistic: a complex
+  // schema, a smaller model, or mixing in tools + multi-step all raise
+  // the chance it returns something the schema rejects
+  // (NoObjectGeneratedError). It's almost always transient, so retry
+  // once before surfacing a clear error. The durable fix for a high
+  // rate is a simpler schema or a stronger model; this is just a cheap
+  // backstop. A failed attempt still bills tokens (the error carries its
+  // usage), so track them or the retry under-counts on Cloud.
+  let retriedTokens = 0;
+  let response: Awaited<ReturnType<typeof generateOnce>>;
+  try {
+    response = await generateOnce();
+  } catch (err) {
+    if (!NoObjectGeneratedError.isInstance(err)) throw err;
+    // Don't stack retries when the caller is already a retry path.
+    if (!retryOnNoObject) throw err;
+    retriedTokens += err.usage?.totalTokens ?? 0;
+    logger.warn(
+      { type, model },
+      "parsePrompt: model returned no schema-valid object; retrying once",
+    );
+    try {
+      response = await generateOnce();
+    } catch (retryErr) {
+      if (!NoObjectGeneratedError.isInstance(retryErr)) throw retryErr;
+      retriedTokens += retryErr.usage?.totalTokens ?? 0;
+      // Bill both failed attempts before surfacing the error so Cloud
+      // rate-limiting doesn't under-count a double failure.
+      if (IS_CLOUD && retriedTokens > 0) {
+        await updateTokenUsage({
+          numTokensUsed: retriedTokens,
+          organization: context.org,
+        });
+      }
+      throw new Error(
+        "The AI couldn't format a valid response for this request. Please try again, or rephrase/simplify the request.",
+      );
+    }
+  }
 
   if (IS_CLOUD) {
     // Fire and forget
@@ -438,7 +514,8 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
     });
 
     const numTokensUsed =
-      response.usage?.totalTokens ?? numTokensFromMessages(messages, model);
+      (response.usage?.totalTokens ?? numTokensFromMessages(messages, model)) +
+      retriedTokens;
     await updateTokenUsage({ numTokensUsed, organization: context.org });
   }
 

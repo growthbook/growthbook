@@ -130,7 +130,10 @@ import { ExperimentRefRule, FeatureRule } from "shared/types/feature";
 import { ProjectInterface } from "shared/types/project";
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { ExperimentQueryMetadata } from "shared/types/query";
-import { isExperimentIncrementalEnabled } from "shared/enterprise";
+import {
+  isExperimentCoveredByIncrementalPipeline,
+  getUnsupportedIncrementalExperimentTypeReason,
+} from "shared/enterprise";
 import { generateId } from "back-end/src/util/uuid";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
@@ -151,6 +154,7 @@ import {
   addOrUpdateSnapshotAnalysis,
   addOrUpdateSnapshotMultipleAnalysis,
   createExperimentSnapshotModel,
+  findSnapshotById,
   getLatestSnapshotMultipleExperiments,
   updateSnapshot,
   updateSnapshotAnalysis,
@@ -1229,19 +1233,6 @@ export type SnapshotQueryRunnerKind =
   | "incremental"
   | "incremental-exploratory";
 
-function isIncrementalRefreshEnabledForSnapshot({
-  datasource,
-  experiment,
-}: {
-  datasource: DataSourceInterface;
-  experiment: ExperimentInterface;
-}): boolean {
-  return isExperimentIncrementalEnabled(
-    datasource.settings.pipelineSettings,
-    experiment.id,
-  );
-}
-
 export function resolveSnapshotRunner({
   datasource,
   experiment,
@@ -1258,14 +1249,22 @@ export function resolveSnapshotRunner({
   runnerKind: SnapshotQueryRunnerKind;
   incrementalFallbackReason: string | null;
 } {
-  if (!isIncrementalRefreshEnabledForSnapshot({ datasource, experiment })) {
+  if (
+    !isExperimentCoveredByIncrementalPipeline(
+      datasource.settings.pipelineSettings,
+      experiment.id,
+    )
+  ) {
     return { runnerKind: "results", incrementalFallbackReason: null };
   }
 
-  if (experiment.type !== undefined && experiment.type !== "standard") {
+  const unsupportedTypeReason = getUnsupportedIncrementalExperimentTypeReason(
+    experiment.type,
+  );
+  if (unsupportedTypeReason) {
     return {
       runnerKind: "results",
-      incrementalFallbackReason: `Experiment type "${experiment.type}" is not supported for incremental refresh.`,
+      incrementalFallbackReason: unsupportedTypeReason,
     };
   }
 
@@ -1648,6 +1647,26 @@ export async function planSnapshot({
     fullRefreshReason,
     triggeredBy,
   });
+
+  if (runnerPlan.runnerKind === "incremental-exploratory") {
+    // The snapshot whose run materialized the tables this breakdown reads is
+    // the source of its freshness date. Absent for legacy docs that predate the
+    // field; the UI falls back to the breakdown's own dateCreated in that case.
+    const materializedBySnapshotId =
+      incrementalRefreshModel?.materializedBySnapshotId;
+    const sourceSnapshot = materializedBySnapshotId
+      ? await findSnapshotById(context, materializedBySnapshotId)
+      : null;
+    if (sourceSnapshot) {
+      data.sourceSnapshotId = sourceSnapshot.id;
+      data.sourceSnapshotDateCreated = sourceSnapshot.dateCreated;
+    } else if (materializedBySnapshotId) {
+      logger.error(
+        { experimentId: experiment.id, phaseIndex, materializedBySnapshotId },
+        "Source snapshot for exploratory dimension breakdown not found",
+      );
+    }
+  }
 
   return {
     snapshot: data,
@@ -2216,6 +2235,7 @@ export async function _getSnapshots(
   experimentObjs: ExperimentInterface[],
   dimension?: string,
   withResults: boolean = true,
+  hydrateMetricIds?: string[],
 ): Promise<ExperimentSnapshotInterface[]> {
   const experimentPhaseMap: Map<string, number> = new Map();
   experimentObjs.forEach((e) => {
@@ -2230,6 +2250,7 @@ export async function _getSnapshots(
     experimentPhaseMap,
     dimension,
     withResults,
+    hydrateMetricIds,
   );
 }
 

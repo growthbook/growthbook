@@ -1,3 +1,4 @@
+import { createLikeStringMatchFn } from "shared/sql";
 import type { SqlDialect } from "shared/types/sql";
 import { defaultPercentileCapSelectClause } from "back-end/src/integrations/sql/clauses/percentile-cap-select-clause";
 import { baseDialect } from "./base";
@@ -5,6 +6,10 @@ import { baseDialect } from "./base";
 export const postgresDialect: SqlDialect = {
   ...baseDialect,
   formatDialect: "postgresql",
+  stringMatch: createLikeStringMatchFn({
+    escapeStringLiteral: baseDialect.escapeStringLiteral,
+    emitEscapeClause: false,
+  }),
   dateDiff: (startCol: string, endCol: string) =>
     `${endCol}::DATE - ${startCol}::DATE`,
   castToFloat: (col: string) => `${col}::float`,
