@@ -14,7 +14,7 @@ Releasing a new feature always carries risk. Even small changes can introduce re
 
 ## Overview
 
-Safe Rollouts are a type of feature [rule](/features/rules) that releases a feature to a subset of users and automatically monitors guardrail metrics for regressions. Guardrails can be any metrics that matter to your team, such as error rates, latency, or conversions.
+A Safe Rollout is a [Ramp Schedule](/features/ramp-schedules) with guardrail monitoring turned on. It releases a feature to a subset of users and automatically monitors guardrail metrics for regressions. Guardrails can be any metrics that matter to your team, such as error rates, latency, or conversions.
 
 The rollout runs as a short-term A/B test:
 
@@ -25,18 +25,22 @@ GrowthBook analyzes the rollout's impact on your selected guardrail metrics and 
 
 ## How to Add a Safe Rollout
 
-### 1. Select "Safe Rollout" When Adding a Rule
+### 1. Add a Targeting Rule with Monitoring
 
 <MaxWidthImage border>
-![Add a safe rollout rule](/images/features/safe-rollout-new-rule.webp)
+![Rule type picker with the Looking for Safe Rollouts callout and Show me shortcut](/images/features/safe-rollout-new-rule.webp)
 </MaxWidthImage>
 
-When adding a new rule to your feature, select **Safe Rollout** from the list of options.
+When adding a new rule to your feature, select **Targeting rule**, then choose **Monitored Ramp-up** as the release plan. The **Show me** shortcut on the rule type screen configures a fully monitored ramp for you.
+
+:::note
+Safe Rollouts are now configured as a monitored [Ramp Schedule](/features/ramp-schedules) rather than a separate rule type. The monitoring, analysis, and rollback behavior described below is unchanged.
+:::
 
 ### 2. Configure the Safe Rollout
 
 <MaxWidthImage border>
-![Safe rollout configuration](/images/features/safe-rollout-create.webp)
+![Monitored ramp-up editor showing guardrail monitoring settings, data source, and metrics](/images/features/safe-rollout-create.webp)
 </MaxWidthImage>
 
 - **Rollout Value:** Add or select the value to serve during the rollout. This is compared against the Control (default value).
@@ -58,6 +62,8 @@ Safe Rollouts automatically manage traffic exposure to ensure safety. The rollou
 This ramp-up occurs over the first 25% of the monitoring duration. For example, if your duration is set to 4 days, traffic ramps from 10% to 100% during the first day. The remaining time monitors the fully rolled-out feature for failing guardrail metrics.
 
 ### 5. Monitor the Rollout
+
+{/* VERIFY — safe-rollout-rollback-now.webp: the rollback warning itself is unchanged, but confirm it still matches the monitored ramp dashboard layout before relying on it. */}
 
 <MaxWidthImage border>
 ![Safe rollout rollback now warning message](/images/features/safe-rollout-rollback-now.webp)
