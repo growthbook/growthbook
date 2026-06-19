@@ -115,11 +115,7 @@ const experimentValue = z
 
 export type ExperimentValue = z.infer<typeof experimentValue>;
 
-const experimentType = [
-  "standard",
-  "multi-armed-bandit",
-  "contextual-bandit",
-] as const;
+const experimentType = ["standard", "multi-armed-bandit"] as const;
 const banditStageType = ["explore", "exploit", "paused"] as const;
 
 const experimentRule = baseRule

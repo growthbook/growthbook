@@ -46248,7 +46248,6 @@ components:
                     enum:
                       - standard
                       - multi-armed-bandit
-                      - contextual-bandit
                   hypothesis:
                     type: string
                   trackingKey:
