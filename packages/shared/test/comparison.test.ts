@@ -591,6 +591,124 @@ describe("densifyComparisonExplorationTimeseries", () => {
     });
     expect(out?.result.rows).toHaveLength(2);
   });
+
+  describe("grouped (date + 1 breakdown)", () => {
+    const groupedConfig: ExplorationConfig = {
+      ...baseConfig,
+      dimensions: [
+        { dimensionType: "date", column: "d", dateGranularity: "day" },
+        { dimensionType: "dynamic", column: "browser", maxValues: 10 },
+      ],
+    };
+    const shortPrev: ExplorationDateRange = {
+      predefined: "customDateRange",
+      startDate: "2023-01-01",
+      endDate: "2023-01-03",
+    };
+
+    it("zero-fills every bucket × breakdown value when the previous period is empty", () => {
+      const out = densifyComparisonExplorationTimeseries({
+        comparison: shellExploration([]),
+        submittedConfig: groupedConfig,
+        previousTimeFrame: shortPrev,
+        getFactMetricById,
+        primaryRows: [
+          {
+            dimensions: ["2024-01-01", "Chrome"],
+            values: [{ metricId: "m1", numerator: 5, denominator: null }],
+          },
+          {
+            dimensions: ["2024-01-01", "Safari"],
+            values: [{ metricId: "m1", numerator: 9, denominator: null }],
+          },
+        ],
+      });
+      // 3 days × 2 breakdown values
+      expect(out?.result.rows).toHaveLength(6);
+      expect(out?.result.rows.every((r) => r.values[0]?.numerator === 0)).toBe(
+        true,
+      );
+      // Both breakdown series are present.
+      const browsers = new Set(out?.result.rows.map((r) => r.dimensions[1]));
+      expect(browsers).toEqual(new Set(["Chrome", "Safari"]));
+    });
+
+    it("keeps existing breakdown rows and zero-fills the rest", () => {
+      const out = densifyComparisonExplorationTimeseries({
+        comparison: shellExploration([
+          {
+            dimensions: ["2023-01-02", "Chrome"],
+            values: [{ metricId: "m1", numerator: 42, denominator: null }],
+          },
+        ]),
+        submittedConfig: groupedConfig,
+        previousTimeFrame: shortPrev,
+        getFactMetricById,
+        primaryRows: [
+          {
+            dimensions: ["2024-01-01", "Chrome"],
+            values: [{ metricId: "m1", numerator: 5, denominator: null }],
+          },
+          {
+            dimensions: ["2024-01-01", "Safari"],
+            values: [{ metricId: "m1", numerator: 9, denominator: null }],
+          },
+        ],
+      });
+      expect(out?.result.rows).toHaveLength(6);
+      const chromeJan2 = out?.result.rows.find(
+        (r) =>
+          r.dimensions[1] === "Chrome" &&
+          productAnalyticsDateDimensionBucketMergeKey(
+            r.dimensions[0] ?? "",
+            "day",
+          ) ===
+            productAnalyticsDateDimensionBucketMergeKey(
+              "2023-01-02T00:00:00.000Z",
+              "day",
+            ),
+      );
+      expect(chromeJan2?.values[0]?.numerator).toBe(42);
+      const zeros = out?.result.rows.filter(
+        (r) => r.values[0]?.numerator === 0,
+      );
+      expect(zeros).toHaveLength(5);
+    });
+
+    it("includes comparison-only breakdown values not present in the primary", () => {
+      const out = densifyComparisonExplorationTimeseries({
+        comparison: shellExploration([
+          {
+            dimensions: ["2023-01-01", "Firefox"],
+            values: [{ metricId: "m1", numerator: 3, denominator: null }],
+          },
+        ]),
+        submittedConfig: groupedConfig,
+        previousTimeFrame: shortPrev,
+        getFactMetricById,
+        primaryRows: [
+          {
+            dimensions: ["2024-01-01", "Chrome"],
+            values: [{ metricId: "m1", numerator: 5, denominator: null }],
+          },
+        ],
+      });
+      // 3 days × 2 breakdown values (Chrome from primary, Firefox from comparison)
+      expect(out?.result.rows).toHaveLength(6);
+      const browsers = new Set(out?.result.rows.map((r) => r.dimensions[1]));
+      expect(browsers).toEqual(new Set(["Chrome", "Firefox"]));
+    });
+
+    it("returns no rows when there are no breakdown values in either period", () => {
+      const out = densifyComparisonExplorationTimeseries({
+        comparison: shellExploration([]),
+        submittedConfig: groupedConfig,
+        previousTimeFrame: shortPrev,
+        getFactMetricById,
+      });
+      expect(out?.result.rows).toHaveLength(0);
+    });
+  });
 });
 
 describe("computeExplorationComparisonPayload", () => {

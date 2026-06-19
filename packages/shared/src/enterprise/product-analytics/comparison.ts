@@ -462,23 +462,46 @@ function buildZeroValueRow(
   });
 }
 
+/** Composite merge key for a date bucket + optional breakdown value. */
+function bucketBreakdownMergeKey(
+  dim0: string | null,
+  dim1: string | null | undefined,
+  granularity: ResolvedGranularity,
+): string {
+  const bucket = productAnalyticsDateDimensionBucketMergeKey(dim0, granularity);
+  // Unit separator (U+001F) won't collide with real breakdown values.
+  return `${bucket}${dim1 ?? ""}`;
+}
+
 /**
  * Returns a clone of `comparison` whose `result.rows` include every date bucket in the
- * comparison window (zeros for gaps). Only supports a single date dimension (v1).
+ * comparison window (zeros for gaps). Supports a single date dimension and the
+ * `date + 1 breakdown` case. For the grouped case the breakdown values come from
+ * the union of the primary and comparison periods, so every primary series has a
+ * continuous prior line even when the previous period returned no/partial rows.
  */
 export function densifyComparisonExplorationTimeseries(params: {
   comparison: ProductAnalyticsExploration | null;
   submittedConfig: ExplorationConfig;
   previousTimeFrame: ExplorationDateRange;
   getFactMetricById: (id: string) => FactMetricInterface | null;
+  /** Primary-period rows; used to seed breakdown series in the grouped case. */
+  primaryRows?: ProductAnalyticsResultRow[];
 }): ProductAnalyticsExploration | null {
-  const { comparison, submittedConfig, previousTimeFrame, getFactMetricById } =
-    params;
+  const {
+    comparison,
+    submittedConfig,
+    previousTimeFrame,
+    getFactMetricById,
+    primaryRows,
+  } = params;
 
   if (!comparison) return null;
 
   const dims = submittedConfig.dimensions ?? [];
-  if (dims.length !== 1 || dims[0].dimensionType !== "date") {
+  const firstIsDate = dims[0]?.dimensionType === "date";
+  const isGrouped = dims.length === 2 && firstIsDate;
+  if (!((dims.length === 1 && firstIsDate) || isGrouped)) {
     return null;
   }
 
@@ -496,8 +519,10 @@ export function densifyComparisonExplorationTimeseries(params: {
   }
 
   const dateDim = dims[0];
+  const dateGranularity =
+    dateDim.dimensionType === "date" ? dateDim.dateGranularity : "auto";
   const dr = calculateProductAnalyticsDateRange(previousTimeFrame);
-  const resolved = getDateGranularity(dateDim.dateGranularity, dr);
+  const resolved = getDateGranularity(dateGranularity, dr);
   const bucketStrings = enumerateProductAnalyticsDateBuckets({
     resolvedGranularity: resolved,
     rangeStart: dr.startDate,
@@ -509,49 +534,90 @@ export function densifyComparisonExplorationTimeseries(params: {
 
   const isRatioByIndex = getIsRatioByIndex(submittedConfig, getFactMetricById);
   const zeroValues = buildZeroValueRow(metricIds, isRatioByIndex);
+  const comparisonRows = comparison.result?.rows ?? [];
 
-  const byMergeKey = new Map<number, ProductAnalyticsResultRow>();
-  for (const row of comparison.result?.rows ?? []) {
-    const k = productAnalyticsDateDimensionBucketMergeKey(
+  if (!isGrouped) {
+    const byMergeKey = new Map<string, ProductAnalyticsResultRow>();
+    for (const row of comparisonRows) {
+      const k = bucketBreakdownMergeKey(
+        row.dimensions[0] ?? null,
+        null,
+        resolved,
+      );
+      if (!byMergeKey.has(k)) {
+        byMergeKey.set(k, row);
+      }
+    }
+
+    const merged: ProductAnalyticsResultRow[] = bucketStrings.map(
+      (bucketIso) => {
+        const existing = byMergeKey.get(
+          bucketBreakdownMergeKey(bucketIso, null, resolved),
+        );
+        if (existing) {
+          return existing;
+        }
+        return {
+          dimensions: [bucketIso],
+          values: zeroValues.map((v) => ({ ...v })),
+        };
+      },
+    );
+
+    return { ...comparison, result: { rows: merged } };
+  }
+
+  // Grouped (date + 1 breakdown): zero-fill the cross-product of every bucket
+  // and every breakdown value seen in either period, preserving insertion order
+  // (primary series first, then comparison-only series) for deterministic output.
+  const breakdownValues: string[] = [];
+  const seenBreakdown = new Set<string>();
+  const addBreakdown = (rows: ProductAnalyticsResultRow[] | undefined) => {
+    for (const row of rows ?? []) {
+      const v = String(row.dimensions[1] ?? "");
+      if (!seenBreakdown.has(v)) {
+        seenBreakdown.add(v);
+        breakdownValues.push(v);
+      }
+    }
+  };
+  addBreakdown(primaryRows);
+  addBreakdown(comparisonRows);
+
+  if (breakdownValues.length === 0) {
+    return { ...comparison, result: { rows: [] } };
+  }
+
+  const byMergeKey = new Map<string, ProductAnalyticsResultRow>();
+  for (const row of comparisonRows) {
+    const k = bucketBreakdownMergeKey(
       row.dimensions[0] ?? null,
+      String(row.dimensions[1] ?? ""),
       resolved,
     );
-    if (!Number.isFinite(k)) continue;
     if (!byMergeKey.has(k)) {
       byMergeKey.set(k, row);
     }
   }
 
-  const merged: ProductAnalyticsResultRow[] = bucketStrings.map((bucketIso) => {
-    const k = productAnalyticsDateDimensionBucketMergeKey(bucketIso, resolved);
-    const existing = byMergeKey.get(k);
-    if (existing) {
-      return existing;
+  const merged: ProductAnalyticsResultRow[] = [];
+  for (const bucketIso of bucketStrings) {
+    for (const breakdown of breakdownValues) {
+      const existing = byMergeKey.get(
+        bucketBreakdownMergeKey(bucketIso, breakdown, resolved),
+      );
+      if (existing) {
+        merged.push(existing);
+        continue;
+      }
+      merged.push({
+        dimensions: [bucketIso, breakdown],
+        values: zeroValues.map((v) => ({ ...v })),
+      });
     }
-    return {
-      dimensions: [bucketIso],
-      values: zeroValues.map((v) => ({ ...v })),
-    };
-  });
+  }
 
-  merged.sort(
-    (a, b) =>
-      productAnalyticsDateDimensionBucketMergeKey(
-        a.dimensions[0] ?? null,
-        resolved,
-      ) -
-      productAnalyticsDateDimensionBucketMergeKey(
-        b.dimensions[0] ?? null,
-        resolved,
-      ),
-  );
-
-  return {
-    ...comparison,
-    result: {
-      rows: merged,
-    },
-  };
+  return { ...comparison, result: { rows: merged } };
 }
 
 // --- Comparison payload for POST /product-analytics/run ---------------------
@@ -613,6 +679,7 @@ export function computeExplorationComparisonPayload(
           submittedConfig,
           previousTimeFrame,
           getFactMetricById,
+          primaryRows: primary?.result?.rows,
         })
       : null;
 

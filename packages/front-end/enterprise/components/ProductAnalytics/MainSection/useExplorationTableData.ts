@@ -4,7 +4,6 @@ import type {
   ProductAnalyticsExploration,
 } from "shared/validators";
 import {
-  buildComparisonDateRange,
   calculateProductAnalyticsDateRange,
   getDateGranularity,
   buildAlignedComparisonRowLookup,
@@ -21,7 +20,6 @@ import {
   type ExplorationColumn,
   type RenderOpts,
 } from "@/enterprise/components/ProductAnalytics/util";
-import { formatExplorerDateRangeHeading } from "@/enterprise/components/ProductAnalytics/comparison-chart";
 import { useDefinitions } from "@/services/DefinitionsContext";
 
 /**
@@ -75,6 +73,14 @@ export type ExplorationTableCompareColumnMeta =
       trendRowKey: string;
     };
 
+/**
+ * Column key for the dedicated "previous date" column rendered right after the
+ * current-period date column in compare mode (timeseries only). Holds the
+ * aligned previous-period bucket date so it reads as a parallel date column
+ * rather than being tucked inside each previous metric cell.
+ */
+const PREV_BUCKET_DATE_KEY = "__prevBucketDate";
+
 export interface ExplorationTableData {
   rowData: Record<string, unknown>[];
   /** Stable machine keys used to index into each row object. */
@@ -102,16 +108,12 @@ export default function useExplorationTableData(
     comparisonExploration?: ProductAnalyticsExploration | null;
     /** When set, `%` trend cells come from the server (aligned to sorted primary rows). */
     serverTableTrendsByRow?: Record<string, number | null>[] | null;
-    /** Used for compare column headers instead of deriving the previous window. */
-    submittedPreviousTimeFrame?: ExplorationConfig["dateRange"] | null;
   },
 ): ExplorationTableData {
   const { getFactMetricById } = useDefinitions();
   const compareEnabled = options?.compareEnabled ?? false;
   const comparisonExploration = options?.comparisonExploration ?? null;
   const serverTableTrendsByRow = options?.serverTableTrendsByRow ?? null;
-  const submittedPreviousTimeFrame =
-    options?.submittedPreviousTimeFrame ?? null;
 
   const renderOpts: RenderOpts = useMemo(
     () => ({
@@ -134,6 +136,11 @@ export default function useExplorationTableData(
     [columns],
   );
 
+  const firstDimensionIsDate = useMemo(
+    () => submittedExploreState?.dimensions?.[0]?.dimensionType === "date",
+    [submittedExploreState],
+  );
+
   const tableCompareActive = useMemo(
     () =>
       Boolean(
@@ -147,17 +154,22 @@ export default function useExplorationTableData(
   const orderedColumnKeys = useMemo(() => {
     if (tableCompareActive) {
       const keys: string[] = [];
-      for (const col of columns) {
+      columns.forEach((col, i) => {
         if (col.kind === "dimension") {
           keys.push(col.key);
         } else if (col.sub === "single") {
           keys.push(`${col.key}__curr`, `${col.key}__prev`);
         }
-      }
+        // Insert the previous-date column immediately after the current date
+        // column so the two read as a parallel pair.
+        if (i === 0 && firstDimensionIsDate) {
+          keys.push(PREV_BUCKET_DATE_KEY);
+        }
+      });
       return keys;
     }
     return columns.map((c) => c.key);
-  }, [tableCompareActive, columns]);
+  }, [tableCompareActive, columns, firstDimensionIsDate]);
 
   const compareColumnMetaByKey = useMemo(():
     | Record<string, ExplorationTableCompareColumnMeta>
@@ -176,27 +188,19 @@ export default function useExplorationTableData(
     return meta;
   }, [tableCompareActive, columns]);
 
+  // Compare metric columns are labelled "Current" / "Previous"; the specific
+  // windows are conveyed by the current date column and the dedicated previous
+  // date column beside it.
   const compareHeadings = useMemo(() => {
     if (!tableCompareActive || !submittedExploreState) return null;
-    const currentDr = calculateProductAnalyticsDateRange(
-      submittedExploreState.dateRange,
-    );
-    const prevDr = submittedPreviousTimeFrame
-      ? calculateProductAnalyticsDateRange(submittedPreviousTimeFrame)
-      : calculateProductAnalyticsDateRange(
-          buildComparisonDateRange(submittedExploreState.dateRange),
-        );
-    return {
-      currHeading: formatExplorerDateRangeHeading(currentDr),
-      prevHeading: formatExplorerDateRangeHeading(prevDr),
-    };
-  }, [tableCompareActive, submittedExploreState, submittedPreviousTimeFrame]);
+    return { currHeading: "Current", prevHeading: "Previous" };
+  }, [tableCompareActive, submittedExploreState]);
 
   const columnLabels = useMemo(() => {
     if (submittedExploreState && compareHeadings) {
       const { prevHeading, currHeading } = compareHeadings;
       const labels: string[] = [];
-      for (const col of columns) {
+      columns.forEach((col, i) => {
         if (col.kind === "dimension") {
           labels.push(col.label);
         } else if (col.sub === "single") {
@@ -208,12 +212,17 @@ export default function useExplorationTableData(
             `${metricName} — ${prevHeading}`,
           );
         }
-      }
+        if (i === 0 && firstDimensionIsDate) {
+          labels.push(`${columns[0].label} (previous)`);
+        }
+      });
       return labels;
     }
     return columns.map((c) => c.label);
-  }, [columns, submittedExploreState, compareHeadings]);
+  }, [columns, submittedExploreState, compareHeadings, firstDimensionIsDate]);
 
+  // The on-screen columns already include the dedicated previous-date column,
+  // so the CSV mirrors them directly.
   const csvColumnKeys = useMemo(
     () => (tableCompareActive ? orderedColumnKeys : undefined),
     [tableCompareActive, orderedColumnKeys],
@@ -229,19 +238,21 @@ export default function useExplorationTableData(
       const { prevHeading, currHeading } = compareHeadings;
       const row1: { label: string; colSpan?: number; rowSpan?: number }[] = [];
       const row2Labels: string[] = [];
-      for (const col of columns) {
+      columns.forEach((col, i) => {
         if (col.kind === "dimension") {
           row1.push({ label: col.label, rowSpan: 2 });
-          continue;
-        }
-        if (col.sub === "single") {
+        } else if (col.sub === "single") {
           const metricName =
             submittedExploreState.dataset?.values?.[col.metricIndex]?.name ??
             col.label;
           row1.push({ label: metricName, colSpan: 2 });
           row2Labels.push(currHeading, prevHeading);
         }
-      }
+        // Dedicated previous-date column, mirroring orderedColumnKeys.
+        if (i === 0 && firstDimensionIsDate) {
+          row1.push({ label: `${columns[0].label} (previous)`, rowSpan: 2 });
+        }
+      });
       return { row1, row2Labels };
     }
 
@@ -272,7 +283,13 @@ export default function useExplorationTableData(
       );
     }
     return { row1, row2Labels };
-  }, [hasAnyRatio, columns, submittedExploreState, compareHeadings]);
+  }, [
+    hasAnyRatio,
+    columns,
+    submittedExploreState,
+    compareHeadings,
+    firstDimensionIsDate,
+  ]);
 
   const resolvedGranularity = useMemo((): ResolvedGranularity | null => {
     if (!submittedExploreState) return null;
@@ -320,6 +337,17 @@ export default function useExplorationTableData(
         // the two periods sort differently (e.g. "USA" current vs "Canada" prev).
         const cmpRow = getAlignedCmpRow(row.dimensions);
         const entries: [string, unknown][] = [];
+        // Aligned previous-period bucket date for this row (timeseries only),
+        // rendered as the dedicated previous-date column beside the current one.
+        if (firstDimensionIsDate) {
+          const prevDim0 = cmpRow?.dimensions?.[0] ?? null;
+          entries.push([
+            PREV_BUCKET_DATE_KEY,
+            typeof prevDim0 === "string" && resolvedGranularity
+              ? formatDateByGranularity(new Date(prevDim0), resolvedGranularity)
+              : null,
+          ] as const);
+        }
         for (const col of columns) {
           if (col.kind === "dimension") {
             const raw = getExplorationCellValue(row, col, renderOpts);
@@ -370,6 +398,7 @@ export default function useExplorationTableData(
     columns,
     comparisonExploration?.result?.rows,
     exploration?.result?.rows,
+    firstDimensionIsDate,
     renderOpts,
     resolvedGranularity,
     serverTableTrendsByRow,

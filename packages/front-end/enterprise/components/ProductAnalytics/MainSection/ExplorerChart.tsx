@@ -259,6 +259,19 @@ export default function ExplorerChart({
     renderOpts.isRatioByIndex,
   ]);
 
+  // Compare is on and the previous-period query finished, but returned no rows
+  // (e.g. a grouped breakdown with no prior data that densification can't fill).
+  // Surface this explicitly instead of silently dropping the comparison overlay.
+  const compareReturnedNoData = useMemo(
+    () =>
+      compareEnabled &&
+      !loading &&
+      !!comparisonExploration &&
+      !comparisonExploration.result?.rows?.length &&
+      !!exploration?.result?.rows?.length,
+    [compareEnabled, loading, comparisonExploration, exploration?.result?.rows],
+  );
+
   // Transform ProductAnalyticsResult + exploreState to ECharts format
   const chartConfig = useMemo(() => {
     if (
@@ -835,7 +848,7 @@ export default function ExplorerChart({
                     flexDirection: "column",
                     alignItems: "center",
                     justifyContent: "center",
-                    backgroundColor: "#ffffff",
+                    backgroundColor: "var(--color-panel-solid)",
                     borderRadius: "var(--radius-4)",
                     boxShadow:
                       theme === "dark"
@@ -865,6 +878,14 @@ export default function ExplorerChart({
         </Flex>
       ) : chartConfig ? (
         <Flex direction="column" style={{ flex: 1, minHeight: 0 }}>
+          {compareReturnedNoData ? (
+            <Box px="4" pt="3">
+              <Callout status="info">
+                The previous period returned no data, so there&apos;s nothing to
+                compare against.
+              </Callout>
+            </Box>
+          ) : null}
           {compareLegend ? (
             <ComparisonChartLegend
               currentLabel={compareLegend.currentLabel}

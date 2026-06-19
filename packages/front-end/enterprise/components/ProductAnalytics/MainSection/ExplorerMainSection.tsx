@@ -122,7 +122,6 @@ export default function ExplorerMainSection() {
                 serverTableTrendsByRow={
                   comparisonComputed?.tableTrendsByRow ?? null
                 }
-                submittedPreviousTimeFrame={submittedPreviousTimeFrame}
               />
             </Panel>
           </PanelGroup>
