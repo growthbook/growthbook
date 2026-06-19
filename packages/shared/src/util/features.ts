@@ -1253,6 +1253,105 @@ export function evaluatePublishGovernance({
   };
 }
 
+// ── Scheduled / deferred publish ────────────────────────────────────────────
+// A revision is "armed" (autoPublishOnApproval) when it should publish itself as
+// soon as governance allows; `scheduledPublishAt` defers that to a target date.
+// These pure helpers are shared by the UI, the lockdown gates, and the poller.
+
+const SCHEDULE_PENDING_STATUSES = new Set<FeatureRevisionInterface["status"]>([
+  "draft",
+  "pending-review",
+  "approved",
+  "changes-requested",
+]);
+
+type ScheduledRevisionFields = Pick<
+  FeatureRevisionInterface,
+  | "version"
+  | "status"
+  | "autoPublishOnApproval"
+  | "scheduledPublishAt"
+  | "scheduledPublishLockEdits"
+  | "scheduledPublishLockOthers"
+>;
+
+// A schedule is "pending" when the revision is armed, has a date, and is still
+// an active draft.
+export function isScheduledPublishPending(
+  revision: Pick<
+    ScheduledRevisionFields,
+    "status" | "autoPublishOnApproval" | "scheduledPublishAt"
+  >,
+): boolean {
+  return (
+    !!revision.autoPublishOnApproval &&
+    (revision.scheduledPublishAt ?? null) !== null &&
+    SCHEDULE_PENDING_STATUSES.has(revision.status)
+  );
+}
+
+// True once a pending schedule's date has arrived. Coerces the date so it works
+// on both Date (back-end) and ISO-string (front-end) shapes.
+export function isScheduledPublishDue(
+  revision: Pick<
+    ScheduledRevisionFields,
+    "status" | "autoPublishOnApproval" | "scheduledPublishAt"
+  >,
+  now: Date = new Date(),
+): boolean {
+  if (!isScheduledPublishPending(revision)) return false;
+  const at = new Date(revision.scheduledPublishAt as Date | string);
+  return at.getTime() <= now.getTime();
+}
+
+// Locks (and the publish) take effect once the schedule is committed and no
+// longer awaiting approval: status "approved" (approval flow) or "draft"
+// (no-approval flow). "pending-review"/"changes-requested" stay editable.
+export function isScheduledPublishLockActive(
+  revision: Pick<
+    ScheduledRevisionFields,
+    "status" | "autoPublishOnApproval" | "scheduledPublishAt"
+  >,
+): boolean {
+  return (
+    isScheduledPublishPending(revision) &&
+    revision.status !== "pending-review" &&
+    revision.status !== "changes-requested"
+  );
+}
+
+// Content edits to this draft are frozen while a lock-edits schedule is active
+// (armed AND approved). Pending-approval drafts remain editable.
+export function isRevisionEditLockedBySchedule(
+  revision: Pick<
+    ScheduledRevisionFields,
+    | "status"
+    | "autoPublishOnApproval"
+    | "scheduledPublishAt"
+    | "scheduledPublishLockEdits"
+  >,
+): boolean {
+  return (
+    !!revision.scheduledPublishLockEdits &&
+    isScheduledPublishLockActive(revision)
+  );
+}
+
+// Among a feature's revisions, find one (other than `excludeVersion`) whose
+// active (armed AND approved) schedule blocks publishing sibling drafts.
+export function findPublishLockingScheduledRevision<
+  T extends ScheduledRevisionFields,
+>(revisions: T[], excludeVersion?: number): T | null {
+  return (
+    revisions.find(
+      (r) =>
+        r.version !== excludeVersion &&
+        !!r.scheduledPublishLockOthers &&
+        isScheduledPublishLockActive(r),
+    ) ?? null
+  );
+}
+
 // True if publishing the draft would change anything outside the target
 // experiment's experiment-ref rule(s). Compares effective post-publish state
 // (live overlaid with draft-set fields) vs live, sidestepping autoMerge's
