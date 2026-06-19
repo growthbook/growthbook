@@ -15,6 +15,7 @@ import {
   getBlockAnalysisSettings,
   getBlockSnapshotAnalysis,
   getBlockSnapshotSettings,
+  resolveExperimentBlockMetricIds,
   snapshotSatisfiesBlock,
   DashboardInterface,
   MetricExplorerBlockInterface,
@@ -520,6 +521,33 @@ export async function generateDashboardSSRData({
   }
 
   const metricGroups = await context.models.metricGroups.getAll();
+
+  // Fetch referenced experiments up front: needed both for the experiments map
+  // (below) and to resolve selector-based metric blocks into the actual metrics
+  // that must appear in ssrData.metrics.
+  const experimentsById = new Map<string, ExperimentInterface>();
+  for (const experimentId of experimentIds) {
+    const experiment = await getExperimentById(context, experimentId);
+    if (experiment) experimentsById.set(experimentId, experiment);
+  }
+
+  // A metric block's metricIds may be selector tokens (experiment-goal etc.)
+  // rather than real ids; resolve them via the experiment's metric lists so the
+  // metrics behind the selectors are included in ssrData.metrics.
+  for (const block of dashboard.blocks) {
+    if (
+      "metricIds" in block &&
+      Array.isArray(block.metricIds) &&
+      blockHasFieldOfType(block, "experimentId", isString)
+    ) {
+      resolveExperimentBlockMetricIds({
+        blockMetricIds: block.metricIds,
+        experiment: experimentsById.get(block.experimentId),
+        metricGroups,
+      }).forEach((id) => referencedMetricIds.add(id));
+    }
+  }
+
   const metricIds = expandMetricGroups([...referencedMetricIds], metricGroups);
 
   const metrics = await getMetricsByIds(
@@ -571,9 +599,7 @@ export async function generateDashboardSSRData({
     Partial<ExperimentInterfaceStringDates>
   > = {};
   const projectIds = new Set<string>(dashboard.projects ?? []);
-  for (const experimentId of experimentIds) {
-    const experiment = await getExperimentById(context, experimentId);
-    if (!experiment) continue;
+  for (const [experimentId, experiment] of experimentsById) {
     if (experiment.project) projectIds.add(experiment.project);
     experiments[experimentId] = pick(experiment, [
       "id",
@@ -585,6 +611,13 @@ export async function generateDashboardSSRData({
       "phases",
       "status",
       "project",
+      // Metric-result blocks resolve their metrics from the experiment's metric
+      // lists + per-metric overrides/slices.
+      "goalMetrics",
+      "secondaryMetrics",
+      "guardrailMetrics",
+      "metricOverrides",
+      "customMetricSlices",
       // Lets the public page fall back to the experiment's default snapshot for
       // blocks with no per-block snapshotId (mirrors useDashboardSnapshot).
       "analysisSummary",

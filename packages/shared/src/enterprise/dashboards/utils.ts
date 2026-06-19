@@ -383,6 +383,67 @@ export function filterAndGroupExperimentMetrics({
   };
 }
 
+// Resolves the ordered, expanded list of metric ids an experiment-result block
+// should display: handles the experiment-goal / -secondary / -guardrail selector
+// tokens and the "no selector = all" default, expands metric groups, and filters
+// to any explicitly-listed metric ids. Callers map the ids to metric objects via
+// their own getExperimentMetricById. Used by both the authenticated and public
+// dashboard block dispatchers.
+export function resolveExperimentBlockMetricIds({
+  blockMetricIds,
+  experiment,
+  metricGroups,
+}: {
+  blockMetricIds: string[];
+  experiment:
+    | {
+        goalMetrics?: string[];
+        secondaryMetrics?: string[];
+        guardrailMetrics?: string[];
+      }
+    | undefined;
+  metricGroups: MetricGroupInterface[];
+}): string[] {
+  const hasGoalSelector = blockMetricIds.includes("experiment-goal");
+  const hasSecondarySelector = blockMetricIds.includes("experiment-secondary");
+  const hasGuardrailSelector = blockMetricIds.includes("experiment-guardrail");
+
+  let baseMetricIds: string[] = [];
+  if (hasGoalSelector || hasSecondarySelector || hasGuardrailSelector) {
+    if (hasGoalSelector) baseMetricIds.push(...(experiment?.goalMetrics ?? []));
+    if (hasSecondarySelector)
+      baseMetricIds.push(...(experiment?.secondaryMetrics ?? []));
+    if (hasGuardrailSelector)
+      baseMetricIds.push(...(experiment?.guardrailMetrics ?? []));
+  } else {
+    baseMetricIds = [
+      ...(experiment?.goalMetrics ?? []),
+      ...(experiment?.secondaryMetrics ?? []),
+      ...(experiment?.guardrailMetrics ?? []),
+    ];
+  }
+
+  let expandedMetricIds = expandMetricGroups(baseMetricIds, metricGroups);
+
+  const actualMetricIds = blockMetricIds.filter(
+    (id) =>
+      ![
+        "experiment-goal",
+        "experiment-secondary",
+        "experiment-guardrail",
+      ].includes(id),
+  );
+  if (actualMetricIds.length > 0) {
+    const filteredMetricIds = expandMetricGroups(actualMetricIds, metricGroups);
+    const filteredMetricIdsSet = new Set(filteredMetricIds);
+    expandedMetricIds = expandedMetricIds.filter((id) =>
+      filteredMetricIdsSet.has(id),
+    );
+  }
+
+  return expandedMetricIds;
+}
+
 // Converts pinnedMetricSlices to sliceTagsFilter by extracting slice tags
 // from pinned slice keys and generating all possible slice tags (individual + combined).
 // Adds "overall" to include base metric results when migrating pinned slices.

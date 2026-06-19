@@ -2,15 +2,24 @@ import { ReactElement, ReactNode } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import {
   DashboardBlockInterface,
+  ExperimentDimensionBlockInterface,
   ExperimentMetadataBlockInterface,
+  ExperimentMetricBlockInterface,
+  ExperimentTimeSeriesBlockInterface,
   ExperimentTrafficBlockInterface,
   getBlockSnapshotAnalysis,
   MarkdownBlockInterface,
+  resolveExperimentBlockMetricIds,
   SqlExplorerBlockInterface,
 } from "shared/enterprise";
 import { SavedQuery } from "shared/validators";
+import { isDefined } from "shared/util";
+import { ExperimentMetricInterface } from "shared/experiments";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import {
+  ExperimentSnapshotAnalysis,
+  ExperimentSnapshotInterface,
+} from "shared/types/experiment-snapshot";
 import Callout from "@/ui/Callout";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
@@ -19,6 +28,9 @@ import MarkdownBlock from "@/enterprise/components/Dashboards/DashboardEditor/Da
 import SqlExplorerBlock from "@/enterprise/components/Dashboards/DashboardEditor/DashboardBlock/SqlExplorerBlock";
 import ExperimentMetadataBlock from "@/enterprise/components/Dashboards/DashboardEditor/DashboardBlock/ExperimentMetadataBlock";
 import ExperimentTrafficBlock from "@/enterprise/components/Dashboards/DashboardEditor/DashboardBlock/ExperimentTrafficBlock";
+import ExperimentMetricBlock from "@/enterprise/components/Dashboards/DashboardEditor/DashboardBlock/ExperimentMetricBlock";
+import ExperimentDimensionBlock from "@/enterprise/components/Dashboards/DashboardEditor/DashboardBlock/ExperimentDimensionBlock";
+import ExperimentTimeSeriesBlock from "@/enterprise/components/Dashboards/DashboardEditor/DashboardBlock/ExperimentTimeSeriesBlock";
 import { BlockProps } from "@/enterprise/components/Dashboards/DashboardEditor/DashboardBlock";
 
 export interface PublicDashboardBlockProps {
@@ -74,10 +86,9 @@ function BlockCard({
 // Reuses the real block components but feeds them data from the public endpoint
 // payload + ssrPolyfills instead of authenticated hooks/snapshot context.
 //
-// Supported: markdown, sql-explorer, experiment-metadata, experiment-traffic.
-// The metric-bearing experiment blocks (experiment-metric / -dimension /
-// -time-series), metric-explorer, and exploration blocks render a placeholder
-// until their data + metric resolution are wired.
+// Supported: markdown, sql-explorer, all experiment-* blocks (metadata,
+// traffic, metric, dimension, time-series). metric-explorer and the
+// product-analytics exploration blocks still render a placeholder.
 export default function PublicDashboardBlock({
   block,
   ssrPolyfills,
@@ -96,6 +107,58 @@ export default function PublicDashboardBlock({
     ssrPolyfills,
     // Public view: SQL is stripped server-side, so hide the SQL tab.
     hideSql: true,
+  };
+
+  // Resolves the shared inputs for the metric-bearing experiment-result blocks:
+  // experiment (from ssrData), snapshot (with default-snapshot fallback),
+  // analysis, and the block's resolved metrics.
+  const resolveExperimentResult = (
+    b:
+      | ExperimentMetricBlockInterface
+      | ExperimentDimensionBlockInterface
+      | ExperimentTimeSeriesBlockInterface,
+  ) => {
+    const experiment = ssrPolyfills.getExperimentById(b.experimentId);
+    const snapshotId = b.snapshotId || experiment?.analysisSummary?.snapshotId;
+    const snapshot = snapshotId ? snapshotsMap.get(snapshotId) : undefined;
+    const analysis = snapshot ? getBlockSnapshotAnalysis(snapshot, b) : null;
+    const metrics = resolveExperimentBlockMetricIds({
+      blockMetricIds: b.metricIds ?? [],
+      experiment: experiment ?? undefined,
+      metricGroups: ssrPolyfills.metricGroups,
+    })
+      .map((id) => ssrPolyfills.getExperimentMetricById(id))
+      .filter(isDefined);
+    return { experiment, snapshot, analysis, metrics };
+  };
+
+  // Renders an experiment-result block once its data is present; otherwise a
+  // spinner (still loading) or a "not available" notice.
+  const renderExperimentResult = (
+    resolved: ReturnType<typeof resolveExperimentResult>,
+    render: (r: {
+      experiment: ExperimentInterfaceStringDates;
+      snapshot: ExperimentSnapshotInterface;
+      analysis: ExperimentSnapshotAnalysis;
+      metrics: ExperimentMetricInterface[];
+    }) => ReactNode,
+  ): ReactNode => {
+    const { experiment, snapshot, analysis, metrics } = resolved;
+    if (experiment && snapshot && analysis) {
+      return render({
+        experiment: experiment as unknown as ExperimentInterfaceStringDates,
+        snapshot,
+        analysis,
+        metrics,
+      });
+    }
+    return blockDataLoading ? (
+      <LoadingSpinner />
+    ) : (
+      <Callout status="info" size="sm">
+        Results for this block aren&apos;t available.
+      </Callout>
+    );
   };
 
   let content: ReactNode;
@@ -172,6 +235,51 @@ export default function PublicDashboardBlock({
         );
       break;
     }
+    case "experiment-metric":
+      content = renderExperimentResult(
+        resolveExperimentResult(block),
+        ({ experiment, snapshot, analysis, metrics }) => (
+          <ExperimentMetricBlock
+            {...(baseProps as unknown as BlockProps<ExperimentMetricBlockInterface>)}
+            block={block}
+            experiment={experiment}
+            snapshot={snapshot}
+            analysis={analysis}
+            metrics={metrics}
+          />
+        ),
+      );
+      break;
+    case "experiment-dimension":
+      content = renderExperimentResult(
+        resolveExperimentResult(block),
+        ({ experiment, snapshot, analysis, metrics }) => (
+          <ExperimentDimensionBlock
+            {...(baseProps as unknown as BlockProps<ExperimentDimensionBlockInterface>)}
+            block={block}
+            experiment={experiment}
+            snapshot={snapshot}
+            analysis={analysis}
+            metrics={metrics}
+          />
+        ),
+      );
+      break;
+    case "experiment-time-series":
+      content = renderExperimentResult(
+        resolveExperimentResult(block),
+        ({ experiment, snapshot, analysis, metrics }) => (
+          <ExperimentTimeSeriesBlock
+            {...(baseProps as unknown as BlockProps<ExperimentTimeSeriesBlockInterface>)}
+            block={block}
+            experiment={experiment}
+            snapshot={snapshot}
+            analysis={analysis}
+            metrics={metrics}
+          />
+        ),
+      );
+      break;
     default:
       content = (
         <Callout status="info" size="sm">
