@@ -77,6 +77,7 @@ import { AIConversationModel } from "back-end/src/models/AIConversationModel";
 import { EventForwarderConfigModel } from "back-end/src/models/EventForwarderConfigModel";
 import { PresentationThemeModel } from "back-end/src/models/PresentationThemeModel";
 import { WatchModel } from "back-end/src/models/WatchModel";
+import { FigmaConnectionModel } from "back-end/src/models/FigmaConnectionModel";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
 import { getUserByEmail, getUsersByIds } from "back-end/src/models/UserModel";
 import { getExperimentMetricsByIds } from "./experiments";
@@ -124,6 +125,7 @@ export type ModelName =
   | "presentationThemes"
   | "revisions"
   | "watch"
+  | "figmaConnections"
   | "apiKeys"
   | "rampSchedules"
   | "rampScheduleTemplates"
@@ -166,6 +168,7 @@ export const modelClasses = {
   revisions: RevisionModel,
   presentationThemes: PresentationThemeModel,
   watch: WatchModel,
+  figmaConnections: FigmaConnectionModel,
   apiKeys: ApiKeyModel,
   rampSchedules: RampScheduleModel,
   rampScheduleTemplates: RampScheduleTemplateModel,
@@ -218,6 +221,7 @@ export class ReqContextClass {
       revisions: new RevisionModel(this),
       presentationThemes: new PresentationThemeModel(this),
       watch: new WatchModel(this),
+      figmaConnections: new FigmaConnectionModel(this),
       apiKeys: new ApiKeyModel(this),
       rampSchedules: new RampScheduleModel(this),
       rampScheduleTemplates: new RampScheduleTemplateModel(this),
