@@ -928,6 +928,28 @@ describe("experiments", () => {
     gb.destroy();
   });
 
+  it("honors a falsy literal dotted key instead of falling through to the nested path", () => {
+    // A literal key that is present but falsy means "no value", and must not be
+    // silently overridden by a same-named nested path.
+    const gb = new GrowthBook({
+      attributes: {
+        "user.id": 0,
+        user: { id: "nested" },
+      },
+    });
+
+    const res = gb.run({
+      key: "my-test",
+      hashAttribute: "user.id",
+      variations: [0, 1],
+    });
+
+    expect(res.inExperiment).toEqual(false);
+    expect(res.hashUsed).toEqual(false);
+
+    gb.destroy();
+  });
+
   it("does not hash when a nested hash attribute is missing", () => {
     const gb = new GrowthBook({
       attributes: { user: { email: "test@example.com" } },

@@ -941,7 +941,10 @@ function resolveAttribute(
   attributes: Record<string, any>,
   key: string,
 ) {
-  if (attributes[key]) return attributes[key];
+  // Prefer a literal key (so a key that itself contains a dot still works), checking presence
+  // rather than truthiness so a literal falsy value is honored and not overridden by a nested path.
+  if (Object.prototype.hasOwnProperty.call(attributes, key))
+    return attributes[key];
   return getPath(attributes, key) ?? "";
 }
 
