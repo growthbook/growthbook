@@ -1,11 +1,8 @@
 import type { SDKAttributeSchema } from "shared/types/organization";
 import {
   assertExposureQueriesTargetingAttributeColumnsValid,
-  CONTEXTUAL_BANDIT_EAQ_REQUIRED_COLUMNS,
-  formatContextualBanditMissingSqlColumnMessages,
   formatInvalidTargetingAttributeColumnMessages,
   getAllowedTargetingAttributePropertyNames,
-  getContextualBanditRequiredColumnsMissingFromSql,
   getInvalidTargetingAttributeColumnsForExposureQueries,
   getMalformedTargetingAttributeColumnsForExposureQueries,
   isSafeSqlIdentifier,
