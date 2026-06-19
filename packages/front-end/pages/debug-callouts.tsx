@@ -1,0 +1,477 @@
+import React from "react";
+import { Flex, Box } from "@radix-ui/themes";
+import { PiRocketLaunch, PiInfo } from "react-icons/pi";
+import { Permissions } from "shared/permissions";
+import Callout from "@/ui/Callout";
+import { Status } from "@/ui/HelperText";
+import PremiumCallout from "@/ui/PremiumCallout";
+import Frame from "@/ui/Frame";
+import Button from "@/ui/Button";
+import UIText from "@/ui/Text";
+import Link from "@/ui/Link";
+import { DocLink } from "@/components/DocLink";
+import LoadingSpinner from "@/components/LoadingSpinner";
+import { UserContext } from "@/services/UserContext";
+
+function Example({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <Box>
+      <div
+        style={{
+          fontFamily: "monospace",
+          fontSize: 11,
+          color: "var(--gray-11)",
+          marginBottom: 4,
+        }}
+      >
+        {label}
+      </div>
+      {children}
+    </Box>
+  );
+}
+
+const STATUSES: Status[] = ["wizard", "info", "warning", "error", "success"];
+const VARIANTS = ["soft", "surface", "outline"] as const;
+const SIZES = ["sm", "md"] as const;
+
+type Section = {
+  id: string;
+  title: string;
+  description?: React.ReactNode;
+  render: () => React.ReactNode;
+};
+
+const sections: Section[] = [
+  {
+    id: "status",
+    title: "Status",
+    render: () => (
+      <Flex direction="column" gap="3">
+        {STATUSES.map((s) => (
+          <Example key={s} label={`status="${s}"`}>
+            <Callout status={s}>This is a &ldquo;{s}&rdquo; callout.</Callout>
+          </Example>
+        ))}
+      </Flex>
+    ),
+  },
+  {
+    id: "variant-x-status",
+    title: "Variant × Status",
+    description: (
+      <>
+        Only <code>soft</code> is used in the product today.{" "}
+        <code>surface</code> and <code>outline</code> are supported but unused.
+        Included here to validate they render.
+      </>
+    ),
+    render: () => (
+      <Flex direction="column" gap="5">
+        {VARIANTS.map((variant) => (
+          <Box key={variant}>
+            <div
+              style={{
+                fontFamily: "monospace",
+                fontSize: 13,
+                fontWeight: 500,
+                marginBottom: 8,
+              }}
+            >
+              variant=&quot;{variant}&quot;
+            </div>
+            <Flex direction="column" gap="3">
+              {STATUSES.map((s) => (
+                <Example key={s} label={`status="${s}"`}>
+                  <Callout status={s} variant={variant}>
+                    This is a &ldquo;{s}&rdquo; callout with variant &ldquo;
+                    {variant}&rdquo;.
+                  </Callout>
+                </Example>
+              ))}
+            </Flex>
+          </Box>
+        ))}
+      </Flex>
+    ),
+  },
+  {
+    id: "size",
+    title: "Size",
+    render: () => (
+      <Flex direction="column" gap="4">
+        {SIZES.map((size) => (
+          <Box key={size}>
+            <div
+              style={{
+                fontFamily: "monospace",
+                fontSize: 13,
+                fontWeight: 500,
+                marginBottom: 8,
+              }}
+            >
+              size=&quot;{size}&quot;
+            </div>
+            <Flex direction="column" gap="2">
+              <Example label={`size="${size}" status="info"`}>
+                <Callout status="info" size={size}>
+                  This is an info callout at size &ldquo;{size}&rdquo;. It
+                  contains a normal sentence of readable text.
+                </Callout>
+              </Example>
+              <Example label={`size="${size}" status="error"`}>
+                <Callout status="error" size={size}>
+                  This is an error callout at size &ldquo;{size}&rdquo;. It
+                  contains a normal sentence of readable text.
+                </Callout>
+              </Example>
+            </Flex>
+          </Box>
+        ))}
+      </Flex>
+    ),
+  },
+  {
+    id: "icon-variations",
+    title: "Icon Variations",
+    render: () => (
+      <Flex direction="column" gap="3">
+        <Example label="icon={undefined} (default status icon)">
+          <Callout status="info">Default status icon (no icon prop).</Callout>
+        </Example>
+        <Example label="icon={null} (no icon)">
+          <Callout status="info" icon={null}>
+            No icon. The icon prop is null.
+          </Callout>
+        </Example>
+        <Example label="icon={<PiRocketLaunch />} (custom icon)">
+          <Callout status="info" icon={<PiRocketLaunch />}>
+            Custom icon. PiRocketLaunch passed as the icon prop.
+          </Callout>
+        </Example>
+        <Example label="icon={<PiInfo />} (another custom icon)">
+          <Callout status="warning" icon={<PiInfo />}>
+            Custom icon on a warning callout. PiInfo.
+          </Callout>
+        </Example>
+      </Flex>
+    ),
+  },
+  {
+    id: "rich-content",
+    title: 'Rich Content (contentsAs="div")',
+    description: (
+      <>
+        Block-level content inside a callout. Mirrors the shape used in{" "}
+        <code>ImportSettings.tsx</code>.
+      </>
+    ),
+    render: () => (
+      <Example label='status="info" contentsAs="div"'>
+        <Callout status="info" contentsAs="div">
+          <h4 style={{ margin: "0 0 8px" }}>Import Settings</h4>
+          <p style={{ margin: "0 0 6px" }}>
+            Before importing, review the following checklist to ensure your
+            configuration file is valid and compatible with your environment.
+          </p>
+          <p style={{ margin: "0 0 6px" }}>
+            Incompatible settings will be skipped automatically; no existing
+            configuration will be overwritten unless explicitly confirmed.
+          </p>
+          <ul style={{ margin: "0 0 6px", paddingLeft: 20 }}>
+            <li>All required fields must be present.</li>
+            <li>Feature flag rules must reference valid environments.</li>
+            <li>Metric IDs must match existing fact tables.</li>
+          </ul>
+          <p style={{ margin: 0 }}>
+            Run <code>validate-config --dry-run</code> to check for errors
+            before applying.
+          </p>
+        </Callout>
+      </Example>
+    ),
+  },
+  {
+    id: "content-patterns",
+    title: "Content Patterns",
+    description: "Real product shapes. One example each.",
+    render: () => {
+      const count = 3;
+      return (
+        <Flex direction="column" gap="3">
+          <Example label="Plain text error">
+            <Callout status="error">Failed to load dashboards.</Callout>
+          </Example>
+
+          <Example label="Text + inline DocLink">
+            <Callout status="info">
+              This data source supports auto-generated metrics.{" "}
+              <DocLink docSection="config">Learn more</DocLink>
+            </Callout>
+          </Example>
+
+          <Example label='Error + Retry button (contentsAs="div")'>
+            <Callout status="error" contentsAs="div">
+              <Flex align="center" justify="between" gap="3">
+                <span>Something went wrong loading results.</span>
+                <Button variant="soft">Retry</Button>
+              </Flex>
+            </Callout>
+          </Example>
+
+          <Example label='Loading state (size="sm" icon={null} contentsAs="div")'>
+            <Callout status="info" size="sm" icon={null} contentsAs="div">
+              <Flex align="center" gap="2">
+                <LoadingSpinner />
+                <span>Refreshing list&hellip;</span>
+              </Flex>
+            </Callout>
+          </Example>
+
+          <Example label="Dynamic interpolated text">
+            <Callout status="warning">
+              {count} metrics could not be generated.
+            </Callout>
+          </Example>
+
+          <Example label="Long text wrapping">
+            <Callout status="info">
+              This experiment is currently in a draft state and has not yet been
+              started. To begin collecting data, navigate to the experiment
+              settings, confirm your targeting conditions, and click the
+              &ldquo;Start Experiment&rdquo; button. Once started, results will
+              begin to appear within 24 hours depending on your data warehouse
+              sync schedule and the volume of incoming events.
+            </Callout>
+          </Example>
+        </Flex>
+      );
+    },
+  },
+  {
+    id: "dismissible",
+    title: "Dismissible",
+    render: () => (
+      <Flex direction="column" gap="3">
+        <Example label='dismissible id="debug-callout-dismissible" with renderWhenDismissed'>
+          <Callout
+            status="info"
+            dismissible
+            id="debug-callout-dismissible"
+            renderWhenDismissed={(undismiss) => (
+              <Link
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  undismiss();
+                }}
+              >
+                Show again
+              </Link>
+            )}
+          >
+            This callout can be dismissed (persists in localStorage as
+            callout:debug-callout-dismissible).
+          </Callout>
+        </Example>
+        <Example label="Non-dismissible (contrast)">
+          <Callout status="info">
+            This callout is not dismissible. No dismiss button.
+          </Callout>
+        </Example>
+      </Flex>
+    ),
+  },
+  {
+    id: "color-override",
+    title: "Color Override",
+    description: (
+      <>
+        Prefer <code>status</code> over <code>color</code>. The{" "}
+        <code>color</code> prop is an escape hatch for cases where the standard
+        status colors do not match the design intent.
+      </>
+    ),
+    render: () => (
+      <Flex direction="column" gap="3">
+        <Example label='status="info" color="gray"'>
+          <Callout status="info" color="gray">
+            This callout uses color=&quot;gray&quot; as an override.
+          </Callout>
+        </Example>
+        <Example label='status="info" color="purple"'>
+          <Callout status="info" color="purple">
+            This callout uses color=&quot;purple&quot; as an override.
+          </Callout>
+        </Example>
+      </Flex>
+    ),
+  },
+  {
+    id: "premium-callout",
+    title: "PremiumCallout",
+    description: (
+      <>
+        These examples use a mocked UserContext provider with fixed plan states
+        to exercise each upgrade tier without requiring auth.
+      </>
+    ),
+    render: () => (
+      <UserContext.Provider
+        // @ts-expect-error - this is a mock
+        value={{
+          hasCommercialFeature: (feature: string) =>
+            feature === "multi-armed-bandits",
+          commercialFeatureLowestPlan: {
+            "visual-editor": "pro",
+            "custom-roles": "enterprise",
+            "multi-armed-bandits": "pro",
+          } as const,
+          users: new Map(),
+          organization: {},
+          permissionsUtil: new Permissions({
+            global: {
+              permissions: {
+                manageBilling: true,
+              },
+              limitAccessByEnvironment: false,
+              environments: [],
+            },
+            projects: {},
+          }),
+        }}
+      >
+        <Flex direction="column" gap="3">
+          <Example label='Pro upgrade state. commercialFeature="visual-editor" (gold, "Upgrade Now")'>
+            <PremiumCallout commercialFeature="visual-editor" id="debug-pro">
+              This Pro feature unlocks extra power and speed.
+            </PremiumCallout>
+          </Example>
+
+          <Example label='Enterprise state. commercialFeature="custom-roles" (indigo, "Talk to Sales")'>
+            <PremiumCallout
+              commercialFeature="custom-roles"
+              id="debug-enterprise"
+            >
+              This Enterprise feature gives you enhanced security and
+              compliance.
+            </PremiumCallout>
+          </Example>
+
+          <Example label='Has-feature + docs link. commercialFeature="multi-armed-bandits" (violet, "View docs")'>
+            <PremiumCallout
+              commercialFeature="multi-armed-bandits"
+              id="debug-hasfeature"
+              docSection="bandits"
+            >
+              You already have access to this premium feature.
+            </PremiumCallout>
+          </Example>
+
+          <Example label="Dismissable has-feature. Same as above but dismissable">
+            <PremiumCallout
+              commercialFeature="multi-armed-bandits"
+              id="debug-premium-dismissable"
+              docSection="bandits"
+              dismissable
+              renderWhenDismissed={(undismiss) => (
+                <Link
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    undismiss();
+                  }}
+                >
+                  Show premium callout again
+                </Link>
+              )}
+            >
+              You already have access to this premium feature. This callout is
+              dismissable.
+            </PremiumCallout>
+          </Example>
+        </Flex>
+      </UserContext.Provider>
+    ),
+  },
+];
+
+const TOP_NAV_HEIGHT = 56;
+const PAGE_TOP_PADDING = 24;
+const PAGE_BOTTOM_PADDING = 16;
+const SIDEBAR_TOP_OFFSET = TOP_NAV_HEIGHT + PAGE_TOP_PADDING;
+const SIDEBAR_MAX_HEIGHT = `calc(100vh - ${
+  SIDEBAR_TOP_OFFSET + PAGE_BOTTOM_PADDING
+}px)`;
+
+export default function DebugCalloutsPage() {
+  return (
+    <div className="pt-4 pb-3">
+      <Flex gap="6">
+        <nav
+          aria-label="Sections"
+          style={{
+            position: "sticky",
+            top: SIDEBAR_TOP_OFFSET,
+            alignSelf: "flex-start",
+            minWidth: 220,
+            maxHeight: SIDEBAR_MAX_HEIGHT,
+            overflow: "hidden",
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
+          <UIText as="div" weight="semibold" mb="2">
+            Sections
+          </UIText>
+          <ul
+            style={{
+              listStyle: "none",
+              padding: 0,
+              margin: 0,
+              overflowY: "auto",
+              minHeight: 0,
+              paddingRight: 8,
+            }}
+          >
+            {sections.map(({ title, id }) => (
+              <li key={id} style={{ marginBottom: 8 }}>
+                <Link href={`#${id}`}>{title}</Link>
+              </li>
+            ))}
+          </ul>
+        </nav>
+
+        <div className="container-fluid" style={{ flex: 1 }}>
+          <h1 className="mb-2">Callout Debug Page</h1>
+          <p style={{ color: "var(--gray-11)", marginBottom: 16 }}>
+            Temporary visual-validation page. Delete after review. No auth, no
+            network calls.
+          </p>
+          <div className="pagecontents">
+            <Flex gap="4" direction="column">
+              {sections.map(({ id, title, description, render }) => (
+                <Frame key={id} id={id} style={{ scrollMarginTop: 90 }}>
+                  <Flex direction="column" gap="3">
+                    <h3 className="mb-1">{title}</h3>
+                    {description ? <UIText>{description}</UIText> : null}
+                    {render()}
+                  </Flex>
+                </Frame>
+              ))}
+            </Flex>
+          </div>
+        </div>
+      </Flex>
+    </div>
+  );
+}
+
+DebugCalloutsPage.preAuth = true;
+DebugCalloutsPage.preAuthTopNav = true;
