@@ -3,7 +3,7 @@
 // Shuts the container down after a period with no traffic on ports 3000/3100,
 // so idle Fly preview machines stop themselves. The distroless runtime has no
 // `ss`/`pkill`, so connections are counted by reading /proc/net/tcp{,6}
-// directly, and shutdown is triggered by signaling PID 1 (the supervisor),
+// directly, and shutdown is triggered by signaling the supervisor (our parent),
 // which tears down its children and exits gracefully.
 //
 // Launched as a child of bin/dhi-supervisor.js when PREVIEW_IDLE_TIMEOUT_SECONDS
@@ -70,9 +70,11 @@ setInterval(() => {
     console.log(
       `[idle-monitor] Idle for ${idleSeconds}s (>= ${TIMEOUT}s). Shutting down.`,
     );
-    // Signal the supervisor (PID 1) to gracefully stop all processes. We stay
-    // alive afterwards and let the supervisor terminate us, so the supervisor
-    // sees an intentional shutdown rather than an unexpected child exit.
-    process.kill(1, "SIGTERM");
+    // Signal the supervisor (our parent) to gracefully stop all processes.
+    // Targeting ppid rather than PID 1 is correct regardless of init topology
+    // (e.g. Fly may run its own init as PID 1). We stay alive afterwards and let
+    // the supervisor terminate us, so it sees an intentional shutdown rather
+    // than an unexpected child exit.
+    process.kill(process.ppid, "SIGTERM");
   }
 }, CHECK_INTERVAL_MS);

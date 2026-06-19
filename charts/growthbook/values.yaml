@@ -12,7 +12,11 @@ frontend:
   replicaCount: 1
   podAnnotations: {}
   podLabels: {}
-  podSecurityContext: {}
+  # fsGroup makes the writable volumes (uploads PVC, emptyDirs) group-owned by
+  # 1000 so the non-root (uid 1000) runtime can write them. Without it, a freshly
+  # provisioned PVC is root-owned and uploads fail at runtime.
+  podSecurityContext:
+    fsGroup: 1000
   securityContext:
     readOnlyRootFilesystem: true
     runAsNonRoot: true
@@ -51,7 +55,11 @@ backend:
   replicaCount: 1
   podAnnotations: {}
   podLabels: {}
-  podSecurityContext: {}
+  # fsGroup makes the writable volumes (uploads PVC, emptyDirs) group-owned by
+  # 1000 so the non-root (uid 1000) runtime can write them. Without it, a freshly
+  # provisioned PVC is root-owned and uploads fail at runtime.
+  podSecurityContext:
+    fsGroup: 1000
   securityContext:
     readOnlyRootFilesystem: true
     runAsNonRoot: true

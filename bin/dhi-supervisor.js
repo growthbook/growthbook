@@ -15,7 +15,7 @@
 // Tracing (Datadog / OpenTelemetry) is honored via `node --require`, mirroring
 // ecosystem.config.js. The preview idle-monitor is also launched here (as a
 // child) when PREVIEW_IDLE_TIMEOUT_SECONDS is set, mirroring ecosystem.config.js;
-// on idle it signals this supervisor (PID 1) to bring the container down.
+// on idle it signals this supervisor (its parent) to bring the container down.
 
 const { spawn } = require("node:child_process");
 const path = require("node:path");

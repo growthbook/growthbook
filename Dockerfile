@@ -150,7 +150,7 @@ RUN pnpm postinstall
 # (build-essential / node-gyp / python3 / libkrb5-dev) is already present in this
 # stage. This is why the stock node:24-slim image works and the hardened one didn't.
 RUN pnpm rebuild kerberos && \
-    test -f node_modules/.pnpm/kerberos@2.2.2/node_modules/kerberos/build/Release/kerberos.node \
+    find node_modules/.pnpm -path '*/kerberos/build/Release/kerberos.node' -type f | grep -q . \
       || (echo "ERROR: kerberos.node was not produced by the source build" && exit 1)
 
 # ----------------------------------------------------------------------------
@@ -170,9 +170,12 @@ FROM debian:12-slim AS krb5libs
 RUN apt-get update && \
   apt-get install -y --no-install-recommends libgssapi-krb5-2 && \
   rm -rf /var/lib/apt/lists/*
+# Resolve the lib path from dpkg rather than hardcoding the multiarch dir, so
+# this stage builds on both amd64 (x86_64-linux-gnu) and arm64 (aarch64-linux-gnu).
 RUN mkdir -p /krb5deps && \
-  cp -L /usr/lib/x86_64-linux-gnu/libgssapi_krb5.so.2 /krb5deps/ && \
-  ldd /usr/lib/x86_64-linux-gnu/libgssapi_krb5.so.2 \
+  LIB="$(dpkg -L libgssapi-krb5-2 | grep '/libgssapi_krb5\.so\.2$')" && \
+  cp -L "$LIB" /krb5deps/ && \
+  ldd "$LIB" \
     | awk '/=> \//{print $3}' | sort -u | xargs -I{} cp -L {} /krb5deps/ && \
   echo "staged krb5 closure:" && ls -1 /krb5deps
 # /usr/bin/env (coreutils) is also pulled from here — see stage 4.
@@ -214,10 +217,13 @@ COPY --from=krb5libs /krb5deps/ /opt/krb5deps/
 # packages/back-end/src/services/python.ts). Then the hardened python bin, then
 # the node bin. LD_LIBRARY_PATH: /opt/python/lib (hardened interpreter's own
 # bundled libs, e.g. libssl), /opt/pydeps (system-lib closure for numpy/pandas/
-# etc.), /opt/krb5deps (the GSSAPI closure kerberos dlopens at runtime).
+# etc.), /opt/krb5deps (the GSSAPI closure kerberos dlopens at runtime), and the
+# system multiarch dir (resolves libcrypto for libk5crypto). Both the amd64 and
+# arm64 multiarch dirs are listed — the loader ignores the one that's absent —
+# so this image works on both architectures (deploy builds amd64 + arm64).
 ENV VIRTUAL_ENV=/opt/venv
 ENV PATH="/opt/venv/bin:/opt/python/bin:/usr/local/bin:/usr/local/sbin:/usr/bin:/bin"
-ENV LD_LIBRARY_PATH="/opt/python/lib:/opt/pydeps:/opt/krb5deps:/usr/lib/x86_64-linux-gnu"
+ENV LD_LIBRARY_PATH="/opt/python/lib:/opt/pydeps:/opt/krb5deps:/usr/lib/x86_64-linux-gnu:/usr/lib/aarch64-linux-gnu"
 # Read-only-rootfs friendly defaults: don't write venv .pyc into the read-only
 # /opt/venv, and skip Next's telemetry write. The remaining writable paths
 # (/tmp, .next/cache, uploads) are declared as mounts by the deployer (emptyDir
