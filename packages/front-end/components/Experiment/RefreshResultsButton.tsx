@@ -15,7 +15,6 @@ import {
   useExperimentSnapshotUpdate,
 } from "@/hooks/useExperimentSnapshotUpdate";
 import FullRefreshRequiredDialog from "@/components/Experiment/FullRefreshRequiredDialog";
-import Tooltip from "@/ui/Tooltip";
 
 export type EntityType = "experiment" | "holdout" | "safe-rollout";
 
@@ -52,8 +51,6 @@ export interface RefreshResultsButtonProps<T extends RefreshResultsModel> {
   safeRollout?: SafeRolloutInterface;
   fullRefreshRequired?: boolean;
   fullRefreshReasons?: string[];
-  disabled?: boolean;
-  disabledReason?: string;
 }
 
 export default function RefreshResultsButton<T extends RefreshResultsModel>({
@@ -74,8 +71,6 @@ export default function RefreshResultsButton<T extends RefreshResultsModel>({
   safeRollout,
   fullRefreshRequired = false,
   fullRefreshReasons = [],
-  disabled = false,
-  disabledReason,
 }: RefreshResultsButtonProps<T>) {
   const hasQueries = (latest?.queries?.length ?? 0) > 0;
   if (datasourceId && latest && hasQueries) {
@@ -96,8 +91,6 @@ export default function RefreshResultsButton<T extends RefreshResultsModel>({
         dimension={dimension}
         fullRefreshRequired={fullRefreshRequired}
         fullRefreshReasons={fullRefreshReasons}
-        disabled={disabled}
-        disabledReason={disabledReason}
       />
     );
   }
@@ -125,8 +118,6 @@ export default function RefreshResultsButton<T extends RefreshResultsModel>({
         experimentSnapshotTrackingProps={experimentSnapshotTrackingProps}
         fullRefreshRequired={fullRefreshRequired}
         fullRefreshReasons={fullRefreshReasons}
-        disabled={disabled}
-        disabledReason={disabledReason}
       />
     );
   }
@@ -160,13 +151,10 @@ function RefreshRunQueriesButton<T extends RefreshResultsModel>({
   dimension,
   fullRefreshRequired,
   fullRefreshReasons,
-  disabled,
-  disabledReason,
 }: RefreshResultsButtonProps<T> & {
   latest: T;
   fullRefreshRequired: boolean;
   fullRefreshReasons: string[];
-  disabled: boolean;
 }) {
   const { apiCall } = useAuth();
   const { submitUpdate, fullRefreshConfirm } = useExperimentSnapshotUpdate({
@@ -219,25 +207,22 @@ function RefreshRunQueriesButton<T extends RefreshResultsModel>({
   return (
     <>
       <FullRefreshRequiredDialog controller={fullRefreshConfirm} />
-      <Tooltip content={disabledReason} enabled={disabled && !!disabledReason}>
-        <RunQueriesButton
-          cta={ctaLabel}
-          cancelEndpoint={cancelEndpoint}
-          mutate={() => {
-            mutate();
-            mutateAdditional?.();
-          }}
-          model={{
-            queries: latest.queries || [],
-            runStarted: latest.runStarted ?? null,
-          }}
-          icon="refresh"
-          useRadixButton={true}
-          radixVariant="outline"
-          onSubmit={handleSubmit}
-          disabled={disabled}
-        />
-      </Tooltip>
+      <RunQueriesButton
+        cta={ctaLabel}
+        cancelEndpoint={cancelEndpoint}
+        mutate={() => {
+          mutate();
+          mutateAdditional?.();
+        }}
+        model={{
+          queries: latest.queries || [],
+          runStarted: latest.runStarted ?? null,
+        }}
+        icon="refresh"
+        useRadixButton={true}
+        radixVariant="outline"
+        onSubmit={handleSubmit}
+      />
     </>
   );
 }

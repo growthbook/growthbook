@@ -934,16 +934,11 @@ export default function AnalysisSettingsSummary({
                 setAnalysisSettings={setAnalysisSettings}
                 customValidation={confirmRefresh}
                 onSnapshotRefreshBlocked={handleSnapshotRefreshBlocked}
-                {...(viewingDimensionThatRequiresOverallFirst
-                  ? {
-                      disabled: overallResultsRequiredBeforeDimensionRefresh,
-                      disabledReason:
-                        "Overall Results must be refreshed first.",
-                    }
-                  : {
-                      fullRefreshRequired: overallNeedsFullRefresh,
-                      fullRefreshReasons: fullRefreshReasons,
-                    })}
+                fullRefreshRequired={
+                  !viewingDimensionThatRequiresOverallFirst &&
+                  overallNeedsFullRefresh
+                }
+                fullRefreshReasons={fullRefreshReasons}
               />
             ) : null}
 

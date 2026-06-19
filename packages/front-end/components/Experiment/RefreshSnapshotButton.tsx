@@ -6,7 +6,6 @@ import { PiArrowClockwise } from "react-icons/pi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Button from "@/components/Button";
 import RadixButton from "@/ui/Button";
-import Tooltip from "@/ui/Tooltip";
 import {
   type SnapshotRefreshBlocker,
   useExperimentSnapshotUpdate,
@@ -31,8 +30,6 @@ const RefreshSnapshotButton: FC<{
   };
   fullRefreshRequired?: boolean;
   fullRefreshReasons?: string[];
-  disabled?: boolean;
-  disabledReason?: string;
 }> = ({
   mutate,
   experiment,
@@ -47,8 +44,6 @@ const RefreshSnapshotButton: FC<{
   experimentSnapshotTrackingProps,
   fullRefreshRequired = false,
   fullRefreshReasons = [],
-  disabled = false,
-  disabledReason,
 }) => {
   const { getDatasourceById } = useDefinitions();
 
@@ -85,24 +80,19 @@ const RefreshSnapshotButton: FC<{
               this may take several minutes
             </Text>
           )}
-          <Tooltip
-            content={disabledReason}
-            enabled={disabled && !!disabledReason}
+          <RadixButton
+            variant={radixVariant}
+            size="sm"
+            disabled={loading}
+            setError={(error) => setError(error ?? undefined)}
+            onClick={handleClick}
+            style={{
+              minWidth: 110,
+            }}
+            icon={<PiArrowClockwise />}
           >
-            <RadixButton
-              variant={radixVariant}
-              size="sm"
-              disabled={loading || disabled}
-              setError={(error) => setError(error ?? undefined)}
-              onClick={handleClick}
-              style={{
-                minWidth: 110,
-              }}
-              icon={<PiArrowClockwise />}
-            >
-              {label}
-            </RadixButton>
-          </Tooltip>
+            {label}
+          </RadixButton>
         </>
       ) : (
         <>
@@ -115,8 +105,7 @@ const RefreshSnapshotButton: FC<{
             color="outline-primary"
             setErrorText={setError}
             onClick={handleClick}
-            disabled={loading || disabled}
-            title={disabled && disabledReason ? disabledReason : undefined}
+            disabled={loading}
           >
             <BsArrowRepeat /> {label}
           </Button>
