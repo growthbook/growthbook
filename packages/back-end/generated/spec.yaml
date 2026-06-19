@@ -10062,6 +10062,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
