@@ -10,7 +10,10 @@ import React, { useMemo } from "react";
 import Collapsible from "react-collapsible";
 import { Flex, Tooltip } from "@radix-ui/themes";
 import { date } from "shared/dates";
-import { isProjectListValidForProject } from "shared/util";
+import {
+  isProjectListValidForProject,
+  parsePlainJSONObject,
+} from "shared/util";
 import { PiCaretRightFill } from "react-icons/pi";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import Field from "@/components/Forms/Field";
@@ -33,6 +36,7 @@ import TargetingFieldsGroup from "@/components/Features/TargetingFieldsGroup";
 import { type RuleCyclicResult } from "@/components/Features/PrerequisiteInput";
 import NamespaceSelector from "@/components/Features/NamespaceSelector";
 import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
+import SparsePatchToggle from "@/components/Features/SparsePatchToggle";
 import ScheduleInputs from "@/components/Features/LegacyScheduleInputs";
 import { SortableVariation } from "@/components/Features/SortableFeatureVariationRow";
 import Checkbox from "@/ui/Checkbox";
@@ -453,6 +457,16 @@ export default function ExperimentRefNewFields({
             ) : null}
           </div>
 
+          {feature &&
+            feature.valueType === "json" &&
+            parsePlainJSONObject(getFeatureDefaultValue(feature)) !== null && (
+              <Flex align="center" gap="3" mb="2">
+                <SparsePatchToggle
+                  checked={!!form.watch("sparse")}
+                  onChange={(v) => form.setValue("sparse", v)}
+                />
+              </Flex>
+            )}
           <FeatureVariationsInput
             label="Traffic Percent & Variations"
             defaultValue={feature ? getFeatureDefaultValue(feature) : undefined}
@@ -470,6 +484,7 @@ export default function ExperimentRefNewFields({
             hideVariations={isTemplate}
             disableVariations={isTemplate}
             startEditingIndexes={startEditingIndexes}
+            sparse={!!form.watch("sparse")}
           />
 
           {!isTemplate && namespaces && namespaces.length > 0 && (

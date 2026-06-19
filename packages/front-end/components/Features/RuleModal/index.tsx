@@ -1074,6 +1074,7 @@ export default function RuleModal({
             variationId: getAllVariations(res.experiment)[i]?.id || "",
           })),
           scheduleRules: values.scheduleRules || [],
+          ...(form.watch("sparse") ? { sparse: true } : {}),
         };
         mutateExperiments();
       } else if (values.type === "experiment-ref") {

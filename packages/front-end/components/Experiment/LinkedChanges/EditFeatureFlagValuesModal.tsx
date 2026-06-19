@@ -52,6 +52,7 @@ import Link from "@/ui/Link";
 import { getDefaultVariationValue } from "@/services/features";
 import Button from "@/ui/Button";
 import track from "@/services/track";
+import { SparsePatchIndicator } from "@/components/Features/SparsePatchToggle";
 
 export interface Props {
   feature: FeatureInterface;
@@ -268,6 +269,11 @@ export default function EditFeatureFlagValuesModal({
     setSelectedDraft(v);
   };
 
+  // The matching experiment-ref rule stores its values as sparse JSON patches.
+  // Render the value editors in sparse mode so partials show their merged
+  // preview; the rule's sparse flag is preserved on save (partial overlay).
+  const sparse = !!linkedFeatureInfo.sparse;
+
   const watchedVariations = form.watch("variations");
 
   const weights = (watchedVariations ?? []).map((v) => Number(v?.weight) || 0);
@@ -463,6 +469,11 @@ export default function EditFeatureFlagValuesModal({
       ) : (
         <>
           <Flex direction="column" gap="3" pt="2">
+            {sparse && (
+              <Flex>
+                <SparsePatchIndicator />
+              </Flex>
+            )}
             {isEditingVariations && !isEqualWeights && (
               <Flex justify="end">
                 <Tooltip
@@ -532,6 +543,7 @@ export default function EditFeatureFlagValuesModal({
                             renderJSONInline={true}
                             useCodeInput={true}
                             showFullscreenButton={true}
+                            sparse={sparse}
                           />
                           {isNewVariation && numLinkedChanges > 1 && (
                             <Callout status="warning" mt="2">
@@ -659,6 +671,7 @@ export default function EditFeatureFlagValuesModal({
                     renderJSONInline={true}
                     useCodeInput={true}
                     showFullscreenButton={true}
+                    sparse={sparse}
                   />
                   {isNewVariation && numLinkedChanges > 1 && (
                     <Callout status="warning" mt="2">

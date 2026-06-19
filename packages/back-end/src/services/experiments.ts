@@ -4721,6 +4721,7 @@ export async function getLinkedFeatureInfo(
         state,
         environmentStates,
         values: (matches[0]?.rule as ExperimentRefRule)?.variations || [],
+        sparse: !!(matches[0]?.rule as ExperimentRefRule)?.sparse,
         valuesFrom: matches[0]?.environmentId || "",
         rulesAbove: matches.some((m) => m.i > 0),
         inconsistentValues: uniqueValues.size > 1,
