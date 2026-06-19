@@ -67,7 +67,9 @@ jobs:
         if: ${{ github.event.action != 'closed' }}
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-        run: flyctl apps create "${{ env.APP_NAME }}" --org growthbook || true
+        run: |
+          flyctl apps create "${{ env.APP_NAME }}" --org growthbook || \
+            flyctl apps list | grep -qw "${{ env.APP_NAME }}"
 
       - name: Build and push preview image
         if: ${{ github.event.action != 'closed' }}
