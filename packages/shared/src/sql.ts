@@ -1,6 +1,6 @@
 import { format as sqlFormat } from "sql-formatter";
 import { SqlResultChunkInterface } from "../types/query";
-import { FormatDialect, StringMatchFn } from "../types/sql";
+import { FormatDialect, SqlDialect, StringMatchFn } from "../types/sql";
 import { FormatError } from "../types/error";
 import { parseEnvInt } from "./util/numbers";
 
@@ -117,19 +117,26 @@ export function ensureLimit(sql: string, limit: number): string {
 }
 
 export function isReadOnlySQL(sql: string) {
-  const { strippedSql } = stripCommentsAndStrings(sql);
+  const { strippedSql } = stripCommentsAndStrings(sql, true);
 
   // Check the first keyword (e.g. "select", "with", etc.)
   return !!strippedSql.match(/^\s*(with|select|explain|show|describe|desc)\b/i);
 }
 
-export function isMultiStatementSQL(sql: string) {
-  const { strippedSql, parseError } = stripCommentsAndStrings(sql);
+export function usesBackslashStringEscapes(
+  dialect: Pick<SqlDialect, "escapeStringLiteral">,
+): boolean {
+  return dialect.escapeStringLiteral("\\") !== "\\";
+}
 
-  // If there was a parse error, search the original string for semicolons
+export function isMultiStatementSQL(sql: string, backslashEscapes: boolean) {
+  const { strippedSql, parseError } = stripCommentsAndStrings(
+    sql,
+    backslashEscapes,
+  );
   if (parseError) {
-    // Ignore final trailing semicolon when searching to avoid common false positive
-    return sql.replace(/;\s*$/, "").includes(";");
+    // Ignore a final trailing semicolon to avoid a common false positive
+    return stripSQLComments(sql).replace(/;\s*$/, "").includes(";");
   }
   // Otherwise, search the stripped SQL for semicolons
   else {
@@ -137,7 +144,14 @@ export function isMultiStatementSQL(sql: string) {
   }
 }
 
-function stripCommentsAndStrings(sql: string): {
+function stripSQLComments(sql: string): string {
+  return sql.replace(/\/\*[\s\S]*?\*\//g, "").replace(/--.*$/gm, "");
+}
+
+function stripCommentsAndStrings(
+  sql: string,
+  backslashEscapes: boolean,
+): {
   strippedSql: string;
   parseError: boolean;
 } {
@@ -158,7 +172,7 @@ function stripCommentsAndStrings(sql: string): {
     const nextChar = i + 1 < n ? sql[i + 1] : null;
 
     if (state === "singleQuote") {
-      if (char === "\\") {
+      if (backslashEscapes && char === "\\") {
         // Skip escaped character (e.g. \' or \\)
         i++;
       } else if (char === "'") {
@@ -166,7 +180,7 @@ function stripCommentsAndStrings(sql: string): {
         state = null;
       }
     } else if (state === "doubleQuote") {
-      if (char === "\\") {
+      if (backslashEscapes && char === "\\") {
         // Skip escaped character (e.g. \" or \\)
         i++;
       } else if (char === '"') {
