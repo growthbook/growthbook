@@ -7,10 +7,11 @@ import { logger } from "back-end/src/util/logger";
 const QUEUE_CB_RESULTS_UPDATES = "queueContextualBanditUpdates";
 const UPDATE_SINGLE_CB = "updateSingleContextualBandit";
 
-type UpdateSingleCBJob = Job<{
+type UpdateSingleCBJobData = {
   organization: string;
   contextualBanditId: string;
-}>;
+};
+type UpdateSingleCBJob = Job<UpdateSingleCBJobData>;
 
 export default async function (agenda: Agenda) {
   agenda.define(QUEUE_CB_RESULTS_UPDATES, async () => {
@@ -35,7 +36,7 @@ export default async function (agenda: Agenda) {
     organization: string,
     contextualBanditId: string,
   ) {
-    const job = agenda.create(UPDATE_SINGLE_CB, {
+    const job = agenda.create<UpdateSingleCBJobData>(UPDATE_SINGLE_CB, {
       organization,
       contextualBanditId,
     }) as UpdateSingleCBJob;

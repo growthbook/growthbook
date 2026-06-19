@@ -11,10 +11,11 @@ const UPDATE_SINGLE_CB_STATUS = "updateSingleContextualBanditStatus";
 // Cap retries so a persistently failing CB doesn't get retried forever.
 const SCHEDULED_STATUS_UPDATE_MAX_ATTEMPTS = 5;
 
-type UpdateSingleCBStatusJob = Job<{
+type UpdateSingleCBStatusJobData = {
   contextualBanditId: string;
   organization: string;
-}>;
+};
+type UpdateSingleCBStatusJob = Job<UpdateSingleCBStatusJobData>;
 
 export default async function (agenda: Agenda) {
   agenda.define(QUEUE_CB_STATUS_UPDATES, async () => {
@@ -39,10 +40,13 @@ export default async function (agenda: Agenda) {
     contextualBanditId: string,
     organization: string,
   ) {
-    const job = agenda.create(UPDATE_SINGLE_CB_STATUS, {
-      contextualBanditId,
-      organization,
-    }) as UpdateSingleCBStatusJob;
+    const job = agenda.create<UpdateSingleCBStatusJobData>(
+      UPDATE_SINGLE_CB_STATUS,
+      {
+        contextualBanditId,
+        organization,
+      },
+    ) as UpdateSingleCBStatusJob;
     job.unique({ contextualBanditId, organization });
     job.schedule(new Date());
     await job.save();
@@ -115,7 +119,6 @@ const updateSingleCBStatus = async (job: UpdateSingleCBStatusJob) => {
         });
         break;
       }
-      // TODO(schedule-status-updates): handle "stop" once `statusUpdateScheduleValidator` carries `stopAt`.
       default:
         logger.info(
           `Skipping CB status update: ${cb.id} has unsupported scheduled type ${scheduled.type}`,
@@ -154,7 +157,5 @@ const updateSingleCBStatus = async (job: UpdateSingleCBStatusJob) => {
         `Failed to persist nextScheduledStatusUpdate after status update failure for CB ${cb.id}`,
       );
     }
-
-    // TODO(v1.5): dispatch Slack/email/webhook notifications once the CB subscriber surface lands.
   }
 };
