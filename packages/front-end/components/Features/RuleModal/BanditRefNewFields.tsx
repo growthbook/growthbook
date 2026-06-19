@@ -1,5 +1,5 @@
 import { useFormContext } from "react-hook-form";
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { useEffect } from "react";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import {
   FeatureInterface,
@@ -27,8 +27,6 @@ import { type RuleCyclicResult } from "@/components/Features/PrerequisiteInput";
 import NamespaceSelector from "@/components/Features/NamespaceSelector";
 import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { useContextualBanditQueries } from "@/hooks/useContextualBanditQueries";
-import AddEditContextualBanditQueryModal from "@/components/ContextualBandit/AddEditContextualBanditQueryModal";
 import ExperimentMetricsSelector from "@/components/Experiment/ExperimentMetricsSelector";
 import BanditDecisionMetricSettings from "@/components/Experiment/BanditDecisionMetricSettings";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
@@ -47,11 +45,8 @@ import BanditSettings from "@/components/GeneralSettings/BanditSettings";
 import RuleEnvironmentScopeField, {
   type EnvScopeProps,
 } from "@/components/Features/RuleModal/EnvironmentScopeField";
-import Checkbox from "@/ui/Checkbox";
-import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
 
-// @teresayung make new ContextualBanditRefNewFields component
 export default function BanditRefNewFields({
   step,
   source,
@@ -77,9 +72,6 @@ export default function BanditRefNewFields({
   setVariations,
   disableBanditConversionWindow,
   setDisableBanditConversionWindow,
-  contextualBandit,
-  setContextualBandit,
-  hideContextualBanditToggle,
   envScope,
   onRuleCyclicChange,
 }: {
@@ -106,9 +98,6 @@ export default function BanditRefNewFields({
   setVariations: (v: SortableVariation[]) => void;
   disableBanditConversionWindow: boolean;
   setDisableBanditConversionWindow: (v: boolean) => void;
-  contextualBandit: boolean;
-  setContextualBandit: (v: boolean) => void;
-  hideContextualBanditToggle?: boolean;
   envScope?: EnvScopeProps;
   onRuleCyclicChange?: (result: RuleCyclicResult) => void;
 }) {
@@ -118,7 +107,6 @@ export default function BanditRefNewFields({
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
     "regression-adjustment",
   );
-  const hasContextualBanditFeature = hasCommercialFeature("contextual-bandits");
 
   const { datasources, getDatasourceById, getExperimentMetricById } =
     useDefinitions();
@@ -130,53 +118,12 @@ export default function BanditRefNewFields({
   const exposureQueries = datasource?.settings?.queries?.exposure;
   const exposureQueryId = form.watch("exposureQueryId");
 
-  const { contextualBanditQueries: cbQueries, mutate: mutateCbQueries } =
-    useContextualBanditQueries(
-      contextualBandit ? (datasource?.id ?? undefined) : undefined,
-    );
-  const [cbQueryModalOpen, setCbQueryModalOpen] = useState(false);
-
-  type PickerQuery = {
-    id: string;
-    name: string;
-    userIdType?: string;
-    targetingAttributeColumns?: string[];
-  };
-
-  const assignmentQueriesForPicker: PickerQuery[] = useMemo(
-    () =>
-      contextualBandit
-        ? cbQueries.map((q) => ({
-            id: q.id,
-            name: q.name,
-            userIdType: q.userIdType,
-            targetingAttributeColumns: q.targetingAttributeColumns,
-          }))
-        : (exposureQueries ?? []),
-    [contextualBandit, cbQueries, exposureQueries],
-  );
-
-  const selectedExposureQuery = useMemo(
-    () => assignmentQueriesForPicker.find((q) => q.id === exposureQueryId),
-    [assignmentQueriesForPicker, exposureQueryId],
-  );
-
-  const datasourcesForPicker = datasources;
-
   useEffect(() => {
-    if (!assignmentQueriesForPicker.length) return;
-    if (!assignmentQueriesForPicker.find((q) => q.id === exposureQueryId)) {
-      form.setValue("exposureQueryId", assignmentQueriesForPicker[0]?.id ?? "");
+    if (!exposureQueries?.length) return;
+    if (!exposureQueries.find((q) => q.id === exposureQueryId)) {
+      form.setValue("exposureQueryId", exposureQueries[0]?.id ?? "");
     }
-  }, [assignmentQueriesForPicker, exposureQueryId, form]);
-
-  useEffect(() => {
-    if (contextualBandit) {
-      form.setValue("secondaryMetrics", []);
-      form.setValue("guardrailMetrics", []);
-      form.setValue("customMetricSlices", []);
-    }
-  }, [contextualBandit, form]);
+  }, [exposureQueries, exposureQueryId, form]);
 
   const attributeSchema = useAttributeSchema(false, project);
   const hasHashAttributes =
@@ -190,11 +137,6 @@ export default function BanditRefNewFields({
 
   const settings = useOrgSettings();
   const { namespaces } = useOrgSettings();
-
-  // Contextual bandits skip the targeting step (arm weights come from
-  // targeting attribute contexts), shifting the metrics step from 3 to 2.
-  const showTargetingStep = !contextualBandit;
-  const metricsStep = contextualBandit ? 2 : 3;
 
   return (
     <>
@@ -224,28 +166,6 @@ export default function BanditRefNewFields({
           />
 
           {envScope && <RuleEnvironmentScopeField {...envScope} my="5" />}
-
-          {!hideContextualBanditToggle && (
-            <PremiumTooltip
-              commercialFeature="contextual-bandits"
-              body={
-                hasContextualBanditFeature
-                  ? null
-                  : "Contextual Bandits are available on the Enterprise plan."
-              }
-            >
-              <Checkbox
-                mt="5"
-                value={contextualBandit && hasContextualBanditFeature}
-                setValue={(v) => {
-                  if (v && !hasContextualBanditFeature) return;
-                  setContextualBandit(v);
-                }}
-                disabled={!hasContextualBanditFeature}
-                label="Make My Bandit Contextual"
-              />
-            </PremiumTooltip>
-          )}
         </>
       ) : null}
 
@@ -287,14 +207,12 @@ export default function BanditRefNewFields({
                 );
               }}
             />
-            {!contextualBandit && (
-              <FallbackAttributeSelector
-                form={form}
-                attributeSchema={attributeSchema}
-              />
-            )}
+            <FallbackAttributeSelector
+              form={form}
+              attributeSchema={attributeSchema}
+            />
 
-            {!contextualBandit && hasSDKWithNoBucketingV2 && (
+            {hasSDKWithNoBucketingV2 && (
               <HashVersionSelector
                 value={(form.watch("hashVersion") || 1) as 1 | 2}
                 onChange={(v) => form.setValue("hashVersion", v)}
@@ -305,10 +223,8 @@ export default function BanditRefNewFields({
 
           <FeatureVariationsInput
             simple={true}
-            hideCoverage={contextualBandit}
-            label={
-              contextualBandit ? "Variations" : "Traffic Percent & Variations"
-            }
+            hideCoverage={false}
+            label="Traffic Percent & Variations"
             defaultValue={feature ? getFeatureDefaultValue(feature) : undefined}
             valueType={feature?.valueType ?? "string"}
             coverageLabel="Traffic included in this Bandit"
@@ -336,7 +252,7 @@ export default function BanditRefNewFields({
         </>
       ) : null}
 
-      {showTargetingStep && step === 2 ? (
+      {step === 2 ? (
         <>
           <TargetingFieldsGroup
             project={project || ""}
@@ -363,17 +279,12 @@ export default function BanditRefNewFields({
         </>
       ) : null}
 
-      {step === metricsStep ? (
+      {step === 3 ? (
         <>
           <div className="rounded px-3 pt-3 pb-1 bg-highlight mb-4">
             <SelectField
               label="Data Source"
               labelClassName="font-weight-bold"
-              helpText={
-                contextualBandit
-                  ? "Only data sources with an Experiment Assignment Table that has targeting attributes can power a Contextual Bandit."
-                  : undefined
-              }
               value={form.watch("datasource") ?? ""}
               onChange={(newDatasource) => {
                 form.setValue("datasource", newDatasource);
@@ -393,7 +304,7 @@ export default function BanditRefNewFields({
                   form.setValue("goalMetrics", goalMetrics);
                 }
               }}
-              options={datasourcesForPicker.map((d) => {
+              options={datasources.map((d) => {
                 const isDefaultDataSource = d.id === settings.defaultDataSource;
                 return {
                   value: d.id,
@@ -405,112 +316,43 @@ export default function BanditRefNewFields({
               className="portal-overflow-ellipsis"
             />
 
-            {(
-              contextualBandit
-                ? !!datasource
-                : datasource?.properties?.exposureQueries && exposureQueries
-            ) ? (
-              <>
-                {contextualBandit && assignmentQueriesForPicker.length === 0 ? (
-                  <Callout status="warning" mt="3" contentsAs="div">
-                    No Contextual Bandit queries exist for this data source yet.{" "}
-                    <Link
-                      href="#"
-                      className="underline"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setCbQueryModalOpen(true);
-                      }}
-                    >
-                      Add one
-                    </Link>
-                    .
-                  </Callout>
-                ) : null}
-                {(!contextualBandit ||
-                  assignmentQueriesForPicker.length > 0) && (
-                  <SelectField
-                    label={
-                      <>
-                        {contextualBandit
-                          ? "Contextual Bandit Query"
-                          : "Experiment Assignment Table"}{" "}
-                        <Tooltip body="Should correspond to the Identifier Type used to randomize units for this experiment" />
-                      </>
-                    }
-                    labelClassName="font-weight-bold"
-                    value={form.watch("exposureQueryId") ?? ""}
-                    onChange={(v) => form.setValue("exposureQueryId", v)}
-                    required
-                    options={assignmentQueriesForPicker.map((q) => {
-                      return {
-                        label: q.name,
-                        value: q.id,
-                      };
-                    })}
-                    formatOptionLabel={({ label, value }) => {
-                      const userIdType = assignmentQueriesForPicker.find(
-                        (e) => e.id === value,
-                      )?.userIdType;
-                      return (
-                        <>
-                          {label}
-                          {userIdType ? (
-                            <span
-                              className="text-muted small float-right position-relative"
-                              style={{ top: 3 }}
-                            >
-                              Identifier Type: <code>{userIdType}</code>
-                            </span>
-                          ) : null}
-                        </>
-                      );
-                    }}
-                  />
-                )}
-                {contextualBandit && selectedExposureQuery ? (
-                  <Box mt="2">
-                    <strong className="font-weight-semibold">
-                      Targeting Attributes:{" "}
-                    </strong>
-                    {(
-                      selectedExposureQuery.targetingAttributeColumns ?? []
-                    ).map((d, i) => (
-                      <Fragment key={d}>
-                        {i ? ", " : ""}
-                        <code>{d}</code>
-                      </Fragment>
-                    ))}
-                    {!(selectedExposureQuery.targetingAttributeColumns ?? [])
-                      .length && <em className="text-muted">none</em>}
-                  </Box>
-                ) : null}
-                {contextualBandit && assignmentQueriesForPicker.length > 0 ? (
-                  <Box mt="2">
-                    <Link
-                      href="#"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setCbQueryModalOpen(true);
-                      }}
-                    >
-                      + Add Contextual Bandit query
-                    </Link>
-                  </Box>
-                ) : null}
-                {contextualBandit && cbQueryModalOpen && datasource ? (
-                  <AddEditContextualBanditQueryModal
-                    dataSource={datasource}
-                    mode="add"
-                    onSave={async (q) => {
-                      await mutateCbQueries();
-                      form.setValue("exposureQueryId", q.id);
-                      setCbQueryModalOpen(false);
-                    }}
-                    onCancel={() => setCbQueryModalOpen(false)}
-                  />
-                ) : null}
-              </>
+            {datasource?.properties?.exposureQueries && exposureQueries ? (
+              <SelectField
+                label={
+                  <>
+                    Experiment Assignment Table{" "}
+                    <Tooltip body="Should correspond to the Identifier Type used to randomize units for this experiment" />
+                  </>
+                }
+                labelClassName="font-weight-bold"
+                value={form.watch("exposureQueryId") ?? ""}
+                onChange={(v) => form.setValue("exposureQueryId", v)}
+                required
+                options={exposureQueries.map((q) => {
+                  return {
+                    label: q.name,
+                    value: q.id,
+                  };
+                })}
+                formatOptionLabel={({ label, value }) => {
+                  const userIdType = exposureQueries.find(
+                    (e) => e.id === value,
+                  )?.userIdType;
+                  return (
+                    <>
+                      {label}
+                      {userIdType ? (
+                        <span
+                          className="text-muted small float-right position-relative"
+                          style={{ top: 3 }}
+                        >
+                          Identifier Type: <code>{userIdType}</code>
+                        </span>
+                      ) : null}
+                    </>
+                  );
+                }}
+              />
             ) : null}
           </div>
 
@@ -518,7 +360,7 @@ export default function BanditRefNewFields({
             <BanditSettings page="experiment-settings" />
           </Box>
 
-          {settings?.useStickyBucketing && !contextualBandit && (
+          {settings?.useStickyBucketing && (
             <Switch
               label="Disable Sticky Bucketing"
               description="Permit users in low-performing variations to switch variations in future update periods."
@@ -537,30 +379,26 @@ export default function BanditRefNewFields({
             disableBanditConversionWindow={disableBanditConversionWindow}
             setDisableBanditConversionWindow={setDisableBanditConversionWindow}
             project={project}
-            contextualBandit={contextualBandit}
           />
 
-          {!contextualBandit && (
-            <ExperimentMetricsSelector
-              datasource={datasource?.id}
-              exposureQueryId={exposureQueryId}
-              project={project}
-              goalMetrics={form.watch("goalMetrics") ?? []}
-              secondaryMetrics={form.watch("secondaryMetrics") ?? []}
-              guardrailMetrics={form.watch("guardrailMetrics") ?? []}
-              setSecondaryMetrics={(secondaryMetrics) =>
-                form.setValue("secondaryMetrics", secondaryMetrics)
-              }
-              setGuardrailMetrics={(guardrailMetrics) =>
-                form.setValue("guardrailMetrics", guardrailMetrics)
-              }
-              collapseSecondary={true}
-              collapseGuardrail={true}
-            />
-          )}
+          <ExperimentMetricsSelector
+            datasource={datasource?.id}
+            exposureQueryId={exposureQueryId}
+            project={project}
+            goalMetrics={form.watch("goalMetrics") ?? []}
+            secondaryMetrics={form.watch("secondaryMetrics") ?? []}
+            guardrailMetrics={form.watch("guardrailMetrics") ?? []}
+            setSecondaryMetrics={(secondaryMetrics) =>
+              form.setValue("secondaryMetrics", secondaryMetrics)
+            }
+            setGuardrailMetrics={(guardrailMetrics) =>
+              form.setValue("guardrailMetrics", guardrailMetrics)
+            }
+            collapseSecondary={true}
+            collapseGuardrail={true}
+          />
 
           <CustomMetricSlicesSelector
-            hidden={contextualBandit}
             goalMetrics={form.watch("goalMetrics") ?? []}
             secondaryMetrics={form.watch("secondaryMetrics") ?? []}
             guardrailMetrics={form.watch("guardrailMetrics") ?? []}
@@ -570,66 +408,60 @@ export default function BanditRefNewFields({
             }
           />
 
-          {!contextualBandit && (
-            <>
-              <hr className="mt-4" />
+          <hr className="mt-4" />
 
-              <Collapsible
-                trigger={
-                  <div className="link-purple font-weight-bold mt-4 mb-2">
-                    <PiCaretRightFill className="chevron mr-1" />
-                    Advanced Settings
-                  </div>
+          <Collapsible
+            trigger={
+              <div className="link-purple font-weight-bold mt-4 mb-2">
+                <PiCaretRightFill className="chevron mr-1" />
+                Advanced Settings
+              </div>
+            }
+            transitionTime={100}
+          >
+            <div className="rounded px-3 pt-3 pb-1 bg-highlight">
+              <StatsEngineSelect
+                className="mb-4"
+                label={
+                  <>
+                    <div>Statistics Engine</div>
+                    <div className="small text-muted">
+                      Only <strong>Bayesian</strong> is available for Bandit
+                      Experiments.
+                    </div>
+                  </>
                 }
-                transitionTime={100}
-              >
-                <div className="rounded px-3 pt-3 pb-1 bg-highlight">
-                  <StatsEngineSelect
-                    className="mb-4"
-                    label={
-                      <>
-                        <div>Statistics Engine</div>
-                        <div className="small text-muted">
-                          Only <strong>Bayesian</strong> is available for Bandit
-                          Experiments.
-                        </div>
-                      </>
-                    }
-                    value={"bayesian"}
-                    allowUndefined={false}
-                    disabled={true}
-                  />
+                value={"bayesian"}
+                allowUndefined={false}
+                disabled={true}
+              />
 
-                  <SelectField
-                    className="mb-4"
-                    label={
-                      <PremiumTooltip commercialFeature="regression-adjustment">
-                        <GBCuped /> Use Regression Adjustment (CUPED)
-                      </PremiumTooltip>
-                    }
-                    labelClassName="font-weight-bold"
-                    value={
-                      form.watch("regressionAdjustmentEnabled") ? "on" : "off"
-                    }
-                    onChange={(v) => {
-                      form.setValue("regressionAdjustmentEnabled", v === "on");
-                    }}
-                    options={[
-                      {
-                        label: "On",
-                        value: "on",
-                      },
-                      {
-                        label: "Off",
-                        value: "off",
-                      },
-                    ]}
-                    disabled={!hasRegressionAdjustmentFeature}
-                  />
-                </div>
-              </Collapsible>
-            </>
-          )}
+              <SelectField
+                className="mb-4"
+                label={
+                  <PremiumTooltip commercialFeature="regression-adjustment">
+                    <GBCuped /> Use Regression Adjustment (CUPED)
+                  </PremiumTooltip>
+                }
+                labelClassName="font-weight-bold"
+                value={form.watch("regressionAdjustmentEnabled") ? "on" : "off"}
+                onChange={(v) => {
+                  form.setValue("regressionAdjustmentEnabled", v === "on");
+                }}
+                options={[
+                  {
+                    label: "On",
+                    value: "on",
+                  },
+                  {
+                    label: "Off",
+                    value: "off",
+                  },
+                ]}
+                disabled={!hasRegressionAdjustmentFeature}
+              />
+            </div>
+          </Collapsible>
         </>
       ) : null}
     </>

@@ -1356,8 +1356,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                       setDisableBanditConversionWindow={
                         setDisableBanditConversionWindow
                       }
-                      contextualBandit={false}
-                      setContextualBandit={() => {}}
                     />
                   </div>
                 </Page>

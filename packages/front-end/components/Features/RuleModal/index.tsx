@@ -311,7 +311,6 @@ export default function RuleModal({
     useState(false);
   const [disableBanditConversionWindow, setDisableBanditConversionWindow] =
     useState(false);
-  const [contextualBandit, setContextualBandit] = useState(false);
 
   const settings = useOrgSettings();
   const { settings: scopedSettings } = getScopedSettings({ organization });
@@ -901,11 +900,6 @@ export default function RuleModal({
         if (experimentValues.experimentType === "multi-armed-bandit") {
           if (!hasCommercialFeature("multi-armed-bandits")) {
             throw new Error("Bandits are a premium feature");
-          }
-          if (contextualBandit) {
-            throw new Error(
-              "Create Contextual Bandits from the dedicated Contextual Bandit page (Experiments → Contextual Bandits → New). The feature-rule flow no longer supports CB authoring.",
-            );
           }
           experimentValues.statsEngine = "bayesian";
           if (!experimentValues.datasource) {
@@ -1991,10 +1985,7 @@ export default function RuleModal({
           : null}
 
         {ruleType === "experiment-ref-new" && experimentType === "bandit"
-          ? (contextualBandit
-              ? ["Overview", "Traffic", "Metrics"]
-              : ["Overview", "Traffic", "Targeting", "Metrics"]
-            ).map((p, i) => (
+          ? ["Overview", "Traffic", "Targeting", "Metrics"].map((p, i) => (
               <Page display={p} key={i}>
                 <BanditRefNewFields
                   step={i}
@@ -2046,8 +2037,6 @@ export default function RuleModal({
                   setDisableBanditConversionWindow={
                     setDisableBanditConversionWindow
                   }
-                  contextualBandit={contextualBandit}
-                  setContextualBandit={setContextualBandit}
                   envScope={i === 0 ? envScopeProps : undefined}
                   onRuleCyclicChange={onRuleCyclicChange}
                 />
