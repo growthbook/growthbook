@@ -16,7 +16,7 @@ import {
   Options,
   ClientOptions,
 } from "./types/growthbook";
-import { evalCondition } from "./mongrule";
+import { evalCondition, getPath } from "./mongrule";
 import { ConditionInterface } from "./types/mongrule";
 import {
   chooseVariation,
@@ -933,6 +933,18 @@ function mergeOverrides<T>(
   return experiment;
 }
 
+// Resolve an attribute by its literal key, falling back to dot-notation so
+// nested attributes (e.g. "user.id" -> { user: { id } }) can be used as the
+// hash attribute. A literal key containing a dot keeps taking precedence.
+function resolveAttribute(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  attributes: Record<string, any>,
+  key: string,
+) {
+  if (attributes[key]) return attributes[key];
+  return getPath(attributes, key) ?? "";
+}
+
 export function getHashAttribute(
   ctx: EvalContext,
   attr?: string,
@@ -944,15 +956,13 @@ export function getHashAttribute(
 
   const attributes = getAttributes(ctx);
 
-  if (attributes[hashAttribute]) {
-    hashValue = attributes[hashAttribute];
-  }
+  // Try the literal key first (so a key that contains a dot still works), then
+  // fall back to dot-notation to resolve nested attributes (e.g. "user.id")
+  hashValue = resolveAttribute(attributes, hashAttribute);
 
   // if no match, try fallback
   if (!hashValue && fallback) {
-    if (attributes[fallback]) {
-      hashValue = attributes[fallback];
-    }
+    hashValue = resolveAttribute(attributes, fallback);
     if (hashValue) {
       hashAttribute = fallback;
     }
