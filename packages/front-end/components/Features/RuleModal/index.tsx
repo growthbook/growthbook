@@ -1860,6 +1860,7 @@ export default function RuleModal({
               attributeSchema={attributeSchema}
               ruleId={form.watch("id") as string}
               featureId={feature.id}
+              sparse={!!form.watch("sparse")}
             />
           </Page>
         )}

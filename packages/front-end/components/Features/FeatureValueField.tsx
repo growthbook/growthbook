@@ -49,6 +49,8 @@ export interface Props {
   // is a plain object, a "Sparse patch" toggle renders on the label row.
   sparse?: boolean;
   setSparse?: (sparse: boolean) => void;
+  // Tighter sparse editor layout for embedded contexts (e.g. ramp step editors).
+  condensed?: boolean;
 }
 
 export default function FeatureValueField({
@@ -68,6 +70,7 @@ export default function FeatureValueField({
   hideCopyButton = false,
   sparse,
   setSparse,
+  condensed = false,
 }: Props) {
   const { hasCommercialFeature } = useUser();
   const hasJsonValidator = hasCommercialFeature("json-validation");
@@ -191,6 +194,8 @@ export default function FeatureValueField({
             placeholder={placeholder}
             disabled={disabled}
             defaultHeight={codeInputDefaultHeight}
+            showInlineLabel={!showSparseToggle}
+            condensed={condensed}
           />
         </>
       );
