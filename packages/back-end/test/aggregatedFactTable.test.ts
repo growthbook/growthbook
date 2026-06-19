@@ -1,4 +1,5 @@
 import { getAutoSliceMetrics, isSliceMetric } from "shared/experiments";
+import { AggregatedFactTableInterface } from "shared/validators";
 import {
   buildAggregatedFactTableSchemaState,
   detectAggregatedFactTableSchemaDrift,
@@ -15,7 +16,10 @@ import {
 } from "back-end/src/queryRunners/AggregatedFactTableQueryRunner";
 import { bigQueryDialect } from "back-end/src/integrations/dialects/bigquery";
 import {
+  buildAggregatedFactTableStatus,
+  getActiveAggregatedFactTableMetrics,
   getAggregatedFactTableMetrics,
+  getMaterializedMetricIds,
   getMetricsForAggregatedFactTable,
 } from "back-end/src/services/aggregatedFactTables";
 import { factMetricFactory } from "./factories/FactMetric.factory";
@@ -1041,5 +1045,218 @@ describe("getAggregatedFactTableRestateReason", () => {
         metricState: drifted.metricState,
       }),
     ).toBeNull();
+  });
+});
+
+// The update job (mode decision), the REST status endpoint, and the internal
+// status endpoint all build their per-idType schema state from the same
+// helpers: getMaterializedMetricIds(doc) -> getAggregatedFactTableMetrics(kept)
+// -> buildAggregatedFactTableSchemaState -> getAggregatedFactTableRestateReason.
+// This locks that shared computation, so the endpoints' pendingRestate/
+// metricState stay aligned with what the job decides.
+describe("aggregated fact table status consistency (endpoints vs update job)", () => {
+  const factTable = factTableFactory.build({
+    id: FT_ID,
+    sql: "SELECT * FROM events",
+    eventName: "purchase",
+  });
+  const num = (column: string) => ({
+    factTableId: FT_ID,
+    column,
+    aggregation: "sum" as const,
+  });
+  const metricActive = factMetricFactory.build({
+    id: "m_active",
+    metricType: "mean",
+    numerator: num("value"),
+  });
+  const metricKept = factMetricFactory.build({
+    id: "m_kept",
+    metricType: "mean",
+    numerator: num("count"),
+  });
+  const metricNew = factMetricFactory.build({
+    id: "m_new",
+    metricType: "mean",
+    numerator: num("qty"),
+  });
+  const factMetrics = [metricActive, metricKept, metricNew];
+
+  // Registry doc for a table previously materialized with [active, kept].
+  const persisted = buildAggregatedFactTableSchemaState({
+    factTable,
+    metrics: [metricActive, metricKept],
+  });
+  const doc: Pick<
+    AggregatedFactTableInterface,
+    | "tableFullName"
+    | "factTableSettingsHash"
+    | "metricState"
+    | "inFlightExecutionId"
+  > = {
+    tableFullName: "proj.ds.tbl",
+    factTableSettingsHash: persisted.factTableSettingsHash,
+    metricState: persisted.metricState,
+    inFlightExecutionId: null,
+  };
+
+  // Mirrors the kept-set schema state computed at all three call sites.
+  const keptSchemaState = (activeMetricIds: Set<string>) =>
+    buildAggregatedFactTableSchemaState({
+      factTable,
+      metrics: getAggregatedFactTableMetrics({
+        factMetrics,
+        factTable,
+        activeMetricIds,
+        materializedMetricIds: getMaterializedMetricIds(doc),
+      }),
+    });
+
+  it("keeps an inactive-but-materialized metric with no spurious pending restate", () => {
+    // kept dropped out of running experiments; only active is still active.
+    const { factTableSettingsHash, metricState } = keptSchemaState(
+      new Set([metricActive.id]),
+    );
+
+    // The status endpoints preview the kept set (active union materialized),
+    // matching what the job's incremental run materializes.
+    expect(metricState.map((m) => m.metricId).sort()).toEqual([
+      metricActive.id,
+      metricKept.id,
+    ]);
+
+    expect(
+      getAggregatedFactTableRestateReason({
+        registry: doc,
+        factTableSettingsHash,
+        metricState,
+      }),
+    ).toBeNull();
+  });
+
+  it("reports schema-drift when a new active metric is added", () => {
+    const { factTableSettingsHash, metricState } = keptSchemaState(
+      new Set([metricActive.id, metricNew.id]),
+    );
+
+    expect(
+      getAggregatedFactTableRestateReason({
+        registry: doc,
+        factTableSettingsHash,
+        metricState,
+      }),
+    ).toBe("schema-drift");
+  });
+});
+
+// The status endpoints must not report a pending restate when no running
+// experiment references the fact table, because the update job skips such a
+// dormant table entirely ("no-eligible-metrics") and never acts on the restate.
+describe("buildAggregatedFactTableStatus dormant-table gating", () => {
+  const factTable = factTableFactory.build({
+    id: FT_ID,
+    sql: "SELECT * FROM events",
+    eventName: "purchase",
+  });
+  const metric = factMetricFactory.build({
+    id: "m_materialized",
+    metricType: "mean",
+    numerator: { factTableId: FT_ID, column: "value", aggregation: "sum" },
+  });
+
+  // A table previously materialized with `metric`.
+  const persisted = buildAggregatedFactTableSchemaState({
+    factTable,
+    metrics: [metric],
+  });
+
+  const buildDoc = (
+    overrides: Partial<AggregatedFactTableInterface> = {},
+  ): AggregatedFactTableInterface =>
+    ({
+      tableFullName: "proj.ds.tbl",
+      factTableSettingsHash: persisted.factTableSettingsHash,
+      metricState: persisted.metricState,
+      inFlightExecutionId: null,
+      currentExecutionId: null,
+      lastError: null,
+      ...overrides,
+    }) as AggregatedFactTableInterface;
+
+  it("does not report pendingRestate for an incomplete write when no metric is active", () => {
+    const doc = buildDoc({ inFlightExecutionId: "aftexec_stale" });
+
+    // Active set is empty (no running experiment references the table), exactly
+    // what makes the update job skip with "no-eligible-metrics".
+    const hasActiveMetrics =
+      getActiveAggregatedFactTableMetrics({
+        factMetrics: [metric],
+        factTable,
+        activeMetricIds: new Set(),
+      }).length > 0;
+    expect(hasActiveMetrics).toBe(false);
+
+    const status = buildAggregatedFactTableStatus({
+      idType: "user_id",
+      doc,
+      factTableSettingsHash: persisted.factTableSettingsHash,
+      metricState: persisted.metricState,
+      hasActiveMetrics,
+    });
+
+    expect(status.pendingRestate).toBe(false);
+    expect(status.pendingRestateReason).toBeNull();
+  });
+
+  it("does not report pendingRestate for schema drift when no metric is active", () => {
+    const doc = buildDoc();
+    // A drifting fact-table definition would normally force a restate.
+    const driftedFactTable = factTableFactory.build({
+      id: FT_ID,
+      sql: "SELECT * FROM events_v2",
+      eventName: "checkout",
+    });
+    const drifted = buildAggregatedFactTableSchemaState({
+      factTable: driftedFactTable,
+      metrics: [metric],
+    });
+    expect(drifted.factTableSettingsHash).not.toEqual(
+      persisted.factTableSettingsHash,
+    );
+
+    const status = buildAggregatedFactTableStatus({
+      idType: "user_id",
+      doc,
+      factTableSettingsHash: drifted.factTableSettingsHash,
+      metricState: drifted.metricState,
+      hasActiveMetrics: false,
+    });
+
+    expect(status.pendingRestate).toBe(false);
+    expect(status.pendingRestateReason).toBeNull();
+  });
+
+  it("still reports schema drift when at least one metric is active", () => {
+    const doc = buildDoc();
+    const driftedFactTable = factTableFactory.build({
+      id: FT_ID,
+      sql: "SELECT * FROM events_v2",
+      eventName: "checkout",
+    });
+    const drifted = buildAggregatedFactTableSchemaState({
+      factTable: driftedFactTable,
+      metrics: [metric],
+    });
+
+    const status = buildAggregatedFactTableStatus({
+      idType: "user_id",
+      doc,
+      factTableSettingsHash: drifted.factTableSettingsHash,
+      metricState: drifted.metricState,
+      hasActiveMetrics: true,
+    });
+
+    expect(status.pendingRestate).toBe(true);
+    expect(status.pendingRestateReason).toBe("schema-drift");
   });
 });

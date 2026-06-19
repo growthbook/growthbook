@@ -205,6 +205,23 @@ export function getAggregatedFactTableMetrics({
   ]);
 }
 
+export function getActiveAggregatedFactTableMetrics({
+  factMetrics,
+  factTable,
+  activeMetricIds,
+}: {
+  factMetrics: FactMetricInterface[];
+  factTable: FactTableInterface;
+  activeMetricIds: ReadonlySet<string>;
+}): FactMetricInterface[] {
+  return getAggregatedFactTableMetrics({
+    factMetrics,
+    factTable,
+    activeMetricIds,
+    materializedMetricIds: new Set(),
+  });
+}
+
 export function getAggregatedFactTableMaterializationStatus(
   doc: AggregatedFactTableInterface | undefined,
 ): AggregatedFactTableMaterializationStatus {
@@ -220,16 +237,19 @@ export function buildAggregatedFactTableStatus({
   doc,
   factTableSettingsHash,
   metricState,
+  hasActiveMetrics,
 }: {
   idType: string;
   doc: AggregatedFactTableInterface | undefined;
   factTableSettingsHash: string;
   metricState: AggregatedFactTableMetricStateInterface[];
+  // If there are no active metrics, there's no restate
+  hasActiveMetrics: boolean;
 }): AggregatedFactTableStatus {
   const status = getAggregatedFactTableMaterializationStatus(doc);
 
   const pendingRestateReason: AggregatedFactTableRestateReason =
-    doc && status !== "running"
+    doc && status !== "running" && hasActiveMetrics
       ? getAggregatedFactTableRestateReason({
           registry: doc,
           factTableSettingsHash,
@@ -368,11 +388,10 @@ export async function runAggregatedFactTableUpdate(
   // Refresh only while a running experiment references the table. When nothing
   // is active we stop, even if inactive metrics are still materialized; runs
   // resume cleanly once an experiment references the table again.
-  const activeMetrics = getAggregatedFactTableMetrics({
+  const activeMetrics = getActiveAggregatedFactTableMetrics({
     factMetrics,
     factTable,
     activeMetricIds,
-    materializedMetricIds: new Set(),
   });
   if (!activeMetrics.length) {
     logger.debug(

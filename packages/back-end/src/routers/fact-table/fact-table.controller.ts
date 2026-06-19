@@ -53,6 +53,7 @@ import {
   AggregatedFactTableStatus,
   buildAggregatedFactTableStatus,
   deriveAggregatedFactTableRunStatus,
+  getActiveAggregatedFactTableMetrics,
   getAggregatedFactTableMetrics,
   getMaterializedMetricIds,
   getRunningExperimentMetricIds,
@@ -499,6 +500,14 @@ export const getAggregatedFactTables = async (
   const factMetrics = await context.models.factMetrics.getAll();
   const activeMetricIds = await getRunningExperimentMetricIds(context);
 
+  // Allows us to say "no pending restate" when no running experiment references the table
+  const hasActiveMetrics =
+    getActiveAggregatedFactTableMetrics({
+      factMetrics,
+      factTable,
+      activeMetricIds,
+    }).length > 0;
+
   const aggregatedFactTables: AggregatedFactTableStatus[] = idTypes.map(
     (idType) => {
       const doc = byIdType.get(idType);
@@ -515,6 +524,7 @@ export const getAggregatedFactTables = async (
         doc,
         factTableSettingsHash,
         metricState,
+        hasActiveMetrics,
       });
     },
   );

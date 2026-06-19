@@ -507,7 +507,7 @@ export async function getAllExperiments(
   }
 
   if (!types) {
-    // Default: exclude holdouts (unchanged behavior)
+    // Default: exclude holdouts
     query.type = { $ne: "holdout" };
   } else {
     const typeValues: (ExperimentType | null)[] = types.flatMap((t) =>

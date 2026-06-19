@@ -3,6 +3,7 @@ import { getFactTable } from "back-end/src/models/FactTableModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
   buildAggregatedFactTableStatus,
+  getActiveAggregatedFactTableMetrics,
   getAggregatedFactTableMetrics,
   getMaterializedMetricIds,
   getRunningExperimentMetricIds,
@@ -32,6 +33,13 @@ export const getAggregatedFactTables = createApiRequestHandler(
   const factMetrics = await req.context.models.factMetrics.getAll();
   const activeMetricIds = await getRunningExperimentMetricIds(req.context);
 
+  const hasActiveMetrics =
+    getActiveAggregatedFactTableMetrics({
+      factMetrics,
+      factTable,
+      activeMetricIds,
+    }).length > 0;
+
   const aggregatedFactTables = idTypes.map((idType) => {
     const doc = byIdType.get(idType);
     const metrics = getAggregatedFactTableMetrics({
@@ -47,6 +55,7 @@ export const getAggregatedFactTables = createApiRequestHandler(
       doc,
       factTableSettingsHash,
       metricState,
+      hasActiveMetrics,
     });
     return {
       idType: status.idType,
