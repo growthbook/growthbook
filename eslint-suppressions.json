@@ -1214,11 +1214,6 @@
       "count": 3
     }
   },
-  "packages/front-end/pages/settings/custom-hooks.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    }
-  },
   "packages/front-end/pages/settings/custom-markdown.tsx": {
     "no-restricted-imports": {
       "count": 1
