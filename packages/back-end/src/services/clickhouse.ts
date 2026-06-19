@@ -5,6 +5,7 @@ import {
   getManagedWarehouseEventsFactTableColumns,
   getManagedWarehouseUserIdTypes,
   getManagedWarehouseUserIdTypeSettings,
+  isManagedWarehouseAwaitingJsonMigration,
   isManagedWarehouseAwaitingProvisioning,
   MANAGED_WAREHOUSE_ATTRIBUTES_COLUMN,
   MANAGED_WAREHOUSE_RESERVED_COLUMN_NAMES,
@@ -28,7 +29,14 @@ import {
   dangerouslyGetGrowthbookDatasourceBypassPermission,
   updateDataSource,
 } from "back-end/src/models/DataSourceModel";
-import { updateMaterializedColumnsInClickhouse } from "back-end/src/services/licenseServerManagedClickhouse";
+import {
+  dangerousRecreateClickhouseTables,
+  updateMaterializedColumnsInClickhouse,
+} from "back-end/src/services/licenseServerManagedClickhouse";
+import {
+  buildMaterializedColumnRewriteMap,
+  rewriteFactMetricColumns,
+} from "back-end/src/util/migrateManagedWarehouseColumns";
 import { logger } from "back-end/src/util/logger";
 
 type ClickHouseDataType =
@@ -324,5 +332,121 @@ export async function syncManagedWarehouseIdentifiersOnAttributeChange(
       e,
       "Failed to sync managed warehouse identifiers after attribute change",
     );
+  }
+}
+
+// Rewrite fact-metric column refs that pointed at dropped (non-identifier,
+// non-reserved) materialized columns to their `attributes.<sourceField>` JSON path.
+// A metric that can't be re-saved (e.g. an aggregation no longer valid on the JSON
+// column) is logged and skipped so one bad metric never blocks the migration.
+async function rewriteManagedWarehouseFactMetrics(
+  context: ReqContext | ApiReqContext,
+  datasourceId: string,
+  rewriteMap: Record<string, string>,
+): Promise<void> {
+  if (!Object.keys(rewriteMap).length) return;
+
+  const factMetrics = await context.models.factMetrics.getAllSorted({
+    datasourceId,
+  });
+  for (const metric of factMetrics) {
+    const updates = rewriteFactMetricColumns(metric, rewriteMap);
+    if (!updates) continue;
+    try {
+      await context.models.factMetrics.update(metric, updates);
+    } catch (e) {
+      logger.error(
+        e,
+        `Managed warehouse migration: fact metric ${metric.id} needs manual fixup`,
+      );
+    }
+  }
+}
+
+// Migrate a legacy (materialized-column) managed warehouse to native JSON columns.
+// Idempotent + resumable: no-ops once `useJsonColumns` is set and `materializedColumns`
+// is cleared, and a crash mid-migration leaves a re-runnable state. Triggered lazily
+// on first use of a legacy warehouse (see the runQuery hook + migrateManagedWarehouse job).
+export async function migrateManagedWarehouseToJson(
+  context: ReqContext | ApiReqContext,
+): Promise<void> {
+  const datasource =
+    await dangerouslyGetGrowthbookDatasourceBypassPermission(context);
+  if (
+    !datasource ||
+    datasource.type !== "growthbook_clickhouse" ||
+    !isManagedWarehouseAwaitingJsonMigration(datasource)
+  ) {
+    return;
+  }
+
+  const rewriteMap = buildMaterializedColumnRewriteMap(
+    datasource.settings.materializedColumns || [],
+    MANAGED_WAREHOUSE_RESERVED_COLUMN_NAMES,
+  );
+
+  // Enter the pending state so in-flight usage degrades to "warehouse preparing"
+  // instead of hitting tables mid-recreate, and flip the flag (the license server
+  // reads `useJsonColumns` to pick the JSON DDL). Keep `materializedColumns` until
+  // the end so a crash before the final clear leaves the warehouse re-runnable.
+  await updateDataSource(
+    context,
+    datasource,
+    {
+      settings: {
+        ...datasource.settings,
+        useJsonColumns: true,
+        hasBeenProvisioned: false,
+      },
+    },
+    // Never run live exposure-query validation here: the warehouse is about to be
+    // recreated, so a validation query would fail or hang against it.
+    { skipExposureQueryValidation: true },
+  );
+
+  try {
+    // Recreate the per-org ClickHouse tables as JSON and repopulate from enriched_events.
+    await dangerousRecreateClickhouseTables(datasource.organization);
+    // Regenerate the ch_events fact table + datasource userIdTypes/exposure queries.
+    await syncManagedWarehouseIdentifiers(context);
+    // Rewrite metric refs (before clearing, so a crash here keeps the mapping intact).
+    await rewriteManagedWarehouseFactMetrics(
+      context,
+      datasource.id,
+      rewriteMap,
+    );
+    // Clear materializedColumns (re-fetch: sync mutated the datasource settings).
+    const updated =
+      await dangerouslyGetGrowthbookDatasourceBypassPermission(context);
+    if (updated && updated.type === "growthbook_clickhouse") {
+      await updateDataSource(
+        context,
+        updated,
+        {
+          settings: { ...updated.settings, materializedColumns: undefined },
+        },
+        { skipExposureQueryValidation: true },
+      );
+    }
+  } finally {
+    // Always leave the pending state, even on failure: a partially-migrated
+    // warehouse still satisfies the awaiting-migration predicate and is retried
+    // on next use, and its legacy `SELECT *` SQL stays valid against the new tables.
+    const finalDs =
+      await dangerouslyGetGrowthbookDatasourceBypassPermission(context);
+    if (
+      finalDs &&
+      finalDs.type === "growthbook_clickhouse" &&
+      finalDs.settings.hasBeenProvisioned === false
+    ) {
+      await updateDataSource(
+        context,
+        finalDs,
+        {
+          settings: { ...finalDs.settings, hasBeenProvisioned: true },
+        },
+        { skipExposureQueryValidation: true },
+      );
+    }
   }
 }

@@ -8,11 +8,13 @@ import {
 } from "shared/types/integrations";
 import { ClickHouseConnectionParams } from "shared/types/integrations/clickhouse";
 import {
+  isManagedWarehouseAwaitingJsonMigration,
   isManagedWarehouseAwaitingProvisioning,
   ManagedWarehousePendingError,
 } from "shared/util";
 import { SqlDialect } from "shared/types/sql";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
+import { queueMigrateManagedWarehouse } from "back-end/src/jobs/migrateManagedWarehouse";
 import { getHost } from "back-end/src/util/sql";
 import { logger } from "back-end/src/util/logger";
 import SqlIntegration from "./SqlIntegration";
@@ -52,6 +54,14 @@ export default class ClickHouse extends SqlIntegration {
   async runQuery(sql: string): Promise<QueryResponse> {
     if (isManagedWarehouseAwaitingProvisioning(this.datasource)) {
       throw new ManagedWarehousePendingError();
+    }
+    // Legacy (materialized-column) managed warehouses migrate to native JSON
+    // columns on first use — enqueued async + deduped so it never blocks the query.
+    if (isManagedWarehouseAwaitingJsonMigration(this.datasource)) {
+      void queueMigrateManagedWarehouse(this.datasource.organization).catch(
+        (e) =>
+          logger.error(e, "Failed to queue managed warehouse JSON migration"),
+      );
     }
     const client = createClient({
       url: getHost(this.params.url, this.params.port),

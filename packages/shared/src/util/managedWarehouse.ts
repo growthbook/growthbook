@@ -96,6 +96,25 @@ export function isManagedWarehouseAwaitingProvisioning(
   return settings?.hasBeenProvisioned === false;
 }
 
+/**
+ * A managed warehouse still on the legacy materialized-column model, i.e. not yet
+ * fully migrated to native JSON columns. "Migrated" means `useJsonColumns` is set
+ * AND `materializedColumns` has been cleared, so a partially-migrated warehouse
+ * (flag flipped but matcols not yet cleared) still counts as awaiting migration.
+ */
+export function isManagedWarehouseAwaitingJsonMigration(
+  datasource: Pick<DataSourceInterface, "type" | "settings">,
+): boolean {
+  if (!isManagedWarehouse(datasource)) {
+    return false;
+  }
+  const settings = datasource.settings as {
+    useJsonColumns?: boolean;
+    materializedColumns?: unknown[];
+  };
+  return !(settings?.useJsonColumns && !settings.materializedColumns?.length);
+}
+
 // Managed Warehouse JSON-columns model (replaces materialized columns). Per-org
 // tables carry the SDK's standard fields as real columns plus `attributes` /
 // `properties` JSON columns. Identifiers come from `hashAttribute` attributes:
