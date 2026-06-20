@@ -11,13 +11,13 @@ import CommercialFeature from '@site/src/components/CommercialFeature';
 
 <CommercialFeature feature="visual-editor" />
 
-With the Visual Editor, you can design A/B tests on your site directly in your browser, run them in production, and analyze the results — all without writing a single line of code.
+GrowthBook's AI-based Visual Editor is a no-code way to build and launch experiments on your website. Describe the change you want in natural language, review what the editor proposes, and ship a real A/B test without writing code or waiting on a deploy.
 
-<MaxWidthImage maxWidth={400}>
-  ![Editing a page in the Visual Editor side panel](/images/visual-editor/ve-ai-main.png)
-</MaxWidthImage>
+:::tip Early Beta Access
+The Visual Editor is currently in beta and available through our early access program. Interested in trying it? 👉 [Sign up here](https://growthbookusers.slack.com/archives/C0BBMTLJUUT).
+:::
 
-The Visual Editor is a **Chrome side-panel extension**. You open it next to your site, pick the page you want to test, and make changes a few ways:
+The Visual Editor is a **Chrome side-panel extension**. You open it next to your site, pick the page you want to test, and make changes two ways:
 
 - **[AI mode](/app/visual/ai-mode)** — describe the change in plain language ("make the hero headline shorter and the CTA green") and the editor proposes the edits for you to preview and accept.
 - **[Manual mode](/app/visual/manual-mode)** — point and click to select any element and edit its content, typography, layout, background, classes, and more with structured controls.
@@ -30,6 +30,16 @@ To actually render your variations on your live site, a developer integrates one
 The Visual Editor is now a Chrome side panel. If you're using an older version of the GrowthBook DevTools extension with the in-page overlay editor, see the [Legacy (in-page) editor docs](/app/visual/legacy).
 
 :::
+
+## Benefits
+- **Prompt-driven editing**: Describe changes to text, images, buttons, spacing, and more in [AI mode](/app/visual/ai-mode). Pin an element when you want the AI to focus on a specific spot on the page.
+- **Learn from past experiments**: The editor can draw on prior tests in your organization to suggest direction (rolling out). See [Learning from past experiments](/app/visual/ai-mode).
+- **Run experiments without dedicated eng time**: Draft and QA variations in the browser; your site still needs the GrowthBook SDK for production delivery. See [Running on your site](/app/visual/running-on-your-site).
+- **Transparent by design**: Every change is listed with a clear diff. Nothing ships silently. See [Preview and QA](/app/visual/preview-and-qa).
+- **AI-assisted drafting**: Describe intent in plain language ("make this CTA feel more urgent") and review proposed edits before you accept them. See [AI mode](/app/visual/ai-mode).
+- **Manual precision**: Fine-tune typography, spacing, links, and visibility with structured controls when you know exactly what you want. See [Manual mode](/app/visual/manual-mode).
+- **Production delivery**: Variations render through the same GrowthBook SDK you use for feature flags and experiments.
+- **Built-in QA**: Preview links, a debug panel, and warnings when you edit a live experiment. See [Preview and QA](/app/visual/preview-and-qa).
 
 ## Quick start guide
 
