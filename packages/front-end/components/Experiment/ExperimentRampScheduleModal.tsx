@@ -13,16 +13,25 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { AlertDialog, Box, Flex, IconButton } from "@radix-ui/themes";
+import {
+  AlertDialog,
+  Box,
+  Flex,
+  IconButton,
+  Separator,
+} from "@radix-ui/themes";
 import {
   PiArrowCounterClockwise,
   PiArrowSquareOutFill,
+  PiBookmarkSimple,
   PiCalendarBlank,
+  PiCaretDownBold,
   PiCheck,
   PiPlusBold,
   PiTrash,
   PiXBold,
 } from "react-icons/pi";
+import { HiBadgeCheck } from "react-icons/hi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import {
   type ExperimentInterfaceStringDates,
@@ -40,6 +49,7 @@ import {
 } from "shared/enterprise";
 import {
   reconstructUIStep,
+  formatRampStepSummary,
   type UIStep,
   type UIStepPatch,
   type IntervalUnit,
@@ -150,6 +160,34 @@ function stepsMatchExperimentSimplePattern(steps: UIStep[]): boolean {
   return steps.every(
     (s, i) => (s.patch.coverage ?? 0) === EXPERIMENT_SIMPLE_COVERAGES[i],
   );
+}
+
+// True when the current steps differ from the canonical simple ramp that
+// "Simple View" would regenerate for the current duration — i.e. switching
+// would erase customizations (coverage ladder, intervals, or any per-step
+// targeting / phase-control effects). Drives the Simple View warning dot.
+function experimentStepsAreCustomized(
+  steps: UIStep[],
+  durationDays: number,
+  unit: IntervalUnit,
+): boolean {
+  const expected = generateExperimentSimpleSteps(durationDays, unit);
+  if (steps.length !== expected.length) return true;
+  const hasEffects = steps.some((s) => {
+    const p = s.patch as Record<string, unknown>;
+    return Object.keys(p).some((k) => k !== "coverage" && p[k] !== undefined);
+  });
+  if (hasEffects) return true;
+  const norm = (s: UIStep) =>
+    JSON.stringify({
+      coverage: s.patch.coverage ?? 0,
+      intervalSeconds:
+        s.triggerType === "interval"
+          ? Math.max(1, s.intervalValue) * UNIT_MULT[s.intervalUnit]
+          : null,
+      monitored: !!s.monitored,
+    });
+  return !steps.every((s, i) => norm(s) === norm(expected[i]));
 }
 
 // ─── State ────────────────────────────────────────────────────────────────────
@@ -351,14 +389,12 @@ type ExperimentTemplatePayload = {
   entityType: "experiment";
   steps: RampScheduleInterface["steps"];
   endPatch: { coverage: number };
-  autoRollbackMode: string;
-  rampProgressionMode: string;
-  shippingCriteria: { mode: "off" | "auto" };
 };
 
 // Build the POST body for saving the current ramp config as an experiment
-// template. Captures step structure + automation defaults only — per-step risk
-// remediations are experiment-instance specific, so they're excluded.
+// template. Captures the ramp structure only (steps + end coverage); per-step
+// risk remediations are experiment-instance specific (excluded), and automation
+// (rollback / progression / shipping) stays on the experiment + org defaults.
 function buildExperimentTemplatePayload(
   state: ExperimentRampState,
   name: string,
@@ -368,13 +404,6 @@ function buildExperimentTemplatePayload(
     entityType: "experiment",
     steps: buildExperimentSteps(state.steps, TEMPLATE_EXPERIMENT_TARGET, {}),
     endPatch: { coverage: (state.endCoverage ?? 100) / 100 },
-    autoRollbackMode: state.autoRollbackMode,
-    rampProgressionMode: state.rampProgressionMode,
-    // auto-force needs an experiment-specific plannedVariationId that can't be
-    // templatized, so it stores as the closest templatable mode ("auto").
-    shippingCriteria: {
-      mode: state.shippingCriteriaMode === "off" ? "off" : "auto",
-    },
   };
 }
 
@@ -388,13 +417,14 @@ function experimentTemplateStructure(payload: {
   return JSON.stringify({ steps: payload.steps, endPatch: payload.endPatch });
 }
 
-// Read a saved experiment template back into modal state. Instance-specific
-// fields (start/stop dates, plannedVariationId, remediations) are left to the
-// caller to preserve.
+// Read a saved experiment template back into modal state. A template captures
+// only the ramp structure (steps + end coverage); automation and other
+// instance-specific fields (dates, remediations) are preserved from the
+// experiment's current state by the caller.
 function experimentTemplateToState(
   tmpl: RampScheduleTemplateInterface,
 ): Partial<ExperimentRampState> {
-  const partial: Partial<ExperimentRampState> = {
+  return {
     steps: (tmpl.steps ?? []).map(reconstructUIStep),
     endCoverage:
       tmpl.endPatch?.coverage != null
@@ -403,14 +433,6 @@ function experimentTemplateToState(
     builderMode: "advanced",
     remediations: {},
   };
-  if (tmpl.autoRollbackMode) partial.autoRollbackMode = tmpl.autoRollbackMode;
-  if (tmpl.rampProgressionMode) {
-    partial.rampProgressionMode = tmpl.rampProgressionMode;
-  }
-  if (tmpl.shippingCriteria?.mode) {
-    partial.shippingCriteriaMode = tmpl.shippingCriteria.mode;
-  }
-  return partial;
 }
 
 // ─── Remediation dialog (inner form) ─────────────────────────────────────────
@@ -663,12 +685,18 @@ export default function ExperimentRampScheduleModal({
   const { data: templatesData, mutate: mutateTemplates } = useApi<{
     rampScheduleTemplates: RampScheduleTemplateInterface[];
   }>("/ramp-schedule-templates");
-  const experimentTemplates = (templatesData?.rampScheduleTemplates ?? [])
-    .filter((t) => t.entityType === "experiment")
-    .sort((a, b) => a.order - b.order);
+  const experimentTemplates = useMemo(
+    () =>
+      (templatesData?.rampScheduleTemplates ?? [])
+        .filter((t) => t.entityType === "experiment")
+        .sort((a, b) => a.order - b.order),
+    [templatesData],
+  );
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [templateName, setTemplateName] = useState("");
   const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
+  const [selectedTemplateId, setSelectedTemplateId] = useState("");
+  const [presetOpen, setPresetOpen] = useState(false);
 
   // EDF: managed independently of ramp state since it applies whether or not
   // a ramp is configured. Saved to the experiment, not the schedule.
@@ -2069,7 +2097,11 @@ export default function ExperimentRampScheduleModal({
                 <span>%</span>
               </div>
             </Box>
-            <Box flexGrow="1" />
+            <Box flexGrow="1">
+              <Text size="small" color="text-low">
+                Ramp-up complete. Experiment continues normally.
+              </Text>
+            </Box>
           </Flex>
         </Box>
 
@@ -2604,20 +2636,176 @@ export default function ExperimentRampScheduleModal({
   );
 
   function applyExperimentTemplate(tmpl: RampScheduleTemplateInterface) {
+    setPresetOpen(false);
     patch(experimentTemplateToState(tmpl));
     if (!hasRamp) setHasRamp(true);
+    setSelectedTemplateId(tmpl.id);
   }
+
+  function clearExperimentTemplate() {
+    setPresetOpen(false);
+    patch({
+      builderMode: "simple",
+      steps: generateExperimentSimpleSteps(
+        state.simpleDurationDays,
+        state.simpleDurationUnit,
+      ),
+    });
+    setSelectedTemplateId("");
+  }
+
+  const hasCustomizedSteps = experimentStepsAreCustomized(
+    state.steps,
+    state.simpleDurationDays,
+    state.simpleDurationUnit,
+  );
+
+  const currentTemplateStructure = experimentTemplateStructure(
+    buildExperimentTemplatePayload(state, ""),
+  );
+  // Match templates by round-tripping each one through the same
+  // apply → build path as the live state, so reconstruction rounding can't
+  // cause a spurious mismatch (e.g. ejecting a template right after applying).
+  const matchedTemplateId =
+    experimentTemplates.find(
+      (t) =>
+        experimentTemplateStructure(
+          buildExperimentTemplatePayload(
+            { ...state, ...experimentTemplateToState(t) },
+            "",
+          ),
+        ) === currentTemplateStructure,
+    )?.id ?? "";
+  const isIdenticalToExistingTemplate = matchedTemplateId !== "";
+
+  // Keep the selection in sync with the current ramp config: any edit (a step
+  // value change, Simple View, etc.) that no longer matches a template ejects
+  // the selection to "None"/custom — mirroring the feature ramp widget, where
+  // every patchState re-resolves the matching template.
+  useEffect(() => {
+    setSelectedTemplateId((prev) =>
+      prev === matchedTemplateId ? prev : matchedTemplateId,
+    );
+  }, [matchedTemplateId]);
+
+  const selectedTemplate = experimentTemplates.find(
+    (t) => t.id === selectedTemplateId,
+  );
+
+  const presetTrigger = (
+    <Flex
+      align="center"
+      justify="between"
+      gap="2"
+      style={{ width: 430, overflow: "hidden" }}
+    >
+      <Flex align="center" gap="1" style={{ flex: 1, minWidth: 0 }}>
+        {selectedTemplate?.official && (
+          <HiBadgeCheck
+            style={{
+              fontSize: "1.2em",
+              lineHeight: "1em",
+              color: "var(--blue-11)",
+              flexShrink: 0,
+              display: "block",
+            }}
+          />
+        )}
+        <span
+          style={{
+            minWidth: 0,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+            color: selectedTemplate ? undefined : "var(--gray-a9)",
+          }}
+        >
+          {selectedTemplate?.name ??
+            (experimentTemplates.length === 0 ? "No templates" : "None")}
+        </span>
+      </Flex>
+      <PiCaretDownBold style={{ flexShrink: 0 }} />
+    </Flex>
+  );
+
+  const saveTemplateButton = hasRampSchedulesFeature ? (
+    <Popover
+      open={saveTemplateOpen}
+      onOpenChange={(o) => {
+        if (o) setTemplateName("");
+        setSaveTemplateOpen(o);
+      }}
+      align="start"
+      side="top"
+      showArrow={false}
+      contentStyle={{ width: 280, padding: "16px 20px" }}
+      trigger={
+        <Button
+          variant="outline"
+          size="xs"
+          disabled={isIdenticalToExistingTemplate}
+          title={
+            isIdenticalToExistingTemplate
+              ? "Identical to an existing template"
+              : undefined
+          }
+          icon={<PiBookmarkSimple size={16} />}
+        >
+          Save as template
+        </Button>
+      }
+      content={
+        <Flex direction="column" gap="3">
+          <Field
+            label="Template name"
+            value={templateName}
+            onChange={(e) => setTemplateName(e.target.value)}
+            autoFocus
+            onFocus={(e) => e.target.select()}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                e.stopPropagation();
+                saveAsExperimentTemplate();
+              }
+            }}
+          />
+          <Flex justify="end" gap="2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSaveTemplateOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              loading={savingTemplate}
+              disabled={!templateName.trim()}
+              onClick={saveAsExperimentTemplate}
+            >
+              Save
+            </Button>
+          </Flex>
+        </Flex>
+      }
+    />
+  ) : null;
 
   async function saveAsExperimentTemplate() {
     const name = templateName.trim();
     if (!name || savingTemplate) return;
     setSavingTemplate(true);
     try {
-      await apiCall("/ramp-schedule-templates", {
-        method: "POST",
-        body: JSON.stringify(buildExperimentTemplatePayload(state, name)),
-      });
+      const res = await apiCall<{ rampScheduleTemplate: { id: string } }>(
+        "/ramp-schedule-templates",
+        {
+          method: "POST",
+          body: JSON.stringify(buildExperimentTemplatePayload(state, name)),
+        },
+      );
       await mutateTemplates();
+      setSelectedTemplateId(res.rampScheduleTemplate.id);
       setSaveTemplateOpen(false);
       setTemplateName("");
     } finally {
@@ -2625,93 +2813,95 @@ export default function ExperimentRampScheduleModal({
     }
   }
 
-  const currentTemplateStructure = experimentTemplateStructure(
-    buildExperimentTemplatePayload(state, ""),
-  );
-  const isIdenticalToExistingTemplate = experimentTemplates.some(
-    (t) =>
-      experimentTemplateStructure({
-        steps: t.steps,
-        endPatch: { coverage: t.endPatch?.coverage ?? 1 },
-      }) === currentTemplateStructure,
-  );
-
-  const templateControls = (
-    <Flex align="center" gap="3" mb="3">
-      {experimentTemplates.length > 0 && (
+  const templateDropdown =
+    experimentTemplates.length > 0 && hasRampSchedulesFeature ? (
+      <Box mb="4">
         <DropdownMenu
-          trigger={
-            <Button variant="outline" size="xs">
-              Use a template
-            </Button>
-          }
+          variant="soft"
+          open={presetOpen}
+          onOpenChange={setPresetOpen}
+          trigger={presetTrigger}
+          triggerClassName="dropdown-trigger-select-style dropdown-trigger-header"
+          triggerStyle={{ paddingTop: 4, paddingBottom: 4 }}
+          menuWidth="full"
+          menuPlacement="end"
         >
+          <DropdownMenuItem
+            className={!selectedTemplateId ? "selected-item" : ""}
+            onClick={clearExperimentTemplate}
+          >
+            None
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
           {experimentTemplates.map((t) => (
             <DropdownMenuItem
               key={t.id}
+              className={`multiline-item${
+                t.id === selectedTemplateId ? " selected-item" : ""
+              }`}
               onClick={() => applyExperimentTemplate(t)}
             >
-              {t.name}
-              {t.official ? " · official" : ""}
+              <Flex
+                justify="between"
+                align="center"
+                gap="3"
+                style={{ width: "100%" }}
+              >
+                <Flex align="center" gap="1" style={{ flex: 1, minWidth: 0 }}>
+                  {t.official && (
+                    <HiBadgeCheck
+                      style={{
+                        fontSize: "1.2em",
+                        lineHeight: "1em",
+                        marginBottom: 2,
+                        color: "var(--blue-11)",
+                        flexShrink: 0,
+                      }}
+                    />
+                  )}
+                  <span
+                    style={{
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {t.name}
+                  </span>
+                </Flex>
+                <Box style={{ flexShrink: 0 }}>
+                  <Text as="span" size="small" color="text-low">
+                    {formatRampStepSummary(t.steps)}
+                  </Text>
+                </Box>
+              </Flex>
             </DropdownMenuItem>
           ))}
         </DropdownMenu>
-      )}
-      <Popover
-        open={saveTemplateOpen}
-        onOpenChange={(o) => {
-          if (o) setTemplateName("");
-          setSaveTemplateOpen(o);
+        <Separator size="4" mt="5" />
+      </Box>
+    ) : null;
+
+  const templateControls = hasRampSchedulesFeature ? (
+    <Box mb="3">
+      <Text as="div" weight="semibold" mb="1">
+        Ramp-up Template
+      </Text>
+      <div
+        style={{
+          float: "right",
+          position: "sticky",
+          top: 0,
+          zIndex: 1,
+          background: "var(--color-panel-solid)",
+          borderRadius: "var(--radius-3)",
         }}
-        align="start"
-        side="top"
-        trigger={
-          <Button
-            variant="ghost"
-            size="xs"
-            disabled={isIdenticalToExistingTemplate}
-            title={
-              isIdenticalToExistingTemplate
-                ? "Identical to an existing template"
-                : undefined
-            }
-          >
-            Save as template
-          </Button>
-        }
-        content={
-          <Flex direction="column" gap="3" style={{ minWidth: 240 }}>
-            <Field
-              label="Template name"
-              value={templateName}
-              onChange={(e) => setTemplateName(e.target.value)}
-              autoFocus
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  saveAsExperimentTemplate();
-                }
-              }}
-            />
-            <Flex justify="end" gap="2">
-              <Button
-                variant="ghost"
-                onClick={() => setSaveTemplateOpen(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={saveAsExperimentTemplate}
-                disabled={savingTemplate || !templateName.trim()}
-              >
-                Save
-              </Button>
-            </Flex>
-          </Flex>
-        }
-      />
-    </Flex>
-  );
+      >
+        {saveTemplateButton}
+      </div>
+      {templateDropdown}
+    </Box>
+  ) : null;
 
   // ── Ramp-up steps section (only when hasRamp) ─────────────────────────────
   // Rendered outside the violet box: a template picker + save-as row, then in
@@ -2753,19 +2943,38 @@ export default function ExperimentRampScheduleModal({
         <>
           <Box mb="4" mt="5">
             <Box mb="3">
-              <Button
-                variant="ghost"
-                onClick={() => {
-                  const steps = generateExperimentSimpleSteps(
-                    state.simpleDurationDays,
-                    state.simpleDurationUnit,
-                  );
-                  patch({ builderMode: "simple", steps });
-                }}
-                icon={<PiArrowCounterClockwise />}
+              <Tooltip
+                body="Will erase any customizations you have made"
+                shouldDisplay={hasCustomizedSteps}
+                tipPosition="top"
               >
-                Simple View
-              </Button>
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    const steps = generateExperimentSimpleSteps(
+                      state.simpleDurationDays,
+                      state.simpleDurationUnit,
+                    );
+                    patch({ builderMode: "simple", steps });
+                  }}
+                  icon={<PiArrowCounterClockwise />}
+                >
+                  <Flex align="center" gap="1">
+                    Simple View
+                    {hasCustomizedSteps && (
+                      <Box
+                        style={{
+                          width: 8,
+                          height: 8,
+                          borderRadius: "50%",
+                          backgroundColor: "var(--amber-9)",
+                          flexShrink: 0,
+                        }}
+                      />
+                    )}
+                  </Flex>
+                </Button>
+              </Tooltip>
             </Box>
             {renderStepGrid()}
           </Box>

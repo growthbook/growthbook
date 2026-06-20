@@ -204,15 +204,6 @@ export type RampProgressionMode = z.infer<typeof rampProgressionMode>;
 export const autoRollbackMode = z.enum(["off", "all", "health-only"]);
 export type AutoRollbackMode = z.infer<typeof autoRollbackMode>;
 
-// Template-level shipping criteria: carries the automation mode + minimum
-// runtime. "auto-force" is excluded because it requires a plannedVariationId,
-// which is specific to an experiment and can't be templatized.
-export const templateShippingCriteria = z.object({
-  mode: z.enum(["off", "auto"]),
-  minimumRuntimeDays: z.number().positive().optional(),
-});
-export type TemplateShippingCriteria = z.infer<typeof templateShippingCriteria>;
-
 export const rampTarget = z.object({
   id: z.string(),
   entityType: z.enum(["feature", "experiment"]),
@@ -529,12 +520,6 @@ export const rampScheduleTemplateValidator = baseSchema.extend({
   entityType: z.enum(["feature", "experiment"]).optional(),
   steps: z.array(templateRampStep),
   endPatch: templateEndPatchValidator.optional(),
-  // Experiment-only ramp automation defaults, applied to the experiment when an
-  // experiment template is used. The decision-criteria selection is NOT
-  // templatized — it stays on the experiment.
-  autoRollbackMode: autoRollbackMode.optional(),
-  rampProgressionMode: rampProgressionMode.optional(),
-  shippingCriteria: templateShippingCriteria.optional(),
   official: z.boolean().optional(),
   lockdownConfig: lockdownConfigSchema.optional(),
   monitoringConfig: rampMonitoringConfig.nullish(),

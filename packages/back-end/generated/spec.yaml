@@ -32983,31 +32983,6 @@ paths:
                   required:
                     - mode
                   additionalProperties: false
-                autoRollbackMode:
-                  type: string
-                  enum:
-                    - 'off'
-                    - all
-                    - health-only
-                rampProgressionMode:
-                  type: string
-                  enum:
-                    - hold-for-health
-                    - ignore
-                shippingCriteria:
-                  type: object
-                  properties:
-                    mode:
-                      type: string
-                      enum:
-                        - 'off'
-                        - auto
-                    minimumRuntimeDays:
-                      type: number
-                      exclusiveMinimum: 0
-                  required:
-                    - mode
-                  additionalProperties: false
                 order:
                   description: Display order within the org (lower sorts first).
                   type: number
@@ -33395,31 +33370,6 @@ paths:
                       enum:
                         - none
                         - locked
-                  required:
-                    - mode
-                  additionalProperties: false
-                autoRollbackMode:
-                  type: string
-                  enum:
-                    - 'off'
-                    - all
-                    - health-only
-                rampProgressionMode:
-                  type: string
-                  enum:
-                    - hold-for-health
-                    - ignore
-                shippingCriteria:
-                  type: object
-                  properties:
-                    mode:
-                      type: string
-                      enum:
-                        - 'off'
-                        - auto
-                    minimumRuntimeDays:
-                      type: number
-                      exclusiveMinimum: 0
                   required:
                     - mode
                   additionalProperties: false

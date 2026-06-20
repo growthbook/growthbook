@@ -57,9 +57,6 @@ export const postRampScheduleTemplate = async (
     endPatch,
     monitoringConfig,
     lockdownConfig,
-    autoRollbackMode,
-    rampProgressionMode,
-    shippingCriteria,
   } = body;
 
   const created = await context.models.rampScheduleTemplates.create({
@@ -70,9 +67,6 @@ export const postRampScheduleTemplate = async (
     official,
     monitoringConfig,
     lockdownConfig,
-    autoRollbackMode,
-    rampProgressionMode,
-    shippingCriteria,
     order: await context.models.rampScheduleTemplates.getNextOrder(),
   });
   res.status(201).json({ status: 201, rampScheduleTemplate: created });
@@ -133,12 +127,6 @@ export const putRampScheduleTemplate = async (
   if (body.lockdownConfig !== undefined)
     updates.lockdownConfig = body.lockdownConfig;
   // entityType is readonly post-create and intentionally not updatable here.
-  if (body.autoRollbackMode !== undefined)
-    updates.autoRollbackMode = body.autoRollbackMode;
-  if (body.rampProgressionMode !== undefined)
-    updates.rampProgressionMode = body.rampProgressionMode;
-  if (body.shippingCriteria !== undefined)
-    updates.shippingCriteria = body.shippingCriteria;
 
   const updated = await context.models.rampScheduleTemplates.updateById(
     template.id,

@@ -1,7 +1,6 @@
 import type { Response } from "express";
 import { z } from "zod";
 import {
-  ExperimentInterface,
   RampScheduleInterface,
   RampStepAction,
   rampStep,
@@ -103,14 +102,6 @@ export async function postRampSchedule(
   // injected as each action's target at materialization time.
   let steps: RampScheduleInterface["steps"] = body.steps ?? [];
   let endActions: RampStepAction[] | undefined;
-  // Automation defaults carried by an experiment template are applied to the
-  // experiment itself (not the schedule). Decision criteria are not templatized.
-  const experimentChanges: Partial<
-    Pick<
-      ExperimentInterface,
-      "autoRollbackMode" | "rampProgressionMode" | "shippingCriteria"
-    >
-  > = {};
   if (body.templateId) {
     const template = await context.models.rampScheduleTemplates.getById(
       body.templateId,
@@ -127,25 +118,13 @@ export async function postRampSchedule(
           "Template is not an experiment ramp template; cannot apply it to an experiment.",
       });
     }
+    // Templates capture the ramp structure only; automation (rollback /
+    // progression / shipping) stays on the experiment + org defaults.
     steps = remapTemplateExperimentSteps(template.steps, experiment.id);
     endActions = remapTemplateExperimentEndActions(
       template.endPatch,
       experiment.id,
     );
-    if (template.autoRollbackMode !== undefined) {
-      experimentChanges.autoRollbackMode = template.autoRollbackMode;
-    }
-    if (template.rampProgressionMode !== undefined) {
-      experimentChanges.rampProgressionMode = template.rampProgressionMode;
-    }
-    if (template.shippingCriteria !== undefined) {
-      // Merge so an experiment's existing plannedVariationId isn't wiped by a
-      // template (which only carries mode + minimumRuntimeDays).
-      experimentChanges.shippingCriteria = {
-        ...experiment.shippingCriteria,
-        ...template.shippingCriteria,
-      };
-    }
   }
 
   // A schedule with no steps only makes sense as a pure date-gated rollout;
@@ -193,7 +172,7 @@ export async function postRampSchedule(
     await updateExperiment({
       context,
       experiment,
-      changes: { ...experimentChanges, rampScheduleId: schedule.id },
+      changes: { rampScheduleId: schedule.id },
     });
   } catch (e) {
     // Don't leave an orphaned schedule the experiment doesn't point at (and

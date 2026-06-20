@@ -64,11 +64,11 @@ export class RampScheduleTemplateModel extends BaseClass {
   // Enforce the entityType ⟺ step-action-kind invariant (the discriminated
   // union in the schema can't express this cross-field constraint, and a
   // schema-level superRefine would be stripped by BaseModel's create/update
-  // `.omit()`). Also keep the experiment-only automation fields off feature
-  // templates.
+  // `.omit()`).
   protected async customValidation(doc: RampScheduleTemplateInterface) {
-    const isExperiment = this.isExperimentTemplate(doc);
-    const allowed = isExperiment ? "experiment" : "feature-rule";
+    const allowed = this.isExperimentTemplate(doc)
+      ? "experiment"
+      : "feature-rule";
     for (const step of doc.steps ?? []) {
       for (const action of step.actions ?? []) {
         if (action.targetType !== allowed) {
@@ -79,16 +79,6 @@ export class RampScheduleTemplateModel extends BaseClass {
           );
         }
       }
-    }
-    if (
-      !isExperiment &&
-      (doc.autoRollbackMode !== undefined ||
-        doc.rampProgressionMode !== undefined ||
-        doc.shippingCriteria !== undefined)
-    ) {
-      throw new Error(
-        "autoRollbackMode, rampProgressionMode, and shippingCriteria are only valid on experiment ramp templates.",
-      );
     }
   }
 
