@@ -103,6 +103,8 @@ export interface UserContextValue {
   pylonHmacHash?: string;
   email?: string;
   superAdmin?: boolean;
+  npsSurveyStatus?: "responded" | "dismissed";
+  npsSurveyAt?: string;
   license?: Partial<LicenseInterface> | null;
   installationName?: string;
   subscription: SubscriptionInfo | null;
@@ -146,6 +148,8 @@ interface UserResponse {
   pylonHmacHash: string;
   verified: boolean;
   superAdmin: boolean;
+  npsSurveyStatus?: "responded" | "dismissed";
+  npsSurveyAt?: string;
   organizations?: UserOrganizations;
   currentUserPermissions: UserPermissions;
 }
@@ -633,6 +637,8 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         email: data?.email,
         pylonHmacHash: data?.pylonHmacHash,
         superAdmin: data?.superAdmin,
+        npsSurveyStatus: data?.npsSurveyStatus,
+        npsSurveyAt: data?.npsSurveyAt,
         updateUser,
         user,
         users,

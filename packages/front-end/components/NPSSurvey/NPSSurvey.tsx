@@ -1,0 +1,414 @@
+import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
+import { IconButton } from "@radix-ui/themes";
+import { PiX } from "react-icons/pi";
+import Button from "@/ui/Button";
+import track from "@/services/track";
+import { isCloud } from "@/services/env";
+import { useAuth } from "@/services/auth";
+import { useUser } from "@/services/UserContext";
+import styles from "./NPSSurvey.module.scss";
+
+type Panel = "question" | "feedback" | "thanks";
+type Category = "detractor" | "passive" | "promoter";
+
+const STORAGE_KEY = "gb_nps_v1";
+const SURVEY_ID = "app-nps";
+const SHOW_DELAY = 1100;
+const THANKS_DURATION = 2600;
+const EXIT_DURATION = 360;
+const RESURVEY_DAYS = 90;
+const RESURVEY_MS = RESURVEY_DAYS * 24 * 60 * 60 * 1000;
+const SCORES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+
+const PROMPTS: Record<Category, string> = {
+  detractor: "What's the main thing we should improve?",
+  passive: "What would make GrowthBook a 10 for you?",
+  promoter: "What do you enjoy most about GrowthBook?",
+};
+
+const CATEGORY_LABEL: Record<Category, string> = {
+  detractor: "Detractor",
+  passive: "Passive",
+  promoter: "Promoter",
+};
+
+const CAT_CLASS: Record<Category, string> = {
+  detractor: styles.catDetractor,
+  passive: styles.catPassive,
+  promoter: styles.catPromoter,
+};
+
+function categoryOf(score: number): Category {
+  return score <= 6 ? "detractor" : score <= 8 ? "passive" : "promoter";
+}
+
+function npsValue(score: number): number {
+  return score >= 9 ? 1 : score <= 6 ? -1 : 0;
+}
+
+// True while a user is inside the re-survey cooldown window after their last prompt.
+function withinCooldown(dateIso?: string | null): boolean {
+  if (!dateIso) return false;
+  const t = new Date(dateIso).getTime();
+  return !Number.isNaN(t) && Date.now() - t < RESURVEY_MS;
+}
+
+// Dev/staff override: `?show-nps` forces the survey to appear, bypassing the
+// cooldown and delay. Gated on the `nps-survey-preview` flag, which is targeted
+// to the GrowthBook org in GrowthBook — so org targeting lives in the flag, not
+// in hardcoded host/role checks. Devs enable the flag locally to test.
+function forceShowRequested(previewFlagOn: boolean): boolean {
+  if (typeof window === "undefined") return false;
+  if (!new URLSearchParams(window.location.search).has("show-nps"))
+    return false;
+  return previewFlagOn;
+}
+
+type StoredState =
+  | { status: "responded"; score: number; date: string }
+  | { status: "dismissed"; date: string };
+
+function readStored(): StoredState | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as StoredState) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeStored(state: StoredState): void {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch {
+    // localStorage may be unavailable (private mode); ignore
+  }
+}
+
+function prefersReducedMotion(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  );
+}
+
+function CheckMark() {
+  return (
+    <svg
+      viewBox="0 0 36 36"
+      fill="none"
+      strokeWidth={3}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="18" cy="18" r="15" strokeOpacity={0.28} />
+      <path d="M11 18.5l4.5 4.5L25 13" pathLength={1} />
+    </svg>
+  );
+}
+
+export default function NPSSurvey() {
+  const flagOn = useFeatureIsOn("nps-survey");
+  const previewFlagOn = useFeatureIsOn("nps-survey-preview");
+  const { apiCall } = useAuth();
+  const { npsSurveyAt, updateUser } = useUser();
+  const suppressed = withinCooldown(npsSurveyAt);
+
+  const [mounted, setMounted] = useState(false);
+  const [visible, setVisible] = useState(false);
+  const [forceShow, setForceShow] = useState(false);
+  const [closing, setClosing] = useState(false);
+  const [panel, setPanel] = useState<Panel>("question");
+  const [score, setScore] = useState<number | null>(null);
+  const [feedback, setFeedback] = useState("");
+
+  const sentRef = useRef(false);
+  const scoreRef = useRef<number | null>(null);
+  const feedbackRef = useRef("");
+  const closeTimer = useRef<number | null>(null);
+  const apiCallRef = useRef(apiCall);
+  const updateUserRef = useRef(updateUser);
+
+  useEffect(() => {
+    scoreRef.current = score;
+  }, [score]);
+  useEffect(() => {
+    feedbackRef.current = feedback;
+  }, [feedback]);
+  useEffect(() => {
+    apiCallRef.current = apiCall;
+    updateUserRef.current = updateUser;
+  }, [apiCall, updateUser]);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    setForceShow(forceShowRequested(previewFlagOn));
+  }, [previewFlagOn]);
+
+  // The `?show-nps` dev/staff override fires immediately and bypasses every gate;
+  // otherwise show after a delay for Cloud users not in the re-survey cooldown
+  // (checked cross-device via the user record, and per-device via localStorage).
+  useEffect(() => {
+    if (forceShow) {
+      setVisible(true);
+      return;
+    }
+    if (
+      !flagOn ||
+      !isCloud() ||
+      suppressed ||
+      withinCooldown(readStored()?.date)
+    )
+      return;
+    const t = window.setTimeout(() => setVisible(true), SHOW_DELAY);
+    return () => window.clearTimeout(t);
+  }, [flagOn, suppressed, forceShow]);
+
+  // Persist the cross-device suppression signal on the user's account (best-effort).
+  // keepalive lets the write survive a tab close, so abandonment suppresses elsewhere too.
+  const persistServer = useCallback(
+    (
+      status: "responded" | "dismissed",
+      extra?: { score: number; feedback: string },
+    ) => {
+      void apiCallRef
+        .current(`/user/nps-response`, {
+          method: "POST",
+          body: JSON.stringify({ status, ...extra }),
+          keepalive: true,
+        })
+        .then(() => updateUserRef.current())
+        .catch(() => {
+          // best-effort; localStorage still suppresses on this device
+        });
+    },
+    [],
+  );
+
+  // Report the chosen score exactly once, with whatever comment exists so far.
+  const emitResponse = useCallback(() => {
+    const s = scoreRef.current;
+    if (sentRef.current || s === null) return;
+    sentRef.current = true;
+    track("nps_response", {
+      score: s,
+      nps_value: npsValue(s),
+      category: categoryOf(s),
+      feedback: feedbackRef.current.trim(),
+      survey_id: SURVEY_ID,
+    });
+    writeStored({
+      status: "responded",
+      score: s,
+      date: new Date().toISOString(),
+    });
+    persistServer("responded", {
+      score: s,
+      feedback: feedbackRef.current.trim(),
+    });
+  }, [persistServer]);
+
+  const dismissCard = useCallback(() => {
+    if (prefersReducedMotion()) {
+      setVisible(false);
+      return;
+    }
+    setClosing(true);
+    window.setTimeout(() => {
+      setVisible(false);
+      setClosing(false);
+    }, EXIT_DURATION);
+  }, []);
+
+  const handleClose = useCallback(() => {
+    if (scoreRef.current !== null) {
+      emitResponse();
+    } else {
+      writeStored({ status: "dismissed", date: new Date().toISOString() });
+      persistServer("dismissed");
+    }
+    dismissCard();
+  }, [emitResponse, dismissCard, persistServer]);
+
+  const handleSubmit = useCallback(() => {
+    emitResponse();
+    setPanel("thanks");
+    if (closeTimer.current) window.clearTimeout(closeTimer.current);
+    closeTimer.current = window.setTimeout(dismissCard, THANKS_DURATION);
+  }, [emitResponse, dismissCard]);
+
+  // Catch true abandonment: tab hidden / navigating away with a score but no submit.
+  useEffect(() => {
+    if (!visible) return;
+    const flush = () => {
+      if (scoreRef.current !== null && !sentRef.current) emitResponse();
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") flush();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("pagehide", flush);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("pagehide", flush);
+    };
+  }, [visible, emitResponse]);
+
+  useEffect(() => {
+    if (!visible) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") handleClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [visible, handleClose]);
+
+  useEffect(
+    () => () => {
+      if (closeTimer.current) window.clearTimeout(closeTimer.current);
+    },
+    [],
+  );
+
+  if (!mounted || !visible) return null;
+
+  const cat: Category | null = score !== null ? categoryOf(score) : null;
+
+  const card = (
+    <div className={`${styles.wrapper} ${closing ? styles.closing : ""}`}>
+      <div
+        className={styles.card}
+        role="dialog"
+        aria-label="GrowthBook feedback survey"
+        aria-live="polite"
+      >
+        <IconButton
+          className={styles.close}
+          variant="ghost"
+          color="gray"
+          size="1"
+          onClick={handleClose}
+          aria-label="Dismiss survey"
+        >
+          <PiX />
+        </IconButton>
+
+        {panel === "question" && (
+          <div className={styles.panel}>
+            <p className={styles.eyebrow}>Quick question · ~15 sec</p>
+            <h2 className={styles.question}>
+              How likely are you to recommend GrowthBook to a friend or
+              colleague?
+            </h2>
+            <div
+              className={styles.scale}
+              role="radiogroup"
+              aria-label="Score from 0 to 10"
+            >
+              {SCORES.map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  role="radio"
+                  aria-checked={score === s}
+                  aria-label={`Score ${s}`}
+                  data-score={s}
+                  className={`${styles.cell} ${CAT_CLASS[categoryOf(s)]}`}
+                  onClick={() => {
+                    setScore(s);
+                    setPanel("feedback");
+                  }}
+                  onKeyDown={(e) => {
+                    let next: number | null = null;
+                    if (e.key === "ArrowRight" || e.key === "ArrowUp") {
+                      next = Math.min(10, s + 1);
+                    } else if (e.key === "ArrowLeft" || e.key === "ArrowDown") {
+                      next = Math.max(0, s - 1);
+                    }
+                    if (next !== null) {
+                      e.preventDefault();
+                      const el =
+                        e.currentTarget.parentElement?.querySelector<HTMLButtonElement>(
+                          `[data-score="${next}"]`,
+                        );
+                      el?.focus();
+                    }
+                  }}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+            <div className={styles.anchors}>
+              <span>Not at all likely</span>
+              <span>Extremely likely</span>
+            </div>
+          </div>
+        )}
+
+        {panel === "feedback" && score !== null && cat && (
+          <div className={styles.panel}>
+            <button
+              type="button"
+              className={styles.back}
+              onClick={() => setPanel("question")}
+            >
+              ← Change score
+            </button>
+            <div className={styles.scoreline}>
+              <span className={`${styles.scorebox} ${CAT_CLASS[cat]}`}>
+                {score}
+              </span>
+              <span className={`${styles.category} ${CAT_CLASS[cat]}`}>
+                {CATEGORY_LABEL[cat]}
+              </span>
+            </div>
+            <label className={styles.prompt} htmlFor="gb-nps-feedback">
+              {PROMPTS[cat]}
+            </label>
+            <textarea
+              id="gb-nps-feedback"
+              className={styles.textarea}
+              rows={3}
+              placeholder="Optional — a sentence is plenty"
+              value={feedback}
+              onChange={(e) => setFeedback(e.target.value)}
+            />
+            <div className={styles.actions}>
+              <Button variant="ghost" color="gray" onClick={handleSubmit}>
+                Skip
+              </Button>
+              <Button onClick={handleSubmit}>Send feedback</Button>
+            </div>
+          </div>
+        )}
+
+        {panel === "thanks" && (
+          <div className={`${styles.panel} ${styles.thanks}`}>
+            <span className={styles.check}>
+              <CheckMark />
+            </span>
+            <h2 className={styles.thanksTitle}>
+              Thanks — that&apos;s really helpful.
+            </h2>
+            <p className={styles.thanksSub}>
+              Your feedback shapes what we build next.
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  // Portal into #portal-root (rendered inside <RadixTheme>) rather than document.body,
+  // so the Radix theme CSS variables (panel background, shadow, colors) resolve.
+  const portalTarget = document.getElementById("portal-root") ?? document.body;
+
+  return createPortal(card, portalTarget);
+}
