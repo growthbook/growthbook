@@ -255,6 +255,11 @@ function generateSimpleStepsFromSeconds(totalSeconds: number): UIStep[] {
 export function stepsMatchSimplePattern(
   steps: UIStep[],
   endPatch?: UIStepPatch,
+  // When provided, the steps are compared against the canonical simple ramp for
+  // THIS duration (e.g. the current simpleDurationDays) rather than the pattern
+  // derived from the steps' own total. Used so the "Simple View" warning fires
+  // whenever switching would regenerate a different ramp.
+  expectedTotalSeconds?: number,
 ): boolean {
   // Any non-coverage rule patch means this is advanced mode.
   const hasStepRuleEffects = steps.some((s) =>
@@ -276,13 +281,13 @@ export function stepsMatchSimplePattern(
     (sum, s) => sum + s.intervalValue * UNIT_MULT[s.intervalUnit],
     0,
   );
-  const expectedSimpleSteps = generateSimpleStepsFromSeconds(totalSeconds).map(
-    (s) => ({
-      ...s,
-      monitored: firstStep.monitored,
-      holdConditions: firstStep.holdConditions,
-    }),
-  );
+  const expectedSimpleSteps = generateSimpleStepsFromSeconds(
+    expectedTotalSeconds ?? totalSeconds,
+  ).map((s) => ({
+    ...s,
+    monitored: firstStep.monitored,
+    holdConditions: firstStep.holdConditions,
+  }));
   const normalizeSimpleStep = (s: UIStep) => ({
     triggerType: s.triggerType,
     intervalSeconds: s.intervalValue * UNIT_MULT[s.intervalUnit],
@@ -3327,8 +3332,23 @@ export default function RampScheduleSection({
   const showAdvancedEditor = !isSimpleMode || hasTemplate;
 
   const hasCustomizedSteps = useMemo(() => {
-    return !stepsMatchSimplePattern(state.steps, state.endPatch);
-  }, [state.steps, state.endPatch]);
+    // Switching to Simple View regenerates the ramp from simpleDurationDays, so
+    // warn whenever the current steps differ from THAT ramp — not just when
+    // they fail to match any simple-shaped pattern. (Otherwise a simple-shaped
+    // ramp at a different duration would erase silently.)
+    const unit = state.simpleDurationUnit ?? "days";
+    const expectedTotalSeconds = state.simpleDurationDays * UNIT_MULT[unit];
+    return !stepsMatchSimplePattern(
+      state.steps,
+      state.endPatch,
+      expectedTotalSeconds,
+    );
+  }, [
+    state.steps,
+    state.endPatch,
+    state.simpleDurationDays,
+    state.simpleDurationUnit,
+  ]);
 
   const hasSafeRolloutFeature = hasCommercialFeature("safe-rollout");
 
