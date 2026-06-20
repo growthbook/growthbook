@@ -20,9 +20,15 @@ RUN \
   && poetry build \
   && poetry export -f requirements.txt --output requirements.txt \
   && pip install --no-cache-dir -r requirements.txt \
-  && pip install --no-cache-dir dist/*.whl ddtrace==4.3.2 "cryptography>=46.0.6,<47" \
-  && pip uninstall -y poetry poetry-core poetry-plugin-export keyring jaraco.classes setuptools wheel
+  && pip install --no-cache-dir dist/*.whl ddtrace==4.3.2 "cryptography>=46.0.6,<47"
 # cryptography version is specified above to override transitive dependency and fix vulnerability
+
+# Strip poetry and its build-time-only footprint so non-runtime deps don't ship in the venv.
+# These are poetry's own dependencies, not gbstats' (`poetry install --without dev` above already
+# drops gbstats' dev group): poetry pulls in dulwich, keyring and jaraco.classes, and
+# setuptools/wheel are build tooling. Removing them also keeps their CVEs out of the image —
+# e.g. dulwich (CVE-2026-42305 / GHSA-897w-fcg9-f6xj).
+RUN pip uninstall -y poetry poetry-core poetry-plugin-export keyring jaraco.classes setuptools wheel dulwich
 
 # Build the nodejs app
 FROM node:${NODE_MAJOR}-slim AS nodebuild
@@ -32,7 +38,7 @@ ARG NODE_OPTIONS="--max-old-space-size=8192"
 ENV NODE_OPTIONS="${NODE_OPTIONS}"
 RUN apt-get update && \
   apt-get install -y --no-install-recommends build-essential python3 ca-certificates libkrb5-dev && \
-  npm install -g pnpm@10.32.1 node-gyp && \
+  npm install -g pnpm@10.33.4 node-gyp && \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/*
 # Fetch packages into pnpm store
@@ -78,14 +84,19 @@ RUN \
   && rm -f packages/stats/poetry.lock
 RUN pnpm postinstall
 
-# Package the full app together
-FROM node:${NODE_MAJOR}-slim
+# Package the full app together on a hardened, continuously-patched base
+# (Docker Hardened Images). The dev variant keeps apt/shell/root, so the
+# apt-install + pm2 + pnpm flow below is unchanged from a stock node base.
+# Building this image from source requires `docker login dhi.io` (free Docker
+# Hub account, DHI Community tier). Pulling the published growthbook/growthbook
+# image needs no such login.
+FROM dhi.io/node:${NODE_MAJOR}-debian12-dev
 ARG PYTHON_MAJOR
 WORKDIR /usr/local/src/app
+# The hardened node image already bundles pnpm, so (unlike a stock node base) we
+# don't reinstall it; the stock-path npm removal is likewise unneeded here.
 RUN apt-get update && \
   apt-get install -y --no-install-recommends python${PYTHON_MAJOR} ca-certificates libkrb5-3 && \
-  npm install -g pnpm@10.32.1 && \
-  rm -rf /usr/local/lib/node_modules/npm && \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/* && \
   ln -sf /usr/bin/python${PYTHON_MAJOR} /usr/local/bin/python3 && \

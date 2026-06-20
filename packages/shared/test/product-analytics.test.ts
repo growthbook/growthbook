@@ -1,5 +1,5 @@
 import { generateProductAnalyticsSQL } from "shared/enterprise";
-import { format } from "shared/sql";
+import { format, createLikeStringMatchFn } from "shared/sql";
 import { ExplorationConfig } from "shared/validators";
 import { SqlDialect } from "shared/types/sql";
 import {
@@ -15,6 +15,10 @@ describe("productAnalytics", () => {
 
   const helpers: SqlDialect = {
     escapeStringLiteral: (value) => value,
+    stringMatch: createLikeStringMatchFn({
+      escapeStringLiteral: (value) => value,
+      emitEscapeClause: false,
+    }),
     jsonExtract: (jsonCol, path, isNumeric) =>
       `${jsonCol}:'${path}'::${isNumeric ? "float" : "text"}`,
     evalBoolean: (col, value) => `${col} IS ${value ? "TRUE" : "FALSE"}`,
@@ -23,8 +27,9 @@ describe("productAnalytics", () => {
       `APPROX_PERCENTILE(${col}, ${quantile})`,
     hllReaggregate: (col) => `HLL_MERGE(${col})`,
     hllCardinality: (col) => `HLL_COUNT(${col})`,
-    kllMergePartial: (col) => `KLL_MERGE(${col})`,
-    kllExtractPoint: (col, quantile) => `KLL_POINT(${col}, ${quantile})`,
+    quantileSketchMergePartial: (col) => `KLL_MERGE(${col})`,
+    quantileSketchExtractPoint: (col, quantile) =>
+      `KLL_POINT(${col}, ${quantile})`,
     toTimestamp: (d: Date) =>
       // Do not include the timestamp component to make the test deterministic
       `'${d.toISOString().substring(0, 10)} 00:00:00'`,

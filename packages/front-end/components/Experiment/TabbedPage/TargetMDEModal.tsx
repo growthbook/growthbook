@@ -5,7 +5,7 @@ import {
   ExperimentInterfaceStringDates,
 } from "shared/types/experiment";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
-import { ExperimentMetricInterfaceWithComputedTargetMDE } from "@/components/Experiment/TabbedPage/AnalysisSettings";
+import { ExperimentMetricInterfaceWithComputedTargetMDE } from "@/components/Experiment/TabbedPage/DecisionMakingSettings";
 import Field from "@/components/Forms/Field";
 import { useAuth } from "@/services/auth";
 import Checkbox from "@/ui/Checkbox";

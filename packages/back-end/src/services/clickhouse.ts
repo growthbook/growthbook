@@ -1,32 +1,35 @@
-import { createClient as createClickhouseClient } from "@clickhouse/client";
-import { AIPromptType } from "shared/ai";
 import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
 import {
+  buildManagedWarehouseEventsFactTableSql,
+  buildManagedWarehouseExposureQueries,
+  getManagedWarehouseEventsFactTableColumns,
+  getManagedWarehouseUserIdTypes,
+  getManagedWarehouseUserIdTypeSettings,
   isManagedWarehouseAwaitingProvisioning,
-  parseIntWithDefault,
+  MANAGED_WAREHOUSE_ATTRIBUTES_COLUMN,
+  MANAGED_WAREHOUSE_RESERVED_COLUMN_NAMES,
 } from "shared/util";
 import {
   GrowthbookClickhouseDataSource,
   MaterializedColumn,
 } from "shared/types/datasource";
-import { DailyUsage } from "shared/types/organization";
-import {
-  CLICKHOUSE_HOST,
-  CLICKHOUSE_ADMIN_USER,
-  CLICKHOUSE_ADMIN_PASSWORD,
-  CLICKHOUSE_DATABASE,
-  CLICKHOUSE_MAIN_TABLE,
-  ENVIRONMENT,
-  IS_CLOUD,
-  CLICKHOUSE_OVERAGE_TABLE,
-} from "back-end/src/util/secrets";
+import { SDKAttributeSchema } from "shared/types/organization";
+import { ColumnInterface } from "shared/types/fact-table";
+import { isEqual } from "lodash";
 import type { ReqContext } from "back-end/types/request";
-import { logger } from "back-end/src/util/logger";
+import type { ApiReqContext } from "back-end/types/api";
 import {
+  dangerouslyGetFactTableByIdBypassPermission,
+  dangerouslySyncManagedWarehouseFactTable,
   getFactTablesForDatasource,
   updateFactTableColumns,
 } from "back-end/src/models/FactTableModel";
+import {
+  dangerouslyGetGrowthbookDatasourceBypassPermission,
+  updateDataSource,
+} from "back-end/src/models/DataSourceModel";
 import { updateMaterializedColumnsInClickhouse } from "back-end/src/services/licenseServerManagedClickhouse";
+import { logger } from "back-end/src/util/logger";
 
 type ClickHouseDataType =
   | "DateTime"
@@ -43,35 +46,6 @@ const REMAINING_COLUMNS_SCHEMA: Record<string, ClickHouseDataType> = {
   ip: "String",
 };
 
-function ensureClickhouseEnvVars() {
-  if (
-    !CLICKHOUSE_HOST ||
-    !CLICKHOUSE_ADMIN_USER ||
-    !CLICKHOUSE_ADMIN_PASSWORD ||
-    !CLICKHOUSE_DATABASE ||
-    !CLICKHOUSE_MAIN_TABLE
-  ) {
-    throw new Error(
-      "Must specify necessary environment variables to interact with clickhouse.",
-    );
-  }
-}
-
-function createAdminClickhouseClient() {
-  ensureClickhouseEnvVars();
-  return createClickhouseClient({
-    host: CLICKHOUSE_HOST,
-    username: CLICKHOUSE_ADMIN_USER,
-    password: CLICKHOUSE_ADMIN_PASSWORD,
-    database: CLICKHOUSE_DATABASE,
-    application: "GrowthBook",
-    request_timeout: 3620_000,
-    clickhouse_settings: {
-      max_execution_time: 3600,
-    },
-  });
-}
-
 export function getReservedColumnNames(): Set<string> {
   return new Set(
     [
@@ -85,150 +59,6 @@ export function getReservedColumnNames(): Set<string> {
       ...Object.keys(REMAINING_COLUMNS_SCHEMA),
     ].map((col) => col.toLowerCase()),
   );
-}
-
-// In order to monitor usage and quality of AI responses on cloud we log each request to AI agents
-export async function logCloudAIUsage({
-  organization,
-  type,
-  model,
-  temperature,
-  numPromptTokensUsed,
-  numCompletionTokensUsed,
-  usedDefaultPrompt,
-}: {
-  organization: string;
-  model: string;
-  numPromptTokensUsed?: number;
-  numCompletionTokensUsed?: number;
-  type: AIPromptType;
-  temperature?: number;
-  usedDefaultPrompt: boolean;
-}): Promise<void> {
-  if (!IS_CLOUD) {
-    // This is only for cloud
-    return;
-  }
-
-  const env = ENVIRONMENT === "production" ? "prod" : ENVIRONMENT;
-  // As this is just for logging, there is no need to make this a fatal error if it fails
-  try {
-    const client = createAdminClickhouseClient();
-    await client.insert({
-      table: "usage.ai_usage",
-      values: [
-        {
-          env,
-          organization,
-          type,
-          model,
-          num_prompt_tokens_used: numPromptTokensUsed,
-          num_completion_tokens_used: numCompletionTokensUsed,
-          temperature,
-          used_default_prompt: usedDefaultPrompt,
-          date_created: new Date(),
-        },
-      ],
-      format: "JSONEachRow",
-    });
-  } catch (e) {
-    logger.error(e, "Failed to log AI usage to Clickhouse");
-  }
-}
-
-export async function getDailyUsageForOrg(
-  orgId: string,
-  start: Date,
-  end: Date,
-): Promise<DailyUsage[]> {
-  const client = createAdminClickhouseClient();
-
-  // orgId is coming from the back-end, so this should not be necessary, but just in case
-  const sanitizedOrgId = orgId.replace(/[^a-zA-Z0-9_-]/g, "");
-
-  const startString = start.toISOString().replace("T", " ").substring(0, 19);
-  const endString = end.toISOString().replace("T", " ").substring(0, 19);
-
-  // Don't fill forward beyond the current date
-  const fillEnd = end > new Date() ? new Date() : end;
-  const fillEndString = fillEnd
-    .toISOString()
-    .replace("T", " ")
-    .substring(0, 19);
-
-  const sql = `
-select
-  date,
-  sum(requests) as requests,
-  sum(bandwidth) as bandwidth,
-  sum(managedClickhouseEvents) as managedClickhouseEvents
-from (
-  select
-    toStartOfDay(hour) as date,
-    sum(requests) as requests,
-    sum(bandwidth) as bandwidth,
-    0 as managedClickhouseEvents
-  from usage.cdn_hourly
-  where
-    organization = '${sanitizedOrgId}'
-    AND date BETWEEN '${startString}' AND '${endString}'
-  group by date
-  
-  union all
-  
-  select
-    toStartOfDay(received_at) as date,
-    0 as requests,
-    0 as bandwidth,
-    count(1) as managedClickhouseEvents
-  from ${CLICKHOUSE_MAIN_TABLE}
-  where
-    organization = '${sanitizedOrgId}'
-    AND received_at BETWEEN '${startString}' AND '${endString}'
-  group by date
-  
-  union all
-  
-  select
-    toStartOfDay(received_at) as date,
-    0 as requests,
-    0 as bandwidth,
-    count(1) as managedClickhouseEvents
-  from ${CLICKHOUSE_OVERAGE_TABLE}
-  where
-    organization = '${sanitizedOrgId}'
-    AND received_at BETWEEN '${startString}' AND '${endString}'
-  group by date
-)
-group by date
-order by date ASC
-WITH FILL
-  FROM toDateTime('${startString}')
-  TO toDateTime('${fillEndString}')
-  STEP toIntervalDay(1)
-  `.trim();
-
-  const res = await client.query({
-    query: sql,
-    format: "JSONEachRow",
-  });
-
-  const data: {
-    date: string;
-    // These are returned as strings because they could in theory be bigger than MAX_SAFE_INTEGER
-    // That is very unlikely, and even if it happens it will still be approximately correct
-    requests: string;
-    bandwidth: string;
-    managedClickhouseEvents: string;
-  }[] = await res.json();
-
-  // Convert strings to numbers for all metrics
-  return data.map((d) => ({
-    date: d.date,
-    requests: parseIntWithDefault(d.requests, 0),
-    bandwidth: parseIntWithDefault(d.bandwidth, 0),
-    managedClickhouseEvents: parseIntWithDefault(d.managedClickhouseEvents, 0),
-  }));
 }
 
 export async function updateMaterializedColumns({
@@ -330,6 +160,169 @@ export async function updateMaterializedColumns({
       ft,
       { columns: newColumns, userIdTypes: newIdentifierTypes },
       context,
+    );
+  }
+}
+
+// Re-sync a JSON-column managed warehouse after the org's identifiers change:
+// regenerates the datasource userIdTypes/exposure queries and the `ch_events` fact
+// table so custom identifiers are aliased out of `attributes`. No-op for legacy
+// (materialized-column) warehouses or when no managed warehouse exists.
+export async function syncManagedWarehouseIdentifiers(
+  context: ReqContext | ApiReqContext,
+  // Pass the freshly-updated schema; context.org may still be stale post-mutation.
+  attributeSchema: SDKAttributeSchema | undefined = context.org.settings
+    ?.attributeSchema,
+): Promise<void> {
+  const datasource =
+    await dangerouslyGetGrowthbookDatasourceBypassPermission(context);
+  if (
+    !datasource ||
+    datasource.type !== "growthbook_clickhouse" ||
+    !datasource.settings.useJsonColumns
+  ) {
+    return;
+  }
+
+  const newUserIdTypes = getManagedWarehouseUserIdTypes(attributeSchema);
+
+  // Update datasource settings (userIdTypes + exposure queries).
+  // updateDataSource short-circuits when nothing actually changed.
+  // Skip live exposure-query validation: this is a best-effort sync and the
+  // queries are GrowthBook-authored, so an attribute change shouldn't block on
+  // (or be flagged by) a slow/unreachable warehouse.
+  await updateDataSource(
+    context,
+    datasource,
+    {
+      settings: {
+        ...datasource.settings,
+        userIdTypes: getManagedWarehouseUserIdTypeSettings(attributeSchema),
+        queries: {
+          ...datasource.settings.queries,
+          exposure: buildManagedWarehouseExposureQueries(attributeSchema),
+        },
+      },
+    },
+    { skipExposureQueryValidation: true },
+  );
+
+  // Update the events fact table sql + columns + userIdTypes
+  const ft = await dangerouslyGetFactTableByIdBypassPermission(
+    context.org.id,
+    MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID,
+  );
+  if (!ft) return;
+
+  const desiredColumns =
+    getManagedWarehouseEventsFactTableColumns(attributeSchema);
+  const desiredColumnNames = new Set(desiredColumns.map((c) => c.column));
+
+  const newColumns: ColumnInterface[] = [...ft.columns];
+  newColumns.forEach((col) => {
+    if (col.numberFormat === undefined) {
+      col.numberFormat = "";
+    }
+  });
+
+  let columnsMutated = false;
+
+  // Add new columns, restore any that were previously removed
+  desiredColumns.forEach((dc) => {
+    const existing = newColumns.find((c) => c.column === dc.column);
+    if (!existing) {
+      newColumns.push({
+        column: dc.column,
+        name: dc.column,
+        datatype: dc.datatype,
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        deleted: false,
+        description: "",
+        numberFormat: "",
+        alwaysInlineFilter: dc.alwaysInlineFilter,
+      });
+      columnsMutated = true;
+    } else if (existing.deleted) {
+      existing.deleted = false;
+      existing.dateUpdated = new Date();
+      columnsMutated = true;
+    }
+  });
+
+  // Mark removed custom identifiers as deleted. Only ever delete former
+  // identifier aliases, never real columns: a custom identifier is guaranteed
+  // non-reserved (reserved-name collisions are excluded when building
+  // identifiers), so skipping reserved columns protects every `SELECT *` column
+  // the refresh job discovered (e.g. `url`, `session_id`) from being removed on
+  // an unrelated attribute edit.
+  newColumns.forEach((col) => {
+    if (
+      !col.deleted &&
+      !desiredColumnNames.has(col.column) &&
+      !MANAGED_WAREHOUSE_RESERVED_COLUMN_NAMES.has(col.column.toLowerCase())
+    ) {
+      col.deleted = true;
+      col.dateUpdated = new Date();
+      columnsMutated = true;
+    }
+  });
+
+  // Keep the `attributes` JSON pseudo-columns in sync with the attribute schema:
+  // schema-declared fields win (so a type change propagates), while any extra
+  // fields discovered from data by the refresh job are preserved.
+  const desiredJsonFields = desiredColumns.find(
+    (c) => c.column === MANAGED_WAREHOUSE_ATTRIBUTES_COLUMN,
+  )?.jsonFields;
+  const attributesCol = newColumns.find(
+    (c) => c.column === MANAGED_WAREHOUSE_ATTRIBUTES_COLUMN,
+  );
+  if (attributesCol && desiredJsonFields) {
+    const mergedJsonFields = {
+      ...attributesCol.jsonFields,
+      ...desiredJsonFields,
+    };
+    if (!isEqual(attributesCol.jsonFields || {}, mergedJsonFields)) {
+      attributesCol.jsonFields = mergedJsonFields;
+      attributesCol.dateUpdated = new Date();
+      columnsMutated = true;
+    }
+  }
+
+  const newSql = buildManagedWarehouseEventsFactTableSql(attributeSchema);
+
+  // Skip the write when nothing changed (e.g. a tag/description-only edit on an
+  // identifier attribute) to avoid needless fact-table churn.
+  if (
+    !columnsMutated &&
+    ft.sql === newSql &&
+    isEqual(ft.userIdTypes || [], newUserIdTypes)
+  ) {
+    return;
+  }
+
+  await dangerouslySyncManagedWarehouseFactTable(context, ft, {
+    sql: newSql,
+    columns: newColumns,
+    userIdTypes: newUserIdTypes,
+  });
+}
+
+// Best-effort wrapper for attribute create/update/delete (internal + REST API):
+// a managed-warehouse sync failure must never fail the attribute change itself.
+// Runs for any attribute change (not just identifiers) so the `attributes` JSON
+// pseudo-columns track non-identifier attributes and their type changes too; the
+// underlying sync no-ops when nothing material actually changed.
+export async function syncManagedWarehouseIdentifiersOnAttributeChange(
+  context: ReqContext | ApiReqContext,
+  attributeSchema: SDKAttributeSchema | undefined,
+): Promise<void> {
+  try {
+    await syncManagedWarehouseIdentifiers(context, attributeSchema);
+  } catch (e) {
+    logger.error(
+      e,
+      "Failed to sync managed warehouse identifiers after attribute change",
     );
   }
 }

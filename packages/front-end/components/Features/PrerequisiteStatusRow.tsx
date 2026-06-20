@@ -83,7 +83,7 @@ export default function PrerequisiteStatusRow({
     [revisionList],
   );
   const [deleteMode, setDeleteMode] = useState<DraftMode>(
-    latestActiveDraft != null ? "existing" : "new",
+    latestActiveDraft !== null ? "existing" : "new",
   );
   const [deleteSelectedDraft, setDeleteSelectedDraft] = useState<number | null>(
     latestActiveDraft?.version ?? null,
@@ -131,7 +131,7 @@ export default function PrerequisiteStatusRow({
         const resolvedVersion =
           res?.version ??
           (deleteMode === "existing" ? deleteSelectedDraft : null);
-        if (resolvedVersion != null) setVersion(resolvedVersion);
+        if (resolvedVersion !== null) setVersion(resolvedVersion);
       }}
     >
       <Box style={{ minHeight: 300 }}>

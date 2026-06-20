@@ -80,15 +80,19 @@ export default function LinkedChange({
             {changeType === "flag" ? (
               <Link href={`/features/${feature?.id}`}>
                 <Heading as="h4" size="small" weight="medium" mb="0">
-                  {heading}
-                  <PiArrowSquareOut className="ml-2" />
+                  <Flex align="center">
+                    {heading}
+                    <PiArrowSquareOut className="ml-2" />
+                  </Flex>
                 </Heading>
               </Link>
             ) : headingLink ? (
               <Link href={headingLink}>
                 <Heading as="h4" size="small" weight="medium" mb="0">
-                  {heading}
-                  <PiArrowSquareOut className="ml-2" />
+                  <Flex align="center">
+                    {heading}
+                    <PiArrowSquareOut className="ml-2" />
+                  </Flex>
                 </Heading>
               </Link>
             ) : (
@@ -125,13 +129,17 @@ export default function LinkedChange({
                   Edit
                 </Button>
               )}
-              {vc && experiment?.status === "draft" && (
-                <OpenVisualEditorLink
-                  visualChangeset={vc}
-                  useLink={true}
-                  button={<Button variant="ghost">Launch Visual Editor</Button>}
-                />
-              )}
+              {vc &&
+                experiment?.status === "draft" &&
+                !experiment?.nextScheduledStatusUpdate && (
+                  <OpenVisualEditorLink
+                    visualChangeset={vc}
+                    useLink={true}
+                    button={
+                      <Button variant="ghost">Launch Visual Editor</Button>
+                    }
+                  />
+                )}
             </Box>
           )}
         </Flex>

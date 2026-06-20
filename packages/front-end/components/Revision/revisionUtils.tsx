@@ -13,17 +13,20 @@ export type RevisionBadgeStatus = RevisionStatus | "live";
 export const STATUS_CONFIG: Record<
   RevisionBadgeStatus,
   {
-    color: "teal" | "plum" | "orange" | "grass" | "amber" | "red" | "gray";
+    color: "green" | "orange" | "grass" | "amber" | "red" | "gray";
     label: string;
+    // Discarded renders as a solid (inverted) gray badge so it reads as
+    // muted but stays distinguishable from Locked's soft gray.
+    variant?: "solid" | "soft";
   }
 > = {
-  live: { color: "teal", label: "Live" },
-  draft: { color: "plum", label: "Draft" },
+  live: { color: "green", label: "Live" },
+  draft: { color: "amber", label: "Draft" },
   "pending-review": { color: "orange", label: "Pending review" },
   approved: { color: "grass", label: "Approved" },
-  "changes-requested": { color: "amber", label: "Changes requested" },
+  "changes-requested": { color: "red", label: "Changes requested" },
   merged: { color: "gray", label: "Locked" },
-  discarded: { color: "red", label: "Discarded" },
+  discarded: { color: "gray", label: "Discarded", variant: "solid" },
 };
 
 export function getStatusBadge(
@@ -37,7 +40,14 @@ export function getStatusBadge(
   if (!config) {
     return <Badge label={String(status)} color="gray" radius="full" />;
   }
-  return <Badge label={config.label} color={config.color} radius="full" />;
+  return (
+    <Badge
+      label={config.label}
+      color={config.color}
+      variant={config.variant ?? "soft"}
+      radius="full"
+    />
+  );
 }
 
 // Colored-dot + label rendering used by the approvals inbox + saved-group

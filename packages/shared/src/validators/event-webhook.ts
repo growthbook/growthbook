@@ -32,8 +32,9 @@ export const slackEventWebHookMetadata = z
   })
   .strict();
 
-// Matches multi-level wildcard patterns like "feature.*" or "feature.revision.*".
-export const EVENT_WEBHOOK_WILDCARD_PATTERN = /^[a-z]+(\.[a-zA-Z]+)*\.\*$/;
+// Matches multi-level wildcard patterns like "feature.*", "feature.revision.*",
+// or "savedGroup.revision.*" (resource names may be camelCase).
+export const EVENT_WEBHOOK_WILDCARD_PATTERN = /^[a-zA-Z]+(\.[a-zA-Z]+)*\.\*$/;
 
 export const isEventWebhookWildcard = (val: string) =>
   EVENT_WEBHOOK_WILDCARD_PATTERN.test(val);

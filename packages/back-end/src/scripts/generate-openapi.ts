@@ -2,8 +2,13 @@ import path from "path";
 import fs from "fs";
 import { z, ZodNever } from "zod";
 import yaml from "js-yaml";
-import { namedSchemaRegistry } from "shared/validators";
+import {
+  namedSchemaRegistry,
+  apiErrorRegistry,
+  ApiErrorCode,
+} from "shared/validators";
 import { allRoutes, apiModelTagMeta } from "back-end/src/api/api.router";
+import { getBuild } from "back-end/src/util/build";
 
 const openApiTags = [
   "projects",
@@ -22,9 +27,11 @@ const openApiTags = [
   "snapshots",
   "dimensions",
   "segments",
+  "reports",
   "sdk-connections",
   "visual-changesets",
   "saved-groups",
+  "saved-group-revisions",
   "organizations",
   "members",
   "code-references",
@@ -33,6 +40,7 @@ const openApiTags = [
   "settings",
   "attributes",
   "usage",
+  "meta",
 ] as const;
 
 export type OpenApiTag = (typeof openApiTags)[number];
@@ -71,7 +79,7 @@ const tags: Record<OpenApiTag, { display: string; description: string }> = {
   "ramp-schedules": {
     display: "Ramp Schedules",
     description:
-      "Multi-step rollout schedules that gradually ramp feature rule changes over time, with support for interval, approval, and scheduled triggers.",
+      "Multi-step rollout schedules that gradually increase feature rule traffic over time, with optional real-time monitoring. Each step supports interval timers, approval gates, and hold conditions. Monitored steps are backed by a live analysis experiment that can automatically hold, roll back, or advance the ramp based on guardrail and signal metric health.",
   },
   "data-sources": {
     display: "Data Sources",
@@ -113,6 +121,11 @@ const tags: Record<OpenApiTag, { display: string; description: string }> = {
     display: "Segments",
     description: "Segments used during experiment analysis",
   },
+  reports: {
+    display: "Experiment Reports",
+    description:
+      "Custom analysis reports built on top of experiment snapshots. Reports let you re-run analysis with different metrics, date ranges, stats engines, and other settings without modifying the underlying experiment.",
+  },
   "sdk-connections": {
     display: "SDK Connections",
     description:
@@ -127,6 +140,11 @@ const tags: Record<OpenApiTag, { display: string; description: string }> = {
     display: "Saved Groups",
     description:
       "Defined sets of attribute values which can be used with feature rules for targeting features at particular users.",
+  },
+  "saved-group-revisions": {
+    display: "Saved Group Revisions",
+    description:
+      'Draft revisions for saved groups, including pending changes, approvals, and lifecycle (publish, discard, revert).\n\nMost callers can interact with these endpoints via shorthand actions (`/items/add`, `/items/remove`, single-field PUTs) instead of authoring JSON Patch ops directly. Pass `version: "new"` on edit endpoints to auto-create a draft.',
   },
   members: {
     display: "Members",
@@ -162,6 +180,11 @@ const tags: Record<OpenApiTag, { display: string; description: string }> = {
   usage: {
     display: "Usage",
     description: "Usage information for metrics in experiments.",
+  },
+  meta: {
+    display: "Meta",
+    description:
+      "Server metadata, including the running build's version and commit for version-skew checks.",
   },
 };
 
@@ -214,6 +237,13 @@ function toOpenApiSchema(schema: z.ZodType): z.core.JSONSchema.BaseSchema {
       if (jsonSchema.maximum === 9007199254740991) {
         delete jsonSchema.maximum;
       }
+      // format: "date-time" is sufficient for docs; strip the verbose regex pattern
+      if (
+        (jsonSchema as Record<string, unknown>).format === "date-time" &&
+        (jsonSchema as Record<string, unknown>).pattern
+      ) {
+        delete (jsonSchema as Record<string, unknown>).pattern;
+      }
     },
   }) as Record<string, unknown>;
   if ($defs && typeof $defs === "object") {
@@ -228,6 +258,42 @@ function toOpenApiSchema(schema: z.ZodType): z.core.JSONSchema.BaseSchema {
     }
   }
   return rewriteRefs(rest) as z.core.JSONSchema.BaseSchema;
+}
+
+/**
+ * Remove `default`-bearing properties from every `required` array in a schema
+ * tree (recursing through properties, items, anyOf/oneOf/allOf, etc.).
+ *
+ * `z.toJSONSchema` runs in "output" mode, where a field with a Zod
+ * `.default()` is always present in the parsed result and so gets listed as
+ * `required`. That's correct for responses, but for REQUEST schemas it's
+ * contradictory: `default` means the client may omit the field, so it must not
+ * also be `required`. We only call this on request (params/query/body) schemas;
+ * response schemas keep the output-mode `required` set. Skips `$ref` nodes, so
+ * shared component schemas (used by responses) are never mutated.
+ */
+function stripDefaultedFromRequired(node: unknown): void {
+  if (Array.isArray(node)) {
+    node.forEach(stripDefaultedFromRequired);
+    return;
+  }
+  if (!node || typeof node !== "object") return;
+  const obj = node as Record<string, unknown>;
+
+  const props = obj.properties as Record<string, unknown> | undefined;
+  if (props && Array.isArray(obj.required)) {
+    const filtered = (obj.required as string[]).filter((name) => {
+      const prop = props[name] as Record<string, unknown> | undefined;
+      return !(prop && typeof prop === "object" && "default" in prop);
+    });
+    // Drop the key entirely when empty so we don't emit `required: []`.
+    if (filtered.length) obj.required = filtered;
+    else delete obj.required;
+  }
+
+  for (const value of Object.values(obj)) {
+    stripDefaultedFromRequired(value);
+  }
 }
 
 /**
@@ -295,13 +361,27 @@ type RequestBody = {
 };
 
 type Response = {
-  description?: string;
+  description: string;
   content: {
     "application/json": {
       schema: z.core.JSONSchema.BaseSchema;
     };
   };
 };
+
+function defaultResponseDescription(method: string): string {
+  switch (method.toLowerCase()) {
+    case "post":
+      return "Resource created";
+    case "put":
+    case "patch":
+      return "Resource updated";
+    case "delete":
+      return "Resource deleted";
+    default:
+      return "Successful response";
+  }
+}
 
 type Path = {
   operationId: string;
@@ -319,6 +399,7 @@ type CodeSample = { lang: string; source: string };
 
 async function run() {
   // TODO: add security, etc.
+  const version = getBuild().lastVersion || "1.0.0";
   const openapiSpec: {
     openapi: string;
     info: {
@@ -329,6 +410,10 @@ async function run() {
     servers: {
       url: string;
       description: string;
+      variables?: Record<
+        string,
+        { default: string; description?: string; enum?: string[] }
+      >;
     }[];
     tags: {
       name: string;
@@ -352,7 +437,7 @@ async function run() {
   } = {
     openapi: "3.1.0",
     info: {
-      version: "1.0.0",
+      version,
       title: "GrowthBook REST API",
       description: `GrowthBook offers a full REST API for interacting with the application.
 
@@ -401,6 +486,7 @@ The API may return the following error status codes:
 - **402** - Request Failed - The parameters are valid, but the request failed
 - **403** - Forbidden - Provided API key does not have the required access
 - **404** - Not Found - Unknown API route or requested resource
+- **422** - Soft Warning - The request failed, but can be re-submitted with \`?ignoreWarnings=true\` to proceed anyway.
 - **429** - Too Many Requests - You exceeded the rate limit of 60 requests per minute. Try again later.
 - **5XX** - Server Error - Something went wrong on GrowthBook's end (these are rare)
 
@@ -417,6 +503,12 @@ The response body will be a JSON object with the following properties:
       {
         url: "https://{domain}/api",
         description: "Self-hosted GrowthBook",
+        variables: {
+          domain: {
+            default: "localhost:3100",
+            description: "Your self-hosted GrowthBook host (and port)",
+          },
+        },
       },
     ],
     tags: openApiTags.map((id) => ({
@@ -461,6 +553,32 @@ curl https://api.growthbook.io/api/v1/features \
   // Be able to look up a schema by its JSON stringified schema
   const schemaHashMap: Record<string, string> = {};
 
+  // Register per-code error detail schemas. These live in schemaRefs (not
+  // componentSchemas) so they don't pick up the auto-generated `_model` doc
+  // tags reserved for user-facing API resource models. We don't document
+  // generic errors per-endpoint — only the actionable, declared ones below.
+  // e.g. "pending_draft_publish_failed" → "ApiErrorPendingDraftPublishFailedDetails"
+  const errorDetailsSchemaName = (code: string) =>
+    `ApiError${code
+      .split("_")
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join("")}Details`;
+  for (const [code, { detailsSchema }] of Object.entries(apiErrorRegistry)) {
+    schemaRefs[errorDetailsSchemaName(code)] = toOpenApiSchema(detailsSchema);
+  }
+
+  // The response-level description is rendered prominently next to the status
+  // code (even when the response section is collapsed), so we use the standard
+  // HTTP reason phrase here. Per-code descriptions live on each schema variant.
+  const HTTP_STATUS_REASONS: Record<string, string> = {
+    "400": "Bad Request",
+    "401": "Unauthorized",
+    "403": "Forbidden",
+    "404": "Not Found",
+    "409": "Conflict",
+    "500": "Internal Server Error",
+  };
+
   for (const route of allRoutes) {
     if (route.excludeFromSpec) {
       continue;
@@ -477,6 +595,7 @@ curl https://api.growthbook.io/api/v1/features \
       exampleRequest,
       version,
       deprecated,
+      possibleErrors,
     } = route;
 
     if (!path || !method || !operationId) {
@@ -489,6 +608,7 @@ curl https://api.growthbook.io/api/v1/features \
     // URL params
     if (isNonEmptySchema(schemas?.params)) {
       const jsonSchema = toOpenApiSchema(schemas.params);
+      stripDefaultedFromRequired(jsonSchema);
       Object.entries(jsonSchema.properties ?? {}).forEach(([name, schema]) => {
         const isRequired = (jsonSchema.required ?? []).includes(name);
         const parameter: Parameter = {
@@ -523,6 +643,7 @@ curl https://api.growthbook.io/api/v1/features \
     // Query params
     if (isNonEmptySchema(schemas?.query)) {
       const jsonSchema = toOpenApiSchema(schemas.query);
+      stripDefaultedFromRequired(jsonSchema);
       Object.entries(jsonSchema.properties ?? {}).forEach(([name, schema]) => {
         const isRequired = (jsonSchema.required ?? []).includes(name);
         // Hoist x- extension fields from schema to parameter level
@@ -568,6 +689,7 @@ curl https://api.growthbook.io/api/v1/features \
     let requestBody: RequestBody | undefined = undefined;
     if (isNonEmptySchema(schemas?.body)) {
       const jsonSchema = toOpenApiSchema(schemas.body);
+      stripDefaultedFromRequired(jsonSchema);
       requestBody = {
         required: !(schemas.body instanceof z.ZodOptional),
         content: {
@@ -657,7 +779,7 @@ curl https://api.growthbook.io/api/v1/features \
 
     const responses: Record<string, Response> = {
       "200": {
-        ...(responseDescription && { description: responseDescription }),
+        description: responseDescription || defaultResponseDescription(method),
         content: {
           "application/json": {
             schema: responseSchema,
@@ -665,6 +787,44 @@ curl https://api.growthbook.io/api/v1/features \
         },
       },
     };
+
+    if (possibleErrors && possibleErrors.length > 0) {
+      const errorsByStatus: Partial<Record<string, ApiErrorCode[]>> = {};
+      for (const code of possibleErrors) {
+        const status = String(apiErrorRegistry[code].status);
+        (errorsByStatus[status] ??= []).push(code);
+      }
+
+      for (const [status, codes] of Object.entries(errorsByStatus)) {
+        if (!codes) continue;
+        const errorSchemas: z.core.JSONSchema.BaseSchema[] = codes.map(
+          (code) => ({
+            type: "object",
+            description: apiErrorRegistry[code].description,
+            properties: {
+              message: { type: "string" },
+              code: { type: "string", enum: [code] },
+              details: {
+                $ref: `#/components/schemas/${errorDetailsSchemaName(code)}`,
+              },
+            },
+            required: ["message", "code", "details"],
+          }),
+        );
+
+        responses[status] = {
+          description: HTTP_STATUS_REASONS[status] ?? "Error",
+          content: {
+            "application/json": {
+              schema:
+                errorSchemas.length === 1
+                  ? errorSchemas[0]
+                  : { oneOf: errorSchemas },
+            },
+          },
+        };
+      }
+    }
 
     // Replace express style path parameters with OpenAPI style path parameters,
     // and prefix with the version segment so the spec uses /v1/... or /v2/...
@@ -742,14 +902,17 @@ curl https://api.growthbook.io/api/v1/features \
     openapiSpec.components.schemas[name] = schema;
   });
 
-  // Generate _model tags for each named component schema (powers the "Models" section in docs)
+  // Generate _model tags for registered API resource models (powers the "Models"
+  // section in docs). Hoisted $defs from `componentSchema()` are omitted.
   const modelTags: string[] = [];
-  for (const name of Object.keys(componentSchemas).sort()) {
+  for (const name of [...namedSchemaRegistry.keys()].sort()) {
+    if (!componentSchemas[name]) continue;
     const tagName = `${name}_model`;
     modelTags.push(tagName);
+    const modelDisplayName = name.replace(/([a-z])([A-Z])/g, "$1 $2");
     openapiSpec.tags.push({
       name: tagName,
-      "x-displayName": name,
+      "x-displayName": modelDisplayName,
       description: `<SchemaDefinition schemaRef="#/components/schemas/${name}" />`,
     });
   }

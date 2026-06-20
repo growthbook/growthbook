@@ -1,9 +1,17 @@
 import type { DataType } from "shared/types/integrations";
+import { createLikeStringMatchFn } from "shared/sql";
 import type { DateTruncGranularity, SqlDialect } from "shared/types/sql";
 import { defaultPercentileCapSelectClause } from "back-end/src/integrations/sql/clauses/percentile-cap-select-clause";
 
-export const baseDialect: SqlDialect = {
-  escapeStringLiteral: (value: string) => value.replace(/'/g, `''`),
+const baseEscapeStringLiteral = (value: string) => value.replace(/'/g, `''`);
+
+export const baseDialect: Omit<SqlDialect, "unpivotLabeledPairs"> = {
+  escapeStringLiteral: baseEscapeStringLiteral,
+
+  stringMatch: createLikeStringMatchFn({
+    escapeStringLiteral: baseEscapeStringLiteral,
+    emitEscapeClause: true,
+  }),
 
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => {
     const raw = `json_extract_scalar(${jsonCol}, '$.${path}')`;
@@ -56,7 +64,7 @@ export const baseDialect: SqlDialect = {
         return "TIMESTAMP";
       case "hll":
         return "VARBINARY";
-      case "kll":
+      case "quantileSketch":
         return "VARBINARY";
       default: {
         const _: never = dataType;
@@ -109,33 +117,36 @@ export const baseDialect: SqlDialect = {
     );
   },
 
-  kllInit: () => {
+  quantileSketchInit: () => {
+    throw new Error("Quantile sketches are not supported by this data source.");
+  },
+
+  quantileSketchMergePartial: () => {
+    throw new Error("Quantile sketches are not supported by this data source.");
+  },
+
+  quantileSketchExtractPoint: () => {
+    throw new Error("Quantile sketches are not supported by this data source.");
+  },
+
+  quantileSketchExtractQuantiles: () => {
+    throw new Error("Quantile sketches are not supported by this data source.");
+  },
+
+  quantileSketchRankApprox: () => {
     throw new Error(
-      "KLL quantile sketches are not supported by this data source.",
+      "Quantile sketch rank approximation is not implemented for this data source.",
     );
   },
 
-  kllMergePartial: () => {
+  hasArrayQuantileGrid: () => false,
+
+  quantileGridArrayLiteral: () => {
     throw new Error(
-      "KLL quantile sketches are not supported by this data source.",
+      "Quantile-grid array literals are not supported by this data source. " +
+        "A dialect must implement quantileGridArrayLiteral to set hasArrayQuantileGrid().",
     );
   },
 
-  kllExtractPoint: () => {
-    throw new Error(
-      "KLL quantile sketches are not supported by this data source.",
-    );
-  },
-
-  kllExtractQuantiles: () => {
-    throw new Error(
-      "KLL quantile sketches are not supported by this data source.",
-    );
-  },
-
-  kllRankApprox: () => {
-    throw new Error(
-      "KLL rank approximation is not implemented for this data source.",
-    );
-  },
+  stringLength: (column: string) => `LENGTH(${column})`,
 };

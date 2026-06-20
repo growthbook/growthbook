@@ -41,11 +41,14 @@ import { factMetricsRoutes } from "./fact-metrics/fact-metrics.router";
 import { bulkImportRoutes } from "./bulk-import/bulk-import.router";
 import { membersRoutes } from "./members/members.router";
 import { openaiRoutes } from "./openai/openai.router";
+import { visualEditorAiRoutes } from "./visual-editor-ai/visualEditorAi.router";
 import { archetypesRoutes } from "./archetypes/archetypes.router";
 import { queriesRoutes } from "./queries/queries.router";
 import { settingsRoutes } from "./settings/settings.router";
+import { metaRoutes } from "./meta/meta.router";
 import { informationSchemaTablesRoutes } from "./information-schema-tables/information-schema-tables.router";
 import { rampSchedulesRoutes } from "./ramp-schedules/ramp-schedules.router";
+import { reportRoutes } from "./reports/reports.router";
 import { namespacesRoutes } from "./namespaces/namespaces.router";
 import { getOpenApiRoutesForApiConfig } from "./ApiModel";
 
@@ -109,13 +112,16 @@ const API_RATE_LIMIT_MAX = parseEnvInt(process.env.API_RATE_LIMIT_MAX, 60, {
   name: "API_RATE_LIMIT_MAX",
 });
 const overallRateLimit = IS_CLOUD ? 60 : API_RATE_LIMIT_MAX;
-// Rate limit API keys to 60 requests per minute
+// Rate limit API keys to 60 requests per minute. Skip for JWT requests
+// (interactive UI traffic) — those are already authed as a logged-in user
+// and applying the per-key cap would break dashboards and bulk flows.
 router.use(
   rateLimit({
     windowMs: 60 * 1000,
     max: API_RATE_LIMIT_MAX,
     standardHeaders: true,
     legacyHeaders: false,
+    skip: (req) => !!(req as Request & ApiRequestLocals).isJwtAuth,
     keyGenerator: (req) => (req as Request & ApiRequestLocals).apiKey,
     message: {
       message: `Too many requests, limit to ${overallRateLimit} per minute`,
@@ -123,14 +129,21 @@ router.use(
   }),
 );
 
-// Index health check route
-router.get("/", (req, res) => {
+// Index health check route. Registered at both `/` (mounted at `/api/`) and
+// `/v1/` (mounted at `/api/v1/`). Before #5690 the router was mounted at
+// `/api/v1` directly, so `router.get("/")` answered `/api/v1/`. #5690 moved
+// the mount to `/api` with the registration loop below self-prefixing `/v1/`
+// onto other routes, and #5804 hand-updated the openapi route similarly —
+// but this index handler was missed, leaving `/api/v1/` unrouted.
+const indexHandler: RequestHandler = (req, res) => {
   res.json({
     name: "GrowthBook API",
     apiVersion: 1,
     build: getBuild(),
   });
-});
+};
+router.get("/", indexHandler);
+router.get("/v1/", indexHandler);
 
 export const allRoutes = [
   ...featureRoutes,
@@ -158,10 +171,13 @@ export const allRoutes = [
   ...membersRoutes,
   ...queriesRoutes,
   ...settingsRoutes,
+  ...metaRoutes,
   ...informationSchemaTablesRoutes,
   ...rampSchedulesRoutes,
+  ...reportRoutes,
   ...namespacesRoutes,
   ...openaiRoutes,
+  ...visualEditorAiRoutes,
 ];
 
 /** Tag metadata from BaseModel specs, keyed by PascalCase tag name */

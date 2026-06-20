@@ -113,6 +113,7 @@ export const revisionValidator = z.object({
   authorId: z.string(),
   version: z.number().optional(), // Optional for backward compatibility with existing revisions
   title: z.string().optional(),
+  comment: z.string().optional(), // Optional free-form context supplied at draft creation
   revertedFrom: z.string().optional(), // ID of the revision this is reverting
   target: revisionTargetValidator,
   status: z.enum(revisionStatus),
@@ -122,6 +123,11 @@ export const revisionValidator = z.object({
   // prevent contributors from approving their own work.
   // Optional for backward compatibility with revisions created before this field existed.
   contributors: z.array(z.string()).optional(),
+  autoPublishOnApproval: z.boolean().optional(),
+  // User ID of whoever most recently armed `autoPublishOnApproval` — the
+  // auto-publish executes with this user's authority. Falls back to
+  // `authorId` when absent.
+  autoPublishEnabledBy: z.string().optional(),
   activityLog: z.array(activityLogEntryValidator),
   resolution: z
     .object({

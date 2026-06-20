@@ -49,3 +49,6 @@ charts/**/*.tgz
 preview/Dockerfile.generated
 
 next-env.d.ts
+
+# Private claude folders
+.claude/worktrees/

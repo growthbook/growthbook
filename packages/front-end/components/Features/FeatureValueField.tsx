@@ -4,8 +4,13 @@ import {
   SchemaField,
   SimpleSchema,
 } from "shared/types/feature";
-import { ReactElement, ReactNode, useId, useState } from "react";
-import { getValidation } from "shared/util";
+import { ReactElement, ReactNode, useEffect, useId, useState } from "react";
+import {
+  getValidation,
+  parsePlainJSONObject,
+  stripDefaultsForSparse,
+  expandSparseToFull,
+} from "shared/util";
 import { FaMagic, FaRegTrashAlt } from "react-icons/fa";
 import stringify from "json-stringify-pretty-compact";
 import { BsBoxArrowUpRight } from "react-icons/bs";
@@ -23,6 +28,9 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import RadioGroup from "@/ui/RadioGroup";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
+import Text from "@/ui/Text";
+import SparsePatchToggle from "@/components/Features/SparsePatchToggle";
+import SparseTabbedEditor from "@/components/Features/SparseTabbedEditor";
 
 export interface Props {
   valueType?: FeatureValueType;
@@ -41,6 +49,13 @@ export interface Props {
   showFullscreenButton?: boolean;
   codeInputDefaultHeight?: number;
   hideCopyButton?: boolean;
+  // JSON features only. Whether this rule value is a sparse patch (merged onto
+  // the feature default). When `setSparse` is provided and the feature default
+  // is a plain object, a "Sparse patch" toggle renders on the label row.
+  sparse?: boolean;
+  setSparse?: (sparse: boolean) => void;
+  // Tighter sparse editor layout for embedded contexts (e.g. ramp step editors).
+  condensed?: boolean;
 }
 
 export default function FeatureValueField({
@@ -58,6 +73,9 @@ export default function FeatureValueField({
   showFullscreenButton = false,
   codeInputDefaultHeight,
   hideCopyButton = false,
+  sparse,
+  setSparse,
+  condensed = false,
 }: Props) {
   const { hasCommercialFeature } = useUser();
   const hasJsonValidator = hasCommercialFeature("json-validation");
@@ -116,7 +134,9 @@ export default function FeatureValueField({
     return (
       <div className={clsx("form-group", { "mb-0": label === undefined })}>
         {label !== undefined && (
-          <label style={{ display: "block" }}>{label}</label>
+          <Text as="label" weight="semibold">
+            {label}
+          </Text>
         )}
         <div>
           <RadioGroup
@@ -143,6 +163,62 @@ export default function FeatureValueField({
   }
 
   if (valueType === "json") {
+    // Sparse patch mode (JSON features whose default is a plain object): the
+    // value is a partial object merged onto the default. We show a toggle on
+    // the label row and, when on, Edit/Preview tabs.
+    const defaultIsObject =
+      parsePlainJSONObject(feature?.defaultValue ?? "") !== null;
+    const showSparseToggle = !!setSparse && defaultIsObject;
+    const isSparse = defaultIsObject && !!sparse;
+
+    const sparseHeader = showSparseToggle ? (
+      <Flex align="center" gap="3" mb="1">
+        {label !== undefined && (
+          <Text as="label" weight="semibold" mb="0">
+            {label}
+          </Text>
+        )}
+        <SparsePatchToggle
+          checked={!!sparse}
+          onChange={(checked) => {
+            // Switching modes rewrites the value so the editor isn't left with a
+            // default-laden patch (on) or a bare patch shown as the full value
+            // (off). See stripDefaultsForSparse / expandSparseToFull.
+            const def = feature?.defaultValue ?? "";
+            setValue(
+              checked
+                ? stripDefaultsForSparse(value, def)
+                : expandSparseToFull(value, def),
+            );
+            setSparse?.(checked);
+          }}
+          disabled={disabled}
+        />
+      </Flex>
+    ) : null;
+
+    if (isSparse) {
+      return (
+        <>
+          {sparseHeader}
+          <SparseTabbedEditor
+            value={value}
+            setValue={setValue}
+            valueType={valueType}
+            defaultValue={feature?.defaultValue}
+            label={label}
+            placeholder={placeholder}
+            disabled={disabled}
+            defaultHeight={codeInputDefaultHeight}
+            showInlineLabel={!showSparseToggle}
+            condensed={condensed}
+          />
+        </>
+      );
+    }
+
+    // When the toggle owns the label row, hide the editor's own label.
+    const editorLabel = showSparseToggle ? undefined : label;
     const formatted = formatJSON(value);
 
     const codeEditorToggleButton = useCodeInput ? (
@@ -196,35 +272,77 @@ export default function FeatureValueField({
 
     if (useCodeInput && codeEditorToggledOn) {
       return (
-        <CodeTextArea
-          label={label}
-          language="json"
+        <>
+          {sparseHeader}
+          <CodeTextArea
+            label={editorLabel}
+            language="json"
+            value={value}
+            setValue={setValue}
+            helpText={combinedHelpText}
+            placeholder={placeholder}
+            disabled={disabled}
+            resizable={true}
+            defaultHeight={codeInputDefaultHeight}
+            showCopyButton={true}
+            showFullscreenButton={showFullscreenButton}
+          />
+        </>
+      );
+    }
+
+    return (
+      <>
+        {sparseHeader}
+        <JSONTextEditor
+          label={editorLabel}
           value={value}
           setValue={setValue}
           helpText={combinedHelpText}
           placeholder={placeholder}
           disabled={disabled}
-          resizable={true}
-          defaultHeight={codeInputDefaultHeight}
           showCopyButton={true}
-          showFullscreenButton={showFullscreenButton}
+          performCopy={performCopy}
+          copySuccess={copySuccess}
         />
+      </>
+    );
+  }
+
+  // Schema-aware input for string/number flags; values are raw scalars, so bypass JSON encoding.
+  if (
+    validationEnabled &&
+    hasJsonValidator &&
+    (valueType === "string" || valueType === "number") &&
+    simpleSchema?.type === "primitive"
+  ) {
+    const field = simpleSchema.fields[0];
+    const typeMatches =
+      !!field &&
+      (valueType === "string"
+        ? field.type === "string"
+        : field.type === "integer" || field.type === "float");
+    if (field && typeMatches) {
+      return (
+        <>
+          <SimpleSchemaPrimitiveEditor
+            field={field}
+            value={
+              valueType === "number"
+                ? value === ""
+                  ? undefined
+                  : parseFloat(value)
+                : value
+            }
+            setValue={(v) => setValue(v == null ? "" : String(v))}
+            label={label}
+            showDescription={true}
+            disabled={disabled}
+          />
+          {helpText && <small className="text-muted">{helpText}</small>}
+        </>
       );
     }
-
-    return (
-      <JSONTextEditor
-        label={label}
-        value={value}
-        setValue={setValue}
-        helpText={combinedHelpText}
-        placeholder={placeholder}
-        disabled={disabled}
-        showCopyButton={true}
-        performCopy={performCopy}
-        copySuccess={copySuccess}
-      />
-    );
   }
 
   const copyButton = (
@@ -311,7 +429,7 @@ function SimpleSchemaPrimitiveEditor<T = unknown>({
 }): ReactElement {
   const uuid = useId();
 
-  const isset = value != null;
+  const isset = value !== null && value !== undefined;
 
   let containerClassName = "";
   let labelClassName = "";
@@ -458,29 +576,92 @@ function SimpleSchemaPrimitiveEditor<T = unknown>({
     case "integer":
     case "float":
       return (
-        <Field
-          containerClassName={containerClassName}
-          labelClassName={labelClassName}
+        <NumberSchemaField
+          field={field}
+          value={value}
+          setValue={setValue}
           label={label}
-          value={(value ?? "") + ""}
-          onChange={(e) => {
-            setValue(
-              (e.target.value === ""
-                ? undefined
-                : parseFloat(e.target.value)) as T,
-            );
-          }}
-          type="number"
-          step={field.type === "integer" ? "1" : "any"}
-          min={field.min}
-          max={field.max}
-          required={field.required}
-          style={{ minWidth: 80 }}
-          disabled={(!field.required && !isset) || disabled}
+          labelClassName={labelClassName}
+          containerClassName={containerClassName}
           helpText={helpText}
+          disabled={(!field.required && !isset) || disabled}
         />
       );
   }
+}
+
+function parseNumberInput(
+  value: string,
+): { valid: true; value: number | undefined } | { valid: false } {
+  if (value === "") {
+    return { valid: true, value: undefined };
+  }
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed)
+    ? { valid: true, value: parsed }
+    : { valid: false };
+}
+
+// Keeps in-progress text in local state so typing e.g. "1.05" isn't reformatted mid-keystroke.
+function NumberSchemaField<T = unknown>({
+  field,
+  value,
+  setValue,
+  label,
+  labelClassName,
+  containerClassName,
+  helpText,
+  disabled = false,
+}: {
+  field: SchemaField;
+  value: T;
+  setValue: (value: T) => void;
+  label?: ReactNode;
+  labelClassName?: string;
+  containerClassName?: string;
+  helpText?: ReactNode;
+  disabled?: boolean;
+}): ReactElement {
+  const numericValue =
+    (value ?? null) === null ? undefined : (value as unknown as number);
+
+  const [text, setText] = useState(
+    numericValue === undefined ? "" : String(numericValue),
+  );
+
+  useEffect(() => {
+    setText((currentText) => {
+      const parsed = parseNumberInput(currentText);
+      if (parsed.valid && parsed.value === numericValue) return currentText;
+      return numericValue === undefined ? "" : String(numericValue);
+    });
+  }, [numericValue]);
+
+  return (
+    <Field
+      containerClassName={containerClassName}
+      labelClassName={labelClassName}
+      label={label}
+      value={text}
+      onChange={(e) => {
+        const raw = e.target.value;
+        const parsed = parseNumberInput(raw);
+        setText(raw);
+        if (parsed.valid) {
+          setValue(parsed.value as T);
+        }
+      }}
+      type="number"
+      step={field.type === "integer" ? "1" : "any"}
+      min={field.min}
+      max={field.max}
+      required={field.required}
+      style={{ minWidth: 80 }}
+      disabled={disabled}
+      helpText={helpText}
+    />
+  );
 }
 
 function SimpleSchemaEditor({
