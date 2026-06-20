@@ -853,10 +853,9 @@ const apiExperimentShape = z.object({
   statusUpdateSchedule: apiStatusUpdateSchedule.nullable().optional(),
   nextScheduledStatusUpdate: z
     .object({
-      // Only "start" is supported for experiments today. The internal
-      // statusUpdateScheduleValidator has a `TODO(schedule-status-updates):
-      // add stopAt`, and updateExperimentStatus.ts treats any other type as
-      // unsupported and clears the field
+      // The external API only exposes the "start" type. A staged "stop" is a
+      // valid internal state (the job handles it) but isn't surfaced here, so
+      // the serializer returns null for it.
       type: z.literal("start"),
       date: z.string().meta({ format: "date-time" }),
     })

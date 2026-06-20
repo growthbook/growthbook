@@ -397,16 +397,20 @@ export async function applyExperimentEndStrategy(
       if (status?.status === "ship-now") {
         const winVariationId =
           status.variations[0]?.variationId ?? strategy.plannedVariationId;
+        // `winner` is a variation INDEX, not the id. Variation ids are
+        // non-numeric (e.g. "var_abc"), so parseInt would yield NaN — mirror
+        // hard-planned and resolve the index by id.
+        const winnerIndex =
+          winVariationId !== undefined
+            ? experiment.variations.findIndex((v) => v.id === winVariationId)
+            : -1;
         return updateExperiment({
           context: ctx,
           experiment,
           changes: {
             status: "stopped",
             results: "won",
-            winner:
-              winVariationId !== undefined
-                ? parseInt(winVariationId, 10)
-                : undefined,
+            winner: winnerIndex >= 0 ? winnerIndex : undefined,
             releasedVariationId: winVariationId ?? "",
           },
         });

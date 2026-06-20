@@ -136,10 +136,10 @@ export type ExperimentEndStrategyType =
   (typeof experimentEndStrategyTypeArray)[number];
 
 /**
- * Action applied when the experiment reaches its scheduled `endDate`. Stored
- * on the experiment, not on the ramp schedule. The date itself lives on the
- * experiment (`endDate`) — strategy is a pure "what happens at endDate" field.
- * Absent/null means "no automatic action".
+ * @deprecated Superseded by `shippingCriteria`. Action applied when the
+ * experiment reaches its scheduled stop. The date itself lives on the
+ * experiment (`statusUpdateSchedule.stopAt`). Absent/null means "no automatic
+ * action".
  */
 export const experimentEndStrategy = z
   .object({

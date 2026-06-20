@@ -42,6 +42,7 @@ import {
   TEMPLATE_STRUCTURAL_KEYS,
   type RampStep,
   type FeatureRulePatch,
+  type ExperimentPatch,
   type FeatureRuleStepAction,
   type TemplateEndPatch,
   type RevisionRampCreateAction,
@@ -4161,7 +4162,7 @@ export default function RampScheduleSection({
 }
 
 export function reconstructUIPatch(
-  patch?: FeatureRulePatch | null,
+  patch?: FeatureRulePatch | ExperimentPatch | null,
 ): UIStepPatch {
   if (!patch) return {};
   const p: UIStepPatch = {};
@@ -4181,23 +4182,42 @@ export function reconstructUIPatch(
     p.prerequisites =
       prerequisites && prerequisites.length > 0 ? prerequisites : null;
   }
-  if ((patch.allEnvironments ?? null) !== null)
+  // Feature-rule-only fields.
+  if ("allEnvironments" in patch && (patch.allEnvironments ?? null) !== null)
     p.allEnvironments = patch.allEnvironments ?? undefined;
-  if ((patch.environments ?? null) !== null)
+  if ("environments" in patch && (patch.environments ?? null) !== null)
     p.environments = patch.environments as string[];
-  if (patch.force !== undefined) {
+  if ("force" in patch && patch.force !== undefined) {
     p.force =
       typeof patch.force === "string"
         ? patch.force
         : JSON.stringify(patch.force);
+  }
+  // Experiment-only fields (variation weights + phase controls). Read via a
+  // record cast since they're not on the UIStepPatch type but round-trip
+  // through buildExperimentSteps the same way.
+  const ext = patch as Record<string, unknown>;
+  const out = p as Record<string, unknown>;
+  if (Array.isArray(ext.variationWeights)) {
+    out.variationWeights = ext.variationWeights;
+  }
+  for (const flag of [
+    "newPhase",
+    "reseed",
+    "bumpBucketVersion",
+    "blockPriorBucketed",
+  ]) {
+    if (ext[flag]) out[flag] = true;
   }
   return p;
 }
 
 export function reconstructUIStep(step: RampStep): UIStep {
   const firstAction = step.actions[0];
-  const firstPatch =
-    firstAction?.targetType === "feature-rule" ? firstAction.patch : undefined;
+  // Read the patch for both feature-rule and experiment actions — experiment
+  // ramp steps carry coverage/targeting/weights too, and dropping them here
+  // would reset every step to 100% coverage on read.
+  const firstPatch = firstAction?.patch;
   const patch = reconstructUIPatch(firstPatch);
   const additionalEffectsOpen = VALID_STEP_FIELDS.some(
     (f) => patch[f] !== undefined,
@@ -4252,9 +4272,9 @@ export function reconstructUIEndPatch(
 ): UIStepPatch {
   if (!endActions?.length) return { coverage: 100 };
   const firstAction = endActions[0];
-  const firstPatch =
-    firstAction?.targetType === "feature-rule" ? firstAction.patch : undefined;
-  return reconstructUIPatch(firstPatch);
+  // Read both feature-rule and experiment end actions (experiment end actions
+  // carry the final coverage).
+  return reconstructUIPatch(firstAction?.patch);
 }
 
 export function rampScheduleToSectionState(

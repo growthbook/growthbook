@@ -755,11 +755,13 @@ export default function ExperimentRampScheduleModal({
     // end strategy applies whether or not a ramp is configured — it's a
     // refinement of the experiment's scheduled end, not a ramp concept.
     const experimentPatch: Record<string, unknown> = {
+      // Send both keys explicitly (null when cleared) so the back-end can tell
+      // "clear stopAt" from "omitted" — the latter preserves an existing stop.
       statusUpdateSchedule:
         state.startDate || state.endDate
           ? {
-              ...(state.startDate ? { startAt: state.startDate } : {}),
-              ...(state.endDate ? { stopAt: state.endDate } : {}),
+              startAt: state.startDate || null,
+              stopAt: state.endDate || null,
             }
           : null,
     };

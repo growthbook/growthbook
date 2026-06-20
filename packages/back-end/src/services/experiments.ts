@@ -4253,9 +4253,15 @@ export function normalizeStatusUpdateScheduleChanges(
       const startAt = incoming?.startAt
         ? getValidDate(incoming.startAt)
         : undefined;
-      const stopAt = incoming?.stopAt
-        ? getValidDate(incoming.stopAt)
-        : undefined;
+      // Preserve an existing stopAt when the incoming object omits the key
+      // entirely (the external REST API can't express stopAt, so a PUT with
+      // `{ startAt }` must not silently wipe a stop date set in the app). An
+      // explicit `stopAt: null` (as the app modal sends) still clears it.
+      const stopAtSource =
+        incoming && "stopAt" in incoming
+          ? incoming.stopAt
+          : experiment.statusUpdateSchedule?.stopAt;
+      const stopAt = stopAtSource ? getValidDate(stopAtSource) : undefined;
       changes.statusUpdateSchedule =
         startAt || stopAt ? { startAt, stopAt } : null;
       changes.nextScheduledStatusUpdate =

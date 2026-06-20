@@ -78,6 +78,11 @@ export async function postRampSchedule(
   res: Response,
 ) {
   const context = getContextFromReq(req);
+  if (!context.hasPremiumFeature("ramp-schedules")) {
+    context.throwPlanDoesNotAllowError(
+      "Ramp schedules require an Enterprise plan.",
+    );
+  }
   const experiment = await getExperimentById(context, req.params.id);
   if (!experiment) {
     return res
@@ -172,7 +177,9 @@ export async function postRampSchedule(
     await updateExperiment({
       context,
       experiment,
-      changes: { rampScheduleId: schedule.id },
+      // Clear any staged scheduled-stop: ramp experiments ship at ramp
+      // completion, so a stopAt-driven stop must not also fire.
+      changes: { rampScheduleId: schedule.id, nextScheduledStatusUpdate: null },
     });
   } catch (e) {
     // Don't leave an orphaned schedule the experiment doesn't point at (and
