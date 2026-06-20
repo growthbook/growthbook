@@ -125,10 +125,25 @@ export class RampScheduleTemplateModel extends BaseClass {
     return this.sortByOrder(await this.getAll());
   }
 
-  // Order to assign a newly created template so it lands at the end.
-  public async getNextOrder(): Promise<number> {
+  // `order` is unique per entityType — feature and experiment templates are
+  // shown and reordered in separate lists, so each maintains its own 0..n.
+  private entityTypeOf(
+    t: RampScheduleTemplateInterface,
+  ): "feature" | "experiment" {
+    return t.entityType ?? "feature";
+  }
+
+  // Order to assign a newly created template so it lands at the end of its
+  // entityType's list.
+  public async getNextOrder(
+    entityType: "feature" | "experiment" = "feature",
+  ): Promise<number> {
     const all = await this.getAll();
-    return all.reduce((max, t) => Math.max(max, t.order), -1) + 1;
+    return (
+      all
+        .filter((t) => this.entityTypeOf(t) === entityType)
+        .reduce((max, t) => Math.max(max, t.order), -1) + 1
+    );
   }
 
   // REST create: append to the end unless the caller pins an explicit order, so
@@ -140,17 +155,27 @@ export class RampScheduleTemplateModel extends BaseClass {
     const body = rawBody as CreateProps<RampScheduleTemplateInterface> & {
       order?: number;
     };
-    return { ...body, order: body.order ?? (await this.getNextOrder()) };
+    return {
+      ...body,
+      order: body.order ?? (await this.getNextOrder(body.entityType)),
+    };
   }
 
   // Move `oldId` into the slot held by `newId`, then renumber so `order`
-  // matches array position. Returns the full reordered list, or null if either
-  // id is missing.
+  // matches array position. Reordering is scoped to the moved template's
+  // entityType (each type keeps its own 0..n), so `newId` must be the same
+  // type. Returns that type's reordered list, or null if either id is missing
+  // or they're different types.
   public async reorder(
     oldId: string,
     newId: string,
   ): Promise<RampScheduleTemplateInterface[] | null> {
-    const sorted = await this.getAllSorted();
+    const all = await this.getAllSorted();
+    const moved = all.find((t) => t.id === oldId);
+    if (!moved) return null;
+    const entityType = this.entityTypeOf(moved);
+    const sorted = all.filter((t) => this.entityTypeOf(t) === entityType);
+
     const oldIndex = sorted.findIndex((t) => t.id === oldId);
     const newIndex = sorted.findIndex((t) => t.id === newId);
     if (oldIndex === -1 || newIndex === -1) return null;

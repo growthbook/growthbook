@@ -264,35 +264,45 @@ function normalizeApiStepShape(s: {
 }
 
 export class RampScheduleModel extends BaseClass {
+  // Resolve the target entity's project from the matching foreign ref so
+  // permission checks are scoped to the ramp's target.
   private getProject(doc: RampScheduleInterface): string | undefined {
-    const { feature } = this.getForeignRefs(doc, false);
-    return feature?.project;
+    const refs = this.getForeignRefs(doc, false);
+    return doc.entityType === "experiment"
+      ? refs.experiment?.project
+      : refs.feature?.project;
   }
 
+  // A ramp inherits the permission tier of its target: feature ramps gate on
+  // feature permissions, experiment ramps on experiment (createAnalyses)
+  // permissions.
   protected canRead(doc: RampScheduleInterface) {
     return this.context.permissions.canReadSingleProjectResource(
       this.getProject(doc),
     );
   }
   protected canCreate(doc: RampScheduleInterface) {
-    return this.context.permissions.canCreateFeature({
-      project: this.getProject(doc),
-    });
+    const project = this.getProject(doc);
+    return doc.entityType === "experiment"
+      ? this.context.permissions.canCreateExperiment({ project })
+      : this.context.permissions.canCreateFeature({ project });
   }
   protected canUpdate(
     existing: RampScheduleInterface,
     _updates: UpdateProps<RampScheduleInterface>,
     newDoc: RampScheduleInterface,
   ) {
-    return this.context.permissions.canUpdateFeature(
-      { project: this.getProject(existing) },
-      { project: this.getProject(newDoc) },
-    );
+    const from = { project: this.getProject(existing) };
+    const to = { project: this.getProject(newDoc) };
+    return existing.entityType === "experiment"
+      ? this.context.permissions.canUpdateExperiment(from, to)
+      : this.context.permissions.canUpdateFeature(from, to);
   }
   protected canDelete(existing: RampScheduleInterface) {
-    return this.context.permissions.canDeleteFeature({
-      project: this.getProject(existing),
-    });
+    const project = this.getProject(existing);
+    return existing.entityType === "experiment"
+      ? this.context.permissions.canDeleteExperiment({ project })
+      : this.context.permissions.canDeleteFeature({ project });
   }
 
   protected migrate(legacyDoc: unknown): RampScheduleInterface {

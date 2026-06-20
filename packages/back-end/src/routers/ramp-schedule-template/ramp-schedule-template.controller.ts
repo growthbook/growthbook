@@ -67,7 +67,7 @@ export const postRampScheduleTemplate = async (
     official,
     monitoringConfig,
     lockdownConfig,
-    order: await context.models.rampScheduleTemplates.getNextOrder(),
+    order: await context.models.rampScheduleTemplates.getNextOrder(entityType),
   });
   res.status(201).json({ status: 201, rampScheduleTemplate: created });
 };
