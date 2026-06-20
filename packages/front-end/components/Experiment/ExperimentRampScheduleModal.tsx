@@ -28,7 +28,10 @@ import {
   type ExperimentInterfaceStringDates,
   type ExperimentPhaseStringDates,
 } from "shared/types/experiment";
-import { type RampScheduleInterface } from "shared/validators";
+import {
+  type RampScheduleInterface,
+  type RampScheduleTemplateInterface,
+} from "shared/validators";
 import { DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS } from "shared/constants";
 import {
   DecisionCriteriaData,
@@ -339,6 +342,77 @@ function buildExperimentSteps(
   });
 }
 
+// Placeholder target stored in a template; the real experiment id is injected
+// when the template is applied to a specific experiment.
+const TEMPLATE_EXPERIMENT_TARGET = "tmpl_experiment";
+
+type ExperimentTemplatePayload = {
+  name: string;
+  entityType: "experiment";
+  steps: RampScheduleInterface["steps"];
+  endPatch: { coverage: number };
+  autoRollbackMode: string;
+  rampProgressionMode: string;
+  shippingCriteria: { mode: "off" | "auto" };
+};
+
+// Build the POST body for saving the current ramp config as an experiment
+// template. Captures step structure + automation defaults only — per-step risk
+// remediations are experiment-instance specific, so they're excluded.
+function buildExperimentTemplatePayload(
+  state: ExperimentRampState,
+  name: string,
+): ExperimentTemplatePayload {
+  return {
+    name,
+    entityType: "experiment",
+    steps: buildExperimentSteps(state.steps, TEMPLATE_EXPERIMENT_TARGET, {}),
+    endPatch: { coverage: (state.endCoverage ?? 100) / 100 },
+    autoRollbackMode: state.autoRollbackMode,
+    rampProgressionMode: state.rampProgressionMode,
+    // auto-force needs an experiment-specific plannedVariationId that can't be
+    // templatized, so it stores as the closest templatable mode ("auto").
+    shippingCriteria: {
+      mode: state.shippingCriteriaMode === "off" ? "off" : "auto",
+    },
+  };
+}
+
+// Structural identity = same steps + end coverage (the parts a template
+// captures). Used to disable "Save as template" when nothing has changed and to
+// highlight the matching template in the picker.
+function experimentTemplateStructure(payload: {
+  steps: RampScheduleInterface["steps"];
+  endPatch: { coverage: number };
+}): string {
+  return JSON.stringify({ steps: payload.steps, endPatch: payload.endPatch });
+}
+
+// Read a saved experiment template back into modal state. Instance-specific
+// fields (start/stop dates, plannedVariationId, remediations) are left to the
+// caller to preserve.
+function experimentTemplateToState(
+  tmpl: RampScheduleTemplateInterface,
+): Partial<ExperimentRampState> {
+  const partial: Partial<ExperimentRampState> = {
+    steps: (tmpl.steps ?? []).map(reconstructUIStep),
+    endCoverage:
+      tmpl.endPatch?.coverage != null
+        ? Math.round(tmpl.endPatch.coverage * 100)
+        : 100,
+    builderMode: "advanced",
+    remediations: {},
+  };
+  if (tmpl.autoRollbackMode) partial.autoRollbackMode = tmpl.autoRollbackMode;
+  if (tmpl.rampProgressionMode) {
+    partial.rampProgressionMode = tmpl.rampProgressionMode;
+  }
+  if (tmpl.shippingCriteria?.mode) {
+    partial.shippingCriteriaMode = tmpl.shippingCriteria.mode;
+  }
+  return partial;
+}
+
 // ─── Remediation dialog (inner form) ─────────────────────────────────────────
 // Reuses the Make Changes release plan selector + ImpactTooltips instead of
 // reinventing the UI.
@@ -583,6 +657,18 @@ export default function ExperimentRampScheduleModal({
         organization?.settings?.defaultShippingCriteriaMode,
     }),
   );
+
+  // Experiment ramp templates (feature templates are filtered out — they carry
+  // feature-rule actions that don't apply to an experiment).
+  const { data: templatesData, mutate: mutateTemplates } = useApi<{
+    rampScheduleTemplates: RampScheduleTemplateInterface[];
+  }>("/ramp-schedule-templates");
+  const experimentTemplates = (templatesData?.rampScheduleTemplates ?? [])
+    .filter((t) => t.entityType === "experiment")
+    .sort((a, b) => a.order - b.order);
+  const [savingTemplate, setSavingTemplate] = useState(false);
+  const [templateName, setTemplateName] = useState("");
+  const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
 
   // EDF: managed independently of ramp state since it applies whether or not
   // a ramp is configured. Saved to the experiment, not the schedule.
@@ -2517,62 +2603,175 @@ export default function ExperimentRampScheduleModal({
     </Box>
   );
 
-  // ── Ramp-up steps section (only when hasRamp) ─────────────────────────────
-  // Rendered outside the violet box: in simple mode this is just the
-  // edit-link + progression summary; in advanced mode it's the step grid.
+  function applyExperimentTemplate(tmpl: RampScheduleTemplateInterface) {
+    patch(experimentTemplateToState(tmpl));
+    if (!hasRamp) setHasRamp(true);
+  }
 
-  const rampStepsSection = hasRamp ? (
-    isSimpleMode ? (
-      <Box mb="4" mt="5">
-        {(() => {
-          const progression = [
-            ...state.steps
-              .map((s) => s.patch.coverage)
-              .filter((c): c is number => c !== undefined)
-              .map((c) => `${c}%`),
-            `${state.endCoverage ?? 100}%`,
-          ].join(" → ");
-          return (
-            <Flex align="center" justify="between" mb="2">
+  async function saveAsExperimentTemplate() {
+    const name = templateName.trim();
+    if (!name || savingTemplate) return;
+    setSavingTemplate(true);
+    try {
+      await apiCall("/ramp-schedule-templates", {
+        method: "POST",
+        body: JSON.stringify(buildExperimentTemplatePayload(state, name)),
+      });
+      await mutateTemplates();
+      setSaveTemplateOpen(false);
+      setTemplateName("");
+    } finally {
+      setSavingTemplate(false);
+    }
+  }
+
+  const currentTemplateStructure = experimentTemplateStructure(
+    buildExperimentTemplatePayload(state, ""),
+  );
+  const isIdenticalToExistingTemplate = experimentTemplates.some(
+    (t) =>
+      experimentTemplateStructure({
+        steps: t.steps,
+        endPatch: { coverage: t.endPatch?.coverage ?? 1 },
+      }) === currentTemplateStructure,
+  );
+
+  const templateControls = (
+    <Flex align="center" gap="3" mb="3">
+      {experimentTemplates.length > 0 && (
+        <DropdownMenu
+          trigger={
+            <Button variant="outline" size="xs">
+              Use a template
+            </Button>
+          }
+        >
+          {experimentTemplates.map((t) => (
+            <DropdownMenuItem
+              key={t.id}
+              onClick={() => applyExperimentTemplate(t)}
+            >
+              {t.name}
+              {t.official ? " · official" : ""}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenu>
+      )}
+      <Popover
+        open={saveTemplateOpen}
+        onOpenChange={(o) => {
+          if (o) setTemplateName("");
+          setSaveTemplateOpen(o);
+        }}
+        align="start"
+        side="top"
+        trigger={
+          <Button
+            variant="ghost"
+            size="xs"
+            disabled={isIdenticalToExistingTemplate}
+            title={
+              isIdenticalToExistingTemplate
+                ? "Identical to an existing template"
+                : undefined
+            }
+          >
+            Save as template
+          </Button>
+        }
+        content={
+          <Flex direction="column" gap="3" style={{ minWidth: 240 }}>
+            <Field
+              label="Template name"
+              value={templateName}
+              onChange={(e) => setTemplateName(e.target.value)}
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  saveAsExperimentTemplate();
+                }
+              }}
+            />
+            <Flex justify="end" gap="2">
               <Button
                 variant="ghost"
-                onClick={() => patch({ builderMode: "advanced" })}
-                icon={<PiCalendarBlank />}
+                onClick={() => setSaveTemplateOpen(false)}
               >
-                Edit Ramp-up Steps
+                Cancel
               </Button>
-              <Text color="text-low">
-                Steps:{" "}
-                <Text as="span" weight="semibold" color="text-mid">
-                  {progression}
-                </Text>
-              </Text>
+              <Button
+                onClick={saveAsExperimentTemplate}
+                disabled={savingTemplate || !templateName.trim()}
+              >
+                Save
+              </Button>
             </Flex>
-          );
-        })()}
-      </Box>
-    ) : (
-      <>
+          </Flex>
+        }
+      />
+    </Flex>
+  );
+
+  // ── Ramp-up steps section (only when hasRamp) ─────────────────────────────
+  // Rendered outside the violet box: a template picker + save-as row, then in
+  // simple mode the edit-link + progression summary, in advanced the step grid.
+
+  const rampStepsSection = hasRamp ? (
+    <>
+      {templateControls}
+      {isSimpleMode ? (
         <Box mb="4" mt="5">
-          <Box mb="3">
-            <Button
-              variant="ghost"
-              onClick={() => {
-                const steps = generateExperimentSimpleSteps(
-                  state.simpleDurationDays,
-                  state.simpleDurationUnit,
-                );
-                patch({ builderMode: "simple", steps });
-              }}
-              icon={<PiArrowCounterClockwise />}
-            >
-              Simple View
-            </Button>
-          </Box>
-          {renderStepGrid()}
+          {(() => {
+            const progression = [
+              ...state.steps
+                .map((s) => s.patch.coverage)
+                .filter((c): c is number => c !== undefined)
+                .map((c) => `${c}%`),
+              `${state.endCoverage ?? 100}%`,
+            ].join(" → ");
+            return (
+              <Flex align="center" justify="between" mb="2">
+                <Button
+                  variant="ghost"
+                  onClick={() => patch({ builderMode: "advanced" })}
+                  icon={<PiCalendarBlank />}
+                >
+                  Edit Ramp-up Steps
+                </Button>
+                <Text color="text-low">
+                  Steps:{" "}
+                  <Text as="span" weight="semibold" color="text-mid">
+                    {progression}
+                  </Text>
+                </Text>
+              </Flex>
+            );
+          })()}
         </Box>
-      </>
-    )
+      ) : (
+        <>
+          <Box mb="4" mt="5">
+            <Box mb="3">
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  const steps = generateExperimentSimpleSteps(
+                    state.simpleDurationDays,
+                    state.simpleDurationUnit,
+                  );
+                  patch({ builderMode: "simple", steps });
+                }}
+                icon={<PiArrowCounterClockwise />}
+              >
+                Simple View
+              </Button>
+            </Box>
+            {renderStepGrid()}
+          </Box>
+        </>
+      )}
+    </>
   ) : null;
 
   // ── Decision Criteria panel ───────────────────────────────────────────────
