@@ -361,10 +361,9 @@ export async function applyExperimentEndStrategy(
       return experiment;
 
     case "soft-edf": {
-      // If any health signal is failing with a "hold" action, defer auto-shipping.
-      if (await isHealthHolding(ctx, experiment)) return experiment;
-
-      // Evaluate EDF and auto-act only if there is a clear decision.
+      // Evaluate the EDF decision up front. A metric-driven rollback is the
+      // safe (revert-to-baseline) direction, so it must fire even when a health
+      // signal is holding — only forward shipping is deferred by the hold.
       const decisionCriteria = await resolveDecisionCriteria(ctx, experiment);
       const healthSettings = getHealthSettings(ctx.org.settings);
 
@@ -373,6 +372,27 @@ export async function applyExperimentEndStrategy(
         healthSettings,
         decisionCriteria,
       });
+
+      if (status?.status === "rollback-now") {
+        const mode = resolveAutoRollbackMode(experiment, ctx.org);
+        if (autoRollbackMetric(mode)) {
+          return updateExperiment({
+            context: ctx,
+            experiment,
+            changes: {
+              status: "stopped",
+              results: "lost",
+            },
+          });
+        }
+        // Rollback not auto-enabled — surface for manual review.
+        return experiment;
+      }
+
+      // A failing health signal means the assignment/data is suspect, so defer
+      // forward shipping for manual review. (Rollback is handled above, since
+      // reverting to baseline is safe even on suspect data.)
+      if (await isHealthHolding(ctx, experiment)) return experiment;
 
       if (status?.status === "ship-now") {
         const winVariationId =
@@ -390,20 +410,6 @@ export async function applyExperimentEndStrategy(
             releasedVariationId: winVariationId ?? "",
           },
         });
-      }
-      if (status?.status === "rollback-now") {
-        const mode = resolveAutoRollbackMode(experiment, ctx.org);
-        if (autoRollbackMetric(mode)) {
-          return updateExperiment({
-            context: ctx,
-            experiment,
-            changes: {
-              status: "stopped",
-              results: "lost",
-            },
-          });
-        }
-        return experiment;
       }
       // Inconclusive — surface for manual review.
       return experiment;

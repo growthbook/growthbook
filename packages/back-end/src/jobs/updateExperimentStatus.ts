@@ -78,15 +78,14 @@ const updateSingleExperimentStatus = async (
   const experiment = await getExperimentById(context, experimentId);
   if (!experiment) return;
 
-  if (
-    experiment.archived ||
-    experiment.status === "stopped" ||
-    experiment.status === "running"
-  ) {
+  // Archived or already-stopped experiments can neither be started nor stopped;
+  // clear the schedule. (A "running" experiment is NOT skipped here — it's the
+  // valid state for a scheduled "stop"; per-type state checks live in the
+  // switch below.)
+  if (experiment.archived || experiment.status === "stopped") {
     logger.info(
       `Skipping status update: Experiment ${experiment.id} is ${experiment.archived ? "archived" : experiment.status}`,
     );
-    // Clear the scheduled update so it doesn't get re-processed
     await updateExperiment({
       context,
       experiment,
@@ -142,7 +141,49 @@ const updateSingleExperimentStatus = async (
         });
         break;
       }
-      // TODO(schedule-status-updates): handle "stop" once stopAt is supported
+      case "stop": {
+        if (experiment.status !== "running") {
+          logger.info(
+            `Skipping stop: Experiment ${experiment.id} is not running (status=${experiment.status}).`,
+          );
+          await updateExperiment({
+            context,
+            experiment,
+            changes: { nextScheduledStatusUpdate: null },
+          });
+          return;
+        }
+
+        const experimentBefore = experiment;
+        // Apply the experiment's shipping criteria (ship/rollback per mode, or
+        // a no-op for "off"). For "auto" with no clear winner yet the
+        // experiment keeps running; the snapshot-driven evaluateShippingCriteria
+        // then continues to evaluate it past the stop date.
+        const { applyShippingCriteria } = await import(
+          "back-end/src/services/experimentRampSchedule"
+        );
+        await applyShippingCriteria(context, experiment);
+
+        // The scheduled stop has fired — clear it on the (possibly now-stopped)
+        // experiment. Re-fetch so we don't write over applyShippingCriteria's
+        // changes with a stale doc.
+        const after =
+          (await getExperimentById(context, experiment.id)) ?? experiment;
+        const cleared = await updateExperiment({
+          context,
+          experiment: after,
+          changes: { nextScheduledStatusUpdate: null },
+        });
+        await context.auditLog({
+          event: "experiment.status",
+          entity: {
+            object: "experiment",
+            id: experimentBefore.id,
+          },
+          details: auditDetailsUpdate(experimentBefore, cleared),
+        });
+        break;
+      }
       default:
         logger.info(
           `Skipping status update: Experiment ${experiment.id} has unsupported scheduled type ${scheduled.type}`,

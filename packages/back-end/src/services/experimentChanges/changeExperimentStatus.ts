@@ -395,10 +395,22 @@ export async function executeExperimentStart(
     changes.phases = startExperimentTarget.phases;
   }
 
+  // Now that the start has fired, stage the scheduled stop if a future stop
+  // date is configured. Ramp experiments ship at ramp completion instead, so
+  // they're excluded. Default to clearing any prior staged update.
+  const stopAt =
+    !experiment.rampScheduleId && experiment.statusUpdateSchedule?.stopAt
+      ? getValidDate(experiment.statusUpdateSchedule.stopAt)
+      : null;
+  const nextScheduledStatusUpdate =
+    stopAt && stopAt > new Date()
+      ? { type: "stop" as const, date: stopAt }
+      : null;
+
   const updated = await updateExperiment({
     context,
     experiment,
-    changes: { nextScheduledStatusUpdate: null, ...changes },
+    changes: { nextScheduledStatusUpdate, ...changes },
   });
   return { updated, publishResult };
 }
