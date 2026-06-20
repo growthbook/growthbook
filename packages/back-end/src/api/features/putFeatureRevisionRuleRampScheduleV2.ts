@@ -6,11 +6,11 @@ import { setRuleRampSchedule } from "./putFeatureRevisionRuleRampSchedule";
 export const putFeatureRevisionRuleRampScheduleV2 = createApiRequestHandler(
   putFeatureRevisionRuleRampScheduleV2Validator,
 )(async (req) => {
-  const { revision } = await setRuleRampSchedule(
+  const { revision, warnings } = await setRuleRampSchedule(
     req.context,
     req.organization,
     req.params,
     req.body,
   );
-  return { revision: toApiRevisionV2(revision) };
+  return { revision: toApiRevisionV2(revision), warnings };
 });

@@ -4171,6 +4171,7 @@ export async function postExperimentFeatureValues(
       revision,
       matchingRules,
       updatedVariationValues,
+      sparse: features[feature.id].sparse,
       user: res.locals.eventAudit,
       orgSettings: org.settings,
     });

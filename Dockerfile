@@ -84,14 +84,19 @@ RUN \
   && rm -f packages/stats/poetry.lock
 RUN pnpm postinstall
 
-# Package the full app together
-FROM node:${NODE_MAJOR}-slim
+# Package the full app together on a hardened, continuously-patched base
+# (Docker Hardened Images). The dev variant keeps apt/shell/root, so the
+# apt-install + pm2 + pnpm flow below is unchanged from a stock node base.
+# Building this image from source requires `docker login dhi.io` (free Docker
+# Hub account, DHI Community tier). Pulling the published growthbook/growthbook
+# image needs no such login.
+FROM dhi.io/node:${NODE_MAJOR}-debian12-dev
 ARG PYTHON_MAJOR
 WORKDIR /usr/local/src/app
+# The hardened node image already bundles pnpm, so (unlike a stock node base) we
+# don't reinstall it; the stock-path npm removal is likewise unneeded here.
 RUN apt-get update && \
   apt-get install -y --no-install-recommends python${PYTHON_MAJOR} ca-certificates libkrb5-3 && \
-  npm install -g pnpm@10.33.4 && \
-  rm -rf /usr/local/lib/node_modules/npm && \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/* && \
   ln -sf /usr/bin/python${PYTHON_MAJOR} /usr/local/bin/python3 && \

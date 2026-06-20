@@ -1104,11 +1104,6 @@
       "count": 2
     }
   },
-  "packages/front-end/components/SchemaBrowser/DatasourceTableData.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/SchemaBrowser/EditSqlModal.tsx": {
     "no-restricted-imports": {
       "count": 2

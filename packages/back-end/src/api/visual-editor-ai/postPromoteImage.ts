@@ -25,6 +25,9 @@ const validation = {
   method: "post" as const,
   path: "/visual-editor/ai/promote-image",
   operationId: "postVisualEditorAIPromoteImage",
+  // Internal Visual Editor extension endpoint — not part of the
+  // public OpenAPI spec.
+  excludeFromSpec: true,
 };
 
 export const postPromoteImage = createApiRequestHandler(validation)(async (

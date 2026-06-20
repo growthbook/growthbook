@@ -2235,6 +2235,7 @@ export async function _getSnapshots(
   experimentObjs: ExperimentInterface[],
   dimension?: string,
   withResults: boolean = true,
+  hydrateMetricIds?: string[],
 ): Promise<ExperimentSnapshotInterface[]> {
   const experimentPhaseMap: Map<string, number> = new Map();
   experimentObjs.forEach((e) => {
@@ -2249,6 +2250,7 @@ export async function _getSnapshots(
     experimentPhaseMap,
     dimension,
     withResults,
+    hydrateMetricIds,
   );
 }
 
@@ -4719,6 +4721,7 @@ export async function getLinkedFeatureInfo(
         state,
         environmentStates,
         values: (matches[0]?.rule as ExperimentRefRule)?.variations || [],
+        sparse: !!(matches[0]?.rule as ExperimentRefRule)?.sparse,
         valuesFrom: matches[0]?.environmentId || "",
         rulesAbove: matches.some((m) => m.i > 0),
         inconsistentValues: uniqueValues.size > 1,
