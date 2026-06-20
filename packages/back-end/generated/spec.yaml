@@ -32243,6 +32243,7 @@ paths:
             type: string
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -32272,6 +32273,7 @@ paths:
             type: string
       responses:
         '200':
+          description: Resource deleted
           content:
             application/json:
               schema:
@@ -32335,6 +32337,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource updated
           content:
             application/json:
               schema:
@@ -32401,6 +32404,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -32441,6 +32445,7 @@ paths:
             type: string
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -32485,6 +32490,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
