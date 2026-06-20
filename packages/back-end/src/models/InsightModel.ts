@@ -11,6 +11,7 @@ import {
   cosineSimilarity,
   generateEmbeddings,
 } from "back-end/src/enterprise/services/ai";
+import { assertAIAccess } from "back-end/src/enterprise/services/ai-access";
 import { logger } from "back-end/src/util/logger";
 import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
 import { resolveOwnerEmails } from "back-end/src/services/owner";
@@ -218,11 +219,10 @@ export class InsightModel extends BaseClass {
     limit?: number;
     projectId?: string;
   }): Promise<{ insight: InsightInterface; similarity: number }[]> {
-    if (!this.context.hasPremiumFeature("ai-suggestions")) {
-      this.context.throwPlanDoesNotAllowError(
-        "Semantic insight search requires a plan that includes AI features.",
-      );
-    }
+    // Enforce the same premium, AI-enabled, and rate-limit gates as the find
+    // flow — otherwise external search could keep spending embeddings after
+    // the org is throttled.
+    await assertAIAccess(this.context);
 
     const candidates = (await this.getAll()).filter(
       (i) =>
@@ -230,7 +230,6 @@ export class InsightModel extends BaseClass {
     );
     if (!candidates.length) return [];
 
-    // generateEmbeddings throws if AI is not enabled / configured
     const [queryEmbedding] = await generateEmbeddings({
       context: this.context,
       input: [query],
