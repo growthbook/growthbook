@@ -292,7 +292,11 @@ const BreakDownResults: FC<{
                 ) : (
                   <div style={{ marginBottom: 2 }}>
                     {getRenderLabelColumn({})({
-                      label: table.metric.name,
+                      label: (
+                        <Text weight="semibold" color="text-high">
+                          {table.metric.name}
+                        </Text>
+                      ),
                       metric: table.metric,
                       row: table.rows[0],
                     })}
@@ -307,7 +311,7 @@ const BreakDownResults: FC<{
               setDifferenceType={setDifferenceType}
               renderLabelColumn={({ label }) => (
                 <div
-                  className="pl-3 font-weight-bold"
+                  className="pl-3"
                   style={{
                     display: "-webkit-box",
                     WebkitLineClamp: 1,
@@ -320,7 +324,9 @@ const BreakDownResults: FC<{
                     label === NULL_DIMENSION_VALUE ? (
                       <em>{formatDimensionValueForDisplay(label)}</em>
                     ) : (
-                      label
+                      <Text color="text-high" weight="medium">
+                        {label}
+                      </Text>
                     )
                   ) : (
                     <em>unknown</em>

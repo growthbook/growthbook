@@ -109,11 +109,6 @@
       "count": 2
     }
   },
-  "packages/front-end/components/Dimensions/DimensionChooser.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Dimensions/DimensionForm.tsx": {
     "no-restricted-imports": {
       "count": 1
