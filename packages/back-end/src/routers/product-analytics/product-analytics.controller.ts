@@ -15,6 +15,7 @@ import type { FactMetricInterface } from "shared/types/fact-table";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { NotFoundError } from "back-end/src/util/errors";
+import { logger } from "back-end/src/util/logger";
 import { runProductAnalyticsExploration } from "back-end/src/enterprise/services/product-analytics";
 import { getQueryById } from "back-end/src/models/QueryModel";
 import {
@@ -110,10 +111,26 @@ export const postProductAnalyticsRun = async (
     dateRange: previousTimeFrame,
   };
 
-  const [exploration, comparisonExploration] = await Promise.all([
+  // allSettled (not all): a comparison failure (timeout, upstream schema
+  // change, transient warehouse issue) must not fail the whole request and
+  // cost the user their primary result. Return the primary unconditionally and
+  // only attach the comparison when its leg succeeded.
+  const [primaryResult, comparisonResult] = await Promise.allSettled([
     runProductAnalyticsExploration(context, config, cacheOpts),
     runProductAnalyticsExploration(context, comparisonConfig, cacheOpts),
   ]);
+  if (primaryResult.status === "rejected") {
+    throw primaryResult.reason;
+  }
+  const exploration = primaryResult.value;
+  if (comparisonResult.status === "rejected") {
+    logger.warn(
+      { err: comparisonResult.reason },
+      "Failed to run product analytics comparison query; returning primary only",
+    );
+  }
+  const comparisonExploration =
+    comparisonResult.status === "fulfilled" ? comparisonResult.value : null;
 
   const query = await resolveQuery(exploration);
   const comparisonQuery = await resolveQuery(comparisonExploration);
