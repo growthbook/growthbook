@@ -432,17 +432,20 @@ export const postFindInsights = async (
   );
   const customContext = (findInsightsPromptConfig.prompt || "").trim();
 
-  // Serve from cache when the same (permission-scoped) experiment set was
-  // analyzed recently and the saved insights / prompt config haven't changed.
-  const latestInsightUpdate = existingInsights.reduce(
-    (max, i) => Math.max(max, i.dateUpdated?.getTime() || 0),
-    0,
-  );
+  // Serve from cache when the same experiment set was analyzed recently and
+  // the saved insights / prompt config haven't changed. The key fingerprints
+  // the exact set of insights this user can read (id + version), not just a
+  // count — otherwise two users in the same org with different read access
+  // could collide on the same key and one could receive suggestions that were
+  // deduplicated against the other's (unreadable) insights.
+  const insightsFingerprint = existingInsights
+    .map((i) => `${i.id}:${i.dateUpdated?.getTime() || 0}`)
+    .sort();
   const cacheKey = createHash("sha256")
     .update(
       JSON.stringify({
         experimentIds: experiments.map((e) => e.id).sort(),
-        insightsVersion: [existingInsights.length, latestInsightUpdate],
+        insightsFingerprint,
         customContext,
         overrideModel: findInsightsPromptConfig.overrideModel || "",
       }),

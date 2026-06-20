@@ -205,12 +205,41 @@ export async function getDiscussionCounts(
   >,
   res: Response,
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const { parentType } = req.params;
   const ids = ((req.query?.ids as string) || "").split(",").filter(Boolean);
 
   try {
-    const counts = await getDiscussionCommentCounts(org.id, parentType, ids);
+    // Only return counts for parents the caller can actually read. Without
+    // this, the batch endpoint leaks whether (and how many) comments exist on
+    // resources the user isn't allowed to view. Mirrors the read check the
+    // single-parent comment write path does via getProjectsByParentId.
+    const readableIds = (
+      await Promise.all(
+        ids.map(async (id) => {
+          try {
+            const projects = await getProjectsByParentId(
+              context,
+              parentType,
+              id,
+            );
+            return context.permissions.canReadMultiProjectResource(projects)
+              ? id
+              : null;
+          } catch {
+            // Parent not found or otherwise inaccessible — omit it.
+            return null;
+          }
+        }),
+      )
+    ).filter((id): id is string => id !== null);
+
+    const counts = await getDiscussionCommentCounts(
+      org.id,
+      parentType,
+      readableIds,
+    );
     res.status(200).json({
       status: 200,
       counts,
