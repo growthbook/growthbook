@@ -17,10 +17,10 @@ export const constantValidator = z
     name: z.string(),
     owner: ownerField,
     type: constantTypeValidator,
-    // Resolved per environment as `environmentValues[env] ?? defaultValue`.
+    // Resolved per environment as `environmentValues[env] ?? value`.
     // Each value is the raw string (type "string") or JSON-encoded (type
-    // "json"). At least one of the two must be set.
-    defaultValue: z.string().optional(),
+    // "json"). At least one of `value` / an environment override must be set.
+    value: z.string().optional(),
     environmentValues: z.record(z.string(), z.string()).optional(),
     description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
     projects: z.array(z.string()).optional(),
@@ -36,7 +36,7 @@ export const constantValidator = z
 export const constantUpdatableFieldsSchema = constantValidator.pick({
   name: true,
   owner: true,
-  defaultValue: true,
+  value: true,
   environmentValues: true,
   description: true,
   projects: true,
@@ -55,7 +55,7 @@ export const postConstantBodyValidator = z.object({
   name: z.string(),
   owner: ownerInputField,
   type: constantTypeValidator,
-  defaultValue: z.string().optional(),
+  value: z.string().optional(),
   environmentValues: z.record(z.string(), z.string()).optional(),
   description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   projects: z.string().array().optional(),
@@ -64,7 +64,7 @@ export const postConstantBodyValidator = z.object({
 export const putConstantBodyValidator = z.object({
   name: z.string().optional(),
   owner: ownerInputField.optional(),
-  defaultValue: z.string().optional(),
+  value: z.string().optional(),
   environmentValues: z.record(z.string(), z.string()).optional(),
   description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   projects: z.string().array().optional(),

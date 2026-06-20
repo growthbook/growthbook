@@ -59,7 +59,9 @@ type ReviewRow = {
 };
 
 function revisionToRow(revision: Revision): ReviewRow {
-  const groupName = revision.target.snapshot?.groupName || revision.target.id;
+  const snapshot =
+    revision.target.type === "saved-group" ? revision.target.snapshot : null;
+  const groupName = snapshot?.groupName || revision.target.id;
   return {
     id: revision.id,
     title: revision.title || "",

@@ -33,11 +33,8 @@ export default function ConstantsPage(): React.ReactElement {
   const { getOwnerDisplay } = useUser();
   const permissionsUtil = usePermissionsUtil();
 
-  // Create when null target, edit when a constant is selected.
+  // Rows navigate to the detail page; the modal is create-only.
   const [modalOpen, setModalOpen] = useState(false);
-  const [editConstant, setEditConstant] = useState<ConstantWithoutValue | null>(
-    null,
-  );
 
   const visibleConstants = useMemo(
     () =>
@@ -90,7 +87,7 @@ export default function ConstantsPage(): React.ReactElement {
         {!hasConstants ? (
           <EmptyState
             title="Reusable values for your configs"
-            description="Define a value once and reference it from feature flags with {{ @const:key }} or @import. Change it in one place and every consumer updates."
+            description="Define a value once and reference it from feature flags with {{ @const:key }}. Change it in one place and every consumer updates."
             leftButton={
               <LinkButton
                 href="https://docs.growthbook.io/features/constants"
@@ -144,10 +141,7 @@ export default function ConstantsPage(): React.ReactElement {
                       <Link
                         color="dark"
                         style={{ display: "block", padding: "var(--space-3)" }}
-                        onClick={() => {
-                          setEditConstant(c);
-                          setModalOpen(true);
-                        }}
+                        href={`/constants/${c.id}`}
                       >
                         {c.key}
                       </Link>
@@ -183,13 +177,7 @@ export default function ConstantsPage(): React.ReactElement {
         )}
       </Box>
       {modalOpen && (
-        <ConstantModal
-          existing={editConstant}
-          close={() => {
-            setModalOpen(false);
-            setEditConstant(null);
-          }}
-        />
+        <ConstantModal existing={null} close={() => setModalOpen(false)} />
       )}
     </>
   );

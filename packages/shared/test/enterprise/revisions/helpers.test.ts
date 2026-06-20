@@ -11,6 +11,7 @@ import {
   isUserBlockedFromApproving,
   isAutopublishOnApprovalEnabled,
   isSavedGroupRevisionMetadataOnly,
+  isConstantRevisionMetadataOnly,
 } from "../../../src/revisions/helpers";
 import type {
   RevisionTargetType,
@@ -878,6 +879,51 @@ describe("revisions helpers", () => {
           { op: "replace", path: "/projects/0", value: "p1" },
         ]),
       ).toBe(true);
+    });
+  });
+
+  describe("isConstantRevisionMetadataOnly", () => {
+    it("returns false for an empty proposed-changes list", () => {
+      expect(isConstantRevisionMetadataOnly([])).toBe(false);
+    });
+
+    it("returns false when proposedChanges is not an array (legacy format)", () => {
+      expect(isConstantRevisionMetadataOnly({ name: "v2" } as unknown)).toBe(
+        false,
+      );
+    });
+
+    it.each([
+      [{ op: "replace", path: "/name", value: "v2" }],
+      [{ op: "replace", path: "/owner", value: "user-2" }],
+      [{ op: "replace", path: "/description", value: "new desc" }],
+      [{ op: "replace", path: "/projects", value: ["p1"] }],
+      [{ op: "replace", path: "/archived", value: true }],
+    ] as const)("returns true for a single metadata-field op (%j)", (op) => {
+      expect(isConstantRevisionMetadataOnly([op])).toBe(true);
+    });
+
+    it.each([
+      ["value", { op: "replace", path: "/value", value: "https://x" }],
+      [
+        "environmentValues",
+        {
+          op: "replace",
+          path: "/environmentValues",
+          value: { staging: "https://staging" },
+        },
+      ],
+    ] as const)("returns false for a content-field op (%s)", (_label, op) => {
+      expect(isConstantRevisionMetadataOnly([op])).toBe(false);
+    });
+
+    it("returns false when ops mix metadata and content fields", () => {
+      expect(
+        isConstantRevisionMetadataOnly([
+          { op: "replace", path: "/name", value: "v2" },
+          { op: "replace", path: "/value", value: "v" },
+        ]),
+      ).toBe(false);
     });
   });
 });

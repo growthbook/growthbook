@@ -1,15 +1,38 @@
 import type { Response } from "express";
+import { isEqual } from "lodash";
 import { z } from "zod";
 import {
   postConstantBodyValidator,
   putConstantBodyValidator,
 } from "shared/validators";
 import { ConstantInterface, ConstantWithoutValue } from "shared/types/constant";
+import {
+  Revision,
+  CONSTANT_METADATA_FIELDS,
+  getApprovalFlowSettings,
+  normalizeProposedChanges,
+} from "shared/enterprise";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { ApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
+import {
+  isRevisionRequired,
+  createOrUpdateRevision,
+  buildPatchOps,
+  applyPatchToSnapshot,
+  ensureLiveRevisionExists,
+} from "back-end/src/revisions/util";
+import { getAdapter } from "back-end/src/revisions";
 
 type PostConstantBody = z.infer<typeof postConstantBodyValidator>;
 type PutConstantBody = z.infer<typeof putConstantBodyValidator>;
+
+// Loosely-typed shape the revision helpers expect for the live entity.
+type RevisionEntityArg = Record<string, unknown> & {
+  id: string;
+  owner?: string;
+  dateCreated?: Date;
+};
 
 // GET /constants — value-omitted projection (values can be large; the full
 // value is fetched per-constant via GET /constants/:id).
@@ -41,31 +64,251 @@ export const postConstant = async (
 ) => {
   const context = getContextFromReq(req);
   const body = req.body;
+
+  if (body.projects) {
+    await context.models.projects.ensureProjectsExist(body.projects);
+  }
+
+  // Keys are unique per org; pre-check for a friendly error rather than a raw
+  // duplicate-key failure from the unique index.
+  if (await context.models.constants.getByKey(body.key)) {
+    throw new Error(`A constant with key "${body.key}" already exists.`);
+  }
+
   // Permission is enforced by the model's canCreate.
   const constant = await context.models.constants.create({
     key: body.key,
     name: body.name,
-    owner: body.owner ?? "",
+    // Owner is a userId; default to the creator when not explicitly provided.
+    owner: body.owner || context.userId,
     type: body.type,
-    defaultValue: body.defaultValue,
+    value: body.value,
     environmentValues: body.environmentValues,
     description: body.description,
     projects: body.projects,
   });
+
+  // Backfill an initial "live" revision so the history view has a baseline.
+  await ensureLiveRevisionExists(
+    context,
+    "constant",
+    constant as unknown as RevisionEntityArg,
+  );
+
   return res.status(200).json({ status: 200, constant });
 };
 
+type PutConstantRequest = AuthRequest<
+  PutConstantBody,
+  { id: string },
+  {
+    bypassApproval?: string;
+    autoPublish?: string;
+    revisionId?: string;
+    forceCreateRevision?: string;
+    title?: string;
+    revertedFrom?: string;
+  }
+>;
+
+type PutConstantResponse =
+  | { status: 200; requiresApproval?: false; revision?: Revision }
+  | { status: 202; requiresApproval: boolean; revision: Revision };
+
+// PUT /constants/:id
+// All edits flow through the revision system. When approval isn't required the
+// change is tracked as a revision and merged immediately; when it is required
+// (and the caller can't bypass) the change is stored as a draft for review.
 export const putConstant = async (
-  req: AuthRequest<PutConstantBody, { id: string }>,
-  res: Response<{ status: 200; constant: ConstantInterface }>,
+  req: PutConstantRequest,
+  res: Response<PutConstantResponse | ApiErrorResponse>,
 ) => {
   const context = getContextFromReq(req);
-  const existing = await context.models.constants.getById(req.params.id);
+  const { org } = context;
+  const {
+    name,
+    owner,
+    value,
+    environmentValues,
+    description,
+    projects,
+    archived,
+  } = req.body;
+  const { id } = req.params;
+
+  const existing = await context.models.constants.getById(id);
   if (!existing) {
     return context.throwNotFoundError("Constant not found");
   }
-  const constant = await context.models.constants.update(existing, req.body);
-  return res.status(200).json({ status: 200, constant });
+
+  // Permission check always runs regardless of approval flow status.
+  if (
+    !context.permissions.canUpdateConstant(existing, {
+      projects: projects ?? existing.projects,
+    })
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
+  const approvalRequired = isRevisionRequired(context, "constant", id);
+
+  // If updating a specific revision, compare against its current (patched) state
+  // rather than the live entity so we don't re-propose unchanged fields.
+  const revisionId = req.query.revisionId;
+  let comparisonBase: ConstantInterface = existing;
+  if (revisionId) {
+    const targetRevision = await context.models.revisions.getById(revisionId);
+    if (targetRevision && targetRevision.target.type === "constant") {
+      const patchedSnapshot = applyPatchToSnapshot(
+        targetRevision.target.snapshot as ConstantInterface,
+        normalizeProposedChanges(targetRevision.target.proposedChanges),
+      );
+      comparisonBase = { ...existing, ...patchedSnapshot };
+    }
+  }
+
+  // null/undefined means "field wasn't intentionally changed" (the form sends
+  // null for untouched fields).
+  const hasChanged = (newVal: unknown, oldVal: unknown): boolean => {
+    if (newVal == null) return false;
+    if (oldVal == null) return true;
+    return !isEqual(newVal, oldVal);
+  };
+
+  const fieldsToUpdate: Partial<ConstantInterface> = {};
+  if (typeof name !== "undefined" && hasChanged(name, comparisonBase.name)) {
+    fieldsToUpdate.name = name;
+  }
+  if (typeof owner !== "undefined" && hasChanged(owner, comparisonBase.owner)) {
+    fieldsToUpdate.owner = owner;
+  }
+  if (hasChanged(value, comparisonBase.value)) {
+    fieldsToUpdate.value = value;
+  }
+  if (hasChanged(environmentValues, comparisonBase.environmentValues)) {
+    fieldsToUpdate.environmentValues = environmentValues;
+  }
+  if (hasChanged(description, comparisonBase.description)) {
+    fieldsToUpdate.description = description;
+  }
+  if (hasChanged(projects, comparisonBase.projects)) {
+    if (projects) {
+      await context.models.projects.ensureProjectsExist(projects);
+    }
+    fieldsToUpdate.projects = projects;
+  }
+  if (hasChanged(archived, comparisonBase.archived)) {
+    fieldsToUpdate.archived = archived;
+  }
+
+  const forceCreateRevision = req.query.forceCreateRevision === "1";
+  const bypassApproval = req.query.bypassApproval === "1";
+  const autoPublish = req.query.autoPublish === "1";
+  const title = req.query.title;
+  const revertedFrom = req.query.revertedFrom;
+
+  // If no draft-intent flag was provided we treat the request as an implicit
+  // auto-publish so the change is still tracked as a revision and merged
+  // immediately when approval isn't required.
+  const wantsDraft = !!revisionId || forceCreateRevision;
+  const wantsMerge = bypassApproval || autoPublish || !wantsDraft;
+
+  if (
+    Object.keys(fieldsToUpdate).length === 0 &&
+    !forceCreateRevision &&
+    !bypassApproval &&
+    !autoPublish
+  ) {
+    return res.status(200).json({ status: 200 });
+  }
+
+  await ensureLiveRevisionExists(
+    context,
+    "constant",
+    existing as unknown as RevisionEntityArg,
+  );
+
+  const patchOps = buildPatchOps(fieldsToUpdate as Record<string, unknown>);
+
+  const forceCreate = wantsMerge || forceCreateRevision;
+
+  let revision = await createOrUpdateRevision(
+    context,
+    "constant",
+    existing as unknown as Record<string, unknown> & { id: string },
+    patchOps,
+    {
+      forceCreate,
+      title,
+      revertedFrom,
+      revisionId:
+        wantsDraft && !bypassApproval && !autoPublish ? revisionId : undefined,
+    },
+  );
+
+  if (wantsMerge) {
+    // Delegate to the adapter so the multi-project bypass rule has a single
+    // source of truth (also used by the generic revision controller).
+    const canBypass = getAdapter("constant").canBypassApproval(
+      context,
+      existing as unknown as Record<string, unknown>,
+    );
+
+    // bypassApproval is an explicit admin override — enforce server-side.
+    if (bypassApproval && approvalRequired && !canBypass) {
+      context.permissions.throwPermissionError();
+    }
+
+    // autoPublish is the "metadata-only shortcut": it lets non-admins publish
+    // immediately when the org disabled metadata review. It must NOT be usable
+    // to bypass full content review — enforce that it's only honoured when the
+    // change is limited to metadata fields AND metadata review is disabled, or
+    // the caller has the admin bypass permission.
+    if (autoPublish && approvalRequired && !canBypass) {
+      const isRevertBypass =
+        !!revertedFrom && !!org.settings?.revertsBypassApproval;
+      if (!isRevertBypass) {
+        const isMetadataOnlyChange =
+          Object.keys(fieldsToUpdate).length > 0 &&
+          Object.keys(fieldsToUpdate).every((k) =>
+            CONSTANT_METADATA_FIELDS.has(k),
+          );
+        const metadataReviewRequired =
+          getApprovalFlowSettings(org.settings?.approvalFlows, "constant")
+            ?.requireMetadataReview ?? true;
+        if (!isMetadataOnlyChange || metadataReviewRequired) {
+          context.permissions.throwPermissionError();
+        }
+      }
+    }
+
+    const canImmediatelyMerge =
+      !approvalRequired || bypassApproval || autoPublish;
+
+    if (canImmediatelyMerge) {
+      // Only record a bypass when the caller used the explicit admin override.
+      const isBypass = approvalRequired && bypassApproval;
+
+      await context.models.constants.update(
+        existing,
+        fieldsToUpdate as Parameters<typeof context.models.constants.update>[1],
+      );
+
+      revision = await context.models.revisions.merge(
+        revision.id,
+        context.userId,
+        { bypass: isBypass },
+      );
+
+      return res.status(200).json({ status: 200, revision });
+    }
+  }
+
+  return res.status(202).json({
+    status: 202,
+    requiresApproval: approvalRequired,
+    revision,
+  });
 };
 
 export const deleteConstant = async (
@@ -76,6 +319,12 @@ export const deleteConstant = async (
   const existing = await context.models.constants.getById(req.params.id);
   if (!existing) {
     return context.throwNotFoundError("Constant not found");
+  }
+  // Require the constant to be archived first. Archive is reversible and flows
+  // through the approval system; delete isn't, so this gives users an undo step
+  // (mirrors saved groups).
+  if (!existing.archived) {
+    throw new Error("Constant must be archived before it can be deleted");
   }
   await context.models.constants.delete(existing);
   return res.status(200).json({ status: 200 });

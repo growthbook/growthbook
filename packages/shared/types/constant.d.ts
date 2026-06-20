@@ -14,7 +14,7 @@ export type ConstantInterface = z.infer<typeof constantValidator>;
 // large). Full values are fetched on demand.
 export type ConstantWithoutValue = Omit<
   ConstantInterface,
-  "defaultValue" | "environmentValues"
+  "value" | "environmentValues"
 >;
 
 export type PostConstantBody = z.infer<typeof postConstantBodyValidator>;

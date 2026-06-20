@@ -22,15 +22,15 @@ Each constant has one type:
 
 ## Per-environment values
 
-A constant has a **default value** plus optional **per-environment overrides**. When a flag is built for an environment, the constant resolves to:
+A constant has a base **value** plus optional **per-environment overrides**. When a flag is built for an environment, the constant resolves to:
 
 ```
-environmentValues[environment] ?? defaultValue
+environmentValues[environment] ?? value
 ```
 
-So a constant with a default of `https://api.example.com` and a `staging` override of `https://staging-api.example.com` resolves to the staging value when building the staging payload, and the default everywhere else.
+So a constant with a value of `https://api.example.com` and a `staging` override of `https://staging-api.example.com` resolves to the staging value when building the staging payload, and the base value everywhere else.
 
-A constant must define at least a default value or one environment override.
+A constant must define at least a value or one environment override.
 
 ## Referencing constants
 

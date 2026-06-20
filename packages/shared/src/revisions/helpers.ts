@@ -30,6 +30,8 @@ export const getApprovalFlowSettings = (
   switch (entityType) {
     case "saved-group":
       return approvalFlows.savedGroups?.[0];
+    case "constant":
+      return approvalFlows.constants?.[0];
     // case "feature": return approvalFlows.features?.[0];  ← add future entity types here
     default:
       return undefined;
@@ -70,6 +72,35 @@ export const isSavedGroupRevisionMetadataOnly = (
   return ops.every((op) => {
     const field = op.path.split("/")[1];
     return !!field && SAVED_GROUP_METADATA_FIELDS.has(field);
+  });
+};
+
+/**
+ * Top-level constant fields that count as "metadata" for the `requireMetadataReview`
+ * gate. The content fields (`value`, `environmentValues`) always require full
+ * review when approval is enabled, since they change the value the SDK resolves.
+ */
+export const CONSTANT_METADATA_FIELDS: ReadonlySet<string> = new Set([
+  "name",
+  "owner",
+  "description",
+  "projects",
+  "archived",
+]);
+
+/**
+ * Returns true when every proposed change in the revision touches a constant
+ * metadata field (per `CONSTANT_METADATA_FIELDS`). An empty proposed-changes
+ * list returns false. Mirrors `isSavedGroupRevisionMetadataOnly`.
+ */
+export const isConstantRevisionMetadataOnly = (
+  proposedChanges: JsonPatchOperation[] | unknown,
+): boolean => {
+  const ops = normalizeProposedChanges(proposedChanges);
+  if (ops.length === 0) return false;
+  return ops.every((op) => {
+    const field = op.path.split("/")[1];
+    return !!field && CONSTANT_METADATA_FIELDS.has(field);
   });
 };
 
@@ -119,6 +150,8 @@ export const getRevisionKey = (
   switch (entityType) {
     case "saved-group":
       return "saved-groups";
+    case "constant":
+      return "constants";
     // case "feature": return "features";  ← add future entity types here
     default:
       return null;
@@ -162,8 +195,8 @@ export const canUserReviewEntity = ({
 
   // Extension point: add a new `case` here when introducing a new RevisionTargetType
   // that requires custom reviewer logic beyond the default `canEditEntity` check.
-  if (entityType === "saved-group") {
-    // For saved groups: anyone who can edit can review (except the author, checked above)
+  if (entityType === "saved-group" || entityType === "constant") {
+    // Anyone who can edit can review (except the author, checked above)
     return !!canEditEntity;
   }
   // case "feature": return !!canEditEntity;  ← add future entity types here

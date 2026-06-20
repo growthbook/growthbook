@@ -1622,6 +1622,11 @@ export async function putOrganization(
           "Saved Groups approval flows require the Require Approvals enterprise feature.",
         );
       }
+      if (settings?.approvalFlows?.constants?.some((c) => c?.required)) {
+        throw new Error(
+          "Constants approval flows require the Require Approvals enterprise feature.",
+        );
+      }
     }
 
     if (name) {
