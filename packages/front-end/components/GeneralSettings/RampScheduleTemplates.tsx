@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { PiPlusBold, PiCaretDown, PiCaretUp } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
@@ -74,18 +74,23 @@ const MENU_WIDTH = 50;
 
 interface EditModalProps {
   template?: RampScheduleTemplateInterface;
+  entityType: "feature" | "experiment";
   onClose: () => void;
   onSave: () => void;
 }
 
-function EditModal({ template, onClose, onSave }: EditModalProps) {
+function EditModal({ template, entityType, onClose, onSave }: EditModalProps) {
   const { apiCall } = useAuth();
   const environments = useEnvironments();
+  // Experiment templates author their steps in the experiment ramp modal
+  // ("Save as template"); here they only support renaming + the official flag.
+  // Feature templates use the full embedded ramp editor.
+  const isExperiment = entityType === "experiment";
   const [name, setName] = useState(template?.name ?? "");
   const [official, setOfficial] = useState(template?.official ?? false);
   const [saving, setSaving] = useState(false);
   const [rampState, setRampState] = useState<RampSectionState>(() => {
-    if (template) {
+    if (template && !isExperiment) {
       return templateToSectionState(template, "edit");
     }
     const s = defaultRampSectionState(undefined);
@@ -103,11 +108,15 @@ function EditModal({ template, onClose, onSave }: EditModalProps) {
       submit={async () => {
         setSaving(true);
         try {
-          const payload = {
-            ...buildTemplatePayload({ ...rampState, name }),
-            name: name.trim(),
-            official,
-          };
+          // Experiment templates: only name/official are editable here — steps
+          // are untouched. Feature templates rebuild the full payload.
+          const payload = isExperiment
+            ? { name: name.trim(), official }
+            : {
+                ...buildTemplatePayload({ ...rampState, name }),
+                name: name.trim(),
+                official,
+              };
           if (template) {
             await apiCall(`/ramp-schedule-templates/${template.id}`, {
               method: "PUT",
@@ -116,7 +125,7 @@ function EditModal({ template, onClose, onSave }: EditModalProps) {
           } else {
             await apiCall("/ramp-schedule-templates", {
               method: "POST",
-              body: JSON.stringify(payload),
+              body: JSON.stringify({ ...payload, entityType }),
             });
           }
           onSave();
@@ -143,16 +152,33 @@ function EditModal({ template, onClose, onSave }: EditModalProps) {
           description="Eligible to be used as the editor default for new ramps"
         />
       </Box>
-      <RampScheduleSection
-        ruleRampSchedule={undefined}
-        state={rampState}
-        setState={setRampState}
-        embedded
-        hideNameField
-        hideTemplateSave
-        feature={GENERIC_FEATURE as FeatureInterface}
-        environments={environments.map((e) => e.id)}
-      />
+      {isExperiment ? (
+        template ? (
+          <Box>
+            <Text as="div" weight="medium" mb="1">
+              Steps
+            </Text>
+            <Text color="text-low" size="small">
+              {formatRampStepSummary(template.steps)}
+            </Text>
+            <Text as="div" color="text-low" size="small" mt="2">
+              Edit steps from an experiment&apos;s ramp schedule, then use
+              &ldquo;Save as template&rdquo;.
+            </Text>
+          </Box>
+        ) : null
+      ) : (
+        <RampScheduleSection
+          ruleRampSchedule={undefined}
+          state={rampState}
+          setState={setRampState}
+          embedded
+          hideNameField
+          hideTemplateSave
+          feature={GENERIC_FEATURE as FeatureInterface}
+          environments={environments.map((e) => e.id)}
+        />
+      )}
     </Modal>
   );
 }
@@ -407,7 +433,11 @@ function StaticTemplateRow({
   );
 }
 
-export default function RampScheduleTemplates() {
+export default function RampScheduleTemplates({
+  entityType = "feature",
+}: {
+  entityType?: "feature" | "experiment";
+}) {
   const { data, mutate } = useApi<{
     rampScheduleTemplates: RampScheduleTemplateInterface[];
   }>("/ramp-schedule-templates");
@@ -415,30 +445,51 @@ export default function RampScheduleTemplates() {
   const { hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
 
+  const isExperiment = entityType === "experiment";
   const hasFeature = hasCommercialFeature("ramp-schedules");
+  // Gate on the matching entity's permissions: experiment templates use
+  // experiment (createAnalyses) permissions, feature templates use feature ones.
   const canCreate =
-    hasFeature && permissionsUtil.canCreateFeature({ project: undefined });
+    hasFeature &&
+    (isExperiment
+      ? permissionsUtil.canCreateExperiment({ project: undefined })
+      : permissionsUtil.canCreateFeature({ project: undefined }));
   const canUpdate =
     hasFeature &&
-    permissionsUtil.canUpdateFeature(
-      { project: undefined },
-      { project: undefined },
-    );
+    (isExperiment
+      ? permissionsUtil.canUpdateExperiment(
+          { project: undefined },
+          { project: undefined },
+        )
+      : permissionsUtil.canUpdateFeature(
+          { project: undefined },
+          { project: undefined },
+        ));
   const canDelete =
-    hasFeature && permissionsUtil.canDeleteFeature({ project: undefined });
+    hasFeature &&
+    (isExperiment
+      ? permissionsUtil.canDeleteExperiment({ project: undefined })
+      : permissionsUtil.canDeleteFeature({ project: undefined }));
 
   const [editingTemplate, setEditingTemplate] = useState<
     RampScheduleTemplateInterface | null | false
   >(false);
   const [activeId, setActiveId] = useState<string | undefined>();
+  // Templates with no entityType predate the discriminator and are features.
+  const matchesEntity = useCallback(
+    (t: RampScheduleTemplateInterface) =>
+      (t.entityType ?? "feature") === entityType,
+    [entityType],
+  );
+
   // Local mirror of the server list so reorders feel instant before refetch.
   const [items, setItems] = useState<RampScheduleTemplateInterface[]>(
-    data?.rampScheduleTemplates ?? [],
+    (data?.rampScheduleTemplates ?? []).filter(matchesEntity),
   );
 
   useEffect(() => {
-    setItems(data?.rampScheduleTemplates ?? []);
-  }, [data]);
+    setItems((data?.rampScheduleTemplates ?? []).filter(matchesEntity));
+  }, [data, matchesEntity]);
 
   const sensors = useSensors(
     useSensor(MouseSensor, {}),
@@ -494,24 +545,30 @@ export default function RampScheduleTemplates() {
         <Heading as="h3" size="small">
           Ramp Schedule Templates
         </Heading>
-        <PremiumTooltip commercialFeature="ramp-schedules">
-          <Button
-            variant="outline"
-            onClick={() => canCreate && setEditingTemplate(null)}
-            disabled={!canCreate}
-          >
-            <PiPlusBold style={{ marginRight: 4, verticalAlign: "middle" }} />
-            New template
-          </Button>
-        </PremiumTooltip>
+        {/* Experiment templates are authored from an experiment's ramp
+            schedule ("Save as template"), so there's no create button here. */}
+        {!isExperiment && (
+          <PremiumTooltip commercialFeature="ramp-schedules">
+            <Button
+              variant="outline"
+              onClick={() => canCreate && setEditingTemplate(null)}
+              disabled={!canCreate}
+            >
+              <PiPlusBold style={{ marginRight: 4, verticalAlign: "middle" }} />
+              New template
+            </Button>
+          </PremiumTooltip>
+        )}
       </Flex>
 
       {items.length === 0 ? (
         <Text color="text-low" size="medium">
           No templates yet.{" "}
-          {hasFeature
-            ? "Create one to quickly apply standard ramp schedules to feature rules."
-            : "Upgrade to Enterprise to create and manage ramp schedule templates."}
+          {!hasFeature
+            ? "Upgrade to Enterprise to create and manage ramp schedule templates."
+            : isExperiment
+              ? "Configure a ramp on an experiment and use “Save as template” to create one."
+              : "Create one to quickly apply standard ramp schedules to feature rules."}
         </Text>
       ) : (
         <DndContext
@@ -571,6 +628,7 @@ export default function RampScheduleTemplates() {
       {editingTemplate !== false && (
         <EditModal
           template={editingTemplate ?? undefined}
+          entityType={entityType}
           onClose={() => setEditingTemplate(false)}
           onSave={async () => {
             await mutate();

@@ -530,11 +530,12 @@ const GeneralSettingsPage = (): React.ReactElement => {
               <Frame mb="4">
                 <BanditSettings page="org-settings" />
               </Frame>
+              <RampScheduleTemplates entityType="experiment" />
             </TabsContent>
 
             <TabsContent value="feature">
               <FeatureSettings />
-              <RampScheduleTemplates />
+              <RampScheduleTemplates entityType="feature" />
             </TabsContent>
 
             <TabsContent value="metrics">
