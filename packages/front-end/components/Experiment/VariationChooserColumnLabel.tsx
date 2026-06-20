@@ -156,32 +156,9 @@ export default function VariationChooserColumnLabel({
                 size="sm"
               />
             </Flex>
-            <Flex
-              align="center"
-              className={`variation variation${variation.index} with-variation-label`}
-              style={{ maxWidth: 200, flex: 1, minWidth: 0 }}
-            >
-              <span
-                className="label"
-                style={{
-                  width: 20,
-                  height: 20,
-                  flex: "none",
-                  marginTop: "-1px",
-                }}
-              >
-                {variation.index}
-              </span>
-              <Text
-                style={{
-                  whiteSpace: "normal",
-                  wordBreak: "break-word",
-                  lineHeight: "1.4",
-                }}
-              >
-                {variation.name}
-              </Text>
-            </Flex>
+            <Box style={{ maxWidth: 200, flex: 1, minWidth: 0 }}>
+              <VariationLabel number={variation.index} name={variation.name} />
+            </Box>
           </Flex>
         </DropdownMenuItem>,
       );
@@ -207,7 +184,7 @@ export default function VariationChooserColumnLabel({
   } else {
     // Multiple selected or all selected - show plain "Variation" text
     triggerContent = (
-      <Text style={{ color: "var(--color-text-mid)", fontSize: "13px" }}>
+      <Text style={{ color: "var(--color-text-mid)", fontSize: "12px" }}>
         Variation
       </Text>
     );

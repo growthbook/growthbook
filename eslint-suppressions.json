@@ -164,11 +164,6 @@
       "count": 2
     }
   },
-  "packages/front-end/components/Experiment/BaselineChooserColumnLabel.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Experiment/BreakDownResults.tsx": {
     "local/no-alert-classname": {
       "count": 1

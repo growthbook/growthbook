@@ -6,7 +6,7 @@ import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
 } from "shared/types/experiment-snapshot";
-import { Box, Flex, Text } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { PiCaretDownFill } from "react-icons/pi";
 import { getSnapshotAnalysis } from "shared/util";
 import { useAuth } from "@/services/auth";
@@ -138,32 +138,9 @@ export default function BaselineChooserColumnLabel({
             setDropdownOpen(false);
           }}
         >
-          <Flex
-            align="center"
-            className={`variation variation${variation.index} with-variation-label`}
-            style={{ maxWidth: 200, flex: 1, minWidth: 0 }}
-          >
-            <span
-              className="label"
-              style={{
-                width: 20,
-                height: 20,
-                flex: "none",
-                marginTop: "-1px",
-              }}
-            >
-              {variation.index}
-            </span>
-            <Text
-              style={{
-                whiteSpace: "normal",
-                wordBreak: "break-word",
-                lineHeight: "1.4",
-              }}
-            >
-              {variation.name}
-            </Text>
-          </Flex>
+          <Box style={{ maxWidth: 200, minWidth: 0 }}>
+            <VariationLabel number={variation.index} name={variation.name} />
+          </Box>
         </DropdownMenuItem>
       );
     });
@@ -204,7 +181,7 @@ export default function BaselineChooserColumnLabel({
           {isHoldout ? (
             <OverflowText
               maxWidth={labelMaxWidth}
-              style={{ color: "var(--color-text-mid)", fontSize: "13px" }}
+              style={{ color: "var(--color-text-mid)", fontSize: "12px" }}
             >
               Holdout
             </OverflowText>
