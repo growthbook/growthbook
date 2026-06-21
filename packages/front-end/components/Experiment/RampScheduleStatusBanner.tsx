@@ -22,6 +22,7 @@ import { date } from "shared/dates";
 import Text from "@/ui/Text";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
+import Metadata from "@/ui/Metadata";
 import useApi from "@/hooks/useApi";
 import RampTimeline from "@/components/RampSchedule/RampTimeline";
 
@@ -87,30 +88,46 @@ export default function RampScheduleStatusBanner({
     schedule.startedAt ?? experiment.statusUpdateSchedule?.startAt ?? null;
   const endAt = experiment.statusUpdateSchedule?.stopAt ?? null;
 
-  // ── Compact summary: lead with the experiment's start/end (most important);
-  // the ramp is secondary. Order shifts with lifecycle:
+  // ── Compact summary as label: value pairs, leading with the experiment's
+  // start/end (most important); the ramp is secondary. Order shifts with
+  // lifecycle:
   //   before start → starts · ramp-up · ends
   //   while ramping → ramp position · ends (start already happened)
   //   after ramp    → ramp complete · ends
-  const endPart = endAt ? `Experiment ends ${date(endAt)}` : "No scheduled end";
-  const summaryParts: string[] = [];
+  const endPair = {
+    label: "Experiment ends",
+    value: endAt ? date(endAt) : "When stopped",
+  };
+  const summaryPairs: { label: string; value: string }[] = [];
   if (effective === "completed") {
-    summaryParts.push("Ramp complete", endPart);
+    summaryPairs.push({ label: "Ramp", value: "Complete" }, endPair);
   } else if (effective === "rolled-back") {
     if (schedule.lastRollbackReason)
-      summaryParts.push(schedule.lastRollbackReason);
+      summaryPairs.push({
+        label: "Rolled back",
+        value: schedule.lastRollbackReason,
+      });
   } else if (notStarted) {
-    if (startAt) summaryParts.push(`Experiment starts ${date(startAt)}`);
-    summaryParts.push(`${totalSteps}-step ramp-up`, endPart);
+    if (startAt)
+      summaryPairs.push({
+        label: "Experiment starts",
+        value: date(startAt),
+      });
+    summaryPairs.push(
+      {
+        label: "Ramp-up",
+        value: `${totalSteps} step${totalSteps !== 1 ? "s" : ""}`,
+      },
+      endPair,
+    );
   } else {
-    if (schedule.currentStepIndex >= 0) {
-      summaryParts.push(
-        `Ramp step ${schedule.currentStepIndex + 1} of ${totalSteps}`,
-      );
-    }
-    summaryParts.push(endPart);
+    if (schedule.currentStepIndex >= 0)
+      summaryPairs.push({
+        label: "Ramp",
+        value: `Step ${schedule.currentStepIndex + 1} of ${totalSteps}`,
+      });
+    summaryPairs.push(endPair);
   }
-  const summary = summaryParts.join(" · ");
 
   return (
     <div className="appbox p-3">
@@ -131,10 +148,12 @@ export default function RampScheduleStatusBanner({
                   color={STATUS_COLORS[effective]}
                   label={STATUS_LABELS[effective]}
                 />
-                {summary && (
-                  <Text size="medium" color="gray">
-                    {summary}
-                  </Text>
+                {summaryPairs.length > 0 && (
+                  <Flex align="center" gap="4" wrap="wrap">
+                    {summaryPairs.map((p) => (
+                      <Metadata key={p.label} label={p.label} value={p.value} />
+                    ))}
+                  </Flex>
                 )}
                 {awaitingApproval && (
                   <Badge
