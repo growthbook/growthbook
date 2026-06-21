@@ -54,6 +54,9 @@ const validation = {
   method: "post" as const,
   path: "/visual-editor/create-experiment",
   operationId: "postVisualEditorCreateExperiment",
+  // Internal Visual Editor extension endpoint — not part of the
+  // public OpenAPI spec.
+  excludeFromSpec: true,
 };
 
 export const postCreateExperiment = createApiRequestHandler(validation)(async (
