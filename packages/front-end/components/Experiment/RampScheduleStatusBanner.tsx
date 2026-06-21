@@ -1,239 +1,194 @@
 /**
  * RampScheduleStatusBanner
  *
- * Shown on the experiment results page when the experiment has an active
- * ramp schedule. Displays the current step, hold reason (if any), and
- * action buttons for ramp operations.
+ * An expandable "Schedule" appbox on the experiment overview. Collapsed, it
+ * summarizes the experiment's schedule as a whole — scheduled start/end and, if
+ * a ramp is attached, the current ramp state. Expanded (caret), it reveals the
+ * full read-only ramp timeline inline. Ramp playback controls live in the
+ * experiment's actions dropdown, not here.
  */
-import { useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
+import Collapsible from "react-collapsible";
+import { FaAngleRight, FaExclamationTriangle } from "react-icons/fa";
+import { PiCalendarBlank } from "react-icons/pi";
 import {
   RampScheduleInterface,
+  EffectiveRampStatus,
+  getEffectiveRampStatus,
   isAwaitingApproval,
-  isReadyForApproval,
 } from "shared/validators";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import {
-  FaCheckCircle,
-  FaExclamationTriangle,
-  FaPause,
-  FaPlay,
-  FaUndo,
-} from "react-icons/fa";
-import { useAuth } from "@/services/auth";
-import Button from "@/ui/Button";
-import Badge from "@/ui/Badge";
-import Callout from "@/ui/Callout";
+import { date } from "shared/dates";
 import Text from "@/ui/Text";
+import Badge from "@/ui/Badge";
+import Button from "@/ui/Button";
 import useApi from "@/hooks/useApi";
+import RampTimeline from "@/components/RampSchedule/RampTimeline";
 
 interface Props {
   experiment: ExperimentInterfaceStringDates;
+  // Kept for parity with the parent header API; this read-only banner doesn't
+  // mutate the experiment, so it's intentionally unused here.
   mutate: () => void;
+  // Opens the schedule editor (dates + ramp steps + remove). Null when the user
+  // can't edit the experiment. The editor handles removing the ramp (toggle off)
+  // and editing start/end dates.
+  editSchedule?: (() => void) | null;
 }
 
+// Keyed on the derived effective status (experiment liveness + ramp status),
+// not the stored ramp status alone — so a ramp never reads as "Ramping" off a
+// non-running experiment.
 const STATUS_COLORS: Record<
-  RampScheduleInterface["status"],
+  EffectiveRampStatus,
   "indigo" | "yellow" | "green" | "red" | "gray"
 > = {
-  pending: "gray",
-  ready: "yellow",
-  running: "indigo",
+  "not-started": "yellow",
+  ramping: "indigo",
   paused: "yellow",
   completed: "green",
   "rolled-back": "red",
+  inactive: "gray",
 };
 
-const STATUS_LABELS: Record<RampScheduleInterface["status"], string> = {
-  pending: "Pending",
-  ready: "Ready to start",
-  running: "Ramping",
+const STATUS_LABELS: Record<EffectiveRampStatus, string> = {
+  "not-started": "Scheduled",
+  ramping: "Ramping",
   paused: "Paused",
   completed: "Completed",
   "rolled-back": "Rolled back",
+  inactive: "Inactive",
 };
 
 export default function RampScheduleStatusBanner({
   experiment,
-  mutate,
+  editSchedule,
 }: Props) {
-  const { apiCall } = useAuth();
-  const [loading, setLoading] = useState(false);
-
-  const { data, mutate: mutateSchedule } = useApi<{
+  const { data } = useApi<{
     rampSchedule: RampScheduleInterface | null;
   }>(`/experiment/${experiment.id}/ramp-schedule`);
 
   const schedule = data?.rampSchedule;
   if (!experiment.rampScheduleId || !schedule) return null;
-  if (!["pending", "ready", "running", "paused"].includes(schedule.status)) {
-    // Still show completed/rolled-back for awareness
-    if (schedule.status === "completed" || schedule.status === "rolled-back") {
-      return (
-        <Callout
-          status={schedule.status === "completed" ? "success" : "error"}
-          mb="3"
-        >
-          <Flex align="center" gap="2">
-            {schedule.status === "completed" ? <FaCheckCircle /> : <FaUndo />}
-            <Text>
-              Ramp schedule {STATUS_LABELS[schedule.status].toLowerCase()}.
-              {schedule.lastRollbackReason
-                ? ` Reason: ${schedule.lastRollbackReason}`
-                : ""}
-            </Text>
-          </Flex>
-        </Callout>
+
+  // Effective state factors in experiment liveness, so a ramp can't display as
+  // "ramping" before the experiment starts (or after it stops).
+  const effective = getEffectiveRampStatus(experiment.status, schedule);
+  const notStarted = effective === "not-started";
+  const awaitingApproval =
+    effective === "ramping" && isAwaitingApproval(schedule);
+  const totalSteps = schedule.steps.length;
+
+  // The experiment's scheduled start/end live on the experiment, not the ramp
+  // (the ramp's own startDate/cutoffDate are feature-only). Start = the ramp's
+  // actual start (startedAt) once running, else the experiment's scheduled
+  // start; end = the experiment's scheduled stop (absent = runs until stopped).
+  const startAt =
+    schedule.startedAt ?? experiment.statusUpdateSchedule?.startAt ?? null;
+  const endAt = experiment.statusUpdateSchedule?.stopAt ?? null;
+
+  // ── Compact summary: lead with the experiment's start/end (most important);
+  // the ramp is secondary. Order shifts with lifecycle:
+  //   before start → starts · ramp-up · ends
+  //   while ramping → ramp position · ends (start already happened)
+  //   after ramp    → ramp complete · ends
+  const endPart = endAt ? `Experiment ends ${date(endAt)}` : "No scheduled end";
+  const summaryParts: string[] = [];
+  if (effective === "completed") {
+    summaryParts.push("Ramp complete", endPart);
+  } else if (effective === "rolled-back") {
+    if (schedule.lastRollbackReason)
+      summaryParts.push(schedule.lastRollbackReason);
+  } else if (notStarted) {
+    if (startAt) summaryParts.push(`Experiment starts ${date(startAt)}`);
+    summaryParts.push(`${totalSteps}-step ramp-up`, endPart);
+  } else {
+    if (schedule.currentStepIndex >= 0) {
+      summaryParts.push(
+        `Ramp step ${schedule.currentStepIndex + 1} of ${totalSteps}`,
       );
     }
-    return null;
+    summaryParts.push(endPart);
   }
-
-  const now = new Date();
-  const awaitingApproval = isAwaitingApproval(schedule);
-  const readyForApproval = isReadyForApproval(schedule, now);
-  const currentStep =
-    schedule.currentStepIndex >= 0
-      ? schedule.steps[schedule.currentStepIndex]
-      : null;
-
-  const doAction = async (action: string, body?: Record<string, unknown>) => {
-    setLoading(true);
-    try {
-      await apiCall(`/experiment/${experiment.id}/ramp-schedule/${action}`, {
-        method: "POST",
-        body: body ? JSON.stringify(body) : undefined,
-      });
-      mutateSchedule();
-      mutate();
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const totalSteps = schedule.steps.length;
-  const stepLabel =
-    schedule.currentStepIndex >= 0
-      ? `Step ${schedule.currentStepIndex + 1} of ${totalSteps}`
-      : "Not started";
+  const summary = summaryParts.join(" · ");
 
   return (
-    <Box
-      className="appbox"
-      p="3"
-      mb="3"
-      style={{ borderLeft: "4px solid var(--violet-8)" }}
-    >
-      <Flex justify="between" align="center" gap="3">
-        <Flex align="center" gap="3">
-          <Badge
-            color={STATUS_COLORS[schedule.status]}
-            label={STATUS_LABELS[schedule.status]}
-          />
-          <Text size="medium" color="gray">
-            {stepLabel}
-          </Text>
-          {currentStep && (
-            <Text size="medium" color="gray">
-              · {currentStep.monitored ? "Monitored step" : "Unmonitored step"}
-            </Text>
-          )}
-          {awaitingApproval && (
-            <Badge
-              color="orange"
-              variant="soft"
-              label={
-                <>
-                  <FaExclamationTriangle style={{ marginRight: 4 }} />
-                  Awaiting approval
-                </>
-              }
+    <div className="appbox p-3">
+      <Box>
+        <Collapsible
+          transitionTime={100}
+          trigger={
+            <Flex
+              direction="row"
+              align="center"
+              justify="between"
+              style={{ cursor: "pointer" }}
+            >
+              <Flex align="center" gap="2" wrap="wrap">
+                <PiCalendarBlank style={{ color: "var(--color-text-mid)" }} />
+                <Text weight="medium">Schedule</Text>
+                <Badge
+                  color={STATUS_COLORS[effective]}
+                  label={STATUS_LABELS[effective]}
+                />
+                {summary && (
+                  <Text size="medium" color="gray">
+                    {summary}
+                  </Text>
+                )}
+                {awaitingApproval && (
+                  <Badge
+                    color="orange"
+                    variant="soft"
+                    label={
+                      <>
+                        <FaExclamationTriangle style={{ marginRight: 4 }} />
+                        Awaiting approval
+                      </>
+                    }
+                  />
+                )}
+              </Flex>
+              <Flex align="center" gap="3">
+                {editSchedule && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={async (e) => {
+                      // Don't let the click toggle the collapsible.
+                      e?.stopPropagation();
+                      // Editing a live experiment's schedule/ramp changes it
+                      // in place — confirm first.
+                      if (
+                        experiment.status === "running" &&
+                        !window.confirm(
+                          "This experiment is running. Editing its schedule or ramp changes a live experiment. Continue?",
+                        )
+                      ) {
+                        return;
+                      }
+                      editSchedule();
+                    }}
+                  >
+                    Edit
+                  </Button>
+                )}
+                <FaAngleRight className="chevron" />
+              </Flex>
+            </Flex>
+          }
+        >
+          <>
+            <hr className="mt-3" />
+            <RampTimeline
+              rs={schedule}
+              displayStartDate={startAt}
+              displayEndDate={endAt}
+              experimentStatus={experiment.status}
             />
-          )}
-        </Flex>
-
-        <Flex gap="2" align="center">
-          {/* Approval CTA */}
-          {awaitingApproval && readyForApproval && (
-            <Button
-              size="sm"
-              color="violet"
-              loading={loading}
-              onClick={() => doAction("approve-step")}
-            >
-              <FaCheckCircle className="mr-1" />
-              Approve Step
-            </Button>
-          )}
-
-          {/* Advance CTA (manual trigger) */}
-          {schedule.status === "running" && !awaitingApproval && (
-            <Button
-              size="sm"
-              variant="outline"
-              loading={loading}
-              onClick={() => doAction("advance")}
-            >
-              Advance
-            </Button>
-          )}
-
-          {/* Pause / Resume */}
-          {schedule.status === "running" && (
-            <Button
-              size="sm"
-              variant="ghost"
-              color="gray"
-              loading={loading}
-              onClick={() => doAction("pause")}
-            >
-              <FaPause className="mr-1" />
-              Pause
-            </Button>
-          )}
-          {schedule.status === "paused" && (
-            <Button
-              size="sm"
-              variant="outline"
-              color="violet"
-              loading={loading}
-              onClick={() => doAction("resume")}
-            >
-              <FaPlay className="mr-1" />
-              Resume
-            </Button>
-          )}
-
-          {/* Rollback CTA */}
-          {(schedule.status === "running" || schedule.status === "paused") && (
-            <Button
-              size="sm"
-              variant="ghost"
-              color="red"
-              loading={loading}
-              onClick={() => {
-                if (
-                  confirm(
-                    "Roll back this ramp? This will create a new experiment phase with the pre-ramp settings and reset sticky bucketing.",
-                  )
-                ) {
-                  doAction("rollback");
-                }
-              }}
-            >
-              <FaUndo className="mr-1" />
-              Rollback
-            </Button>
-          )}
-        </Flex>
-      </Flex>
-
-      {/* Last rollback info */}
-      {schedule.lastRollbackReason && schedule.status === "rolled-back" && (
-        <Text size="small" color="red" mt="2" as="div">
-          Rolled back: {schedule.lastRollbackReason}
-        </Text>
-      )}
-    </Box>
+          </>
+        </Collapsible>
+      </Box>
+    </div>
   );
 }

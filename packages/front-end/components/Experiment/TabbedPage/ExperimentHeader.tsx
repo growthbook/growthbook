@@ -55,6 +55,7 @@ import HelperText from "@/ui/HelperText";
 import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator";
 import RunningExperimentDecisionBanner from "@/components/Experiment/TabbedPage/RunningExperimentDecisionBanner";
 import RampScheduleStatusBanner from "@/components/Experiment/RampScheduleStatusBanner";
+import RampScheduleMenuItems from "@/components/Experiment/RampScheduleMenuItems";
 import StartExperimentModal, {
   PendingDraftFailure,
 } from "@/components/Experiment/TabbedPage/StartExperimentModal";
@@ -1179,6 +1180,16 @@ export default function ExperimentHeader({
                   </DropdownMenuGroup>
                 </>
               )}
+              {canRunExperiment &&
+                !isHoldout &&
+                experiment.rampScheduleId &&
+                experiment.status === "running" && (
+                  <RampScheduleMenuItems
+                    experimentId={experiment.id}
+                    mutate={mutate}
+                    closeDropdown={() => setDropdownOpen(false)}
+                  />
+                )}
               {/* Only show the separator if one of the following cases is true to avoid double separators */}
               {duplicate ||
               canRunExperiment ||
@@ -1242,7 +1253,11 @@ export default function ExperimentHeader({
 
         {experiment.rampScheduleId ? (
           <Box pt="1">
-            <RampScheduleStatusBanner experiment={experiment} mutate={mutate} />
+            <RampScheduleStatusBanner
+              experiment={experiment}
+              mutate={mutate}
+              editSchedule={editSchedule}
+            />
           </Box>
         ) : null}
         {runningExperimentDecisionBanner ? (

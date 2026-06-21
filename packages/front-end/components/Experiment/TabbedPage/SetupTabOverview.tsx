@@ -9,7 +9,6 @@ import {
   PiPencilSimpleFill,
   PiWarningFill,
 } from "react-icons/pi";
-import { format } from "date-fns-tz";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { PreLaunchChecklistDrawer } from "@/components/PreLaunchChecklist/PreLaunchChecklist";
 import CustomFieldDisplay from "@/components/CustomFields/CustomFieldDisplay";
@@ -30,6 +29,7 @@ import HoldoutTimeline from "@/components/Experiment/holdout/HoldoutTimeline";
 import EditHypothesisModal from "@/components/Experiment/EditHypothesisModal";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
+import useApi from "@/hooks/useApi";
 import { HoldoutSchedule } from "@/components/Holdout/HoldoutSchedule";
 import Heading from "@/ui/Heading";
 import Tooltip from "@/ui/Tooltip";
@@ -93,7 +93,6 @@ export default function SetupTabOverview({
     Object.values(experiment.statusUpdateSchedule).some(
       (value) => value !== null,
     );
-  const experimentScheduleApproved = !!experiment.nextScheduledStatusUpdate;
   const showAddHoldoutSchedule =
     canEditSchedule &&
     isHoldout &&
@@ -101,11 +100,25 @@ export default function SetupTabOverview({
     experiment.status !== "stopped" &&
     !experiment.archived;
 
-  const showAddExperimentSchedule =
+  // Whether a ramp schedule actually exists for this experiment. Keyed off the
+  // schedule doc rather than `experiment.rampScheduleId`, which can dangle (point
+  // at a deleted schedule). Deduped with the ramp banner's fetch (same key).
+  const { data: rampScheduleData } = useApi<{
+    rampSchedule: { id: string } | null;
+  }>(`/experiment/${experiment.id}/ramp-schedule`, {
+    shouldRun: () => !!experiment.rampScheduleId,
+  });
+  const hasActiveRamp = !!rampScheduleData?.rampSchedule;
+
+  // Always offer a schedule entrypoint for an editable draft experiment — "+ Add
+  // Schedule" when none exists, "Edit Schedule" otherwise. Ramp experiments edit
+  // their schedule (dates + ramp) from the ramp banner's "Edit" link, so the
+  // button is suppressed only while an actual ramp exists.
+  const showExperimentScheduleButton =
     canEditSchedule &&
     !isHoldout &&
     !isBandit &&
-    !experimentHasSchedule &&
+    !hasActiveRamp &&
     experiment.status === "draft" &&
     !experiment.archived;
 
@@ -156,16 +169,12 @@ export default function SetupTabOverview({
           <Heading color="text-high" as="h2" size="large" mb="0">
             Overview
           </Heading>
-          {showAddHoldoutSchedule || showAddExperimentSchedule ? (
+          {showAddHoldoutSchedule ? (
             <Button variant="ghost" onClick={() => editSchedule()}>
               + Add Schedule
             </Button>
           ) : null}
-          {experiment.status === "draft" &&
-          experiment.type !== "holdout" &&
-          experimentHasSchedule &&
-          !experimentScheduleApproved &&
-          editSchedule ? (
+          {showExperimentScheduleButton ? (
             <Tooltip
               content="Scheduled start date has passed—edit scheduled time"
               enabled={showScheduleIsInThePastWarning}
@@ -174,14 +183,13 @@ export default function SetupTabOverview({
                 {showScheduleIsInThePastWarning && (
                   <PiWarningFill color="var(--warning)" className="mr-1" />
                 )}
-                Target Start:{" "}
-                {experiment.statusUpdateSchedule?.startAt
-                  ? format(
-                      new Date(experiment.statusUpdateSchedule.startAt),
-                      "MMM d, yyyy 'at' h:mm a (z)",
-                    )
-                  : ""}{" "}
-                <PiPencilSimpleFill className="ml-1" />
+                {experimentHasSchedule ? (
+                  <>
+                    Edit Schedule <PiPencilSimpleFill className="ml-1" />
+                  </>
+                ) : (
+                  "+ Add Schedule"
+                )}
               </Button>
             </Tooltip>
           ) : null}

@@ -466,6 +466,55 @@ export function isReadyForApproval(
   return new Date(schedule.nextStepAt).getTime() <= now.getTime();
 }
 
+/**
+ * The displayed/effective state of an experiment ramp, derived from the
+ * experiment's liveness and the ramp's own stored status.
+ *
+ * The stored `status` records the ramp's intent and lifecycle (pause, terminal
+ * states, progression). Whether it is *actively ramping right now* additionally
+ * depends on the experiment being live — a ramp can only progress while its
+ * experiment is running. Deriving this (rather than trusting `status` alone)
+ * means a ramp can never read or behave as "ramping" off a draft/stopped
+ * experiment, regardless of how its stored status got set.
+ *
+ * Pause is orthogonal: it's an explicit user intent (`status: "paused"`) that
+ * holds while the experiment keeps running, so it's reported as "paused" — not
+ * collapsed away by the liveness check.
+ */
+export type EffectiveRampStatus =
+  | "not-started"
+  | "ramping"
+  | "paused"
+  | "completed"
+  | "rolled-back"
+  | "inactive";
+
+export function getEffectiveRampStatus(
+  experimentStatus: string | undefined,
+  schedule: { status: string; currentStepIndex: number },
+): EffectiveRampStatus {
+  // Terminal states are real regardless of experiment liveness.
+  if (schedule.status === "completed") return "completed";
+  if (schedule.status === "rolled-back") return "rolled-back";
+
+  // A ramp only ramps while the experiment is live. Off a non-running
+  // experiment (draft or stopped) it's either not started yet, or inactive if
+  // it had already progressed — frozen in place so it resumes where it left
+  // off when the experiment runs again (e.g. a transient edit back to draft).
+  // This also guards against showing/behaving as "ramping" before the
+  // experiment is live.
+  if (experimentStatus !== "running") {
+    return schedule.currentStepIndex >= 0 ? "inactive" : "not-started";
+  }
+
+  // Experiment is live: honor an explicit pause, otherwise reflect progression.
+  if (schedule.status === "paused") return "paused";
+  if (schedule.status === "pending" || schedule.status === "ready") {
+    return "not-started";
+  }
+  return "ramping";
+}
+
 export const TEMPLATE_PATCH_FIELDS = [
   "coverage",
   "condition",

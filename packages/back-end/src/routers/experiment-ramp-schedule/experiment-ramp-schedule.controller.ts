@@ -4,6 +4,7 @@ import {
   RampScheduleInterface,
   RampStepAction,
   rampStep,
+  getEffectiveRampStatus,
 } from "shared/validators";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
@@ -66,8 +67,6 @@ const attachRampBody = z
     // experiment ramp template. At least one is required.
     steps: z.array(rampStep).optional(),
     templateId: z.string().optional(),
-    startDate: z.iso.datetime().nullish(),
-    cutoffDate: z.iso.datetime().nullish(),
   })
   .refine((d) => (d.steps !== undefined) !== (d.templateId !== undefined), {
     message: "Provide exactly one of steps or templateId",
@@ -92,12 +91,22 @@ export async function postRampSchedule(
   if (!context.permissions.canUpdateExperiment(experiment, {})) {
     context.permissions.throwPermissionError();
   }
+  // Block only when a real ramp schedule already exists. A truthy but dangling
+  // rampScheduleId (pointing at a deleted/missing schedule — an orphaned ref
+  // from a prior bug or partial failure) must NOT block re-attaching, or the
+  // experiment would be permanently stuck. In that case we let the attach
+  // proceed and overwrite the dangling reference below.
   if (experiment.rampScheduleId) {
-    return res.status(409).json({
-      status: 409,
-      message:
-        "This experiment already has a ramp schedule. Delete the existing one first.",
-    });
+    const existing = await context.models.rampSchedules.getById(
+      experiment.rampScheduleId,
+    );
+    if (existing) {
+      return res.status(409).json({
+        status: 409,
+        message:
+          "This experiment already has a ramp schedule. Delete the existing one first.",
+      });
+    }
   }
 
   const body = attachRampBody.parse(req.body);
@@ -132,16 +141,13 @@ export async function postRampSchedule(
     );
   }
 
-  // A schedule with no steps only makes sense as a pure date-gated rollout;
-  // without a start or cutoff date it would never run. Reject rather than
-  // create an unbootable schedule that also blocks future attaches.
-  const startAt = body.startDate ? new Date(body.startDate) : null;
-  const cutoffAt = body.cutoffDate ? new Date(body.cutoffDate) : null;
-  if (steps.length === 0 && !startAt && !cutoffAt) {
+  // Experiment ramps are driven entirely by their steps — there's no date-only
+  // rollout. The ramp's start/end are the experiment's (statusUpdateSchedule),
+  // so the schedule's own startDate/cutoffDate (feature concepts) stay unset.
+  if (steps.length === 0) {
     return res.status(400).json({
       status: 400,
-      message:
-        "Ramp schedule has no steps. Provide a startDate or cutoffDate, or a template with steps.",
+      message: "Ramp schedule has no steps. Provide steps or a template.",
     });
   }
 
@@ -165,8 +171,8 @@ export async function postRampSchedule(
     startActions,
     steps,
     ...(endActions ? { endActions } : {}),
-    startDate: startAt,
-    cutoffDate: cutoffAt,
+    startDate: null,
+    cutoffDate: null,
     status: "ready" as const,
     currentStepIndex: -1,
     nextStepAt: null,
@@ -188,12 +194,13 @@ export async function postRampSchedule(
     throw e;
   }
 
-  // Start immediately when there's no future start date — experiment ramps have
-  // no revision-publish trigger (unlike feature ramps via
-  // onActivatingRevisionPublished), so a "ready" schedule would otherwise never
-  // be picked up by the agenda job.
+  // Start immediately only when the experiment is already running. A ramp
+  // attached to a draft experiment must NOT begin ramping before the experiment
+  // is live — it stays "ready" and is started by executeExperimentStart when
+  // the experiment starts. (Experiment ramps have no separate ramp start date;
+  // the experiment's own start governs when ramping begins.)
   const finalSchedule =
-    !startAt || startAt <= new Date()
+    experiment.status === "running"
       ? await startSchedule(context, schedule)
       : schedule;
 
@@ -207,8 +214,6 @@ export async function postRampSchedule(
 const updateRampBody = z.object({
   name: z.string().min(1).optional(),
   steps: z.array(rampStep).optional(),
-  startDate: z.iso.datetime().nullish(),
-  cutoffDate: z.iso.datetime().nullish(),
 });
 
 export async function putRampSchedule(
@@ -247,11 +252,19 @@ export async function putRampSchedule(
   >[1];
   const changes: ScheduleUpdate = {};
   if (body.name !== undefined) changes.name = body.name;
-  if (body.steps !== undefined) changes.steps = body.steps;
-  if ("startDate" in body)
-    changes.startDate = body.startDate ? new Date(body.startDate) : null;
-  if ("cutoffDate" in body)
-    changes.cutoffDate = body.cutoffDate ? new Date(body.cutoffDate) : null;
+  if (body.steps !== undefined) {
+    changes.steps = body.steps;
+    // Editing steps on a running ramp can leave the playhead past the new last
+    // step. Clamp currentStepIndex so the evaluator never indexes out of range.
+    if (
+      body.steps.length > 0 &&
+      schedule.currentStepIndex >= body.steps.length
+    ) {
+      changes.currentStepIndex = body.steps.length - 1;
+    }
+  }
+  // No startDate/cutoffDate here — experiment ramps source their dates from the
+  // experiment's statusUpdateSchedule, not the schedule's own date fields.
 
   const updated = await context.models.rampSchedules.updateById(
     schedule.id,
@@ -288,7 +301,14 @@ export async function deleteRampSchedule(
   const schedule = await context.models.rampSchedules.getById(
     experiment.rampScheduleId,
   );
-  if (schedule && schedule.status === "running") {
+  // Only block deletion when the ramp is genuinely ramping a live experiment.
+  // The stored status can be "running" on a draft experiment (it's frozen, not
+  // advancing — the scheduler gates on experiment liveness), so use the derived
+  // effective status rather than the raw stored value.
+  if (
+    schedule &&
+    getEffectiveRampStatus(experiment.status, schedule) === "ramping"
+  ) {
     return res.status(409).json({
       status: 409,
       message:
@@ -302,7 +322,10 @@ export async function deleteRampSchedule(
   await updateExperiment({
     context,
     experiment,
-    changes: { rampScheduleId: undefined },
+    // Clear the reference with null, not undefined — Mongo's $set strips
+    // undefined, which would leave a dangling rampScheduleId pointing at the
+    // now-deleted schedule.
+    changes: { rampScheduleId: null },
   });
 
   return res.status(200).json({ status: 200 });

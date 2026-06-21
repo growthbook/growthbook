@@ -13,6 +13,7 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { useSWRConfig } from "swr";
 import {
   AlertDialog,
   Box,
@@ -371,7 +372,8 @@ function buildExperimentSteps(
               : never,
         },
       ],
-      monitored: true,
+      // `monitored` is not authored for experiment ramps — every step is
+      // monitored (the experiment supplies the analysis), derived server-side.
       ...(s.holdConditions ? { holdConditions: s.holdConditions } : {}),
       ...(s.approvalNotes?.trim()
         ? { approvalNotes: s.approvalNotes.trim() }
@@ -659,6 +661,7 @@ export default function ExperimentRampScheduleModal({
   mutate,
 }: Props) {
   const { apiCall } = useAuth();
+  const { mutate: globalMutate } = useSWRConfig();
   const { hasCommercialFeature, organization } = useUser();
   const orgSettings = useOrgSettings();
   const experimentMinLengthDays =
@@ -792,11 +795,14 @@ export default function ExperimentRampScheduleModal({
     });
 
     if (!hasRamp) {
-      // Remove any existing ramp schedule
+      // Remove any existing ramp schedule. Let errors surface (the Modal shows
+      // them) — e.g. the backend refuses to delete a running ramp and returns
+      // a "pause or rollback first" message, which the user needs to see rather
+      // than have the removal silently no-op.
       if (existingSchedule) {
         await apiCall(`/experiment/${experiment.id}/ramp-schedule`, {
           method: "DELETE",
-        }).catch(() => {});
+        });
       }
     } else {
       const steps = buildExperimentSteps(
@@ -830,12 +836,13 @@ export default function ExperimentRampScheduleModal({
           patch: { coverage: (state.endCoverage ?? 100) / 100 },
         },
       ];
+      // Experiment ramps don't carry their own start/end dates — those live on
+      // the experiment's statusUpdateSchedule (startAt/stopAt). The ramp's
+      // startDate/cutoffDate are feature-only and intentionally omitted.
       const body = {
         steps,
         startActions,
         endActions,
-        startDate: state.startDate || null,
-        cutoffDate: state.cutoffDate || null,
       };
       if (!existingSchedule) {
         await apiCall(`/experiment/${experiment.id}/ramp-schedule`, {
@@ -850,6 +857,15 @@ export default function ExperimentRampScheduleModal({
       }
     }
 
+    // Revalidate the ramp-schedule cache the banner/dropdown read from — the
+    // experiment mutate alone doesn't refresh it, so the overview would
+    // otherwise show stale ramp data (or a just-removed ramp) until SWR happens
+    // to revalidate on its own.
+    await globalMutate(
+      (key) =>
+        typeof key === "string" &&
+        key.includes(`/experiment/${experiment.id}/ramp-schedule`),
+    );
     mutate();
   }
 

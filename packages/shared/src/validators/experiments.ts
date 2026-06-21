@@ -459,8 +459,12 @@ export const experimentInterface = z
       .array(z.string())
       .max(MAX_PRECOMPUTED_UNIT_DIMENSIONS, maxPrecomputedUnitDimensionsError)
       .optional(),
-    /** ID of the attached RampSchedule for this experiment. Set when a ramp is configured. */
-    rampScheduleId: z.string().optional(),
+    /**
+     * ID of the attached RampSchedule for this experiment. Set when a ramp is
+     * configured; `null` once a ramp is removed (so the reference is cleared
+     * rather than left dangling).
+     */
+    rampScheduleId: z.string().nullish(),
     /**
      * @deprecated Use `shippingCriteria` instead. Kept for backward
      * compatibility during migration.

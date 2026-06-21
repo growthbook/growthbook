@@ -60,6 +60,7 @@ import {
   getRampStatusLabel,
   getRampStepsCompleted,
   formatScheduledDate,
+  formatRemainingDuration,
 } from "@/components/RampSchedule/RampTimeline";
 import Badge from "@/ui/Badge";
 import SelectField from "@/components/Forms/SelectField";
@@ -98,7 +99,6 @@ import { allConnectionsSupportBucketingV2 } from "@/components/Experiment/HashVe
 import useSDKConnections from "@/hooks/useSDKConnections";
 import { RolloutHashingOptions } from "@/components/Features/RolloutPercentInput";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
-import { formatRemainingDuration } from "@/components/Features/Rule";
 import { Popover } from "@/ui/Popover";
 import { getExposureQuery } from "@/services/datasources";
 import styles from "./RampScheduleSection.module.scss";

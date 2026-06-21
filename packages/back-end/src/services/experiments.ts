@@ -2808,7 +2808,9 @@ export async function toExperimentApiInterface(
         : experiment.nextScheduledStatusUpdate === undefined
           ? undefined
           : null,
-    rampScheduleId: experiment.rampScheduleId,
+    // Internally nullable (cleared on ramp removal); the API exposes it as an
+    // optional string, so coerce a cleared null back to undefined.
+    rampScheduleId: experiment.rampScheduleId ?? undefined,
   };
   return apiExperiment;
 }

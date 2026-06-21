@@ -334,6 +334,17 @@ export class RampScheduleModel extends BaseClass {
       }));
     }
 
+    // Experiment ramps are monitored on every step — the experiment itself
+    // supplies the analysis — so there's no per-step `monitored` choice to
+    // author. Derive it as always-true here so the analysis-gating in the
+    // evaluator (and everything reading the schedule) applies uniformly.
+    // Feature ramps keep their per-step monitored choice untouched.
+    if (result.entityType === "experiment" && result.steps?.length) {
+      result.steps = result.steps.map((s) =>
+        s.monitored ? s : { ...s, monitored: true },
+      );
+    }
+
     const legacyGs = (result as Record<string, unknown>).guardrailSettings as
       | { experimentHealthAction?: string }
       | undefined;

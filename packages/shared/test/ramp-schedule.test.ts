@@ -2,6 +2,7 @@ import {
   rampScheduleValidator,
   rampStep,
   rampStepAction,
+  getEffectiveRampStatus,
 } from "../src/validators/ramp-schedule";
 
 // ---------------------------------------------------------------------------
@@ -343,5 +344,48 @@ describe("rampScheduleValidator — invalid documents", () => {
       }),
     );
     expect(result.success).toBe(true);
+  });
+});
+
+describe("getEffectiveRampStatus", () => {
+  const s = (status: string, currentStepIndex = 0) => ({
+    status,
+    currentStepIndex,
+  });
+
+  it("never reports 'ramping' off a non-running experiment", () => {
+    // Mid-ramp on a non-running experiment is inactive (frozen in place), so it
+    // resumes where it left off when the experiment runs again — e.g. a
+    // transient edit back to draft.
+    expect(getEffectiveRampStatus("draft", s("running", 0))).toBe("inactive");
+    // A fresh, never-progressed ramp is not-started.
+    expect(getEffectiveRampStatus("draft", s("ready", -1))).toBe("not-started");
+    expect(getEffectiveRampStatus("stopped", s("running", 2))).toBe("inactive");
+  });
+
+  it("reports 'ramping' only when experiment is running and ramp is running", () => {
+    expect(getEffectiveRampStatus("running", s("running", 0))).toBe("ramping");
+  });
+
+  it("honors an explicit pause while the experiment keeps running", () => {
+    expect(getEffectiveRampStatus("running", s("paused", 1))).toBe("paused");
+  });
+
+  it("treats pending/ready as not-started on a running experiment", () => {
+    expect(getEffectiveRampStatus("running", s("ready", -1))).toBe(
+      "not-started",
+    );
+    expect(getEffectiveRampStatus("running", s("pending", -1))).toBe(
+      "not-started",
+    );
+  });
+
+  it("reports terminal states regardless of experiment status", () => {
+    expect(getEffectiveRampStatus("draft", s("completed", 4))).toBe(
+      "completed",
+    );
+    expect(getEffectiveRampStatus("stopped", s("rolled-back", 1))).toBe(
+      "rolled-back",
+    );
   });
 });
