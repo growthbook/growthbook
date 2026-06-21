@@ -62,14 +62,9 @@ Your variations render through a compatible SDK with visual experiments enabled 
 
 The application you want to experiment on **must be a front-end web application viewed in a browser**. The Visual Editor does not work for mobile apps (native or React Native) or desktop apps (e.g. Electron). For unsupported platforms, use [Feature Flags](/app/features) instead to implement your changes in code.
 
-:::warning Heavy client-side rendering can interfere with visual changes
+:::warning Client-side rendering can interfere with visual changes
 
-The Visual Editor targets elements with CSS selectors and applies changes to the DOM in the browser. Two characteristics of heavily client-side-rendered apps (e.g., React, Vue, Svelte) can get in the way:
-
-- **Unstable selectors.** Apps that generate class names at build time (CSS Modules, CSS-in-JS, utility frameworks) can produce different class names on each build, so a selector that matched when you created the variation may stop matching after a deploy.
-- **Re-renders overwriting changes.** The SDK applies your changes and uses a `MutationObserver` to re-apply them if the target element is replaced. When the framework re-renders that part of the page — on hydration, state changes, or navigation — it overwrites the change and the SDK re-applies it, which can cause flicker or the variation briefly reverting, and modifying the DOM outside the framework can conflict with its own rendering.
-
-This **does not** mean the Visual Editor won't work on these frameworks — plenty of React/Vue/Svelte sites run visual experiments successfully, especially for content that's stable after the initial load. The problems are concentrated in elements that re-render frequently or depend on auto-generated selectors. If that describes the elements you want to change, [Feature Flags](/app/features) implemented in code are usually a better fit — the variation is rendered by your app itself, so there's no selector to match and no race with the framework. See [Running on your site](/app/visual/running-on-your-site) for ways to reduce flicker.
+We work hard to support every website and framework, but heavily client-side-rendered apps (e.g., React, Vue, Svelte) can have issues. When the framework re-renders part of the page, it can overwrite the changes the SDK applied, and the SDK will re-apply the changes, leading to a chance of a flicker or tug-of-war. If that happens, [Feature Flags](/app/features) implemented in code are usually a better fit.
 
 :::
 
