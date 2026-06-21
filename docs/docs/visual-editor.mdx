@@ -17,6 +17,12 @@ GrowthBook's AI-based Visual Editor is a no-code way to build and launch experim
 The Visual Editor is currently in beta and available through our early access program. Interested in trying it? 👉 [Sign up here](https://growthbookusers.slack.com/archives/C0BBMTLJUUT).
 :::
 
+<img
+  src="/images/visual-editor/ve-ai-main.png"
+  alt="Editing a page in the Visual Editor side panel"
+  style={{ float: "right", width: "100%", maxWidth: "320px", marginLeft: "24px", marginBottom: "16px" }}
+/>
+
 The Visual Editor is a **Chrome side-panel extension**. You open it next to your site, pick the page you want to test, and make changes two ways:
 
 - **[AI mode](/app/visual/ai-mode)** — describe the change in plain language ("make the hero headline shorter and the CTA green") and the editor proposes the edits for you to preview and accept.
@@ -32,6 +38,7 @@ The Visual Editor is now a Chrome side panel. If you're using an older version o
 :::
 
 ## Benefits
+
 - **Prompt-driven editing**: Describe changes to text, images, buttons, spacing, and more in [AI mode](/app/visual/ai-mode). Pin an element when you want the AI to focus on a specific spot on the page.
 - **Learn from past experiments**: The editor can draw on prior tests in your organization to suggest direction (rolling out). See [Learning from past experiments](/app/visual/ai-mode).
 - **Run experiments without dedicated eng time**: Draft and QA variations in the browser; your site still needs the GrowthBook SDK for production delivery. See [Running on your site](/app/visual/running-on-your-site).
@@ -55,9 +62,14 @@ Your variations render through a compatible SDK with visual experiments enabled 
 
 The application you want to experiment on **must be a front-end web application viewed in a browser**. The Visual Editor does not work for mobile apps (native or React Native) or desktop apps (e.g. Electron). For unsupported platforms, use [Feature Flags](/app/features) instead to implement your changes in code.
 
-:::warning Visual Editor may not work optimally on client-side rendered apps
+:::warning Heavy client-side rendering can interfere with visual changes
 
-With client-side rendered apps (e.g., React, Vue, Svelte), the Visual Editor may not work optimally. Consider using [Feature Flags](/app/features) instead for a better experience.
+The Visual Editor targets elements with CSS selectors and applies changes to the DOM in the browser. Two characteristics of heavily client-side-rendered apps (e.g., React, Vue, Svelte) can get in the way:
+
+- **Unstable selectors.** Apps that generate class names at build time (CSS Modules, CSS-in-JS, utility frameworks) can produce different class names on each build, so a selector that matched when you created the variation may stop matching after a deploy.
+- **Re-renders overwriting changes.** The SDK applies your changes and uses a `MutationObserver` to re-apply them if the target element is replaced. When the framework re-renders that part of the page — on hydration, state changes, or navigation — it overwrites the change and the SDK re-applies it, which can cause flicker or the variation briefly reverting, and modifying the DOM outside the framework can conflict with its own rendering.
+
+This **does not** mean the Visual Editor won't work on these frameworks — plenty of React/Vue/Svelte sites run visual experiments successfully, especially for content that's stable after the initial load. The problems are concentrated in elements that re-render frequently or depend on auto-generated selectors. If that describes the elements you want to change, [Feature Flags](/app/features) implemented in code are usually a better fit — the variation is rendered by your app itself, so there's no selector to match and no race with the framework. See [Running on your site](/app/visual/running-on-your-site) for ways to reduce flicker.
 
 :::
 
