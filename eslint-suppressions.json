@@ -1059,11 +1059,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/SavedGroups/CompareSavedGroupRevisionsModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/SavedGroups/IdListItemInput.tsx": {
     "no-restricted-imports": {
       "count": 1

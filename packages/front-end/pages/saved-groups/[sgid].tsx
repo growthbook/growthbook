@@ -728,6 +728,9 @@ export default function EditSavedGroupPage() {
                 // (matching the server-side rule in the saved-group adapter).
                 requiresApproval={selectedRevisionRequiresApproval}
                 closeModal={() => setShowChangesModal(false)}
+                canUpdateEntity={(s) =>
+                  permissionsUtil.canUpdateSavedGroup(s, {})
+                }
               />
             </Modal>
           );

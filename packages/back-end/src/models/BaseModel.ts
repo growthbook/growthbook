@@ -908,6 +908,13 @@ export abstract class BaseModel<
 
     await this._dangerousGetCollection().insertOne(doc);
 
+    // insertOne mutates `doc` in place to add Mongo's `_id`. Strip it (and the
+    // mongoose version key) so the created doc matches the schema/interface and
+    // these internals don't leak into the return value, audit log details, or
+    // hooks — reads already strip them via `_removeMongooseFields`.
+    delete (doc as Record<string, unknown>)._id;
+    delete (doc as Record<string, unknown>).__v;
+
     if (this._auditLogger) {
       await this._auditLogger.logCreate(this.context, doc);
     }

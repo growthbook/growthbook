@@ -1276,26 +1276,32 @@ export class Permissions {
   };
 
   public canCreateConstant = (
-    constant: Pick<ConstantInterface, "projects">,
+    constant: Pick<ConstantInterface, "project">,
   ): boolean => {
-    return this.checkProjectFilterPermission(constant, "manageConstants");
+    return this.checkProjectFilterPermission(
+      { projects: constant.project ? [constant.project] : [] },
+      "manageConstants",
+    );
   };
 
   public canUpdateConstant = (
-    existing: Pick<ConstantInterface, "projects">,
-    updates: Pick<ConstantInterface, "projects">,
+    existing: Pick<ConstantInterface, "project">,
+    updated: Pick<ConstantInterface, "project">,
   ): boolean => {
     return this.checkProjectFilterUpdatePermission(
-      existing,
-      updates,
+      { projects: existing.project ? [existing.project] : [] },
+      "project" in updated ? { projects: [updated.project || ""] } : {},
       "manageConstants",
     );
   };
 
   public canDeleteConstant = (
-    constant: Pick<ConstantInterface, "projects">,
+    constant: Pick<ConstantInterface, "project">,
   ): boolean => {
-    return this.checkProjectFilterPermission(constant, "manageConstants");
+    return this.checkProjectFilterPermission(
+      { projects: constant.project ? [constant.project] : [] },
+      "manageConstants",
+    );
   };
 
   public canBypassSavedGroupSizeLimit = (projects?: string[]): boolean => {

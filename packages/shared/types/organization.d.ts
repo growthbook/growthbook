@@ -215,7 +215,6 @@ export type ApprovalFlowConfiguration = {
 
 export type ApprovalFlowConfigurations = {
   savedGroups: ApprovalFlowConfiguration[];
-  constants?: ApprovalFlowConfiguration[];
 };
 
 export interface OrganizationSettings {

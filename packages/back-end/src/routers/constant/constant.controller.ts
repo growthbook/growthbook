@@ -4,19 +4,19 @@ import { z } from "zod";
 import {
   postConstantBodyValidator,
   putConstantBodyValidator,
+  validateConstantValue,
 } from "shared/validators";
 import { ConstantInterface, ConstantWithoutValue } from "shared/types/constant";
 import {
   Revision,
-  CONSTANT_METADATA_FIELDS,
-  getApprovalFlowSettings,
   normalizeProposedChanges,
+  getConstantRevisionChange,
 } from "shared/enterprise";
+import { constantRequiresReview } from "shared/util";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import {
-  isRevisionRequired,
   createOrUpdateRevision,
   buildPatchOps,
   applyPatchToSnapshot,
@@ -65,8 +65,14 @@ export const postConstant = async (
   const context = getContextFromReq(req);
   const body = req.body;
 
-  if (body.projects) {
-    await context.models.projects.ensureProjectsExist(body.projects);
+  if (body.project) {
+    await context.models.projects.ensureProjectsExist([body.project]);
+  }
+
+  // JSON constants must hold parseable JSON (empty is allowed).
+  validateConstantValue(body.type, body.value ?? "");
+  for (const [envId, v] of Object.entries(body.environmentValues ?? {})) {
+    validateConstantValue(body.type, v, envId);
   }
 
   // Keys are unique per org; pre-check for a friendly error rather than a raw
@@ -85,7 +91,7 @@ export const postConstant = async (
     value: body.value,
     environmentValues: body.environmentValues,
     description: body.description,
-    projects: body.projects,
+    project: body.project,
   });
 
   // Backfill an initial "live" revision so the history view has a baseline.
@@ -131,7 +137,7 @@ export const putConstant = async (
     value,
     environmentValues,
     description,
-    projects,
+    project,
     archived,
   } = req.body;
   const { id } = req.params;
@@ -144,13 +150,20 @@ export const putConstant = async (
   // Permission check always runs regardless of approval flow status.
   if (
     !context.permissions.canUpdateConstant(existing, {
-      projects: projects ?? existing.projects,
+      project: project ?? existing.project,
     })
   ) {
     context.permissions.throwPermissionError();
   }
 
-  const approvalRequired = isRevisionRequired(context, "constant", id);
+  // JSON constants must hold parseable JSON (empty is allowed). Type is
+  // immutable, so validate incoming values against the existing type.
+  if (typeof value !== "undefined") {
+    validateConstantValue(existing.type, value);
+  }
+  for (const [envId, v] of Object.entries(environmentValues ?? {})) {
+    validateConstantValue(existing.type, v, envId);
+  }
 
   // If updating a specific revision, compare against its current (patched) state
   // rather than the live entity so we don't re-propose unchanged fields.
@@ -191,11 +204,11 @@ export const putConstant = async (
   if (hasChanged(description, comparisonBase.description)) {
     fieldsToUpdate.description = description;
   }
-  if (hasChanged(projects, comparisonBase.projects)) {
-    if (projects) {
-      await context.models.projects.ensureProjectsExist(projects);
+  if (hasChanged(project, comparisonBase.project)) {
+    if (project) {
+      await context.models.projects.ensureProjectsExist([project]);
     }
-    fieldsToUpdate.projects = projects;
+    fieldsToUpdate.project = project;
   }
   if (hasChanged(archived, comparisonBase.archived)) {
     fieldsToUpdate.archived = archived;
@@ -230,6 +243,16 @@ export const putConstant = async (
 
   const patchOps = buildPatchOps(fieldsToUpdate as Record<string, unknown>);
 
+  // Constants inherit the feature `requireReviews` settings: a value change
+  // requires review (all environments), a per-env override only when its
+  // environment is in scope, metadata per the rule's metadata-review toggle.
+  // Computed against the live entity + this change, matching the merge endpoint.
+  const approvalRequired = constantRequiresReview(
+    { project: existing.project },
+    getConstantRevisionChange(existing, patchOps),
+    org.settings,
+  );
+
   const forceCreate = wantsMerge || forceCreateRevision;
 
   let revision = await createOrUpdateRevision(
@@ -259,26 +282,17 @@ export const putConstant = async (
       context.permissions.throwPermissionError();
     }
 
-    // autoPublish is the "metadata-only shortcut": it lets non-admins publish
-    // immediately when the org disabled metadata review. It must NOT be usable
-    // to bypass full content review — enforce that it's only honoured when the
-    // change is limited to metadata fields AND metadata review is disabled, or
-    // the caller has the admin bypass permission.
+    // autoPublish must not bypass review that this change genuinely requires.
+    // `approvalRequired` is already change-aware (it returns false for changes
+    // the review rules don't gate — e.g. metadata when metadata review is off,
+    // or an out-of-scope environment), so a remaining `approvalRequired` here
+    // means real review is needed: only an admin bypass (or revert bypass) may
+    // publish immediately.
     if (autoPublish && approvalRequired && !canBypass) {
       const isRevertBypass =
         !!revertedFrom && !!org.settings?.revertsBypassApproval;
       if (!isRevertBypass) {
-        const isMetadataOnlyChange =
-          Object.keys(fieldsToUpdate).length > 0 &&
-          Object.keys(fieldsToUpdate).every((k) =>
-            CONSTANT_METADATA_FIELDS.has(k),
-          );
-        const metadataReviewRequired =
-          getApprovalFlowSettings(org.settings?.approvalFlows, "constant")
-            ?.requireMetadataReview ?? true;
-        if (!isMetadataOnlyChange || metadataReviewRequired) {
-          context.permissions.throwPermissionError();
-        }
+        context.permissions.throwPermissionError();
       }
     }
 

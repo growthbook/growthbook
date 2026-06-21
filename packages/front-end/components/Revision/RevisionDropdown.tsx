@@ -276,7 +276,7 @@ export default function RevisionDropdown({
       menuPlacement="end"
     >
       {discardedCount > 0 && (
-        <DropdownMenuLabel>
+        <DropdownMenuLabel textStyle={{ display: "block", width: "100%" }}>
           <Flex align="center" gap="2" justify="end" style={{ width: "100%" }}>
             <Text size="small" color="text-low">
               Show discarded ({discardedCount})

@@ -4,6 +4,7 @@ import type {
   ApprovalFlowConfigurations,
 } from "shared/types/organization";
 import type { TeamInterface } from "shared/types/team";
+import type { ConstantInterface } from "shared/types/constant";
 import type {
   RevisionTargetType,
   Revision,
@@ -30,9 +31,8 @@ export const getApprovalFlowSettings = (
   switch (entityType) {
     case "saved-group":
       return approvalFlows.savedGroups?.[0];
-    case "constant":
-      return approvalFlows.constants?.[0];
-    // case "feature": return approvalFlows.features?.[0];  ← add future entity types here
+    // Constants don't use this config — they inherit the feature `requireReviews`
+    // settings (see constantRequiresReview).
     default:
       return undefined;
   }
@@ -102,6 +102,41 @@ export const isConstantRevisionMetadataOnly = (
     const field = op.path.split("/")[1];
     return !!field && CONSTANT_METADATA_FIELDS.has(field);
   });
+};
+
+/**
+ * Derive what a constant revision changes, for approval scoping: whether the
+ * generic `value` changed (affects all environments), which per-environment
+ * overrides changed, and whether the change is metadata-only. Feeds
+ * `constantRequiresReview`, which mirrors the feature review model.
+ */
+export const getConstantRevisionChange = (
+  snapshot: Pick<ConstantInterface, "value" | "environmentValues">,
+  proposedChanges: JsonPatchOperation[] | unknown,
+): {
+  valueChanged: boolean;
+  changedEnvironments: string[];
+  metadataOnly: boolean;
+} => {
+  const ops = normalizeProposedChanges(proposedChanges);
+  const patched = applyTopLevelPatchOps(
+    snapshot as unknown as Record<string, unknown>,
+    ops,
+  ) as Pick<ConstantInterface, "value" | "environmentValues">;
+
+  const valueChanged = (snapshot.value ?? "") !== (patched.value ?? "");
+
+  const oldEnvs = snapshot.environmentValues ?? {};
+  const newEnvs = patched.environmentValues ?? {};
+  const changedEnvironments = Array.from(
+    new Set([...Object.keys(oldEnvs), ...Object.keys(newEnvs)]),
+  ).filter((env) => (oldEnvs[env] ?? "") !== (newEnvs[env] ?? ""));
+
+  return {
+    valueChanged,
+    changedEnvironments,
+    metadataOnly: isConstantRevisionMetadataOnly(ops),
+  };
 };
 
 /**

@@ -4,8 +4,9 @@ import { ConstantInterface } from "shared/types/constant";
 import {
   Revision,
   applyTopLevelPatchOps,
-  isConstantRevisionMetadataOnly,
+  getConstantRevisionChange,
 } from "shared/enterprise";
+import { constantRequiresReview, getReviewSetting } from "shared/util";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import useApi from "@/hooks/useApi";
@@ -16,6 +17,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import PageHead from "@/components/Layout/PageHead";
 import Owner from "@/components/Avatar/Owner";
+import Markdown from "@/components/Markdown/Markdown";
 import Modal from "@/ui/Modal";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
@@ -25,11 +27,24 @@ import Button from "@/ui/Button";
 import Metadata from "@/ui/Metadata";
 import Callout from "@/ui/Callout";
 import ConfirmDialog from "@/ui/ConfirmDialog";
-import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
+import {
+  DropdownMenu,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/ui/DropdownMenu";
 import RevisionDropdown from "@/components/Revision/RevisionDropdown";
 import RevisionSummaryCard from "@/components/Revision/RevisionSummaryCard";
 import RevisionDetail from "@/components/Revision/RevisionDetail";
-import { REVISION_CONSTANT_DIFF_CONFIG } from "@/components/Constants/ConstantDiffRenders";
+import AuditHistoryExplorerModal from "@/components/AuditHistoryExplorer/AuditHistoryExplorerModal";
+import { OVERFLOW_SECTION_LABEL } from "@/components/AuditHistoryExplorer/useAuditDiff";
+import {
+  REVISION_CONSTANT_DIFF_CONFIG,
+  renderConstantSettings,
+  renderConstantValues,
+  getConstantSettingsBadges,
+  getConstantValuesBadges,
+} from "@/components/Constants/ConstantDiffRenders";
 import {
   ConstantConflictModal,
   useConstantMergeResult,
@@ -38,6 +53,7 @@ import { useConstantRevision } from "@/hooks/useConstantRevision";
 import ConstantModal from "@/components/Constants/ConstantModal";
 import ConstantValueModal from "@/components/Constants/ConstantValueModal";
 import ConstantArchiveModal from "@/components/Constants/ConstantArchiveModal";
+import CompareRevisionsModal from "@/components/Revision/CompareRevisionsModal";
 import { ConstantRevisionContext } from "@/components/Constants/useConstantDraftTarget";
 
 const TYPE_LABEL: Record<ConstantInterface["type"], string> = {
@@ -45,24 +61,23 @@ const TYPE_LABEL: Record<ConstantInterface["type"], string> = {
   json: "JSON",
 };
 
-function ValueBlock({ label, value }: { label: string; value: string }) {
+// Renders a value with a left-border indent. Shows "(empty)" for an empty value
+// (for both strings and JSON) so an intentional empty reads as such rather than
+// looking like a render bug.
+function ValueDisplay({ value }: { value: string | undefined }) {
   return (
-    <Box mb="2">
-      <Text as="div" size="small" color="text-mid" mb="1">
-        {label}
-      </Text>
-      <pre
-        style={{
-          whiteSpace: "pre-wrap",
-          margin: 0,
-          padding: "var(--space-2)",
-          background: "var(--gray-a2)",
-          borderRadius: "var(--radius-2)",
-        }}
-      >
-        {value}
-      </pre>
-    </Box>
+    <pre
+      style={{
+        whiteSpace: "pre-wrap",
+        margin: 0,
+        paddingLeft: "var(--space-3)",
+        borderLeft: "2px solid var(--gray-a5)",
+        color: "var(--gray-11)",
+        fontSize: "var(--font-size-2)",
+      }}
+    >
+      {value ? value : <em>(empty)</em>}
+    </pre>
   );
 }
 
@@ -73,7 +88,7 @@ export default function ConstantDetailPage(): React.ReactElement {
 
   const { apiCall } = useAuth();
   const { projects, mutateDefinitions } = useDefinitions();
-  const { organization, userId } = useUser();
+  const { organization, userId, hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
 
   const [editInfoOpen, setEditInfoOpen] = useState(false);
@@ -81,6 +96,8 @@ export default function ConstantDetailPage(): React.ReactElement {
   const [conflictOpen, setConflictOpen] = useState(false);
   const [showChangesModal, setShowChangesModal] = useState(false);
   const [showArchiveModal, setShowArchiveModal] = useState(false);
+  const [showAuditModal, setShowAuditModal] = useState(false);
+  const [compareOpen, setCompareOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -104,11 +121,25 @@ export default function ConstantDetailPage(): React.ReactElement {
   } = useConstantRevision(constant?.id, mutate, constant);
 
   const settings = organization.settings || {};
+  const hasApprovalsFeature = hasCommercialFeature("require-approvals");
+
+  // Constants inherit the feature `requireReviews` settings (drop-in for feature
+  // config). Resolve the rule matching this constant's project for the coarse
+  // "is approval configured" gate; the precise per-revision decision uses
+  // `constantRequiresReview` below (mirroring the back-end adapter).
+  const requireReviews = settings.requireReviews;
+  const reviewRule =
+    hasApprovalsFeature && Array.isArray(requireReviews)
+      ? getReviewSetting(requireReviews, { project: constant?.project })
+      : undefined;
   const approvalRequired =
-    settings.approvalFlows?.constants?.[0]?.required ?? false;
+    hasApprovalsFeature &&
+    (requireReviews === true || !!reviewRule?.requireReviewOn);
   const metadataReviewRequired =
     approvalRequired &&
-    (settings.approvalFlows?.constants?.[0]?.requireMetadataReview ?? true);
+    (requireReviews === true
+      ? true
+      : (reviewRule?.featureRequireMetadataReview ?? true));
 
   const isDraft =
     !!selectedRevision &&
@@ -117,13 +148,23 @@ export default function ConstantDetailPage(): React.ReactElement {
       selectedRevision.status === "changes-requested" ||
       selectedRevision.status === "approved");
 
-  // Per-revision approval gate: a metadata-only revision skips review when
-  // `requireMetadataReview` is off. Mirrors the server-side constant adapter.
+  // Precise per-revision gate, mirroring the server-side constant adapter: a
+  // value change always requires review (all environments), a per-env override
+  // only when its environment is in scope, metadata per the rule's toggle.
   const selectedRevisionRequiresApproval =
     !!selectedRevision &&
-    approvalRequired &&
-    (metadataReviewRequired ||
-      !isConstantRevisionMetadataOnly(selectedRevision.target.proposedChanges));
+    hasApprovalsFeature &&
+    constantRequiresReview(
+      {
+        project: (selectedRevision.target.snapshot as ConstantInterface)
+          .project,
+      },
+      getConstantRevisionChange(
+        selectedRevision.target.snapshot as ConstantInterface,
+        selectedRevision.target.proposedChanges,
+      ),
+      settings,
+    );
 
   // Show the selected revision's proposed state when one is selected.
   const displayedConstant = useMemo(() => {
@@ -171,11 +212,11 @@ export default function ConstantDetailPage(): React.ReactElement {
   // updates it.
   const canEditNow = canUpdate && (!selectedRevision || isDraft);
 
-  // Whether the user can bypass approval for this constant (every project, or
-  // the global "" project when unscoped) — enables the "publish now" option.
-  const canBypassApproval = (
-    constant.projects?.length ? constant.projects : [""]
-  ).every((project) => permissionsUtil.canBypassApprovalChecks({ project }));
+  // Whether the user can bypass approval for this constant (its project, or the
+  // global "" project when unscoped) — enables the "publish now" option.
+  const canBypassApproval = permissionsUtil.canBypassApprovalChecks({
+    project: constant.project || "",
+  });
 
   const revisionCtx: ConstantRevisionContext = {
     allRevisions,
@@ -186,9 +227,10 @@ export default function ConstantDetailPage(): React.ReactElement {
     canBypassApproval,
   };
 
-  const projectNames = (displayedConstant.projects || [])
-    .map((p) => projects.find((proj) => proj.id === p)?.name || p)
-    .join(", ");
+  const projectName = displayedConstant.project
+    ? (projects.find((proj) => proj.id === displayedConstant.project)?.name ??
+      displayedConstant.project)
+    : "";
 
   return (
     <>
@@ -217,23 +259,23 @@ export default function ConstantDetailPage(): React.ReactElement {
               requiresApproval={approvalRequired}
               context="header"
             />
-            {(canEditNow || canDeleteNow) && (
-              <DropdownMenu
-                trigger={
-                  <IconButton
-                    variant="ghost"
-                    color="gray"
-                    radius="full"
-                    size="2"
-                    highContrast
-                  >
-                    <BsThreeDotsVertical size={16} />
-                  </IconButton>
-                }
-                open={menuOpen}
-                onOpenChange={setMenuOpen}
-                menuPlacement="end"
-              >
+            <DropdownMenu
+              trigger={
+                <IconButton
+                  variant="ghost"
+                  color="gray"
+                  radius="full"
+                  size="2"
+                  highContrast
+                >
+                  <BsThreeDotsVertical size={16} />
+                </IconButton>
+              }
+              open={menuOpen}
+              onOpenChange={setMenuOpen}
+              menuPlacement="end"
+            >
+              <DropdownMenuGroup>
                 {canEditNow && (
                   <DropdownMenuItem
                     onClick={() => {
@@ -241,39 +283,54 @@ export default function ConstantDetailPage(): React.ReactElement {
                       setEditInfoOpen(true);
                     }}
                   >
-                    Edit info
+                    Edit information
                   </DropdownMenuItem>
                 )}
-                {canEditNow && (
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setMenuOpen(false);
-                      setShowArchiveModal(true);
-                    }}
-                  >
-                    {displayedConstant.archived ? "Unarchive" : "Archive"}
-                  </DropdownMenuItem>
-                )}
-                {canDeleteNow && (
-                  <DropdownMenuItem
-                    color="red"
-                    onClick={() => {
-                      setMenuOpen(false);
-                      setConfirmDelete(true);
-                    }}
-                  >
-                    Delete
-                  </DropdownMenuItem>
-                )}
-              </DropdownMenu>
-            )}
+                <DropdownMenuItem
+                  onClick={() => {
+                    setMenuOpen(false);
+                    setShowAuditModal(true);
+                  }}
+                >
+                  Audit history
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+              {(canEditNow || canDeleteNow) && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuGroup>
+                    {canEditNow && (
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setMenuOpen(false);
+                          setShowArchiveModal(true);
+                        }}
+                      >
+                        {displayedConstant.archived ? "Unarchive" : "Archive"}
+                      </DropdownMenuItem>
+                    )}
+                    {canDeleteNow && (
+                      <DropdownMenuItem
+                        color="red"
+                        onClick={() => {
+                          setMenuOpen(false);
+                          setConfirmDelete(true);
+                        }}
+                      >
+                        Delete
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuGroup>
+                </>
+              )}
+            </DropdownMenu>
           </Flex>
         </Flex>
 
         <Flex align="center" gap="4" mb="4" wrap="wrap">
           <Metadata label="Key" value={constant.key} />
           <Metadata label="Type" value={TYPE_LABEL[constant.type]} />
-          <Metadata label="Projects" value={projectNames || "All projects"} />
+          <Metadata label="Project" value={projectName || "All projects"} />
           <Box>
             <Text weight="medium">Owner: </Text>
             <Owner ownerId={displayedConstant.owner} gap="1" />
@@ -281,9 +338,9 @@ export default function ConstantDetailPage(): React.ReactElement {
         </Flex>
 
         {displayedConstant.description && (
-          <Text as="p" mb="3">
-            {displayedConstant.description}
-          </Text>
+          <Box mb="3">
+            <Markdown>{displayedConstant.description}</Markdown>
+          </Box>
         )}
 
         <RevisionSummaryCard
@@ -312,35 +369,44 @@ export default function ConstantDetailPage(): React.ReactElement {
             await handleDiscard(revisionId);
           }}
           onNewDraft={canUpdate ? handleNewDraft : undefined}
+          onCompare={() => setCompareOpen(true)}
           onFixConflicts={() => setConflictOpen(true)}
           onReviewPublish={() => setShowChangesModal(true)}
         />
 
-        <Heading size="medium" as="h2" mb="3">
-          Value
-        </Heading>
         <Frame mb="4" px="6" py="5">
-          <Flex justify="between" align="start" gap="3">
-            <Box style={{ flex: 1, minWidth: 0 }}>
-              {displayedConstant.value && (
-                <ValueBlock label="Value" value={displayedConstant.value} />
-              )}
-              {Object.entries(displayedConstant.environmentValues || {}).map(
-                ([env, value]) => (
-                  <ValueBlock
-                    key={env}
-                    label={`Override: ${env}`}
-                    value={value}
-                  />
-                ),
-              )}
-            </Box>
+          <Flex justify="between" align="center" gap="3" mb="3">
+            <Heading size="medium" as="h2" mb="0">
+              Value
+            </Heading>
             {canEditNow && (
               <Button variant="ghost" onClick={() => setEditValueOpen(true)}>
                 Edit
               </Button>
             )}
           </Flex>
+          <ValueDisplay value={displayedConstant.value} />
+
+          {Object.keys(displayedConstant.environmentValues || {}).length >
+            0 && (
+            <>
+              <Heading size="medium" as="h2" mt="6" mb="3">
+                Environment overrides
+              </Heading>
+              <Flex direction="column" gap="5">
+                {Object.entries(displayedConstant.environmentValues || {}).map(
+                  ([env, value]) => (
+                    <Box key={env}>
+                      <Text as="div" size="large" weight="semibold" mb="2">
+                        {env}
+                      </Text>
+                      <ValueDisplay value={value} />
+                    </Box>
+                  ),
+                )}
+              </Flex>
+            </>
+          )}
         </Frame>
       </div>
 
@@ -373,6 +439,7 @@ export default function ConstantDetailPage(): React.ReactElement {
               allRevisions={allRevisions}
               requiresApproval={selectedRevisionRequiresApproval}
               closeModal={() => setShowChangesModal(false)}
+              canUpdateEntity={(s) => permissionsUtil.canUpdateConstant(s, {})}
             />
           </Modal.Body>
         </Modal.Root>
@@ -408,6 +475,59 @@ export default function ConstantDetailPage(): React.ReactElement {
           onSaved={onRevisionCreated}
           selectFlow={selectRevision}
           close={() => setShowArchiveModal(false)}
+        />
+      )}
+
+      {compareOpen && (
+        <CompareRevisionsModal
+          liveEntity={constant}
+          entityId={constant.id}
+          diffConfig={REVISION_CONSTANT_DIFF_CONFIG}
+          allRevisions={allRevisions}
+          currentRevisionId={selectedRevisionId}
+          onClose={() => setCompareOpen(false)}
+          mutate={async () => {
+            await Promise.all([mutateRevisions(), mutate()]);
+          }}
+          requiresApproval={approvalRequired}
+        />
+      )}
+
+      {showAuditModal && (
+        <AuditHistoryExplorerModal<ConstantInterface>
+          entityId={constant.id}
+          entityName="Constant"
+          config={{
+            entityType: "constant",
+            includedEvents: ["constant.created", "constant.updated"],
+            alwaysVisibleEvents: ["constant.created"],
+            labelOnlyEvents: [
+              {
+                event: "constant.deleted",
+                getLabel: () => "Deleted",
+                alwaysVisible: true,
+              },
+            ],
+            sections: [
+              {
+                label: "Settings",
+                keys: ["name", "owner", "description", "project", "archived"],
+                render: renderConstantSettings,
+                getBadges: getConstantSettingsBadges,
+              },
+              {
+                label: "Value",
+                keys: ["value", "environmentValues"],
+                render: renderConstantValues,
+                getBadges: getConstantValuesBadges,
+              },
+            ],
+            updateEventNames: ["constant.updated"],
+            defaultGroupBy: "minute",
+            hideFilters: true,
+            hiddenLabelSections: [OVERFLOW_SECTION_LABEL],
+          }}
+          onClose={() => setShowAuditModal(false)}
         />
       )}
 

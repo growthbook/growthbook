@@ -2570,13 +2570,15 @@ export type ResetReviewOnChange = {
 };
 export function getReviewSetting(
   requireReviewSettings: RequireReview[],
-  feature: FeatureInterface,
+  // Any project-scoped entity (features, and constants which mirror the feature
+  // `project` field) — matched by its single project.
+  entity: { project?: string },
 ): RequireReview | undefined {
   // check projects
   for (const reviewSetting of requireReviewSettings) {
     // match first value found empty means all projects
     if (
-      (feature?.project && reviewSetting.projects.includes(feature?.project)) ||
+      (entity?.project && reviewSetting.projects.includes(entity?.project)) ||
       reviewSetting.projects.length === 0
     ) {
       return reviewSetting;
@@ -2627,6 +2629,55 @@ export function featureRequiresReview(
     return true;
   }
   return checkEnvironmentsMatch(changedEnvironments, reviewSetting);
+}
+
+// Constants are a drop-in for feature config and borrow the exact same
+// `requireReviews` org settings. The generic `value` affects every environment,
+// so a value change is the least-permissive case (always requires review, like
+// a feature's defaultValue); per-environment overrides only require review when
+// the changed environment is in the matched rule's scope. A pure-metadata edit
+// follows the rule's `featureRequireMetadataReview` toggle.
+export function constantRequiresReview(
+  constant: { project?: string },
+  {
+    valueChanged,
+    changedEnvironments,
+    metadataOnly,
+  }: {
+    valueChanged: boolean;
+    changedEnvironments: string[];
+    metadataOnly: boolean;
+  },
+  settings?: OrganizationSettings,
+): boolean {
+  const requiresReviewSettings = settings?.requireReviews;
+  if (
+    requiresReviewSettings === undefined ||
+    requiresReviewSettings === true ||
+    requiresReviewSettings === false
+  ) {
+    return !!requiresReviewSettings;
+  }
+  const reviewSetting = getReviewSetting(requiresReviewSettings, constant);
+  if (!reviewSetting || !reviewSetting.requireReviewOn) {
+    return false;
+  }
+  // value affects all environments → always requires review
+  if (valueChanged) {
+    return true;
+  }
+  // an in-scope environment override changed
+  if (
+    changedEnvironments.length > 0 &&
+    checkEnvironmentsMatch(changedEnvironments, reviewSetting)
+  ) {
+    return true;
+  }
+  // only metadata changed → governed by the metadata-review toggle
+  if (metadataOnly) {
+    return reviewSetting.featureRequireMetadataReview ?? true;
+  }
+  return false;
 }
 
 export function resetReviewOnChange({

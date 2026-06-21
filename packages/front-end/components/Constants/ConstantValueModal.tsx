@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { ConstantInterface, ConstantWithoutValue } from "shared/types/constant";
 import { Revision } from "shared/enterprise";
 import { filterProjectsByEnvironment } from "shared/util";
+import { validateConstantValue } from "shared/validators";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { PiCaretDownFill, PiPlus, PiTrash } from "react-icons/pi";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
@@ -54,12 +55,11 @@ export default function ConstantValueModal({
   // Only offer environments allowed by the constant's project scoping. A global
   // constant (no projects) can override any environment.
   const allowedEnvironments = useMemo(() => {
-    const projects = full.projects ?? [];
-    if (projects.length === 0) return environments;
+    if (!full.project) return environments;
     return environments.filter(
-      (env) => filterProjectsByEnvironment(projects, env).length > 0,
+      (env) => filterProjectsByEnvironment([full.project!], env).length > 0,
     );
-  }, [environments, full.projects]);
+  }, [environments, full.project]);
 
   const form = useForm<FormValues>({
     defaultValues: {
@@ -113,13 +113,17 @@ export default function ConstantValueModal({
       close={close}
       cta="Save"
       submit={form.handleSubmit(async (values) => {
-        const environmentValues: Record<string, string> = {};
-        for (const [envId, v] of Object.entries(values.environmentValues)) {
-          if (v) environmentValues[envId] = v;
-        }
+        // A key's presence is the override (even when its value is empty): an
+        // empty override forces that environment's resolved value to empty,
+        // overriding the constant's value. Removing the row (the trash button)
+        // is how you drop an override and fall back to the value.
+        const environmentValues: Record<string, string> = {
+          ...values.environmentValues,
+        };
 
-        if (!values.value && Object.keys(environmentValues).length === 0) {
-          throw new Error("Set a value or at least one environment override.");
+        validateConstantValue(type, values.value, "Value");
+        for (const [envId, v] of Object.entries(environmentValues)) {
+          validateConstantValue(type, v, envId);
         }
 
         // The PUT controller treats `undefined` as "field untouched", so an
@@ -169,6 +173,8 @@ export default function ConstantValueModal({
           setValue={(v) => form.setValue("value", v)}
           valueType={type}
           useCodeInput={type === "json"}
+          showFullscreenButton={type === "json"}
+          helpText="Empty is permitted."
         />
       </Box>
 
@@ -226,6 +232,7 @@ export default function ConstantValueModal({
                   setValue={(v) => setOverrideValue(envId, v)}
                   valueType={type}
                   useCodeInput={type === "json"}
+                  showFullscreenButton={type === "json"}
                 />
               </Box>
             ))

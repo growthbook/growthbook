@@ -1,7 +1,6 @@
 import { ConstantInterface, ConstantWithoutValue } from "shared/types/constant";
 import { constantValidator } from "shared/validators";
 import { UpdateProps } from "shared/types/base-model";
-import { UpdateFilter } from "mongodb";
 import { constantUpdated } from "back-end/src/services/constants";
 import { MakeModelClass } from "./BaseModel";
 
@@ -30,7 +29,7 @@ const BaseClass = MakeModelClass({
 
 export class ConstantModel extends BaseClass {
   protected canRead(doc: ConstantInterface): boolean {
-    return this.context.permissions.canReadMultiProjectResource(doc.projects);
+    return this.context.permissions.canReadSingleProjectResource(doc.project);
   }
 
   protected canCreate(doc: ConstantInterface): boolean {
@@ -59,7 +58,7 @@ export class ConstantModel extends BaseClass {
     if (
       updates.value !== undefined ||
       updates.environmentValues !== undefined ||
-      updates.projects !== undefined ||
+      updates.project !== undefined ||
       updates.archived !== undefined
     ) {
       constantUpdated(this.context).catch((e) => {
@@ -96,11 +95,12 @@ export class ConstantModel extends BaseClass {
     return constants as ConstantWithoutValue[];
   }
 
+  // When a project is deleted, unset it on any constant scoped to it (becomes
+  // global), mirroring how features clear a deleted project.
   public async removeProjectIdFromAll(projectId: string) {
-    const pull: UpdateFilter<ConstantInterface> = { projects: projectId };
     await this._dangerousGetCollection().updateMany(
-      { organization: this.context.org.id, projects: projectId },
-      { $pull: pull },
+      { organization: this.context.org.id, project: projectId },
+      { $set: { project: "" } },
     );
   }
 }

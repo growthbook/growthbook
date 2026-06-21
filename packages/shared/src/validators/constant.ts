@@ -1,8 +1,32 @@
 import { z } from "zod";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
-import { ownerField, ownerInputField } from "./owner-field";
+import {
+  ownerField,
+  ownerInputField,
+  optionalOwnerInputField,
+} from "./owner-field";
 
 export const constantTypeValidator = z.enum(["string", "json"]);
+
+// Validates a constant value string before saving. JSON constants must contain
+// parseable JSON; an empty string is always permitted (an intentional "no
+// value"). Throws a friendly error on invalid JSON, otherwise returns nothing.
+export function validateConstantValue(
+  type: z.infer<typeof constantTypeValidator>,
+  value: string,
+  label?: string,
+): void {
+  if (type !== "json") return;
+  if (value === "") return; // empty permitted
+  try {
+    JSON.parse(value);
+  } catch (e) {
+    const prefix = label ? `${label}: ` : "";
+    throw new Error(
+      `${prefix}Invalid JSON — ${e instanceof Error ? e.message : String(e)}`,
+    );
+  }
+}
 
 // A reusable named value referenced from feature flag values. `key` is the
 // stable reference handle (slugified from `name`, unique per org): string
@@ -23,7 +47,9 @@ export const constantValidator = z
     value: z.string().optional(),
     environmentValues: z.record(z.string(), z.string()).optional(),
     description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
-    projects: z.array(z.string()).optional(),
+    // Single project (or unset = global), mirroring features so constants are a
+    // drop-in for feature config (and share the feature approval scoping rules).
+    project: z.string().optional(),
     archived: z.boolean().optional(),
     dateCreated: z.date(),
     dateUpdated: z.date(),
@@ -39,7 +65,7 @@ export const constantUpdatableFieldsSchema = constantValidator.pick({
   value: true,
   environmentValues: true,
   description: true,
-  projects: true,
+  project: true,
   archived: true,
 });
 
@@ -53,12 +79,13 @@ const keyField = z
 export const postConstantBodyValidator = z.object({
   key: keyField,
   name: z.string(),
-  owner: ownerInputField,
+  // Optional — the controller defaults the owner to the requesting user.
+  owner: optionalOwnerInputField,
   type: constantTypeValidator,
   value: z.string().optional(),
   environmentValues: z.record(z.string(), z.string()).optional(),
   description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
-  projects: z.string().array().optional(),
+  project: z.string().optional(),
 });
 
 export const putConstantBodyValidator = z.object({
@@ -67,6 +94,6 @@ export const putConstantBodyValidator = z.object({
   value: z.string().optional(),
   environmentValues: z.record(z.string(), z.string()).optional(),
   description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
-  projects: z.string().array().optional(),
+  project: z.string().optional(),
   archived: z.boolean().optional(),
 });

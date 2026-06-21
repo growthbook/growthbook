@@ -1,10 +1,7 @@
 import { isEqual } from "lodash";
 import { ConstantInterface } from "shared/types/constant";
-import {
-  Revision,
-  getApprovalFlowSettings,
-  isConstantRevisionMetadataOnly,
-} from "shared/enterprise";
+import { Revision, getConstantRevisionChange } from "shared/enterprise";
+import { constantRequiresReview } from "shared/util";
 import {
   constantValidator,
   constantUpdatableFieldsSchema,
@@ -23,18 +20,17 @@ const UPDATABLE_FIELDS: ReadonlySet<string> = new Set(
   Object.keys(constantUpdatableFieldsSchema.shape),
 );
 
-// User must be able to bypass approval in EVERY project the constant belongs to
-// (treats the empty-projects case as the global "" project). Used both for the
-// bypass-approval gate and for non-author revision deletion, since discarding
-// someone else's in-flight revision is an admin-level action.
-function canBypassAcrossProjects(
+// User must be able to bypass approval in the constant's project (treats the
+// unset case as the global "" project). Used both for the bypass-approval gate
+// and for non-author revision deletion, since discarding someone else's
+// in-flight revision is an admin-level action.
+function canBypassApprovalForConstant(
   context: Context,
   snapshot: ConstantInterface,
 ): boolean {
-  const projects = snapshot.projects?.length ? snapshot.projects : [""];
-  return projects.every((project) =>
-    context.permissions.canBypassApprovalChecks({ project }),
-  );
+  return context.permissions.canBypassApprovalChecks({
+    project: snapshot.project || "",
+  });
 }
 
 // canCreate and canUpdate both gate on the constant edit permission; extract so
@@ -46,10 +42,17 @@ function canEditConstant(
   return context.permissions.canUpdateConstant(snapshot, {});
 }
 
-function isConstantApprovalRequired(context: Context): boolean {
+// Constants inherit the feature `requireReviews` org settings (drop-in for
+// feature config). Coarse, change-agnostic gate: does the org have any active
+// review rule? Used for inbox/badge surfacing; the precise per-change decision
+// lives in `isApprovalRequiredForRevision`.
+function constantApprovalConfigured(context: Context): boolean {
+  if (!context.hasPremiumFeature("require-approvals")) return false;
+  const requireReviews = context.org.settings?.requireReviews;
+  if (typeof requireReviews === "boolean") return requireReviews;
   return (
-    context.hasPremiumFeature("require-approvals") &&
-    !!context.org.settings?.approvalFlows?.constants?.[0]?.required
+    Array.isArray(requireReviews) &&
+    requireReviews.some((r) => r.requireReviewOn)
   );
 }
 
@@ -75,7 +78,7 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
   },
 
   isRevisionRequired(context: Context): boolean {
-    return isConstantApprovalRequired(context);
+    return constantApprovalConfigured(context);
   },
 
   getUpdatableFields(): ReadonlySet<string> {
@@ -83,7 +86,7 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
   },
 
   canRead(context: Context, snapshot: ConstantInterface): boolean {
-    return context.permissions.canReadMultiProjectResource(snapshot.projects);
+    return context.permissions.canReadSingleProjectResource(snapshot.project);
   },
 
   canCreate(context: Context, snapshot: ConstantInterface): boolean {
@@ -99,33 +102,29 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
   // bypass approval, since discarding another user's in-flight revision is an
   // admin-level action.
   canDelete(context: Context, snapshot: ConstantInterface): boolean {
-    return canBypassAcrossProjects(context, snapshot);
+    return canBypassApprovalForConstant(context, snapshot);
   },
 
   isApprovalRequired(context: Context): boolean {
-    return isConstantApprovalRequired(context);
+    return constantApprovalConfigured(context);
   },
 
-  // Per-revision gate: when the org has approval enabled but disabled the
-  // `requireMetadataReview` toggle, a revision whose proposed changes only touch
-  // metadata fields can skip review entirely. Mirrors the metadata-only
-  // autoPublish shortcut in PUT /constants/:id so the generic
-  // /revision/:id/merge endpoint reaches the same conclusion.
+  // Precise, change-aware gate using the feature `requireReviews` model: a
+  // `value` change requires review (affects all environments); a per-environment
+  // override requires review only when that environment is in scope; a
+  // metadata-only change follows the rule's `featureRequireMetadataReview`.
   isApprovalRequiredForRevision(context: Context, revision: Revision): boolean {
     if (!context.hasPremiumFeature("require-approvals")) return false;
-
-    const settings = getApprovalFlowSettings(
-      context.org.settings?.approvalFlows,
-      "constant",
+    const snapshot = revision.target.snapshot as ConstantInterface;
+    return constantRequiresReview(
+      { project: snapshot.project },
+      getConstantRevisionChange(snapshot, revision.target.proposedChanges),
+      context.org.settings,
     );
-    if (!settings?.required) return false;
-    const metadataReviewRequired = settings.requireMetadataReview ?? true;
-    if (metadataReviewRequired) return true;
-    return !isConstantRevisionMetadataOnly(revision.target.proposedChanges);
   },
 
   canBypassApproval(context: Context, snapshot: ConstantInterface): boolean {
-    return canBypassAcrossProjects(context, snapshot);
+    return canBypassApprovalForConstant(context, snapshot);
   },
 
   async applyChanges(

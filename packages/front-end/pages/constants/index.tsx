@@ -29,7 +29,7 @@ const TYPE_LABEL: Record<ConstantWithoutValue["type"], string> = {
 };
 
 export default function ConstantsPage(): React.ReactElement {
-  const { ready, project, projects, constants } = useDefinitions();
+  const { ready, project, constants } = useDefinitions();
   const { getOwnerDisplay } = useUser();
   const permissionsUtil = usePermissionsUtil();
 
@@ -39,7 +39,7 @@ export default function ConstantsPage(): React.ReactElement {
   const visibleConstants = useMemo(
     () =>
       constants.filter((c) =>
-        isProjectListValidForProject(c.projects || [], project),
+        isProjectListValidForProject(c.project ? [c.project] : [], project),
       ),
     [constants, project],
   );
@@ -47,9 +47,6 @@ export default function ConstantsPage(): React.ReactElement {
   const constantItems = useAddComputedFields(visibleConstants, (c) => ({
     ownerName: getOwnerDisplay(c.owner) || "",
     typeLabel: TYPE_LABEL[c.type],
-    projectNames: (c.projects || []).map(
-      (p) => projects.find((proj) => proj.id === p)?.name || p,
-    ),
   }));
 
   const { items, searchInputProps, isFiltered, SortableTableColumnHeader } =
@@ -66,7 +63,7 @@ export default function ConstantsPage(): React.ReactElement {
   }
 
   const canAdd = permissionsUtil.canCreateConstant({
-    projects: project ? [project] : [],
+    project: project || undefined,
   });
   const hasConstants = constants.length > 0;
 
@@ -149,10 +146,10 @@ export default function ConstantsPage(): React.ReactElement {
                     <TableCell>{c.name}</TableCell>
                     <TableCell>{c.typeLabel}</TableCell>
                     <TableCell>
-                      {c.projects && c.projects.length > 0 ? (
+                      {c.project ? (
                         <ProjectBadges
                           resourceType="feature"
-                          projectIds={c.projects}
+                          projectIds={[c.project]}
                         />
                       ) : null}
                     </TableCell>

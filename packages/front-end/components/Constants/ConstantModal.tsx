@@ -1,15 +1,20 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/router";
 import { useForm } from "react-hook-form";
 import { ConstantWithoutValue } from "shared/types/constant";
+import { validateConstantValue } from "shared/validators";
 import { Revision } from "shared/enterprise";
 import { generateTrackingKey } from "shared/experiments";
-import { Box } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
+import { PiPlus } from "react-icons/pi";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import SelectOwner from "@/components/Owner/SelectOwner";
+import MarkdownInput from "@/components/Markdown/MarkdownInput";
+import Link from "@/ui/Link";
+import Text from "@/ui/Text";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ConstantDraftSelectorForChanges from "@/components/Constants/ConstantDraftSelectorForChanges";
@@ -34,7 +39,7 @@ type FormValues = {
   type: "string" | "json";
   owner: string;
   description: string;
-  projects: string[];
+  project: string;
   value: string;
 };
 
@@ -54,10 +59,17 @@ export default function ConstantModal({
   onSaved?: (revision: Revision) => void | Promise<void>;
 }) {
   const { apiCall } = useAuth();
+  const router = useRouter();
   const { mutateDefinitions, getConstantByKey, projects, project } =
     useDefinitions();
 
   const editing = !!existing;
+
+  // Description is opt-in behind a "+ Add a description" link, expanded by
+  // default when one already exists.
+  const [showDescription, setShowDescription] = useState(
+    !!existing?.description,
+  );
 
   // Info edits are metadata-only. Hook is called unconditionally (rules of
   // hooks); on the create path it runs against an empty context and is unused.
@@ -71,7 +83,7 @@ export default function ConstantModal({
       // Owner is stored as a userId; backend defaults it to the creator when blank.
       owner: existing?.owner ?? "",
       description: existing?.description ?? "",
-      projects: existing?.projects ?? (project ? [project] : []),
+      project: existing?.project ?? project ?? "",
       value: "",
     },
   });
@@ -105,6 +117,7 @@ export default function ConstantModal({
       open={true}
       trackingEventModalType="constant-modal"
       header={editing ? "Edit info" : "Add Constant"}
+      size="lg"
       close={close}
       cta={editing ? "Save" : "Create"}
       submit={form.handleSubmit(async (values) => {
@@ -117,7 +130,7 @@ export default function ConstantModal({
                 name: values.name,
                 owner: values.owner,
                 description: values.description || undefined,
-                projects: values.projects,
+                project: values.project,
               }),
             },
           );
@@ -126,21 +139,30 @@ export default function ConstantModal({
             await onSaved(res.revision);
           }
         } else {
-          if (!values.value) {
-            throw new Error("Set a value.");
-          }
-          await apiCall(`/constants`, {
-            method: "POST",
-            body: JSON.stringify({
-              key: values.key,
-              name: values.name,
-              owner: values.owner || undefined,
-              type: values.type,
-              value: values.value,
-              projects: values.projects,
-            }),
-          });
+          validateConstantValue(values.type, values.value, "Value");
+          const res = await apiCall<{ constant: { id: string } }>(
+            `/constants`,
+            {
+              method: "POST",
+              body: JSON.stringify({
+                key: values.key,
+                name: values.name,
+                owner: values.owner || undefined,
+                type: values.type,
+                // Empty is allowed: a string sends "", JSON omits the field
+                // entirely (treated as "no value").
+                ...(values.type === "json" && !values.value
+                  ? {}
+                  : { value: values.value }),
+                description: values.description || undefined,
+                project: values.project || undefined,
+              }),
+            },
+          );
           await mutateDefinitions();
+          if (res?.constant?.id) {
+            await router.push(`/constants/${res.constant.id}`);
+          }
         }
       })}
     >
@@ -164,8 +186,12 @@ export default function ConstantModal({
         required
         helpText={
           <>
-            Reference handle used as{" "}
-            <code>{`@const:${form.watch("key") || "key"}`}</code>
+            Referenced as{" "}
+            <code>
+              {type === "json"
+                ? `{ "@const:${form.watch("key") || "key"}": true }`
+                : `{{ @const:${form.watch("key") || "key"} }}`}
+            </code>
           </>
         }
         disabled={editing}
@@ -175,6 +201,37 @@ export default function ConstantModal({
           },
         })}
       />
+
+      {showDescription ? (
+        <Box mb="3">
+          <Box mb="1">
+            <Text as="label" weight="semibold">
+              Description
+            </Text>
+          </Box>
+          <MarkdownInput
+            value={form.watch("description")}
+            setValue={(v) => form.setValue("description", v)}
+            placeholder="Add notes about this constant (markdown supported)"
+            showButtons={false}
+            hidePreview={false}
+          />
+        </Box>
+      ) : (
+        <Link
+          mb="3"
+          onClick={(e) => {
+            e.preventDefault();
+            setShowDescription(true);
+          }}
+        >
+          <Flex align="center" gap="1">
+            <PiPlus />
+            <Text weight="medium">Add a description</Text>
+          </Flex>
+        </Link>
+      )}
+
       {!editing && (
         <SelectField
           label="Type"
@@ -188,11 +245,12 @@ export default function ConstantModal({
       )}
 
       {projectOptions.length > 0 && (
-        <MultiSelectField
-          label="Projects"
-          value={form.watch("projects")}
+        <SelectField
+          label="Project"
+          value={form.watch("project")}
           options={projectOptions}
-          onChange={(v) => form.setValue("projects", v)}
+          initialOption="All projects"
+          onChange={(v) => form.setValue("project", v)}
         />
       )}
 
@@ -205,24 +263,18 @@ export default function ConstantModal({
             setValue={(v) => form.setValue("value", v)}
             valueType={type}
             useCodeInput={type === "json"}
+            showFullscreenButton={type === "json"}
+            helpText="Empty is permitted."
           />
         </Box>
       )}
 
       {editing && (
-        <>
-          <SelectOwner
-            placeholder="Optional"
-            value={form.watch("owner")}
-            onChange={(v) => form.setValue("owner", v)}
-          />
-          <Field
-            label="Description"
-            textarea
-            minRows={1}
-            {...form.register("description")}
-          />
-        </>
+        <SelectOwner
+          placeholder="Optional"
+          value={form.watch("owner")}
+          onChange={(v) => form.setValue("owner", v)}
+        />
       )}
     </ModalStandard>
   );
