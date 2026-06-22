@@ -5,7 +5,11 @@ import { startCase } from "lodash";
 import { ApiContextualBanditInterface } from "shared/validators";
 import type { ContextualBanditResponseSnapshot } from "shared/types/stats";
 import { ATTR_CB_PREFIX } from "shared/constants";
-import { expandMetricGroups } from "shared/experiments";
+import {
+  computeOverallVariationWeights,
+  contextTotalSampleSize,
+  expandMetricGroups,
+} from "shared/experiments";
 import Text from "@/ui/Text";
 import Table, {
   TableBody,
@@ -99,45 +103,6 @@ function cellValues(
   return Array.from({ length: numVariations }, (_, i) =>
     source[i] !== undefined && source[i] !== null ? Number(source[i]) : null,
   );
-}
-
-function contextTotalSampleSize(row: ContextualBanditResponseSnapshot): number {
-  const sizes = row.sampleSizePerVariation;
-  if (!sizes?.length) return 0;
-  return sizes.reduce((sum, n) => sum + (n ?? 0), 0);
-}
-
-/** Sample-size-weighted average of per-context variation weights. */
-function computeOverallVariationWeights(
-  responses: ContextualBanditResponseSnapshot[],
-  numVariations: number,
-): (number | null)[] {
-  if (!responses.length || numVariations === 0) {
-    return Array(numVariations).fill(null);
-  }
-
-  const contextTotals = responses.map(contextTotalSampleSize);
-  const totalUsers = contextTotals.reduce((sum, n) => sum + n, 0);
-  const contextWeights =
-    totalUsers > 0
-      ? contextTotals.map((n) => n / totalUsers)
-      : responses.map(() => 1 / responses.length);
-
-  const overall: number[] = Array(numVariations).fill(0);
-  const hasContribution = Array(numVariations).fill(false);
-
-  responses.forEach((row, c) => {
-    const variationWeights = cellValues(row, "weights", numVariations);
-    const contextWeight = contextWeights[c];
-    variationWeights.forEach((w, j) => {
-      if (w !== null && !Number.isNaN(w)) {
-        overall[j] += contextWeight * w;
-        hasContribution[j] = true;
-      }
-    });
-  });
-
-  return overall.map((v, j) => (hasContribution[j] ? v : null));
 }
 
 function formatCell(value: number | null, mode: "weights" | "means"): string {

@@ -2,6 +2,7 @@ import { ApiContextualBanditInterface } from "shared/validators";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { SnapshotStatusSummary } from "shared/types/experiment-snapshot";
 import type { ContextualBanditSnapshot } from "shared/types/stats";
+import type { ContextualBanditResultsView } from "shared/experiments";
 import { useAuth } from "@/services/auth";
 import useApi from "./useApi";
 
@@ -69,6 +70,10 @@ export function useContextualBandit(cbId: string | undefined) {
 export type ContextualBanditResultsResponse = {
   status: number;
   contextualBanditSnapshot: ContextualBanditSnapshot | null;
+  /** Overall (marginal) variation weights across all contexts, per variation. */
+  overallWeights: { variationId: string; weight: number | null }[] | null;
+  /** Normalized leaf-first view (recommended representation). */
+  results: ContextualBanditResultsView | null;
   latest: SnapshotStatusSummary | null;
 };
 

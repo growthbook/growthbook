@@ -1,4 +1,8 @@
 import { getContextualBanditResultsValidator } from "shared/validators";
+import {
+  buildContextualBanditResultsView,
+  computeOverallVariationWeights,
+} from "shared/experiments";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getContextualBanditResultsForUi } from "back-end/src/enterprise/services/contextualBandits";
 import { loadContextualBanditForRead } from "./_shared";
@@ -12,6 +16,27 @@ export const getContextualBanditResults = createApiRequestHandler(
   );
   const { contextualBanditSnapshot, latestSnapshotSummary, srm } =
     await getContextualBanditResultsForUi(req.context, contextualBandit);
+
+  // Overall (marginal) weights across every context, aligned to the bandit's
+  // variation order. This mirrors the "Overall weights" row in the results UI.
+  const overallWeights = contextualBanditSnapshot
+    ? computeOverallVariationWeights(
+        contextualBanditSnapshot.responses,
+        contextualBandit.variations.length,
+      ).map((weight, i) => ({
+        variationId: contextualBandit.variations[i].id,
+        weight,
+      }))
+    : null;
+
+  // Normalized leaf-first view (recommended representation).
+  const results = contextualBanditSnapshot
+    ? buildContextualBanditResultsView(
+        contextualBanditSnapshot,
+        contextualBandit.variations,
+      )
+    : null;
+
   return {
     contextualBanditSnapshot: contextualBanditSnapshot
       ? {
@@ -21,6 +46,8 @@ export const getContextualBanditResults = createApiRequestHandler(
           leaf_stats: contextualBanditSnapshot.leaf_stats,
         }
       : null,
+    overallWeights,
+    results,
     latest: latestSnapshotSummary
       ? {
           id: latestSnapshotSummary.id,

@@ -12960,9 +12960,10 @@ paths:
       description: >-
         Returns the latest contextual-bandit stats engine output (per-context
         responses, the context-to-leaf map, and per-leaf aggregated stats), the
-        SRM of the most recent run, and the status of the most recent snapshot
-        run for the contextual bandit. Same payload the GrowthBook UI uses to
-        render the contextual bandit results table.
+        overall (marginal) variation weights across all contexts, the SRM of the
+        most recent run, and the status of the most recent snapshot run for the
+        contextual bandit. Same payload the GrowthBook UI uses to render the
+        contextual bandit results table.
       tags:
         - contextual-bandits
       parameters:
@@ -13000,6 +13001,166 @@ paths:
                         required:
                           - attributes
                           - responses
+                        additionalProperties: false
+                      - type: 'null'
+                  overallWeights:
+                    anyOf:
+                      - type: array
+                        items:
+                          type: object
+                          properties:
+                            variationId:
+                              type: string
+                            weight:
+                              anyOf:
+                                - type: number
+                                - type: 'null'
+                          required:
+                            - variationId
+                            - weight
+                          additionalProperties: false
+                      - type: 'null'
+                  results:
+                    anyOf:
+                      - type: object
+                        properties:
+                          attributes:
+                            type: array
+                            items:
+                              type: string
+                          overall:
+                            type: object
+                            properties:
+                              variations:
+                                type: array
+                                items:
+                                  type: object
+                                  properties:
+                                    variationId:
+                                      type: string
+                                    variationName:
+                                      type: string
+                                    weight:
+                                      anyOf:
+                                        - type: number
+                                        - type: 'null'
+                                    users:
+                                      anyOf:
+                                        - type: number
+                                        - type: 'null'
+                                  required:
+                                    - variationId
+                                    - weight
+                                    - users
+                                  additionalProperties: false
+                            required:
+                              - variations
+                            additionalProperties: false
+                          leaves:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                leafId:
+                                  type: integer
+                                updateMessage:
+                                  anyOf:
+                                    - type: string
+                                    - type: 'null'
+                                error:
+                                  anyOf:
+                                    - type: string
+                                    - type: 'null'
+                                variations:
+                                  type: array
+                                  items:
+                                    type: object
+                                    properties:
+                                      variationId:
+                                        type: string
+                                      variationName:
+                                        type: string
+                                      weight:
+                                        anyOf:
+                                          - type: number
+                                          - type: 'null'
+                                      bestArmProbability:
+                                        anyOf:
+                                          - type: number
+                                          - type: 'null'
+                                      users:
+                                        anyOf:
+                                          - type: number
+                                          - type: 'null'
+                                      mean:
+                                        anyOf:
+                                          - type: number
+                                          - type: 'null'
+                                      variance:
+                                        anyOf:
+                                          - type: number
+                                          - type: 'null'
+                                    required:
+                                      - variationId
+                                      - weight
+                                      - bestArmProbability
+                                      - users
+                                      - mean
+                                      - variance
+                                    additionalProperties: false
+                                contexts:
+                                  type: array
+                                  items:
+                                    type: object
+                                    properties:
+                                      attributes:
+                                        type: object
+                                        propertyNames:
+                                          type: string
+                                        additionalProperties:
+                                          type: string
+                                      variations:
+                                        type: array
+                                        items:
+                                          type: object
+                                          properties:
+                                            variationId:
+                                              type: string
+                                            variationName:
+                                              type: string
+                                            users:
+                                              anyOf:
+                                                - type: number
+                                                - type: 'null'
+                                            mean:
+                                              anyOf:
+                                                - type: number
+                                                - type: 'null'
+                                            variance:
+                                              anyOf:
+                                                - type: number
+                                                - type: 'null'
+                                          required:
+                                            - variationId
+                                            - users
+                                            - mean
+                                            - variance
+                                          additionalProperties: false
+                                    required:
+                                      - attributes
+                                      - variations
+                                    additionalProperties: false
+                              required:
+                                - leafId
+                                - updateMessage
+                                - error
+                                - variations
+                                - contexts
+                              additionalProperties: false
+                        required:
+                          - attributes
+                          - overall
+                          - leaves
                         additionalProperties: false
                       - type: 'null'
                   latest:
@@ -13063,6 +13224,8 @@ paths:
                       - type: 'null'
                 required:
                   - contextualBanditSnapshot
+                  - overallWeights
+                  - results
                   - latest
                 additionalProperties: false
       x-codeSamples:

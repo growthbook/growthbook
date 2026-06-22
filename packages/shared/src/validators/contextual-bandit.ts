@@ -456,6 +456,65 @@ export const getContextualBanditResultsValidator = {
           leaf_stats: z.array(z.unknown()).optional(),
         })
         .nullable(),
+      overallWeights: z
+        .array(
+          z.object({
+            variationId: z.string(),
+            weight: z.number().nullable(),
+          }),
+        )
+        .nullable(),
+      // Normalized leaf-first view: one entry per tree leaf (the decision unit)
+      // with its weights + pooled stats and the contexts that route to it, plus
+      // a bandit-level `overall` weight summary. Easier to consume than the raw
+      // `contextualBanditSnapshot` (positional arrays + separate leaf_map).
+      results: z
+        .object({
+          attributes: z.array(z.string()),
+          overall: z.object({
+            variations: z.array(
+              z.object({
+                variationId: z.string(),
+                variationName: z.string().optional(),
+                weight: z.number().nullable(),
+                users: z.number().nullable(),
+              }),
+            ),
+          }),
+          leaves: z.array(
+            z.object({
+              leafId: z.number().int(),
+              updateMessage: z.string().nullable(),
+              error: z.string().nullable(),
+              variations: z.array(
+                z.object({
+                  variationId: z.string(),
+                  variationName: z.string().optional(),
+                  weight: z.number().nullable(),
+                  bestArmProbability: z.number().nullable(),
+                  users: z.number().nullable(),
+                  mean: z.number().nullable(),
+                  variance: z.number().nullable(),
+                }),
+              ),
+              contexts: z.array(
+                z.object({
+                  attributes: z.record(z.string(), z.string()),
+                  variations: z.array(
+                    z.object({
+                      variationId: z.string(),
+                      variationName: z.string().optional(),
+                      users: z.number().nullable(),
+                      mean: z.number().nullable(),
+                      variance: z.number().nullable(),
+                    }),
+                  ),
+                }),
+              ),
+            }),
+          ),
+        })
+        .nullable(),
       latest: z
         .object({
           id: z.string(),
@@ -480,7 +539,7 @@ export const getContextualBanditResultsValidator = {
     .strict(),
   summary: "Get latest Contextual Bandit results",
   description:
-    "Returns the latest contextual-bandit stats engine output (per-context responses, the context-to-leaf map, and per-leaf aggregated stats), the SRM of the most recent run, and the status of the most recent snapshot run for the contextual bandit. Same payload the GrowthBook UI uses to render the contextual bandit results table.",
+    "Returns the latest contextual-bandit stats engine output (per-context responses, the context-to-leaf map, and per-leaf aggregated stats), the overall (marginal) variation weights across all contexts, the SRM of the most recent run, and the status of the most recent snapshot run for the contextual bandit. Same payload the GrowthBook UI uses to render the contextual bandit results table.",
   operationId: "getContextualBanditResults",
   tags: ["contextual-bandits"],
   method: "get" as const,
