@@ -34,7 +34,11 @@ import {
   getPayloadAllowedKeys,
   replaceSavedGroups,
   SDKCapability,
+  buildConstantValueMap,
+  resolveConstantRefs,
+  ConstantValueMap,
 } from "shared/sdk-versioning";
+import { ConstantInterface } from "shared/types/constant";
 import { getLatestPhaseVariations } from "shared/experiments";
 import cloneDeep from "lodash/cloneDeep";
 import pickBy from "lodash/pickBy";
@@ -132,11 +136,41 @@ import {
   getEnvironmentIdsFromOrg,
 } from "./organizations";
 
+// Substitute `@const:` references in a feature definition's values (default,
+// rule force values, and experiment variations) using the per-environment
+// constant map. Mutates the definition in place. `onCycle` is invoked with any
+// constant key left unresolved due to a reference cycle.
+function resolveConstantsInDefinition(
+  def: FeatureDefinition,
+  map: ConstantValueMap,
+  onCycle: (key: string) => void,
+): void {
+  if (def.defaultValue !== undefined) {
+    def.defaultValue = resolveConstantRefs(
+      def.defaultValue,
+      map,
+      new Set(),
+      onCycle,
+    );
+  }
+  def.rules?.forEach((rule) => {
+    if (rule.force !== undefined) {
+      rule.force = resolveConstantRefs(rule.force, map, new Set(), onCycle);
+    }
+    if (rule.variations !== undefined) {
+      rule.variations = rule.variations.map((v) =>
+        resolveConstantRefs(v, map, new Set(), onCycle),
+      );
+    }
+  });
+}
+
 export function generateFeaturesPayload({
   features,
   experimentMap,
   environment,
   groupMap,
+  constants,
   prereqStateCache = {},
   safeRolloutMap,
   holdoutsMap,
@@ -158,6 +192,7 @@ export function generateFeaturesPayload({
   experimentMap: Map<string, ExperimentInterface>;
   environment: string;
   groupMap: GroupMap;
+  constants?: ConstantInterface[];
   prereqStateCache?: Record<string, PrerequisiteStateResult>;
   safeRolloutMap: Map<string, SafeRolloutInterface>;
   holdoutsMap: Map<
@@ -185,6 +220,12 @@ export function generateFeaturesPayload({
     prereqStateCache,
   );
 
+  // Resolve `@const:` references at payload-build time (per environment). Skip
+  // entirely when the org has no constants — zero overhead for the common case.
+  const constantMap = constants?.length
+    ? buildConstantValueMap(constants, environment)
+    : null;
+
   newFeatures.forEach((feature) => {
     const def = getFeatureDefinition({
       feature,
@@ -210,6 +251,22 @@ export function generateFeaturesPayload({
       projectsMap,
     });
     if (def) {
+      if (constantMap && constantMap.size) {
+        const reported = new Set<string>();
+        resolveConstantsInDefinition(def, constantMap, (key) => {
+          if (reported.has(key)) return;
+          reported.add(key);
+          logger.warn(
+            {
+              organization: organization?.id,
+              feature: feature.id,
+              environment,
+              constant: key,
+            },
+            "Cyclic constant reference detected during SDK payload generation; left unresolved",
+          );
+        });
+      }
       defs[feature.id] = def;
     }
   });
@@ -722,6 +779,7 @@ export async function refreshSDKPayloadCache({
   const savedGroups = await context.models.savedGroups.getAll();
   const groupMap = await getSavedGroupMap(context, savedGroups);
   const allFeatures = await getAllFeatures(context);
+  const constants = await context.models.constants.getAll();
   const rampMonitoredRuleMap =
     await context.models.rampSchedules.getPayloadRampMonitoredRuleMap();
 
@@ -739,6 +797,7 @@ export async function refreshSDKPayloadCache({
     visualExperiments: allVisualExperiments,
     urlRedirectExperiments: allURLRedirectExperiments,
     rampMonitoredRuleMap,
+    constants,
   };
 
   const payloadKeyEnvironments = new Set(payloadKeys.map((k) => k.environment));
@@ -1079,6 +1138,7 @@ export type SDKPayloadRawData = {
   urlRedirectExperiments?: URLRedirectExperiment[];
   projectsMap?: Map<string, ProjectInterface>;
   rampMonitoredRuleMap?: Map<string, RampMonitoredRuleInfo>;
+  constants?: ConstantInterface[];
 };
 
 // Payload-relevant subset of SDK connection (plus derived capabilities). Pass through encryptPayload + encryptionKey; effective key is derived inside buildSDKPayloadForConnection.
@@ -1208,6 +1268,7 @@ export async function buildSDKPayloadForConnection(
     features: filteredFeatures,
     environment,
     groupMap: data.groupMap,
+    constants: data.constants,
     experimentMap: filteredExperimentMap,
     prereqStateCache,
     safeRolloutMap: data.safeRolloutMap,
@@ -1359,6 +1420,7 @@ export async function getFeatureDefinitions(
       savedGroups: allSavedGroups,
       holdoutsMap,
       rampMonitoredRuleMap,
+      constants: await context.models.constants.getAll(),
     },
   });
 }
@@ -1516,6 +1578,7 @@ export async function evaluateAllFeatures({
   const savedGroups = getSavedGroupsValuesFromGroupMap(groupMap);
 
   const allFeaturesRaw = await getAllFeatures(context);
+  const constants = await context.models.constants.getAll();
   const allFeatures: Record<string, FeatureDefinition> = {};
   if (allFeaturesRaw.length) {
     allFeaturesRaw.map((f) => {
@@ -1556,6 +1619,7 @@ export async function evaluateAllFeatures({
       environment: env.id,
       experimentMap,
       groupMap,
+      constants,
       prereqStateCache: {},
       safeRolloutMap,
       holdoutsMap,
