@@ -1840,12 +1840,13 @@ export function normalizeRuleForApi(rule: FeatureRule): ApiFeatureRule {
   };
   switch (rule.type) {
     case "force":
-      return { ...base, type: "force", value: rule.value };
+      return { ...base, type: "force", value: rule.value, sparse: rule.sparse };
     case "rollout":
       return {
         ...base,
         type: "rollout",
         value: rule.value,
+        sparse: rule.sparse,
         coverage: rule.coverage ?? 1,
         hashAttribute: rule.hashAttribute,
         seed: rule.seed,
@@ -1870,6 +1871,7 @@ export function normalizeRuleForApi(rule: FeatureRule): ApiFeatureRule {
         type: "experiment-ref",
         variations: rule.variations,
         experimentId: rule.experimentId,
+        sparse: rule.sparse,
       };
     case "safe-rollout":
       return {
@@ -2641,6 +2643,7 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
             variationId: v.variationId,
             value: validateFeatureValue(feature, v.value),
           })),
+          ...(r.sparse !== undefined && { sparse: r.sparse }),
           ...(r.prerequisites && { prerequisites: r.prerequisites }),
           ...(r.scheduleRules && { scheduleRules: r.scheduleRules }),
         };
@@ -2682,6 +2685,7 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
             match: s.matchType,
           })),
           enabled: r.enabled != null ? r.enabled : true,
+          ...(r.sparse !== undefined && { sparse: r.sparse }),
           ...(r.prerequisites && { prerequisites: r.prerequisites }),
           ...(r.scheduleRules && { scheduleRules: r.scheduleRules }),
         };
@@ -2703,6 +2707,7 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
             match: s.matchType,
           })),
           enabled: r.enabled != null ? r.enabled : true,
+          ...(r.sparse !== undefined && { sparse: r.sparse }),
           ...(r.prerequisites && { prerequisites: r.prerequisites }),
           ...(r.scheduleRules && { scheduleRules: r.scheduleRules }),
         };

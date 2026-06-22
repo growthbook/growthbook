@@ -43,6 +43,7 @@ export * from "./feature-webhook-schemas";
 // Having watch (and apikey) loaded first ensures they're available when the cycle is hit.
 export * from "./watch";
 export * from "./apikey";
+export * from "./figma-connection";
 export * from "./events";
 export * from "./experiment-decision";
 export * from "./experiment-info";
