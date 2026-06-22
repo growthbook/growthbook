@@ -73,6 +73,7 @@ export default function ValueDisplay({
   isFullscreen = false,
   sparse = false,
   defaultValue,
+  fullscreenHeader = "Feature Value",
 }: {
   value: string;
   type: FeatureValueType;
@@ -83,6 +84,8 @@ export default function ValueDisplay({
   showFullscreenButton?: boolean;
   showCopyButton?: boolean;
   isFullscreen?: boolean;
+  // Header for the fullscreen modal (e.g. "Constant Value" when reused outside features).
+  fullscreenHeader?: string;
   // When true (JSON rules flagged sparse), `value` is a partial patch. We show
   // the expanded value (default + patch) with the patched keys in bold.
   sparse?: boolean;
@@ -247,7 +250,7 @@ export default function ValueDisplay({
       </Box>
       {modalOpen && (
         <Modal
-          header="Feature Value"
+          header={fullscreenHeader}
           open={modalOpen}
           close={() => setModalOpen(false)}
           trackingEventModalType=""

@@ -18,7 +18,9 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import PageHead from "@/components/Layout/PageHead";
 import Owner from "@/components/Avatar/Owner";
 import Markdown from "@/components/Markdown/Markdown";
-import Modal from "@/ui/Modal";
+import ValueDisplay from "@/components/Features/ValueDisplay";
+// eslint-disable-next-line no-restricted-imports
+import Modal from "@/components/Modal";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
@@ -61,23 +63,32 @@ const TYPE_LABEL: Record<ConstantInterface["type"], string> = {
   json: "JSON",
 };
 
-// Renders a value with a left-border indent. Shows "(empty)" for an empty value
-// (for both strings and JSON) so an intentional empty reads as such rather than
+// Renders a constant value with the same formatter as feature flag values
+// (JSON syntax highlighting, overflow-truncated with copy + fullscreen). Shows
+// "(empty)" for an empty value so an intentional empty reads as such rather than
 // looking like a render bug.
-function ValueDisplay({ value }: { value: string | undefined }) {
+function ConstantValueDisplay({
+  value,
+  type,
+}: {
+  value: string | undefined;
+  type: ConstantInterface["type"];
+}) {
+  if (!value) {
+    return (
+      <Text color="text-low">
+        <em>(empty)</em>
+      </Text>
+    );
+  }
   return (
-    <pre
-      style={{
-        whiteSpace: "pre-wrap",
-        margin: 0,
-        paddingLeft: "var(--space-3)",
-        borderLeft: "2px solid var(--gray-a5)",
-        color: "var(--gray-11)",
-        fontSize: "var(--font-size-2)",
-      }}
-    >
-      {value ? value : <em>(empty)</em>}
-    </pre>
+    <ValueDisplay
+      value={value}
+      type={type}
+      full
+      showFullscreenButton
+      fullscreenHeader="Constant Value"
+    />
   );
 }
 
@@ -385,7 +396,10 @@ export default function ConstantDetailPage(): React.ReactElement {
               </Button>
             )}
           </Flex>
-          <ValueDisplay value={displayedConstant.value} />
+          <ConstantValueDisplay
+            value={displayedConstant.value}
+            type={displayedConstant.type}
+          />
 
           {Object.keys(displayedConstant.environmentValues || {}).length >
             0 && (
@@ -400,7 +414,10 @@ export default function ConstantDetailPage(): React.ReactElement {
                       <Text as="div" size="large" weight="semibold" mb="2">
                         {env}
                       </Text>
-                      <ValueDisplay value={value} />
+                      <ConstantValueDisplay
+                        value={value}
+                        type={displayedConstant.type}
+                      />
                     </Box>
                   ),
                 )}
@@ -411,38 +428,37 @@ export default function ConstantDetailPage(): React.ReactElement {
       </div>
 
       {showChangesModal && selectedRevision && (
-        <Modal.Root
-          open={showChangesModal}
-          onOpenChange={(o) => !o && setShowChangesModal(false)}
-          size="lg"
-          dismissible
+        <Modal
+          header={selectedRevision.title || "Revision"}
           trackingEventModalType="constant-revision-changes"
+          close={() => setShowChangesModal(false)}
+          open={showChangesModal}
+          dismissible
+          size="max"
+          hideCta={true}
+          closeCta="Close"
+          useRadixButton={true}
         >
-          <Modal.Header>
-            <Modal.Title>{selectedRevision.title || "Revision"}</Modal.Title>
-          </Modal.Header>
-          <Modal.Body>
-            <RevisionDetail<ConstantInterface>
-              diffConfig={REVISION_CONSTANT_DIFF_CONFIG}
-              revision={selectedRevision}
-              currentState={constant}
-              mutate={async () => {
-                await Promise.all([mutateRevisions(), mutate()]);
-              }}
-              setCurrentRevision={(r) => selectRevision(r)}
-              onPublish={async (revisionId) => {
-                await handlePublish(revisionId);
-              }}
-              onReopen={async (revisionId) => {
-                await handleReopen(revisionId);
-              }}
-              allRevisions={allRevisions}
-              requiresApproval={selectedRevisionRequiresApproval}
-              closeModal={() => setShowChangesModal(false)}
-              canUpdateEntity={(s) => permissionsUtil.canUpdateConstant(s, {})}
-            />
-          </Modal.Body>
-        </Modal.Root>
+          <RevisionDetail<ConstantInterface>
+            diffConfig={REVISION_CONSTANT_DIFF_CONFIG}
+            revision={selectedRevision}
+            currentState={constant}
+            mutate={async () => {
+              await Promise.all([mutateRevisions(), mutate()]);
+            }}
+            setCurrentRevision={(r) => selectRevision(r)}
+            onPublish={async (revisionId) => {
+              await handlePublish(revisionId);
+            }}
+            onReopen={async (revisionId) => {
+              await handleReopen(revisionId);
+            }}
+            allRevisions={allRevisions}
+            requiresApproval={selectedRevisionRequiresApproval}
+            closeModal={() => setShowChangesModal(false)}
+            canUpdateEntity={(s) => permissionsUtil.canUpdateConstant(s, {})}
+          />
+        </Modal>
       )}
 
       {editInfoOpen && (
