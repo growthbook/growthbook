@@ -49,6 +49,12 @@ RUN \
 # venv copied into the final image.
 RUN pip uninstall -y poetry poetry-core poetry-plugin-export keyring jaraco.classes setuptools wheel dulwich
 
+# Assert the runtime python entrypoints exist before this venv is copied into the
+# shell-less final image (where such a check can't run). Replaces the deleted
+# final-stage `command -v` guard for the artifacts produced in this stage.
+RUN test -x /opt/venv/bin/python3 && test -x /opt/venv/bin/ddtrace-run \
+  || (echo "ERROR: python3/ddtrace-run missing from the venv" && exit 1)
+
 # Stage the system shared-lib closure into /opt/pydeps. The venv's C extensions
 # and wheels (numpy/pandas/scipy/ddtrace) dynamically link OS libs (libz, libbz2,
 # libffi, libgfortran, …) that the DHI python image ships but the DHI *node*
@@ -135,6 +141,12 @@ RUN rm -f packages/front-end/tsconfig.json && \
 RUN pnpm rebuild kerberos && \
     find node_modules/.pnpm -path '*/kerberos/build/Release/kerberos.node' -type f | grep -q . \
       || (echo "ERROR: kerberos.node was not produced by the source build" && exit 1)
+
+# Assert the pm2-runtime entrypoint (the CMD and chart command) exists before this
+# node_modules tree is copied into the shell-less final image. Replaces the deleted
+# final-stage guard for the node-side artifacts.
+RUN test -f node_modules/pm2/bin/pm2-runtime \
+  || (echo "ERROR: pm2/bin/pm2-runtime missing from node_modules" && exit 1)
 
 # ----------------------------------------------------------------------------
 # Stage 3: collect the runtime Kerberos libs (kerberos@2.x, for MongoDB GSSAPI).
