@@ -30,6 +30,7 @@ const RefreshSnapshotButton: FC<{
   };
   fullRefreshRequired?: boolean;
   fullRefreshReasons?: string[];
+  disabled?: boolean;
 }> = ({
   mutate,
   experiment,
@@ -44,6 +45,7 @@ const RefreshSnapshotButton: FC<{
   experimentSnapshotTrackingProps,
   fullRefreshRequired = false,
   fullRefreshReasons = [],
+  disabled = false,
 }) => {
   const { getDatasourceById } = useDefinitions();
 
@@ -83,7 +85,7 @@ const RefreshSnapshotButton: FC<{
           <RadixButton
             variant={radixVariant}
             size="sm"
-            disabled={loading}
+            disabled={loading || disabled}
             setError={(error) => setError(error ?? undefined)}
             onClick={handleClick}
             style={{
@@ -105,7 +107,7 @@ const RefreshSnapshotButton: FC<{
             color="outline-primary"
             setErrorText={setError}
             onClick={handleClick}
-            disabled={loading}
+            disabled={loading || disabled}
           >
             <BsArrowRepeat /> {label}
           </Button>

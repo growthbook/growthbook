@@ -269,9 +269,13 @@ export default function AnalysisSettingsSummary({
   const isIncremental =
     isExperimentIncludedInIncrementalRefresh && !incrementalUpdatesUnavailable;
 
-  const { incrementalRefresh } = useIncrementalRefresh(
-    isIncremental ? experiment.id : "",
-  );
+  const { incrementalRefresh, mutate: mutateIncrementalRefresh } =
+    useIncrementalRefresh(isIncremental ? experiment.id : "");
+  useEffect(() => {
+    // If dimensionless snapshto changes, re-fecth incremental refresh data
+    if (!isIncremental) return;
+    mutateIncrementalRefresh();
+  }, [isIncremental, dimensionless?.id, mutateIncrementalRefresh]);
   const honoredPrecomputedUnitDimensionIds = useMemo(
     () =>
       getHonoredPrecomputedUnitDimensionIds(
@@ -934,6 +938,10 @@ export default function AnalysisSettingsSummary({
                 setAnalysisSettings={setAnalysisSettings}
                 customValidation={confirmRefresh}
                 onSnapshotRefreshBlocked={handleSnapshotRefreshBlocked}
+                disabled={
+                  viewingDimensionThatRequiresOverallFirst &&
+                  overallResultsRequiredBeforeDimensionRefresh
+                }
                 fullRefreshRequired={
                   !viewingDimensionThatRequiresOverallFirst &&
                   overallNeedsFullRefresh

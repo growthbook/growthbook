@@ -51,6 +51,7 @@ export interface RefreshResultsButtonProps<T extends RefreshResultsModel> {
   safeRollout?: SafeRolloutInterface;
   fullRefreshRequired?: boolean;
   fullRefreshReasons?: string[];
+  disabled?: boolean;
 }
 
 export default function RefreshResultsButton<T extends RefreshResultsModel>({
@@ -71,6 +72,7 @@ export default function RefreshResultsButton<T extends RefreshResultsModel>({
   safeRollout,
   fullRefreshRequired = false,
   fullRefreshReasons = [],
+  disabled = false,
 }: RefreshResultsButtonProps<T>) {
   const hasQueries = (latest?.queries?.length ?? 0) > 0;
   if (datasourceId && latest && hasQueries) {
@@ -91,6 +93,7 @@ export default function RefreshResultsButton<T extends RefreshResultsModel>({
         dimension={dimension}
         fullRefreshRequired={fullRefreshRequired}
         fullRefreshReasons={fullRefreshReasons}
+        disabled={disabled}
       />
     );
   }
@@ -118,6 +121,7 @@ export default function RefreshResultsButton<T extends RefreshResultsModel>({
         experimentSnapshotTrackingProps={experimentSnapshotTrackingProps}
         fullRefreshRequired={fullRefreshRequired}
         fullRefreshReasons={fullRefreshReasons}
+        disabled={disabled}
       />
     );
   }
@@ -151,6 +155,7 @@ function RefreshRunQueriesButton<T extends RefreshResultsModel>({
   dimension,
   fullRefreshRequired,
   fullRefreshReasons,
+  disabled = false,
 }: RefreshResultsButtonProps<T> & {
   latest: T;
   fullRefreshRequired: boolean;
@@ -222,6 +227,7 @@ function RefreshRunQueriesButton<T extends RefreshResultsModel>({
         useRadixButton={true}
         radixVariant="outline"
         onSubmit={handleSubmit}
+        disabled={disabled}
       />
     </>
   );
