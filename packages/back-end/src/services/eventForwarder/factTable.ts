@@ -36,7 +36,7 @@ import {
   queueFactTableColumnsRefresh,
   queueFactTableColumnsRefreshAt,
 } from "back-end/src/jobs/refreshFactTableColumns";
-import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
+import { getContextForOrgAdminByOrgObject } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
 import { ReqContext } from "back-end/types/request";
 
@@ -234,7 +234,7 @@ export async function syncEventForwarderEventsFactTableMetadataAfterAttributeSch
         );
       });
       await updateFactTable(
-        getContextForAgendaJobByOrgObject(context.org),
+        getContextForOrgAdminByOrgObject(context.org),
         factTable,
         {
           ...(hasMetadataChanges && {

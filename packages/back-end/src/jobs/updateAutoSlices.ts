@@ -11,7 +11,7 @@ import {
   updateFactTableColumns,
 } from "back-end/src/models/FactTableModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
-import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
+import { getContextForOrgAdminByOrgId } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
 import { AUTO_SLICE_UPDATE_FREQUENCY_HOURS } from "back-end/src/util/secrets";
 import {
@@ -71,7 +71,7 @@ const updateSingleFactTableAutoSlices = async (
 
   if (!factTableId || !organization) return;
 
-  const context = await getContextForAgendaJobByOrgId(organization);
+  const context = await getContextForOrgAdminByOrgId(organization);
 
   if (!context.hasPremiumFeature("metric-slices")) return;
 

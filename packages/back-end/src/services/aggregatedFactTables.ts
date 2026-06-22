@@ -1,5 +1,10 @@
 import uniqid from "uniqid";
-import { getAutoSliceMetrics, isRatioMetric } from "shared/experiments";
+import {
+  getAllMetricIdsFromExperiment,
+  getAutoSliceMetrics,
+  isFactMetricId,
+  isRatioMetric,
+} from "shared/experiments";
 import { DataSourceInterface } from "shared/types/datasource";
 import {
   FactMetricInterface,
@@ -13,17 +18,24 @@ import {
 } from "shared/validators";
 import { QueryStatus } from "shared/types/query";
 import { ReqContext } from "back-end/types/request";
+import { ApiReqContext } from "back-end/types/api";
+import { getRunningExperimentMetricRefs } from "back-end/src/models/ExperimentModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import { getFactTable } from "back-end/src/models/FactTableModel";
+import { getContextForOrgAdminByOrgObject } from "back-end/src/services/organizations";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { logger } from "back-end/src/util/logger";
+import { getNextUpdateOccurrence } from "back-end/src/util/factTable";
 import {
   AggregatedFactTableQueryRunner,
   AggregatedFactTableRunMode,
 } from "back-end/src/queryRunners/AggregatedFactTableQueryRunner";
 import {
   AggregatedFactTableRestateReason,
+  buildAggregatedFactTableMetricStates,
   buildAggregatedFactTableSchemaState,
   getAggregatedFactTableRestateReason,
+  getFactTableSettingsHashForAggregatedFactTable,
 } from "back-end/src/enterprise/services/data-pipeline";
 
 type AggregatedFactTableRestateLogReason =
@@ -120,35 +132,132 @@ export type AggregatedFactTableStatus = {
   pendingRestateReason: AggregatedFactTableRestateReason;
 };
 
+// Eligibility for the pre-aggregated table is org-wide: it depends on every
+// running experiment (across all projects) and the fact metrics they reference,
+// either of which can live in projects the caller can't read.
+export async function getAggregatedFactTableEligibilityInputs(
+  context: ReqContext | ApiReqContext,
+): Promise<{
+  factMetrics: FactMetricInterface[];
+  activeFactMetricIds: Set<string>;
+}> {
+  const backgroundContext = getContextForOrgAdminByOrgObject(context.org);
+  const [factMetrics, activeFactMetricIds] = await Promise.all([
+    backgroundContext.models.factMetrics.getAll(),
+    getRunningExperimentFactMetricIds(backgroundContext),
+  ]);
+  return { factMetrics, activeFactMetricIds };
+}
+
+// Expects an org-wide context (e.g. the background admin context built in
+// getAggregatedFactTableEligibilityInputs) so metric group references on
+// running experiments expand fully, regardless of the original caller's scope.
+export async function getRunningExperimentFactMetricIds(
+  context: ReqContext | ApiReqContext,
+): Promise<Set<string>> {
+  const [running, metricGroups] = await Promise.all([
+    getRunningExperimentMetricRefs(context, [
+      "standard",
+      "multi-armed-bandit",
+      "holdout",
+    ]),
+    context.models.metricGroups.getAll(),
+  ]);
+  const ids = new Set<string>();
+  for (const experiment of running) {
+    for (const id of getAllMetricIdsFromExperiment(
+      experiment,
+      true,
+      metricGroups,
+    )) {
+      if (isFactMetricId(id)) {
+        ids.add(id);
+      }
+    }
+  }
+  return ids;
+}
+
+// The set of metric IDs already materialized into a fact table's pre-aggregated
+// table, including slice metrics
+export function getMaterializedFactMetricIds(
+  aggregatedFactTable?: Pick<
+    AggregatedFactTableInterface,
+    "metricState"
+  > | null,
+): Set<string> {
+  return new Set(
+    (aggregatedFactTable?.metricState ?? []).map((m) => m.metricId),
+  );
+}
+
+// True when the metric reads from this fact table via its numerator or (for
+// ratio metrics) its denominator.
+export function metricReferencesFactTable(
+  metric: FactMetricInterface,
+  factTableId: string,
+): boolean {
+  return (
+    metric.numerator.factTableId === factTableId ||
+    (isRatioMetric(metric) && metric.denominator?.factTableId === factTableId)
+  );
+}
+
+// Keeps non-archived metrics that are either referenced by a running experiment
+// or already present in the table.
 export function getMetricsForAggregatedFactTable(
   factMetrics: FactMetricInterface[],
   factTableId: string,
+  activeMetricIds: ReadonlySet<string>,
+  materializedMetricIds: ReadonlySet<string>,
 ): FactMetricInterface[] {
   return factMetrics.filter((metric) => {
     if (metric.archived) return false;
-    const referencesFactTable =
-      metric.numerator.factTableId === factTableId ||
-      (isRatioMetric(metric) &&
-        metric.denominator?.factTableId === factTableId);
-    return referencesFactTable;
+    return (
+      metricReferencesFactTable(metric, factTableId) &&
+      (activeMetricIds.has(metric.id) || materializedMetricIds.has(metric.id))
+    );
   });
 }
 
 export function getAggregatedFactTableMetrics({
   factMetrics,
   factTable,
+  activeFactMetricIds,
+  materializedFactMetricIds,
 }: {
   factMetrics: FactMetricInterface[];
   factTable: FactTableInterface;
+  activeFactMetricIds: ReadonlySet<string>;
+  materializedFactMetricIds: ReadonlySet<string>;
 }): FactMetricInterface[] {
   const baseMetrics = getMetricsForAggregatedFactTable(
     factMetrics,
     factTable.id,
+    activeFactMetricIds,
+    materializedFactMetricIds,
   );
   return baseMetrics.flatMap((metric) => [
     metric,
     ...getAutoSliceMetrics({ metric, factTable }),
   ]);
+}
+
+export function getActiveAggregatedFactTableMetrics({
+  factMetrics,
+  factTable,
+  activeFactMetricIds,
+}: {
+  factMetrics: FactMetricInterface[];
+  factTable: FactTableInterface;
+  activeFactMetricIds: ReadonlySet<string>;
+}): FactMetricInterface[] {
+  return getAggregatedFactTableMetrics({
+    factMetrics,
+    factTable,
+    activeFactMetricIds,
+    materializedFactMetricIds: new Set(),
+  });
 }
 
 export function getAggregatedFactTableMaterializationStatus(
@@ -166,16 +275,19 @@ export function buildAggregatedFactTableStatus({
   doc,
   factTableSettingsHash,
   metricState,
+  hasActiveMetrics,
 }: {
   idType: string;
   doc: AggregatedFactTableInterface | undefined;
   factTableSettingsHash: string;
   metricState: AggregatedFactTableMetricStateInterface[];
+  // If there are no active metrics, there's no restate
+  hasActiveMetrics: boolean;
 }): AggregatedFactTableStatus {
   const status = getAggregatedFactTableMaterializationStatus(doc);
 
   const pendingRestateReason: AggregatedFactTableRestateReason =
-    doc && status !== "running"
+    doc && status !== "running" && hasActiveMetrics
       ? getAggregatedFactTableRestateReason({
           registry: doc,
           factTableSettingsHash,
@@ -195,6 +307,73 @@ export function buildAggregatedFactTableStatus({
     pendingRestate: pendingRestateReason !== null,
     pendingRestateReason,
   };
+}
+
+export async function getAggregatedFactTableStatuses(
+  context: ReqContext | ApiReqContext,
+  factTableId: string,
+): Promise<{
+  aggregatedFactTables: AggregatedFactTableStatus[];
+  nextScheduledUpdate: Date | null;
+}> {
+  const factTable = await getFactTable(context, factTableId);
+  if (!factTable) {
+    throw new Error("Could not find factTable with that id");
+  }
+
+  const idTypes = factTable.aggregatedFactTableSettings?.idTypes ?? [];
+  const registryDocs =
+    await context.models.aggregatedFactTables.getByFactTableId(factTable.id);
+  const byIdType = new Map(registryDocs.map((doc) => [doc.idType, doc]));
+
+  // Recompute the schema state the nightly driver would so callers can see when
+  // the next run will be forced to restate.
+  const { factMetrics, activeFactMetricIds } =
+    await getAggregatedFactTableEligibilityInputs(context);
+
+  const factTableSettingsHash =
+    getFactTableSettingsHashForAggregatedFactTable(factTable);
+
+  const metricCatalog = factMetrics
+    .filter(
+      (metric) =>
+        !metric.archived && metricReferencesFactTable(metric, factTable.id),
+    )
+    .map((metric) => ({
+      metricId: metric.id,
+      isActive: activeFactMetricIds.has(metric.id),
+      metricState: buildAggregatedFactTableMetricStates({
+        factTable,
+        metrics: [metric, ...getAutoSliceMetrics({ metric, factTable })],
+      }),
+    }));
+
+  // Allows us to say "no pending restate" when no running experiment references
+  // the table.
+  const hasActiveMetrics = metricCatalog.some((m) => m.isActive);
+
+  const aggregatedFactTables = idTypes.map((idType) => {
+    const doc = byIdType.get(idType);
+    const materializedFactMetricIds = getMaterializedFactMetricIds(doc);
+    // Active metrics are always included; inactive ones only if this id type has
+    // already materialized them.
+    const metricState = metricCatalog
+      .filter((m) => m.isActive || materializedFactMetricIds.has(m.metricId))
+      .flatMap((m) => m.metricState);
+    return buildAggregatedFactTableStatus({
+      idType,
+      doc,
+      factTableSettingsHash,
+      metricState,
+      hasActiveMetrics,
+    });
+  });
+
+  const nextScheduledUpdate = factTable.aggregatedFactTableSettings
+    ? getNextUpdateOccurrence(factTable.aggregatedFactTableSettings.updateTime)
+    : null;
+
+  return { aggregatedFactTables, nextScheduledUpdate };
 }
 
 export function deriveAggregatedFactTableRunStatus(
@@ -302,20 +481,32 @@ export async function runAggregatedFactTableUpdate(
     return { status: "skipped", reason: "unsupported-datasource" };
   }
 
-  const factMetrics = await context.models.factMetrics.getAll();
-  const metrics = getAggregatedFactTableMetrics({ factMetrics, factTable });
-  if (!metrics.length) {
-    logger.debug(
-      `Skipping aggregated fact table update for ${factTable.id}/${idType}: no regression-adjusted fact metrics reference this fact table`,
-    );
-    return { status: "skipped", reason: "no-eligible-metrics" };
-  }
-
   const key = {
     datasourceId: datasource.id,
     factTableId: factTable.id,
     idType,
   };
+
+  // Read eligibility inputs org-wide so a manual/REST-triggered run (which uses
+  // the caller's context) decides eligibility and builds the materialized table
+  // from the same metric set as the nightly admin job.
+  const { factMetrics, activeFactMetricIds } =
+    await getAggregatedFactTableEligibilityInputs(context);
+
+  // Refresh only while a running experiment references the table. When nothing
+  // is active we stop, even if inactive metrics are still materialized; runs
+  // resume cleanly once an experiment references the table again.
+  const activeMetrics = getActiveAggregatedFactTableMetrics({
+    factMetrics,
+    factTable,
+    activeFactMetricIds,
+  });
+  if (!activeMetrics.length) {
+    logger.debug(
+      `Skipping aggregated fact table update for ${factTable.id}/${idType}: no active metrics reference this fact table`,
+    );
+    return { status: "skipped", reason: "no-eligible-metrics" };
+  }
 
   const executionId = uniqid("aftexec_");
   const locked = await context.models.aggregatedFactTables.acquireLock(
@@ -337,18 +528,43 @@ export async function runAggregatedFactTableUpdate(
     );
   }
 
-  const { factTableSettingsHash, metricState } =
-    buildAggregatedFactTableSchemaState({ factTable, metrics });
+  // We need to re-call getAggregatedFactTableMetrics here in case anything changed
+  // while acquiring the lock, so we can't just compute the metric state once like we
+  // do in getAggregatedFactTableStatuses.
+  const keptMetrics = getAggregatedFactTableMetrics({
+    factMetrics,
+    factTable,
+    activeFactMetricIds,
+    materializedFactMetricIds: getMaterializedFactMetricIds(registry),
+  });
+
+  // Decide the mode against the kept set so a newly added active metric forces a
+  // restate while an inactive-but-materialized metric never reads as a removal.
+  const keptSchemaState = buildAggregatedFactTableSchemaState({
+    factTable,
+    metrics: keptMetrics,
+  });
 
   const restateReason = getAggregatedFactTableRestateReason({
     registry,
-    factTableSettingsHash,
-    metricState,
+    factTableSettingsHash: keptSchemaState.factTableSettingsHash,
+    metricState: keptSchemaState.metricState,
   });
   const mode: AggregatedFactTableRunMode =
     forceRestate || !registry.tableFullName || restateReason !== null
       ? "restate"
       : "incremental";
+
+  // A restate rebuilds from scratch, so slim out the inactive metrics we were
+  // only keeping to avoid churn. Gated above, so active set is non-empty.
+  const metrics = mode === "restate" ? activeMetrics : keptMetrics;
+  const { factTableSettingsHash, metricState } =
+    mode === "restate"
+      ? buildAggregatedFactTableSchemaState({
+          factTable,
+          metrics: activeMetrics,
+        })
+      : keptSchemaState;
 
   const run = await context.models.aggregatedFactTableRuns.create({
     aggregatedFactTableId: registry.id,

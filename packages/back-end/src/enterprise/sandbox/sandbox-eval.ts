@@ -4,7 +4,7 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { SoftWarningError } from "back-end/src/util/errors";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import { ReqContextClass } from "back-end/src/services/context";
-import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
+import { getContextForOrgAdminByOrgObject } from "back-end/src/services/organizations";
 import { runInSandbox } from "./sandbox-pool";
 
 // Custom hook orchestration; sandboxed JS runs in the child-process pool (sandbox-pool.ts).
@@ -76,7 +76,7 @@ async function _runCustomHooks(
 
   // Get an admin version of the context
   // We don't want the user's permissions to affect which hooks are executed
-  const adminContext = getContextForAgendaJobByOrgObject(context.org);
+  const adminContext = getContextForOrgAdminByOrgObject(context.org);
 
   const hooks = await adminContext.models.customHooks.getByHook(
     hookType,

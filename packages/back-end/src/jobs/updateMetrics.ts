@@ -10,7 +10,7 @@ import { METRIC_REFRESH_FREQUENCY } from "back-end/src/util/secrets";
 import { logger } from "back-end/src/util/logger";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import {
-  getContextForAgendaJobByOrgObject,
+  getContextForOrgAdminByOrgObject,
   getOrganizationById,
 } from "back-end/src/services/organizations";
 
@@ -53,7 +53,7 @@ export default async function (agenda: Agenda) {
     const promiseCallbacks: (() => Promise<unknown>)[] = [];
     metrics.forEach(({ organization, id, daysToInclude }) => {
       promiseCallbacks.push(async () => {
-        const context = getContextForAgendaJobByOrgObject(organization);
+        const context = getContextForOrgAdminByOrgObject(organization);
 
         const metric = await getMetricById(context, id, true);
         if (!metric) return;
@@ -123,7 +123,7 @@ const updateSingleMetric = async (job: UpdateSingleMetricJob) => {
     if (!org) {
       throw new Error("Error getting org to refresh metric: " + orgId);
     }
-    const context = getContextForAgendaJobByOrgObject(org);
+    const context = getContextForOrgAdminByOrgObject(org);
 
     const metric = await getMetricById(context, metricId, true);
 

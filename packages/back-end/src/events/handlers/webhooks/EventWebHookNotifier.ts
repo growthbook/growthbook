@@ -20,7 +20,7 @@ import {
   getSlackMessageForLegacyNotificationEvent,
 } from "back-end/src/events/handlers/slack/slack-event-handler-utils";
 import { getLegacyMessageForNotificationEvent } from "back-end/src/events/handlers/legacy";
-import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
+import { getContextForOrgAdminByOrgObject } from "back-end/src/services/organizations";
 import { SecretsReplacer } from "back-end/src/util/secrets";
 import {
   EventWebHookErrorResult,
@@ -163,7 +163,7 @@ export class EventWebHookNotifier implements Notifier {
 
     const method = eventWebHook.method || "POST";
 
-    const context = getContextForAgendaJobByOrgObject(organization);
+    const context = getContextForOrgAdminByOrgObject(organization);
 
     const origin = new URL(eventWebHook.url).origin;
 

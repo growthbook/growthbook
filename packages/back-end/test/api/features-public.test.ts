@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import * as featuresController from "back-end/src/controllers/features";
 const { getFeaturesPublic } = featuresController;
-import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
+import { getContextForOrgAdminByOrgId } from "back-end/src/services/organizations";
 import { findSDKConnectionByKey } from "back-end/src/models/SdkConnectionModel";
 import { getFeatureDefinitions } from "back-end/src/services/features";
 
@@ -57,7 +57,7 @@ jest.mock("back-end/src/services/features", () => ({
 }));
 
 jest.mock("back-end/src/services/organizations", () => ({
-  getContextForAgendaJobByOrgId: jest.fn(),
+  getContextForOrgAdminByOrgId: jest.fn(),
 }));
 
 jest.mock("back-end/src/models/SdkConnectionCacheModel", () => ({
@@ -129,7 +129,7 @@ describe("getFeaturesPublic test holdout", () => {
       },
     };
 
-    (getContextForAgendaJobByOrgId as jest.Mock).mockResolvedValue(mockContext);
+    (getContextForOrgAdminByOrgId as jest.Mock).mockResolvedValue(mockContext);
 
     // Mock the SDK connection lookup so getPayloadParamsFromApiKey works
     (findSDKConnectionByKey as jest.Mock).mockResolvedValue({
@@ -199,7 +199,7 @@ describe("getFeaturesPublic test holdout", () => {
       },
     };
 
-    (getContextForAgendaJobByOrgId as jest.Mock).mockResolvedValue(mockContext);
+    (getContextForOrgAdminByOrgId as jest.Mock).mockResolvedValue(mockContext);
 
     // Mock the SDK connection lookup so getPayloadParamsFromApiKey works
     (findSDKConnectionByKey as jest.Mock).mockResolvedValue({

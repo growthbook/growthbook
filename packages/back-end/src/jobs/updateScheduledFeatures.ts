@@ -8,7 +8,7 @@ import {
   getNextScheduledUpdate,
   refreshSDKPayloadCache,
 } from "back-end/src/services/features";
-import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
+import { getContextForOrgAdminByOrgId } from "back-end/src/services/organizations";
 import { getSDKPayloadKeysByDiff } from "back-end/src/util/features";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import { logger } from "back-end/src/util/logger";
@@ -63,7 +63,7 @@ export const updateSingleFeature = async (job: UpdateSingleFeatureJob) => {
   const organization = job.attrs.data?.organization;
   if (!featureId || !organization) return;
 
-  const context = await getContextForAgendaJobByOrgId(organization);
+  const context = await getContextForOrgAdminByOrgId(organization);
   const feature = await getFeature(context, featureId);
   if (!feature) return;
 

@@ -1,5 +1,12 @@
 import { ExperimentInterface } from "shared/types/experiment";
-import { hasActualChanges } from "back-end/src/models/ExperimentModel";
+import { ReqContext } from "back-end/types/request";
+import {
+  getAllExperiments,
+  hasActualChanges,
+} from "back-end/src/models/ExperimentModel";
+import { getCollection } from "back-end/src/util/mongo.util";
+
+jest.mock("back-end/src/util/mongo.util");
 
 describe("ExperimentModel", () => {
   const experiment: ExperimentInterface = {
@@ -89,6 +96,60 @@ describe("ExperimentModel", () => {
         ],
       };
       expect(hasActualChanges(experiment, updates)).toEqual(true);
+    });
+  });
+
+  describe("getAllExperiments type filter", () => {
+    const context = {
+      org: { id: "org_123" },
+      permissions: { canReadSingleProjectResource: () => true },
+    } as unknown as ReqContext;
+
+    let capturedQuery: Record<string, unknown>;
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+      capturedQuery = {};
+      const cursor = {
+        limit: jest.fn().mockReturnThis(),
+        sort: jest.fn().mockReturnThis(),
+        toArray: jest.fn().mockResolvedValue([]),
+      };
+      (getCollection as jest.Mock).mockReturnValue({
+        find: jest.fn((query: Record<string, unknown>) => {
+          capturedQuery = query;
+          return cursor;
+        }),
+      });
+    });
+
+    it("excludes holdouts by default when no types are provided", async () => {
+      await getAllExperiments(context);
+      expect(capturedQuery.type).toEqual({ $ne: "holdout" });
+    });
+
+    it("maps 'standard' to standard plus the legacy null type", async () => {
+      await getAllExperiments(context, { types: ["standard"] });
+      expect(capturedQuery.type).toEqual({ $in: ["standard", null] });
+    });
+
+    it("queries a single non-standard type without the legacy null", async () => {
+      await getAllExperiments(context, { types: ["holdout"] });
+      expect(capturedQuery.type).toEqual({ $in: ["holdout"] });
+    });
+
+    it("includes all requested types (legacy null only for standard)", async () => {
+      await getAllExperiments(context, {
+        types: ["standard", "multi-armed-bandit", "holdout"],
+      });
+      expect(capturedQuery.type).toEqual({
+        $in: ["standard", null, "multi-armed-bandit", "holdout"],
+      });
+    });
+
+    it("matches nothing for an explicit empty types array", async () => {
+      await getAllExperiments(context, { types: [] });
+      expect(capturedQuery.type).toEqual({ $in: [] });
     });
   });
 });

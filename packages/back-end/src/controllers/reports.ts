@@ -36,7 +36,7 @@ import { ExperimentReportQueryRunner } from "back-end/src/queryRunners/Experimen
 import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource";
 import { generateReportNotebook } from "back-end/src/services/notebook";
 import {
-  getContextForAgendaJobByOrgId,
+  getContextForOrgAdminByOrgId,
   getContextFromReq,
 } from "back-end/src/services/organizations";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
@@ -262,7 +262,7 @@ export async function getReportPublic(
       message: "Unauthorized",
     });
   }
-  const context = await getContextForAgendaJobByOrgId(report.organization);
+  const context = await getContextForOrgAdminByOrgId(report.organization);
 
   const snapshot =
     report.type === "experiment-snapshot"

@@ -10,7 +10,7 @@ import { usingFileConfig } from "back-end/src/init/config";
 import { ENCRYPTION_KEY, IS_CLOUD } from "back-end/src/util/secrets";
 import { init } from "back-end/src/init";
 import { encryptParams } from "back-end/src/services/datasource";
-import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
+import { getContextForOrgAdminByOrgId } from "back-end/src/services/organizations";
 
 const [oldEncryptionKey] = process.argv.slice(2);
 if (IS_CLOUD) {
@@ -39,7 +39,7 @@ async function run() {
   const allDatasources = await _dangerousGetAllDatasources();
   for (let i = 0; i < allDatasources.length; i++) {
     const ds = allDatasources[i];
-    const context = await getContextForAgendaJobByOrgId(ds.organization);
+    const context = await getContextForOrgAdminByOrgId(ds.organization);
     const params = ds.params;
     if (!params) continue;
 

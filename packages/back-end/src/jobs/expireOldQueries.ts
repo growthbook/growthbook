@@ -32,7 +32,7 @@ import {
   findReportsByQueryId,
   updateReport,
 } from "back-end/src/models/ReportModel";
-import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
+import { getContextForOrgAdminByOrgId } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
 import { MetricAnalysisModel } from "back-end/src/models/MetricAnalysisModel";
 import { getCollection } from "back-end/src/util/mongo.util";
@@ -73,7 +73,7 @@ const expireOldQueries = async () => {
     const snapshot = snapshots[i];
     logger.info("Updating status of snapshot " + snapshot.id);
     updateQueryStatus(snapshot.queries, queryIds);
-    const context = await getContextForAgendaJobByOrgId(snapshot.organization);
+    const context = await getContextForOrgAdminByOrgId(snapshot.organization);
     await updateSnapshot({
       context,
       id: snapshot.id,
@@ -144,7 +144,7 @@ const expireOldQueries = async () => {
   );
   for (const metricAnalysis of metricAnalyses) {
     logger.info("Updating status of metricAnalysis " + metricAnalysis.id);
-    const context = await getContextForAgendaJobByOrgId(
+    const context = await getContextForOrgAdminByOrgId(
       metricAnalysis.organization,
     );
     updateQueryStatus(metricAnalysis.queries, queryIds);
@@ -258,7 +258,7 @@ async function reapStalledSnapshots() {
         : "Snapshot stalled: queries were never started. This can happen when the server restarts mid-refresh. Please try updating results again."
       : "Snapshot stalled: queries finished but results were never finalized. This usually means the analysis step failed (check server logs) or the process was restarted.";
 
-    const context = await getContextForAgendaJobByOrgId(snapshot.organization);
+    const context = await getContextForOrgAdminByOrgId(snapshot.organization);
     const reaped = await errorSnapshotIfStillRunning(context, snapshot.id, {
       queries: snapshot.queries,
       error,

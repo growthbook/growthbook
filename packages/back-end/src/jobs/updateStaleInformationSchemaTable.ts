@@ -8,7 +8,7 @@ import {
   getInformationSchemaTableById,
   updateInformationSchemaTableById,
 } from "back-end/src/models/InformationSchemaTablesModel";
-import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
+import { getContextForOrgAdminByOrgId } from "back-end/src/services/organizations";
 
 const UPDATE_STALE_INFORMATION_SCHEMA_TABLE_JOB_NAME =
   "updateStaleInformationSchemaTable";
@@ -38,7 +38,7 @@ const updateStaleInformationSchemaTable = async (
     return;
   }
 
-  const context = await getContextForAgendaJobByOrgId(organization);
+  const context = await getContextForOrgAdminByOrgId(organization);
 
   const datasource = await getDataSourceById(
     context,

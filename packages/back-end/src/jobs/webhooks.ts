@@ -2,7 +2,7 @@ import { createHmac } from "crypto";
 import Agenda, { Job } from "agenda";
 import { ReqContext } from "back-end/types/request";
 import {
-  getContextForAgendaJobByOrgId,
+  getContextForOrgAdminByOrgId,
   getExperimentOverrides,
 } from "back-end/src/services/organizations";
 import { getFeatureDefinitionsWithCache } from "back-end/src/controllers/features";
@@ -30,7 +30,7 @@ export default function (ag: Agenda) {
       await SdkWebhookModel.dangerousFindSdkWebhookByIdAcrossOrgs(webhookId);
     if (!webhook) return;
 
-    const context = await getContextForAgendaJobByOrgId(webhook.organization);
+    const context = await getContextForOrgAdminByOrgId(webhook.organization);
 
     // Build synthetic cache key for legacy webhook
     const cacheKey = formatLegacyCacheKey({

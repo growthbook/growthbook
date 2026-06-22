@@ -1,4 +1,5 @@
 import { getAutoSliceMetrics, isSliceMetric } from "shared/experiments";
+import { AggregatedFactTableInterface } from "shared/validators";
 import {
   buildAggregatedFactTableSchemaState,
   detectAggregatedFactTableSchemaDrift,
@@ -13,8 +14,14 @@ import {
   parseAggregatedFactTableCoverage,
   foldAggregatedFactTableCoverage,
 } from "back-end/src/queryRunners/AggregatedFactTableQueryRunner";
-import { getAggregatedFactTableMetrics } from "back-end/src/services/aggregatedFactTables";
 import { bigQueryDialect } from "back-end/src/integrations/dialects/bigquery";
+import {
+  buildAggregatedFactTableStatus,
+  getActiveAggregatedFactTableMetrics,
+  getAggregatedFactTableMetrics,
+  getMaterializedFactMetricIds,
+  getMetricsForAggregatedFactTable,
+} from "back-end/src/services/aggregatedFactTables";
 import { factMetricFactory } from "./factories/FactMetric.factory";
 import { factTableFactory } from "./factories/FactTable.factory";
 
@@ -201,19 +208,223 @@ describe("getFactTableSettingsHashForAggregatedFactTable", () => {
   });
 });
 
-describe("getAggregatedFactTableMetrics", () => {
-  it("excludes archived fact-metrics", () => {
-    const factTable = factTableFactory.build({ id: FT_ID });
+describe("getMetricsForAggregatedFactTable", () => {
+  const numerator = (factTableId: string) => ({
+    factTableId,
+    column: "value",
+    aggregation: "sum" as const,
+  });
+
+  it("excludes metrics that reference the fact table but are neither active nor already materialized", () => {
     const active = factMetricFactory.build({
+      id: "m_active",
+      metricType: "mean",
+      numerator: numerator(FT_ID),
+    });
+    const inactive = factMetricFactory.build({
+      id: "m_inactive",
+      metricType: "mean",
+      numerator: numerator(FT_ID),
+    });
+
+    const result = getMetricsForAggregatedFactTable(
+      [active, inactive],
+      FT_ID,
+      new Set([active.id]),
+      new Set(),
+    );
+
+    expect(result.map((m) => m.id)).toEqual([active.id]);
+  });
+
+  it("returns no metrics when both the active and materialized sets are empty", () => {
+    const metric = factMetricFactory.build({
+      id: "m1",
+      metricType: "mean",
+      numerator: numerator(FT_ID),
+    });
+    expect(
+      getMetricsForAggregatedFactTable([metric], FT_ID, new Set(), new Set()),
+    ).toEqual([]);
+  });
+
+  it("excludes active metrics that reference a different fact table", () => {
+    const otherTableMetric = factMetricFactory.build({
+      id: "m_other",
+      metricType: "mean",
+      numerator: numerator(OTHER_FT_ID),
+    });
+    expect(
+      getMetricsForAggregatedFactTable(
+        [otherTableMetric],
+        FT_ID,
+        new Set([otherTableMetric.id]),
+        new Set(),
+      ),
+    ).toEqual([]);
+  });
+
+  it("includes an active ratio metric whose denominator references the fact table", () => {
+    const ratio = factMetricFactory.build({
+      id: "m_ratio",
+      metricType: "ratio",
+      numerator: numerator(OTHER_FT_ID),
+      denominator: numerator(FT_ID),
+    });
+    const result = getMetricsForAggregatedFactTable(
+      [ratio],
+      FT_ID,
+      new Set([ratio.id]),
+      new Set(),
+    );
+    expect(result.map((m) => m.id)).toEqual([ratio.id]);
+  });
+
+  it("keeps an inactive metric that is already materialized in the table", () => {
+    const metric = factMetricFactory.build({
+      id: "m_materialized",
+      metricType: "mean",
+      numerator: numerator(FT_ID),
+    });
+    const result = getMetricsForAggregatedFactTable(
+      [metric],
+      FT_ID,
+      new Set(),
+      new Set([metric.id]),
+    );
+    expect(result.map((m) => m.id)).toEqual([metric.id]);
+  });
+
+  it("excludes an archived metric even when active", () => {
+    const metric = factMetricFactory.build({
+      id: "m_archived_active",
+      metricType: "mean",
+      numerator: numerator(FT_ID),
+      archived: true,
+    });
+    expect(
+      getMetricsForAggregatedFactTable(
+        [metric],
+        FT_ID,
+        new Set([metric.id]),
+        new Set(),
+      ),
+    ).toEqual([]);
+  });
+
+  it("excludes an archived metric even when already materialized", () => {
+    const metric = factMetricFactory.build({
+      id: "m_archived_materialized",
+      metricType: "mean",
+      numerator: numerator(FT_ID),
+      archived: true,
+    });
+    expect(
+      getMetricsForAggregatedFactTable(
+        [metric],
+        FT_ID,
+        new Set(),
+        new Set([metric.id]),
+      ),
+    ).toEqual([]);
+  });
+});
+
+describe("getAggregatedFactTableMetrics", () => {
+  const factTable = factTableFactory.build({
+    id: FT_ID,
+    sql: "SELECT * FROM events",
+    eventName: "purchase",
+    columns: [
+      {
+        column: "country",
+        name: "Country",
+        description: "",
+        datatype: "string",
+        numberFormat: "",
+        deleted: false,
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        isAutoSliceColumn: true,
+        autoSlices: ["US", "UK"],
+      },
+    ],
+  });
+
+  const buildBaseMetric = (id: string) =>
+    factMetricFactory.build({
+      id,
+      metricType: "mean",
+      numerator: { factTableId: FT_ID, column: "value", aggregation: "sum" },
+      metricAutoSlices: ["country"],
+    });
+
+  it("keeps the auto-slice metrics of an active base metric", () => {
+    const baseMetric = buildBaseMetric("m_active");
+    const expectedSliceCount = getAutoSliceMetrics({
+      metric: baseMetric,
+      factTable,
+    }).length;
+    expect(expectedSliceCount).toBeGreaterThan(0);
+
+    const result = getAggregatedFactTableMetrics({
+      factMetrics: [baseMetric],
+      factTable,
+      activeFactMetricIds: new Set([baseMetric.id]),
+      materializedFactMetricIds: new Set(),
+    });
+
+    // base metric + its auto-slice metrics
+    expect(result).toHaveLength(1 + expectedSliceCount);
+    expect(result[0].id).toEqual(baseMetric.id);
+  });
+
+  it("drops a base metric (and its slices) when it is neither active nor materialized", () => {
+    const baseMetric = buildBaseMetric("m_inactive");
+    const result = getAggregatedFactTableMetrics({
+      factMetrics: [baseMetric],
+      factTable,
+      activeFactMetricIds: new Set(),
+      materializedFactMetricIds: new Set(),
+    });
+    expect(result).toEqual([]);
+  });
+
+  it("keeps an inactive base metric (and its slices) when it is already materialized", () => {
+    const baseMetric = buildBaseMetric("m_materialized");
+    const expectedSliceCount = getAutoSliceMetrics({
+      metric: baseMetric,
+      factTable,
+    }).length;
+
+    const result = getAggregatedFactTableMetrics({
+      factMetrics: [baseMetric],
+      factTable,
+      activeFactMetricIds: new Set(),
+      materializedFactMetricIds: new Set([baseMetric.id]),
+    });
+
+    expect(result).toHaveLength(1 + expectedSliceCount);
+    expect(result[0].id).toEqual(baseMetric.id);
+  });
+
+  it("excludes archived fact-metrics even when active", () => {
+    const active = factMetricFactory.build({
+      id: "m_active_unarchived",
+      metricType: "mean",
       numerator: { factTableId: FT_ID, column: "value", aggregation: "sum" },
     });
     const archived = factMetricFactory.build({
+      id: "m_archived",
+      metricType: "mean",
       archived: true,
       numerator: { factTableId: FT_ID, column: "gone", aggregation: "sum" },
     });
     const metrics = getAggregatedFactTableMetrics({
       factMetrics: [active, archived],
       factTable,
+      activeFactMetricIds: new Set([active.id, archived.id]),
+      materializedFactMetricIds: new Set(),
     });
     expect(metrics.map((m) => m.id)).toEqual([active.id]);
   });
@@ -834,5 +1045,218 @@ describe("getAggregatedFactTableRestateReason", () => {
         metricState: drifted.metricState,
       }),
     ).toBeNull();
+  });
+});
+
+// The update job (mode decision), the REST status endpoint, and the internal
+// status endpoint all build their per-idType schema state from the same
+// helpers: getMaterializedFactMetricIds(doc) -> getAggregatedFactTableMetrics(kept)
+// -> buildAggregatedFactTableSchemaState -> getAggregatedFactTableRestateReason.
+// This locks that shared computation, so the endpoints' pendingRestate/
+// metricState stay aligned with what the job decides.
+describe("aggregated fact table status consistency (endpoints vs update job)", () => {
+  const factTable = factTableFactory.build({
+    id: FT_ID,
+    sql: "SELECT * FROM events",
+    eventName: "purchase",
+  });
+  const num = (column: string) => ({
+    factTableId: FT_ID,
+    column,
+    aggregation: "sum" as const,
+  });
+  const metricActive = factMetricFactory.build({
+    id: "m_active",
+    metricType: "mean",
+    numerator: num("value"),
+  });
+  const metricKept = factMetricFactory.build({
+    id: "m_kept",
+    metricType: "mean",
+    numerator: num("count"),
+  });
+  const metricNew = factMetricFactory.build({
+    id: "m_new",
+    metricType: "mean",
+    numerator: num("qty"),
+  });
+  const factMetrics = [metricActive, metricKept, metricNew];
+
+  // Registry doc for a table previously materialized with [active, kept].
+  const persisted = buildAggregatedFactTableSchemaState({
+    factTable,
+    metrics: [metricActive, metricKept],
+  });
+  const doc: Pick<
+    AggregatedFactTableInterface,
+    | "tableFullName"
+    | "factTableSettingsHash"
+    | "metricState"
+    | "inFlightExecutionId"
+  > = {
+    tableFullName: "proj.ds.tbl",
+    factTableSettingsHash: persisted.factTableSettingsHash,
+    metricState: persisted.metricState,
+    inFlightExecutionId: null,
+  };
+
+  // Mirrors the kept-set schema state computed at all three call sites.
+  const keptSchemaState = (activeFactMetricIds: Set<string>) =>
+    buildAggregatedFactTableSchemaState({
+      factTable,
+      metrics: getAggregatedFactTableMetrics({
+        factMetrics,
+        factTable,
+        activeFactMetricIds,
+        materializedFactMetricIds: getMaterializedFactMetricIds(doc),
+      }),
+    });
+
+  it("keeps an inactive-but-materialized metric with no spurious pending restate", () => {
+    // kept dropped out of running experiments; only active is still active.
+    const { factTableSettingsHash, metricState } = keptSchemaState(
+      new Set([metricActive.id]),
+    );
+
+    // The status endpoints preview the kept set (active union materialized),
+    // matching what the job's incremental run materializes.
+    expect(metricState.map((m) => m.metricId).sort()).toEqual([
+      metricActive.id,
+      metricKept.id,
+    ]);
+
+    expect(
+      getAggregatedFactTableRestateReason({
+        registry: doc,
+        factTableSettingsHash,
+        metricState,
+      }),
+    ).toBeNull();
+  });
+
+  it("reports schema-drift when a new active metric is added", () => {
+    const { factTableSettingsHash, metricState } = keptSchemaState(
+      new Set([metricActive.id, metricNew.id]),
+    );
+
+    expect(
+      getAggregatedFactTableRestateReason({
+        registry: doc,
+        factTableSettingsHash,
+        metricState,
+      }),
+    ).toBe("schema-drift");
+  });
+});
+
+// The status endpoints must not report a pending restate when no running
+// experiment references the fact table, because the update job skips such a
+// dormant table entirely ("no-eligible-metrics") and never acts on the restate.
+describe("buildAggregatedFactTableStatus dormant-table gating", () => {
+  const factTable = factTableFactory.build({
+    id: FT_ID,
+    sql: "SELECT * FROM events",
+    eventName: "purchase",
+  });
+  const metric = factMetricFactory.build({
+    id: "m_materialized",
+    metricType: "mean",
+    numerator: { factTableId: FT_ID, column: "value", aggregation: "sum" },
+  });
+
+  // A table previously materialized with `metric`.
+  const persisted = buildAggregatedFactTableSchemaState({
+    factTable,
+    metrics: [metric],
+  });
+
+  const buildDoc = (
+    overrides: Partial<AggregatedFactTableInterface> = {},
+  ): AggregatedFactTableInterface =>
+    ({
+      tableFullName: "proj.ds.tbl",
+      factTableSettingsHash: persisted.factTableSettingsHash,
+      metricState: persisted.metricState,
+      inFlightExecutionId: null,
+      currentExecutionId: null,
+      lastError: null,
+      ...overrides,
+    }) as AggregatedFactTableInterface;
+
+  it("does not report pendingRestate for an incomplete write when no metric is active", () => {
+    const doc = buildDoc({ inFlightExecutionId: "aftexec_stale" });
+
+    // Active set is empty (no running experiment references the table), exactly
+    // what makes the update job skip with "no-eligible-metrics".
+    const hasActiveMetrics =
+      getActiveAggregatedFactTableMetrics({
+        factMetrics: [metric],
+        factTable,
+        activeFactMetricIds: new Set(),
+      }).length > 0;
+    expect(hasActiveMetrics).toBe(false);
+
+    const status = buildAggregatedFactTableStatus({
+      idType: "user_id",
+      doc,
+      factTableSettingsHash: persisted.factTableSettingsHash,
+      metricState: persisted.metricState,
+      hasActiveMetrics,
+    });
+
+    expect(status.pendingRestate).toBe(false);
+    expect(status.pendingRestateReason).toBeNull();
+  });
+
+  it("does not report pendingRestate for schema drift when no metric is active", () => {
+    const doc = buildDoc();
+    // A drifting fact-table definition would normally force a restate.
+    const driftedFactTable = factTableFactory.build({
+      id: FT_ID,
+      sql: "SELECT * FROM events_v2",
+      eventName: "checkout",
+    });
+    const drifted = buildAggregatedFactTableSchemaState({
+      factTable: driftedFactTable,
+      metrics: [metric],
+    });
+    expect(drifted.factTableSettingsHash).not.toEqual(
+      persisted.factTableSettingsHash,
+    );
+
+    const status = buildAggregatedFactTableStatus({
+      idType: "user_id",
+      doc,
+      factTableSettingsHash: drifted.factTableSettingsHash,
+      metricState: drifted.metricState,
+      hasActiveMetrics: false,
+    });
+
+    expect(status.pendingRestate).toBe(false);
+    expect(status.pendingRestateReason).toBeNull();
+  });
+
+  it("still reports schema drift when at least one metric is active", () => {
+    const doc = buildDoc();
+    const driftedFactTable = factTableFactory.build({
+      id: FT_ID,
+      sql: "SELECT * FROM events_v2",
+      eventName: "checkout",
+    });
+    const drifted = buildAggregatedFactTableSchemaState({
+      factTable: driftedFactTable,
+      metrics: [metric],
+    });
+
+    const status = buildAggregatedFactTableStatus({
+      idType: "user_id",
+      doc,
+      factTableSettingsHash: drifted.factTableSettingsHash,
+      metricState: drifted.metricState,
+      hasActiveMetrics: true,
+    });
+
+    expect(status.pendingRestate).toBe(true);
+    expect(status.pendingRestateReason).toBe("schema-drift");
   });
 });

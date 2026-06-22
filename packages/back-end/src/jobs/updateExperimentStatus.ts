@@ -1,5 +1,5 @@
 import Agenda, { Job } from "agenda";
-import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
+import { getContextForOrgAdminByOrgId } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
 import {
   getExperimentById,
@@ -73,7 +73,7 @@ const updateSingleExperimentStatus = async (
 
   if (!experimentId || !organization) return;
 
-  const context = await getContextForAgendaJobByOrgId(organization);
+  const context = await getContextForOrgAdminByOrgId(organization);
 
   const experiment = await getExperimentById(context, experimentId);
   if (!experiment) return;

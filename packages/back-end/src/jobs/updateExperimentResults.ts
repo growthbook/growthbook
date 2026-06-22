@@ -18,7 +18,7 @@ import {
   ConcurrentIncrementalRefreshError,
   UnrecoverableSnapshotError,
 } from "back-end/src/util/errors";
-import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
+import { getContextForOrgAdminByOrgId } from "back-end/src/services/organizations";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { notifyAutoUpdate } from "back-end/src/services/experimentNotifications";
 import { EXPERIMENT_REFRESH_FREQUENCY } from "back-end/src/util/secrets";
@@ -105,7 +105,7 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
 
   if (!experimentId || !orgId) return;
 
-  const context = await getContextForAgendaJobByOrgId(orgId);
+  const context = await getContextForOrgAdminByOrgId(orgId);
 
   const { org: organization } = context;
 

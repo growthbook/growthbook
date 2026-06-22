@@ -17,7 +17,7 @@ import {
   getExperimentById,
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
-import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
+import { getContextForOrgAdminByOrgId } from "back-end/src/services/organizations";
 
 jest.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
   dangerousFindStalledRunningSnapshotsFromAllOrgs: jest.fn(),
@@ -53,7 +53,7 @@ jest.mock("back-end/src/models/ReportModel", () => ({
 }));
 
 jest.mock("back-end/src/services/organizations", () => ({
-  getContextForAgendaJobByOrgId: jest.fn(),
+  getContextForOrgAdminByOrgId: jest.fn(),
 }));
 
 jest.mock("back-end/src/models/MetricAnalysisModel", () => ({
@@ -108,7 +108,7 @@ describe("expireOldQueries stalled snapshot reaper", () => {
       organization: "org_1",
     });
     (updateExperiment as jest.Mock).mockResolvedValue({});
-    (getContextForAgendaJobByOrgId as jest.Mock).mockResolvedValue(context);
+    (getContextForOrgAdminByOrgId as jest.Mock).mockResolvedValue(context);
   });
 
   async function runJob() {

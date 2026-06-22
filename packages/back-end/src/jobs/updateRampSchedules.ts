@@ -1,5 +1,5 @@
 import Agenda, { Job } from "agenda";
-import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
+import { getContextForOrgAdminByOrgId } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
 import {
   advanceUntilBlocked,
@@ -101,7 +101,7 @@ export const advanceSingleRampSchedule = async (
   const organization = job.attrs.data?.organization;
   if (!rampScheduleId || !organization) return;
 
-  const context = await getContextForAgendaJobByOrgId(organization);
+  const context = await getContextForOrgAdminByOrgId(organization);
   const schedule = await context.models.rampSchedules.getById(rampScheduleId);
   if (!schedule) return;
 

@@ -1,6 +1,6 @@
 import Agenda, { Job } from "agenda";
 import { SafeRolloutInterface } from "shared/validators";
-import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
+import { getContextForOrgAdminByOrgId } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
 import { getCollection } from "back-end/src/util/mongo.util";
 import { getFeature } from "back-end/src/models/FeatureModel";
@@ -66,7 +66,7 @@ const updateSingleSafeRolloutSnapshot = async (
   const { id, organization, featureId } = safeRollout;
   if (!id || !organization || !featureId) return;
 
-  const context = await getContextForAgendaJobByOrgId(organization);
+  const context = await getContextForOrgAdminByOrgId(organization);
   const feature = await getFeature(context, featureId);
   if (!feature || feature.archived) return;
 
