@@ -148,6 +148,16 @@ RUN pnpm rebuild kerberos && \
 RUN test -f node_modules/pm2/bin/pm2-runtime \
   || (echo "ERROR: pm2/bin/pm2-runtime missing from node_modules" && exit 1)
 
+# Repoint the node_modules/.bin/pm2-runtime shim (a #!/bin/sh script that can't exec
+# in the shell-less runtime) at pm2's real #!/usr/bin/env node entry. This keeps the
+# PREVIOUS launch command — `node_modules/.bin/pm2-runtime …`, still baked into any
+# already-published Helm chart and into ECS task defs that pin it — working on this
+# image. Without it, an old chart (or a deploy pinning a floating image tag) crashes
+# on boot; with it, it boots and serves (degraded only where the old config lacks
+# fsGroup/writable mounts). The current chart/CMD invoke pm2 via `node …` directly
+# and don't depend on this shim.
+RUN ln -sf ../pm2/bin/pm2-runtime node_modules/.bin/pm2-runtime
+
 # ----------------------------------------------------------------------------
 # Stage 3: collect the runtime Kerberos libs (kerberos@2.x, for MongoDB GSSAPI).
 # The addon dlopen()s libgssapi_krb5.so.2 by name at runtime, so it's not an ELF
