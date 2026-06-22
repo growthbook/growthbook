@@ -1,0 +1,23 @@
+{
+  "catalogs": [
+    {
+      "user": ".*",
+      "catalog": ".*",
+      "allow": "all"
+    }
+  ],
+  "schemas": [
+    {
+      "user": ".*",
+      "schema": ".*",
+      "owner": true
+    }
+  ],
+  "impersonation": [
+    {
+      "original_user": "growthbook@TEST.LOCAL",
+      "new_user": "growthbook",
+      "allow": true
+    }
+  ]
+}

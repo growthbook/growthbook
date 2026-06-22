@@ -1,0 +1,61 @@
+version: "3"
+
+services:
+  kdc:
+    build: ./kdc
+    hostname: kdc.docker.internal
+
+    volumes:
+      - keytabs:/keytabs
+      - ./tgt:/etc/kerberos/tgt
+    networks:
+      - trino-kerberos
+
+  trino:
+    build: ./trino
+    hostname: trino.docker.internal
+
+    ports:
+      - "8443:8443"
+    volumes:
+      - keytabs:/keytabs
+      - ./kdc/krb5.conf:/etc/krb5.conf
+      - ./tgt:/tmp/tgt
+    depends_on:
+      - kdc
+    networks:
+      - trino-kerberos
+
+  growthbook:
+    image: growthbook-local
+    hostname: growthbook.docker.internal
+
+    ports:
+      - "3000:3000"
+      - "3100:3100"
+    volumes:
+      - keytabs:/keytabs
+      - ./kdc/krb5.conf:/etc/krb5.conf
+      - ./tgt:/tmp/tgt
+      - .:/app/kerberos-trino
+    environment:
+      - NODE_ENV=development
+      - JWT_SECRET=dev_secret
+      - ENCRYPTION_KEY=dev_encryption_key
+      - KRB5_TRACE=/dev/stdout
+      - KRB5CCNAME=FILE:/tmp/tgt/krb5cc
+      - KRB5_CONFIG=/etc/krb5.conf
+      - LOG_LEVEL=debug
+      - GROWTHBOOK_LOG_LEVEL=debug
+      - MONGODB_URI=mongodb://root:password@mongo:27017/test?authSource=admin
+    depends_on:
+      - kdc
+      - trino
+    networks:
+      - trino-kerberos
+
+volumes:
+  keytabs:
+
+networks:
+  trino-kerberos:
