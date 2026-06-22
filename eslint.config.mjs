@@ -184,9 +184,9 @@ export default defineConfig([
     },
   },
   {
-    // Standalone CommonJS runtime scripts (no build step): require() is correct
+    // Standalone CommonJS runtime script (no build step): require() is correct
     // and console is the intended logging channel.
-    files: ["./bin/dhi-supervisor.js", "./preview/idle-monitor.js"],
+    files: ["./preview/idle-monitor.js"],
 
     rules: {
       "@typescript-eslint/no-require-imports": "off",

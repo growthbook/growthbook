@@ -1,5 +1,5 @@
 # Appended to the main Dockerfile for preview environments to add a 30 minute
 # idle timeout. The distroless runtime has no shell or package manager, so we
-# only COPY the monitor in (no RUN/apt/chmod). bin/dhi-supervisor.js launches it
-# as a child when PREVIEW_IDLE_TIMEOUT_SECONDS is set (see preview-pr-fly.toml).
+# only COPY the monitor in (no RUN/apt/chmod). pm2 launches it (ecosystem.config.js)
+# when PREVIEW_IDLE_TIMEOUT_SECONDS is set (see preview-pr-fly.toml).
 COPY preview/idle-monitor.js /usr/local/src/app/preview/idle-monitor.js

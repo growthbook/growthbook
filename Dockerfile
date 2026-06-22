@@ -190,23 +190,22 @@ ENV VIRTUAL_ENV=/opt/venv
 ENV PATH="/opt/venv/bin:/opt/python/bin:/usr/local/bin:/usr/local/sbin:/usr/bin:/bin"
 ENV LD_LIBRARY_PATH="/opt/python/lib:/opt/pydeps:/opt/krb5deps:/usr/lib/x86_64-linux-gnu:/usr/lib/aarch64-linux-gnu"
 # Read-only-rootfs friendly defaults: don't write venv .pyc into the read-only
-# /opt/venv, and skip Next's telemetry write. The remaining writable paths
-# (/tmp, .next/cache, uploads) are declared as mounts by the deployer (emptyDir
-# or PVC in k8s — see the Helm chart values).
+# /opt/venv, skip Next's telemetry write, and point PM2_HOME at /tmp (pm2 writes
+# its pid/socket/log files there; the default $HOME/.pm2 isn't writable under a
+# read-only rootfs). The remaining writable paths (/tmp, .next/cache, uploads)
+# are declared as mounts by the deployer (emptyDir or PVC in k8s — see the chart).
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV NEXT_TELEMETRY_DISABLED=1
+ENV PM2_HOME=/tmp/.pm2
 
 # App code from the node build stage.
 COPY --from=nodebuild /usr/local/src/app/packages ./packages
 COPY --from=nodebuild /usr/local/src/app/node_modules ./node_modules
 COPY --from=nodebuild /usr/local/src/app/package.json ./package.json
 
-# ecosystem.config.js is retained for `pm2-runtime` users on the stock image and
-# as the source of truth for the supervisor's process list. bin/yarn is omitted:
-# it's a bash shim that can't run in a shell-less runtime, and the CMD below
-# invokes the supervisor directly.
+# pm2 process config (the CMD below runs it). bin/yarn is omitted: it's a bash
+# shim that can't run in a shell-less runtime, and the CMD invokes pm2 directly.
 COPY ecosystem.config.js ./ecosystem.config.js
-COPY bin/dhi-supervisor.js ./bin/dhi-supervisor.js
 COPY buildinfo* ./buildinfo
 
 # Build metadata.
@@ -219,6 +218,8 @@ ENV DD_GIT_COMMIT_SHA=$DD_GIT_COMMIT_SHA \
 
 EXPOSE 3000
 EXPOSE 3100
-# pm2-runtime shells out for metrics (`/bin/sh -c "getconf CLK_TCK"`), fatal in a
-# shell-less runtime — replaced by a shell-free Node supervisor.
-CMD ["/usr/local/bin/node", "bin/dhi-supervisor.js"]
+# Launch pm2-runtime via node directly: the node_modules/.bin/pm2-runtime shim is
+# a `#!/bin/sh` script that can't exec in a shell-less runtime, but pm2's real
+# entry is plain Node. pm2's only shell-out (pidusage's `getconf` for CPU metrics)
+# fails gracefully to a default, so it's not fatal here.
+CMD ["/usr/local/bin/node", "node_modules/pm2/bin/pm2-runtime", "start", "ecosystem.config.js"]
