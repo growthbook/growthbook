@@ -713,6 +713,13 @@ paths:
                                   const: force
                                 value:
                                   type: string
+                                sparse:
+                                  description: >-
+                                    JSON features only. When true, the rule
+                                    value is a partial object merged onto the
+                                    feature's default value instead of replacing
+                                    it.
+                                  type: boolean
                               required:
                                 - type
                                 - value
@@ -772,6 +779,13 @@ paths:
                                   const: rollout
                                 value:
                                   type: string
+                                sparse:
+                                  description: >-
+                                    JSON features only. When true, the rule
+                                    value is a partial object merged onto the
+                                    feature's default value instead of replacing
+                                    it.
+                                  type: boolean
                                 coverage:
                                   description: >-
                                     Percent of traffic included in this
@@ -865,6 +879,13 @@ paths:
                                     additionalProperties: false
                                 experimentId:
                                   type: string
+                                sparse:
+                                  description: >-
+                                    JSON features only. When true, the rule
+                                    value is a partial object merged onto the
+                                    feature's default value instead of replacing
+                                    it.
+                                  type: boolean
                               required:
                                 - type
                                 - variations
@@ -1044,6 +1065,13 @@ paths:
                                       const: force
                                     value:
                                       type: string
+                                    sparse:
+                                      description: >-
+                                        JSON features only. When true, the rule
+                                        value is a partial object merged onto
+                                        the feature's default value instead of
+                                        replacing it.
+                                      type: boolean
                                   required:
                                     - type
                                     - value
@@ -1103,6 +1131,13 @@ paths:
                                       const: rollout
                                     value:
                                       type: string
+                                    sparse:
+                                      description: >-
+                                        JSON features only. When true, the rule
+                                        value is a partial object merged onto
+                                        the feature's default value instead of
+                                        replacing it.
+                                      type: boolean
                                     coverage:
                                       description: >-
                                         Percent of traffic included in this
@@ -1196,6 +1231,13 @@ paths:
                                         additionalProperties: false
                                     experimentId:
                                       type: string
+                                    sparse:
+                                      description: >-
+                                        JSON features only. When true, the rule
+                                        value is a partial object merged onto
+                                        the feature's default value instead of
+                                        replacing it.
+                                      type: boolean
                                   required:
                                     - type
                                     - variations
@@ -1510,6 +1552,13 @@ paths:
                                   const: force
                                 value:
                                   type: string
+                                sparse:
+                                  description: >-
+                                    JSON features only. When true, the rule
+                                    value is a partial object merged onto the
+                                    feature's default value instead of replacing
+                                    it.
+                                  type: boolean
                               required:
                                 - type
                                 - value
@@ -1569,6 +1618,13 @@ paths:
                                   const: rollout
                                 value:
                                   type: string
+                                sparse:
+                                  description: >-
+                                    JSON features only. When true, the rule
+                                    value is a partial object merged onto the
+                                    feature's default value instead of replacing
+                                    it.
+                                  type: boolean
                                 coverage:
                                   description: >-
                                     Percent of traffic included in this
@@ -1662,6 +1718,13 @@ paths:
                                     additionalProperties: false
                                 experimentId:
                                   type: string
+                                sparse:
+                                  description: >-
+                                    JSON features only. When true, the rule
+                                    value is a partial object merged onto the
+                                    feature's default value instead of replacing
+                                    it.
+                                  type: boolean
                               required:
                                 - type
                                 - variations
@@ -1841,6 +1904,13 @@ paths:
                                       const: force
                                     value:
                                       type: string
+                                    sparse:
+                                      description: >-
+                                        JSON features only. When true, the rule
+                                        value is a partial object merged onto
+                                        the feature's default value instead of
+                                        replacing it.
+                                      type: boolean
                                   required:
                                     - type
                                     - value
@@ -1900,6 +1970,13 @@ paths:
                                       const: rollout
                                     value:
                                       type: string
+                                    sparse:
+                                      description: >-
+                                        JSON features only. When true, the rule
+                                        value is a partial object merged onto
+                                        the feature's default value instead of
+                                        replacing it.
+                                      type: boolean
                                     coverage:
                                       description: >-
                                         Percent of traffic included in this
@@ -1993,6 +2070,13 @@ paths:
                                         additionalProperties: false
                                     experimentId:
                                       type: string
+                                    sparse:
+                                      description: >-
+                                        JSON features only. When true, the rule
+                                        value is a partial object merged onto
+                                        the feature's default value instead of
+                                        replacing it.
+                                      type: boolean
                                   required:
                                     - type
                                     - variations
@@ -3349,6 +3433,8 @@ paths:
                             required:
                               - value
                             additionalProperties: false
+                        sparse:
+                          type: boolean
                       required:
                         - type
                         - experimentId
@@ -3561,6 +3647,8 @@ paths:
                             - rollout
                         value:
                           type: string
+                        sparse:
+                          type: boolean
                         coverage:
                           type: number
                           minimum: 0
@@ -4140,6 +4228,8 @@ paths:
                         - safe-rollout
                     value:
                       type: string
+                    sparse:
+                      type: boolean
                     coverage:
                       type: number
                       minimum: 0
@@ -5903,6 +5993,12 @@ paths:
                             const: force
                           value:
                             type: string
+                          sparse:
+                            description: >-
+                              JSON features only. When true, the rule value is a
+                              partial object merged onto the feature's default
+                              value instead of replacing it.
+                            type: boolean
                           allEnvironments:
                             description: >-
                               When true the rule applies to all environments
@@ -5987,6 +6083,12 @@ paths:
                             const: rollout
                           value:
                             type: string
+                          sparse:
+                            description: >-
+                              JSON features only. When true, the rule value is a
+                              partial object merged onto the feature's default
+                              value instead of replacing it.
+                            type: boolean
                           coverage:
                             type: number
                           hashAttribute:
@@ -6096,6 +6198,12 @@ paths:
                               additionalProperties: false
                           experimentId:
                             type: string
+                          sparse:
+                            description: >-
+                              JSON features only. When true, the rule value is a
+                              partial object merged onto the feature's default
+                              value instead of replacing it.
+                            type: boolean
                           allEnvironments:
                             description: >-
                               When true the rule applies to all environments
@@ -6433,6 +6541,12 @@ paths:
                             const: force
                           value:
                             type: string
+                          sparse:
+                            description: >-
+                              JSON features only. When true, the rule value is a
+                              partial object merged onto the feature's default
+                              value instead of replacing it.
+                            type: boolean
                           allEnvironments:
                             description: >-
                               When true the rule applies to all environments
@@ -6517,6 +6631,12 @@ paths:
                             const: rollout
                           value:
                             type: string
+                          sparse:
+                            description: >-
+                              JSON features only. When true, the rule value is a
+                              partial object merged onto the feature's default
+                              value instead of replacing it.
+                            type: boolean
                           coverage:
                             type: number
                           hashAttribute:
@@ -6626,6 +6746,12 @@ paths:
                               additionalProperties: false
                           experimentId:
                             type: string
+                          sparse:
+                            description: >-
+                              JSON features only. When true, the rule value is a
+                              partial object merged onto the feature's default
+                              value instead of replacing it.
+                            type: boolean
                           allEnvironments:
                             description: >-
                               When true the rule applies to all environments
@@ -8668,6 +8794,8 @@ paths:
                         - safe-rollout
                     value:
                       type: string
+                    sparse:
+                      type: boolean
                     coverage:
                       type: number
                       minimum: 0
@@ -32819,6 +32947,11 @@ components:
               const: force
             value:
               type: string
+            sparse:
+              description: >-
+                JSON features only. When true, `value` is a partial object
+                merged onto the feature's default value instead of replacing it.
+              type: boolean
           required:
             - type
             - value
@@ -32932,6 +33065,11 @@ components:
               const: rollout
             value:
               type: string
+            sparse:
+              description: >-
+                JSON features only. When true, `value` is a partial object
+                merged onto the feature's default value instead of replacing it.
+              type: boolean
             coverage:
               type: number
               minimum: 0
@@ -33202,6 +33340,12 @@ components:
                 additionalProperties: false
             experimentId:
               type: string
+            sparse:
+              description: >-
+                JSON features only. When true, each variation `value` is a
+                partial object merged onto the feature's default value instead
+                of replacing it.
+              type: boolean
           required:
             - type
             - variations
@@ -35682,6 +35826,11 @@ components:
         value:
           description: The value to serve when this rule matches.
           type: string
+        sparse:
+          description: >-
+            JSON features only. When true, the rule value is a partial object
+            merged onto the feature's default value instead of replacing it.
+          type: boolean
         coverage:
           description: >-
             Percentage of users to include (0–1). Defaults to 1. When less than
@@ -35779,6 +35928,12 @@ components:
             required:
               - value
             additionalProperties: false
+        sparse:
+          description: >-
+            JSON features only. When true, each variation value is a partial
+            object merged onto the feature's default value instead of replacing
+            it.
+          type: boolean
       required:
         - type
         - experimentId
@@ -39646,6 +39801,8 @@ components:
           type: string
         featureRegexValidator:
           type: string
+        sparseJSONRulesByDefault:
+          type: boolean
         banditScheduleValue:
           type: number
         banditScheduleUnit:
@@ -44599,6 +44756,8 @@ components:
                     const: force
                   value:
                     type: string
+                  sparse:
+                    type: boolean
                 required:
                   - description
                   - id
@@ -44681,6 +44840,8 @@ components:
                     const: rollout
                   value:
                     type: string
+                  sparse:
+                    type: boolean
                   coverage:
                     type: number
                   hashAttribute:
@@ -45029,6 +45190,8 @@ components:
                         - variationId
                         - value
                       additionalProperties: false
+                  sparse:
+                    type: boolean
                 required:
                   - description
                   - id
