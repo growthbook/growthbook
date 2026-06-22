@@ -528,9 +528,9 @@ export async function runAggregatedFactTableUpdate(
     );
   }
 
-  // Incremental runs also keep already-materialized metrics fresh to avoid
-  // churn. Read the materialized set from the locked registry so it can't drift
-  // from the mode decision below.
+  // We need to re-call getAggregatedFactTableMetrics here in case anything changed
+  // while acquiring the lock, so we can't just compute the metric state once like we
+  // do in getAggregatedFactTableStatuses.
   const keptMetrics = getAggregatedFactTableMetrics({
     factMetrics,
     factTable,
