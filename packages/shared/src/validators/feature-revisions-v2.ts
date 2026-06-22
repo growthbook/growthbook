@@ -166,6 +166,12 @@ const targetingRuleCreateInputV2 = namedSchema(
           'Use "force" for a standard targeting rule, or "rollout" for a percentage rollout (coverage < 1). Defaults to "force". Both are functionally equivalent; a force rule with coverage < 1 behaves as a rollout.',
         ),
       value: z.string().describe("The value to serve when this rule matches."),
+      sparse: z
+        .boolean()
+        .optional()
+        .describe(
+          "JSON features only. When true, the rule value is a partial object merged onto the feature's default value instead of replacing it.",
+        ),
       coverage: z
         .number()
         .min(0)
@@ -209,6 +215,12 @@ const experimentRefCreateInputV2 = namedSchema(
           .object({ variationId: z.string().optional(), value: z.string() })
           .strict(),
       ),
+      sparse: z
+        .boolean()
+        .optional()
+        .describe(
+          "JSON features only. When true, each variation value is a partial object merged onto the feature's default value instead of replacing it.",
+        ),
     })
     .strict()
     .describe(
@@ -280,6 +292,7 @@ const rulePatchSchemaV2 = z
       .enum(["force", "rollout", "experiment-ref", "safe-rollout"])
       .optional(),
     value: z.string().optional(),
+    sparse: z.boolean().optional(),
     coverage: z.number().min(0).max(1).optional(),
     hashAttribute: z.string().optional(),
     seed: z.string().optional(),
@@ -632,13 +645,43 @@ export const postFeatureRevisionRequestReviewV2Validator = {
   operationId: "postFeatureRevisionRequestReviewV2",
   summary: "Request review for a draft revision",
   description:
-    "Moves the draft into the `pending-review` state and notifies reviewers.\n\nSet `autoPublishOnApproval` to `true` to publish the revision automatically the moment it is approved (GitHub auto-merge model). This requires the org to have auto-publish-on-approval enabled for the feature and the caller to have publish permission; the auto-publish then executes with the caller's authority.",
+    "Moves the draft into the `pending-review` state and notifies reviewers.\n\nSet `autoPublishOnApproval` to `true` to publish the revision automatically the moment it is approved (GitHub auto-merge model). This requires the org to have auto-publish-on-approval enabled for the feature and the caller to have publish permission; the auto-publish then executes with the caller's authority.\n\nSet `scheduledPublishAt` to a future ISO date-time to defer the auto-publish until that date (it still also requires approval when review is required). Use `scheduledPublishLockEdits` to freeze edits to this draft while the schedule is pending, and `scheduledPublishLockOthers` to block publishing other drafts of this feature in the meantime.",
   tags: ["feature-revisions-v2"],
   paramsSchema: revisionParamsStrict,
   bodySchema: z
     .object({
       comment: z.string().optional(),
       autoPublishOnApproval: z.boolean().optional(),
+      scheduledPublishAt: z
+        .union([z.string().meta({ format: "date-time" }), z.null()])
+        .optional(),
+      scheduledPublishLockEdits: z.boolean().optional(),
+      scheduledPublishLockOthers: z.boolean().optional(),
+    })
+    .strict(),
+  querySchema: z.never(),
+  responseSchema: revisionResponse,
+  version: "v2" as const,
+};
+
+export const postFeatureRevisionSchedulePublishV2Validator = {
+  method: "post" as const,
+  path: "/features/:id/revisions/:version/schedule-publish",
+  operationId: "postFeatureRevisionSchedulePublishV2",
+  summary: "Schedule (or cancel) a deferred publish for a draft revision",
+  description:
+    "Arms a deferred publish: the revision publishes automatically on/after `scheduledPublishAt` (and, when review is required, only once also approved). Send `scheduledPublishAt: null` to cancel the schedule.\n\nUse `lockEdits` to freeze content edits to this draft while the schedule is pending (rebasing is still allowed), and `lockOthers` to block publishing other drafts of this feature until the schedule fires or is canceled. Requires publish permission; the publish executes with the caller's authority. An admin with bypass-approval permission can schedule even without approval — pass `bypassApproval: true` to mark it as an admin override, which locks the schedule to cancel-and-re-arm only.",
+  tags: ["feature-revisions-v2"],
+  paramsSchema: revisionParamsStrict,
+  bodySchema: z
+    .object({
+      scheduledPublishAt: z.union([
+        z.string().meta({ format: "date-time" }),
+        z.null(),
+      ]),
+      lockEdits: z.boolean().optional(),
+      lockOthers: z.boolean().optional(),
+      bypassApproval: z.boolean().optional(),
     })
     .strict(),
   querySchema: z.never(),

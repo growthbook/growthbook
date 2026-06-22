@@ -182,6 +182,34 @@ describe("ramp-monitored SDK payload", () => {
       expect(rule.disableStickyBucketing).toBe(true);
     });
 
+    it("merges a sparse rule value onto the default for monitored variations", () => {
+      const feature = makeRolloutFeature({
+        valueType: "json" as const,
+        defaultValue: JSON.stringify({ a: 1, b: 2 }),
+        rules: [
+          {
+            type: "rollout",
+            id: "rule_1",
+            description: "",
+            enabled: true,
+            value: JSON.stringify({ b: 9 }),
+            sparse: true,
+            coverage: 0.5,
+            hashAttribute: "id",
+            seed: "test-seed",
+            allEnvironments: true,
+          },
+        ],
+      } as Partial<FeatureInterface>);
+      const def = getDefinition(feature, monitoredMap("rule_1"));
+      const rule = def!.rules![0];
+      // Treatment merges the patch onto the default; control is the full default.
+      expect(rule.variations).toEqual([
+        { a: 1, b: 9 },
+        { a: 1, b: 2 },
+      ]);
+    });
+
     it("coverage=2*step.coverage produces non-adjacent arms via getBucketRanges", () => {
       // With step.coverage=0.25: rule.coverage=0.5
       // getBucketRanges(2, 0.5, [0.5,0.5]) → [0,0.25],[0.5,0.75]

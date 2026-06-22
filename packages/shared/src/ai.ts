@@ -89,6 +89,51 @@ export function isReasoningModel(model: AIModel): boolean {
   return /^(o[0-9]|gpt-5)/.test(model);
 }
 
+// Whether a text model can accept image input (vision). The model
+// registry carries no capability metadata, so this is a hand-maintained
+// allow-list — keep it in sync with AI_PROVIDER_MODEL_MAP. Routing an
+// image to a text-only model fails opaquely at the provider, so callers
+// that attach an image MUST gate on this.
+export function isVisionCapableModel(model: AIModel): boolean {
+  // All Gemini models are multimodal.
+  if (model.startsWith("gemini-")) return true;
+  // All Claude 3+ models (3, 3.5, 3.7, 4.x) accept image input.
+  if (model.startsWith("claude-")) return true;
+  // OpenAI: gpt-4o*, gpt-4.1*, and the gpt-5 family see images. The
+  // o-series reasoning models do not.
+  if (/^gpt-4o/.test(model)) return true;
+  if (/^gpt-4\.1/.test(model)) return true;
+  if (/^gpt-5/.test(model)) return true;
+  // Mistral: only the Pixtral vision model.
+  if (model === "pixtral-12b") return true;
+  // xAI: the grok-4 family is multimodal; grok-3/grok-2 are not.
+  if (/^grok-4/.test(model)) return true;
+  return false;
+}
+
+// Pick a vision-capable text model for a design-analysis turn. Prefers the
+// org's configured visual-editor model when it can see images; otherwise
+// falls back to a strong vision model on whichever provider has a key,
+// Google → OpenAI → Anthropic. Returns null when no vision-capable
+// provider is available (caller should surface a helpful error).
+export function pickVisionModel(settings: {
+  visualEditorAIModel?: AIModel;
+  openAIAPIKey?: string;
+  anthropicAPIKey?: string;
+  googleAPIKey?: string;
+}): AIModel | null {
+  if (
+    settings.visualEditorAIModel &&
+    isVisionCapableModel(settings.visualEditorAIModel)
+  ) {
+    return settings.visualEditorAIModel;
+  }
+  if (settings.googleAPIKey) return "gemini-2.5-pro";
+  if (settings.openAIAPIKey) return "gpt-4o";
+  if (settings.anthropicAPIKey) return "claude-sonnet-4-5-20250929";
+  return null;
+}
+
 // Image generation model registry. Add new models here — back-end
 // dispatches off `provider` + `kind`; front-end reads `label`.
 // `kind`:
@@ -413,6 +458,7 @@ export const AI_PROMPT_TYPES = [
   "visual-editor-ai-edit",
   "visual-editor-ai-suggestions",
   "visual-editor-ai-image-gen",
+  "visual-editor-ai-figma",
   "product-analytics-chat",
   "general-chat",
 ] as const;
@@ -450,6 +496,7 @@ export const AI_PROMPT_DEFAULTS: Record<AIPromptType, string> = {
   "visual-editor-ai-edit": "", // Always uses the default prompt set in postAIEdit.ts
   "visual-editor-ai-suggestions": "", // Always uses the default prompt set in postAISuggestions.ts
   "visual-editor-ai-image-gen": "", // Image generation does not currently use a text prompt template
+  "visual-editor-ai-figma": "", // Always uses the default prompt set in postFigmaToVariant.ts
   "product-analytics-chat": "",
   "general-chat": "",
 };

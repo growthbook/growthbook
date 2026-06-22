@@ -14,6 +14,11 @@ import {
   autoMerge,
   getLiveChangesSinceBase,
   evaluatePublishGovernance,
+  isScheduledPublishPending,
+  isScheduledPublishDue,
+  isScheduledPublishLockActive,
+  isRevisionEditLockedBySchedule,
+  findPublishLockingScheduledRevision,
   RevisionFields,
   MergeConflict,
   validateCondition,
@@ -37,6 +42,10 @@ import {
   getRevertValueValidationWarnings,
   pruneOrphanedRampActions,
   toV2FeatureSnapshot,
+  parsePlainJSONObject,
+  resolveSparseJSONValue,
+  stripDefaultsForSparse,
+  expandSparseToFull,
 } from "../../src/util";
 import type { RampScheduleInterface } from "../../src/validators/ramp-schedule";
 
@@ -1020,6 +1029,170 @@ describe("evaluatePublishGovernance", () => {
     expect(r.rebaseRequired).toBe(true);
     expect(r.canPublish).toBe(false);
     expect(r.blockReason).toMatch(/approved/i);
+  });
+});
+
+describe("scheduled / deferred publish helpers", () => {
+  const future = new Date(Date.now() + 60 * 60 * 1000);
+  const past = new Date(Date.now() - 60 * 60 * 1000);
+
+  type SchedRev = Parameters<typeof isScheduledPublishPending>[0] &
+    Partial<Parameters<typeof isRevisionEditLockedBySchedule>[0]>;
+
+  const rev = (over: Partial<SchedRev> = {}): SchedRev => ({
+    status: "approved",
+    autoPublishOnApproval: true,
+    scheduledPublishAt: future,
+    ...over,
+  });
+
+  describe("isScheduledPublishPending", () => {
+    it("true for an armed, dated, active draft", () => {
+      expect(isScheduledPublishPending(rev())).toBe(true);
+    });
+    it("false when not armed", () => {
+      expect(
+        isScheduledPublishPending(rev({ autoPublishOnApproval: false })),
+      ).toBe(false);
+    });
+    it("false when no date (on-approval, not deferred)", () => {
+      expect(isScheduledPublishPending(rev({ scheduledPublishAt: null }))).toBe(
+        false,
+      );
+    });
+    it("false once published or discarded", () => {
+      expect(isScheduledPublishPending(rev({ status: "published" }))).toBe(
+        false,
+      );
+      expect(isScheduledPublishPending(rev({ status: "discarded" }))).toBe(
+        false,
+      );
+    });
+  });
+
+  describe("isScheduledPublishDue", () => {
+    it("false while the target date is in the future", () => {
+      expect(isScheduledPublishDue(rev())).toBe(false);
+    });
+    it("true once the target date has passed", () => {
+      expect(isScheduledPublishDue(rev({ scheduledPublishAt: past }))).toBe(
+        true,
+      );
+    });
+    it("coerces ISO-string dates (front-end JSON shape)", () => {
+      expect(
+        isScheduledPublishDue(
+          rev({ scheduledPublishAt: past.toISOString() as unknown as Date }),
+        ),
+      ).toBe(true);
+    });
+    it("false when not pending even if date passed", () => {
+      expect(
+        isScheduledPublishDue(
+          rev({ scheduledPublishAt: past, status: "published" }),
+        ),
+      ).toBe(false);
+    });
+  });
+
+  describe("isScheduledPublishLockActive", () => {
+    it("true for an armed, dated, approved revision", () => {
+      expect(isScheduledPublishLockActive(rev())).toBe(true);
+    });
+    it("true for an armed draft (no-approval committed schedule)", () => {
+      // The schedule-publish endpoint only commits a schedule on a draft when
+      // the change doesn't require review, so a pending draft schedule is
+      // locked in and its locks engage.
+      expect(isScheduledPublishLockActive(rev({ status: "draft" }))).toBe(true);
+    });
+    it("false while still awaiting approval (locks don't apply yet)", () => {
+      expect(
+        isScheduledPublishLockActive(rev({ status: "pending-review" })),
+      ).toBe(false);
+      expect(
+        isScheduledPublishLockActive(rev({ status: "changes-requested" })),
+      ).toBe(false);
+    });
+  });
+
+  describe("isRevisionEditLockedBySchedule", () => {
+    it("true when an active (approved) schedule locks edits", () => {
+      expect(
+        isRevisionEditLockedBySchedule(
+          rev({ scheduledPublishLockEdits: true }),
+        ),
+      ).toBe(true);
+    });
+    it("true when a committed draft (no-approval) schedule locks edits", () => {
+      expect(
+        isRevisionEditLockedBySchedule(
+          rev({ scheduledPublishLockEdits: true, status: "draft" }),
+        ),
+      ).toBe(true);
+    });
+    it("false while still pending approval — edits stay open", () => {
+      expect(
+        isRevisionEditLockedBySchedule(
+          rev({ scheduledPublishLockEdits: true, status: "pending-review" }),
+        ),
+      ).toBe(false);
+      expect(
+        isRevisionEditLockedBySchedule(
+          rev({ scheduledPublishLockEdits: true, status: "changes-requested" }),
+        ),
+      ).toBe(false);
+    });
+    it("false when lock flag is off", () => {
+      expect(
+        isRevisionEditLockedBySchedule(
+          rev({ scheduledPublishLockEdits: false }),
+        ),
+      ).toBe(false);
+    });
+    it("false when the schedule isn't pending", () => {
+      expect(
+        isRevisionEditLockedBySchedule(
+          rev({ scheduledPublishLockEdits: true, scheduledPublishAt: null }),
+        ),
+      ).toBe(false);
+    });
+  });
+
+  describe("findPublishLockingScheduledRevision", () => {
+    const list = [
+      { version: 1, ...rev({ scheduledPublishLockOthers: true }) },
+      { version: 2, ...rev({ scheduledPublishLockOthers: false }) },
+    ];
+    it("finds a sibling whose pending schedule locks others", () => {
+      expect(findPublishLockingScheduledRevision(list, 2)?.version).toBe(1);
+    });
+    it("excludes the revision being published itself", () => {
+      expect(findPublishLockingScheduledRevision(list, 1)).toBe(null);
+    });
+    it("ignores schedules without the lock-others flag", () => {
+      expect(
+        findPublishLockingScheduledRevision(
+          [{ version: 2, ...rev({ scheduledPublishLockOthers: false }) }],
+          99,
+        ),
+      ).toBe(null);
+    });
+    it("ignores a sibling still pending approval (lock not active yet)", () => {
+      expect(
+        findPublishLockingScheduledRevision(
+          [
+            {
+              version: 1,
+              ...rev({
+                scheduledPublishLockOthers: true,
+                status: "pending-review",
+              }),
+            },
+          ],
+          99,
+        ),
+      ).toBe(null);
+    });
   });
 });
 
@@ -3872,5 +4045,134 @@ describe("pruneOrphanedRampActions", () => {
     const { kept, pruned } = pruneOrphanedRampActions(undefined, [rule("a")]);
     expect(kept).toEqual([]);
     expect(pruned).toEqual([]);
+  });
+});
+
+describe("sparse JSON rule helpers", () => {
+  describe("parsePlainJSONObject", () => {
+    it("returns the object for a plain key/val object", () => {
+      expect(parsePlainJSONObject('{"a":1,"b":"x"}')).toEqual({ a: 1, b: "x" });
+    });
+    it("returns null for arrays", () => {
+      expect(parsePlainJSONObject("[1,2,3]")).toBeNull();
+    });
+    it("returns null for null", () => {
+      expect(parsePlainJSONObject("null")).toBeNull();
+    });
+    it("returns null for primitives", () => {
+      expect(parsePlainJSONObject("42")).toBeNull();
+      expect(parsePlainJSONObject('"hi"')).toBeNull();
+    });
+    it("returns null for unparseable input", () => {
+      expect(parsePlainJSONObject("not json")).toBeNull();
+    });
+  });
+
+  describe("resolveSparseJSONValue", () => {
+    const defaultObj = { a: "default", b: 1, c: true };
+
+    it("merges the sparse value onto the default object", () => {
+      expect(resolveSparseJSONValue('{"a":"over"}', defaultObj)).toEqual({
+        a: "over",
+        b: 1,
+        c: true,
+      });
+    });
+
+    it("adds keys not present in the default (no schema filtering for json)", () => {
+      expect(resolveSparseJSONValue('{"d":"new"}', defaultObj)).toEqual({
+        a: "default",
+        b: 1,
+        c: true,
+        d: "new",
+      });
+    });
+
+    it("replaces nested objects wholesale (top-level merge, not deep merge)", () => {
+      // A nested object in the patch overwrites the default's entire object for
+      // that key — keys only present in the default's nested object are dropped.
+      expect(
+        resolveSparseJSONValue('{"theme":{"primary":"green"}}', {
+          theme: { primary: "blue", secondary: "red" },
+          other: 1,
+        }),
+      ).toEqual({
+        theme: { primary: "green" },
+        other: 1,
+      });
+    });
+
+    it("returns the parsed value as-is when the default isn't an object", () => {
+      expect(resolveSparseJSONValue('{"a":"over"}', null)).toEqual({
+        a: "over",
+      });
+    });
+
+    it("returns the parsed value as-is when the rule value isn't an object", () => {
+      // Misconfigured sparse flag degrades to full-value behavior.
+      expect(resolveSparseJSONValue("[1,2]", defaultObj)).toEqual([1, 2]);
+      expect(resolveSparseJSONValue("42", defaultObj)).toEqual(42);
+    });
+
+    it("returns null when the rule value is unparseable and there's no object default", () => {
+      expect(resolveSparseJSONValue("not json", null)).toBeNull();
+    });
+  });
+
+  describe("stripDefaultsForSparse", () => {
+    const def = JSON.stringify({ a: "x", b: { n: 1 }, c: [1, 2] });
+
+    it("drops keys equal to the default (full default → clean slate)", () => {
+      expect(JSON.parse(stripDefaultsForSparse(def, def))).toEqual({});
+    });
+
+    it("keeps changed and added keys, order-insensitive on nested values", () => {
+      expect(
+        JSON.parse(
+          stripDefaultsForSparse(
+            // b is deep-equal (key order flipped), so it's dropped; a changed, d added
+            JSON.stringify({ a: "y", b: { n: 1 }, d: true }),
+            def,
+          ),
+        ),
+      ).toEqual({ a: "y", d: true });
+    });
+
+    it("treats a nested object as changed when it differs", () => {
+      expect(
+        JSON.parse(
+          stripDefaultsForSparse(JSON.stringify({ b: { n: 2 } }), def),
+        ),
+      ).toEqual({ b: { n: 2 } });
+    });
+
+    it("returns the input unchanged when either side isn't a plain object", () => {
+      expect(stripDefaultsForSparse("[1,2]", def)).toBe("[1,2]");
+      expect(stripDefaultsForSparse('{"a":"x"}', "not json")).toBe('{"a":"x"}');
+    });
+  });
+
+  describe("expandSparseToFull", () => {
+    const def = JSON.stringify({ a: "x", b: 1 });
+
+    it("merges the patch onto the default (top-level)", () => {
+      expect(
+        JSON.parse(expandSparseToFull(JSON.stringify({ a: "y" }), def)),
+      ).toEqual({ a: "y", b: 1 });
+    });
+
+    it("round-trips with stripDefaultsForSparse", () => {
+      const full = JSON.stringify({ a: "y", b: 1 });
+      const patch = stripDefaultsForSparse(full, def);
+      expect(JSON.parse(patch)).toEqual({ a: "y" });
+      expect(JSON.parse(expandSparseToFull(patch, def))).toEqual({
+        a: "y",
+        b: 1,
+      });
+    });
+
+    it("returns the input unchanged when either side isn't a plain object", () => {
+      expect(expandSparseToFull("[1,2]", def)).toBe("[1,2]");
+    });
   });
 });
