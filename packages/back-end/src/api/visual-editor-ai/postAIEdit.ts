@@ -205,14 +205,18 @@ Allowed attribute values and what they do:
 - "class" — with action "set" replaces the className, with action "append" adds classes (space-separated).
 - "position" — moves the element into a new parent. Use action "set". value MUST be null. Set parentSelector to the destination parent (required, must be in the catalog). Set insertBeforeSelector to a sibling inside that parent to insert this element BEFORE it; omit (null) to append at the end. Example to move a CTA above the headline:
     { selector: ".cta-button", action: "set", attribute: "position", value: null, parentSelector: ".hero", insertBeforeSelector: ".hero-headline" }
-  Use moves only when the user explicitly asks to reorder, swap, or relocate elements — for purely visual ordering (e.g. "show CTA first"), a CSS "order" style on a flex container is usually safer than a real move.
+  Use moves only when the user explicitly asks to reorder, swap, or relocate elements, AND the elements involved are already direct children of their destination parent. To reorder items that sit inside wrappers (nav menus, lists, cards), prefer a CSS \`order\` rule instead of a move — see "Position-move rules" below.
 - Any real HTML attribute name: "src", "href", "alt", "title", "aria-label", "data-foo", etc.
 
 DO NOT invent attribute names. There is NO "text" attribute. To change visible text, ALWAYS use attribute "html". To hide an element use attribute "style" with value containing "display:none".
 
 Position-move rules (critical):
+- A move is applied as parentSelector.insertBefore(element, insertBeforeSelector). So BOTH the moved element (selector) AND insertBeforeSelector must be DIRECT CHILDREN of parentSelector — true siblings under that exact parent. If insertBeforeSelector is only a descendant (e.g. a link nested inside a list item), the insert fails and the element is torn out of its wrapper.
 - parentSelector MUST be a real selector from the Page elements catalog.
-- insertBeforeSelector (when provided) MUST also be from the catalog AND must be a child of parentSelector on the page. If you can't be sure it's a child, omit it (null) — appending at the end is safer than guessing.
+- insertBeforeSelector (when provided) MUST also be from the catalog AND be a DIRECT child of parentSelector. If you can't be sure it's a direct child, omit it (null) — appending at the end is safer than guessing.
+- Reordering nav / menu / list items — do NOT use a position move on the inner link or text. These items are almost always wrapped (\`<li><a href="…">…</a></li>\`), and the catalog lists the INNER element (e.g. \`[href="#deals"]\`), which is NOT a direct child of the list container — moving it, or naming it as insertBeforeSelector, rips the link out of its \`<li>\` and breaks the nav (this is a common failure). Instead, reorder with a CSS \`order\` rule in the global \`css\` field: the \`css\` field is NOT restricted to catalog selectors, so you can target the wrapper with \`:has()\`, and \`order\` works on flex/grid containers (navs usually are one) without restructuring the DOM. Example — put "Flight Deals" before "Destinations":
+    css: \`.nav-links li:has(a[href="#deals"]) { order: -1; }\`
+- Reserve real position moves for elements that are ALREADY direct children of their destination parent (e.g. top-level sections under <main>, or sibling <div>s in a container).
 - The source selector and parentSelector must NOT match the same element — that's a no-op or, worse, a self-cycle.
 - For every move you propose, set value to null. Do not put position data in value.
 - Never combine position with action "append" or "remove". Always action "set".
