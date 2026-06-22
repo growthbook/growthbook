@@ -28,7 +28,7 @@ GrowthBook analyzes the rollout's impact on your selected guardrail metrics and 
 ### 1. Add a Targeting Rule with Monitoring
 
 <MaxWidthImage border>
-![Rule type picker with the Looking for Safe Rollouts callout and Show me shortcut](/images/features/safe-rollout-new-rule.webp)
+![Rule type picker with the Looking for Safe Rollouts callout and Show me shortcut](/images/features/rule-type-picker.webp)
 </MaxWidthImage>
 
 When adding a new rule to your feature, select **Targeting rule**, then choose **Monitored Ramp-up** as the release plan. The **Show me** shortcut on the rule type screen configures a fully monitored ramp for you.
@@ -39,18 +39,18 @@ Safe Rollouts are now configured as a monitored [Ramp Schedule](/features/ramp-s
 
 ### 2. Configure the Safe Rollout
 
-<MaxWidthImage border>
-![Monitored ramp-up editor showing guardrail monitoring settings, data source, and metrics](/images/features/safe-rollout-create.webp)
-</MaxWidthImage>
-
-- **Value to serve:** the value users in the Rollout group receive. It is compared against the Control (the rule's existing value).
+- **Rollout value:** the value users in the Rollout group receive. It is compared against the Control (the rule's existing value).
 - **Sample by:** the attribute used to assign users to the Control and Rollout groups (for example, `id` or `organization_id`).
 
 ### 3. Define Metrics and Monitoring
 
+<MaxWidthImage border>
+![Monitored ramp-up editor showing the Monitor this release toggle, data source, assignment table, and guardrail and signal metrics](/images/features/safe-rollout-create.webp)
+</MaxWidthImage>
+
 - **Data Source and Assignment Table:** Confirm the data source and assignment table used for exposure tracking.
 - **Guardrail Metrics:** Select one or more metrics to monitor for regressions. GrowthBook automatically rolls back and disables the rule if any of them regress significantly, so there is no separate auto-rollback toggle.
-- **Duration:** Set how long the rollout runs. GrowthBook ramps traffic up over this window and monitors your metrics throughout.
+- **Signal Metrics:** Optional metrics that pause the rollout at the current step if they regress, without rolling it back. It resumes when they recover.
 
 Under **Advanced Settings**, you can choose how GrowthBook responds to other issues, such as a sample ratio mismatch, no traffic, or multiple exposures: hold the ramp, roll back, or warn only.
 
@@ -64,31 +64,21 @@ Each monitored step splits its traffic 50/50 between the Rollout and the Control
 
 ### 5. Monitor the Rollout
 
-{/* VERIFY — safe-rollout-rollback-now.webp: the rollback warning itself is unchanged, but confirm it still matches the monitored ramp dashboard layout before relying on it. */}
-
 <MaxWidthImage border>
-![Safe rollout rollback now warning message](/images/features/safe-rollout-rollback-now.webp)
+![Feature rule card showing a Safe Rollout with a Guardrails Failing badge and a Revert Now button](/images/features/safe-rollout-rollback-now.webp)
 </MaxWidthImage>
 
-Once published, GrowthBook begins monitoring the guardrail metrics. The rollout status updates automatically based on results.
-
-Status indicators:
+Once published, GrowthBook begins monitoring the guardrail metrics. The rule shows a status badge that updates automatically as results come in:
 
 | Status | Meaning |
 | --- | --- |
-| Healthy | All monitored metrics are within bounds. |
-| No data yet | Monitoring just started; results aren't in yet. |
-| Awaiting sample | Building up to the minimum sample size before evaluating. |
-| Guardrail failing | A guardrail metric is regressing. GrowthBook rolls back and disables the rule. |
-| Signal regressing | A signal metric is regressing; the ramp holds at the current step. |
-| SRM detected | Sample ratio mismatch: traffic is imbalanced. Check your implementation. |
-| Multiple exposures | Some users were exposed to more than one variation. |
-| No traffic | No monitored traffic yet (after the grace period, 24 hours by default). |
-| Multiple issues detected | More than one issue is active at once. |
-| Awaiting approval | The current step needs approval before it can advance. |
-| Paused | The rollout is paused. Resume to continue. |
-| Complete | The rollout finished and monitoring has ended. |
-| Rolled back | The rollout was reverted to its pre-rollout state. |
+| X days left | The rollout is running. Monitoring continues until the duration completes. |
+| Unhealthy | A health check failed, such as a sample ratio mismatch. Traffic may be imbalanced; check your implementation. |
+| Guardrails Failing | A guardrail metric is regressing. The rule shows a **Revert Now** button so you can roll back. |
+| Ready to ship | The duration finished with no failing guardrails. Safe to release to 100%. |
+| No Data | No traffic detected. Check your setup. |
+| Reverted | The rollout was rolled back to the control value. |
+| Released | The rollout was shipped to all users. |
 
 :::info
 Guardrails are analyzed for failure using frequentist sequential testing, allowing you to roll back as soon as statistical significance is reached without fear of false positives. Your safe rollout is automatically monitored for implementation errors with sample ratio mismatch and multiple exposures checks.
