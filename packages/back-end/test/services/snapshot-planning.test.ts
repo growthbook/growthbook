@@ -10,7 +10,11 @@ import {
 } from "shared/types/experiment-snapshot";
 import { MetricSnapshotSettings } from "shared/types/report";
 import { ApiReqContext } from "back-end/types/api";
-import { assertIncrementalRefreshPrerequisites } from "back-end/src/enterprise/services/data-pipeline";
+import {
+  assertIncrementalRefreshPrerequisites,
+  exploratoryOverallRequiresFullRefresh,
+} from "back-end/src/enterprise/services/data-pipeline";
+import { ExperimentIncrementalPipelineRequiresFullRefreshError } from "back-end/src/util/errors";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import {
   getSnapshotSettings,
@@ -21,12 +25,12 @@ import { updateExperiment } from "back-end/src/models/ExperimentModel";
 import {
   createExperimentSnapshotModel,
   findSnapshotById,
+  getLatestSuccessfulSnapshot,
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { updateExperimentDashboards } from "back-end/src/enterprise/services/dashboards";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
-import { IncrementalUpdateRequiresFullRefreshError } from "back-end/src/util/errors";
 import { factMetricFactory } from "../factories/FactMetric.factory";
 import { factTableFactory } from "../factories/FactTable.factory";
 
@@ -37,6 +41,7 @@ jest.mock("back-end/src/models/ExperimentModel", () => ({
 jest.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
   createExperimentSnapshotModel: jest.fn(),
   findSnapshotById: jest.fn(),
+  getLatestSuccessfulSnapshot: jest.fn(),
 }));
 
 jest.mock("back-end/src/models/DataSourceModel", () => ({
@@ -58,6 +63,7 @@ jest.mock("back-end/src/enterprise", () => ({
 
 jest.mock("back-end/src/enterprise/services/data-pipeline", () => ({
   assertIncrementalRefreshPrerequisites: jest.fn(),
+  exploratoryOverallRequiresFullRefresh: jest.fn(),
 }));
 
 const {
@@ -80,6 +86,10 @@ const createExperimentSnapshotModelMock =
 const findSnapshotByIdMock = findSnapshotById as jest.MockedFunction<
   typeof findSnapshotById
 >;
+const getLatestSuccessfulSnapshotMock =
+  getLatestSuccessfulSnapshot as jest.MockedFunction<
+    typeof getLatestSuccessfulSnapshot
+  >;
 const getDataSourceByIdMock = getDataSourceById as jest.MockedFunction<
   typeof getDataSourceById
 >;
@@ -94,6 +104,10 @@ const updateExperimentDashboardsMock =
 const assertIncrementalRefreshPrerequisitesMock =
   assertIncrementalRefreshPrerequisites as jest.MockedFunction<
     typeof assertIncrementalRefreshPrerequisites
+  >;
+const exploratoryOverallRequiresFullRefreshMock =
+  exploratoryOverallRequiresFullRefresh as jest.MockedFunction<
+    typeof exploratoryOverallRequiresFullRefresh
   >;
 const orgHasPremiumFeatureMock = orgHasPremiumFeature as jest.MockedFunction<
   typeof orgHasPremiumFeature
@@ -194,6 +208,7 @@ describe("snapshot planning", () => {
     jest.clearAllMocks();
     getDataSourceByIdMock.mockResolvedValue(makeDatasource());
     getSourceIntegrationObjectMock.mockReturnValue({} as never);
+    exploratoryOverallRequiresFullRefreshMock.mockReturnValue(false);
   });
 
   it("plans a draft snapshot without persisting or mutating experiment state", async () => {
@@ -307,7 +322,7 @@ describe("snapshot planning", () => {
     // would attempt an incremental update against a non-existent units table.
     expect(plan.fullRefresh).toBe(true);
     expect(plan.fullRefreshReason).toBe(
-      "No prior incremental refresh state for this experiment.",
+      "No prior Incremental Pipeline state for this experiment.",
     );
     expect(assertIncrementalRefreshPrerequisitesMock).toHaveBeenCalledWith(
       expect.objectContaining({ analysisType: "main-fullRefresh" }),
@@ -485,7 +500,9 @@ describe("snapshot planning", () => {
     const staleConfigMessage =
       "The experiment configuration is outdated. Please run a Full Refresh.";
     assertIncrementalRefreshPrerequisitesMock.mockRejectedValue(
-      new IncrementalUpdateRequiresFullRefreshError(staleConfigMessage),
+      new ExperimentIncrementalPipelineRequiresFullRefreshError(
+        staleConfigMessage,
+      ),
     );
 
     const context = makeContext();
@@ -589,7 +606,9 @@ describe("snapshot planning", () => {
     // full-refresh retry succeeds.
     assertIncrementalRefreshPrerequisitesMock
       .mockRejectedValueOnce(
-        new IncrementalUpdateRequiresFullRefreshError(staleConfigMessage),
+        new ExperimentIncrementalPipelineRequiresFullRefreshError(
+          staleConfigMessage,
+        ),
       )
       .mockResolvedValueOnce(undefined as never);
 
@@ -645,7 +664,7 @@ describe("snapshot planning", () => {
     );
     assertIncrementalRefreshPrerequisitesMock
       .mockRejectedValueOnce(
-        new IncrementalUpdateRequiresFullRefreshError(
+        new ExperimentIncrementalPipelineRequiresFullRefreshError(
           "The experiment configuration is outdated. Please run a Full Refresh.",
         ),
       )
@@ -725,6 +744,7 @@ describe("snapshot planning", () => {
     );
     expect(plan.snapshot.sourceSnapshotId).toBe(materializedBySnapshotId);
     expect(plan.snapshot.sourceSnapshotDateCreated).toBe(producerDateCreated);
+    expect(getLatestSuccessfulSnapshotMock).toHaveBeenCalled();
   });
 
   it("leaves exploratory provenance unset when materializedBySnapshotId is null", async () => {
@@ -760,6 +780,7 @@ describe("snapshot planning", () => {
 
     expect(plan.runnerKind).toBe("incremental-exploratory");
     expect(findSnapshotByIdMock).not.toHaveBeenCalled();
+    expect(getLatestSuccessfulSnapshotMock).not.toHaveBeenCalled();
     expect(plan.snapshot.sourceSnapshotId).toBeUndefined();
     expect(plan.snapshot.sourceSnapshotDateCreated).toBeUndefined();
   });
@@ -776,5 +797,185 @@ describe("snapshot planning", () => {
       });
       expect(metricSnapshotSettings.properPriorStdDev).toBe(0.5);
     });
+  });
+
+  it("rethrows ExperimentIncrementalPipelineRequiresFullRefreshError when outdated and prompting is enabled", async () => {
+    getDataSourceByIdMock.mockResolvedValue(
+      makeDatasource({
+        settings: {
+          queries: {},
+          pipelineSettings: {
+            allowWriting: true,
+            mode: "incremental",
+          },
+        },
+      }),
+    );
+    const staleConfigMessage =
+      "The experiment configuration is outdated. Please run a Full Refresh.";
+    assertIncrementalRefreshPrerequisitesMock.mockRejectedValue(
+      new ExperimentIncrementalPipelineRequiresFullRefreshError(
+        staleConfigMessage,
+      ),
+    );
+
+    const context = makeContext();
+    context.models.incrementalRefresh = {
+      getByExperimentId: jest.fn().mockResolvedValue({
+        unitsTableFullName: "db.schema.units_exp_123",
+        experimentSettingsHash: "stale_hash",
+      }),
+    } as never;
+
+    await expect(
+      planSnapshot({
+        experiment: makeExperiment(),
+        context,
+        type: "standard",
+        triggeredBy: "manual",
+        phaseIndex: 0,
+        useCache: true,
+        defaultAnalysisSettings: makeAnalysisSettings(),
+        additionalAnalysisSettings: [],
+        settingsForSnapshotMetrics: [],
+        metricMap: new Map<string, ExperimentMetricInterface>(),
+        factTableMap: new Map() as FactTableMap,
+      }),
+    ).rejects.toThrow(ExperimentIncrementalPipelineRequiresFullRefreshError);
+  });
+
+  it("falls back instead of throwing when a non-outdated error occurs even if prompting is enabled", async () => {
+    getDataSourceByIdMock.mockResolvedValue(
+      makeDatasource({
+        settings: {
+          queries: {},
+          pipelineSettings: {
+            allowWriting: true,
+            mode: "incremental",
+          },
+        },
+      }),
+    );
+    assertIncrementalRefreshPrerequisitesMock.mockRejectedValue(
+      new Error("metric not compatible"),
+    );
+
+    const context = makeContext();
+    context.models.incrementalRefresh = {
+      getByExperimentId: jest.fn().mockResolvedValue({
+        unitsTableFullName: "db.schema.units_exp_123",
+        experimentSettingsHash: "stale_hash",
+      }),
+    } as never;
+
+    const plan = await planSnapshot({
+      experiment: makeExperiment(),
+      context,
+      type: "standard",
+      triggeredBy: "manual",
+      phaseIndex: 0,
+      useCache: true,
+      defaultAnalysisSettings: makeAnalysisSettings(),
+      additionalAnalysisSettings: [],
+      settingsForSnapshotMetrics: [],
+      metricMap: new Map<string, ExperimentMetricInterface>(),
+      factTableMap: new Map() as FactTableMap,
+    });
+
+    expect(plan.runnerKind).toBe("results");
+    expect(plan.incrementalFallbackReason).toBe("metric not compatible");
+  });
+
+  function makeExploratoryContext() {
+    const context = makeContext();
+    context.models.incrementalRefresh = {
+      getByExperimentId: jest.fn().mockResolvedValue({
+        unitsTableFullName: "db.schema.units_exp_123",
+        experimentSettingsHash: "hash_abc",
+        metricSources: [],
+      }),
+    } as never;
+    return context;
+  }
+
+  it("uses the incremental-exploratory runner when the Overall units table does not require a full refresh", async () => {
+    wireIncrementalIntegration(makeIncrementalDatasource());
+    assertIncrementalRefreshPrerequisitesMock.mockResolvedValue(
+      undefined as never,
+    );
+    exploratoryOverallRequiresFullRefreshMock.mockReturnValue(false);
+
+    const plan = await planSnapshot({
+      experiment: makeExperiment(),
+      context: makeExploratoryContext(),
+      type: "exploratory",
+      triggeredBy: "manual",
+      phaseIndex: 0,
+      useCache: true,
+      defaultAnalysisSettings: makeAnalysisSettings({
+        dimensions: ["exp:country"],
+      }),
+      additionalAnalysisSettings: [],
+      settingsForSnapshotMetrics: [],
+      metricMap: new Map<string, ExperimentMetricInterface>(),
+      factTableMap: new Map() as FactTableMap,
+    });
+
+    expect(plan.runnerKind).toBe("incremental-exploratory");
+  });
+
+  it("throws ExperimentIncrementalPipelineRequiresFullRefreshError when the Overall units table requires a full refresh and prompting enabled", async () => {
+    wireIncrementalIntegration(makeIncrementalDatasource());
+    assertIncrementalRefreshPrerequisitesMock.mockResolvedValue(
+      undefined as never,
+    );
+    exploratoryOverallRequiresFullRefreshMock.mockReturnValue(true);
+
+    await expect(
+      planSnapshot({
+        experiment: makeExperiment(),
+        context: makeExploratoryContext(),
+        type: "exploratory",
+        triggeredBy: "manual",
+        phaseIndex: 0,
+        useCache: true,
+        defaultAnalysisSettings: makeAnalysisSettings({
+          dimensions: ["exp:country"],
+        }),
+        additionalAnalysisSettings: [],
+        settingsForSnapshotMetrics: [],
+        metricMap: new Map<string, ExperimentMetricInterface>(),
+        factTableMap: new Map() as FactTableMap,
+      }),
+    ).rejects.toThrow(ExperimentIncrementalPipelineRequiresFullRefreshError);
+  });
+
+  it("falls back to results runner when the Overall units table requires a full refresh and triggered by a background job", async () => {
+    wireIncrementalIntegration(makeIncrementalDatasource());
+    assertIncrementalRefreshPrerequisitesMock.mockResolvedValue(
+      undefined as never,
+    );
+    exploratoryOverallRequiresFullRefreshMock.mockReturnValue(true);
+
+    const plan = await planSnapshot({
+      experiment: makeExperiment(),
+      context: makeExploratoryContext(),
+      type: "exploratory",
+      triggeredBy: "schedule",
+      phaseIndex: 0,
+      useCache: true,
+      defaultAnalysisSettings: makeAnalysisSettings({
+        dimensions: ["exp:country"],
+      }),
+      additionalAnalysisSettings: [],
+      settingsForSnapshotMetrics: [],
+      metricMap: new Map<string, ExperimentMetricInterface>(),
+      factTableMap: new Map() as FactTableMap,
+    });
+
+    expect(plan.runnerKind).toBe("results");
+    expect(plan.incrementalFallbackReason).toBe(
+      "Overall Results need a full refresh; running non-incremental update instead of reading stale data.",
+    );
   });
 });
