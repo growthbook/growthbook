@@ -173,10 +173,6 @@ export class ConcurrentIncrementalRefreshError extends Error {
   }
 }
 
-// Thrown by the Incremental Pipeline when an update can't proceed without a
-// full rebuild. Only the internal snapshot endpoint surfaces this (the public
-// API auto-promotes), so it carries its own code + details for the front-end
-// instead of joining the public REST API error registry.
 export class ExperimentIncrementalPipelineRequiresFullRefreshError extends Error {
   readonly status = 409;
   readonly code = "requires_full_refresh";
