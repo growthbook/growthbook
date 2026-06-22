@@ -316,6 +316,37 @@ export async function updateDashboardMetricAnalyses(
       block.metricAnalysisId = queryRunner.model.id;
       block.analysisSettings.startDate = startDate;
       block.analysisSettings.endDate = endDate;
+
+      // Keep the compare-to-previous-period analysis in sync with the rolled
+      // window. The previous window is derived (never reserved) — an adjacent
+      // window of equal length immediately preceding the current one — so it
+      // rolls alongside the primary on every manual/scheduled refresh. Resolved
+      // through the shared seam so a future dashboard-wide compare toggle drives
+      // this the same way the per-block setting does.
+      //
+      // COST NOTE / revisit: this runs a second metric analysis per
+      // compare-enabled block, so a dashboard with N such blocks issues up to 2N
+      // analyses per refresh cycle. Fine today (they run concurrently via the
+      // Promise.all below), but if query costs run up — e.g. dashboards with many
+      // metric blocks on a tight updateSchedule — consider batching the current
+      // and previous windows into a single analysis/query instead of two.
+      if (resolveBlockComparison(block)?.enabled) {
+        const spanMs = endDate.getTime() - startDate.getTime();
+        const comparisonSettings: MetricAnalysisSettings = {
+          ...settings,
+          startDate: new Date(startDate.getTime() - spanMs),
+          endDate: startDate,
+        };
+        const comparisonQueryRunner = await createMetricAnalysis(
+          context,
+          metric,
+          comparisonSettings,
+          "metric",
+          false,
+        );
+        block.comparisonMetricAnalysisId = comparisonQueryRunner.model.id;
+      }
+
       return true;
     }),
   );

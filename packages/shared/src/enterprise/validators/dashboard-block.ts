@@ -303,6 +303,17 @@ export type SqlExplorerBlockInterface = z.infer<
   typeof sqlExplorerBlockInterface
 >;
 
+// Period comparison for a dashboard block. `enabled` turns the comparison on;
+// `previousTimeFrame` is only persisted for fixed windows (custom date ranges) —
+// predefined/rolling primaries re-derive (and roll) the previous period on each
+// refresh. Kept as a structured object so a future dashboard-wide compare toggle
+// can resolve to the same shape (see resolveBlockComparison).
+export const blockComparisonValidator = z.object({
+  enabled: z.boolean(),
+  previousTimeFrame: explorationDateRangeValidator.optional(),
+});
+export type BlockComparison = z.infer<typeof blockComparisonValidator>;
+
 const metricExplorerBlockInterface = baseBlockInterface
   .extend({
     type: z.literal("metric-explorer"),
@@ -314,6 +325,12 @@ const metricExplorerBlockInterface = baseBlockInterface
     visualizationType: z.enum(["histogram", "bigNumber", "timeseries"]),
     valueType: z.enum(["avg", "sum"]),
     metricAnalysisId: z.string(),
+    // Compare-to-previous-period. The metric-explorer uses a rolling lookback,
+    // so we intentionally don't reserve a `comparison.previousTimeFrame` — the
+    // previous window is derived from the current one on each refresh. The id of
+    // that derived analysis is tracked here so it can be fetched and rendered.
+    comparison: blockComparisonValidator.optional(),
+    comparisonMetricAnalysisId: z.string().optional(),
   })
   .strict();
 
@@ -324,17 +341,6 @@ const apiMetricExplorerBlockInterface = metricExplorerBlockInterface
 export type MetricExplorerBlockInterface = z.infer<
   typeof metricExplorerBlockInterface
 >;
-
-// Period comparison for an exploration block. `enabled` turns the comparison
-// on; `previousTimeFrame` is only persisted for fixed windows (custom date
-// ranges) — predefined primaries re-derive (and roll) the previous period on
-// each refresh. Kept as a structured object so a future dashboard-wide compare
-// toggle can resolve to the same shape (see resolveBlockComparison).
-export const blockComparisonValidator = z.object({
-  enabled: z.boolean(),
-  previousTimeFrame: explorationDateRangeValidator.optional(),
-});
-export type BlockComparison = z.infer<typeof blockComparisonValidator>;
 
 // Fields shared by every product-analytics exploration block. `comparison` and
 // `comparisonExplorerAnalysisId` are optional so pre-existing blocks read as
