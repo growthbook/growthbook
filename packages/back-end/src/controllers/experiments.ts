@@ -104,7 +104,7 @@ import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import {
   getAISettingsForOrg,
-  getContextForAgendaJobByOrgId,
+  getContextForOrgAdminByOrgId,
   getContextFromReq,
 } from "back-end/src/services/organizations";
 import { removeExperimentFromPresentations } from "back-end/src/services/presentations";
@@ -841,7 +841,7 @@ export async function getExperimentPublic(
     });
   }
 
-  const context = await getContextForAgendaJobByOrgId(experiment.organization);
+  const context = await getContextForOrgAdminByOrgId(experiment.organization);
   const phase = experiment.phases.length - 1;
 
   const snapshot =

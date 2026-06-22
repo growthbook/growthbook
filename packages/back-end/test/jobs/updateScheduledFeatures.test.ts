@@ -8,7 +8,7 @@ import {
   getNextScheduledUpdate,
   refreshSDKPayloadCache,
 } from "back-end/src/services/features";
-import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
+import { getContextForOrgAdminByOrgId } from "back-end/src/services/organizations";
 
 jest.mock("back-end/src/models/FeatureModel", () => ({
   getFeature: jest.fn(),
@@ -22,7 +22,7 @@ jest.mock("back-end/src/services/features", () => ({
 }));
 
 jest.mock("back-end/src/services/organizations", () => ({
-  getContextForAgendaJobByOrgId: jest.fn(),
+  getContextForOrgAdminByOrgId: jest.fn(),
 }));
 
 // getSDKPayloadKeysByDiff is not mocked — the real implementation is used so
@@ -52,7 +52,7 @@ const makeContext = () => ({
 
 describe("updateSingleFeature", () => {
   beforeEach(() => {
-    (getContextForAgendaJobByOrgId as jest.Mock).mockResolvedValue(
+    (getContextForOrgAdminByOrgId as jest.Mock).mockResolvedValue(
       makeContext(),
     );
     (getFeature as jest.Mock).mockResolvedValue(makeFeature());

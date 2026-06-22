@@ -17,7 +17,7 @@ import {
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { determineColumnTypes } from "back-end/src/util/sql";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
-import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
+import { getContextForOrgAdminByOrgId } from "back-end/src/services/organizations";
 import { deriveUserIdTypesFromColumns } from "back-end/src/util/factTable";
 import { logger } from "back-end/src/util/logger";
 
@@ -79,7 +79,7 @@ const refreshFactTableColumns = async (job: RefreshFactTableColumnsJob) => {
 
   if (!factTableId || !organization) return;
 
-  const context = await getContextForAgendaJobByOrgId(organization);
+  const context = await getContextForOrgAdminByOrgId(organization);
 
   const factTable = await getFactTable(context, factTableId);
   if (!factTable) return;

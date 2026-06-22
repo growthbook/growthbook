@@ -1,5 +1,5 @@
 import Agenda, { Job } from "agenda";
-import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
+import { getContextForOrgAdminByOrgId } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import {
@@ -78,7 +78,7 @@ export const publishScheduledRevision = async (
     return;
   }
 
-  const context = await getContextForAgendaJobByOrgId(organization);
+  const context = await getContextForOrgAdminByOrgId(organization);
   const feature = await getFeature(context, featureId);
   if (!feature) return;
 

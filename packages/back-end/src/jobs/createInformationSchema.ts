@@ -11,7 +11,7 @@ import {
   updateInformationSchemaById,
 } from "back-end/src/models/InformationSchemaModel";
 import { initializeDatasourceInformationSchema } from "back-end/src/services/informationSchema";
-import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
+import { getContextForOrgAdminByOrgId } from "back-end/src/services/organizations";
 
 const CREATE_INFORMATION_SCHEMA_JOB_NAME = "createInformationSchema";
 type CreateInformationSchemaJob = Job<{
@@ -24,7 +24,7 @@ const createInformationSchema = async (job: CreateInformationSchemaJob) => {
 
   if (!datasourceId || !organization) return;
 
-  const context = await getContextForAgendaJobByOrgId(organization);
+  const context = await getContextForOrgAdminByOrgId(organization);
 
   const datasource = await getDataSourceById(context, datasourceId);
 

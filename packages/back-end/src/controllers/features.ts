@@ -78,7 +78,7 @@ import {
 import { getValidDate } from "shared/dates";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
-  getContextForAgendaJobByOrgId,
+  getContextForOrgAdminByOrgId,
   getContextFromReq,
   getEnvironmentIdsFromOrg,
   getEnvironments,
@@ -565,7 +565,7 @@ export async function getFeaturesPublic(req: Request, res: Response) {
       throw new UnrecoverableApiError("Organization not found for API key");
     }
 
-    const context = await getContextForAgendaJobByOrgId(params.organization);
+    const context = await getContextForOrgAdminByOrgId(params.organization);
 
     if (params.remoteEvalEnabled) {
       throw new UnrecoverableApiError(
@@ -634,7 +634,7 @@ export async function getEvaluatedFeaturesPublic(req: Request, res: Response) {
       throw new UnrecoverableApiError("Organization not found for API key");
     }
 
-    const context = await getContextForAgendaJobByOrgId(params.organization);
+    const context = await getContextForOrgAdminByOrgId(params.organization);
 
     if (!params.remoteEvalEnabled) {
       throw new UnrecoverableApiError(

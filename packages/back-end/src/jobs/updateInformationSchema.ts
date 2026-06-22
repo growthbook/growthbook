@@ -11,7 +11,7 @@ import {
   getInformationSchemaById,
   updateInformationSchemaById,
 } from "back-end/src/models/InformationSchemaModel";
-import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
+import { getContextForOrgAdminByOrgId } from "back-end/src/services/organizations";
 
 const UPDATE_INFORMATION_SCHEMA_JOB_NAME = "updateInformationSchema";
 type UpdateInformationSchemaJob = Job<{
@@ -23,7 +23,7 @@ type UpdateInformationSchemaJob = Job<{
 const updateInformationSchema = async (job: UpdateInformationSchemaJob) => {
   const { datasourceId, organization, informationSchemaId } = job.attrs.data;
 
-  const context = await getContextForAgendaJobByOrgId(organization);
+  const context = await getContextForOrgAdminByOrgId(organization);
 
   const datasource = await getDataSourceById(context, datasourceId);
 

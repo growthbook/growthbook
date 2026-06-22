@@ -128,7 +128,7 @@ import {
 import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
 import { RampMonitoredRuleInfo } from "back-end/src/models/RampScheduleModel";
 import {
-  getContextForAgendaJobByOrgObject,
+  getContextForOrgAdminByOrgObject,
   getEnvironmentIdsFromOrg,
 } from "./organizations";
 
@@ -678,7 +678,7 @@ export async function refreshSDKPayloadCache({
 }) {
   // This is a background job, so switch to using a background context
   // This is required so that we have full read access to the entire org's data
-  const context = getContextForAgendaJobByOrgObject(baseContext.org);
+  const context = getContextForOrgAdminByOrgObject(baseContext.org);
 
   logger.debug(
     `Refreshing SDK Payloads for ${context.org.id}: ${JSON.stringify(

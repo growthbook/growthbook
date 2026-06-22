@@ -520,6 +520,63 @@ export async function getAllExperiments(
   return await findExperiments(context, query, limit, sortBy);
 }
 
+// The minimal set of metric-reference fields needed to enumerate the metric IDs
+// an experiment uses (via getAllMetricIdsFromExperiment), plus `project` for the
+// caller's read-permission filter.
+export type ExperimentMetricRefs = {
+  goalMetrics: string[];
+  secondaryMetrics: string[];
+  guardrailMetrics: string[];
+  activationMetric: string | null;
+  project?: string;
+};
+
+// Lightweight alternative to getAllExperiments for callers that only need each
+// experiment's metric references. Projects just the relevant fields out of Mongo
+// (skipping the large analysis/results blobs and the full doc upgrade) instead of
+// hydrating entire ExperimentInterface documents.
+export async function getRunningExperimentMetricRefs(
+  context: ReqContext | ApiReqContext,
+  types: ExperimentType[],
+): Promise<ExperimentMetricRefs[]> {
+  // "standard" must also match legacy docs where type is unset (null)
+  const typeValues: (ExperimentType | null)[] = types.flatMap((t) =>
+    t === "standard" ? ["standard", null] : [t],
+  );
+
+  const docs = await getCollection(COLLECTION)
+    .find({
+      organization: context.org.id,
+      status: "running",
+      archived: { $ne: true },
+      type: { $in: typeValues },
+    })
+    .project({
+      goalMetrics: true,
+      secondaryMetrics: true,
+      guardrailMetrics: true,
+      activationMetric: true,
+      project: true,
+      // Legacy docs (pre-rename) stored metrics under these fields; project them
+      // so we can replicate upgradeExperimentDoc's fallback below.
+      metrics: true,
+      guardrails: true,
+    })
+    .toArray();
+
+  return docs
+    .filter((doc) =>
+      context.permissions.canReadSingleProjectResource(doc.project),
+    )
+    .map((doc) => ({
+      goalMetrics: doc.goalMetrics ?? doc.metrics ?? [],
+      guardrailMetrics: doc.guardrailMetrics ?? doc.guardrails ?? [],
+      secondaryMetrics: doc.secondaryMetrics ?? [],
+      activationMetric: doc.activationMetric ?? null,
+      project: doc.project ?? undefined,
+    }));
+}
+
 export async function hasArchivedExperiments(
   context: ReqContext | ApiReqContext,
   project?: string,

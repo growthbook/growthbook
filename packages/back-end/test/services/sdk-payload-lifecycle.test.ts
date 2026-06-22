@@ -48,7 +48,7 @@ jest.mock("back-end/src/models/ExperimentModel", () => ({
   getAllURLRedirectExperiments: jest.fn().mockResolvedValue([]),
 }));
 jest.mock("back-end/src/services/organizations", () => ({
-  getContextForAgendaJobByOrgObject: jest.fn((org: { id: string }) => ({
+  getContextForOrgAdminByOrgObject: jest.fn((org: { id: string }) => ({
     org,
     models: (global as unknown as { __mockContextModels: unknown })
       .__mockContextModels,

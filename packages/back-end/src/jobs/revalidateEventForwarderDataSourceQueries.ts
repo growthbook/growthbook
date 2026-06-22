@@ -1,5 +1,5 @@
 import Agenda, { Job } from "agenda";
-import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
+import { getContextForOrgAdminByOrgId } from "back-end/src/services/organizations";
 import { revalidateManagedEventForwarderDataSourceQueries } from "back-end/src/services/eventForwarder/warehouseSync";
 import { logger } from "back-end/src/util/logger";
 
@@ -20,7 +20,7 @@ const revalidateEventForwarderDataSourceQueries = async (
   }
 
   try {
-    const context = await getContextForAgendaJobByOrgId(organization);
+    const context = await getContextForOrgAdminByOrgId(organization);
     await revalidateManagedEventForwarderDataSourceQueries(
       context,
       datasourceId,

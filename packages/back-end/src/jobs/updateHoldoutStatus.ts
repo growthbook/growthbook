@@ -2,7 +2,7 @@ import Agenda, { Job } from "agenda";
 import { ExperimentPhase } from "shared/validators";
 import { Changeset } from "shared/types/experiment";
 import {
-  getContextForAgendaJobByOrgId,
+  getContextForOrgAdminByOrgId,
   getEnvironmentIdsFromOrg,
 } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
@@ -65,7 +65,7 @@ const updateSingleHoldout = async (job: UpdateSingleHoldoutJob) => {
 
   if (!holdoutId || !organization) return;
 
-  const context = await getContextForAgendaJobByOrgId(organization);
+  const context = await getContextForOrgAdminByOrgId(organization);
 
   const holdout = await context.models.holdout.getById(holdoutId);
 

@@ -1,5 +1,5 @@
 import Agenda, { Job } from "agenda";
-import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
+import { getContextForOrgAdminByOrgId } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
 import { DashboardModel } from "back-end/src/enterprise/models/DashboardModel";
 import { updateNonExperimentDashboard } from "back-end/src/enterprise/services/dashboards";
@@ -56,7 +56,7 @@ const updateSingleDashboard = async (job: UpdateSingleDashJob) => {
 
   if (!dashboardId || !orgId) return;
 
-  const context = await getContextForAgendaJobByOrgId(orgId);
+  const context = await getContextForOrgAdminByOrgId(orgId);
 
   const dashboard = await context.models.dashboards.getById(dashboardId);
   if (!dashboard) return;

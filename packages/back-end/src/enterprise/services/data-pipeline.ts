@@ -342,10 +342,32 @@ export function getFactTableSettingsHashForAggregatedFactTable(
   });
 }
 
-// Builds the schema state the nightly job persists on the registry: the
-// fact-table definition hash plus per-metric state (settings hash + the
-// columns each metric/slice materializes). `metrics` must already be the
-// flattened set (base metrics + auto-slice variants) the run will materialize.
+export function buildAggregatedFactTableMetricStates({
+  factTable,
+  metrics,
+}: {
+  factTable: FactTableInterface;
+  metrics: FactMetricInterface[];
+}): AggregatedFactTableMetricStateInterface[] {
+  return metrics.map((metric) => ({
+    metricId: metric.id,
+    settingsHash: getMetricSettingsHashForAggregatedFactTable({
+      factMetric: metric,
+      factTableId: factTable.id,
+    }),
+    columns: getColumnsForMetric(metric, factTable.id),
+    // Slice metrics are already flattened into `metrics`; only base metrics
+    // own the slice list (calling getAutoSliceMetrics on a slice clones again).
+    slices: isSliceMetric(metric)
+      ? []
+      : getAutoSliceMetrics({ metric, factTable }).map((sliceMetric) => ({
+          metricId: sliceMetric.id,
+          columns: getColumnsForMetric(sliceMetric, factTable.id),
+        })),
+    builtAt: new Date(),
+  }));
+}
+
 export function buildAggregatedFactTableSchemaState({
   factTable,
   metrics,
@@ -356,39 +378,15 @@ export function buildAggregatedFactTableSchemaState({
   factTableSettingsHash: string;
   metricState: AggregatedFactTableMetricStateInterface[];
 } {
-  const factTableSettingsHash =
-    getFactTableSettingsHashForAggregatedFactTable(factTable);
-
-  const metricState: AggregatedFactTableMetricStateInterface[] = metrics.map(
-    (metric) => ({
-      metricId: metric.id,
-      settingsHash: getMetricSettingsHashForAggregatedFactTable({
-        factMetric: metric,
-        factTableId: factTable.id,
-      }),
-      columns: getColumnsForMetric(metric, factTable.id),
-      // Slice metrics are already flattened into `metrics`; only base metrics
-      // own the slice list (calling getAutoSliceMetrics on a slice clones again).
-      slices: isSliceMetric(metric)
-        ? []
-        : getAutoSliceMetrics({ metric, factTable }).map((sliceMetric) => ({
-            metricId: sliceMetric.id,
-            columns: getColumnsForMetric(sliceMetric, factTable.id),
-          })),
-      builtAt: new Date(),
-    }),
-  );
-
-  return { factTableSettingsHash, metricState };
+  return {
+    factTableSettingsHash:
+      getFactTableSettingsHashForAggregatedFactTable(factTable),
+    metricState: buildAggregatedFactTableMetricStates({ factTable, metrics }),
+  };
 }
 
-// True when the materialized table is missing a column the current metric set
-// needs, or has a column whose type no longer matches. Only additions and
-// type changes drift: a removed/disabled metric or slice just leaves a harmless
-// orphan column the append insert and read path ignore, so it is tolerated to
-// avoid a needless restate. Re-adding such a metric still drifts, because the
-// reduced metric set was persisted to the registry on the tolerating run, so
-// the metric reads as a new addition. Comparisons are order-independent.
+// True when the metric set adds a column or changes a column type. Removals are
+// tolerated (orphan columns are ignored) to avoid needless restates.
 export function detectAggregatedFactTableSchemaDrift({
   registry,
   factTableSettingsHash,

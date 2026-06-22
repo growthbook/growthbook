@@ -82,7 +82,7 @@ import {
 import { applyPartialFeatureRuleUpdatesToRevision } from "back-end/src/util/featureRevision.util";
 import { logger } from "back-end/src/util/logger";
 import {
-  getContextForAgendaJobByOrgId,
+  getContextForOrgAdminByOrgId,
   getEnvironmentIdsFromOrg,
 } from "back-end/src/services/organizations";
 import { getEnvironments } from "back-end/src/util/organization.util";
@@ -1172,7 +1172,7 @@ export async function getScheduledFeaturesToUpdate() {
   const jobContextsByOrg: Record<string, ApiReqContext> = {};
   await Promise.all(
     orgIds.map(async (orgId) => {
-      jobContextsByOrg[orgId] = await getContextForAgendaJobByOrgId(orgId);
+      jobContextsByOrg[orgId] = await getContextForOrgAdminByOrgId(orgId);
     }),
   );
   return features.map((m) => toInterface(m, jobContextsByOrg[m.organization]));

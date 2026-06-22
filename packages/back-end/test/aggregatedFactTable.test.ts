@@ -19,7 +19,7 @@ import {
   buildAggregatedFactTableStatus,
   getActiveAggregatedFactTableMetrics,
   getAggregatedFactTableMetrics,
-  getMaterializedMetricIds,
+  getMaterializedFactMetricIds,
   getMetricsForAggregatedFactTable,
 } from "back-end/src/services/aggregatedFactTables";
 import { factMetricFactory } from "./factories/FactMetric.factory";
@@ -370,8 +370,8 @@ describe("getAggregatedFactTableMetrics", () => {
     const result = getAggregatedFactTableMetrics({
       factMetrics: [baseMetric],
       factTable,
-      activeMetricIds: new Set([baseMetric.id]),
-      materializedMetricIds: new Set(),
+      activeFactMetricIds: new Set([baseMetric.id]),
+      materializedFactMetricIds: new Set(),
     });
 
     // base metric + its auto-slice metrics
@@ -384,8 +384,8 @@ describe("getAggregatedFactTableMetrics", () => {
     const result = getAggregatedFactTableMetrics({
       factMetrics: [baseMetric],
       factTable,
-      activeMetricIds: new Set(),
-      materializedMetricIds: new Set(),
+      activeFactMetricIds: new Set(),
+      materializedFactMetricIds: new Set(),
     });
     expect(result).toEqual([]);
   });
@@ -400,8 +400,8 @@ describe("getAggregatedFactTableMetrics", () => {
     const result = getAggregatedFactTableMetrics({
       factMetrics: [baseMetric],
       factTable,
-      activeMetricIds: new Set(),
-      materializedMetricIds: new Set([baseMetric.id]),
+      activeFactMetricIds: new Set(),
+      materializedFactMetricIds: new Set([baseMetric.id]),
     });
 
     expect(result).toHaveLength(1 + expectedSliceCount);
@@ -423,8 +423,8 @@ describe("getAggregatedFactTableMetrics", () => {
     const metrics = getAggregatedFactTableMetrics({
       factMetrics: [active, archived],
       factTable,
-      activeMetricIds: new Set([active.id, archived.id]),
-      materializedMetricIds: new Set(),
+      activeFactMetricIds: new Set([active.id, archived.id]),
+      materializedFactMetricIds: new Set(),
     });
     expect(metrics.map((m) => m.id)).toEqual([active.id]);
   });
@@ -1050,7 +1050,7 @@ describe("getAggregatedFactTableRestateReason", () => {
 
 // The update job (mode decision), the REST status endpoint, and the internal
 // status endpoint all build their per-idType schema state from the same
-// helpers: getMaterializedMetricIds(doc) -> getAggregatedFactTableMetrics(kept)
+// helpers: getMaterializedFactMetricIds(doc) -> getAggregatedFactTableMetrics(kept)
 // -> buildAggregatedFactTableSchemaState -> getAggregatedFactTableRestateReason.
 // This locks that shared computation, so the endpoints' pendingRestate/
 // metricState stay aligned with what the job decides.
@@ -1101,14 +1101,14 @@ describe("aggregated fact table status consistency (endpoints vs update job)", (
   };
 
   // Mirrors the kept-set schema state computed at all three call sites.
-  const keptSchemaState = (activeMetricIds: Set<string>) =>
+  const keptSchemaState = (activeFactMetricIds: Set<string>) =>
     buildAggregatedFactTableSchemaState({
       factTable,
       metrics: getAggregatedFactTableMetrics({
         factMetrics,
         factTable,
-        activeMetricIds,
-        materializedMetricIds: getMaterializedMetricIds(doc),
+        activeFactMetricIds,
+        materializedFactMetricIds: getMaterializedFactMetricIds(doc),
       }),
     });
 
@@ -1192,7 +1192,7 @@ describe("buildAggregatedFactTableStatus dormant-table gating", () => {
       getActiveAggregatedFactTableMetrics({
         factMetrics: [metric],
         factTable,
-        activeMetricIds: new Set(),
+        activeFactMetricIds: new Set(),
       }).length > 0;
     expect(hasActiveMetrics).toBe(false);
 

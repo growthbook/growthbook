@@ -3,7 +3,7 @@ import {
   getAllFactTablesWithAggregatedTablesEnabled,
   getFactTable,
 } from "back-end/src/models/FactTableModel";
-import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
+import { getContextForOrgAdminByOrgId } from "back-end/src/services/organizations";
 import { getAgendaInstance } from "back-end/src/services/queueing";
 import { runAggregatedFactTableUpdate } from "back-end/src/services/aggregatedFactTables";
 import { logger } from "back-end/src/util/logger";
@@ -40,7 +40,7 @@ export default async function (agenda: Agenda) {
 }
 
 type AgendaJobContext = Awaited<
-  ReturnType<typeof getContextForAgendaJobByOrgId>
+  ReturnType<typeof getContextForOrgAdminByOrgId>
 >;
 
 async function pollAggregatedFactTables() {
@@ -56,7 +56,7 @@ async function pollAggregatedFactTables() {
     }
     let context: AgendaJobContext | null = null;
     try {
-      context = await getContextForAgendaJobByOrgId(organization);
+      context = await getContextForOrgAdminByOrgId(organization);
       if (!context.hasPremiumFeature("pipeline-mode")) {
         context = null;
       }
@@ -154,7 +154,7 @@ const updateSingleAggregatedFactTable = async (
 
   if (!organization || !factTableId || !idType) return;
 
-  const context = await getContextForAgendaJobByOrgId(organization);
+  const context = await getContextForOrgAdminByOrgId(organization);
 
   if (!context.hasPremiumFeature("pipeline-mode")) {
     return;

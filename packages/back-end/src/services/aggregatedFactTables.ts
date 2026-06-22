@@ -2,6 +2,7 @@ import uniqid from "uniqid";
 import {
   getAllMetricIdsFromExperiment,
   getAutoSliceMetrics,
+  isFactMetricId,
   isRatioMetric,
 } from "shared/experiments";
 import { DataSourceInterface } from "shared/types/datasource";
@@ -18,19 +19,23 @@ import {
 import { QueryStatus } from "shared/types/query";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
-import { getAllExperiments } from "back-end/src/models/ExperimentModel";
+import { getRunningExperimentMetricRefs } from "back-end/src/models/ExperimentModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
-import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
+import { getFactTable } from "back-end/src/models/FactTableModel";
+import { getContextForOrgAdminByOrgObject } from "back-end/src/services/organizations";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { logger } from "back-end/src/util/logger";
+import { getNextUpdateOccurrence } from "back-end/src/util/factTable";
 import {
   AggregatedFactTableQueryRunner,
   AggregatedFactTableRunMode,
 } from "back-end/src/queryRunners/AggregatedFactTableQueryRunner";
 import {
   AggregatedFactTableRestateReason,
+  buildAggregatedFactTableMetricStates,
   buildAggregatedFactTableSchemaState,
   getAggregatedFactTableRestateReason,
+  getFactTableSettingsHashForAggregatedFactTable,
 } from "back-end/src/enterprise/services/data-pipeline";
 
 type AggregatedFactTableRestateLogReason =
@@ -134,27 +139,28 @@ export async function getAggregatedFactTableEligibilityInputs(
   context: ReqContext | ApiReqContext,
 ): Promise<{
   factMetrics: FactMetricInterface[];
-  activeMetricIds: Set<string>;
+  activeFactMetricIds: Set<string>;
 }> {
-  const backgroundContext = getContextForAgendaJobByOrgObject(context.org);
-  const [factMetrics, activeMetricIds] = await Promise.all([
+  const backgroundContext = getContextForOrgAdminByOrgObject(context.org);
+  const [factMetrics, activeFactMetricIds] = await Promise.all([
     backgroundContext.models.factMetrics.getAll(),
-    getRunningExperimentMetricIds(backgroundContext),
+    getRunningExperimentFactMetricIds(backgroundContext),
   ]);
-  return { factMetrics, activeMetricIds };
+  return { factMetrics, activeFactMetricIds };
 }
 
 // Expects an org-wide context (e.g. the background admin context built in
 // getAggregatedFactTableEligibilityInputs) so metric group references on
 // running experiments expand fully, regardless of the original caller's scope.
-export async function getRunningExperimentMetricIds(
+export async function getRunningExperimentFactMetricIds(
   context: ReqContext | ApiReqContext,
 ): Promise<Set<string>> {
   const [running, metricGroups] = await Promise.all([
-    getAllExperiments(context, {
-      types: ["standard", "multi-armed-bandit", "holdout"],
-      status: "running",
-    }),
+    getRunningExperimentMetricRefs(context, [
+      "standard",
+      "multi-armed-bandit",
+      "holdout",
+    ]),
     context.models.metricGroups.getAll(),
   ]);
   const ids = new Set<string>();
@@ -164,7 +170,9 @@ export async function getRunningExperimentMetricIds(
       true,
       metricGroups,
     )) {
-      ids.add(id);
+      if (isFactMetricId(id)) {
+        ids.add(id);
+      }
     }
   }
   return ids;
@@ -172,10 +180,27 @@ export async function getRunningExperimentMetricIds(
 
 // The set of metric IDs already materialized into a fact table's pre-aggregated
 // table, including slice metrics
-export function getMaterializedMetricIds(
-  registry?: Pick<AggregatedFactTableInterface, "metricState"> | null,
+export function getMaterializedFactMetricIds(
+  aggregatedFactTable?: Pick<
+    AggregatedFactTableInterface,
+    "metricState"
+  > | null,
 ): Set<string> {
-  return new Set((registry?.metricState ?? []).map((m) => m.metricId));
+  return new Set(
+    (aggregatedFactTable?.metricState ?? []).map((m) => m.metricId),
+  );
+}
+
+// True when the metric reads from this fact table via its numerator or (for
+// ratio metrics) its denominator.
+export function metricReferencesFactTable(
+  metric: FactMetricInterface,
+  factTableId: string,
+): boolean {
+  return (
+    metric.numerator.factTableId === factTableId ||
+    (isRatioMetric(metric) && metric.denominator?.factTableId === factTableId)
+  );
 }
 
 // Keeps non-archived metrics that are either referenced by a running experiment
@@ -188,12 +213,8 @@ export function getMetricsForAggregatedFactTable(
 ): FactMetricInterface[] {
   return factMetrics.filter((metric) => {
     if (metric.archived) return false;
-    const referencesFactTable =
-      metric.numerator.factTableId === factTableId ||
-      (isRatioMetric(metric) &&
-        metric.denominator?.factTableId === factTableId);
     return (
-      referencesFactTable &&
+      metricReferencesFactTable(metric, factTableId) &&
       (activeMetricIds.has(metric.id) || materializedMetricIds.has(metric.id))
     );
   });
@@ -202,19 +223,19 @@ export function getMetricsForAggregatedFactTable(
 export function getAggregatedFactTableMetrics({
   factMetrics,
   factTable,
-  activeMetricIds,
-  materializedMetricIds,
+  activeFactMetricIds,
+  materializedFactMetricIds,
 }: {
   factMetrics: FactMetricInterface[];
   factTable: FactTableInterface;
-  activeMetricIds: ReadonlySet<string>;
-  materializedMetricIds: ReadonlySet<string>;
+  activeFactMetricIds: ReadonlySet<string>;
+  materializedFactMetricIds: ReadonlySet<string>;
 }): FactMetricInterface[] {
   const baseMetrics = getMetricsForAggregatedFactTable(
     factMetrics,
     factTable.id,
-    activeMetricIds,
-    materializedMetricIds,
+    activeFactMetricIds,
+    materializedFactMetricIds,
   );
   return baseMetrics.flatMap((metric) => [
     metric,
@@ -225,17 +246,17 @@ export function getAggregatedFactTableMetrics({
 export function getActiveAggregatedFactTableMetrics({
   factMetrics,
   factTable,
-  activeMetricIds,
+  activeFactMetricIds,
 }: {
   factMetrics: FactMetricInterface[];
   factTable: FactTableInterface;
-  activeMetricIds: ReadonlySet<string>;
+  activeFactMetricIds: ReadonlySet<string>;
 }): FactMetricInterface[] {
   return getAggregatedFactTableMetrics({
     factMetrics,
     factTable,
-    activeMetricIds,
-    materializedMetricIds: new Set(),
+    activeFactMetricIds,
+    materializedFactMetricIds: new Set(),
   });
 }
 
@@ -286,6 +307,73 @@ export function buildAggregatedFactTableStatus({
     pendingRestate: pendingRestateReason !== null,
     pendingRestateReason,
   };
+}
+
+export async function getAggregatedFactTableStatuses(
+  context: ReqContext | ApiReqContext,
+  factTableId: string,
+): Promise<{
+  aggregatedFactTables: AggregatedFactTableStatus[];
+  nextScheduledUpdate: Date | null;
+}> {
+  const factTable = await getFactTable(context, factTableId);
+  if (!factTable) {
+    throw new Error("Could not find factTable with that id");
+  }
+
+  const idTypes = factTable.aggregatedFactTableSettings?.idTypes ?? [];
+  const registryDocs =
+    await context.models.aggregatedFactTables.getByFactTableId(factTable.id);
+  const byIdType = new Map(registryDocs.map((doc) => [doc.idType, doc]));
+
+  // Recompute the schema state the nightly driver would so callers can see when
+  // the next run will be forced to restate.
+  const { factMetrics, activeFactMetricIds } =
+    await getAggregatedFactTableEligibilityInputs(context);
+
+  const factTableSettingsHash =
+    getFactTableSettingsHashForAggregatedFactTable(factTable);
+
+  const metricCatalog = factMetrics
+    .filter(
+      (metric) =>
+        !metric.archived && metricReferencesFactTable(metric, factTable.id),
+    )
+    .map((metric) => ({
+      metricId: metric.id,
+      isActive: activeFactMetricIds.has(metric.id),
+      metricState: buildAggregatedFactTableMetricStates({
+        factTable,
+        metrics: [metric, ...getAutoSliceMetrics({ metric, factTable })],
+      }),
+    }));
+
+  // Allows us to say "no pending restate" when no running experiment references
+  // the table.
+  const hasActiveMetrics = metricCatalog.some((m) => m.isActive);
+
+  const aggregatedFactTables = idTypes.map((idType) => {
+    const doc = byIdType.get(idType);
+    const materializedFactMetricIds = getMaterializedFactMetricIds(doc);
+    // Active metrics are always included; inactive ones only if this id type has
+    // already materialized them.
+    const metricState = metricCatalog
+      .filter((m) => m.isActive || materializedFactMetricIds.has(m.metricId))
+      .flatMap((m) => m.metricState);
+    return buildAggregatedFactTableStatus({
+      idType,
+      doc,
+      factTableSettingsHash,
+      metricState,
+      hasActiveMetrics,
+    });
+  });
+
+  const nextScheduledUpdate = factTable.aggregatedFactTableSettings
+    ? getNextUpdateOccurrence(factTable.aggregatedFactTableSettings.updateTime)
+    : null;
+
+  return { aggregatedFactTables, nextScheduledUpdate };
 }
 
 export function deriveAggregatedFactTableRunStatus(
@@ -402,7 +490,7 @@ export async function runAggregatedFactTableUpdate(
   // Read eligibility inputs org-wide so a manual/REST-triggered run (which uses
   // the caller's context) decides eligibility and builds the materialized table
   // from the same metric set as the nightly admin job.
-  const { factMetrics, activeMetricIds } =
+  const { factMetrics, activeFactMetricIds } =
     await getAggregatedFactTableEligibilityInputs(context);
 
   // Refresh only while a running experiment references the table. When nothing
@@ -411,7 +499,7 @@ export async function runAggregatedFactTableUpdate(
   const activeMetrics = getActiveAggregatedFactTableMetrics({
     factMetrics,
     factTable,
-    activeMetricIds,
+    activeFactMetricIds,
   });
   if (!activeMetrics.length) {
     logger.debug(
@@ -446,8 +534,8 @@ export async function runAggregatedFactTableUpdate(
   const keptMetrics = getAggregatedFactTableMetrics({
     factMetrics,
     factTable,
-    activeMetricIds,
-    materializedMetricIds: getMaterializedMetricIds(registry),
+    activeFactMetricIds,
+    materializedFactMetricIds: getMaterializedFactMetricIds(registry),
   });
 
   // Decide the mode against the kept set so a newly added active metric forces a

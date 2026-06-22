@@ -25,7 +25,7 @@ jest.mock("shared/util", () => ({
 jest.mock("back-end/src/services/datasource");
 jest.mock("back-end/src/jobs/refreshFactTableColumns");
 jest.mock("back-end/src/services/organizations", () => ({
-  getContextForAgendaJobByOrgObject: jest.fn(),
+  getContextForOrgAdminByOrgObject: jest.fn(),
 }));
 
 const mockedGetDataSourceById =
@@ -47,9 +47,9 @@ const mockedUpdateFactTable =
   FactTableModel.updateFactTable as jest.MockedFunction<
     typeof FactTableModel.updateFactTable
   >;
-const mockedGetContextForAgendaJobByOrgObject =
-  Organizations.getContextForAgendaJobByOrgObject as jest.MockedFunction<
-    typeof Organizations.getContextForAgendaJobByOrgObject
+const mockedGetContextForOrgAdminByOrgObject =
+  Organizations.getContextForOrgAdminByOrgObject as jest.MockedFunction<
+    typeof Organizations.getContextForOrgAdminByOrgObject
   >;
 // Sentinel returned by the mocked background-job context factory. The event
 // forwarder sync passes this to updateFactTable so it can bypass the
@@ -319,7 +319,7 @@ describe("syncEventForwarderEventsFactTableMetadataAfterAttributeSchemaChange", 
     jest.clearAllMocks();
     mockedGetBigQueryTablePrefix.mockReturnValue("gb");
     mockedGetSnowflakeTablePrefix.mockReturnValue("GB");
-    mockedGetContextForAgendaJobByOrgObject.mockReturnValue(agendaContext);
+    mockedGetContextForOrgAdminByOrgObject.mockReturnValue(agendaContext);
   });
 
   it("updates managed fact table attribute jsonFields and queues delayed refresh", async () => {
@@ -377,7 +377,7 @@ describe("syncEventForwarderEventsFactTableMetadataAfterAttributeSchemaChange", 
       ],
     );
 
-    expect(mockedGetContextForAgendaJobByOrgObject).toHaveBeenCalledWith(
+    expect(mockedGetContextForOrgAdminByOrgObject).toHaveBeenCalledWith(
       ctx.org,
     );
     expect(mockedUpdateFactTable).toHaveBeenCalledWith(agendaContext, ft, {

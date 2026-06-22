@@ -15,8 +15,8 @@ import {
   CancellableFetchReturn,
 } from "back-end/src/util/http.util";
 import {
-  getContextForAgendaJobByOrgId,
-  getContextForAgendaJobByOrgObject,
+  getContextForOrgAdminByOrgId,
+  getContextForOrgAdminByOrgObject,
 } from "back-end/src/services/organizations";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
@@ -63,7 +63,7 @@ const fireWebhooks = async (job: SDKWebhookJob) => {
     return;
   }
 
-  const context = await getContextForAgendaJobByOrgId(webhook.organization);
+  const context = await getContextForOrgAdminByOrgId(webhook.organization);
   await fireSdkWebhook(context, webhook);
 };
 
@@ -309,7 +309,7 @@ export async function fireSdkWebhook(
   context: ReqContext,
   webhook: WebhookInterface,
 ) {
-  const webhookContext = getContextForAgendaJobByOrgObject(context.org);
+  const webhookContext = getContextForOrgAdminByOrgObject(context.org);
 
   const sendPayload =
     webhook.httpMethod !== "GET" &&

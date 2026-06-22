@@ -10,13 +10,13 @@ import {
 import { ApiReqContext } from "back-end/types/api";
 import { getAllFeatures } from "back-end/src/models/FeatureModel";
 import { queueSDKPayloadRefresh } from "./features";
-import { getContextForAgendaJobByOrgObject } from "./organizations";
+import { getContextForOrgAdminByOrgObject } from "./organizations";
 
 export async function savedGroupUpdated(
   baseContext: ReqContext | ApiReqContext,
 ) {
   // This is a background job, so create a new context with full read permissions
-  const context = getContextForAgendaJobByOrgObject(baseContext.org);
+  const context = getContextForOrgAdminByOrgObject(baseContext.org);
 
   // Saved groups can be nested recursively and may be referenced cross-project
   // To be safe, refresh all cache entries across all environments/projects

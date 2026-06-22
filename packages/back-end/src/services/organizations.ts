@@ -1359,7 +1359,7 @@ export async function expandOrgMembers(
   return expandedMembers;
 }
 
-export function getContextForAgendaJobByOrgObject(
+export function getContextForOrgAdminByOrgObject(
   organization: OrganizationInterface,
 ): ApiReqContext {
   return new ReqContextClass({
@@ -1370,7 +1370,7 @@ export function getContextForAgendaJobByOrgObject(
   });
 }
 
-export async function getContextForAgendaJobByOrgId(
+export async function getContextForOrgAdminByOrgId(
   orgId: string,
 ): Promise<ApiReqContext> {
   const organization = await findOrganizationById(orgId);
@@ -1381,7 +1381,7 @@ export async function getContextForAgendaJobByOrgId(
     await licenseInit(organization, getUserCodesForOrg, getLicenseMetaData);
   }
 
-  return getContextForAgendaJobByOrgObject(organization);
+  return getContextForOrgAdminByOrgObject(organization);
 }
 
 export async function getContextForUserIdInOrg(

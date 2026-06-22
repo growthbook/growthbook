@@ -45,22 +45,16 @@ import {
 import {
   deriveUserIdTypesFromColumns,
   validateAggregatedFactTableSettings,
-  getNextUpdateOccurrence,
 } from "back-end/src/util/factTable";
 import { logger } from "back-end/src/util/logger";
 import { needsColumnRefresh } from "back-end/src/api/fact-tables/updateFactTable";
 import {
   AggregatedFactTableStatus,
-  buildAggregatedFactTableStatus,
   deriveAggregatedFactTableRunStatus,
-  getActiveAggregatedFactTableMetrics,
-  getAggregatedFactTableEligibilityInputs,
-  getAggregatedFactTableMetrics,
-  getMaterializedMetricIds,
+  getAggregatedFactTableStatuses,
   runAggregatedFactTableUpdate,
   toAggregatedTableRefreshTriggerResult,
 } from "back-end/src/services/aggregatedFactTables";
-import { buildAggregatedFactTableSchemaState } from "back-end/src/enterprise/services/data-pipeline";
 import { AggregatedFactTableQueryRunner } from "back-end/src/queryRunners/AggregatedFactTableQueryRunner";
 
 export const getFactTables = async (
@@ -483,53 +477,8 @@ export const getAggregatedFactTables = async (
 ) => {
   const context = getContextFromReq(req);
 
-  const factTable = await getFactTable(context, req.params.id);
-  if (!factTable) {
-    throw new Error("Could not find fact table with that id");
-  }
-
-  const idTypes = factTable.aggregatedFactTableSettings?.idTypes ?? [];
-  const registryDocs =
-    await context.models.aggregatedFactTables.getByFactTableId(factTable.id);
-  const byIdType = new Map(registryDocs.map((doc) => [doc.idType, doc]));
-
-  // Build the same schema state the nightly driver would, so the UI can warn
-  // when the next run will be forced to restate.
-  const { factMetrics, activeMetricIds } =
-    await getAggregatedFactTableEligibilityInputs(context);
-
-  // Allows us to say "no pending restate" when no running experiment references the table
-  const hasActiveMetrics =
-    getActiveAggregatedFactTableMetrics({
-      factMetrics,
-      factTable,
-      activeMetricIds,
-    }).length > 0;
-
-  const aggregatedFactTables: AggregatedFactTableStatus[] = idTypes.map(
-    (idType) => {
-      const doc = byIdType.get(idType);
-      const metrics = getAggregatedFactTableMetrics({
-        factMetrics,
-        factTable,
-        activeMetricIds,
-        materializedMetricIds: getMaterializedMetricIds(doc),
-      });
-      const { factTableSettingsHash, metricState } =
-        buildAggregatedFactTableSchemaState({ factTable, metrics });
-      return buildAggregatedFactTableStatus({
-        idType,
-        doc,
-        factTableSettingsHash,
-        metricState,
-        hasActiveMetrics,
-      });
-    },
-  );
-
-  const nextScheduledUpdate = factTable.aggregatedFactTableSettings
-    ? getNextUpdateOccurrence(factTable.aggregatedFactTableSettings.updateTime)
-    : null;
+  const { aggregatedFactTables, nextScheduledUpdate } =
+    await getAggregatedFactTableStatuses(context, req.params.id);
 
   res.status(200).json({
     status: 200,

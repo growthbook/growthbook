@@ -10,7 +10,7 @@ import { dangerousLookupOrganizationByApiKey } from "back-end/src/util/api-key.u
 import { APP_ORIGIN } from "back-end/src/util/secrets";
 import { ErrorResponse, ExperimentOverridesResponse } from "back-end/types/api";
 import {
-  getContextForAgendaJobByOrgId,
+  getContextForOrgAdminByOrgId,
   getExperimentOverrides,
 } from "back-end/src/services/organizations";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
@@ -50,7 +50,7 @@ export async function getExperimentConfig(
       });
     }
 
-    const context = await getContextForAgendaJobByOrgId(organization);
+    const context = await getContextForOrgAdminByOrgId(organization);
 
     const { overrides, expIdMapping } = await getExperimentOverrides(context);
 
@@ -119,7 +119,7 @@ export async function getExperimentsScript(
       });
     }
 
-    const context = await getContextForAgendaJobByOrgId(organization);
+    const context = await getContextForOrgAdminByOrgId(organization);
     const experiments = await getAllExperiments(context);
 
     const experimentData: ExperimentData[] = [];

@@ -24,7 +24,7 @@ import {
   setIdTokenCookie,
 } from "back-end/src/util/cookie";
 import {
-  getContextForAgendaJobByOrgObject,
+  getContextForOrgAdminByOrgObject,
   getContextFromReq,
 } from "back-end/src/services/organizations";
 import { updatePassword, verifyPassword } from "back-end/src/services/users";
@@ -322,7 +322,7 @@ export async function postFirstTimeRegister(
     name: companyname,
   });
 
-  const context = getContextForAgendaJobByOrgObject(org);
+  const context = getContextForOrgAdminByOrgObject(org);
 
   const project = await context.models.projects.create({
     name: "My First Project",
