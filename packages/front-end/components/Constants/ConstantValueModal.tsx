@@ -3,14 +3,19 @@ import { useForm } from "react-hook-form";
 import { ConstantInterface, ConstantWithoutValue } from "shared/types/constant";
 import { Revision } from "shared/enterprise";
 import { filterProjectsByEnvironment } from "shared/util";
-import { validateConstantValue } from "shared/validators";
+import {
+  validateConstantValue,
+  getConstantReferenceKeys,
+} from "shared/validators";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { PiCaretDownFill, PiPlus, PiTrash } from "react-icons/pi";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import Text from "@/ui/Text";
+import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useEnvironments } from "@/services/features";
@@ -78,6 +83,31 @@ export default function ConstantValueModal({
   }, [full]);
 
   const envValues = form.watch("environmentValues") || {};
+
+  // Constants that already reference this one (any environment) — referencing
+  // them here would close a cycle, so they (and this constant itself) are
+  // scrubbed from the picker. The server computes the conservative union graph.
+  const { data: cyclicData } = useApi<{ cyclicKeys: string[] }>(
+    `/constants/${existing.id}/cyclic-keys`,
+  );
+  const cyclicKeys = cyclicData?.cyclicKeys;
+  const constantContext = useMemo(
+    () => ({
+      project: full.project,
+      excludeKeys: [...(cyclicKeys ?? []), existing.key],
+    }),
+    [full.project, cyclicKeys, existing.key],
+  );
+
+  // Surface a cycle if the current value (or any override) references a key that
+  // leads back to this constant.
+  const cyclicRefs = useMemo(() => {
+    const unsafe = new Set([...(cyclicKeys ?? []), existing.key]);
+    return getConstantReferenceKeys(form.watch("value"), envValues).filter(
+      (k) => unsafe.has(k),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.watch("value"), envValues, cyclicKeys, existing.key]);
 
   // Show override rows only for allowed envs (in env order); offer the rest in
   // the "add" dropdown.
@@ -165,7 +195,7 @@ export default function ConstantValueModal({
         approvalRequired={draft.selectorApprovalRequired}
       />
 
-      <Box mb="3">
+      <Box mb="4">
         <FeatureValueField
           label="Value"
           id="constant-value"
@@ -174,9 +204,18 @@ export default function ConstantValueModal({
           valueType={type}
           useCodeInput={type === "json"}
           showFullscreenButton={type === "json"}
-          helpText="Empty is permitted."
+          constantContext={constantContext}
         />
       </Box>
+
+      {cyclicRefs.length > 0 && (
+        <Callout status="warning" size="sm" mb="3">
+          {cyclicRefs.map((k) => `@const:${k}`).join(", ")}{" "}
+          {cyclicRefs.length === 1 ? "references" : "reference"} this constant,
+          creating a cycle. Cyclic references are left unresolved (rendered
+          as-is) when the SDK payload is built.
+        </Callout>
+      )}
 
       {allowedEnvironments.length > 0 && (
         <Box mb="3">
@@ -233,6 +272,7 @@ export default function ConstantValueModal({
                   valueType={type}
                   useCodeInput={type === "json"}
                   showFullscreenButton={type === "json"}
+                  constantContext={constantContext}
                 />
               </Box>
             ))

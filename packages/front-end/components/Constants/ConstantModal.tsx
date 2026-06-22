@@ -255,7 +255,7 @@ export default function ConstantModal({
       )}
 
       {!editing && (
-        <Box mb="3">
+        <Box mb="4">
           <FeatureValueField
             label="Value"
             id="constant-value"
@@ -264,7 +264,12 @@ export default function ConstantModal({
             valueType={type}
             useCodeInput={type === "json"}
             showFullscreenButton={type === "json"}
-            helpText="Empty is permitted."
+            // A new constant can't be referenced yet (no cycles possible); just
+            // scrub a self-reference to the key being created.
+            constantContext={{
+              project: form.watch("project") || undefined,
+              excludeKeys: [form.watch("key")],
+            }}
           />
         </Box>
       )}

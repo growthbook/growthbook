@@ -8,6 +8,59 @@ import {
 
 export const constantTypeValidator = z.enum(["string", "json"]);
 
+const CONST_REF_RE = /@const:([a-z0-9][a-z0-9_-]*)/g;
+
+// Extract the unique `@const:` keys referenced by a constant's value and every
+// environment override (the conservative union across environments). Used to
+// build the cross-constant reference graph for cycle detection.
+export function getConstantReferenceKeys(
+  value: string | undefined,
+  environmentValues: Record<string, string> | undefined,
+): string[] {
+  const keys = new Set<string>();
+  const scan = (s: string | undefined) => {
+    if (!s) return;
+    const re = new RegExp(CONST_REF_RE.source, "g");
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(s)) !== null) keys.add(m[1]);
+  };
+  scan(value);
+  for (const v of Object.values(environmentValues ?? {})) scan(v);
+  return [...keys];
+}
+
+// Given the reference graph (constant key → keys it references), return every
+// key that transitively references `targetKey`. Referencing any of these from
+// `targetKey` would close a cycle, so they (plus `targetKey` itself) are unsafe
+// to reference. Reverse-reachability BFS; cycles in the existing graph are
+// handled by the visited set.
+export function getReferencingConstantKeys(
+  targetKey: string,
+  referencesByKey: Map<string, string[]>,
+): Set<string> {
+  const dependents = new Map<string, string[]>();
+  for (const [from, tos] of referencesByKey) {
+    for (const to of tos) {
+      const list = dependents.get(to);
+      if (list) list.push(from);
+      else dependents.set(to, [from]);
+    }
+  }
+
+  const result = new Set<string>();
+  const queue = [targetKey];
+  while (queue.length) {
+    const current = queue.shift() as string;
+    for (const dep of dependents.get(current) ?? []) {
+      if (!result.has(dep)) {
+        result.add(dep);
+        queue.push(dep);
+      }
+    }
+  }
+  return result;
+}
+
 // Validates a constant value string before saving. JSON constants must contain
 // parseable JSON; an empty string is always permitted (an intentional "no
 // value"). Throws a friendly error on invalid JSON, otherwise returns nothing.

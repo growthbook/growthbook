@@ -22,6 +22,12 @@ router.get(
   constantController.getConstantById,
 );
 
+router.get(
+  "/:id/cyclic-keys",
+  validateRequestMiddleware({ params: idParams }),
+  constantController.getConstantCyclicKeys,
+);
+
 router.post(
   "/",
   validateRequestMiddleware({ body: postConstantBodyValidator }),

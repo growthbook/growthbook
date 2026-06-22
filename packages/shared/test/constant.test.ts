@@ -1,4 +1,8 @@
-import { validateConstantValue } from "../src/validators/constant";
+import {
+  validateConstantValue,
+  getConstantReferenceKeys,
+  getReferencingConstantKeys,
+} from "../src/validators/constant";
 import { constantRequiresReview } from "../src/util/features";
 import { getConstantRevisionChange } from "../src/revisions/helpers";
 
@@ -162,5 +166,55 @@ describe("constantRequiresReview", () => {
     expect(
       constantRequiresReview({ project: "prj_b" }, valueChange, settings),
     ).toBe(false);
+  });
+});
+
+describe("getConstantReferenceKeys", () => {
+  it("collects @const refs from the value and all env overrides (union)", () => {
+    expect(
+      getConstantReferenceKeys("hi {{ @const:a }} {{ @const:b }}", {
+        dev: '{ "@const:c": true }',
+        prod: "{{ @const:a }}",
+      }).sort(),
+    ).toEqual(["a", "b", "c"]);
+  });
+
+  it("returns [] when there are no references", () => {
+    expect(getConstantReferenceKeys("plain", { dev: "x" })).toEqual([]);
+    expect(getConstantReferenceKeys(undefined, undefined)).toEqual([]);
+  });
+});
+
+describe("getReferencingConstantKeys", () => {
+  // a -> b -> c (a references b, b references c)
+  const graph = new Map([
+    ["a", ["b"]],
+    ["b", ["c"]],
+    ["c", []],
+    ["d", ["a"]],
+  ]);
+
+  it("returns all keys that transitively reference the target", () => {
+    // who reaches c? b (direct), a (via b), d (via a->b->c)
+    expect([...getReferencingConstantKeys("c", graph)].sort()).toEqual([
+      "a",
+      "b",
+      "d",
+    ]);
+    // who reaches a? d
+    expect([...getReferencingConstantKeys("a", graph)]).toEqual(["d"]);
+    // nothing references d
+    expect([...getReferencingConstantKeys("d", graph)]).toEqual([]);
+  });
+
+  it("terminates on an existing cycle", () => {
+    const cyclic = new Map([
+      ["x", ["y"]],
+      ["y", ["x"]],
+    ]);
+    expect([...getReferencingConstantKeys("x", cyclic)].sort()).toEqual([
+      "x",
+      "y",
+    ]);
   });
 });

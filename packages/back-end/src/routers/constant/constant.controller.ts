@@ -5,6 +5,8 @@ import {
   postConstantBodyValidator,
   putConstantBodyValidator,
   validateConstantValue,
+  getConstantReferenceKeys,
+  getReferencingConstantKeys,
 } from "shared/validators";
 import { ConstantInterface, ConstantWithoutValue } from "shared/types/constant";
 import {
@@ -56,6 +58,33 @@ export const getConstantById = async (
     return context.throwNotFoundError("Constant not found");
   }
   return res.status(200).json({ status: 200, constant });
+};
+
+// GET /constants/:id/cyclic-keys — keys of constants that already (transitively)
+// reference this one. Referencing any of them from this constant would close a
+// cycle, so the editor scrubs them (plus this constant itself) from the picker.
+// Conservative: the reference graph unions each constant's value + all env
+// overrides across environments.
+export const getConstantCyclicKeys = async (
+  req: AuthRequest<null, { id: string }>,
+  res: Response<{ status: 200; cyclicKeys: string[] }>,
+) => {
+  const context = getContextFromReq(req);
+  const constant = await context.models.constants.getById(req.params.id);
+  if (!constant) {
+    return context.throwNotFoundError("Constant not found");
+  }
+  const all = await context.models.constants.getAll();
+  const referencesByKey = new Map(
+    all.map((c) => [
+      c.key,
+      getConstantReferenceKeys(c.value, c.environmentValues),
+    ]),
+  );
+  const cyclicKeys = [
+    ...getReferencingConstantKeys(constant.key, referencesByKey),
+  ];
+  return res.status(200).json({ status: 200, cyclicKeys });
 };
 
 export const postConstant = async (

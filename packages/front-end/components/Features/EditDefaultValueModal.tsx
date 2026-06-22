@@ -92,7 +92,7 @@ export default function EditDefaultValueModal({
       })}
       close={close}
       open={true}
-      size={feature.valueType === "json" ? "lg" : "md"}
+      size="lg"
     >
       <DraftSelectorForChanges
         feature={feature}
@@ -104,7 +104,7 @@ export default function EditDefaultValueModal({
         canAutoPublish={false}
         gatedEnvSet={gatedEnvSet}
       />
-      <Box>
+      <Box mb="4">
         <FeatureValueField
           label="Value When Enabled"
           id="defaultValue"

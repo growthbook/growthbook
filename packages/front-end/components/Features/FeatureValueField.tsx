@@ -4,7 +4,16 @@ import {
   SchemaField,
   SimpleSchema,
 } from "shared/types/feature";
-import { ReactElement, ReactNode, useEffect, useId, useState } from "react";
+import {
+  ReactElement,
+  ReactNode,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+} from "react";
+import type { Ace } from "ace-builds";
+import { ConstantWithoutValue } from "shared/types/constant";
 import {
   getValidation,
   parsePlainJSONObject,
@@ -15,7 +24,7 @@ import { FaMagic, FaRegTrashAlt } from "react-icons/fa";
 import stringify from "json-stringify-pretty-compact";
 import { BsBoxArrowUpRight } from "react-icons/bs";
 import clsx from "clsx";
-import { Flex, IconButton } from "@radix-ui/themes";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { PiCheck, PiCopy, PiBracketsCurly } from "react-icons/pi";
 import { formatJSON, LARGE_FILE_SIZE } from "@/services/features";
 import Field from "@/components/Forms/Field";
@@ -31,6 +40,13 @@ import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import Text from "@/ui/Text";
 import SparsePatchToggle from "@/components/Features/SparsePatchToggle";
 import SparseTabbedEditor from "@/components/Features/SparseTabbedEditor";
+import InsertConstantButton, {
+  UsedConstantTags,
+} from "@/components/Constants/InsertConstantButton";
+import {
+  buildJsonConstantInsertion,
+  buildStringRefInsertion,
+} from "@/components/Constants/jsonConstantInsert";
 
 export interface Props {
   valueType?: FeatureValueType;
@@ -42,6 +58,12 @@ export interface Props {
   type?: string;
   placeholder?: string;
   feature?: FeatureInterface;
+  // Used to scope the "Insert constant" picker. Defaults to the feature's project.
+  project?: string;
+  // Enables the constant picker when editing a constant's own value (rather than
+  // a feature value). `excludeKeys` scrubs the constant itself + cycle-creating
+  // options.
+  constantContext?: { project?: string; excludeKeys?: string[] };
   renderJSONInline?: boolean;
   disabled?: boolean;
   useDropdown?: boolean;
@@ -66,6 +88,8 @@ export default function FeatureValueField({
   helpText,
   placeholder,
   feature,
+  project,
+  constantContext,
   renderJSONInline,
   disabled = false,
   useDropdown = false,
@@ -86,6 +110,74 @@ export default function FeatureValueField({
   const { performCopy, copySuccess } = useCopyToClipboard({
     timeout: 800,
   });
+
+  // Constant-picker wiring. Only offered in a feature context (where `@const:`
+  // references get resolved at payload build time) — not for standalone
+  // experiment values. `pickerProject` scopes which constants are offered.
+  const showConstantPicker = !!feature || !!constantContext;
+  const pickerProject = constantContext?.project ?? project ?? feature?.project;
+  const pickerExcludeKeys = constantContext?.excludeKeys;
+  // Tags for the valid constants referenced in the current value, shown below
+  // the editor's CTA row.
+  const usedConstantTags =
+    showConstantPicker && (valueType === "string" || valueType === "json") ? (
+      <UsedConstantTags
+        value={value}
+        valueType={valueType}
+        project={pickerProject}
+      />
+    ) : null;
+  const jsonEditorRef = useRef<Ace.Editor | null>(null);
+  const stringInputRef = useRef<HTMLTextAreaElement | null>(null);
+
+  // Insert `{{ @const:key }}` at the cursor of the plain string field. Uses
+  // execCommand so the edit lands in the textarea's native undo/redo history
+  // (and its input event drives the controlled onChange); falls back to a direct
+  // splice if execCommand is unavailable.
+  const insertStringConstant = (constant: ConstantWithoutValue): boolean => {
+    const ref = `{{ @const:${constant.key} }}`;
+    const el = stringInputRef.current;
+    if (!el) {
+      setValue(value + ref);
+      return true;
+    }
+    const start = el.selectionStart ?? value.length;
+    const end = el.selectionEnd ?? start;
+    el.focus();
+    el.setSelectionRange(start, end);
+    if (!document.execCommand("insertText", false, ref)) {
+      setValue(value.slice(0, start) + ref + value.slice(end));
+      requestAnimationFrame(() => {
+        el.focus();
+        const pos = start + ref.length;
+        el.setSelectionRange(pos, pos);
+      });
+    }
+    return true;
+  };
+
+  // Cursor-aware insertion into the JSON code editor: a JSON constant becomes a
+  // new object entry; a string constant is interpolated into the current string
+  // literal. Clicks in an invalid context are ignored.
+  const insertJsonConstant = (constant: ConstantWithoutValue): boolean => {
+    const editor = jsonEditorRef.current;
+    if (!editor) return false;
+    const text = editor.getValue();
+    const offset = editor.session.doc.positionToIndex(
+      editor.getCursorPosition(),
+    );
+    const insertion =
+      constant.type === "json"
+        ? buildJsonConstantInsertion(text, offset, constant.key)
+        : buildStringRefInsertion(text, offset, constant.key);
+    if (!insertion) return false;
+    editor.session.insert(
+      editor.session.doc.indexToPosition(insertion.index, 0),
+      insertion.text,
+    );
+    editor.focus();
+    return true;
+  };
 
   const defaultCodeEditorToggledOn = value.length <= LARGE_FILE_SIZE;
   const [codeEditorToggledOn, setCodeEditorToggledOn] = useState(
@@ -171,13 +263,27 @@ export default function FeatureValueField({
     const showSparseToggle = !!setSparse && defaultIsObject;
     const isSparse = defaultIsObject && !!sparse;
 
+    // Cursor-aware insertion needs the Ace editor, so the picker only shows on
+    // the (non-sparse) code-editor path. It sits right-aligned on the label row.
+    const insertConstantButton =
+      showConstantPicker && useCodeInput && codeEditorToggledOn && !isSparse ? (
+        <InsertConstantButton
+          valueType="json"
+          project={pickerProject}
+          excludeKeys={pickerExcludeKeys}
+          onInsert={insertJsonConstant}
+          disabled={disabled}
+        />
+      ) : null;
+
     const sparseHeader = showSparseToggle ? (
-      <Flex align="center" gap="3" mb="1">
+      <Flex align="center" gap="3" mb="1" width="100%">
         {label !== undefined && (
           <Text as="label" weight="semibold" mb="0">
             {label}
           </Text>
         )}
+        {insertConstantButton && <Box ml="auto">{insertConstantButton}</Box>}
         <SparsePatchToggle
           checked={!!sparse}
           onChange={(checked) => {
@@ -217,8 +323,25 @@ export default function FeatureValueField({
       );
     }
 
-    // When the toggle owns the label row, hide the editor's own label.
-    const editorLabel = showSparseToggle ? undefined : label;
+    // When the picker shows (or the sparse toggle owns the row), render the
+    // label row ourselves so the picker sits beside the label text rather than
+    // nested inside the editor's <label> element. Otherwise let the editor
+    // render its own label.
+    const editorLabel =
+      showSparseToggle || insertConstantButton ? undefined : label;
+    const jsonLabelRow =
+      !showSparseToggle && insertConstantButton ? (
+        <Flex align="center" justify="between" gap="3" width="100%" mb="1">
+          {label !== undefined ? (
+            <Text as="label" weight="semibold" mb="0">
+              {label}
+            </Text>
+          ) : (
+            <Box />
+          )}
+          {insertConstantButton}
+        </Flex>
+      ) : null;
     const formatted = formatJSON(value);
 
     const codeEditorToggleButton = useCodeInput ? (
@@ -255,18 +378,16 @@ export default function FeatureValueField({
       </a>
     );
 
-    const combinedHelpText = helpText ? (
-      <Flex align="center" gap="3" style={{ width: "100%" }}>
-        <div style={{ flex: 1 }}>{helpText}</div>
-        <Flex gap="3">
+    const combinedHelpText = (
+      <Flex align="start" gap="3" width="100%">
+        <Box flexGrow="1" style={{ minWidth: 0 }}>
+          {helpText}
+          {usedConstantTags}
+        </Box>
+        <Flex gap="3" flexShrink="0">
           {codeEditorToggleButton}
           {formatJSONButton}
         </Flex>
-      </Flex>
-    ) : (
-      <Flex justify="end" gap="3">
-        {codeEditorToggleButton}
-        {formatJSONButton}
       </Flex>
     );
 
@@ -274,6 +395,7 @@ export default function FeatureValueField({
       return (
         <>
           {sparseHeader}
+          {jsonLabelRow}
           <CodeTextArea
             label={editorLabel}
             language="json"
@@ -286,6 +408,7 @@ export default function FeatureValueField({
             defaultHeight={codeInputDefaultHeight}
             showCopyButton={true}
             showFullscreenButton={showFullscreenButton}
+            onEditorLoad={(e) => (jsonEditorRef.current = e)}
           />
         </>
       );
@@ -364,51 +487,75 @@ export default function FeatureValueField({
 
   const combinedHelpTextForString =
     valueType === "string" ? (
-      hideCopyButton ? (
-        (helpText ?? null)
-      ) : helpText ? (
-        <Flex align="center" gap="3" style={{ width: "100%" }}>
-          <div style={{ flex: 1 }}>{helpText}</div>
-          {copyButton}
-        </Flex>
-      ) : (
-        <Flex justify="end">{copyButton}</Flex>
-      )
+      <Flex align="start" gap="3" width="100%">
+        <Box flexGrow="1" style={{ minWidth: 0 }}>
+          {helpText}
+          {usedConstantTags}
+        </Box>
+        {!hideCopyButton && <Box flexShrink="0">{copyButton}</Box>}
+      </Flex>
     ) : (
       helpText
     );
 
+  // The string constant picker rides right-aligned on its own label row above
+  // the field (only in a feature context) — rendered beside the label text, not
+  // nested inside the field's <label> element.
+  const showStringPicker = valueType === "string" && showConstantPicker;
+  const stringLabelRow = showStringPicker ? (
+    <Flex align="center" justify="between" gap="3" width="100%" mb="1">
+      {label !== undefined ? (
+        <Text as="label" weight="semibold" mb="0">
+          {label}
+        </Text>
+      ) : (
+        <Box />
+      )}
+      <InsertConstantButton
+        valueType="string"
+        project={pickerProject}
+        excludeKeys={pickerExcludeKeys}
+        onInsert={insertStringConstant}
+        disabled={disabled}
+      />
+    </Flex>
+  ) : null;
+
   return (
-    <Field
-      label={label}
-      value={value}
-      placeholder={placeholder}
-      onChange={(e) => {
-        setValue(e.target.value);
-      }}
-      {...(valueType === "number"
-        ? {
-            type: "number",
-            step: "any",
-            min: "any",
-            max: "any",
-          }
-        : valueType === "string"
+    <>
+      {stringLabelRow}
+      <Field
+        ref={stringInputRef}
+        label={stringLabelRow ? undefined : label}
+        value={value}
+        placeholder={placeholder}
+        onChange={(e) => {
+          setValue(e.target.value);
+        }}
+        {...(valueType === "number"
           ? {
-              textarea: true,
-              minRows: 1,
+              type: "number",
+              step: "any",
+              min: "any",
+              max: "any",
             }
-          : {})}
-      helpText={combinedHelpTextForString}
-      style={
-        valueType === undefined
-          ? { width: 80 }
-          : valueType === "number"
-            ? { width: 120 }
-            : undefined
-      }
-      disabled={disabled}
-    />
+          : valueType === "string"
+            ? {
+                textarea: true,
+                minRows: 1,
+              }
+            : {})}
+        helpText={combinedHelpTextForString}
+        style={
+          valueType === undefined
+            ? { width: 80 }
+            : valueType === "number"
+              ? { width: 120 }
+              : undefined
+        }
+        disabled={disabled}
+      />
+    </>
   );
 }
 
