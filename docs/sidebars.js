@@ -329,6 +329,7 @@ export default {
         {
           type: "category",
           label: "Visual Editor",
+          className: "beta",
           link: {
             type: "doc",
             id: "visual-editor",
@@ -357,7 +358,7 @@ export default {
             {
               type: "doc",
               id: "visual-editor/design-import",
-              label: "Figma & image import (beta)",
+              label: "Figma & image import",
             },
             {
               type: "doc",
