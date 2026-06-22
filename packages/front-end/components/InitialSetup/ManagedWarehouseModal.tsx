@@ -54,7 +54,10 @@ export default function ManagedWarehouseModal({
       return;
     }
 
-    const resources = getInitialDatasourceResources({ datasource: ds });
+    const resources = getInitialDatasourceResources({
+      datasource: ds,
+      attributeSchema: settings.attributeSchema,
+    });
     if (!resources.factTables.length) {
       setCreatingResources(false);
       return;

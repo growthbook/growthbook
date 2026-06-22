@@ -11,6 +11,10 @@ import { postCreateChangeset } from "./postCreateChangeset";
 import { postRenameExperiment } from "./postRenameExperiment";
 import { getBootstrap } from "./getBootstrap";
 import { getLibraryImages } from "./getLibraryImages";
+import { postFigmaToVariant } from "./postFigmaToVariant";
+import { postFigmaOAuthExchange } from "./postFigmaOAuthExchange";
+import { getFigmaStatus } from "./getFigmaStatus";
+import { postFigmaDisconnect } from "./postFigmaDisconnect";
 
 export const visualEditorAiRoutes: OpenApiRoute[] = [
   postAIEdit,
@@ -25,4 +29,8 @@ export const visualEditorAiRoutes: OpenApiRoute[] = [
   postRenameExperiment,
   getBootstrap,
   getLibraryImages,
+  postFigmaToVariant,
+  postFigmaOAuthExchange,
+  getFigmaStatus,
+  postFigmaDisconnect,
 ];
