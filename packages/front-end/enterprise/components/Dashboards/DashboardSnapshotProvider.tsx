@@ -744,13 +744,26 @@ export function useDashboardMetricAnalysis(
     mutateAnalysesMap,
   ]);
 
+  // Clear a prior comparison failure when the inputs change, so the next attempt
+  // (user edits settings, re-enables compare, or hits Refresh) can run again.
+  useEffect(() => {
+    setComparisonPostError(undefined);
+  }, [compareEnabled, previousAnalysisSettings]);
+
   // Kick off (or refresh) the previous-period analysis whenever compare is on and
   // the cached comparison doesn't match the derived previous window.
   useEffect(() => {
     if (!metricExplorerBlock || !compareEnabled || !previousAnalysisSettings)
       return;
+    // Bail while a request is in flight, the analysis is still running, or the
+    // last attempt errored. Without the error guard a persistent failure
+    // (warehouse down, bad metric) would re-fire one POST per render forever,
+    // since comparisonPostLoading flipping back to false re-triggers this effect
+    // and the isEqual short-circuit is never reached. The error is cleared above
+    // when the inputs change, which is the retry path.
     if (
       comparisonPostLoading ||
+      comparisonPostError ||
       ["queued", "running"].includes(comparisonMetricAnalysis?.status ?? "")
     )
       return;
@@ -786,6 +799,7 @@ export function useDashboardMetricAnalysis(
     previousAnalysisSettings,
     comparisonMetricAnalysis,
     comparisonPostLoading,
+    comparisonPostError,
     refreshComparison,
   ]);
 
