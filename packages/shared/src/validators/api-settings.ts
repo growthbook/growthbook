@@ -80,6 +80,7 @@ export const apiSettingsValidator = namedSchema(
       maxConcurrentDrafts: z.coerce.number().optional(),
       featureKeyExample: z.string(),
       featureRegexValidator: z.string(),
+      sparseJSONRulesByDefault: z.boolean().optional(),
       banditScheduleValue: z.coerce.number(),
       banditScheduleUnit: z.enum(["hours", "days"]),
       banditBurnInValue: z.coerce.number(),

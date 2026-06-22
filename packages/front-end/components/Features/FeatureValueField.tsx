@@ -5,7 +5,12 @@ import {
   SimpleSchema,
 } from "shared/types/feature";
 import { ReactElement, ReactNode, useEffect, useId, useState } from "react";
-import { getValidation } from "shared/util";
+import {
+  getValidation,
+  parsePlainJSONObject,
+  stripDefaultsForSparse,
+  expandSparseToFull,
+} from "shared/util";
 import { FaMagic, FaRegTrashAlt } from "react-icons/fa";
 import stringify from "json-stringify-pretty-compact";
 import { BsBoxArrowUpRight } from "react-icons/bs";
@@ -24,6 +29,8 @@ import RadioGroup from "@/ui/RadioGroup";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import Text from "@/ui/Text";
+import SparsePatchToggle from "@/components/Features/SparsePatchToggle";
+import SparseTabbedEditor from "@/components/Features/SparseTabbedEditor";
 
 export interface Props {
   valueType?: FeatureValueType;
@@ -42,6 +49,13 @@ export interface Props {
   showFullscreenButton?: boolean;
   codeInputDefaultHeight?: number;
   hideCopyButton?: boolean;
+  // JSON features only. Whether this rule value is a sparse patch (merged onto
+  // the feature default). When `setSparse` is provided and the feature default
+  // is a plain object, a "Sparse patch" toggle renders on the label row.
+  sparse?: boolean;
+  setSparse?: (sparse: boolean) => void;
+  // Tighter sparse editor layout for embedded contexts (e.g. ramp step editors).
+  condensed?: boolean;
 }
 
 export default function FeatureValueField({
@@ -59,6 +73,9 @@ export default function FeatureValueField({
   showFullscreenButton = false,
   codeInputDefaultHeight,
   hideCopyButton = false,
+  sparse,
+  setSparse,
+  condensed = false,
 }: Props) {
   const { hasCommercialFeature } = useUser();
   const hasJsonValidator = hasCommercialFeature("json-validation");
@@ -146,6 +163,62 @@ export default function FeatureValueField({
   }
 
   if (valueType === "json") {
+    // Sparse patch mode (JSON features whose default is a plain object): the
+    // value is a partial object merged onto the default. We show a toggle on
+    // the label row and, when on, Edit/Preview tabs.
+    const defaultIsObject =
+      parsePlainJSONObject(feature?.defaultValue ?? "") !== null;
+    const showSparseToggle = !!setSparse && defaultIsObject;
+    const isSparse = defaultIsObject && !!sparse;
+
+    const sparseHeader = showSparseToggle ? (
+      <Flex align="center" gap="3" mb="1">
+        {label !== undefined && (
+          <Text as="label" weight="semibold" mb="0">
+            {label}
+          </Text>
+        )}
+        <SparsePatchToggle
+          checked={!!sparse}
+          onChange={(checked) => {
+            // Switching modes rewrites the value so the editor isn't left with a
+            // default-laden patch (on) or a bare patch shown as the full value
+            // (off). See stripDefaultsForSparse / expandSparseToFull.
+            const def = feature?.defaultValue ?? "";
+            setValue(
+              checked
+                ? stripDefaultsForSparse(value, def)
+                : expandSparseToFull(value, def),
+            );
+            setSparse?.(checked);
+          }}
+          disabled={disabled}
+        />
+      </Flex>
+    ) : null;
+
+    if (isSparse) {
+      return (
+        <>
+          {sparseHeader}
+          <SparseTabbedEditor
+            value={value}
+            setValue={setValue}
+            valueType={valueType}
+            defaultValue={feature?.defaultValue}
+            label={label}
+            placeholder={placeholder}
+            disabled={disabled}
+            defaultHeight={codeInputDefaultHeight}
+            showInlineLabel={!showSparseToggle}
+            condensed={condensed}
+          />
+        </>
+      );
+    }
+
+    // When the toggle owns the label row, hide the editor's own label.
+    const editorLabel = showSparseToggle ? undefined : label;
     const formatted = formatJSON(value);
 
     const codeEditorToggleButton = useCodeInput ? (
@@ -199,34 +272,40 @@ export default function FeatureValueField({
 
     if (useCodeInput && codeEditorToggledOn) {
       return (
-        <CodeTextArea
-          label={label}
-          language="json"
+        <>
+          {sparseHeader}
+          <CodeTextArea
+            label={editorLabel}
+            language="json"
+            value={value}
+            setValue={setValue}
+            helpText={combinedHelpText}
+            placeholder={placeholder}
+            disabled={disabled}
+            resizable={true}
+            defaultHeight={codeInputDefaultHeight}
+            showCopyButton={true}
+            showFullscreenButton={showFullscreenButton}
+          />
+        </>
+      );
+    }
+
+    return (
+      <>
+        {sparseHeader}
+        <JSONTextEditor
+          label={editorLabel}
           value={value}
           setValue={setValue}
           helpText={combinedHelpText}
           placeholder={placeholder}
           disabled={disabled}
-          resizable={true}
-          defaultHeight={codeInputDefaultHeight}
           showCopyButton={true}
-          showFullscreenButton={showFullscreenButton}
+          performCopy={performCopy}
+          copySuccess={copySuccess}
         />
-      );
-    }
-
-    return (
-      <JSONTextEditor
-        label={label}
-        value={value}
-        setValue={setValue}
-        helpText={combinedHelpText}
-        placeholder={placeholder}
-        disabled={disabled}
-        showCopyButton={true}
-        performCopy={performCopy}
-        copySuccess={copySuccess}
-      />
+      </>
     );
   }
 

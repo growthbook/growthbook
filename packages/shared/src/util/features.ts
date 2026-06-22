@@ -333,6 +333,92 @@ export function validateFeatureValue(
   return value;
 }
 
+// Parses a string into a plain JSON object. Returns null when it doesn't parse
+// or isn't a plain key/val object (array, null, primitive). The null result is
+// how callers detect a feature whose default value can't support sparse rules.
+export function parsePlainJSONObject(
+  value: string,
+): Record<string, unknown> | null {
+  try {
+    const parsed = JSON.parse(value);
+    if (
+      parsed !== null &&
+      !Array.isArray(parsed) &&
+      typeof parsed === "object"
+    ) {
+      return parsed as Record<string, unknown>;
+    }
+  } catch {
+    // ignore
+  }
+  return null;
+}
+
+// Merges a sparse `json` rule value onto the feature's default object. Only the
+// keys present in the rule value override the default; the rest fall back to
+// the default at evaluation time.
+//
+// The merge is TOP-LEVEL ONLY (a shallow spread) — it is not a deep merge. A key
+// in the rule value replaces the default's value for that key wholesale, so a
+// nested object in the patch overwrites the default's entire object for that key
+// rather than merging into it. E.g. default `{"theme":{"a":1,"b":2}}` patched
+// with `{"theme":{"a":9}}` resolves to `{"theme":{"a":9}}` ("b" is dropped).
+//
+// If either side isn't a plain object the rule value is returned parsed as-is, so
+// a misconfigured sparse flag degrades to normal (full-value) behavior rather
+// than producing surprising output.
+export function resolveSparseJSONValue(
+  ruleValueStr: string,
+  defaultObj: Record<string, unknown> | null,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+): any {
+  const sparse = parsePlainJSONObject(ruleValueStr);
+  if (!defaultObj || sparse === null) {
+    try {
+      return JSON.parse(ruleValueStr);
+    } catch {
+      return null;
+    }
+  }
+  return { ...defaultObj, ...sparse };
+}
+
+// Strips top-level keys from a full JSON value that are deep-equal to the
+// feature default's value for that key, leaving the minimal sparse patch. Used
+// when switching a JSON rule INTO sparse mode so the editor starts from a clean
+// diff (often `{}`) instead of the full, default-laden object the rule was
+// seeded with. Returns the input unchanged when either side isn't a plain
+// object (no meaningful patch can be computed).
+export function stripDefaultsForSparse(
+  valueStr: string,
+  defaultValueStr: string,
+): string {
+  const value = parsePlainJSONObject(valueStr);
+  const defaultObj = parsePlainJSONObject(defaultValueStr);
+  if (!value || !defaultObj) return valueStr;
+  const patch: Record<string, unknown> = {};
+  for (const [key, v] of Object.entries(value)) {
+    if (!(key in defaultObj) || !isEqual(v, defaultObj[key])) {
+      patch[key] = v;
+    }
+  }
+  return stringify(patch);
+}
+
+// Expands a sparse patch back into the full value by merging it onto the feature
+// default (the inverse of stripDefaultsForSparse). Used when switching a JSON
+// rule OUT of sparse mode so the editor shows the whole object again. Returns
+// the input unchanged when either side isn't a plain object.
+export function expandSparseToFull(
+  valueStr: string,
+  defaultValueStr: string,
+): string {
+  const patch = parsePlainJSONObject(valueStr);
+  const defaultObj = parsePlainJSONObject(defaultValueStr);
+  if (!patch || !defaultObj) return valueStr;
+  return stringify({ ...defaultObj, ...patch });
+}
+
 // Validate the values a revert restores against the value type / JSON schema
 // that will be live afterward. Returns one warning per value that no longer
 // parses/validates; callers surface these as a bypassable soft warning.
@@ -1251,6 +1337,105 @@ export function evaluatePublishGovernance({
     canPublish,
     blockReason,
   };
+}
+
+// ── Scheduled / deferred publish ────────────────────────────────────────────
+// A revision is "armed" (autoPublishOnApproval) when it should publish itself as
+// soon as governance allows; `scheduledPublishAt` defers that to a target date.
+// These pure helpers are shared by the UI, the lockdown gates, and the poller.
+
+const SCHEDULE_PENDING_STATUSES = new Set<FeatureRevisionInterface["status"]>([
+  "draft",
+  "pending-review",
+  "approved",
+  "changes-requested",
+]);
+
+type ScheduledRevisionFields = Pick<
+  FeatureRevisionInterface,
+  | "version"
+  | "status"
+  | "autoPublishOnApproval"
+  | "scheduledPublishAt"
+  | "scheduledPublishLockEdits"
+  | "scheduledPublishLockOthers"
+>;
+
+// A schedule is "pending" when the revision is armed, has a date, and is still
+// an active draft.
+export function isScheduledPublishPending(
+  revision: Pick<
+    ScheduledRevisionFields,
+    "status" | "autoPublishOnApproval" | "scheduledPublishAt"
+  >,
+): boolean {
+  return (
+    !!revision.autoPublishOnApproval &&
+    (revision.scheduledPublishAt ?? null) !== null &&
+    SCHEDULE_PENDING_STATUSES.has(revision.status)
+  );
+}
+
+// True once a pending schedule's date has arrived. Coerces the date so it works
+// on both Date (back-end) and ISO-string (front-end) shapes.
+export function isScheduledPublishDue(
+  revision: Pick<
+    ScheduledRevisionFields,
+    "status" | "autoPublishOnApproval" | "scheduledPublishAt"
+  >,
+  now: Date = new Date(),
+): boolean {
+  if (!isScheduledPublishPending(revision)) return false;
+  const at = new Date(revision.scheduledPublishAt as Date | string);
+  return at.getTime() <= now.getTime();
+}
+
+// Locks (and the publish) take effect once the schedule is committed and no
+// longer awaiting approval: status "approved" (approval flow) or "draft"
+// (no-approval flow). "pending-review"/"changes-requested" stay editable.
+export function isScheduledPublishLockActive(
+  revision: Pick<
+    ScheduledRevisionFields,
+    "status" | "autoPublishOnApproval" | "scheduledPublishAt"
+  >,
+): boolean {
+  return (
+    isScheduledPublishPending(revision) &&
+    revision.status !== "pending-review" &&
+    revision.status !== "changes-requested"
+  );
+}
+
+// Content edits to this draft are frozen while a lock-edits schedule is active
+// (armed AND approved). Pending-approval drafts remain editable.
+export function isRevisionEditLockedBySchedule(
+  revision: Pick<
+    ScheduledRevisionFields,
+    | "status"
+    | "autoPublishOnApproval"
+    | "scheduledPublishAt"
+    | "scheduledPublishLockEdits"
+  >,
+): boolean {
+  return (
+    !!revision.scheduledPublishLockEdits &&
+    isScheduledPublishLockActive(revision)
+  );
+}
+
+// Among a feature's revisions, find one (other than `excludeVersion`) whose
+// active (armed AND approved) schedule blocks publishing sibling drafts.
+export function findPublishLockingScheduledRevision<
+  T extends ScheduledRevisionFields,
+>(revisions: T[], excludeVersion?: number): T | null {
+  return (
+    revisions.find(
+      (r) =>
+        r.version !== excludeVersion &&
+        !!r.scheduledPublishLockOthers &&
+        isScheduledPublishLockActive(r),
+    ) ?? null
+  );
 }
 
 // True if publishing the draft would change anything outside the target

@@ -50,6 +50,7 @@ import {
   DEFAULT_NO_TRAFFIC_GRACE_PERIOD_HOURS,
 } from "shared/validators";
 import { date as formatDate } from "shared/dates";
+import { parsePlainJSONObject } from "shared/util";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { HiBadgeCheck } from "react-icons/hi";
 import {
@@ -75,6 +76,7 @@ import Text from "@/ui/Text";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MonitoredIcon from "@/components/Features/RuleModal/MonitoredIcon";
 import FeatureValueField from "@/components/Features/FeatureValueField";
+import { SparsePatchIndicator } from "@/components/Features/SparsePatchToggle";
 import Checkbox from "@/ui/Checkbox";
 import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
@@ -376,6 +378,15 @@ export function formatRampStepSummary(
   if (approvals)
     parts.push(`${approvals} approval${approvals !== 1 ? "s" : ""}`);
   return parts.join(", ");
+}
+
+// A template is "monitored" if it carries monitoring config or any monitored
+// step. Used to keep auto-selected defaults aligned with the rule's release
+// strategy (plain Ramp-up vs Monitored Ramp-up).
+export function isMonitoredTemplate(
+  t: Pick<RampScheduleTemplateInterface, "monitoringConfig" | "steps">,
+): boolean {
+  return !!t.monitoringConfig || t.steps.some((s) => s.monitored);
 }
 
 const COL = {
@@ -869,6 +880,9 @@ interface Props {
   attributeSchema?: SDKAttributeSchema;
   ruleId?: string;
   featureId?: string;
+  // Whether the parent rule is a sparse patch. The ramp's value edits inherit
+  // this — sparse interpretation belongs to the rule, not the schedule.
+  sparse?: boolean;
 }
 
 export default function RampScheduleSection({
@@ -892,6 +906,7 @@ export default function RampScheduleSection({
   attributeSchema,
   ruleId,
   featureId,
+  sparse = false,
 }: Props) {
   const [open, setOpen] = useState(embedded || state.mode !== "off");
   const [seedOpen, setSeedOpen] = useState(
@@ -956,25 +971,42 @@ export default function RampScheduleSection({
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [presetOpen, setPresetOpen] = useState(false);
   const hasAutoSelected = useRef(false);
+  // The monitored-ness reflected by the last selection sync, so we can detect a
+  // strategy flip that bypassed `patchState` (e.g. a page-1 release-strategy
+  // switch reseeds the parent state directly).
+  const lastSyncedMonitored = useRef<boolean | null>(null);
 
-  // Keep the local display string in sync when simpleDurationDays is changed
-  // On first template load, match the existing state or apply the first default.
   useEffect(() => {
-    if (hasAutoSelected.current || templates.length === 0) return;
-    hasAutoSelected.current = true;
-    const matchId = findMatchingTemplate(state, templates);
-    if (matchId) {
-      setSelectedTemplateId(matchId);
+    if (templates.length === 0) return;
+    const stateMonitored = state.steps.some((s) => s.monitored);
+
+    // Initial load: adopt an exact match, or pre-apply the first official
+    // template matching the chosen release strategy for a brand-new ramp.
+    if (!hasAutoSelected.current) {
+      hasAutoSelected.current = true;
+      lastSyncedMonitored.current = stateMonitored;
+      const matchId = findMatchingTemplate(state, templates);
+      if (matchId) {
+        setSelectedTemplateId(matchId);
+      } else if (!ruleRampSchedule && !hideTemplateSave) {
+        const defaultTemplate = templates.find(
+          (t) => t.official && isMonitoredTemplate(t) === stateMonitored,
+        );
+        if (defaultTemplate) applyTemplate(defaultTemplate);
+      }
       return;
     }
-    if (!ruleRampSchedule && !hideTemplateSave && selectedTemplateId) {
-      const first = [...templates].sort(
-        (a, b) => (b.official ? 1 : 0) - (a.official ? 1 : 0),
-      )[0];
-      if (first) applyTemplate(first);
+
+    // After init, a strategy flip that didn't go through `patchState` (a page-1
+    // switch reseeds steps directly) re-syncs the selection to an exact match or
+    // none/custom — never re-applies a default, so a customized ramp is never
+    // clobbered. In-editor edits/toggles are handled by `patchState`.
+    if (lastSyncedMonitored.current !== stateMonitored) {
+      lastSyncedMonitored.current = stateMonitored;
+      setSelectedTemplateId(findMatchingTemplate(state, templates));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [templates]);
+  }, [templates, state.steps]);
 
   // Auto-derive monitoring cadence from step durations on initial mount,
   // but only if no explicit cadence override was already saved.
@@ -999,11 +1031,13 @@ export default function RampScheduleSection({
 
   function patchState(partial: Partial<RampSectionState>) {
     const newState = { ...state, ...partial };
-    if (
-      selectedTemplateId &&
-      findMatchingTemplate(newState, templates) !== selectedTemplateId
-    ) {
-      setSelectedTemplateId("");
+    // Any edit that ejects from the selected template re-syncs the selection to
+    // an exact template match or none/custom — it never pulls in a default, so a
+    // customized ramp (e.g. after toggling monitored) is preserved.
+    const match = findMatchingTemplate(newState, templates);
+    if (match !== selectedTemplateId) {
+      setSelectedTemplateId(match);
+      lastSyncedMonitored.current = newState.steps.some((s) => s.monitored);
     }
     setState(newState);
   }
@@ -1378,9 +1412,16 @@ export default function RampScheduleSection({
         effectRows.push(
           <Box>
             <Flex align="center" justify="between" mb="1">
-              <Text as="div" weight="semibold">
-                Default value
-              </Text>
+              <Flex align="center" gap="2">
+                <Text as="div" weight="semibold">
+                  Default value
+                </Text>
+                {sparse &&
+                  feature.valueType === "json" &&
+                  parsePlainJSONObject(feature.defaultValue) !== null && (
+                    <SparsePatchIndicator />
+                  )}
+              </Flex>
               {removeEffectButton(() => removePatchFieldFn("force"))}
             </Flex>
             <FeatureValueField
@@ -1391,6 +1432,8 @@ export default function RampScheduleSection({
               feature={feature}
               useDropdown={feature.valueType === "boolean"}
               hideCopyButton
+              sparse={sparse}
+              condensed
             />
           </Box>,
         );
@@ -2646,19 +2689,31 @@ export default function RampScheduleSection({
       gap="2"
       style={{ width: 430, overflow: "hidden" }}
     >
-      <span
-        style={{
-          flex: 1,
-          minWidth: 0,
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap",
-          color: selectedTemplate ? undefined : "var(--gray-a9)",
-        }}
-      >
-        {selectedTemplate?.name ??
-          (templates.length === 0 ? "No templates" : "None")}
-      </span>
+      <Flex align="center" gap="1" style={{ flex: 1, minWidth: 0 }}>
+        {selectedTemplate?.official && (
+          <HiBadgeCheck
+            style={{
+              fontSize: "1.2em",
+              lineHeight: "1em",
+              color: "var(--blue-11)",
+              flexShrink: 0,
+              display: "block",
+            }}
+          />
+        )}
+        <span
+          style={{
+            minWidth: 0,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+            color: selectedTemplate ? undefined : "var(--gray-a9)",
+          }}
+        >
+          {selectedTemplate?.name ??
+            (templates.length === 0 ? "No templates" : "None")}
+        </span>
+      </Flex>
       <PiCaretDownBold style={{ flexShrink: 0 }} />
     </Flex>
   );
@@ -3360,7 +3415,7 @@ export default function RampScheduleSection({
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           {[...templates]
-            .sort((a, b) => (b.official ? 1 : 0) - (a.official ? 1 : 0))
+            .sort((a, b) => a.order - b.order)
             .map((t) => (
               <React.Fragment key={t.id}>
                 <DropdownMenuItem
@@ -3399,9 +3454,23 @@ export default function RampScheduleSection({
                         {t.name}
                       </span>
                     </Flex>
-                    <Text as="span" size="small" color="text-low">
-                      {formatRampStepSummary(t.steps)}
-                    </Text>
+                    <Flex align="center" gap="2" style={{ flexShrink: 0 }}>
+                      <Text as="span" size="small" color="text-low">
+                        {formatRampStepSummary(t.steps)}
+                      </Text>
+                      {/* Fixed-width slot keeps the icon column aligned across
+                          rows (empty for non-monitored templates). */}
+                      <Box
+                        style={{
+                          width: 16,
+                          flexShrink: 0,
+                          display: "flex",
+                          justifyContent: "center",
+                        }}
+                      >
+                        {isMonitoredTemplate(t) && <MonitoredIcon size={16} />}
+                      </Box>
+                    </Flex>
                   </Flex>
                 </DropdownMenuItem>
               </React.Fragment>
@@ -4374,7 +4443,7 @@ export function buildTemplatePayload(
   state: RampSectionState,
 ): Omit<
   RampScheduleTemplateInterface,
-  "id" | "organization" | "dateCreated" | "dateUpdated"
+  "id" | "organization" | "dateCreated" | "dateUpdated" | "order"
 > {
   const PLACEHOLDER_TARGET = "template-target";
   const PLACEHOLDER_RULE = "template-rule";

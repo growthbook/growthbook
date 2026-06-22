@@ -40,7 +40,7 @@ const DATA_TYPE_TO_DESCRIPTION: Record<SDKAttributeType, string> = {
   "secureString[]": "Useful for passing multiple values securely",
 };
 export default function AttributeModal({ close, attribute }: Props) {
-  const { projects, project } = useDefinitions();
+  const { projects, project, datasources } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
   const { refreshOrganization } = useUser();
 
@@ -68,6 +68,13 @@ export default function AttributeModal({ close, attribute }: Props) {
   const title = attribute ? `Edit Attribute: ${attribute}` : `Create Attribute`;
 
   const datatype = form.watch("datatype");
+
+  // Attribute changes only affect warehouse analyses for JSON-column managed warehouses.
+  const hasJsonManagedWarehouse = datasources.some(
+    (d) => d.type === "growthbook_clickhouse" && d.settings.useJsonColumns,
+  );
+  const propertyChanged = !!attribute && form.watch("property") !== attribute;
+  const datatypeChanged = !!attribute && datatype !== current?.datatype;
 
   const hashAttributeDataTypes: SDKAttributeType[] = [
     "string",
@@ -181,11 +188,19 @@ export default function AttributeModal({ close, attribute }: Props) {
         required={true}
         {...form.register("property")}
       />
-      {attribute && form.watch("property") !== attribute ? (
+      {propertyChanged ? (
         <Callout status="warning">
           Be careful changing the attribute name. Any existing targeting
           conditions that use this attribute will NOT be updated automatically
           and will still reference the old attribute name.
+          {hasJsonManagedWarehouse ? (
+            <span style={{ display: "block", marginTop: "var(--space-2)" }}>
+              Renaming doesn&apos;t migrate historical data. Events already sent
+              under the old name keep that name in the Managed Warehouse and
+              will read as null for this attribute; only events your SDK sends
+              under the new name will populate it going forward.
+            </span>
+          ) : null}
         </Callout>
       ) : null}
       <div className="form-group">
@@ -294,6 +309,14 @@ export default function AttributeModal({ close, attribute }: Props) {
           </>
         }
       />
+      {hasJsonManagedWarehouse && datatypeChanged ? (
+        <Callout status="info" mt="2" mb="2">
+          Changing the data type won&apos;t break existing Managed Warehouse
+          analyses, but historical events whose value doesn&apos;t match the new
+          type are treated as null and dropped from results, so metrics may
+          shift.
+        </Callout>
+      ) : null}
       {datatype === "string" && (
         <>
           <SelectField

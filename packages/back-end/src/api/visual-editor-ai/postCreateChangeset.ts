@@ -40,6 +40,9 @@ const validation = {
   method: "post" as const,
   path: "/visual-editor/create-changeset",
   operationId: "postVisualEditorCreateChangeset",
+  // Internal Visual Editor extension endpoint — not part of the
+  // public OpenAPI spec.
+  excludeFromSpec: true,
 };
 
 export const postCreateChangeset = createApiRequestHandler(validation)(async (
