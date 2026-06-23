@@ -55,7 +55,10 @@ import { useConstantRevision } from "@/hooks/useConstantRevision";
 import ConstantModal from "@/components/Constants/ConstantModal";
 import ConstantValueModal from "@/components/Constants/ConstantValueModal";
 import ConstantArchiveModal from "@/components/Constants/ConstantArchiveModal";
+import ConstantReferencesList from "@/components/Constants/ConstantReferencesList";
 import CompareRevisionsModal from "@/components/Revision/CompareRevisionsModal";
+import ReferencesLink from "@/components/References/ReferencesLink";
+import { useConstantReferences } from "@/hooks/useConstantReferences";
 import { ConstantRevisionContext } from "@/components/Constants/useConstantDraftTarget";
 
 const TYPE_LABEL: Record<ConstantInterface["type"], string> = {
@@ -108,6 +111,7 @@ export default function ConstantDetailPage(): React.ReactElement {
   const [showChangesModal, setShowChangesModal] = useState(false);
   const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [showAuditModal, setShowAuditModal] = useState(false);
+  const [showReferencesModal, setShowReferencesModal] = useState(false);
   const [compareOpen, setCompareOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -130,6 +134,10 @@ export default function ConstantDetailPage(): React.ReactElement {
     handleReopen,
     mutateRevisions,
   } = useConstantRevision(constant?.id, mutate, constant);
+
+  const { references } = useConstantReferences(constant?.id);
+  const totalReferences =
+    (references?.features.length ?? 0) + (references?.constants.length ?? 0);
 
   const settings = organization.settings || {};
   const hasApprovalsFeature = hasCommercialFeature("require-approvals");
@@ -338,14 +346,23 @@ export default function ConstantDetailPage(): React.ReactElement {
           </Flex>
         </Flex>
 
-        <Flex align="center" gap="4" mb="4" wrap="wrap">
-          <Metadata label="Key" value={constant.key} />
-          <Metadata label="Type" value={TYPE_LABEL[constant.type]} />
-          <Metadata label="Project" value={projectName || "All projects"} />
-          <Box>
-            <Text weight="medium">Owner: </Text>
-            <Owner ownerId={displayedConstant.owner} gap="1" />
-          </Box>
+        <Flex align="center" gap="4" mb="4" wrap="wrap" justify="between">
+          <Flex gap="4" align="center" wrap="wrap">
+            <Metadata label="Key" value={constant.key} />
+            <Metadata label="Type" value={TYPE_LABEL[constant.type]} />
+            <Metadata label="Project" value={projectName || "All projects"} />
+            <Box>
+              <Text weight="medium">Owner: </Text>
+              <Owner ownerId={displayedConstant.owner} gap="1" />
+            </Box>
+          </Flex>
+          <Flex direction="column" align="end" gap="2">
+            <ReferencesLink
+              total={totalReferences}
+              onShow={() => setShowReferencesModal(true)}
+              emptyTooltip="No features or constants currently reference this constant."
+            />
+          </Flex>
         </Flex>
 
         {displayedConstant.description && (
@@ -457,6 +474,26 @@ export default function ConstantDetailPage(): React.ReactElement {
             requiresApproval={selectedRevisionRequiresApproval}
             closeModal={() => setShowChangesModal(false)}
             canUpdateEntity={(s) => permissionsUtil.canUpdateConstant(s, {})}
+          />
+        </Modal>
+      )}
+
+      {showReferencesModal && references && (
+        <Modal
+          header={`'${displayedConstant.name}' References`}
+          trackingEventModalType="show-constant-references"
+          close={() => setShowReferencesModal(false)}
+          open={showReferencesModal}
+          closeCta="Close"
+          useRadixButton={true}
+        >
+          <Text as="p" mb="3">
+            This constant is referenced by the following features and constants
+            via <code>@const:{constant.key}</code>.
+          </Text>
+          <ConstantReferencesList
+            features={references.features}
+            constants={references.constants}
           />
         </Modal>
       )}

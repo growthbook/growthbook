@@ -1,6 +1,9 @@
+import { FeatureInterface } from "shared/types/feature";
+import { getConstantReferenceKeys } from "shared/validators";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { getPayloadKeysForAllEnvs } from "back-end/src/models/ExperimentModel";
+import { getAllFeatures } from "back-end/src/models/FeatureModel";
 import { queueSDKPayloadRefresh } from "./features";
 import { getContextForAgendaJobByOrgObject } from "./organizations";
 
@@ -28,4 +31,89 @@ export async function constantUpdated(
       model: "constant",
     },
   });
+}
+
+export type ConstantReferences = {
+  features: { id: string; project?: string }[];
+  constants: { id: string; key: string; name: string; project?: string }[];
+};
+
+// A rule member that may carry a feature value (force/rollout `value`, or
+// experiment `variations[].value`). Other rule fields don't hold values.
+type ValueBearingRule = {
+  value?: unknown;
+  variations?: Array<{ value?: unknown }>;
+};
+
+// Every value string a feature can hold: the default plus each rule's force/
+// rollout value and each experiment variation value, from both the v2 `rules`
+// array and the legacy per-environment `environmentSettings[env].rules`.
+function featureValueStrings(feature: FeatureInterface): string[] {
+  const out: string[] = [];
+  if (typeof feature.defaultValue === "string") out.push(feature.defaultValue);
+
+  const collect = (rule: ValueBearingRule) => {
+    if (typeof rule.value === "string") out.push(rule.value);
+    for (const v of rule.variations ?? []) {
+      if (typeof v.value === "string") out.push(v.value);
+    }
+  };
+
+  for (const rule of (feature.rules ?? []) as ValueBearingRule[]) collect(rule);
+  const envSettings = (feature.environmentSettings ?? {}) as Record<
+    string,
+    { rules?: ValueBearingRule[] }
+  >;
+  for (const env of Object.values(envSettings)) {
+    for (const rule of env?.rules ?? []) collect(rule);
+  }
+  return out;
+}
+
+// The set of constant keys referenced anywhere in a feature's values.
+function featureConstantKeys(feature: FeatureInterface): Set<string> {
+  const keys = new Set<string>();
+  for (const value of featureValueStrings(feature)) {
+    for (const key of getConstantReferenceKeys(value, undefined)) keys.add(key);
+  }
+  return keys;
+}
+
+// Features and other constants that reference a given constant via `@const:key`.
+// Scope mirrors resolution: feature values (flags + feature-experiment variation
+// values) and constant-to-constant references. Returns null if the constant
+// doesn't exist.
+export async function loadConstantReferences(
+  context: ReqContext | ApiReqContext,
+  constantId: string,
+): Promise<ConstantReferences | null> {
+  const allConstants = await context.models.constants.getAll();
+  const target = allConstants.find((c) => c.id === constantId);
+  if (!target) return null;
+
+  const allFeatures = await getAllFeatures(context, {});
+  const features = allFeatures
+    .filter((f) => featureConstantKeys(f).has(target.key))
+    .map((f) => ({ id: f.id, project: f.project || undefined }));
+
+  const constants = allConstants
+    .filter(
+      (c) =>
+        c.id !== constantId &&
+        getConstantReferenceKeys(c.value, c.environmentValues).includes(
+          target.key,
+        ),
+    )
+    .map((c) => ({
+      id: c.id,
+      key: c.key,
+      name: c.name,
+      project: c.project || undefined,
+    }));
+
+  return { features, constants };
+}
+
+export function totalConstantReferences(refs: ConstantReferences): number {
+  return refs.features.length + refs.constants.length;
 }

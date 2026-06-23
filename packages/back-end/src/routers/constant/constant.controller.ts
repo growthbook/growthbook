@@ -25,6 +25,10 @@ import {
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
 import { getAdapter } from "back-end/src/revisions";
+import {
+  ConstantReferences,
+  loadConstantReferences,
+} from "back-end/src/services/constants";
 
 type PostConstantBody = z.infer<typeof postConstantBodyValidator>;
 type PutConstantBody = z.infer<typeof putConstantBodyValidator>;
@@ -85,6 +89,20 @@ export const getConstantCyclicKeys = async (
     ...getReferencingConstantKeys(constant.key, referencesByKey),
   ];
   return res.status(200).json({ status: 200, cyclicKeys });
+};
+
+// GET /constants/:id/references — features and other constants that reference
+// this constant via `@const:key`.
+export const getConstantReferences = async (
+  req: AuthRequest<null, { id: string }>,
+  res: Response<{ status: 200 } & ConstantReferences>,
+) => {
+  const context = getContextFromReq(req);
+  const references = await loadConstantReferences(context, req.params.id);
+  if (!references) {
+    return context.throwNotFoundError("Constant not found");
+  }
+  return res.status(200).json({ status: 200, ...references });
 };
 
 export const postConstant = async (

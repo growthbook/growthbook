@@ -28,6 +28,12 @@ router.get(
   constantController.getConstantCyclicKeys,
 );
 
+router.get(
+  "/:id/references",
+  validateRequestMiddleware({ params: idParams }),
+  constantController.getConstantReferences,
+);
+
 router.post(
   "/",
   validateRequestMiddleware({ body: postConstantBodyValidator }),
