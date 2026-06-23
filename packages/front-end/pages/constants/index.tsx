@@ -264,7 +264,9 @@ export default function ConstantsPage(): React.ReactElement {
                       </SortableTableColumnHeader>
                       <TableColumnHeader>Description</TableColumnHeader>
                       <TableColumnHeader>Projects</TableColumnHeader>
-                      <TableColumnHeader>Draft Status</TableColumnHeader>
+                      <TableColumnHeader style={{ textAlign: "center" }}>
+                        Draft Status
+                      </TableColumnHeader>
                       <SortableTableColumnHeader field="dateUpdated">
                         Last Modified
                       </SortableTableColumnHeader>
@@ -305,7 +307,7 @@ export default function ConstantsPage(): React.ReactElement {
                               />
                             ) : null}
                           </TableCell>
-                          <TableCell>
+                          <TableCell style={{ textAlign: "center" }}>
                             {draftEntry
                               ? (() => {
                                   const dots = draftStatusDots(draftEntry);
