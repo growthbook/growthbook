@@ -332,12 +332,13 @@ export interface GrowthbookClickhouseSettings extends DataSourceSettings {
    */
   migrating?: boolean;
   /**
-   * Tombstone: set when the JSON migration was skipped because re-deriving identifiers/
-   * dimensions would drop existing ones (needs manual migration). Stops the on-read
-   * migration from re-enqueueing + re-logging on every query. Cleared manually once the
-   * warehouse is migrated by hand.
+   * Custom identifiers preserved from a legacy materialized-column warehouse during the
+   * JSON migration that aren't current `hashAttribute`s. They're aliased out of the
+   * `attributes` JSON column (like hashAttribute identifiers) so legacy `userIdType`s and
+   * the joins keyed on them survive. Persisted so the attribute-change sync re-includes
+   * them rather than regenerating identifiers from the schema alone.
    */
-  migrationDriftDetected?: boolean;
+  migratedIdentifiers?: string[];
 }
 
 interface DataSourceBase {

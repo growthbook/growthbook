@@ -145,23 +145,6 @@ export function isManagedWarehouseUnavailable(
   );
 }
 
-/**
- * A legacy managed warehouse whose JSON migration was skipped due to identifier/dimension
- * drift and tombstoned (`migrationDriftDetected`) for manual migration. The on-read
- * migration must not auto-retry it, else it re-enqueues + re-logs on every query.
- */
-export function isManagedWarehouseJsonMigrationBlocked(
-  datasource: Pick<DataSourceInterface, "type" | "settings">,
-): boolean {
-  if (!isManagedWarehouse(datasource)) {
-    return false;
-  }
-  return (
-    (datasource.settings as { migrationDriftDetected?: boolean })
-      ?.migrationDriftDetected === true
-  );
-}
-
 // Managed Warehouse JSON-columns model (replaces materialized columns). Per-org
 // tables carry the SDK's standard fields as real columns plus `attributes` /
 // `properties` JSON columns. Identifiers come from `hashAttribute` attributes:
@@ -276,23 +259,36 @@ const ARRAY_ATTRIBUTE_DATATYPES = new Set([
 
 // Custom identifiers: hashAttribute attributes stored inside `attributes` JSON.
 // The property name doubles as the JSON path, the alias, and the userIdType.
+// Custom (JSON-sourced) identifiers aliased out to top-level join columns: the org's
+// hashAttributes plus any `extraIdentifiers` preserved from a legacy migration. The
+// same exclusions apply to both (built-in/reserved-collision names, array types) so a
+// preserved identifier can't produce duplicate or non-scalar SELECT columns.
 export function getManagedWarehouseCustomIdentifiers(
   attributeSchema: SDKAttributeSchema | undefined,
+  extraIdentifiers: string[] = [],
 ): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
+  const consider = (property: string, isArray: boolean) => {
+    // Folds into a built-in identity column (user_id / device_id).
+    if (RESERVED_TOP_LEVEL_ATTRIBUTE_KEYS.has(property)) return;
+    // Would collide with a real column emitted by `SELECT *`.
+    if (MANAGED_WAREHOUSE_RESERVED_COLUMN_NAMES.has(property.toLowerCase()))
+      return;
+    // Arrays can't be scalar join keys.
+    if (isArray) return;
+    if (seen.has(property)) return;
+    seen.add(property);
+    out.push(property);
+  };
   for (const a of attributeSchema || []) {
     if (!a.hashAttribute || a.archived) continue;
-    // Folds into a built-in identity column (user_id / device_id).
-    if (RESERVED_TOP_LEVEL_ATTRIBUTE_KEYS.has(a.property)) continue;
-    // Would collide with a real column emitted by `SELECT *`.
-    if (MANAGED_WAREHOUSE_RESERVED_COLUMN_NAMES.has(a.property.toLowerCase()))
-      continue;
-    // Arrays can't be scalar join keys.
-    if (ARRAY_ATTRIBUTE_DATATYPES.has(a.datatype)) continue;
-    if (seen.has(a.property)) continue;
-    seen.add(a.property);
-    out.push(a.property);
+    consider(a.property, ARRAY_ATTRIBUTE_DATATYPES.has(a.datatype));
+  }
+  for (const property of extraIdentifiers) {
+    // Preserved legacy identifiers are scalar by construction (legacy identifier
+    // materialized columns were never arrays).
+    consider(property, false);
   }
   // Sort for deterministic SQL (stable across attribute-schema reordering).
   out.sort();
@@ -324,9 +320,10 @@ function attributeDatatypeToFactColumnType(
 // reserved keys are aliased/extracted to top-level columns, so they're excluded.
 export function getManagedWarehouseAttributesJsonFields(
   attributeSchema: SDKAttributeSchema | undefined,
+  extraIdentifiers: string[] = [],
 ): JSONColumnFields {
   const identifiers = new Set(
-    getManagedWarehouseCustomIdentifiers(attributeSchema),
+    getManagedWarehouseCustomIdentifiers(attributeSchema, extraIdentifiers),
   );
   const fields: JSONColumnFields = {};
   for (const a of attributeSchema || []) {
@@ -348,21 +345,25 @@ export function getManagedWarehouseAttributesJsonFields(
 /** Full identifier/userIdType list: built-in identity columns + custom JSON identifiers. */
 export function getManagedWarehouseUserIdTypes(
   attributeSchema: SDKAttributeSchema | undefined,
+  extraIdentifiers: string[] = [],
 ): string[] {
   return [
     ...MANAGED_WAREHOUSE_BUILTIN_IDENTIFIERS,
-    ...getManagedWarehouseCustomIdentifiers(attributeSchema),
+    ...getManagedWarehouseCustomIdentifiers(attributeSchema, extraIdentifiers),
   ];
 }
 
 /** userIdTypes shaped for DataSourceSettings (with empty descriptions). */
 export function getManagedWarehouseUserIdTypeSettings(
   attributeSchema: SDKAttributeSchema | undefined,
+  extraIdentifiers: string[] = [],
 ): UserIdType[] {
-  return getManagedWarehouseUserIdTypes(attributeSchema).map((userIdType) => ({
-    userIdType,
-    description: "",
-  }));
+  return getManagedWarehouseUserIdTypes(attributeSchema, extraIdentifiers).map(
+    (userIdType) => ({
+      userIdType,
+      description: "",
+    }),
+  );
 }
 
 /** Quote a ClickHouse identifier (column/alias/JSON path segment) with backticks. */
@@ -390,8 +391,12 @@ function customIdentifierSelectExpr(property: string): string {
 
 function customIdentifierAliasClause(
   attributeSchema: SDKAttributeSchema | undefined,
+  extraIdentifiers: string[] = [],
 ): string {
-  const custom = getManagedWarehouseCustomIdentifiers(attributeSchema);
+  const custom = getManagedWarehouseCustomIdentifiers(
+    attributeSchema,
+    extraIdentifiers,
+  );
   if (!custom.length) return "";
   return (
     ",\n  " +
@@ -403,8 +408,12 @@ function customIdentifierAliasClause(
 // columns; custom identifiers are aliased out of the JSON so they can be join keys.
 export function buildManagedWarehouseEventsFactTableSql(
   attributeSchema: SDKAttributeSchema | undefined,
+  extraIdentifiers: string[] = [],
 ): string {
-  return `SELECT *${customIdentifierAliasClause(attributeSchema)}
+  return `SELECT *${customIdentifierAliasClause(
+    attributeSchema,
+    extraIdentifiers,
+  )}
 FROM ${MANAGED_WAREHOUSE_EVENTS_TABLE}
 WHERE timestamp BETWEEN '{{startDate}}' AND '{{endDate}}'`;
 }
@@ -412,20 +421,26 @@ WHERE timestamp BETWEEN '{{startDate}}' AND '{{endDate}}'`;
 // One exposure query per identifier, reading from `experiment_views`.
 export function buildManagedWarehouseExposureQueries(
   attributeSchema: SDKAttributeSchema | undefined,
+  extraIdentifiers: string[] = [],
 ): ExposureQuery[] {
-  const query = `SELECT *${customIdentifierAliasClause(attributeSchema)}
+  const query = `SELECT *${customIdentifierAliasClause(
+    attributeSchema,
+    extraIdentifiers,
+  )}
 FROM ${MANAGED_WAREHOUSE_EXPERIMENT_VIEWS_TABLE}
 WHERE
   experiment_id LIKE '{{ experimentId }}'
   AND timestamp BETWEEN '{{startDate}}' AND '{{endDate}}'`;
 
-  return getManagedWarehouseUserIdTypes(attributeSchema).map((identifier) => ({
-    id: identifier,
-    name: identifier,
-    userIdType: identifier,
-    dimensions: MANAGED_WAREHOUSE_DEFAULT_DIMENSIONS,
-    query,
-  }));
+  return getManagedWarehouseUserIdTypes(attributeSchema, extraIdentifiers).map(
+    (identifier) => ({
+      id: identifier,
+      name: identifier,
+      userIdType: identifier,
+      dimensions: MANAGED_WAREHOUSE_DEFAULT_DIMENSIONS,
+      query,
+    }),
+  );
 }
 
 export type ManagedWarehouseFactColumn = {
@@ -464,8 +479,12 @@ const MANAGED_WAREHOUSE_EVENTS_BASE_COLUMNS: ManagedWarehouseFactColumn[] = [
 // fields) plus one String column per custom identifier.
 export function getManagedWarehouseEventsFactTableColumns(
   attributeSchema: SDKAttributeSchema | undefined,
+  extraIdentifiers: string[] = [],
 ): ManagedWarehouseFactColumn[] {
-  const jsonFields = getManagedWarehouseAttributesJsonFields(attributeSchema);
+  const jsonFields = getManagedWarehouseAttributesJsonFields(
+    attributeSchema,
+    extraIdentifiers,
+  );
   const base: ManagedWarehouseFactColumn[] =
     MANAGED_WAREHOUSE_EVENTS_BASE_COLUMNS.map((c) =>
       c.column === MANAGED_WAREHOUSE_ATTRIBUTES_COLUMN
@@ -473,9 +492,11 @@ export function getManagedWarehouseEventsFactTableColumns(
         : c,
     );
   const custom: ManagedWarehouseFactColumn[] =
-    getManagedWarehouseCustomIdentifiers(attributeSchema).map((property) => ({
-      column: property,
-      datatype: "string",
-    }));
+    getManagedWarehouseCustomIdentifiers(attributeSchema, extraIdentifiers).map(
+      (property) => ({
+        column: property,
+        datatype: "string",
+      }),
+    );
   return [...base, ...custom];
 }

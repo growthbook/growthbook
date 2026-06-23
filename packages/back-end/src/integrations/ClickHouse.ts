@@ -10,7 +10,6 @@ import { ClickHouseConnectionParams } from "shared/types/integrations/clickhouse
 import {
   isManagedWarehouseAwaitingJsonMigration,
   isManagedWarehouseAwaitingProvisioning,
-  isManagedWarehouseJsonMigrationBlocked,
   isManagedWarehouseMigrating,
   ManagedWarehousePendingError,
 } from "shared/util";
@@ -60,11 +59,8 @@ export default class ClickHouse extends SqlIntegration {
     // matcols still present) OR stuck fully-migrated-but-still-`migrating` (the
     // flag clear failed) can re-trigger and recover itself on next use.
     if (
-      (isManagedWarehouseAwaitingJsonMigration(this.datasource) ||
-        isManagedWarehouseMigrating(this.datasource)) &&
-      // Don't re-enqueue a warehouse tombstoned for manual migration (drift) — it can't
-      // auto-migrate, so retrying would just churn agenda + spam Sentry on every query.
-      !isManagedWarehouseJsonMigrationBlocked(this.datasource)
+      isManagedWarehouseAwaitingJsonMigration(this.datasource) ||
+      isManagedWarehouseMigrating(this.datasource)
     ) {
       void queueMigrateManagedWarehouse(this.datasource.organization).catch(
         (e) =>

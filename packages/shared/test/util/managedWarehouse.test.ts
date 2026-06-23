@@ -9,7 +9,6 @@ import {
   getManagedWarehouseUserIdTypeSettings,
   isManagedWarehouse,
   isManagedWarehouseAwaitingJsonMigration,
-  isManagedWarehouseJsonMigrationBlocked,
   isManagedWarehouseMigrating,
   isManagedWarehouseUnavailable,
   isManagedWarehouseNoEventsGuidanceMessage,
@@ -101,26 +100,6 @@ describe("isManagedWarehouseMigrating / isManagedWarehouseUnavailable", () => {
     expect(isManagedWarehouseUnavailable(ds({ migrating: true }))).toBe(true);
     expect(
       isManagedWarehouseUnavailable(ds({ hasBeenProvisioned: true })),
-    ).toBe(false);
-  });
-
-  it("isManagedWarehouseJsonMigrationBlocked is true only when tombstoned", () => {
-    expect(
-      isManagedWarehouseJsonMigrationBlocked(
-        ds({ migrationDriftDetected: true }),
-      ),
-    ).toBe(true);
-    expect(
-      isManagedWarehouseJsonMigrationBlocked(
-        ds({ migrationDriftDetected: false }),
-      ),
-    ).toBe(false);
-    expect(isManagedWarehouseJsonMigrationBlocked(ds({}))).toBe(false);
-    expect(
-      isManagedWarehouseJsonMigrationBlocked({
-        type: "clickhouse",
-        settings: { migrationDriftDetected: true },
-      }),
     ).toBe(false);
   });
 });
@@ -245,6 +224,34 @@ describe("getManagedWarehouseCustomIdentifiers", () => {
       { property: "company_id", datatype: "string", hashAttribute: true },
     ];
     expect(getManagedWarehouseCustomIdentifiers(schema)).toEqual([
+      "company_id",
+    ]);
+  });
+
+  it("merges extraIdentifiers (preserved legacy ids), de-duped and sorted", () => {
+    const schema: SDKAttributeSchema = [
+      { property: "account", datatype: "string", hashAttribute: true },
+    ];
+    // company_id is a preserved legacy identifier (not a hashAttribute); account
+    // is also passed as extra but already comes from the schema -> de-duped.
+    expect(
+      getManagedWarehouseCustomIdentifiers(schema, ["company_id", "account"]),
+    ).toEqual(["account", "company_id"]);
+  });
+
+  it("applies the same exclusions to extraIdentifiers (reserved-collision)", () => {
+    expect(
+      getManagedWarehouseCustomIdentifiers(undefined, [
+        "geo_country", // collides with a real SELECT * column
+        "company_id",
+      ]),
+    ).toEqual(["company_id"]);
+  });
+
+  it("extraIdentifiers flow through to userIdTypes", () => {
+    expect(getManagedWarehouseUserIdTypes(undefined, ["company_id"])).toEqual([
+      "user_id",
+      "device_id",
       "company_id",
     ]);
   });
