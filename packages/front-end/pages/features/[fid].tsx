@@ -170,7 +170,7 @@ export default function FeaturePage() {
       <FeatureUsageProvider feature={feature}>
         <PageHead
           breadcrumb={[
-            { display: "Feature Flags", href: "/features" },
+            { display: "Features", href: "/features" },
             { display: feature.id },
           ]}
         />
