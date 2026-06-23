@@ -5,6 +5,8 @@ sidebar_label: Constants
 slug: /features/constants
 ---
 
+import MaxWidthImage from "@site/src/components/MaxWidthImage";
+
 Constants are reusable named values you define once in GrowthBook and reference from feature flag values. Change a constant in one place and every flag that references it picks up the new value the next time its SDK payload is built — no need to edit each flag.
 
 Common uses:
@@ -22,19 +24,19 @@ Each constant has one type:
 
 ## Per-environment values
 
-A constant has a base **value** plus optional **per-environment overrides**. When a flag is built for an environment, the constant resolves to:
+A constant has a base **value** plus optional **per-environment overrides**: when a flag is built for an environment, its override is used if set, otherwise the base value. A constant must define at least one of the two.
 
-```
-environmentValues[environment] ?? value
-```
-
-So a constant with a value of `https://api.example.com` and a `staging` override of `https://staging-api.example.com` resolves to the staging value when building the staging payload, and the base value everywhere else.
-
-A constant must define at least a value or one environment override.
+<MaxWidthImage maxWidth={700} border>
+  ![Editing a constant value with per-environment overrides](/images/features/constant-edit.png)
+</MaxWidthImage>
 
 ## Referencing constants
 
-Constants are referenced by their **key** — a slug auto-generated from the name (e.g. a constant named "API Server" gets the key `api-server`). The reference syntax depends on the constant's type:
+Constants are referenced by their **key** — a slug auto-generated from the name (e.g. a constant named "API Server" gets the key `api-server`). In a feature value editor, use **Insert constant** to pick one, or type the reference by hand. The reference syntax depends on the constant's type:
+
+<MaxWidthImage maxWidth={700} border>
+  ![Inserting a constant reference into a feature value](/images/features/constant-reference.png)
+</MaxWidthImage>
 
 ### String constants — `{{ @const:key }}`
 
@@ -70,6 +72,18 @@ This also works for a nested value:
 
 The `true` is just a required placeholder — its value is ignored.
 
+If the constant resolves to an object, you can also list the reference **alongside other keys** to spread it in. Keys are applied in order, so later ones win:
+
+```json
+{
+  "timeout": 30,
+  "@const:default-config": true,
+  "retries": 5
+}
+```
+
+A constant's value can itself reference other constants; they're resolved recursively.
+
 ## How resolution works
 
 References are resolved **when the SDK payload is built**, on the server. SDKs receive the fully-resolved value, so no SDK changes or upgrades are required.
@@ -79,6 +93,15 @@ A few rules:
 - **On by default.** Feature values are scanned for references automatically.
 - **Escape literals.** To keep a literal `{{ @const:... }}` or `@const:` key in a value, wrap it in backticks.
 - **Graceful failure.** A reference that can't be resolved — the constant doesn't exist, the type doesn't match the syntax (e.g. `{{ }}` pointing at a JSON constant), or it would form a cycle — is left in place as literal text rather than failing the build.
+- **Archived constants are stripped.** References to an archived constant are removed from the value (string interpolations dropped, JSON references removed) rather than resolved.
+
+## Editing and approvals
+
+Constant changes go through the same draft → review → publish flow as features, governed by your organization's [require-reviews settings](/features/publishing-and-approval-flows) matched on the constant's project. You can view past versions, compare revisions, and revert from the constant's page.
+
+## REST API
+
+Constants are fully manageable over the [REST API](/api/#tag/constants) — create, update, archive, list references, and drive the revision/approval flow programmatically.
 
 ## Permissions
 
