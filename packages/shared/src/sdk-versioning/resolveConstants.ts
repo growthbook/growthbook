@@ -1,7 +1,13 @@
 import { ConstantInterface } from "shared/types/constant";
 
-// A constant's value resolved for a single target environment.
-export type ConstantValueMapEntry = { type: "string" | "json"; value: string };
+// A constant's value resolved for a single target environment. `archived`
+// entries carry no usable value — references to them are scrubbed from the
+// payload entirely (see buildConstantValueMap).
+export type ConstantValueMapEntry = {
+  type: "string" | "json";
+  value: string;
+  archived?: boolean;
+};
 export type ConstantValueMap = Map<string, ConstantValueMapEntry>;
 
 // Reference syntax (matches the `key` slug charset): `@const:<key>`.
@@ -23,15 +29,24 @@ const PLACEHOLDER_KEY = new RegExp("^@const:(" + KEY + ")$");
 // Build the per-environment lookup: `environmentValues[env] ?? value`. A
 // constant with no value for the environment (and no default) is omitted, so
 // references to it are left verbatim (graceful failure).
+//
+// Archived constants are recorded with `archived: true` (regardless of value)
+// so their references are stripped from the payload rather than resolved or
+// left verbatim — archiving a constant should remove it from feature values,
+// not leak a stale value or a raw `{{ @const:... }}` template.
 export function buildConstantValueMap(
   constants: Pick<
     ConstantInterface,
-    "key" | "type" | "value" | "environmentValues"
+    "key" | "type" | "value" | "environmentValues" | "archived"
   >[],
   environment: string,
 ): ConstantValueMap {
   const map: ConstantValueMap = new Map();
   for (const c of constants) {
+    if (c.archived) {
+      map.set(c.key, { type: c.type, value: "", archived: true });
+      continue;
+    }
     const value = c.environmentValues?.[environment] ?? c.value;
     if (value === undefined) continue;
     map.set(c.key, { type: c.type, value });
@@ -52,7 +67,11 @@ function resolveStringRefs(
   return str.replace(INTERP, (full, escaped, key) => {
     if (escaped) return escaped;
     const entry = map.get(key);
-    if (!entry || entry.type !== "string") return full;
+    if (!entry) return full;
+    // Archived constant: strip the reference entirely (any type) rather than
+    // leaking a raw `{{ @const:... }}` template into the rendered value.
+    if (entry.archived) return "";
+    if (entry.type !== "string") return full;
     if (visited.has(key)) {
       onCycle?.(key);
       return full;
@@ -132,6 +151,9 @@ export function resolveConstantRefs(
     if (entries.length === 1) {
       const key = placeholderEntryKey(entries[0][0], entries[0][1]);
       if (key !== null) {
+        // Archived: the reference was the entire value, so scrub it to an
+        // empty object rather than resolving or leaving the placeholder.
+        if (map.get(key)?.archived) return {};
         const resolved = resolveEntry(key);
         return resolved ? resolved.value : value;
       }
@@ -145,6 +167,8 @@ export function resolveConstantRefs(
     for (const [k, v] of entries) {
       const key = placeholderEntryKey(k, v);
       if (key !== null) {
+        // Archived: drop the spread reference key entirely (scrubbed).
+        if (map.get(key)?.archived) continue;
         const resolved = resolveEntry(key);
         if (resolved && isPlainObject(resolved.value)) {
           Object.assign(out, resolved.value);

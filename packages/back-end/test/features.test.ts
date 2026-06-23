@@ -1366,6 +1366,31 @@ describe("SDK Payloads", () => {
     expect(payload.feature.defaultValue).toEqual("hi world");
   });
 
+  it("scrubs an archived constant from the payload rather than resolving it", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.valueType = "json";
+    // A spread reference among other keys + a string interpolation elsewhere.
+    feature.defaultValue = JSON.stringify({ "@const:cfg": true, keep: 1 });
+    const payload = generateFeaturesPayload({
+      features: [feature],
+      environment: "production",
+      groupMap: new Map(),
+      experimentMap: new Map(),
+      capabilities: ["looseUnmarshalling"],
+      constants: [
+        makeConstant({
+          key: "cfg",
+          type: "json",
+          value: JSON.stringify({ a: 1 }),
+          archived: true,
+        }),
+      ],
+    });
+    // The archived spread ref is dropped; sibling keys remain — no stale value
+    // and no leaked `@const:` placeholder.
+    expect(payload.feature.defaultValue).toEqual({ keep: 1 });
+  });
+
   it("resolves constants per environment", () => {
     const feature = cloneDeep(baseFeature);
     feature.valueType = "json";

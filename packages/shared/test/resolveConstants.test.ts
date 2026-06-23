@@ -298,6 +298,57 @@ describe("resolveConstantRefs — nested constants and cycles", () => {
   });
 });
 
+describe("buildConstantValueMap — archived", () => {
+  it("marks archived constants so references are scrubbed", () => {
+    const constants = [
+      {
+        key: "x",
+        type: "json" as const,
+        value: '{"a":1}',
+        archived: true,
+      },
+    ];
+    expect(buildConstantValueMap(constants, "dev").get("x")).toEqual({
+      type: "json",
+      value: "",
+      archived: true,
+    });
+  });
+});
+
+describe("resolveConstantRefs — archived scrubbing", () => {
+  const map: ConstantValueMap = new Map([
+    ["gone", { type: "string", value: "old", archived: true }],
+    ["gone-json", { type: "json", value: '{"a":1}', archived: true }],
+    ["live", { type: "string", value: "here" }],
+  ]);
+
+  it("strips an archived string reference from a string value", () => {
+    expect(resolveConstantRefs("x={{ @const:gone }}!", map)).toBe("x=!");
+  });
+
+  it("keeps live references while stripping archived ones in the same string", () => {
+    expect(
+      resolveConstantRefs("{{ @const:live }}/{{ @const:gone }}", map),
+    ).toBe("here/");
+  });
+
+  it("scrubs an archived whole-value JSON reference to an empty object", () => {
+    expect(resolveConstantRefs({ "@const:gone-json": true }, map)).toEqual({});
+  });
+
+  it("drops an archived spread reference but keeps sibling keys", () => {
+    expect(
+      resolveConstantRefs({ "@const:gone-json": true, keep: "yes" }, map),
+    ).toEqual({ keep: "yes" });
+  });
+
+  it("strips an archived reference regardless of declared type", () => {
+    // archived JSON constant referenced via string interpolation
+    expect(resolveConstantRefs("a{{ @const:gone-json }}b", map)).toBe("ab");
+  });
+});
+
 describe("resolveConstantRefs — passthrough", () => {
   const map = mapOf({ x: { type: "string", value: "v" } });
   it("leaves numbers, booleans, and null untouched", () => {

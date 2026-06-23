@@ -7,6 +7,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { DraftMode } from "@/components/DraftSelector";
 import ConstantDraftSelectorForChanges from "@/components/Constants/ConstantDraftSelectorForChanges";
 import { ConstantRevisionContext } from "@/components/Constants/useConstantDraftTarget";
+import Callout from "@/ui/Callout";
 
 // Archive/unarchive a constant. Mirrors SavedGroupArchiveModal: the change
 // flows through the revision system (so it shows up in history) via the draft
@@ -117,10 +118,18 @@ export default function ConstantArchiveModal({
           again.
         </p>
       ) : (
-        <p>
-          Are you sure you want to continue? This will archive the constant.
-          References that point at it will fall back to rendering verbatim.
-        </p>
+        <>
+          <p>
+            Are you sure you want to continue? This will archive the constant.
+          </p>
+          <Callout status="warning">
+            Archived constants are stripped from any feature values in the SDK
+            payload — references to this constant (
+            <code>{`{{ @const:${constant.key} }}`}</code> and{" "}
+            <code>{`{ "@const:${constant.key}": true }`}</code>) will be removed
+            rather than resolved.
+          </Callout>
+        </>
       )}
     </ModalStandard>
   );
