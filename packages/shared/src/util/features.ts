@@ -2680,6 +2680,58 @@ export function constantRequiresReview(
   return false;
 }
 
+// Constant analogue of `resetReviewOnChange` + `getFeatureAutopublishOnApproval`
+// — constants borrow the feature `requireReviews` model rather than the
+// saved-group `approvalFlows` config, so they need their own accessors keyed off
+// the matched review rule's project scope.
+
+// Whether an approved constant revision should reset to pending-review when its
+// proposed changes are subsequently modified. A `value` change affects every
+// environment (always in scope); a per-environment override only counts when the
+// changed environment is within the matched rule's scope.
+export function constantResetReviewOnChange(
+  constant: { project?: string },
+  {
+    valueChanged,
+    changedEnvironments,
+  }: { valueChanged: boolean; changedEnvironments: string[] },
+  settings?: OrganizationSettings,
+): boolean {
+  const requiresReviewSettings = settings?.requireReviews;
+  if (
+    requiresReviewSettings === undefined ||
+    typeof requiresReviewSettings === "boolean"
+  ) {
+    return false;
+  }
+  const reviewSetting = getReviewSetting(requiresReviewSettings, constant);
+  if (
+    !reviewSetting ||
+    !reviewSetting.requireReviewOn ||
+    !reviewSetting.resetReviewOnChange
+  ) {
+    return false;
+  }
+  if (valueChanged) {
+    return true;
+  }
+  return (
+    changedEnvironments.length > 0 &&
+    checkEnvironmentsMatch(changedEnvironments, reviewSetting)
+  );
+}
+
+// Whether auto-publish-on-approval may be armed for a constant, per the matched
+// review rule (mirrors getFeatureAutopublishOnApproval).
+export function constantAutopublishOnApproval(
+  constant: { project?: string },
+  settings?: OrganizationSettings,
+): boolean {
+  const requireReviews = settings?.requireReviews;
+  if (!Array.isArray(requireReviews)) return false;
+  return !!getReviewSetting(requireReviews, constant)?.autopublishOnApproval;
+}
+
 export function resetReviewOnChange({
   feature,
   changedEnvironments,

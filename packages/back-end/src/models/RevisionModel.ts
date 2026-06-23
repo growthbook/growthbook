@@ -136,11 +136,17 @@ export class RevisionModel extends BaseClass {
     if (existing.status !== "approved") return {};
     if (!this.context.hasPremiumFeature("require-approvals")) return {};
 
-    const settings = getApprovalFlowSettings(
-      this.context.org.settings?.approvalFlows,
-      existing.target.type,
-    );
-    if (!settings?.resetReviewOnChange) return {};
+    // The adapter may override how reset-on-change is determined (constants key
+    // off the feature `requireReviews` model). Default to the entity's
+    // approval-flow toggle.
+    const adapter = getAdapter(existing.target.type);
+    const shouldReset = adapter.shouldResetReviewOnChange
+      ? adapter.shouldResetReviewOnChange(this.context, existing)
+      : !!getApprovalFlowSettings(
+          this.context.org.settings?.approvalFlows,
+          existing.target.type,
+        )?.resetReviewOnChange;
+    if (!shouldReset) return {};
     return {
       status: "pending-review",
       resetEntry: {
@@ -792,90 +798,97 @@ export class RevisionModel extends BaseClass {
 
   // Merge / close / reopen
 
+  // CAS-guard the status transition on `status` so a concurrent discard/publish
+  // can't both land — exactly one lifecycle transition wins; the loser re-reads
+  // under CAS and throws. (publishRevision claims the merge before applying
+  // changes to the live entity, so a losing discard can't orphan a half-applied
+  // change.)
   async merge(id: string, userId: string, options?: { bypass?: boolean }) {
-    const existing = await this.getById(id);
-    if (!existing) throw new Error("Revision not found");
-
-    if (existing.status === "merged" || existing.status === "discarded") {
-      throw new Error("Cannot merge a discarded or already-merged revision");
-    }
-
-    const description = options?.bypass
-      ? "Merged revision (bypass)"
-      : "Merged revision";
-
-    return this.update(existing, {
-      status: "merged",
-      resolution: {
-        action: "merged",
-        userId,
-        dateCreated: new Date(),
-      },
-      activityLog: [
-        ...this.cleanActivityLog(existing.activityLog),
-        {
-          id: uniqid("act_"),
-          userId,
+    const merged = await this.updateWithCas(id, ["status"], (existing) => {
+      if (existing.status === "merged" || existing.status === "discarded") {
+        throw new Error("Cannot merge a discarded or already-merged revision");
+      }
+      const description = options?.bypass
+        ? "Merged revision (bypass)"
+        : "Merged revision";
+      return {
+        status: "merged",
+        resolution: {
           action: "merged",
-          description,
+          userId,
           dateCreated: new Date(),
         },
-      ],
-    } as UpdateProps<Revision>);
+        activityLog: [
+          ...this.cleanActivityLog(existing.activityLog),
+          {
+            id: uniqid("act_"),
+            userId,
+            action: "merged",
+            description,
+            dateCreated: new Date(),
+          },
+        ],
+      } as UpdateProps<Revision>;
+    });
+    if (!merged) throw new Error("Revision not found");
+    return merged;
   }
 
   async close(id: string, userId: string, reason?: string) {
-    const existing = await this.getById(id);
-    if (!existing) throw new Error("Revision not found");
-
-    if (existing.status === "merged" || existing.status === "discarded") {
-      throw new Error("Cannot discard an already discarded or merged revision");
-    }
-
-    return this.update(existing, {
-      status: "discarded",
-      resolution: {
-        action: "discarded",
-        userId,
-        dateCreated: new Date(),
-      },
-      activityLog: [
-        ...this.cleanActivityLog(existing.activityLog),
-        {
-          id: uniqid("act_"),
-          userId,
+    const closed = await this.updateWithCas(id, ["status"], (existing) => {
+      if (existing.status === "merged" || existing.status === "discarded") {
+        throw new Error(
+          "Cannot discard an already discarded or merged revision",
+        );
+      }
+      return {
+        status: "discarded",
+        resolution: {
           action: "discarded",
-          description: reason || "Discarded revision",
+          userId,
           dateCreated: new Date(),
         },
-      ],
-    } as UpdateProps<Revision>);
+        activityLog: [
+          ...this.cleanActivityLog(existing.activityLog),
+          {
+            id: uniqid("act_"),
+            userId,
+            action: "discarded",
+            description: reason || "Discarded revision",
+            dateCreated: new Date(),
+          },
+        ],
+      } as UpdateProps<Revision>;
+    });
+    if (!closed) throw new Error("Revision not found");
+    return closed;
   }
 
   async reopen(id: string, userId: string) {
-    const existing = await this.getById(id);
-    if (!existing) throw new Error("Revision not found");
-
     // Always reopen into `draft`. A discarded revision may have been in any
     // pre-resolution status (draft, pending-review, changes-requested,
     // approved); landing in `pending-review` can force the author through a
     // review cycle for a revision that was never submitted. Reopening to
     // `draft` lets the author explicitly re-submit via `submitForReview`
     // when ready — a safer default than inferring the pre-discard status.
-    return this.update(existing, {
-      status: "draft",
-      resolution: undefined,
-      activityLog: [
-        ...this.cleanActivityLog(existing.activityLog),
-        {
-          id: uniqid("act_"),
-          userId,
-          action: "reopened",
-          description: "Reopened revision",
-          dateCreated: new Date(),
-        },
-      ],
-    } as UpdateProps<Revision>);
+    const reopened = await this.updateWithCas(id, ["status"], (existing) => {
+      return {
+        status: "draft",
+        resolution: undefined,
+        activityLog: [
+          ...this.cleanActivityLog(existing.activityLog),
+          {
+            id: uniqid("act_"),
+            userId,
+            action: "reopened",
+            description: "Reopened revision",
+            dateCreated: new Date(),
+          },
+        ],
+      } as UpdateProps<Revision>;
+    });
+    if (!reopened) throw new Error("Revision not found");
+    return reopened;
   }
 
   // History

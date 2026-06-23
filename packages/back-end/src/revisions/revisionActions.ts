@@ -168,15 +168,33 @@ export async function publishRevision(
     return merged;
   }
 
-  await adapter.applyChanges(context, entity, desiredState, {
-    isRevert: !!revision.revertedFrom,
-  });
-
+  // Claim the merge BEFORE touching the live entity. `merge` is CAS-guarded, so
+  // a concurrent discard either lost (status already moved → merge throws here,
+  // nothing applied) or will lose (its `close` CAS-fails once we've merged).
+  // This closes the window where a discard landing between applyChanges and
+  // merge would orphan a half-applied change on the live entity.
   const merged = await context.models.revisions.merge(
     revision.id,
     context.userId,
     { bypass: isBypass },
   );
+
+  try {
+    await adapter.applyChanges(context, entity, desiredState, {
+      isRevert: !!revision.revertedFrom,
+    });
+  } catch (e) {
+    // Couldn't apply after claiming the merge — reopen so the revision isn't
+    // stranded "merged" with the live entity unchanged. A retry then re-runs
+    // the full publish (and the no-op self-heal path above if it was partially
+    // applied). Best-effort: surface the original error regardless.
+    try {
+      await context.models.revisions.reopen(merged.id, context.userId);
+    } catch {
+      // ignore — the original applyChanges error is the one that matters
+    }
+    throw e;
+  }
 
   await getRevisionWebhookAdapter(merged.target.type)?.dispatch(
     context,
@@ -193,15 +211,18 @@ export function canEnableAutoPublishOnApproval(
   entity: Record<string, unknown>,
 ): boolean {
   if (!context.hasPremiumFeature("require-approvals")) return false;
-  if (
-    !isAutopublishOnApprovalEnabled(
-      context.org.settings?.approvalFlows,
-      entityType,
-    )
-  ) {
-    return false;
-  }
-  return getAdapter(entityType).canUpdate(context, entity);
+  const adapter = getAdapter(entityType);
+  // The adapter may override how autopublish-on-approval is determined
+  // (constants key off the feature `requireReviews` model). Default to the
+  // entity's approval-flow toggle.
+  const enabled = adapter.isAutopublishOnApprovalEnabled
+    ? adapter.isAutopublishOnApprovalEnabled(context, entity)
+    : isAutopublishOnApprovalEnabled(
+        context.org.settings?.approvalFlows,
+        entityType,
+      );
+  if (!enabled) return false;
+  return adapter.canUpdate(context, entity);
 }
 
 export async function maybeAutoPublishRevision(

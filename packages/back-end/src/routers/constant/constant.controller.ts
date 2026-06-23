@@ -368,16 +368,29 @@ export const putConstant = async (
       // Only record a bypass when the caller used the explicit admin override.
       const isBypass = approvalRequired && bypassApproval;
 
-      await context.models.constants.update(
-        existing,
-        fieldsToUpdate as Parameters<typeof context.models.constants.update>[1],
-      );
-
+      // Claim the merge first (CAS-guarded) so a concurrent discard can't orphan
+      // a half-applied change; reopen if the live write then fails.
       revision = await context.models.revisions.merge(
         revision.id,
         context.userId,
         { bypass: isBypass },
       );
+
+      try {
+        await context.models.constants.update(
+          existing,
+          fieldsToUpdate as Parameters<
+            typeof context.models.constants.update
+          >[1],
+        );
+      } catch (e) {
+        try {
+          await context.models.revisions.reopen(revision.id, context.userId);
+        } catch {
+          // ignore — surface the original update error
+        }
+        throw e;
+      }
 
       await dispatchConstantRevisionEvent(context, revision, {
         type: revision.revertedFrom ? "reverted" : "published",

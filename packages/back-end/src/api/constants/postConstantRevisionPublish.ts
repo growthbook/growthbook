@@ -134,19 +134,34 @@ export const postConstantRevisionPublish = createApiRequestHandler(
     return { revision: await toApiConstantRevision(merged, req.context) };
   }
 
-  // Two-step merge — apply to the live entity, then mark the revision merged.
-  await adapter.applyChanges(
-    req.context,
-    constant as unknown as Record<string, unknown>,
-    desiredState,
-    { isRevert: !!revision.revertedFrom },
-  );
-
+  // Claim the merge BEFORE applying to the live entity. `merge` is CAS-guarded,
+  // so a concurrent discard either already lost (merge throws, nothing applied)
+  // or will lose (its `close` CAS-fails). This closes the window where a discard
+  // landing between applyChanges and merge would orphan a half-applied change.
   const merged = await req.context.models.revisions.merge(
     revision.id,
     req.context.userId,
     { bypass: isBypass },
   );
+
+  try {
+    await adapter.applyChanges(
+      req.context,
+      constant as unknown as Record<string, unknown>,
+      desiredState,
+      { isRevert: !!revision.revertedFrom },
+    );
+  } catch (e) {
+    // Couldn't apply after claiming the merge — reopen so the revision isn't
+    // stranded "merged" with the live constant unchanged; a retry re-runs the
+    // publish (and the no-op self-heal path above if it was partially applied).
+    try {
+      await req.context.models.revisions.reopen(merged.id, req.context.userId);
+    } catch {
+      // ignore — surface the original applyChanges error
+    }
+    throw e;
+  }
 
   await dispatchConstantRevisionEvent(req.context, merged, {
     type: merged.revertedFrom ? "reverted" : "published",

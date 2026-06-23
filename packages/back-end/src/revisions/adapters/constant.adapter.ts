@@ -1,7 +1,11 @@
 import { isEqual } from "lodash";
 import { ConstantInterface } from "shared/types/constant";
 import { Revision, getConstantRevisionChange } from "shared/enterprise";
-import { constantRequiresReview } from "shared/util";
+import {
+  constantRequiresReview,
+  constantResetReviewOnChange,
+  constantAutopublishOnApproval,
+} from "shared/util";
 import {
   constantValidator,
   constantUpdatableFieldsSchema,
@@ -125,6 +129,34 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
 
   canBypassApproval(context: Context, snapshot: ConstantInterface): boolean {
     return canBypassApprovalForConstant(context, snapshot);
+  },
+
+  // Constants borrow the feature `requireReviews` model (not `approvalFlows`),
+  // so reset-on-change and autopublish-on-approval are derived from the matched
+  // review rule rather than the default approval-flow toggles.
+  shouldResetReviewOnChange(context: Context, revision: Revision): boolean {
+    if (!context.hasPremiumFeature("require-approvals")) return false;
+    const snapshot = revision.target.snapshot as ConstantInterface;
+    const { valueChanged, changedEnvironments } = getConstantRevisionChange(
+      snapshot,
+      revision.target.proposedChanges,
+    );
+    return constantResetReviewOnChange(
+      { project: snapshot.project },
+      { valueChanged, changedEnvironments },
+      context.org.settings,
+    );
+  },
+
+  isAutopublishOnApprovalEnabled(
+    context: Context,
+    snapshot: ConstantInterface,
+  ): boolean {
+    if (!context.hasPremiumFeature("require-approvals")) return false;
+    return constantAutopublishOnApproval(
+      { project: snapshot.project },
+      context.org.settings,
+    );
   },
 
   async applyChanges(
