@@ -50,39 +50,24 @@ Connect with the GrowthBook team and other beta users for help, feedback, and ea
 
 :::
 
-## Quick start guide
+## Quick start
 
-Setup takes about a minute:
-{/* TODO: replace with chrome install instructions once GA is released. */}
-{/* 1. **Get the Chrome extension.** Install [GrowthBook Visual Editor](https://chromewebstore.google.com/detail/growthbook-visual-editor/nbomejknbpkcpjdagefhichaajpoempk) from the Chrome Web Store (works in Chrome, Edge, Brave, Arc, and most Chromium browsers). */}
-1. **Sign up for beta access.** If you're not already part of the beta, [sign up here](https://www.growthbook.io/events/early-access-ai-visual-editor).
-2. **Get the Chrome extension.** Install `from the Chrome Web Store (works in Chrome, Edge, Brave, Arc, and most Chromium browsers). (Emailed during beta.)
-3. **Connect to your GrowthBook account.** Open the side panel and click **Connect with GrowthBook** — no tokens to copy or paste. See [Install and connect](/app/visual/install-and-connect) for details.
-4. **Open it on your site and start testing.** Go to the page you want to test, then make changes with [AI mode](/app/visual/ai-mode) or [Manual mode](/app/visual/manual-mode).
+1. [Install and connect](/app/visual/install-and-connect) the Chrome extension (~30 seconds).
+2. Open the side panel on the page you want to test and start editing in [AI mode](/app/visual/ai-mode) or [Manual mode](/app/visual/manual-mode).
+3. [Set up the SDK](/app/visual/running-on-your-site) on your site so variations render for real users.
 
-Your variations render through a compatible SDK with visual experiments enabled — see [Requirements](#requirements) below and [Running on your site](/app/visual/running-on-your-site). Hitting a snag? See [Troubleshooting](/app/visual/troubleshooting).
+Hitting a snag? See [Troubleshooting](/app/visual/troubleshooting).
 
 ## Requirements
 
-The application you want to experiment on **must be a front-end web application viewed in a browser**. The Visual Editor does not work for mobile apps (native or React Native) or desktop apps (e.g. Electron). For unsupported platforms, use [Feature Flags](/app/features) instead to implement your changes in code.
+Your app must be a **front-end web app in a browser** (not native mobile or desktop). For other platforms, use [Feature Flags](/app/features) in code.
 
 :::warning Client-side rendering can interfere with visual changes
 
-We work hard to support every website and framework, but heavily client-side-rendered apps (e.g., React, Vue, Svelte) can have issues. When the framework re-renders part of the page, it can overwrite the changes the SDK applied, and the SDK will re-apply the changes, leading to a chance of a flicker or tug-of-war. If that happens, [Feature Flags](/app/features) implemented in code are usually a better fit.
+Heavily client-side-rendered apps (React, Vue, Svelte) may flicker or fight the SDK when the framework re-renders the DOM. See [Running on your site → Strategy 4](/app/visual/running-on-your-site#strategy-4-consider-whether-visual-testing-is-the-right-tool) for details and alternatives.
 
 :::
 
-### Allow Visual Experiments on the SDK Connection
+### SDK setup
 
-Ensure that the **Include Visual Experiments** toggle is enabled in the SDK Connection's settings, otherwise visual experiments will not be sent to your application.
-
-To check if visual experiments are enabled for your SDK connection in GrowthBook:
-
-1. Go to the left navigation menu > **SDK Configuration** > **SDK Connections** in the GrowthBook UI.
-2. Select the SDK connection in question.
-3. Click the purple **Edit** button in the upper right corner.
-4. Scroll down and look for the **Include Visual Experiments** toggle.
-   - If this toggle is enabled, visual experiments are included in the SDK payload and are enabled for the SDK.
-   - If it is disabled, visual experiments will not run and will not be sent to the application.
-
-If you have enabled the toggle and still do not see visual experiments, double-check that you are using the correct client key and SDK connection in your application. See [Running on your site](/app/visual/running-on-your-site) for the full SDK setup, and [Preview and QA](/app/visual/preview-and-qa) for how to preview drafts before starting.
+Visual experiments only render if your SDK Connection has **Include Visual Experiments** enabled and the correct SDK is installed on your site. See [Running on your site](/app/visual/running-on-your-site#create-an-sdk-connection) for the full setup.
