@@ -182,10 +182,17 @@ function ReviewAndPublishRevision<T>({
   const [confirmReopen, setConfirmReopen] = useState(false);
   const [actionsDropdownOpen, setActionsDropdownOpen] = useState(false);
 
-  // Reset per-revision UI state when the selection changes.
+  // Reset per-revision UI state when the selection changes. Includes the
+  // transient dialog/dropdown toggles so a stale one from the previously viewed
+  // revision can't carry over (the tab isn't remounted on switch). `submitting`
+  // is intentionally left alone — it's owned by the in-flight async handlers.
   useEffect(() => {
     setSubmitError(null);
     setAdminPublish(false);
+    setShowFixConflicts(false);
+    setConfirmDiscard(false);
+    setConfirmReopen(false);
+    setActionsDropdownOpen(false);
   }, [revision.id]);
 
   // ── Sub-tabs (mirrors the feature Review & Publish tab): `#review` reads
