@@ -278,6 +278,24 @@ describe("applyPatchToRule", () => {
     expect(result.enabled).toBe(base.enabled);
   });
 
+  it("preserves the rule's sparse flag when applying a force patch", () => {
+    // A ramp step sets a new (partial) value on a sparse rule; the sparse flag
+    // must survive so the SDK payload still merges it onto the default.
+    const sparseRule = {
+      ...base,
+      type: "force",
+      value: JSON.stringify({ b: 1 }),
+      sparse: true,
+    } as FeatureRule;
+    const result = applyPatchToRule(sparseRule, {
+      force: JSON.stringify({ b: 9 }),
+    });
+    expect((result as { value?: unknown }).value).toBe(
+      JSON.stringify({ b: 9 }),
+    );
+    expect((result as { sparse?: boolean }).sparse).toBe(true);
+  });
+
   it("allEnvironments:true wins when both allEnvironments and environments appear in the same patch", () => {
     // getStartPatchForRule on an allEnvironments:true rule produces both
     // allEnvironments:true and environments:null. Without the ordering fix the

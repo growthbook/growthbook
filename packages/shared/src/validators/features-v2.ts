@@ -331,6 +331,13 @@ const apiScheduleRule = z.object({
   enabled: z.boolean(),
 });
 
+const v2SparseRuleField = z
+  .boolean()
+  .describe(
+    "JSON features only. When true, the rule value is a partial object merged onto the feature's default value instead of replacing it.",
+  )
+  .optional();
+
 const v2RuleForceBase = z.object({
   description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   condition: z.string().optional(),
@@ -341,6 +348,7 @@ const v2RuleForceBase = z.object({
   enabled: z.boolean().optional(),
   type: z.literal("force"),
   value: z.string(),
+  sparse: v2SparseRuleField,
 });
 
 const v2RuleRolloutBase = z.object({
@@ -353,6 +361,7 @@ const v2RuleRolloutBase = z.object({
   enabled: z.boolean().optional(),
   type: z.literal("rollout"),
   value: z.string(),
+  sparse: v2SparseRuleField,
   coverage: z.number(),
   hashAttribute: z.string(),
   hashVersion: z.union([z.literal(1), z.literal(2)]).optional(),
@@ -369,6 +378,7 @@ const v2RuleExperimentRefBase = z.object({
   scheduleRules: z.array(apiScheduleRule).optional(),
   variations: z.array(z.object({ value: z.string(), variationId: z.string() })),
   experimentId: z.string(),
+  sparse: v2SparseRuleField,
 });
 
 // Preserve-only shape for safe-rollout rules. The bulk POST/PUT v2 endpoints

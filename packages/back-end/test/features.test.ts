@@ -1071,6 +1071,76 @@ describe("SDK Payloads", () => {
     expect(getJSONValue("json", '{"foo": 1}')).toEqual({ foo: 1 });
   });
 
+  it("merges sparse JSON force/rollout rule values onto the default", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.valueType = "json";
+    feature.defaultValue = JSON.stringify({ a: 1, b: 2, c: 3 });
+    feature.environmentSettings["production"].rules = [
+      {
+        type: "force",
+        id: "sparse-force",
+        description: "",
+        enabled: true,
+        // Only overrides `b`; `a` and `c` fall back to the default.
+        value: JSON.stringify({ b: 99 }),
+        sparse: true,
+      },
+      {
+        type: "force",
+        id: "full-force",
+        description: "",
+        enabled: true,
+        // Not sparse: replaces the whole object.
+        value: JSON.stringify({ b: 99 }),
+      },
+    ];
+
+    const def = getFeatureDefinition({
+      feature,
+      environment: "production",
+      groupMap,
+      experimentMap,
+      safeRolloutMap,
+      capabilities: ["looseUnmarshalling"],
+    });
+
+    expect(def).toEqual({
+      defaultValue: { a: 1, b: 2, c: 3 },
+      rules: [{ force: { a: 1, b: 99, c: 3 } }, { force: { b: 99 } }],
+    });
+  });
+
+  it("ignores sparse when the JSON default value is not a plain object", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.valueType = "json";
+    // Array default — sparse merge is undefined, so the rule emits as-is.
+    feature.defaultValue = JSON.stringify([1, 2, 3]);
+    feature.environmentSettings["production"].rules = [
+      {
+        type: "force",
+        id: "sparse-force",
+        description: "",
+        enabled: true,
+        value: JSON.stringify({ b: 99 }),
+        sparse: true,
+      },
+    ];
+
+    const def = getFeatureDefinition({
+      feature,
+      environment: "production",
+      groupMap,
+      experimentMap,
+      safeRolloutMap,
+      capabilities: ["looseUnmarshalling"],
+    });
+
+    expect(def).toEqual({
+      defaultValue: [1, 2, 3],
+      rules: [{ force: { b: 99 } }],
+    });
+  });
+
   it("Uses linked experiments to build feature definitions", () => {
     const feature = cloneDeep(baseFeature);
     feature.environmentSettings["production"].rules = [
