@@ -198,7 +198,7 @@ import {
   getExperimentById,
   getExperimentsByIds,
   getExperimentsByTrackingKeys,
-  getAllExperiments,
+  getAllExperimentsForStaleGraph,
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
 import { ApiReqContext } from "back-end/types/api";
@@ -6475,7 +6475,7 @@ export async function getFeaturesStaleStates(
 
   const [allFeatures, allExperiments, draftRevisions] = await Promise.all([
     getAllFeaturesForStaleGraph(context),
-    getAllExperiments(context, { includeArchived: false }),
+    getAllExperimentsForStaleGraph(context),
     getRevisionsByStatus(context as ReqContext, [...ACTIVE_DRAFT_STATUSES], {
       sparse: true,
     }),
@@ -6591,7 +6591,7 @@ export async function getFeaturesDependents(
 
   const [allFeatures, allExperiments] = await Promise.all([
     getAllFeaturesForStaleGraph(context, { includeArchived: true }),
-    getAllExperiments(context, { includeArchived: true }),
+    getAllExperimentsForStaleGraph(context, { includeArchived: true }),
   ]);
 
   const {
@@ -6928,9 +6928,7 @@ export async function getFeatureExperimentStates(
     ? req.query.ids.split(",").filter(Boolean)
     : undefined;
 
-  const allExperiments = await getAllExperiments(context, {
-    includeArchived: false,
-  });
+  const allExperiments = await getAllExperimentsForStaleGraph(context);
 
   const tempRolloutExpIds = new Set<string>();
 
