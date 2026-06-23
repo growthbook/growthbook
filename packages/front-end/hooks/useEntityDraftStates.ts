@@ -34,11 +34,16 @@ export function useEntityDraftStates({
   const [loading, setLoading] = useState(false);
   const inflightKey = useRef<string | null>(null);
 
+  // Returns true on success (or a no-op skip), false on a fetch failure, so the
+  // periodic refresh can back off to a shorter retry interval. Never throws —
+  // callers fire this from effects without awaiting, so a transient failure
+  // (e.g. an aborted fetch on navigation) must not surface as an unhandled
+  // rejection; draft-status dots are a best-effort enhancement.
   const doFetch = useCallback(
-    async (ids?: string[]) => {
-      if (ids !== undefined && !ids.length) return;
+    async (ids?: string[]): Promise<boolean> => {
+      if (ids !== undefined && !ids.length) return true;
       const key = ids === undefined ? "__all__" : [...ids].sort().join(",");
-      if (inflightKey.current === key) return;
+      if (inflightKey.current === key) return true;
       inflightKey.current = key;
       const url = ids !== undefined ? `${path}?ids=${ids.join(",")}` : path;
       setLoading(true);
@@ -53,11 +58,9 @@ export function useEntityDraftStates({
           ids.forEach((id) => cachedIds.current.add(id));
           setDraftStates((prev) => ({ ...prev, ...incoming }));
         }
+        return true;
       } catch {
-        // Draft-status dots are a best-effort list enhancement. Callers fire
-        // this from effects without awaiting, so swallow transient failures
-        // (e.g. aborted fetch on navigation) rather than surfacing an
-        // unhandled rejection. The periodic refresh effect retries.
+        return false;
       } finally {
         setLoading(false);
         inflightKey.current = null;
@@ -75,7 +78,9 @@ export function useEntityDraftStates({
     [doFetch],
   );
 
-  const fetchAll = useCallback(() => doFetch(), [doFetch]);
+  const fetchAll = useCallback(async () => {
+    await doFetch();
+  }, [doFetch]);
 
   useEffect(() => {
     let id: ReturnType<typeof setTimeout>;
@@ -85,13 +90,10 @@ export function useEntityDraftStates({
         if (cancelled) return;
         let failed = false;
         if (cachedIds.current.size) {
-          try {
-            await (hasFetchedAll.current
-              ? doFetch()
-              : doFetch([...cachedIds.current]));
-          } catch {
-            failed = true;
-          }
+          const ok = hasFetchedAll.current
+            ? await doFetch()
+            : await doFetch([...cachedIds.current]);
+          failed = !ok;
         }
         if (!cancelled) schedule(failed ? ERROR_RETRY_MS : REFRESH_INTERVAL_MS);
       }, delay);
