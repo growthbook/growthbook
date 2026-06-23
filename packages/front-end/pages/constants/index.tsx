@@ -262,14 +262,17 @@ export default function ConstantsPage(): React.ReactElement {
                       <SortableTableColumnHeader field="typeLabel">
                         Type
                       </SortableTableColumnHeader>
-                      <TableColumnHeader style={{ width: "30%" }}>
+                      <TableColumnHeader style={{ width: "20%" }}>
                         Description
                       </TableColumnHeader>
                       <TableColumnHeader>Projects</TableColumnHeader>
                       <TableColumnHeader style={{ textAlign: "center" }}>
                         Draft Status
                       </TableColumnHeader>
-                      <SortableTableColumnHeader field="dateUpdated">
+                      <SortableTableColumnHeader
+                        field="dateUpdated"
+                        style={{ textAlign: "right" }}
+                      >
                         Last Modified
                       </SortableTableColumnHeader>
                     </TableRow>
@@ -349,7 +352,10 @@ export default function ConstantsPage(): React.ReactElement {
                                 })()
                               : null}
                           </TableCell>
-                          <TableCell title={datetime(c.dateUpdated)}>
+                          <TableCell
+                            title={datetime(c.dateUpdated)}
+                            style={{ textAlign: "right" }}
+                          >
                             {date(c.dateUpdated)}
                           </TableCell>
                         </TableRow>
