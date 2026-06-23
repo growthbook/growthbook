@@ -72,6 +72,14 @@ export const GOOGLE_OAUTH_CLIENT_ID = process.env.GOOGLE_OAUTH_CLIENT_ID || "";
 export const GOOGLE_OAUTH_CLIENT_SECRET =
   process.env.GOOGLE_OAUTH_CLIENT_SECRET || "";
 
+// Figma OAuth app credentials, used by the Visual Editor's "Figma →
+// Variant" feature. The client_id is exposed to the extension (not
+// secret); the client_secret stays server-side for the code↔token
+// exchange. Empty when the org's deployment hasn't configured Figma.
+export const FIGMA_OAUTH_CLIENT_ID = process.env.FIGMA_OAUTH_CLIENT_ID || "";
+export const FIGMA_OAUTH_CLIENT_SECRET =
+  process.env.FIGMA_OAUTH_CLIENT_SECRET || "";
+
 export const S3_BUCKET = process.env.S3_BUCKET || "";
 export const S3_REGION = process.env.S3_REGION || "us-east-1";
 export const S3_DOMAIN =

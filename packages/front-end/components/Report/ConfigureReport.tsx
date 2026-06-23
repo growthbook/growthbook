@@ -455,6 +455,7 @@ export default function ConfigureReport({
                   guardrailMetrics,
                 )
               }
+              experimentType={experiment?.type}
             />
 
             <div className="mt-4">

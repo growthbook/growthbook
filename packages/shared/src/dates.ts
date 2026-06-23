@@ -29,6 +29,14 @@ export function datetime(date: string | Date, inTimezone?: string): string {
     ? formatInTimeZone(d, inTimezone, formatStr)
     : format(d, formatStr);
 }
+export function datetimeAt(date: string | Date, inTimezone?: string): string {
+  if (!date) return "";
+  const d = getValidDate(date);
+  const formatStr = "MMM d, yyyy 'at' h:mm a";
+  return inTimezone
+    ? formatInTimeZone(d, inTimezone, formatStr)
+    : format(d, formatStr);
+}
 export function dateOnly(date: string | Date, inTimezone?: string): string {
   if (!date) return "";
   const d = getValidDate(date);

@@ -212,7 +212,11 @@ export default function ExperimentRefSummary({
         )}
       </Flex>
       {releasedValue ? (
-        <ForceSummary feature={feature} value={releasedValue.value} />
+        <ForceSummary
+          feature={feature}
+          value={releasedValue.value}
+          sparse={rule.sparse}
+        />
       ) : (
         <>
           <Flex gap="2">
@@ -285,6 +289,8 @@ export default function ExperimentRefSummary({
                               value={value}
                               type={type}
                               showFullscreenButton={true}
+                              sparse={rule.sparse}
+                              defaultValue={feature.defaultValue}
                             />
                             <ValidateValue value={value} feature={feature} />
                           </>

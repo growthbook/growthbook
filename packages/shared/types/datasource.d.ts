@@ -318,7 +318,13 @@ export type DataSourceSettings = {
 export interface GrowthbookClickhouseSettings extends DataSourceSettings {
   /** When false, the warehouse exists in GrowthBook but ClickHouse was not provisioned yet. */
   hasBeenProvisioned?: boolean;
+  /** @deprecated Replaced by native JSON columns (`useJsonColumns`); kept for legacy warehouses. */
   materializedColumns?: MaterializedColumn[];
+  /**
+   * When true, per-org tables store `attributes`/`properties` as native JSON columns
+   * (vs String + materialized columns), with identifiers aliased in the fact-table SQL.
+   */
+  useJsonColumns?: boolean;
 }
 
 interface DataSourceBase {

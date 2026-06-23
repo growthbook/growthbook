@@ -22,7 +22,12 @@ import {
 import {
   getQueryStatusesByIds,
   getStaleQueries,
+  markPendingQueriesAsFailed,
 } from "back-end/src/models/QueryModel";
+import {
+  getExperimentById,
+  updateExperiment,
+} from "back-end/src/models/ExperimentModel";
 import {
   findReportsByQueryId,
   updateReport,
@@ -221,15 +226,8 @@ async function reapStalledSnapshots() {
       (q) => q.status === "succeeded" || q.status === "failed",
     );
 
-    // An orphaned DAG: nothing is actually executing, but one or more
-    // queries are still "queued" and will never be started. This happens
-    // when the in-memory timer that drives the DAG forward was lost —
-    // e.g. the process restarted mid-run, or a fast first query finished
-    // and fired its follow-up timer before the full query DAG was
-    // persisted (the Full Refresh race). Queued queries have no heartbeat
-    // and are never "running", so neither getStaleQueries() nor the
-    // all-terminal reap path above will ever touch them. Without this
-    // branch the snapshot would show "Running" forever.
+    // Queued queries have no heartbeat. If the in-memory runner disappears
+    // before starting them, the normal stale-query path will never see them.
     const orphanedDag = running.length === 0 && queued.length > 0;
 
     if (!allTerminal && !orphanedDag) continue;
@@ -238,9 +236,7 @@ async function reapStalledSnapshots() {
       0,
       ...statuses.map((s) => s.finishedAt?.getTime() ?? 0),
     );
-    // For an orphaned DAG nothing may have finished yet (latestFinishedAt
-    // stays 0), in which case fall back to the snapshot's age — the
-    // STALLED_SNAPSHOT_THRESHOLD_MS check above has already guaranteed it.
+    // Orphaned DAGs may have no finished queries, so fall back to snapshot age.
     const lastActivityAt =
       latestFinishedAt > 0 ? latestFinishedAt : snapshot.dateCreated.getTime();
     if (Date.now() - lastActivityAt < STALLED_FINALIZE_GRACE_MS) continue;
@@ -250,8 +246,16 @@ async function reapStalledSnapshots() {
       q.status = statusById.get(q.query) ?? q.status;
     });
 
+    const shouldScheduleSnapshotRetry =
+      orphanedDag &&
+      !snapshot.report &&
+      snapshot.type === "standard" &&
+      snapshot.triggeredBy === "schedule";
+
     const error = orphanedDag
-      ? "Snapshot stalled: queries were never started. This can happen when the server restarts mid-refresh. Please try updating results again."
+      ? shouldScheduleSnapshotRetry
+        ? "Snapshot stalled: queries were never started. This can happen when the server restarts mid-refresh. A retry has been scheduled."
+        : "Snapshot stalled: queries were never started. This can happen when the server restarts mid-refresh. Please try updating results again."
       : "Snapshot stalled: queries finished but results were never finalized. This usually means the analysis step failed (check server logs) or the process was restarted.";
 
     const context = await getContextForAgendaJobByOrgId(snapshot.organization);
@@ -266,6 +270,43 @@ async function reapStalledSnapshots() {
         ? `Reaped orphaned snapshot ${snapshot.id} (experiment ${snapshot.experiment}): ${queued.length} of ${queryIds.length} queries stuck in "queued" with nothing running`
         : `Reaped stalled snapshot ${snapshot.id} (experiment ${snapshot.experiment}): all ${queryIds.length} queries terminal but status still running`,
     );
+
+    if (orphanedDag) {
+      await markPendingQueriesAsFailed(
+        context,
+        queued.map((q) => q.id),
+        "Query was never started: the snapshot driving it was reaped as stalled.",
+      ).catch((e) =>
+        logger.warn(e, "Failed to mark orphaned queued queries as failed"),
+      );
+
+      // Only scheduled standard snapshots can be retried by bumping the
+      // generic experiment refresh schedule.
+      if (shouldScheduleSnapshotRetry) {
+        try {
+          const experiment = await getExperimentById(
+            context,
+            snapshot.experiment,
+          );
+          if (experiment) {
+            await updateExperiment({
+              context,
+              experiment,
+              changes: {
+                nextSnapshotAttempt: new Date(),
+                autoSnapshots: true,
+              },
+              bypassWebhooks: true,
+            });
+          }
+        } catch (e) {
+          logger.warn(
+            e,
+            "Failed to schedule retry snapshot after orphaned-DAG reap",
+          );
+        }
+      }
+    }
 
     await context.models.incrementalRefresh
       .releaseLock(snapshot.experiment, snapshot.id)

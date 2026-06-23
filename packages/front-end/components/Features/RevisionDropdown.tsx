@@ -87,9 +87,9 @@ function RevisionRow({
             )}
       </Box>
       {!publishedOnly && (
-        <Box flexShrink="0">
+        <Flex flexShrink="0" align="center" gap="2">
           <RevisionStatusBadge revision={r} liveVersion={liveVersion} />
-        </Box>
+        </Flex>
       )}
     </Flex>
   );
@@ -246,12 +246,12 @@ export default function RevisionDropdown({
         </Text>
       </Box>
       {!publishedOnly && (selectedRevision || !draftsOnly) && (
-        <Box flexShrink="0">
+        <Flex flexShrink="0" align="center" gap="2">
           <RevisionStatusBadge
             revision={selectedRevision}
             liveVersion={liveVersion}
           />
-        </Box>
+        </Flex>
       )}
       <PiCaretDownBold style={{ flexShrink: 0 }} />
     </Flex>

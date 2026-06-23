@@ -8,6 +8,7 @@ import {
   ApiErrorCode,
 } from "shared/validators";
 import { allRoutes, apiModelTagMeta } from "back-end/src/api/api.router";
+import { getBuild } from "back-end/src/util/build";
 
 const openApiTags = [
   "projects",
@@ -39,6 +40,7 @@ const openApiTags = [
   "settings",
   "attributes",
   "usage",
+  "meta",
 ] as const;
 
 export type OpenApiTag = (typeof openApiTags)[number];
@@ -178,6 +180,11 @@ const tags: Record<OpenApiTag, { display: string; description: string }> = {
   usage: {
     display: "Usage",
     description: "Usage information for metrics in experiments.",
+  },
+  meta: {
+    display: "Meta",
+    description:
+      "Server metadata, including the running build's version and commit for version-skew checks.",
   },
 };
 
@@ -354,13 +361,27 @@ type RequestBody = {
 };
 
 type Response = {
-  description?: string;
+  description: string;
   content: {
     "application/json": {
       schema: z.core.JSONSchema.BaseSchema;
     };
   };
 };
+
+function defaultResponseDescription(method: string): string {
+  switch (method.toLowerCase()) {
+    case "post":
+      return "Resource created";
+    case "put":
+    case "patch":
+      return "Resource updated";
+    case "delete":
+      return "Resource deleted";
+    default:
+      return "Successful response";
+  }
+}
 
 type Path = {
   operationId: string;
@@ -378,6 +399,7 @@ type CodeSample = { lang: string; source: string };
 
 async function run() {
   // TODO: add security, etc.
+  const version = getBuild().lastVersion || "1.0.0";
   const openapiSpec: {
     openapi: string;
     info: {
@@ -388,6 +410,10 @@ async function run() {
     servers: {
       url: string;
       description: string;
+      variables?: Record<
+        string,
+        { default: string; description?: string; enum?: string[] }
+      >;
     }[];
     tags: {
       name: string;
@@ -411,7 +437,7 @@ async function run() {
   } = {
     openapi: "3.1.0",
     info: {
-      version: "1.0.0",
+      version,
       title: "GrowthBook REST API",
       description: `GrowthBook offers a full REST API for interacting with the application.
 
@@ -477,6 +503,12 @@ The response body will be a JSON object with the following properties:
       {
         url: "https://{domain}/api",
         description: "Self-hosted GrowthBook",
+        variables: {
+          domain: {
+            default: "localhost:3100",
+            description: "Your self-hosted GrowthBook host (and port)",
+          },
+        },
       },
     ],
     tags: openApiTags.map((id) => ({
@@ -747,7 +779,7 @@ curl https://api.growthbook.io/api/v1/features \
 
     const responses: Record<string, Response> = {
       "200": {
-        ...(responseDescription && { description: responseDescription }),
+        description: responseDescription || defaultResponseDescription(method),
         content: {
           "application/json": {
             schema: responseSchema,

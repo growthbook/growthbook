@@ -34,6 +34,9 @@ const validation = {
   method: "post" as const,
   path: "/visual-editor/ai/upload-signed-url",
   operationId: "postVisualEditorAIUploadSignedUrl",
+  // Internal Visual Editor extension endpoint — not part of the
+  // public OpenAPI spec.
+  excludeFromSpec: true,
 };
 
 // Returns a short-lived signed URL the extension uses to PUT/POST a file

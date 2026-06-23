@@ -47,6 +47,9 @@ interface SortableProps {
   dragging?: boolean;
   className?: string;
   onlySafeToEditVariationMetadata?: boolean;
+  // JSON features only. Renders the value as a sparse patch (merged onto the
+  // feature default) in the value editor.
+  sparse?: boolean;
 }
 
 type VariationProps = SortableProps &
@@ -74,6 +77,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
       showDescription,
       dragging,
       className = "",
+      sparse,
       ...props
     },
     ref,
@@ -149,6 +153,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
                 useCodeInput={true}
                 showFullscreenButton={true}
                 codeInputDefaultHeight={FIVE_LINES_HEIGHT}
+                sparse={sparse}
               />
             ) : (
               <>{variation.value}</>
