@@ -53,6 +53,11 @@ export function useEntityDraftStates({
           ids.forEach((id) => cachedIds.current.add(id));
           setDraftStates((prev) => ({ ...prev, ...incoming }));
         }
+      } catch {
+        // Draft-status dots are a best-effort list enhancement. Callers fire
+        // this from effects without awaiting, so swallow transient failures
+        // (e.g. aborted fetch on navigation) rather than surfacing an
+        // unhandled rejection. The periodic refresh effect retries.
       } finally {
         setLoading(false);
         inflightKey.current = null;
