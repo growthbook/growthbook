@@ -140,13 +140,13 @@ const featureUsageContext = createContext<{
   featureUsage: FeatureUsageData | undefined;
   sparkFeatureUsage: FeatureUsageData | undefined;
   showFeatureUsage: boolean;
-  managedWarehouseAwaitingProvisioning: boolean;
+  managedWarehouseUnavailable: boolean;
   mutateFeatureUsage: () => void;
 }>({
   lookback: "15minute",
   setLookback: () => {},
   showFeatureUsage: false,
-  managedWarehouseAwaitingProvisioning: false,
+  managedWarehouseUnavailable: false,
   featureUsage: undefined,
   sparkFeatureUsage: undefined,
   mutateFeatureUsage: () => {},
@@ -171,7 +171,7 @@ export function FeatureUsageProvider({
   const growthbookManagedDatasource = datasources.find(
     (ds) => ds.type === "growthbook_clickhouse",
   );
-  const managedWarehouseAwaitingProvisioning = growthbookManagedDatasource
+  const managedWarehouseUnavailable = growthbookManagedDatasource
     ? isManagedWarehouseUnavailable(growthbookManagedDatasource)
     : false;
   const showFeatureUsage = useDummyData || !!growthbookManagedDatasource;
@@ -183,7 +183,7 @@ export function FeatureUsageProvider({
       !!feature &&
       showFeatureUsage &&
       !useDummyData &&
-      !managedWarehouseAwaitingProvisioning,
+      !managedWarehouseUnavailable,
   });
 
   const { data: sparkData, mutate: mutateSparkData } = useApi<{
@@ -193,7 +193,7 @@ export function FeatureUsageProvider({
       !!feature &&
       showFeatureUsage &&
       !useDummyData &&
-      !managedWarehouseAwaitingProvisioning &&
+      !managedWarehouseUnavailable &&
       lookback !== SPARK_LOOKBACK,
   });
 
@@ -213,7 +213,7 @@ export function FeatureUsageProvider({
   );
 
   useEffect(() => {
-    if (managedWarehouseAwaitingProvisioning) return;
+    if (managedWarehouseUnavailable) return;
 
     const hasData =
       (featureUsage?.bySource?.length ?? 0) > 0 ||
@@ -236,7 +236,7 @@ export function FeatureUsageProvider({
     featureUsage,
     sparkFeatureUsage,
     featureUsageAutoRefreshInterval,
-    managedWarehouseAwaitingProvisioning,
+    managedWarehouseUnavailable,
     mutateFeatureUsage,
     mutateSparkData,
   ]);
@@ -247,7 +247,7 @@ export function FeatureUsageProvider({
         lookback,
         setLookback,
         showFeatureUsage,
-        managedWarehouseAwaitingProvisioning,
+        managedWarehouseUnavailable,
         featureUsage,
         sparkFeatureUsage,
         mutateFeatureUsage,
@@ -272,14 +272,10 @@ export function FeatureUsageContainer({
   initialTab?: "source" | "value" | "rule";
 }) {
   const [tab, setTab] = useState<"source" | "value" | "rule">(initialTab);
-  const {
-    featureUsage,
-    lookback,
-    setLookback,
-    managedWarehouseAwaitingProvisioning,
-  } = useFeatureUsage();
+  const { featureUsage, lookback, setLookback, managedWarehouseUnavailable } =
+    useFeatureUsage();
 
-  if (managedWarehouseAwaitingProvisioning) {
+  if (managedWarehouseUnavailable) {
     return <ManagedWarehouseNoEventsCallout />;
   }
 
@@ -1097,16 +1093,13 @@ export function FeatureUsageSparkline({
   valueType: FeatureValueType;
   revision?: FeatureRevisionInterface;
 }) {
-  const {
-    sparkFeatureUsage,
-    showFeatureUsage,
-    managedWarehouseAwaitingProvisioning,
-  } = useFeatureUsage();
+  const { sparkFeatureUsage, showFeatureUsage, managedWarehouseUnavailable } =
+    useFeatureUsage();
   const [modalOpen, setModalOpen] = useState(false);
   const router = useRouter();
   const useDummyData = router.query["dummy"] === "true";
 
-  if (!showFeatureUsage || managedWarehouseAwaitingProvisioning) return null;
+  if (!showFeatureUsage || managedWarehouseUnavailable) return null;
 
   const defaultBin = "default";
   const overrideBin = "override";

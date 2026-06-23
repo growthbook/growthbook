@@ -53,7 +53,7 @@ export interface ExplorerContextValue {
   needsFetch: boolean;
   needsUpdate: boolean;
   isSubmittable: boolean;
-  managedWarehouseAwaitingProvisioning: boolean;
+  managedWarehouseUnavailable: boolean;
   trackingSource: string | undefined;
 
   // ─── Modifiers ─────────────────────────────────────────────────────────
@@ -212,7 +212,7 @@ export function ExplorerProvider({
     return datasource?.type === "growthbook_clickhouse";
   }, [getDatasourceById, draftExploreState.datasource]);
 
-  const managedWarehouseAwaitingProvisioning = useMemo(() => {
+  const managedWarehouseUnavailable = useMemo(() => {
     if (!draftExploreState.datasource) return false;
     const datasource = datasources.find(
       (d) => d.id === draftExploreState.datasource,
@@ -260,7 +260,7 @@ export function ExplorerProvider({
       );
       if (!isSubmittableConfig(configToSubmit)) return;
 
-      if (managedWarehouseAwaitingProvisioning) {
+      if (managedWarehouseUnavailable) {
         return;
       }
 
@@ -349,7 +349,7 @@ export function ExplorerProvider({
       fetchData,
       onRunComplete,
       isManagedWarehouse,
-      managedWarehouseAwaitingProvisioning,
+      managedWarehouseUnavailable,
       trackingSource,
       getDatasourceById,
     ],
@@ -377,7 +377,7 @@ export function ExplorerProvider({
 
   /** Handle auto-submit based on needsFetch and needsUpdate */
   useEffect(() => {
-    if (managedWarehouseAwaitingProvisioning) return;
+    if (managedWarehouseUnavailable) return;
     if (!isSubmittable) return;
     if (skipNextAutoSubmitRef.current) {
       skipNextAutoSubmitRef.current = false;
@@ -395,7 +395,7 @@ export function ExplorerProvider({
     cleanedDraftExploreState,
     setSubmittedExploreState,
     isSubmittable,
-    managedWarehouseAwaitingProvisioning,
+    managedWarehouseUnavailable,
   ]);
 
   /** Clear staleness when draft matches submitted (known state) */
@@ -620,7 +620,7 @@ export function ExplorerProvider({
       needsFetch,
       needsUpdate,
       isSubmittable,
-      managedWarehouseAwaitingProvisioning,
+      managedWarehouseUnavailable,
       clearAllDatasets,
       query,
       trackingSource,
@@ -643,7 +643,7 @@ export function ExplorerProvider({
       needsFetch,
       needsUpdate,
       isSubmittable,
-      managedWarehouseAwaitingProvisioning,
+      managedWarehouseUnavailable,
       clearAllDatasets,
       query,
       trackingSource,

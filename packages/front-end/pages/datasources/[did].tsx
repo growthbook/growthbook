@@ -98,7 +98,7 @@ const DataSourcePage: FC = () => {
   const { hasCommercialFeature } = useUser();
 
   const isManagedWarehouse = d?.type === "growthbook_clickhouse";
-  const managedWarehouseAwaitingProvisioning = d
+  const managedWarehouseUnavailable = d
     ? isManagedWarehouseUnavailable(d)
     : false;
 
@@ -438,7 +438,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
         {supportsSQL && (
           <>
             {isManagedWarehouse ? (
-              managedWarehouseAwaitingProvisioning ? (
+              managedWarehouseUnavailable ? (
                 <ManagedWarehouseNoEventsCallout />
               ) : (
                 <>
