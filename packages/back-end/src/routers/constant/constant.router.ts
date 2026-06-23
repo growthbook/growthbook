@@ -16,6 +16,9 @@ const idParams = z.object({ id: z.string() }).strict();
 
 router.get("/", constantController.getConstants);
 
+// MUST precede the `/:id` route below so the literal isn't captured as an id.
+router.get("/draft-states", constantController.getConstantDraftStates);
+
 router.get(
   "/:id",
   validateRequestMiddleware({ params: idParams }),

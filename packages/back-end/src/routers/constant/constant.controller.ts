@@ -52,6 +52,23 @@ export const getConstants = async (
   return res.status(200).json({ status: 200, constants });
 };
 
+// GET /constants/draft-states — active draft status counts per constant id, for
+// the "Draft Status" column on the list page (mirrors saved groups).
+export const getConstantDraftStates = async (
+  req: AuthRequest<null, Record<string, never>, { ids?: string }>,
+  res: Response,
+) => {
+  const context = getContextFromReq(req);
+  const ids = req.query.ids
+    ? req.query.ids.split(",").filter(Boolean)
+    : undefined;
+  const constants = await context.models.revisions.getActiveDraftStates(
+    "constant",
+    ids,
+  );
+  return res.status(200).json({ status: 200, constants });
+};
+
 // GET /constants/:id — full constant (includes values).
 export const getConstantById = async (
   req: AuthRequest<null, { id: string }>,

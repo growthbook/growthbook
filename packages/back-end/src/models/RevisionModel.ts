@@ -957,19 +957,20 @@ export class RevisionModel extends BaseClass {
    * record of a change that has actually landed.
    */
   /**
-   * Returns active draft status counts per saved-group ID.
-   * Mirrors `getActiveDraftStates` in FeatureRevisionModel but operates on
-   * the shared Revision collection (target.type === "saved-group").
+   * Returns active draft status counts per entity ID for a given revision
+   * target type (e.g. "saved-group", "constant"). Mirrors `getActiveDraftStates`
+   * in FeatureRevisionModel but operates on the shared Revision collection.
    */
   async getActiveDraftStates(
-    groupIds?: string[],
+    type: RevisionTargetType,
+    entityIds?: string[],
   ): Promise<Record<string, Partial<Record<ActiveDraftStatus, number>>>> {
     const filter: Record<string, unknown> = {
-      "target.type": "saved-group",
+      "target.type": type,
       status: { $in: ACTIVE_DRAFT_STATUSES },
     };
-    if (groupIds && groupIds.length > 0) {
-      filter["target.id"] = { $in: groupIds };
+    if (entityIds && entityIds.length > 0) {
+      filter["target.id"] = { $in: entityIds };
     }
     const docs = await this._dangerousGetCollection()
       .find(

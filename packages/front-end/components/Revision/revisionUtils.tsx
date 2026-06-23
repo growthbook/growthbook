@@ -85,6 +85,16 @@ export function buildSavedGroupRevisionUrl(
   return base;
 }
 
+// Builds the constant revision deep-link using `?v=<n>` (mirrors saved groups).
+export function buildConstantRevisionUrl(
+  constantId: string,
+  revision?: Pick<Revision, "version"> | null,
+): string {
+  const base = `/constants/${constantId}`;
+  if (revision?.version != null) return `${base}?v=${revision.version}`;
+  return base;
+}
+
 export function RevisionStatusDot({
   hasOpenRevisions,
 }: {

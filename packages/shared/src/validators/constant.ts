@@ -316,7 +316,7 @@ export const postConstantValidator = {
     body: {
       key: "config-snippet",
       name: "Config Snippet",
-      type: "json",
+      type: "json" as const,
       value: '{"timeout":30}',
     },
   },

@@ -34,7 +34,14 @@ export const updateConstant = createApiRequestHandler(updateConstantValidator)(
       req.context.permissions.throwPermissionError();
     }
 
-    const fieldsToUpdate: Partial<ConstantInterface> = {};
+    // Omit protected base fields so the type lines up with the model's
+    // UpdateProps (which forbids id/organization/dateCreated/dateUpdated).
+    const fieldsToUpdate: Partial<
+      Omit<
+        ConstantInterface,
+        "id" | "organization" | "dateCreated" | "dateUpdated"
+      >
+    > = {};
     if (name !== undefined && name !== constant.name) {
       fieldsToUpdate.name = name;
     }
