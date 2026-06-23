@@ -262,7 +262,9 @@ export default function ConstantsPage(): React.ReactElement {
                       <SortableTableColumnHeader field="typeLabel">
                         Type
                       </SortableTableColumnHeader>
-                      <TableColumnHeader>Description</TableColumnHeader>
+                      <TableColumnHeader style={{ width: "30%" }}>
+                        Description
+                      </TableColumnHeader>
                       <TableColumnHeader>Projects</TableColumnHeader>
                       <TableColumnHeader style={{ textAlign: "center" }}>
                         Draft Status
@@ -297,7 +299,7 @@ export default function ConstantsPage(): React.ReactElement {
                           <TableCell>{c.key}</TableCell>
                           <TableCell>{c.typeLabel}</TableCell>
                           <TableCell>
-                            {truncateString(c.description || "", 40)}
+                            {truncateString(c.description || "", 80)}
                           </TableCell>
                           <TableCell>
                             {c.project ? (
