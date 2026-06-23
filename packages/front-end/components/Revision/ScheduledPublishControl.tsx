@@ -100,7 +100,9 @@ export default function ScheduledPublishControl({
   const [lockOthers, setLockOthers] = useState(
     !!revision.scheduledPublishLockOthers,
   );
-  const [bypass, setBypass] = useState(!!revision.scheduledPublishBypassApproval);
+  const [bypass, setBypass] = useState(
+    !!revision.scheduledPublishBypassApproval,
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
