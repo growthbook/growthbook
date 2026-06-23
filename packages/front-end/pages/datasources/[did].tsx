@@ -2,7 +2,7 @@ import { useRouter } from "next/router";
 import { FC, useCallback, useState } from "react";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import {
-  isManagedWarehouseUnavailable,
+  isManagedWarehouseAwaitingProvisioning,
   supportsEventForwarder,
 } from "shared/util";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
@@ -98,8 +98,11 @@ const DataSourcePage: FC = () => {
   const { hasCommercialFeature } = useUser();
 
   const isManagedWarehouse = d?.type === "growthbook_clickhouse";
-  const managedWarehouseUnavailable = d
-    ? isManagedWarehouseUnavailable(d)
+  // Only the never-provisioned state replaces the settings UI with the onboarding
+  // callout. A transient migration must NOT blank the config page — query sub-surfaces
+  // (SQL explorer, schema browser) gate themselves on the broader "unavailable" check.
+  const managedWarehouseAwaitingProvisioning = d
+    ? isManagedWarehouseAwaitingProvisioning(d)
     : false;
 
   const queryString = new URLSearchParams(
@@ -438,7 +441,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
         {supportsSQL && (
           <>
             {isManagedWarehouse ? (
-              managedWarehouseUnavailable ? (
+              managedWarehouseAwaitingProvisioning ? (
                 <ManagedWarehouseNoEventsCallout />
               ) : (
                 <>
