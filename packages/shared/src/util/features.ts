@@ -2732,6 +2732,20 @@ export function constantAutopublishOnApproval(
   return !!getReviewSetting(requireReviews, constant)?.autopublishOnApproval;
 }
 
+// Whether self-approval is blocked for a constant, per the matched review rule
+// (mirrors the feature blockSelfApproval gate). Constants borrow the feature
+// `requireReviews` model rather than the saved-group `approvalFlows` config, so
+// the generic `isUserBlockedFromApproving` (which reads approvalFlows) is inert
+// for them — callers must use this instead.
+export function constantBlockSelfApproval(
+  constant: { project?: string },
+  settings?: OrganizationSettings,
+): boolean {
+  const requireReviews = settings?.requireReviews;
+  if (!Array.isArray(requireReviews)) return false;
+  return !!getReviewSetting(requireReviews, constant)?.blockSelfApproval;
+}
+
 export function resetReviewOnChange({
   feature,
   changedEnvironments,

@@ -120,6 +120,9 @@ export default function ConstantsPage(): React.ReactElement {
     filterResults: !showArchived
       ? (items) => items.filter((c) => !c.archived)
       : undefined,
+    // The `has:draft` filter reads async-loaded draft states; declare the dep so
+    // results recompute when they arrive (even when `filterResults` is stable).
+    searchTermFilterDeps: [draftHook.draftStates],
     searchTermFilters: {
       is: (item) => {
         const is: string[] = [];
@@ -270,17 +273,14 @@ export default function ConstantsPage(): React.ReactElement {
                       <SortableTableColumnHeader field="typeLabel">
                         Type
                       </SortableTableColumnHeader>
-                      <TableColumnHeader style={{ width: "20%" }}>
+                      <TableColumnHeader style={{ width: "25%" }}>
                         Description
                       </TableColumnHeader>
                       <TableColumnHeader>Projects</TableColumnHeader>
                       <TableColumnHeader style={{ textAlign: "center" }}>
                         Draft Status
                       </TableColumnHeader>
-                      <SortableTableColumnHeader
-                        field="dateUpdated"
-                        style={{ textAlign: "right" }}
-                      >
+                      <SortableTableColumnHeader field="dateUpdated">
                         Last Modified
                       </SortableTableColumnHeader>
                     </TableRow>
@@ -360,10 +360,7 @@ export default function ConstantsPage(): React.ReactElement {
                                 })()
                               : null}
                           </TableCell>
-                          <TableCell
-                            title={datetime(c.dateUpdated)}
-                            style={{ textAlign: "right" }}
-                          >
+                          <TableCell title={datetime(c.dateUpdated)}>
                             {date(c.dateUpdated)}
                           </TableCell>
                         </TableRow>

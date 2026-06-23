@@ -1,4 +1,4 @@
-import { isUserBlockedFromApproving } from "shared/enterprise";
+import { constantBlockSelfApproval } from "shared/util";
 import { postConstantRevisionSubmitReviewValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
@@ -40,15 +40,19 @@ export const postConstantRevisionSubmitReview = createApiRequestHandler(
     throw new BadRequestError("Cannot submit a review on a draft you created");
   }
 
-  // Block contributor self-approve when `blockSelfApproval` is set.
-  if (decision === "approve") {
-    const blocked = isUserBlockedFromApproving({
-      approvalFlows: req.context.org.settings?.approvalFlows,
-      entityType: "constant",
-      revision,
-      userId: req.context.userId,
-    });
-    if (blocked) {
+  // Block contributor self-approve when `blockSelfApproval` is set. Constants
+  // use the feature `requireReviews` model (matched by project), not the
+  // saved-group `approvalFlows` config, so derive the gate from the matched rule
+  // rather than the generic `isUserBlockedFromApproving` (which would be inert).
+  if (
+    decision === "approve" &&
+    constantBlockSelfApproval(
+      { project: constant.project },
+      req.context.org.settings,
+    )
+  ) {
+    const contributors = revision.contributors ?? [];
+    if (contributors.includes(req.context.userId)) {
       throw new BadRequestError(
         "You cannot approve a draft you contributed to.",
       );

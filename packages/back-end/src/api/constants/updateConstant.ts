@@ -13,6 +13,7 @@ import {
   buildPatchOps,
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
+import { dispatchConstantRevisionEvent } from "back-end/src/services/constantRevisionEvents";
 
 export const updateConstant = createApiRequestHandler(updateConstantValidator)(
   async (req) => {
@@ -124,12 +125,18 @@ export const updateConstant = createApiRequestHandler(updateConstantValidator)(
         constant,
         fieldsToUpdate,
       );
-      await req.context.models.revisions.createMerged({
+      const merged = await req.context.models.revisions.createMerged({
         type: "constant",
         id: constant.id,
         snapshot: constant as unknown as Record<string, unknown>,
         proposedChanges: patchOps,
         bypass: true,
+      });
+      // Fire the revision-published event so REST-bypass publishes are
+      // observable like every other publish path (the internal merge path and
+      // the revert handler both dispatch this; createMerged itself does not).
+      await dispatchConstantRevisionEvent(req.context, merged, {
+        type: "published",
       });
       return {
         constant: await resolveOwnerEmail(

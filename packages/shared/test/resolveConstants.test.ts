@@ -347,6 +347,30 @@ describe("resolveConstantRefs — archived scrubbing", () => {
     // archived JSON constant referenced via string interpolation
     expect(resolveConstantRefs("a{{ @const:gone-json }}b", map)).toBe("ab");
   });
+
+  it("scrubs an archived constant referenced transitively through a live one", () => {
+    // A live JSON constant whose body references an archived JSON constant, and
+    // a live string constant whose value contains an archived string interp.
+    const nested: ConstantValueMap = new Map([
+      ["gone", { type: "string", value: "old", archived: true }],
+      ["gone-json", { type: "json", value: '{"a":1}', archived: true }],
+      [
+        "live-json",
+        {
+          type: "json",
+          value: '{"nested":{"@const:gone-json":true},"keep":1}',
+        },
+      ],
+      ["live-str", { type: "string", value: "x={{ @const:gone }}!" }],
+    ]);
+    // Spread ref to the archived constant inside the live constant's body is dropped.
+    expect(resolveConstantRefs({ "@const:live-json": true }, nested)).toEqual({
+      nested: {},
+      keep: 1,
+    });
+    // Archived string interp inside the live constant's value is stripped.
+    expect(resolveConstantRefs("{{ @const:live-str }}", nested)).toBe("x=!");
+  });
 });
 
 describe("resolveConstantRefs — passthrough", () => {

@@ -379,12 +379,20 @@ export default function StandardRuleFields({
                       ruleRampSchedule.status,
                     );
                   const isPendingRemoval = rampSectionState.mode === "off";
+                  // A running simple schedule's start has already passed, so the
+                  // back-end ignores startDate edits — lock the Start row while
+                  // still allowing the end date to be changed.
+                  const isRunningSimple =
+                    !!ruleRampSchedule &&
+                    isSimpleSchedule &&
+                    ruleRampSchedule.status === "running";
                   return (
                     <>
                       <ScheduleInputs
                         state={rampSectionState}
                         setState={setRampSectionState}
                         disabled={isTerminal || isPendingRemoval}
+                        disableStart={isRunningSimple}
                       />
                       {isTerminal && !isPendingRemoval && (
                         <Callout status="info" mt="3" size="sm">

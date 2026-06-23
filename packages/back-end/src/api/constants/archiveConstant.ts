@@ -39,8 +39,9 @@ async function setArchivedState(
     return buildResponse(context, constant);
   }
 
-  // Unlike saved groups, archiving a referenced constant is allowed — its
-  // references simply resolve verbatim in the SDK payload while archived.
+  // Unlike saved groups, archiving a referenced constant is allowed — while
+  // archived, its references are stripped from the SDK payload (string interps
+  // removed, JSON refs dropped) rather than resolving to a value.
   const updated = await context.models.constants.update(constant, { archived });
   return buildResponse(context, { ...constant, ...updated });
 }

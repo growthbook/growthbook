@@ -320,14 +320,27 @@ export const postSavedGroupAddItems = async (
   );
 
   // When approval isn't required, merge the revision immediately so the
-  // caller's change takes effect instead of leaving a stranded draft.
+  // caller's change takes effect instead of leaving a stranded draft. Claim the
+  // (CAS-guarded) merge before the live write so a concurrent discard can't
+  // orphan a half-applied change; reopen if the write then fails.
   if (!approvalRequired) {
-    await context.models.savedGroups.update(savedGroup, { values: newValues });
     revision = await context.models.revisions.merge(
       revision.id,
       context.userId,
       { bypass: false },
     );
+    try {
+      await context.models.savedGroups.update(savedGroup, {
+        values: newValues,
+      });
+    } catch (e) {
+      try {
+        await context.models.revisions.reopen(revision.id, context.userId);
+      } catch {
+        // ignore — surface the original update error
+      }
+      throw e;
+    }
     await dispatchSavedGroupRevisionEvent(context, revision, {
       type: "published",
     });
@@ -476,14 +489,27 @@ export const postSavedGroupRemoveItems = async (
   );
 
   // When approval isn't required, merge the revision immediately so the
-  // caller's change takes effect instead of leaving a stranded draft.
+  // caller's change takes effect instead of leaving a stranded draft. Claim the
+  // (CAS-guarded) merge before the live write so a concurrent discard can't
+  // orphan a half-applied change; reopen if the write then fails.
   if (!approvalRequired) {
-    await context.models.savedGroups.update(savedGroup, { values: newValues });
     revision = await context.models.revisions.merge(
       revision.id,
       context.userId,
       { bypass: false },
     );
+    try {
+      await context.models.savedGroups.update(savedGroup, {
+        values: newValues,
+      });
+    } catch (e) {
+      try {
+        await context.models.revisions.reopen(revision.id, context.userId);
+      } catch {
+        // ignore — surface the original update error
+      }
+      throw e;
+    }
     await dispatchSavedGroupRevisionEvent(context, revision, {
       type: "published",
     });
@@ -818,8 +844,8 @@ export const putSavedGroup = async (
       // change", which is a normal merge, not a bypass.
       const isBypass = approvalRequired && bypassApproval;
 
-      await context.models.savedGroups.update(savedGroup, fieldsToUpdate);
-
+      // Claim the (CAS-guarded) merge before the live write so a concurrent
+      // discard can't orphan a half-applied change; reopen if the write fails.
       revision = await context.models.revisions.merge(
         revision.id,
         context.userId,
@@ -827,6 +853,17 @@ export const putSavedGroup = async (
           bypass: isBypass,
         },
       );
+
+      try {
+        await context.models.savedGroups.update(savedGroup, fieldsToUpdate);
+      } catch (e) {
+        try {
+          await context.models.revisions.reopen(revision.id, context.userId);
+        } catch {
+          // ignore — surface the original update error
+        }
+        throw e;
+      }
 
       await dispatchSavedGroupRevisionEvent(context, revision, {
         type: revision.revertedFrom ? "reverted" : "published",

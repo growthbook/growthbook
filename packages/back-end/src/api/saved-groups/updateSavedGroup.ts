@@ -12,6 +12,7 @@ import {
   buildPatchOps,
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
+import { dispatchSavedGroupRevisionEvent } from "back-end/src/services/savedGroupRevisionEvents";
 
 export const updateSavedGroup = createApiRequestHandler(
   updateSavedGroupValidator,
@@ -159,12 +160,18 @@ export const updateSavedGroup = createApiRequestHandler(
       savedGroup,
       fieldsToUpdate,
     );
-    await req.context.models.revisions.createMerged({
+    const merged = await req.context.models.revisions.createMerged({
       type: "saved-group",
       id: savedGroup.id,
       snapshot: savedGroup as unknown as Record<string, unknown>,
       proposedChanges: patchOps,
       bypass: true,
+    });
+    // Fire the revision-published event so REST-bypass publishes are observable
+    // like every other publish path (the revert handler dispatches this too;
+    // createMerged itself does not).
+    await dispatchSavedGroupRevisionEvent(req.context, merged, {
+      type: "published",
     });
 
     return {
