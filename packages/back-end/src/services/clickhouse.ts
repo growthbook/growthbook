@@ -531,7 +531,15 @@ export async function migrateManagedWarehouseToJson(
           context,
           finalDs,
           {
-            settings: { ...finalDs.settings, migrating: false },
+            settings: {
+              ...finalDs.settings,
+              migrating: false,
+              // If recreate never ran, the per-org tables are still legacy-format.
+              // Revert the flag so the warehouse is fully legacy-consistent (not a
+              // JSON-flagged warehouse on legacy tables) until the re-triggered run
+              // re-flips it right before recreate.
+              ...(recreated ? {} : { useJsonColumns: false }),
+            },
           },
           { skipExposureQueryValidation: true },
         );
