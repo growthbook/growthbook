@@ -6,16 +6,11 @@ import Text from "@/ui/Text";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { docUrl } from "@/components/DocLink";
 
-export type ContextualBanditEmptyStateKind =
-  | "no-data-source"
-  | "no-assignment-table"
-  | "ready";
+export type ContextualBanditEmptyStateKind = "no-data-source" | "ready";
 
 const FOOTNOTES: Record<ContextualBanditEmptyStateKind, string | null> = {
   "no-data-source":
     "User still needs to connect a Data Source to gain access to Contextual Bandits.",
-  "no-assignment-table":
-    "User still needs to create an Experiment Assignment Table with defined attributes to gain access to Contextual Bandits.",
   ready: null,
 };
 
@@ -61,8 +56,6 @@ export default function ContextualBanditEmptyState({
 
             {kind === "no-data-source" ? (
               <LinkButton href="/datasources">Connect data source</LinkButton>
-            ) : kind === "no-assignment-table" ? (
-              <LinkButton href="/datasources">Define attributes</LinkButton>
             ) : (
               canAdd && (
                 <PremiumTooltip

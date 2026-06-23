@@ -82,7 +82,7 @@ export interface HeatmapProps extends MarginProps {
    * - "all": min/max across every cell in the grid.
    */
   normalize?: "row" | "all";
-  /** Accent scale used for the gradient. Default "violet". */
+  /** Accent scale used for the gradient. Default "indigo". */
   colorScale?: HeatmapColorScale;
   /** Formats a numeric value into the cell's display text. Default: percent. */
   formatValue?: (value: number) => string;
@@ -92,9 +92,11 @@ export interface HeatmapProps extends MarginProps {
   className?: string;
 }
 
-// Map normalized intensity (0..1) onto solid accent steps. Steps 2..8 keep the
-// `--<scale>-12` text readable in both light and dark themes per Radix's scale
-// contract, while still reading as a clear light→saturated gradient.
+// Map normalized intensity (0..1) onto the accent *alpha* steps. Alpha overlays
+// tint the surface beneath them rather than painting an opaque swatch, so the
+// gradient adapts to light/dark themes and the default text color stays
+// readable. This matches the design, which tints cells with the indigo alpha
+// scale (--indigo-a2 … --indigo-a8).
 const MIN_STEP = 2;
 const MAX_STEP = 8;
 
@@ -110,8 +112,7 @@ function cellBackground(
   if (intensity === null || Number.isNaN(intensity)) return undefined;
   const step = intensityToStep(intensity);
   return {
-    backgroundColor: `var(--${scale}-${step})`,
-    color: `var(--${scale}-12)`,
+    backgroundColor: `var(--${scale}-a${step})`,
   };
 }
 
@@ -155,7 +156,7 @@ export default forwardRef<HTMLDivElement, HeatmapProps>(function Heatmap(
     leadingColumns = [],
     labelColumnWidth = "38%",
     normalize = "row",
-    colorScale = "violet",
+    colorScale = "indigo",
     formatValue = defaultFormatValue,
     emptyDisplay = "—",
     stickyHeader,

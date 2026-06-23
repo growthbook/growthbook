@@ -35,12 +35,16 @@ export interface Props {
   existing?: FactTableInterface;
   close: () => void;
   duplicate?: boolean;
+  // When provided, called after a new fact table is created instead of
+  // navigating to the fact table page. Lets callers (e.g. modals) stay in place.
+  onCreate?: (factTable: FactTableInterface) => void;
 }
 
 export default function FactTableModal({
   existing,
   close,
   duplicate = false,
+  onCreate,
 }: Props) {
   const { datasources, project, getDatasourceById, mutateDefinitions } =
     useDefinitions();
@@ -227,7 +231,11 @@ export default function FactTableModal({
             track("Create Fact Table");
 
             await mutateDefinitions();
-            router.push(`/fact-tables/${factTable.id}`);
+            if (onCreate) {
+              onCreate(factTable);
+            } else {
+              router.push(`/fact-tables/${factTable.id}`);
+            }
           }
         })}
       >

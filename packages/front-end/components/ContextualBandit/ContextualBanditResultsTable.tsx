@@ -74,7 +74,7 @@ function ContextRuleLabel({
   attributeOrder: string[];
 }) {
   const { context } = row;
-  const clauses: { attr: string; operator: string; values: string[] }[] = [];
+  const clauses: { attr: string; isList: boolean; values: string[] }[] = [];
   for (const attr of attributeOrder) {
     const spec = context[attr];
     if (spec === undefined || spec === null) continue;
@@ -83,9 +83,9 @@ function ContextRuleLabel({
       const values = Array.isArray(allowed)
         ? allowed.map((v) => String(v))
         : [String(allowed)];
-      clauses.push({ attr, operator: "is any of", values });
+      clauses.push({ attr, isList: true, values });
     } else {
-      clauses.push({ attr, operator: "is", values: [String(spec)] });
+      clauses.push({ attr, isList: false, values: [String(spec)] });
     }
   }
 
@@ -97,13 +97,11 @@ function ContextRuleLabel({
     );
   }
 
+  // One clause per line, no IF/AND connectors (matches the design).
   return (
-    <Flex wrap="wrap" gap="2" align="center">
-      {clauses.map((clause, i) => (
+    <Flex direction="column" gap="1">
+      {clauses.map((clause) => (
         <Flex key={clause.attr} wrap="wrap" gap="2" align="center">
-          <Text size="medium" weight="medium">
-            {i === 0 ? "IF" : "AND"}
-          </Text>
           <Badge
             color="gray"
             label={
@@ -112,17 +110,9 @@ function ContextRuleLabel({
               </Text>
             }
           />
-          <Text size="medium">{clause.operator}</Text>
-          {clause.operator === "is any of" ? (
-            <Flex wrap="wrap" gap="2" align="center">
-              <Text size="medium" weight="medium">
-                (
-              </Text>
-              <MultiValuesDisplay values={clause.values} />
-              <Text size="medium" weight="medium">
-                )
-              </Text>
-            </Flex>
+          <Text size="medium">is</Text>
+          {clause.isList ? (
+            <MultiValuesDisplay values={clause.values} />
           ) : (
             <Badge
               color="gray"
@@ -139,21 +129,27 @@ function ContextRuleLabel({
   );
 }
 
-/** Colored, numbered circle + variation name (matches experiment variation labels). */
+/**
+ * Colored, numbered circle + variation name (matches experiment variation labels).
+ * Set `hideName` to render just the circle; the full name is still available on
+ * hover via the title tooltip (used in the compact comparison column headers).
+ */
 function VariationLabel({
   index,
   name,
   truncate = false,
+  hideName = false,
 }: {
   index: number;
   name: string;
   truncate?: boolean;
+  hideName?: boolean;
 }) {
   const color = getVariationColor(index);
   return (
     <Flex
       align="center"
-      gap="2"
+      gap={hideName ? "0" : "2"}
       style={{ minWidth: 0, overflow: "hidden" }}
       title={name}
     >
@@ -174,9 +170,11 @@ function VariationLabel({
       >
         {index}
       </Flex>
-      <Text size="medium" weight="medium" truncate={truncate}>
-        {name}
-      </Text>
+      {hideName ? null : (
+        <Text size="medium" weight="medium" truncate={truncate}>
+          {name}
+        </Text>
+      )}
     </Flex>
   );
 }
@@ -398,8 +396,8 @@ export default function ContextualBanditResultsTable({
     () =>
       variations.map((v, index) => ({
         key: v.id,
-        header: <VariationLabel index={index} name={v.name} truncate />,
-        align: "start",
+        header: <VariationLabel index={index} name={v.name} hideName />,
+        align: "center",
         cellAlign: "center",
       })),
     [variations],
@@ -575,7 +573,7 @@ export default function ContextualBanditResultsTable({
             ]}
             columns={comparisonColumns}
             rows={comparisonRows}
-            colorScale="violet"
+            colorScale="indigo"
             stickyHeader
             formatValue={(value) => formatModeValue(value, mode)}
           />

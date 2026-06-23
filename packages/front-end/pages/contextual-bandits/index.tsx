@@ -4,12 +4,10 @@ import Link from "next/link";
 import clsx from "clsx";
 import { Box, Flex } from "@radix-ui/themes";
 import { ExperimentDataForStatusStringDates } from "shared/types/experiment";
-import { ApiContextualBanditQueryInterface } from "shared/validators";
 import {
   ComputedContextualBanditInterface,
   useContextualBanditSearch,
 } from "@/services/contextualBandits";
-import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import WatchButton from "@/components/WatchButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -48,13 +46,6 @@ const ContextualBanditsPage = (): React.ReactElement => {
 
   const { contextualBandits, error, loading, hasArchived, mutate } =
     useContextualBandits(project, tabs.includes("archived"));
-
-  // Contextual Bandit Queries live in their own collection (not on the datasource).
-  // Their `targetingAttributeColumns` are the attributes a bandit splits traffic on,
-  // so the presence of one with attributes is what makes the page "ready".
-  const { data: cbQueriesData } = useApi<{
-    contextualBanditQueries: ApiContextualBanditQueryInterface[];
-  }>("/api/v1/contextual-bandit-queries");
 
   const [showMineOnly, setShowMineOnly] = useLocalStorage(
     "showMyContextualBanditsOnly",
@@ -135,16 +126,9 @@ const ContextualBanditsPage = (): React.ReactElement => {
     (d) => d.properties?.exposureQueries,
   );
   const hasDataSource = exposureDataSources.length > 0;
-  // Contextual Bandits require a Contextual Bandit Query (its own assignment table)
-  // with at least one defined targeting attribute to split traffic on.
-  const hasAttributes = (cbQueriesData?.contextualBanditQueries ?? []).some(
-    (q) => (q.targetingAttributeColumns?.length ?? 0) > 0,
-  );
   const emptyStateKind: ContextualBanditEmptyStateKind = !hasDataSource
     ? "no-data-source"
-    : !hasAttributes
-      ? "no-assignment-table"
-      : "ready";
+    : "ready";
 
   const start = (currentPage - 1) * NUM_PER_PAGE;
   const end = start + NUM_PER_PAGE;

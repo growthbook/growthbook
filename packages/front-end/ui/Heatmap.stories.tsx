@@ -59,13 +59,13 @@ function makeRows(): HeatmapRow[] {
 
 export default function HeatmapStories() {
   const rows = makeRows();
-  const scales: HeatmapColorScale[] = ["violet", "blue", "teal", "amber"];
+  const scales: HeatmapColorScale[] = ["indigo", "violet", "blue", "teal"];
 
   return (
     <Flex direction="column" gap="6">
       <Flex direction="column" gap="2">
         <Text size="2" weight="bold">
-          Default (violet, row-normalized) with a leading Units column
+          Default (indigo, row-normalized) with a leading Units column
         </Text>
         <Heatmap
           labelHeader="Context"
