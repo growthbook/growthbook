@@ -1,6 +1,7 @@
 import { logger } from "back-end/src/util/logger";
 import mongoInit from "./mongo";
 import { queueInit } from "./queue";
+import { uploadsInit } from "./uploads";
 
 let initPromise: Promise<void>;
 export async function init() {
@@ -8,6 +9,7 @@ export async function init() {
     initPromise = (async () => {
       await mongoInit();
       await queueInit();
+      await uploadsInit();
     })();
   }
   try {
