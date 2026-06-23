@@ -1141,6 +1141,121 @@ describe("SDK Payloads", () => {
     });
   });
 
+  it("resolves a JSON constant used as a sparse rule value and merges it onto the default", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.valueType = "json";
+    feature.defaultValue = JSON.stringify({ a: 0, c: 3 });
+    feature.environmentSettings["production"].rules = [
+      {
+        type: "force",
+        id: "sparse-const",
+        description: "",
+        enabled: true,
+        // A whole-value JSON constant used as the (sparse) rule value.
+        value: JSON.stringify({ "@const:cfg": true }),
+        sparse: true,
+      },
+    ];
+
+    const constantMap = new Map([
+      ["cfg", { type: "json" as const, value: JSON.stringify({ a: 1, b: 2 }) }],
+    ]);
+
+    const def = getFeatureDefinition({
+      feature,
+      environment: "production",
+      groupMap,
+      experimentMap,
+      safeRolloutMap,
+      capabilities: ["looseUnmarshalling"],
+      constantMap,
+    });
+
+    // The constant resolves first, then merges onto the default; the constant's
+    // fields (the rule value) win over the default.
+    expect(def?.rules).toEqual([{ force: { a: 1, c: 3, b: 2 } }]);
+  });
+
+  it("applies sparse rule fields last so they win over a constant-provided default", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.valueType = "json";
+    // Default value is itself a whole-value JSON constant.
+    feature.defaultValue = JSON.stringify({ "@const:base": true });
+    feature.environmentSettings["production"].rules = [
+      {
+        type: "force",
+        id: "sparse-over-const",
+        description: "",
+        enabled: true,
+        value: JSON.stringify({ b: 99 }),
+        sparse: true,
+      },
+    ];
+
+    const constantMap = new Map([
+      [
+        "base",
+        { type: "json" as const, value: JSON.stringify({ a: 1, b: 2 }) },
+      ],
+    ]);
+
+    const def = getFeatureDefinition({
+      feature,
+      environment: "production",
+      groupMap,
+      experimentMap,
+      safeRolloutMap,
+      capabilities: ["looseUnmarshalling"],
+      constantMap,
+    });
+
+    // The default's constant resolves to { a: 1, b: 2 } and forms the merge
+    // base; the sparse field `b` is applied last and wins (b: 99, not 2).
+    expect(def?.rules).toEqual([{ force: { a: 1, b: 99 } }]);
+  });
+
+  it("spreads constants in both the default and a sparse patch, patch winning", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.valueType = "json";
+    // Default mixes explicit keys with a spread constant.
+    feature.defaultValue = JSON.stringify({
+      versions: [1, 2],
+      ref: 0.1,
+      "@const:config-snippet": true,
+    });
+    feature.environmentSettings["production"].rules = [
+      {
+        type: "force",
+        id: "sparse-spread",
+        description: "",
+        enabled: true,
+        // Sparse patch also mixes an explicit key with a spread constant.
+        value: JSON.stringify({ ref: 3, "@const:my-json": true }),
+        sparse: true,
+      },
+    ];
+
+    const constantMap = new Map([
+      ["config-snippet", { type: "json" as const, value: '{"x":1}' }],
+      ["my-json", { type: "json" as const, value: '{"y":2}' }],
+    ]);
+
+    const def = getFeatureDefinition({
+      feature,
+      environment: "production",
+      groupMap,
+      experimentMap,
+      safeRolloutMap,
+      capabilities: ["looseUnmarshalling"],
+      constantMap,
+    });
+
+    // Base = { versions, ref: 0.1, x: 1 }; patch = { ref: 3, y: 2 } applied last.
+    expect(def?.rules).toEqual([
+      { force: { versions: [1, 2], ref: 3, x: 1, y: 2 } },
+    ]);
+  });
+
   it("Uses linked experiments to build feature definitions", () => {
     const feature = cloneDeep(baseFeature);
     feature.environmentSettings["production"].rules = [

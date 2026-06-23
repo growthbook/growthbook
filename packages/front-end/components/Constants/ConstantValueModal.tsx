@@ -195,18 +195,16 @@ export default function ConstantValueModal({
         approvalRequired={draft.selectorApprovalRequired}
       />
 
-      <Box mb="4">
-        <FeatureValueField
-          label="Value"
-          id="constant-value"
-          value={form.watch("value")}
-          setValue={(v) => form.setValue("value", v)}
-          valueType={type}
-          useCodeInput={type === "json"}
-          showFullscreenButton={type === "json"}
-          constantContext={constantContext}
-        />
-      </Box>
+      <FeatureValueField
+        label="Value"
+        id="constant-value"
+        value={form.watch("value")}
+        setValue={(v) => form.setValue("value", v)}
+        valueType={type}
+        useCodeInput={type === "json"}
+        showFullscreenButton={type === "json"}
+        constantContext={constantContext}
+      />
 
       {cyclicRefs.length > 0 && (
         <Callout status="warning" size="sm" mb="3">

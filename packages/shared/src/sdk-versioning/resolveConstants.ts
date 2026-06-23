@@ -67,13 +67,16 @@ function resolveStringRefs(
   });
 }
 
-// If `obj` is exactly `{ "@const:key": true }`, return its key; else null.
-function placeholderKey(obj: Record<string, unknown>): string | null {
-  const keys = Object.keys(obj);
-  if (keys.length !== 1) return null;
-  if (obj[keys[0]] !== true) return null;
-  const match = keys[0].match(PLACEHOLDER_KEY);
+// If `k` is a `@const:<key>` property whose value is `true`, return the
+// referenced constant key; else null.
+function placeholderEntryKey(k: string, v: unknown): string | null {
+  if (v !== true) return null;
+  const match = k.match(PLACEHOLDER_KEY);
   return match ? match[1] : null;
+}
+
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+  return v !== null && typeof v === "object" && !Array.isArray(v);
 }
 
 // Recursively resolve constant references in an already-typed value (the shape
@@ -95,31 +98,61 @@ export function resolveConstantRefs(
   }
   if (value !== null && typeof value === "object") {
     const obj = value as Record<string, unknown>;
-    const key = placeholderKey(obj);
-    if (key !== null) {
+    const entries = Object.entries(obj);
+
+    // Resolve a `@const:<key>: true` entry to the referenced JSON constant's
+    // parsed value (with its own references resolved). Returns null when the key
+    // is unknown, the constant isn't JSON, it's part of a cycle, or it doesn't
+    // parse — the reference is then left verbatim.
+    const resolveEntry = (key: string): { value: unknown } | null => {
       const entry = map.get(key);
-      // Unknown key or type mismatch (string constant in a JSON slot) → verbatim.
-      if (!entry || entry.type !== "json") return value;
+      if (!entry || entry.type !== "json") return null;
       if (visited.has(key)) {
         onCycle?.(key);
-        return value; // cycle → verbatim
+        return null;
       }
       let parsed: unknown;
       try {
         parsed = JSON.parse(entry.value);
       } catch {
-        return value; // unparseable → verbatim
+        return null;
       }
-      // The resolved JSON may itself contain references.
-      return resolveConstantRefs(
-        parsed,
-        map,
-        new Set([...visited, key]),
-        onCycle,
-      );
+      return {
+        value: resolveConstantRefs(
+          parsed,
+          map,
+          new Set([...visited, key]),
+          onCycle,
+        ),
+      };
+    };
+
+    // Whole-value substitution: an object that is exactly `{ "@const:key": true }`
+    // is replaced by the constant's value (object, array, or primitive).
+    if (entries.length === 1) {
+      const key = placeholderEntryKey(entries[0][0], entries[0][1]);
+      if (key !== null) {
+        const resolved = resolveEntry(key);
+        return resolved ? resolved.value : value;
+      }
     }
+
+    // Otherwise resolve each entry in order. A `@const:key: true` entry whose
+    // constant resolves to a plain object is SPREAD in place, so entries listed
+    // later (including other constants) override its keys. Non-object or
+    // unresolved references are left as literal `@const:` keys.
     const out: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(obj)) {
+    for (const [k, v] of entries) {
+      const key = placeholderEntryKey(k, v);
+      if (key !== null) {
+        const resolved = resolveEntry(key);
+        if (resolved && isPlainObject(resolved.value)) {
+          Object.assign(out, resolved.value);
+          continue;
+        }
+        out[k] = v; // verbatim (unknown, cycle, or non-object constant)
+        continue;
+      }
       out[k] = resolveConstantRefs(v, map, visited, onCycle);
     }
     return out;

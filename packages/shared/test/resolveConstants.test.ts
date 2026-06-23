@@ -120,13 +120,9 @@ describe("resolveConstantRefs — JSON whole-value substitution", () => {
     });
   });
 
-  it("does not treat { key: false } or multi-key objects as placeholders", () => {
+  it("does not treat a { key: false } entry as a placeholder", () => {
     expect(resolveConstantRefs({ "@const:cfg": false }, map)).toEqual({
       "@const:cfg": false,
-    });
-    expect(resolveConstantRefs({ "@const:cfg": true, other: 1 }, map)).toEqual({
-      "@const:cfg": true,
-      other: 1,
     });
   });
 
@@ -134,6 +130,64 @@ describe("resolveConstantRefs — JSON whole-value substitution", () => {
     expect(
       resolveConstantRefs({ greeting: "hi {{ @const:name }}" }, map),
     ).toEqual({ greeting: "hi world" });
+  });
+});
+
+describe("resolveConstantRefs — JSON spread among other keys", () => {
+  const map = mapOf({
+    cfg: { type: "json", value: '{"a":1,"b":2}' },
+    more: { type: "json", value: '{"b":99,"c":3}' },
+    name: { type: "string", value: "world" },
+    list: { type: "json", value: "[1,2,3]" },
+  });
+
+  it("spreads a JSON constant into an object alongside other keys", () => {
+    expect(
+      resolveConstantRefs({ "@const:cfg": true, other: "bar" }, map),
+    ).toEqual({ a: 1, b: 2, other: "bar" });
+  });
+
+  it("spreads multiple constants in order, later keys/constants winning", () => {
+    // cfg → {a:1,b:2}, then more → {b:99,c:3} overrides cfg.b.
+    expect(
+      resolveConstantRefs(
+        { ref: 3, "@const:cfg": true, "@const:more": true },
+        map,
+      ),
+    ).toEqual({ ref: 3, a: 1, b: 99, c: 3 });
+  });
+
+  it("lets an explicit key listed after a spread win", () => {
+    expect(
+      resolveConstantRefs({ "@const:cfg": true, b: "override" }, map),
+    ).toEqual({ a: 1, b: "override" });
+  });
+
+  it("lets a spread listed after an explicit key override it", () => {
+    expect(
+      resolveConstantRefs({ b: "first", "@const:cfg": true }, map),
+    ).toEqual({ a: 1, b: 2 });
+  });
+
+  it("spreads inside nested objects", () => {
+    expect(
+      resolveConstantRefs(
+        { wrapper: { "@const:cfg": true, extra: true } },
+        map,
+      ),
+    ).toEqual({ wrapper: { a: 1, b: 2, extra: true } });
+  });
+
+  it("leaves a non-object constant (array) verbatim when among other keys", () => {
+    expect(resolveConstantRefs({ "@const:list": true, other: 1 }, map)).toEqual(
+      { "@const:list": true, other: 1 },
+    );
+  });
+
+  it("leaves a type-mismatched (string) constant verbatim when among other keys", () => {
+    expect(resolveConstantRefs({ "@const:name": true, other: 1 }, map)).toEqual(
+      { "@const:name": true, other: 1 },
+    );
   });
 });
 

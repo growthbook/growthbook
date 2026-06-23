@@ -140,10 +140,10 @@ export default function InlineCode({
         // via `style` instead — it's merged through and the JSON tokens carry
         // no font-weight of their own, so the heavier weight inherits down.
         wrapLines={!!boldLineSet}
-        // A custom renderer rebuilds the token tree with `@const:` references
-        // swapped for anchors. lineProps styling is already baked into the row
-        // nodes, so delegating each row to the library's createElement preserves
-        // the boldLines behavior above.
+        // A custom renderer rebuilds the token tree, turning `@const:` references
+        // into links. lineProps styling is already baked into the row nodes, so
+        // delegating each row to the library's createElement preserves the
+        // boldLines behavior above.
         renderer={
           linkify
             ? ({ rows, stylesheet, useInlineStyles }) =>

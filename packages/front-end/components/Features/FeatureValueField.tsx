@@ -162,21 +162,26 @@ export default function FeatureValueField({
   const insertJsonConstant = (constant: ConstantWithoutValue): boolean => {
     const editor = jsonEditorRef.current;
     if (!editor) return false;
-    const text = editor.getValue();
-    const offset = editor.session.doc.positionToIndex(
-      editor.getCursorPosition(),
-    );
-    const insertion =
-      constant.type === "json"
-        ? buildJsonConstantInsertion(text, offset, constant.key)
-        : buildStringRefInsertion(text, offset, constant.key);
-    if (!insertion) return false;
-    editor.session.insert(
-      editor.session.doc.indexToPosition(insertion.index, 0),
-      insertion.text,
-    );
-    editor.focus();
-    return true;
+    try {
+      const text = editor.getValue();
+      const offset = editor.session.doc.positionToIndex(
+        editor.getCursorPosition(),
+      );
+      const insertion =
+        constant.type === "json"
+          ? buildJsonConstantInsertion(text, offset, constant.key)
+          : buildStringRefInsertion(text, offset, constant.key);
+      if (!insertion) return false;
+      editor.session.insert(
+        editor.session.doc.indexToPosition(insertion.index, 0),
+        insertion.text,
+      );
+      editor.focus();
+      return true;
+    } catch {
+      // The Ace editor can be torn down (e.g. tab unmount) — fail gracefully.
+      return false;
+    }
   };
 
   const defaultCodeEditorToggledOn = value.length <= LARGE_FILE_SIZE;
@@ -263,10 +268,11 @@ export default function FeatureValueField({
     const showSparseToggle = !!setSparse && defaultIsObject;
     const isSparse = defaultIsObject && !!sparse;
 
-    // Cursor-aware insertion needs the Ace editor, so the picker only shows on
-    // the (non-sparse) code-editor path. It sits right-aligned on the label row.
+    // Cursor-aware insertion targets the Ace editor (the code-editor path, or the
+    // sparse Edit tab — both Ace). It sits right-aligned on the label row.
     const insertConstantButton =
-      showConstantPicker && useCodeInput && codeEditorToggledOn && !isSparse ? (
+      showConstantPicker &&
+      (isSparse || (useCodeInput && codeEditorToggledOn)) ? (
         <InsertConstantButton
           valueType="json"
           project={pickerProject}
@@ -277,35 +283,39 @@ export default function FeatureValueField({
       ) : null;
 
     const sparseHeader = showSparseToggle ? (
-      <Flex align="center" gap="3" mb="1" width="100%">
-        {label !== undefined && (
+      <Flex align="center" justify="between" gap="3" mb="1" width="100%">
+        {label !== undefined ? (
           <Text as="label" weight="semibold" mb="0">
             {label}
           </Text>
+        ) : (
+          <Box />
         )}
-        {insertConstantButton && <Box ml="auto">{insertConstantButton}</Box>}
-        <SparsePatchToggle
-          checked={!!sparse}
-          onChange={(checked) => {
-            // Switching modes rewrites the value so the editor isn't left with a
-            // default-laden patch (on) or a bare patch shown as the full value
-            // (off). See stripDefaultsForSparse / expandSparseToFull.
-            const def = feature?.defaultValue ?? "";
-            setValue(
-              checked
-                ? stripDefaultsForSparse(value, def)
-                : expandSparseToFull(value, def),
-            );
-            setSparse?.(checked);
-          }}
-          disabled={disabled}
-        />
+        <Flex align="center" gap="3" flexShrink="0">
+          {insertConstantButton}
+          <SparsePatchToggle
+            checked={!!sparse}
+            onChange={(checked) => {
+              // Switching modes rewrites the value so the editor isn't left with
+              // a default-laden patch (on) or a bare patch shown as the full
+              // value (off). See stripDefaultsForSparse / expandSparseToFull.
+              const def = feature?.defaultValue ?? "";
+              setValue(
+                checked
+                  ? stripDefaultsForSparse(value, def)
+                  : expandSparseToFull(value, def),
+              );
+              setSparse?.(checked);
+            }}
+            disabled={disabled}
+          />
+        </Flex>
       </Flex>
     ) : null;
 
     if (isSparse) {
       return (
-        <>
+        <Box mb="3">
           {sparseHeader}
           <SparseTabbedEditor
             value={value}
@@ -318,8 +328,10 @@ export default function FeatureValueField({
             defaultHeight={codeInputDefaultHeight}
             showInlineLabel={!showSparseToggle}
             condensed={condensed}
+            onEditorLoad={(e) => (jsonEditorRef.current = e)}
+            usedConstantTags={usedConstantTags}
           />
-        </>
+        </Box>
       );
     }
 
@@ -393,7 +405,7 @@ export default function FeatureValueField({
 
     if (useCodeInput && codeEditorToggledOn) {
       return (
-        <>
+        <Box mb="3">
           {sparseHeader}
           {jsonLabelRow}
           <CodeTextArea
@@ -410,12 +422,12 @@ export default function FeatureValueField({
             showFullscreenButton={showFullscreenButton}
             onEditorLoad={(e) => (jsonEditorRef.current = e)}
           />
-        </>
+        </Box>
       );
     }
 
     return (
-      <>
+      <Box mb="3">
         {sparseHeader}
         <JSONTextEditor
           label={editorLabel}
@@ -428,7 +440,7 @@ export default function FeatureValueField({
           performCopy={performCopy}
           copySuccess={copySuccess}
         />
-      </>
+      </Box>
     );
   }
 

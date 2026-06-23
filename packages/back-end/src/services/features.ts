@@ -249,6 +249,9 @@ export function generateFeaturesPayload({
         includeTagsInMetadata,
       },
       projectsMap,
+      // Resolves sparse rule values against resolved constants (sparse fields
+      // win); the post-build pass below resolves all other values.
+      constantMap: constantMap ?? undefined,
     });
     if (def) {
       if (constantMap && constantMap.size) {
@@ -1485,6 +1488,9 @@ export function evaluateFeature({
     const settings = feature.environmentSettings[env.id] ?? null;
     if (settings) {
       thisEnvResult.enabled = settings.enabled;
+      const envConstantMap = constants?.length
+        ? buildConstantValueMap(constants, env.id)
+        : null;
       const definition = getFeatureDefinition({
         feature,
         groupMap,
@@ -1495,16 +1501,19 @@ export function evaluateFeature({
         safeRolloutMap,
         namespaces: namespaces,
         organization,
+        // Sparse rule values resolve against resolved constants here (sparse
+        // wins); other values resolve in the post-build pass below.
+        constantMap: envConstantMap ?? undefined,
       });
 
       if (definition) {
         // Resolve `@const:` references so the preview matches the served
         // payload. Cycles are left unresolved (rendered as-is), same as payload
         // generation — no logging needed in this preview-only path.
-        if (constants?.length) {
+        if (envConstantMap) {
           resolveConstantsInDefinition(
             definition,
-            buildConstantValueMap(constants, env.id),
+            envConstantMap,
             () => undefined,
           );
         }
