@@ -292,10 +292,16 @@ export function createComparisonAlignmentResolver(
   };
 }
 
+// Unit separator (U+001F): a non-printing control character that cannot
+// appear in real dimension/breakdown values, so composite keys never
+// collide (e.g. ["a","b"] vs ["ab"]). Defined as a named constant because
+// the raw character is invisible in diffs/editors and trivial to delete by
+// accident.
+const KEY_SEPARATOR = "\u001f";
+
 /** Join a full dimension tuple into a single lookup key. */
 function dimensionsTupleKey(dimensions: (string | null)[]): string {
-  // Unit separator (U+001F) won't collide with real dimension values.
-  return dimensions.map((d) => String(d ?? "")).join("");
+  return dimensions.map((d) => String(d ?? "")).join(KEY_SEPARATOR);
 }
 
 /**
@@ -469,8 +475,7 @@ function bucketBreakdownMergeKey(
   granularity: ResolvedGranularity,
 ): string {
   const bucket = productAnalyticsDateDimensionBucketMergeKey(dim0, granularity);
-  // Unit separator (U+001F) won't collide with real breakdown values.
-  return `${bucket}${dim1 ?? ""}`;
+  return `${bucket}${KEY_SEPARATOR}${dim1 ?? ""}`;
 }
 
 /**
