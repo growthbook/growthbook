@@ -1,3 +1,4 @@
+import { Revision } from "shared/enterprise";
 import {
   postConstantValidator,
   validateConstantValue,
@@ -7,7 +8,10 @@ import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
-import { ensureLiveRevisionExists } from "back-end/src/revisions/util";
+import {
+  buildPatchOps,
+  ensureLiveRevisionExists,
+} from "back-end/src/revisions/util";
 
 export const postConstant = createApiRequestHandler(postConstantValidator)(
   async (req) => {
@@ -45,10 +49,25 @@ export const postConstant = createApiRequestHandler(postConstantValidator)(
       validateConstantValue(type, v, env);
     }
 
-    // Approval gate. There's no existing entity to draft against on create, so
-    // the only non-UI path when approvals are required is bypass.
+    // Approval gate. Scope it to the new constant's project (change-aware, like
+    // the update path) rather than the coarse org-wide check, so a create in a
+    // project without a review rule isn't gated. There's no existing entity to
+    // draft against on create, so the only non-UI path when approval is required
+    // is bypass.
     const adapter = getAdapter("constant");
-    if (adapter.isApprovalRequired(req.context)) {
+    const patchOps = buildPatchOps({
+      ...(value !== undefined ? { value } : {}),
+      ...(environmentValues ? { environmentValues } : {}),
+    });
+    const approvalRequired = adapter.isApprovalRequiredForRevision
+      ? adapter.isApprovalRequiredForRevision(req.context, {
+          target: {
+            snapshot: { project: project || "" },
+            proposedChanges: patchOps,
+          },
+        } as unknown as Revision)
+      : adapter.isApprovalRequired(req.context);
+    if (approvalRequired) {
       if (!bypassApproval) {
         throw new BadRequestError(
           "This organization requires approvals for this constant's project. " +
