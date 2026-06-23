@@ -145,6 +145,23 @@ export function isManagedWarehouseUnavailable(
   );
 }
 
+/**
+ * A legacy managed warehouse whose JSON migration was skipped due to identifier/dimension
+ * drift and tombstoned (`migrationDriftDetected`) for manual migration. The on-read
+ * migration must not auto-retry it, else it re-enqueues + re-logs on every query.
+ */
+export function isManagedWarehouseJsonMigrationBlocked(
+  datasource: Pick<DataSourceInterface, "type" | "settings">,
+): boolean {
+  if (!isManagedWarehouse(datasource)) {
+    return false;
+  }
+  return (
+    (datasource.settings as { migrationDriftDetected?: boolean })
+      ?.migrationDriftDetected === true
+  );
+}
+
 // Managed Warehouse JSON-columns model (replaces materialized columns). Per-org
 // tables carry the SDK's standard fields as real columns plus `attributes` /
 // `properties` JSON columns. Identifiers come from `hashAttribute` attributes:

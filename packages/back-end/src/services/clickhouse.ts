@@ -7,6 +7,7 @@ import {
   getManagedWarehouseUserIdTypeSettings,
   isManagedWarehouseAwaitingJsonMigration,
   isManagedWarehouseAwaitingProvisioning,
+  isManagedWarehouseJsonMigrationBlocked,
   isManagedWarehouseMigrating,
   MANAGED_WAREHOUSE_ATTRIBUTES_COLUMN,
   MANAGED_WAREHOUSE_DEFAULT_DIMENSIONS,
@@ -410,7 +411,9 @@ export async function migrateManagedWarehouseToJson(
     // Defer until provisioned: recreating tables for a never-provisioned org would
     // race the normal provisioning flow (and spam Sentry). The runQuery enqueue runs
     // before its guard, so a genuinely stuck mid-migration warehouse still recovers.
-    isManagedWarehouseAwaitingProvisioning(datasource)
+    isManagedWarehouseAwaitingProvisioning(datasource) ||
+    // Already tombstoned for manual migration (drift) — don't re-run/re-log.
+    isManagedWarehouseJsonMigrationBlocked(datasource)
   ) {
     return;
   }
@@ -436,6 +439,8 @@ export async function migrateManagedWarehouseToJson(
     ),
   ].filter((d) => !MANAGED_WAREHOUSE_DEFAULT_DIMENSIONS.includes(d));
   if (droppedIdentifiers.length || droppedDimensions.length) {
+    // Tombstone so the on-read trigger stops re-enqueueing + re-logging this warehouse
+    // on every query (it can't auto-migrate). Log once, on first detection.
     logger.error(
       {
         organization: datasource.organization,
@@ -443,6 +448,12 @@ export async function migrateManagedWarehouseToJson(
         droppedDimensions,
       },
       "Managed warehouse JSON migration skipped: re-derived identifiers/dimensions would drop existing ones; needs manual migration",
+    );
+    await updateDataSource(
+      context,
+      datasource,
+      { settings: { ...datasource.settings, migrationDriftDetected: true } },
+      { skipExposureQueryValidation: true },
     );
     return;
   }

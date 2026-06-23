@@ -331,6 +331,13 @@ export interface GrowthbookClickhouseSettings extends DataSourceSettings {
    * state during this window. Distinct from `hasBeenProvisioned: false` (never set up).
    */
   migrating?: boolean;
+  /**
+   * Tombstone: set when the JSON migration was skipped because re-deriving identifiers/
+   * dimensions would drop existing ones (needs manual migration). Stops the on-read
+   * migration from re-enqueueing + re-logging on every query. Cleared manually once the
+   * warehouse is migrated by hand.
+   */
+  migrationDriftDetected?: boolean;
 }
 
 interface DataSourceBase {

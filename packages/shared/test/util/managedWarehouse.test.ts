@@ -9,6 +9,7 @@ import {
   getManagedWarehouseUserIdTypeSettings,
   isManagedWarehouse,
   isManagedWarehouseAwaitingJsonMigration,
+  isManagedWarehouseJsonMigrationBlocked,
   isManagedWarehouseMigrating,
   isManagedWarehouseUnavailable,
   isManagedWarehouseNoEventsGuidanceMessage,
@@ -100,6 +101,26 @@ describe("isManagedWarehouseMigrating / isManagedWarehouseUnavailable", () => {
     expect(isManagedWarehouseUnavailable(ds({ migrating: true }))).toBe(true);
     expect(
       isManagedWarehouseUnavailable(ds({ hasBeenProvisioned: true })),
+    ).toBe(false);
+  });
+
+  it("isManagedWarehouseJsonMigrationBlocked is true only when tombstoned", () => {
+    expect(
+      isManagedWarehouseJsonMigrationBlocked(
+        ds({ migrationDriftDetected: true }),
+      ),
+    ).toBe(true);
+    expect(
+      isManagedWarehouseJsonMigrationBlocked(
+        ds({ migrationDriftDetected: false }),
+      ),
+    ).toBe(false);
+    expect(isManagedWarehouseJsonMigrationBlocked(ds({}))).toBe(false);
+    expect(
+      isManagedWarehouseJsonMigrationBlocked({
+        type: "clickhouse",
+        settings: { migrationDriftDetected: true },
+      }),
     ).toBe(false);
   });
 });
