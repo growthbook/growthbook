@@ -69,7 +69,7 @@ async function setArchivedState(
     if (!canBypass) {
       throw new BadRequestError(
         "This organization requires approvals for this constant. " +
-          `Use \`POST /constants/${constant.id}/revisions\` to ${
+          `Use \`POST /constants-revisions/${constant.id}\` to ${
             archived ? "archive" : "unarchive"
           } it through a draft, or use a role/token with the bypass permission.`,
       );

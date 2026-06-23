@@ -99,7 +99,7 @@ export const updateConstant = createApiRequestHandler(updateConstantValidator)(
       if (!bypassApproval) {
         throw new BadRequestError(
           "This organization requires approvals for this constant. " +
-            `Use \`POST /constants/${constant.id}/revisions\` to open a draft, ` +
+            `Use \`POST /constants-revisions/${constant.id}\` to open a draft, ` +
             'or pass `{ "bypassApproval": true }` if you have the bypass permission.',
         );
       }
