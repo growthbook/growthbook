@@ -29,6 +29,7 @@ import {
   useMemo,
   useState,
 } from "react";
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import {
   setUser as sentrySetUser,
   setTag as sentrySetTag,
@@ -392,9 +393,15 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     }
   }, [currentOrg?.organization?.id]);
 
+  const hasVisualEditorPromo = useFeatureIsOn("visual-editor-free-access");
+
   const commercialFeatures = useMemo(() => {
-    return new Set(currentOrg?.commercialFeatures || []);
-  }, [currentOrg?.commercialFeatures]);
+    const features = new Set<CommercialFeature>(
+      currentOrg?.commercialFeatures || [],
+    );
+    if (hasVisualEditorPromo) features.add("visual-editor");
+    return features;
+  }, [currentOrg?.commercialFeatures, hasVisualEditorPromo]);
 
   const permissionsCheck = useCallback(
     (
@@ -651,7 +658,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         effectiveAccountPlan: currentOrg?.effectiveAccountPlan,
         commercialFeatureLowestPlan: currentOrg?.commercialFeatureLowestPlan,
         licenseError: currentOrg?.licenseError || "",
-        commercialFeatures: currentOrg?.commercialFeatures || [],
+        commercialFeatures: [...commercialFeatures],
         agreements: currentOrg?.agreements || [],
         organization: organization || {},
         seatsInUse: currentOrg?.seatsInUse || 0,
