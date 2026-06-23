@@ -399,6 +399,8 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     const features = new Set<CommercialFeature>(
       currentOrg?.commercialFeatures || [],
     );
+    // This is a temporary override to give some users access to the visual editor
+    // If we decide to keep this, we should add a getEffectiveCommercialFeatures that expands this functionality
     if (hasVisualEditorPromo) features.add("visual-editor");
     return features;
   }, [currentOrg?.commercialFeatures, hasVisualEditorPromo]);
