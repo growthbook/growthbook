@@ -211,10 +211,10 @@ const sections: Section[] = [
     title: "Action slot",
     description: (
       <>
-        The <code>action</code> prop renders a right-aligned, vertically
-        centered slot with built-in margin compensation, so callers stop
-        hand-rolling the Flex + negative-margin pattern. Validates a Button, a
-        non-button (Link), and action combined with dismiss.
+        The <code>action</code> prop renders a right-aligned slot pinned to the
+        first line of text, so callers stop hand-rolling the Flex +
+        negative-margin pattern. Validates a Button, a non-button (Link), action
+        combined with dismiss, and a multi-line case.
       </>
     ),
     render: () => (
@@ -228,11 +228,11 @@ const sections: Section[] = [
           </Callout>
         </Example>
 
-        <Example label='action={<Button size="1">Generate</Button>}'>
+        <Example label={`action={<Button size="xs">Generate</Button>}`}>
           <Callout
             status="info"
             action={
-              <Button variant="soft" size="1">
+              <Button variant="soft" size="xs">
                 Generate
               </Button>
             }
@@ -258,7 +258,7 @@ const sections: Section[] = [
           <Callout
             status="warning"
             action={
-              <Button variant="soft" size="1">
+              <Button variant="soft" size="xs">
                 Fix
               </Button>
             }
@@ -277,6 +277,22 @@ const sections: Section[] = [
             )}
           >
             An action and a dismiss button can now coexist.
+          </Callout>
+        </Example>
+
+        <Example label="Multi-line content + action (action stays on first line)">
+          <Callout
+            status="info"
+            action={
+              <Button variant="soft" size="xs">
+                Action
+              </Button>
+            }
+          >
+            This callout has a longer message that wraps across multiple lines,
+            to verify the icon and the action button both stay aligned with the
+            first line of text instead of centering on the whole block. The row
+            should grow downward while the icon and button stay at the top.
           </Callout>
         </Example>
       </Flex>

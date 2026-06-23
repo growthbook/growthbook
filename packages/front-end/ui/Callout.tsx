@@ -87,6 +87,19 @@ export default forwardRef<
     return <RadixStatusIcon status={status} size={size} />;
   })();
 
+  // The icon, action, and dismiss button are each sized to the text's first
+  // line and centered within it. They align on that line and never grow the
+  // row, so multi-line content stays top-aligned and tall actions (buttons)
+  // overflow into the padding instead of pushing the content down.
+  const lineHeight =
+    size === "sm" ? "var(--line-height-1)" : "var(--line-height-2)";
+  const firstLineBox: React.CSSProperties = {
+    height: lineHeight,
+    display: "flex",
+    alignItems: "center",
+    flexShrink: 0,
+  };
+
   return (
     <RadixCallout.Root
       ref={ref}
@@ -103,36 +116,31 @@ export default forwardRef<
       variant="soft"
     >
       {renderedIcon ? (
-        <RadixCallout.Icon>{renderedIcon}</RadixCallout.Icon>
+        <RadixCallout.Icon style={{ height: lineHeight }}>
+          {renderedIcon}
+        </RadixCallout.Icon>
       ) : null}
-      <Flex
-        align={action ? "center" : "start"}
-        gap={action ? "3" : "1"}
-        flexGrow="1"
-      >
+      <Flex align="start" gap={action ? "3" : "1"} flexGrow="1">
         {/* Rendered as a div (not the default <p>) so block-level children
             and nested layout don't produce invalid <div>-inside-<p> nesting. */}
         <Text as="div" size={getRadixSize(size)} style={{ flex: 1 }}>
           {children}
         </Text>
-        {action ? (
-          <Box flexShrink="0" my="-1">
-            {action}
-          </Box>
-        ) : null}
+        {action ? <Box style={firstLineBox}>{action}</Box> : null}
         {dismissible && id ? (
-          <Tooltip content="Dismiss">
-            <IconButton
-              variant="ghost"
-              color="gray"
-              size="1"
-              onClick={() => setDismissed(true)}
-              aria-label="Dismiss"
-              style={{ flexShrink: 0, marginTop: 0 }}
-            >
-              <PiX />
-            </IconButton>
-          </Tooltip>
+          <Box style={firstLineBox}>
+            <Tooltip content="Dismiss">
+              <IconButton
+                variant="ghost"
+                color="gray"
+                size="1"
+                onClick={() => setDismissed(true)}
+                aria-label="Dismiss"
+              >
+                <PiX />
+              </IconButton>
+            </Tooltip>
+          </Box>
         ) : null}
       </Flex>
     </RadixCallout.Root>
