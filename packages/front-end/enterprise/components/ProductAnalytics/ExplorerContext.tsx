@@ -126,7 +126,11 @@ interface ExplorerProviderProps {
   children: ReactNode;
   initialConfig: ExplorerDraftConfig;
   hasExistingResults?: boolean;
-  onRunComplete?: (exploration: ProductAnalyticsExploration) => void;
+  onRunComplete?: (
+    exploration: ProductAnalyticsExploration,
+    comparisonExploration: ProductAnalyticsExploration | null,
+    previousTimeFrame: ExplorationDateRange | null,
+  ) => void;
   trackingSource?: string;
 }
 
@@ -476,7 +480,13 @@ export function ExplorerProvider({
         query,
         error: fetchError || fetchResult?.error || null,
       }));
-      if (fetchResult) onRunComplete?.(fetchResult);
+      if (fetchResult) {
+        onRunComplete?.(
+          fetchResult,
+          comparison?.exploration ?? null,
+          previousForRequest,
+        );
+      }
 
       if (trackingSource) {
         const datasourceType =
