@@ -137,6 +137,7 @@
     "@typescript/native-preview": "7.0.0-dev.20260309.1",
     "eslint-plugin-react-hooks": "^4.6.0",
     "identity-obj-proxy": "^3.0.0",
+    "jsdom": "^29.1.1",
     "raw-loader": "^4.0.2",
     "rimraf": "^3.0.2",
     "sass": "^1.71.0",

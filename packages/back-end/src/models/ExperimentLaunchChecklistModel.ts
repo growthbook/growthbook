@@ -15,6 +15,7 @@ const experimentLaunchChecklistSchema = new mongoose.Schema({
   dateUpdated: Date,
   updatedByUserId: String,
   projectId: String, //TODO: This won't be used until we add support for project-level checklists
+  hideDefaultTasks: Boolean,
   tasks: [
     {
       task: String,
@@ -58,6 +59,7 @@ export async function createExperimentLaunchChecklist(
   createdByUserId: string,
   tasks: ChecklistTask[],
   projectId: string,
+  hideDefaultTasks?: boolean,
 ): Promise<ExperimentLaunchChecklistInterface> {
   const doc: ExperimentLaunchChecklistDocument =
     await ExperimentLaunchChecklistModel.create({
@@ -69,6 +71,7 @@ export async function createExperimentLaunchChecklist(
       createdByUserId,
       tasks,
       projectId,
+      hideDefaultTasks,
     });
 
   return toInterface(doc);
@@ -104,6 +107,7 @@ export async function updateExperimentLaunchChecklist(
   updatedByUserId: string,
   checklistId: string,
   tasks: ChecklistTask[],
+  hideDefaultTasks?: boolean,
 ): Promise<ExperimentLaunchChecklistInterface | null> {
   const doc: ExperimentLaunchChecklistDocument | null =
     await ExperimentLaunchChecklistModel.findOneAndUpdate(
@@ -115,6 +119,7 @@ export async function updateExperimentLaunchChecklist(
         dateUpdated: new Date(),
         updatedByUserId,
         tasks,
+        hideDefaultTasks,
       },
     );
 

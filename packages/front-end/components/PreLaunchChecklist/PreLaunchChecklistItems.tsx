@@ -128,30 +128,33 @@ export function getChecklistItems({
       linkedFeatures.some((f) => f.state === "live" || f.state === "draft") ||
       experiment.hasVisualChangesets ||
       experiment.hasURLRedirects;
-    items.push({
-      display: (
-        <>
-          Add at least one{isBandit && " live"}{" "}
-          {openSetupTab &&
-          ((isBandit && !hasLiveLinkedChanges) ||
-            (!isBandit && hasLinkedChanges)) ? (
-            <a className="a link-purple" role="button" onClick={openSetupTab}>
-              Linked Feature or Visual Editor change
-            </a>
-          ) : (
-            "Linked Feature, Visual Editor change, or URL Redirect"
-          )}
-        </>
-      ),
-      required: true,
-      status:
-        (isBandit && hasLiveLinkedChanges) || (!isBandit && hasLinkedChanges)
-          ? "complete"
-          : "incomplete",
-      type: "auto",
-    });
 
-    if (isBandit) {
+    if (!checklist?.hideDefaultTasks) {
+      items.push({
+        display: (
+          <>
+            Add at least one{isBandit && " live"}{" "}
+            {openSetupTab &&
+            ((isBandit && !hasLiveLinkedChanges) ||
+              (!isBandit && hasLinkedChanges)) ? (
+              <a className="a link-purple" role="button" onClick={openSetupTab}>
+                Linked Feature or Visual Editor change
+              </a>
+            ) : (
+              "Linked Feature, Visual Editor change, or URL Redirect"
+            )}
+          </>
+        ),
+        required: true,
+        status:
+          (isBandit && hasLiveLinkedChanges) || (!isBandit && hasLinkedChanges)
+            ? "complete"
+            : "incomplete",
+        type: "auto",
+      });
+    }
+
+    if (isBandit && !checklist?.hideDefaultTasks) {
       items.push({
         display: (
           <>
@@ -309,7 +312,7 @@ export function getChecklistItems({
     }
 
     // No empty visual changesets
-    if (visualChangesets.length > 0) {
+    if (visualChangesets.length > 0 && !checklist?.hideDefaultTasks) {
       const hasSomeVisualChanges = visualChangesets.some((vc) =>
         hasVisualChanges(vc.visualChanges),
       );
@@ -334,60 +337,62 @@ export function getChecklistItems({
     }
   }
 
-  // Experiment has phases
-  const hasPhases = experiment.phases.length > 0;
-  items.push({
-    display: (
-      <>
-        {editTargeting ? (
-          <a
-            className="a link-purple"
-            role="button"
-            onClick={() => {
-              editTargeting();
-              track("Edit targeting", { source: "experiment-start-banner" });
-            }}
-          >
-            Configure
-          </a>
-        ) : (
-          "Configure"
-        )}{" "}
-        variation assignment and targeting behavior
-      </>
-    ),
-    status: hasPhases ? "complete" : "incomplete",
-    type: "auto",
-    required: true,
-  });
+  if (!checklist?.hideDefaultTasks) {
+    // Experiment has phases
+    const hasPhases = experiment.phases.length > 0;
+    items.push({
+      display: (
+        <>
+          {editTargeting ? (
+            <a
+              className="a link-purple"
+              role="button"
+              onClick={() => {
+                editTargeting();
+                track("Edit targeting", { source: "experiment-start-banner" });
+              }}
+            >
+              Configure
+            </a>
+          ) : (
+            "Configure"
+          )}{" "}
+          variation assignment and targeting behavior
+        </>
+      ),
+      status: hasPhases ? "complete" : "incomplete",
+      type: "auto",
+      required: true,
+    });
 
-  const verifiedConnections = connections.some((c) => c.connected);
-  items.push({
-    type: "auto",
-    key: "has-connection",
-    status: connections.length ? "complete" : "incomplete",
-    display: (
-      <>
-        Integrate GrowthBook into your app by adding an SDK Connection{" "}
-        {!setShowSdkForm && !verifiedConnections ? (
-          <Link href="/sdks">Manage SDK Connections</Link>
-        ) : connections.length === 0 && setShowSdkForm ? (
-          <a
-            className="a link-purple"
-            role="button"
-            onClick={() => setShowSdkForm(true)}
-          >
-            Add SDK Connection
-          </a>
-        ) : null}
-      </>
-    ),
-    required: true,
-    warning:
-      connections.length > 0 && !verifiedConnections
-        ? "An SDK Connection exists, but it has not been verified to be working yet"
-        : undefined,
-  });
+    const verifiedConnections = connections.some((c) => c.connected);
+    items.push({
+      type: "auto",
+      key: "has-connection",
+      status: connections.length ? "complete" : "incomplete",
+      display: (
+        <>
+          Integrate GrowthBook into your app by adding an SDK Connection{" "}
+          {!setShowSdkForm && !verifiedConnections ? (
+            <Link href="/sdks">Manage SDK Connections</Link>
+          ) : connections.length === 0 && setShowSdkForm ? (
+            <a
+              className="a link-purple"
+              role="button"
+              onClick={() => setShowSdkForm(true)}
+            >
+              Add SDK Connection
+            </a>
+          ) : null}
+        </>
+      ),
+      required: true,
+      warning:
+        connections.length > 0 && !verifiedConnections
+          ? "An SDK Connection exists, but it has not been verified to be working yet"
+          : undefined,
+    });
+  }
 
   if (checklist?.tasks?.length) {
     checklist.tasks.forEach((item) => {
