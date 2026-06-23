@@ -129,7 +129,7 @@ export default function RevisionBanner({
           This will reopen the revision and allow you to make further changes.
         </Modal>
       )}
-      <Callout status={config.status} mb="4" contentsAs="div">
+      <Callout status={config.status} mb="4">
         <Flex align="center" justify="between" gap="3" wrap="wrap">
           <span>
             {config.text}

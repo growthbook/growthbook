@@ -53,7 +53,7 @@ export default function SDKsPage() {
 
       {legacyEnabled && legacy ? (
         <>
-          <Callout status="warning" contentsAs="div">
+          <Callout status="warning">
             <Heading as="h3" mb="3">
               Deprecated
             </Heading>

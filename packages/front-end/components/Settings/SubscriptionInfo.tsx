@@ -156,7 +156,6 @@ export default function SubscriptionInfo() {
                 style={{ maxWidth: 550 }}
                 mt="3"
                 icon={<FaExclamationTriangle />}
-                contentsAs="div"
               >
                 <p>
                   You do not have a valid payment method on file. Your

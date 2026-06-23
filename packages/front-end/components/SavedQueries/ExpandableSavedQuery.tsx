@@ -35,7 +35,7 @@ const ExpandableSavedQuery: FC<{
       </h4>
       <Code language={"sql"} code={savedQuery.sql} expandable={true} />
       {savedQuery.results.error && (
-        <Callout status="error" contentsAs="div">
+        <Callout status="error">
           <pre className="m-0 p-0" style={{ whiteSpace: "pre-wrap" }}>
             {savedQuery.results.error}
           </pre>

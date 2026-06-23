@@ -199,7 +199,7 @@ const DataSourceForm: FC<{
       }
     >
       {importSampleData && !datasource.type && (
-        <Callout status="info" contentsAs="div">
+        <Callout status="info">
           <div className="row align-items-center">
             <div className="col">
               <div>

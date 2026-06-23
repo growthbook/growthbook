@@ -663,7 +663,7 @@ export default function TabbedPage({
         {showMetricGroupPromo() ? (
           <PremiumCallout
             commercialFeature="metric-groups"
-            dismissable={true}
+            dismissible={true}
             id="metrics-list-metric-group-promo"
             docSection="metricGroups"
             mb="2"

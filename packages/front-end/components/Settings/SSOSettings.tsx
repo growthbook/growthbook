@@ -16,7 +16,7 @@ export default function SSOSettings({ ssoConnection }: Props) {
   if (!ssoConnection) return null;
 
   return (
-    <Callout status="info" contentsAs="div">
+    <Callout status="info">
       <div className="d-flex">
         <div>
           <h3>Enterprise SSO Enabled</h3>

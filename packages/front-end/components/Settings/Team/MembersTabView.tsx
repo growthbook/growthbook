@@ -148,7 +148,7 @@ export const MembersTabView: FC = () => {
           commercialFeature="teams"
           id="member-list-team-promo"
           docSection="team"
-          dismissable={true}
+          dismissible={true}
           mb="5"
         >
           <strong>Teams and Custom Roles</strong> can make permission management

@@ -265,7 +265,7 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                 </div>
               </div>
             </div>
-            <Callout status="info" contentsAs="div" className="text-center">
+            <Callout status="info" className="text-center">
               <p>
                 Not ready to connect to your data warehouse? Explore a sample
                 experiment first to get a feel for the GrowthBook platform.

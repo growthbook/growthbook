@@ -122,7 +122,7 @@ export default function ExperimentRefFields({
           }}
         />
       ) : !existingRule ? (
-        <Callout status="warning" mb="4" contentsAs="div">
+        <Callout status="warning" mb="4">
           {experiments.length > 0
             ? `You don't have any eligible Experiments yet.`
             : `You don't have any existing Experiments yet.`}{" "}
@@ -138,7 +138,7 @@ export default function ExperimentRefFields({
           </a>
         </Callout>
       ) : (
-        <Callout status="error" mb="4" contentsAs="div">
+        <Callout status="error" mb="4">
           Could not find this Experiment. Has it been deleted?
         </Callout>
       )}

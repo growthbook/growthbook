@@ -58,7 +58,6 @@ const TempMessage: FC<TempMessageProps> = ({
         opacity: closing ? 0 : 1,
         ...style,
       }}
-      contentsAs="div"
     >
       {showClose && (
         <button

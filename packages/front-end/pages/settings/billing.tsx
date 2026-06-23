@@ -105,7 +105,7 @@ const BillingPage: FC = () => {
           <SubscriptionInfo />
         ) : canSubscribe ? (
           <div className="p-3">
-            <Callout status="info" mb="0" contentsAs="div">
+            <Callout status="info" mb="0">
               <Flex justify="between">
                 <span>
                   You are currently on the <strong>Starter Plan</strong>.

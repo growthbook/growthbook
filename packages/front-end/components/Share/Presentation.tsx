@@ -449,7 +449,6 @@ const Presentation = ({
                         ? "warning"
                         : "info"
                 }
-                contentsAs="div"
               >
                 <strong>{resultsText}</strong>
                 {e.experiment.analysis && (
@@ -535,7 +534,7 @@ const Presentation = ({
             >
               Results
             </h2>
-            <Callout status="warning" mt="3" contentsAs="div">
+            <Callout status="warning" mt="3">
               <strong>No data for this experiment</strong>
               {resultsText && (
                 <>

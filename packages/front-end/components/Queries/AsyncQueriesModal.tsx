@@ -69,7 +69,7 @@ const AsyncQueriesModal: FC<{
   const contents = (
     <>
       {error && (
-        <Callout status="error" contentsAs="div">
+        <Callout status="error">
           <div>
             <strong>Error Processing Query Results</strong>
           </div>

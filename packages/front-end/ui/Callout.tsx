@@ -3,6 +3,7 @@ import {
   Box,
   Flex,
   IconButton,
+  Text,
   Tooltip,
 } from "@radix-ui/themes";
 import React, { forwardRef, ReactNode } from "react";
@@ -43,8 +44,7 @@ export default forwardRef<
     color?: RadixCallout.RootProps["color"]; // Use status instead of color whenever possible
     size?: "sm" | "md";
     icon?: ReactNode | null;
-    contentsAs?: "text" | "div";
-    variant?: "soft" | "surface" | "outline";
+    action?: ReactNode;
     className?: string;
     style?: React.CSSProperties;
     role?: string;
@@ -57,11 +57,10 @@ export default forwardRef<
     color,
     size = "md",
     icon,
-    contentsAs = "text",
+    action,
     dismissible = false,
     id,
     renderWhenDismissed,
-    variant = "soft",
     className,
     style,
     role,
@@ -101,36 +100,41 @@ export default forwardRef<
         position: "relative",
         ...style,
       }}
-      variant={variant}
+      variant="soft"
     >
       {renderedIcon ? (
         <RadixCallout.Icon>{renderedIcon}</RadixCallout.Icon>
       ) : null}
-      {contentsAs === "div" ? (
-        <Box width="100%">
-          <div>{children}</div>
-        </Box>
-      ) : (
-        <Flex align="start" gap="1" flexGrow="1">
-          <RadixCallout.Text size={getRadixSize(size)} style={{ flex: 1 }}>
-            {children}
-          </RadixCallout.Text>
-          {dismissible && id ? (
-            <Tooltip content="Dismiss">
-              <IconButton
-                variant="ghost"
-                color="gray"
-                size="1"
-                onClick={() => setDismissed(true)}
-                aria-label="Dismiss"
-                style={{ flexShrink: 0, marginTop: 0 }}
-              >
-                <PiX />
-              </IconButton>
-            </Tooltip>
-          ) : null}
-        </Flex>
-      )}
+      <Flex
+        align={action ? "center" : "start"}
+        gap={action ? "3" : "1"}
+        flexGrow="1"
+      >
+        {/* Rendered as a div (not the default <p>) so block-level children
+            and nested layout don't produce invalid <div>-inside-<p> nesting. */}
+        <Text as="div" size={getRadixSize(size)} style={{ flex: 1 }}>
+          {children}
+        </Text>
+        {action ? (
+          <Box flexShrink="0" my="-1">
+            {action}
+          </Box>
+        ) : null}
+        {dismissible && id ? (
+          <Tooltip content="Dismiss">
+            <IconButton
+              variant="ghost"
+              color="gray"
+              size="1"
+              onClick={() => setDismissed(true)}
+              aria-label="Dismiss"
+              style={{ flexShrink: 0, marginTop: 0 }}
+            >
+              <PiX />
+            </IconButton>
+          </Tooltip>
+        ) : null}
+      </Flex>
     </RadixCallout.Root>
   );
 });

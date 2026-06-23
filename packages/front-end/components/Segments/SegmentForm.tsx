@@ -184,7 +184,7 @@ const SegmentForm: FC<{
         })}
       >
         {!current.id && factTables.length > 0 ? (
-          <Callout status="info" color="purple" contentsAs="div">
+          <Callout status="info" color="purple">
             <Flex align="center" gap="2">
               Want to use Fact Tables to create your segments instead?{" "}
               <a

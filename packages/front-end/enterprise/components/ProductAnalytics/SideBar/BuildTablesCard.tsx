@@ -15,7 +15,7 @@ export default function BuildTablesCard({
 }) {
   return (
     <>
-      <Callout status="info" mt="2" contentsAs="div">
+      <Callout status="info" mt="2">
         <Flex direction="column" gap="2" align="start">
           <Text as="p" size="medium" m="0">
             Before we can build visualizations, we need to identify what tables

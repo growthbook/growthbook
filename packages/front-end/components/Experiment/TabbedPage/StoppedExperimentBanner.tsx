@@ -108,7 +108,7 @@ export default function StoppedExperimentBanner({
       </div>
 
       {hasLiveLinkedChanges && !isHoldout && (
-        <Callout status="warning" m="3" contentsAs="div">
+        <Callout status="warning" m="3">
           <div className="d-flex align-items-center">
             <div>
               <FaClock /> <strong>Temporary Rollout Enabled</strong>

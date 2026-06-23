@@ -19,7 +19,7 @@ import styles from "./Callout.module.scss";
 export type Props = {
   commercialFeature: CommercialFeature;
   id: string;
-  dismissable?: boolean;
+  dismissible?: boolean;
   renderWhenDismissed?: (undismiss: () => void) => React.ReactElement;
   children: React.ReactNode;
   docSection?: DocSection;
@@ -28,7 +28,7 @@ export type Props = {
 export default function PremiumCallout({
   commercialFeature,
   id,
-  dismissable = false,
+  dismissible = false,
   children,
   docSection,
   renderWhenDismissed,
@@ -45,7 +45,7 @@ export default function PremiumCallout({
   const [upgradeModal, setUpgradeModal] = useState(false);
 
   if (hasFeature && !docSection) return null;
-  if (dismissable && dismissed)
+  if (dismissible && dismissed)
     return renderWhenDismissed
       ? renderWhenDismissed(() => setDismissed(false))
       : null;
@@ -123,7 +123,7 @@ export default function PremiumCallout({
             <div style={{ flex: 1 }}>{link}</div>
           </Flex>
         </Text>
-        {dismissable ? (
+        {dismissible ? (
           <IconButton
             variant="ghost"
             color="gray"

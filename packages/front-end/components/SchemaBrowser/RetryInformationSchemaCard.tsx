@@ -44,7 +44,7 @@ export default function RetryInformationSchemaCard({
           </div>
         </div>
       ) : (
-        <Callout status="warning" contentsAs="div">
+        <Callout status="warning">
           <Flex align="center" gap="2">
             {combinedError ? <span>{combinedError}</span> : null}
             <Tooltip

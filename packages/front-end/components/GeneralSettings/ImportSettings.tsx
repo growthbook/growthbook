@@ -34,7 +34,7 @@ export default function ImportSettings({
       )}
 
       {!hasFileConfig && (
-        <Callout status="info" my="3" contentsAs="div">
+        <Callout status="info" my="3">
           <h3>Import/Export config.yml</h3>
           <p>
             {isCloud ? "GrowthBook Cloud stores" : "You are currently storing"}{" "}

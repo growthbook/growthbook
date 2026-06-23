@@ -210,7 +210,7 @@ export default function BanditUpdateStatus({
           </div>
 
           {!isPublic && error ? (
-            <Callout status="error" size="sm" mx="2" contentsAs="div">
+            <Callout status="error" size="sm" mx="2">
               <Flex align="start" justify="between" gap="2">
                 <div>
                   <FaExclamationTriangle className="mr-1" />

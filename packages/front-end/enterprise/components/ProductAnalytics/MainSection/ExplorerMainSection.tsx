@@ -141,7 +141,7 @@ export default function ExplorerMainSection() {
               width: "auto",
             }}
           >
-            <Callout status="info" size="sm" icon={null} contentsAs="div">
+            <Callout status="info" size="sm" icon={null}>
               <Flex align="center" gap="2">
                 {loading ? (
                   <Flex align="center" gap="2">

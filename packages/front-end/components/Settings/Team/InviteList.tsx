@@ -82,7 +82,7 @@ const InviteList: FC<{
         );
       } else if (!emailSent) {
         setResendMessage(
-          <Callout status="info" contentsAs="div">
+          <Callout status="info">
             {dismissButton}
             <p>
               Failed to send email to <strong>{email}</strong>. You can manually

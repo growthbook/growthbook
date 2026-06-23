@@ -104,7 +104,7 @@ export default function BanditRefFields({
           }}
         />
       ) : !existingRule ? (
-        <Callout status="warning" mb="4" contentsAs="div">
+        <Callout status="warning" mb="4">
           {experiments.length > 0
             ? `You don't have any eligible Bandits yet.`
             : `You don't have any existing Bandits yet.`}{" "}
@@ -121,7 +121,7 @@ export default function BanditRefFields({
           </a>
         </Callout>
       ) : (
-        <Callout status="error" mb="4" contentsAs="div">
+        <Callout status="error" mb="4">
           Could not find this Bandit. Has it been deleted?
         </Callout>
       )}

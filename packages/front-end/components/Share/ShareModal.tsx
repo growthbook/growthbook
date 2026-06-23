@@ -951,7 +951,7 @@ const ShareModal = ({
                               <PremiumCallout
                                 mt="3"
                                 commercialFeature="adv-presentations"
-                                dismissable={false}
+                                dismissible={false}
                                 id="adv-presentations-new-pres"
                               >
                                 <strong>Customize your presentations</strong>:

@@ -38,7 +38,6 @@ function Example({
 }
 
 const STATUSES: Status[] = ["wizard", "info", "warning", "error", "success"];
-const VARIANTS = ["soft", "surface", "outline"] as const;
 const SIZES = ["sm", "md"] as const;
 
 type Section = {
@@ -58,45 +57,6 @@ const sections: Section[] = [
           <Example key={s} label={`status="${s}"`}>
             <Callout status={s}>This is a &ldquo;{s}&rdquo; callout.</Callout>
           </Example>
-        ))}
-      </Flex>
-    ),
-  },
-  {
-    id: "variant-x-status",
-    title: "Variant × Status",
-    description: (
-      <>
-        Only <code>soft</code> is used in the product today.{" "}
-        <code>surface</code> and <code>outline</code> are supported but unused.
-        Included here to validate they render.
-      </>
-    ),
-    render: () => (
-      <Flex direction="column" gap="5">
-        {VARIANTS.map((variant) => (
-          <Box key={variant}>
-            <div
-              style={{
-                fontFamily: "monospace",
-                fontSize: 13,
-                fontWeight: 500,
-                marginBottom: 8,
-              }}
-            >
-              variant=&quot;{variant}&quot;
-            </div>
-            <Flex direction="column" gap="3">
-              {STATUSES.map((s) => (
-                <Example key={s} label={`status="${s}"`}>
-                  <Callout status={s} variant={variant}>
-                    This is a &ldquo;{s}&rdquo; callout with variant &ldquo;
-                    {variant}&rdquo;.
-                  </Callout>
-                </Example>
-              ))}
-            </Flex>
-          </Box>
         ))}
       </Flex>
     ),
@@ -165,16 +125,17 @@ const sections: Section[] = [
   },
   {
     id: "rich-content",
-    title: 'Rich Content (contentsAs="div")',
+    title: "Rich Content (block children)",
     description: (
       <>
-        Block-level content inside a callout. Mirrors the shape used in{" "}
+        Block-level children (headings, paragraphs, lists) render directly. No{" "}
+        <code>contentsAs</code> prop needed. Mirrors the shape used in{" "}
         <code>ImportSettings.tsx</code>.
       </>
     ),
     render: () => (
-      <Example label='status="info" contentsAs="div"'>
-        <Callout status="info" contentsAs="div">
+      <Example label='status="info" with block children'>
+        <Callout status="info">
           <h4 style={{ margin: "0 0 8px" }}>Import Settings</h4>
           <p style={{ margin: "0 0 6px" }}>
             Before importing, review the following checklist to ensure your
@@ -216,17 +177,8 @@ const sections: Section[] = [
             </Callout>
           </Example>
 
-          <Example label='Error + Retry button (contentsAs="div")'>
-            <Callout status="error" contentsAs="div">
-              <Flex align="center" justify="between" gap="3">
-                <span>Something went wrong loading results.</span>
-                <Button variant="soft">Retry</Button>
-              </Flex>
-            </Callout>
-          </Example>
-
-          <Example label='Loading state (size="sm" icon={null} contentsAs="div")'>
-            <Callout status="info" size="sm" icon={null} contentsAs="div">
+          <Example label='Loading state (size="sm" icon={null})'>
+            <Callout status="info" size="sm" icon={null}>
               <Flex align="center" gap="2">
                 <LoadingSpinner />
                 <span>Refreshing list&hellip;</span>
@@ -253,6 +205,82 @@ const sections: Section[] = [
         </Flex>
       );
     },
+  },
+  {
+    id: "action",
+    title: "Action slot",
+    description: (
+      <>
+        The <code>action</code> prop renders a right-aligned, vertically
+        centered slot with built-in margin compensation, so callers stop
+        hand-rolling the Flex + negative-margin pattern. Validates a Button, a
+        non-button (Link), and action combined with dismiss.
+      </>
+    ),
+    render: () => (
+      <Flex direction="column" gap="3">
+        <Example label="action={<Button>Retry</Button>}">
+          <Callout
+            status="error"
+            action={<Button variant="soft">Retry</Button>}
+          >
+            Something went wrong loading results.
+          </Callout>
+        </Example>
+
+        <Example label='action={<Button size="1">Generate</Button>}'>
+          <Callout
+            status="info"
+            action={
+              <Button variant="soft" size="1">
+                Generate
+              </Button>
+            }
+          >
+            Before we can build tables, we need to scan your schema.
+          </Callout>
+        </Example>
+
+        <Example label="action={<Link>Learn more</Link>} (non-button)">
+          <Callout
+            status="info"
+            action={
+              <Link href="#" onClick={(e) => e.preventDefault()}>
+                Learn more
+              </Link>
+            }
+          >
+            A non-button action should stay vertically aligned with the text.
+          </Callout>
+        </Example>
+
+        <Example label="action + dismissible together">
+          <Callout
+            status="warning"
+            action={
+              <Button variant="soft" size="1">
+                Fix
+              </Button>
+            }
+            dismissible
+            id="debug-action-dismiss"
+            renderWhenDismissed={(undismiss) => (
+              <Link
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  undismiss();
+                }}
+              >
+                Show again
+              </Link>
+            )}
+          >
+            An action and a dismiss button can now coexist.
+          </Callout>
+        </Example>
+      </Flex>
+    ),
   },
   {
     id: "dismissible",
@@ -374,12 +402,12 @@ const sections: Section[] = [
             </PremiumCallout>
           </Example>
 
-          <Example label="Dismissable has-feature. Same as above but dismissable">
+          <Example label="Dismissable has-feature. Same as above but dismissible">
             <PremiumCallout
               commercialFeature="multi-armed-bandits"
-              id="debug-premium-dismissable"
+              id="debug-premium-dismissible"
               docSection="bandits"
-              dismissable
+              dismissible
               renderWhenDismissed={(undismiss) => (
                 <Link
                   href="#"
@@ -393,7 +421,7 @@ const sections: Section[] = [
               )}
             >
               You already have access to this premium feature. This callout is
-              dismissable.
+              dismissible.
             </PremiumCallout>
           </Example>
         </Flex>

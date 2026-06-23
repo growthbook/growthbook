@@ -140,7 +140,7 @@ export const DimensionSlicesRunner: FC<DimensionSlicesRunnerProps> = ({
         </Callout>
       ) : null}
       {status === "succeeded" && dimensionSlices?.results.length === 0 ? (
-        <Callout status="warning" mt="2" contentsAs="div">
+        <Callout status="warning" mt="2">
           <p className="mb-0">
             <strong>
               No experiment assignment rows found in data source.

@@ -12,7 +12,7 @@ export default function BuildInformationSchemaCard({
 }) {
   return (
     <div>
-      <Callout status="info" contentsAs="div">
+      <Callout status="info">
         <div>
           <span>
             Need help building your query? Click the button below to get insight

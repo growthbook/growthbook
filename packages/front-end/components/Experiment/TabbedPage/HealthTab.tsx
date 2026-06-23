@@ -138,7 +138,7 @@ export default function HealthTab({
       );
     }
     return (
-      <Callout status="info" mt="3" contentsAs="div">
+      <Callout status="info" mt="3">
         <Flex gap="4">
           {runHealthTrafficQuery === undefined
             ? "Welcome to the new health tab! You can use this tab to view experiment traffic over time, perform balance checks, and check for multiple exposures. To get started, "

@@ -210,7 +210,7 @@ const CreateOrJoinOrganization: FC<{
                       </button>
                     </div>
                     {org.currentUserIsPending && (
-                      <Callout status="success" mt="2" mb="0" contentsAs="div">
+                      <Callout status="success" mt="2" mb="0">
                         <div className="mb-2">
                           <FaCheck /> Your membership is pending.
                         </div>

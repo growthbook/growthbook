@@ -34,7 +34,7 @@ export default function PendingInformationSchemaCard({
   return (
     <div>
       {!error ? (
-        <Callout status="info" contentsAs="div">
+        <Callout status="info">
           <Flex align="center" justify="between" gap="2">
             <div>
               We&apos;re generating the information schema for this datasource.

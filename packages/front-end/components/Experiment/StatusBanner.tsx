@@ -42,7 +42,6 @@ export default function StatusBanner({ mutateExperiment, editResult }: Props) {
                 : "info"
         }
         mb="0"
-        contentsAs="div"
       >
         <div className="d-flex">
           <div className="mr-auto">
@@ -105,7 +104,7 @@ export default function StatusBanner({ mutateExperiment, editResult }: Props) {
 
   if (experiment?.status === "running") {
     return (
-      <Callout status="info" mb="0" contentsAs="div">
+      <Callout status="info" mb="0">
         {editResult && (
           <a
             href="#"
@@ -126,7 +125,7 @@ export default function StatusBanner({ mutateExperiment, editResult }: Props) {
 
   if (experiment?.status === "draft") {
     return (
-      <Callout status="warning" mb="0" contentsAs="div">
+      <Callout status="warning" mb="0">
         {editResult && (
           <Button
             color="link"

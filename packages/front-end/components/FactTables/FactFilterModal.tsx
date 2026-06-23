@@ -174,7 +174,7 @@ export default function FactFilterModal({ existing, factTable, close }: Props) {
           />
 
           {showExamples && (
-            <Callout status="info" contentsAs="div">
+            <Callout status="info">
               <div className="mb-2">Here are some examples of Filter SQL:</div>
               <table className="table gbtable">
                 <tbody>

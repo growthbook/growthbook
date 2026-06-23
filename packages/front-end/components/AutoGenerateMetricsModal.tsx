@@ -460,7 +460,7 @@ export default function AutoGenerateMetricsModal({
           (isManagedWarehouseNoEventsGuidanceMessage(autoMetricError) ? (
             <ManagedWarehouseNoEventsCallout />
           ) : (
-            <Callout status="error" contentsAs="div">
+            <Callout status="error">
               <p>
                 We were unable to identify any metrics to generate for you
                 automatically. The query we ran to identify metrics returned the

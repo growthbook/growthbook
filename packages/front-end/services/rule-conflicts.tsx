@@ -1545,7 +1545,7 @@ export function ConflictCallout({
   const status = isUnreachable ? "error" : "warning";
   const color = isUnreachable ? CONFLICT_UNREACHABLE_COLOR : undefined;
   return (
-    <Callout status={status} color={color} size="sm" contentsAs="div">
+    <Callout status={status} color={color} size="sm">
       <Flex direction="column" gap="1">
         <Flex align="center" gap="2" wrap="wrap">
           {headline}

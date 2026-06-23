@@ -353,7 +353,7 @@ export default function ExecExperimentImpact({
                 {summaryObj ? (
                   <>
                     {experimentsWithNoImpact.length > 0 ? (
-                      <Callout status="warning" mt="2" contentsAs="div">
+                      <Callout status="warning" mt="2">
                         <div className="row">
                           <div className="col-auto">
                             <span>

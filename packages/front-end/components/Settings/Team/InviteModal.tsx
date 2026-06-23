@@ -183,7 +183,7 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
             </Callout>
           )}
           {successfulInvites.length > 1 && (
-            <Callout status="success" role="alert" contentsAs="div">
+            <Callout status="success" role="alert">
               <strong>Successfully invited the following members:</strong>
               <div className="pt-2">
                 <ul>
@@ -212,7 +212,7 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
           )}
           {failedInvites.length > 1 && (
             <>
-              <Callout status="error" role="alert" contentsAs="div">
+              <Callout status="error" role="alert">
                 <strong>
                   Whoops! We weren&apos;t able to email the following members:
                 </strong>
