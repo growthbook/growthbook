@@ -28,7 +28,12 @@ function MicroLabel({ children }: { children: ReactNode }) {
 }
 
 /** Preset dropdown ("Custom Date Range" etc.) plus the custom-lookback inputs. */
-function DateRangePresetSelect() {
+function DateRangePresetSelect({
+  fullWidth = false,
+}: {
+  /** Stretch the preset dropdown to 100% and lay the lookback # + unit in a row. */
+  fullWidth?: boolean;
+}) {
   const { draftExploreState, setDraftExploreState } = useExplorerContext();
   const { dateRange } = draftExploreState;
 
@@ -63,10 +68,80 @@ function DateRangePresetSelect() {
     latestLookbackRef.current = "";
   };
 
+  const lookbackNumberField = (
+    <Field
+      style={{
+        width: "55px",
+        paddingTop: "0px",
+        paddingBottom: "0px",
+        height: "32px",
+      }}
+      placeholder="#"
+      min="1"
+      value={
+        localLookbackValue !== null
+          ? localLookbackValue
+          : dateRange.lookbackValue?.toString() || ""
+      }
+      onFocus={() => {
+        latestLookbackRef.current = dateRange.lookbackValue?.toString() || "";
+      }}
+      onChange={(e) => {
+        const v = e.target.value;
+        latestLookbackRef.current = v;
+        setLocalLookbackValue(v);
+      }}
+      onBlur={() => {
+        if (skipBlurCommitRef.current) {
+          skipBlurCommitRef.current = false;
+          return;
+        }
+        const toCommit = latestLookbackRef.current;
+        commitLookbackValue(toCommit);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          const toCommit =
+            latestLookbackRef.current ||
+            dateRange.lookbackValue?.toString() ||
+            "";
+          commitLookbackValue(toCommit);
+          skipBlurCommitRef.current = true;
+          (e.target as HTMLInputElement).blur();
+        }
+      }}
+    />
+  );
+
+  const lookbackUnitSelect = (
+    <Select
+      size="2"
+      style={fullWidth ? { width: "100%" } : undefined}
+      value={dateRange.lookbackUnit || "day"}
+      setValue={(v) => {
+        setDraftExploreState((prev) => ({
+          ...prev,
+          dateRange: {
+            ...prev.dateRange,
+            lookbackUnit: v as (typeof lookbackUnit)[number],
+          },
+        }));
+      }}
+    >
+      {lookbackUnit.map((u) => (
+        <SelectItem key={u} value={u}>
+          {u}(s)
+        </SelectItem>
+      ))}
+    </Select>
+  );
+
   return (
     <>
       <Select
         size="2"
+        style={fullWidth ? { width: "100%" } : undefined}
         value={dateRange.predefined}
         placeholder="Select range"
         setValue={(v) => {
@@ -86,73 +161,18 @@ function DateRangePresetSelect() {
         ))}
       </Select>
 
-      {dateRange.predefined === "customLookback" && (
-        <>
-          <Field
-            style={{
-              width: "55px",
-              paddingTop: "0px",
-              paddingBottom: "0px",
-              height: "32px",
-            }}
-            placeholder="#"
-            min="1"
-            value={
-              localLookbackValue !== null
-                ? localLookbackValue
-                : dateRange.lookbackValue?.toString() || ""
-            }
-            onFocus={() => {
-              latestLookbackRef.current =
-                dateRange.lookbackValue?.toString() || "";
-            }}
-            onChange={(e) => {
-              const v = e.target.value;
-              latestLookbackRef.current = v;
-              setLocalLookbackValue(v);
-            }}
-            onBlur={() => {
-              if (skipBlurCommitRef.current) {
-                skipBlurCommitRef.current = false;
-                return;
-              }
-              const toCommit = latestLookbackRef.current;
-              commitLookbackValue(toCommit);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                const toCommit =
-                  latestLookbackRef.current ||
-                  dateRange.lookbackValue?.toString() ||
-                  "";
-                commitLookbackValue(toCommit);
-                skipBlurCommitRef.current = true;
-                (e.target as HTMLInputElement).blur();
-              }
-            }}
-          />
-          <Select
-            size="2"
-            value={dateRange.lookbackUnit || "day"}
-            setValue={(v) => {
-              setDraftExploreState((prev) => ({
-                ...prev,
-                dateRange: {
-                  ...prev.dateRange,
-                  lookbackUnit: v as (typeof lookbackUnit)[number],
-                },
-              }));
-            }}
-          >
-            {lookbackUnit.map((u) => (
-              <SelectItem key={u} value={u}>
-                {u}(s)
-              </SelectItem>
-            ))}
-          </Select>
-        </>
-      )}
+      {dateRange.predefined === "customLookback" &&
+        (fullWidth ? (
+          <Flex gap="2" align="center" width="100%">
+            {lookbackNumberField}
+            <Box style={{ flex: 1, minWidth: 0 }}>{lookbackUnitSelect}</Box>
+          </Flex>
+        ) : (
+          <>
+            {lookbackNumberField}
+            {lookbackUnitSelect}
+          </>
+        ))}
     </>
   );
 }
@@ -161,53 +181,68 @@ function DateRangePresetSelect() {
 function CurrentCustomRangeField({
   shouldWrap = false,
   label,
+  fullWidth = false,
 }: {
   shouldWrap?: boolean;
   /** Micro-label shown before the custom date range field (e.g. "Current"). */
   label?: ReactNode;
+  /** Render as a single full-width range field (no label) that fills its cell. */
+  fullWidth?: boolean;
 }) {
   const { draftExploreState, setDraftExploreState } = useExplorerContext();
   const { dateRange } = draftExploreState;
 
   if (dateRange.predefined !== "customDateRange") return null;
 
+  const picker = (
+    <DatePicker
+      containerClassName="mb-0"
+      compact
+      wrapRangeInputs={fullWidth ? false : shouldWrap}
+      date={
+        dateRange.startDate
+          ? getValidDateOffsetByUTC(dateRange.startDate)
+          : undefined
+      }
+      date2={
+        dateRange.endDate
+          ? getValidDateOffsetByUTC(dateRange.endDate)
+          : undefined
+      }
+      setDate={(d) => {
+        setDraftExploreState((prev) => ({
+          ...prev,
+          dateRange: {
+            ...prev.dateRange,
+            startDate: d ? format(d, "yyyy-MM-dd") : null,
+          },
+        }));
+      }}
+      setDate2={(d) => {
+        setDraftExploreState((prev) => ({
+          ...prev,
+          dateRange: {
+            ...prev.dateRange,
+            endDate: d ? format(d, "yyyy-MM-dd") : null,
+          },
+        }));
+      }}
+      precision="date"
+    />
+  );
+
+  if (fullWidth) {
+    return (
+      <Box width="100%" style={{ minWidth: 0 }}>
+        {picker}
+      </Box>
+    );
+  }
+
   return (
     <>
       {label && <MicroLabel>{label}</MicroLabel>}
-      <DatePicker
-        containerClassName="mb-0"
-        compact
-        wrapRangeInputs={shouldWrap}
-        date={
-          dateRange.startDate
-            ? getValidDateOffsetByUTC(dateRange.startDate)
-            : undefined
-        }
-        date2={
-          dateRange.endDate
-            ? getValidDateOffsetByUTC(dateRange.endDate)
-            : undefined
-        }
-        setDate={(d) => {
-          setDraftExploreState((prev) => ({
-            ...prev,
-            dateRange: {
-              ...prev.dateRange,
-              startDate: d ? format(d, "yyyy-MM-dd") : null,
-            },
-          }));
-        }}
-        setDate2={(d) => {
-          setDraftExploreState((prev) => ({
-            ...prev,
-            dateRange: {
-              ...prev.dateRange,
-              endDate: d ? format(d, "yyyy-MM-dd") : null,
-            },
-          }));
-        }}
-        precision="date"
-      />
+      {picker}
     </>
   );
 }
@@ -215,11 +250,22 @@ function CurrentCustomRangeField({
 function DefaultDateRangePickerContent({
   shouldWrap = false,
   label,
+  fullWidth = false,
 }: {
   shouldWrap?: boolean;
   /** Micro-label shown before the custom date range field (e.g. "Current"). */
   label?: ReactNode;
+  /** Stack the preset dropdown and date field vertically, each spanning 100%. */
+  fullWidth?: boolean;
 }) {
+  if (fullWidth) {
+    return (
+      <Flex direction="column" gap="2" width="100%" style={{ minWidth: 0 }}>
+        <DateRangePresetSelect fullWidth />
+        <CurrentCustomRangeField fullWidth />
+      </Flex>
+    );
+  }
   return (
     <Flex
       align="center"
@@ -237,10 +283,13 @@ function DefaultDateRangePickerContent({
 function ComparisonPreviousRangePicker({
   shouldWrap = false,
   label,
+  fullWidth = false,
 }: {
   shouldWrap?: boolean;
   /** Micro-label shown before the prior date range field (e.g. "Prior"). */
   label?: ReactNode;
+  /** Render as a single full-width range field (no label) that fills its cell. */
+  fullWidth?: boolean;
 }) {
   const { draftExploreState, setDraftExploreState, compareEnabled } =
     useExplorerContext();
@@ -260,6 +309,49 @@ function ComparisonPreviousRangePicker({
     return null;
   }
 
+  const picker = (
+    <DatePicker
+      containerClassName="mb-0"
+      compact
+      wrapRangeInputs={fullWidth ? false : shouldWrap}
+      date={getValidDateOffsetByUTC(previousTimeFrame.startDate)}
+      date2={getValidDateOffsetByUTC(previousTimeFrame.endDate)}
+      setDate={(d) => {
+        setDraftExploreState((prev) => ({
+          ...prev,
+          previousTimeFrame: prev.previousTimeFrame
+            ? {
+                ...prev.previousTimeFrame,
+                predefined: "customDateRange" as const,
+                startDate: d ? format(d, "yyyy-MM-dd") : null,
+              }
+            : prev.previousTimeFrame,
+        }));
+      }}
+      setDate2={(d) => {
+        setDraftExploreState((prev) => ({
+          ...prev,
+          previousTimeFrame: prev.previousTimeFrame
+            ? {
+                ...prev.previousTimeFrame,
+                predefined: "customDateRange" as const,
+                endDate: d ? format(d, "yyyy-MM-dd") : null,
+              }
+            : prev.previousTimeFrame,
+        }));
+      }}
+      precision="date"
+    />
+  );
+
+  if (fullWidth) {
+    return (
+      <Box width="100%" style={{ minWidth: 0 }}>
+        {picker}
+      </Box>
+    );
+  }
+
   return (
     <Flex
       align="center"
@@ -269,38 +361,7 @@ function ComparisonPreviousRangePicker({
       style={{ minWidth: 0 }}
     >
       {label && <MicroLabel>{label}</MicroLabel>}
-      <DatePicker
-        containerClassName="mb-0"
-        compact
-        wrapRangeInputs={shouldWrap}
-        date={getValidDateOffsetByUTC(previousTimeFrame.startDate)}
-        date2={getValidDateOffsetByUTC(previousTimeFrame.endDate)}
-        setDate={(d) => {
-          setDraftExploreState((prev) => ({
-            ...prev,
-            previousTimeFrame: prev.previousTimeFrame
-              ? {
-                  ...prev.previousTimeFrame,
-                  predefined: "customDateRange" as const,
-                  startDate: d ? format(d, "yyyy-MM-dd") : null,
-                }
-              : prev.previousTimeFrame,
-          }));
-        }}
-        setDate2={(d) => {
-          setDraftExploreState((prev) => ({
-            ...prev,
-            previousTimeFrame: prev.previousTimeFrame
-              ? {
-                  ...prev.previousTimeFrame,
-                  predefined: "customDateRange" as const,
-                  endDate: d ? format(d, "yyyy-MM-dd") : null,
-                }
-              : prev.previousTimeFrame,
-          }));
-        }}
-        precision="date"
-      />
+      {picker}
     </Flex>
   );
 }
@@ -309,14 +370,21 @@ export interface DateRangePickerProps {
   shouldWrap?: boolean;
   /** Micro-label shown before the date range field (e.g. "Current" / "Prior"). */
   label?: ReactNode;
+  /** Stack the preset dropdown and date field vertically, each spanning 100%. */
+  fullWidth?: boolean;
 }
 
 export default function DateRangePicker({
   shouldWrap = false,
   label,
+  fullWidth = false,
 }: DateRangePickerProps = {}) {
   return (
-    <DefaultDateRangePickerContent shouldWrap={shouldWrap} label={label} />
+    <DefaultDateRangePickerContent
+      shouldWrap={shouldWrap}
+      label={label}
+      fullWidth={fullWidth}
+    />
   );
 }
 
@@ -343,10 +411,43 @@ function CompareFieldLabel({ children }: { children: ReactNode }) {
  */
 export function ComparisonDateControls({
   groupBySlot,
+  fullWidth = false,
 }: {
   /** Optional group-by control rendered alongside the prior picker. */
   groupBySlot?: ReactNode;
+  /**
+   * Stack vertically at full width: the preset dropdown spans 100%, and
+   * Prior / Current become `100px 1fr` rows (fixed label column + picker),
+   * laid out Prior above Current.
+   */
+  fullWidth?: boolean;
 }) {
+  if (fullWidth) {
+    const labeledRow = (label: string, field: ReactNode) => (
+      <Box
+        style={{
+          display: "grid",
+          gridTemplateColumns: "100px 1fr",
+          alignItems: "center",
+          columnGap: "var(--space-2)",
+        }}
+      >
+        <MicroLabel>{label}</MicroLabel>
+        {field}
+      </Box>
+    );
+    return (
+      <Flex direction="column" gap="2" width="100%" style={{ minWidth: 0 }}>
+        <DateRangePresetSelect fullWidth />
+        {labeledRow("Prior", <ComparisonPreviousRangePicker fullWidth />)}
+        <Text size="small" weight="medium">
+          vs
+        </Text>
+        {labeledRow("Current", <CurrentCustomRangeField fullWidth />)}
+        {groupBySlot}
+      </Flex>
+    );
+  }
   return (
     <>
       <DateRangePresetSelect />
