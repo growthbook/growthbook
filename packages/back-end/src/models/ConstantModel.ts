@@ -1,7 +1,13 @@
+import { isEqual, omit } from "lodash";
 import { ConstantInterface, ConstantWithoutValue } from "shared/types/constant";
 import { ApiConstant, constantValidator } from "shared/validators";
 import { UpdateProps } from "shared/types/base-model";
 import { constantUpdated } from "back-end/src/services/constants";
+import {
+  logConstantCreatedEvent,
+  logConstantUpdatedEvent,
+  logConstantDeletedEvent,
+} from "back-end/src/services/constantEvents";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
@@ -48,12 +54,17 @@ export class ConstantModel extends BaseClass {
     return this.context.permissions.canDeleteConstant(doc);
   }
 
+  protected async afterCreate(doc: ConstantInterface) {
+    await logConstantCreatedEvent(this.context, this.toApiInterface(doc));
+  }
+
   // Refresh SDK payloads (and fire SDK webhooks) when a published change alters
   // the resolved value. Runs on the live update — for the approval flow that's
   // at merge time (the adapter calls `update`), for direct edits it's immediate.
   protected async afterUpdate(
-    _existing: ConstantInterface,
+    existing: ConstantInterface,
     updates: UpdateProps<ConstantInterface>,
+    newDoc: ConstantInterface,
   ) {
     if (
       updates.value !== undefined ||
@@ -68,17 +79,28 @@ export class ConstantModel extends BaseClass {
         );
       });
     }
+
+    // Skip the webhook event when nothing meaningful changed (e.g. only
+    // `dateUpdated` was bumped) — mirrors the saved-group/feature behavior.
+    const previous = this.toApiInterface(existing);
+    const current = this.toApiInterface(newDoc);
+    if (
+      !isEqual(omit(previous, ["dateUpdated"]), omit(current, ["dateUpdated"]))
+    ) {
+      await logConstantUpdatedEvent(this.context, previous, current);
+    }
   }
 
   // A deleted constant leaves its `@const:` references unresolved, which changes
   // the generated payload, so refresh on delete too.
-  protected async afterDelete() {
+  protected async afterDelete(doc: ConstantInterface) {
     constantUpdated(this.context, "deleted").catch((e) => {
       this.context.logger.error(
         e,
         "Error refreshing SDK Payload on constant delete",
       );
     });
+    await logConstantDeletedEvent(this.context, this.toApiInterface(doc));
   }
 
   public getByKey(key: string) {

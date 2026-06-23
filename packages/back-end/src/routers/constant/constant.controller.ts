@@ -29,6 +29,7 @@ import {
   ConstantReferences,
   loadConstantReferences,
 } from "back-end/src/services/constants";
+import { dispatchConstantRevisionEvent } from "back-end/src/services/constantRevisionEvents";
 
 type PostConstantBody = z.infer<typeof postConstantBodyValidator>;
 type PutConstantBody = z.infer<typeof putConstantBodyValidator>;
@@ -361,9 +362,23 @@ export const putConstant = async (
         { bypass: isBypass },
       );
 
+      await dispatchConstantRevisionEvent(context, revision, {
+        type: revision.revertedFrom ? "reverted" : "published",
+      });
+
       return res.status(200).json({ status: 200, revision });
     }
   }
+
+  // Draft path (approval required, no immediate merge). Fire created/updated so
+  // the draft lifecycle is observable via webhooks even from the internal UI.
+  const updatedExisting =
+    wantsDraft && !bypassApproval && !autoPublish && !!revisionId;
+  await dispatchConstantRevisionEvent(
+    context,
+    revision,
+    updatedExisting ? { type: "updated" } : { type: "created" },
+  );
 
   return res.status(202).json({
     status: 202,
