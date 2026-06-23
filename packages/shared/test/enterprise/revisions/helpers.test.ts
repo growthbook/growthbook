@@ -897,7 +897,7 @@ describe("revisions helpers", () => {
       [{ op: "replace", path: "/name", value: "v2" }],
       [{ op: "replace", path: "/owner", value: "user-2" }],
       [{ op: "replace", path: "/description", value: "new desc" }],
-      [{ op: "replace", path: "/projects", value: ["p1"] }],
+      [{ op: "replace", path: "/project", value: "p1" }],
       [{ op: "replace", path: "/archived", value: true }],
     ] as const)("returns true for a single metadata-field op (%j)", (op) => {
       expect(isConstantRevisionMetadataOnly([op])).toBe(true);
