@@ -1,6 +1,6 @@
 // TODO(holdout-v1.5): attach holdout-vs-bandit comparison view and EDF recommendations here.
-import { useMemo, useState, type CSSProperties } from "react";
-import { Box, Flex } from "@radix-ui/themes";
+import { ReactNode, useMemo, useState } from "react";
+import { Box, Flex, SegmentedControl } from "@radix-ui/themes";
 import { startCase } from "lodash";
 import { ApiContextualBanditInterface } from "shared/validators";
 import type { ContextualBanditResponseSnapshot } from "shared/types/stats";
@@ -11,49 +11,26 @@ import {
   expandMetricGroups,
 } from "shared/experiments";
 import Text from "@/ui/Text";
-import Table, {
-  TableBody,
-  TableCell,
-  TableColumnHeader,
-  TableHeader,
-  TableRow,
-} from "@/ui/Table";
+import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
-import Switch from "@/ui/Switch";
 import Callout from "@/ui/Callout";
 import Metadata from "@/ui/Metadata";
+import Heading from "@/ui/Heading";
+import Heatmap, { HeatmapColumn, HeatmapRow } from "@/ui/Heatmap";
+import { getVariationColor } from "@/services/features";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useContextualBanditResults } from "@/hooks/useContextualBandits";
 import { useContextualBanditQueries } from "@/hooks/useContextualBanditQueries";
+import { MultiValuesDisplay } from "@/components/Features/ConditionDisplay";
 import QueriesLastRun from "@/components/Queries/QueriesLastRun";
 import AsyncQueriesModal from "@/components/Queries/AsyncQueriesModal";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import ResultMoreMenu from "@/components/Experiment/ResultMoreMenu";
-import styles from "./ContextualBanditResultsTable.module.scss";
 
 const numberFormatter = Intl.NumberFormat();
 
-const CONTEXT_COLUMN_WIDTH_PERCENT = 38;
-
-function ContextualBanditColGroup({
-  numVariations,
-}: {
-  numVariations: number;
-}) {
-  const variationWidthPercent =
-    numVariations > 0
-      ? (100 - CONTEXT_COLUMN_WIDTH_PERCENT) / numVariations
-      : 100 - CONTEXT_COLUMN_WIDTH_PERCENT;
-  return (
-    <colgroup>
-      <col style={{ width: `${CONTEXT_COLUMN_WIDTH_PERCENT}%` }} />
-      {Array.from({ length: numVariations }, (_, i) => (
-        <col key={i} style={{ width: `${variationWidthPercent}%` }} />
-      ))}
-    </colgroup>
-  );
-}
+type ComparisonMode = "weights" | "means" | "units";
 
 function displayAttributeName(attr: string): string {
   return attr.startsWith(ATTR_CB_PREFIX)
@@ -66,7 +43,8 @@ function shouldShowUpdateMessage(message: string | null | undefined): boolean {
   return message.trim().toLowerCase() !== "successfully updated";
 }
 
-function contextRowLabel(
+/** Stable string key for a context row. */
+function contextRowKey(
   row: ContextualBanditResponseSnapshot,
   attributeOrder: string[],
 ): string {
@@ -77,26 +55,154 @@ function contextRowLabel(
     if (spec && typeof spec === "object" && "$in" in spec) {
       const allowed = (spec as { $in: unknown }).$in;
       const label = Array.isArray(allowed)
-        ? allowed.map((v) => String(v)).join(", ")
+        ? allowed.map((v) => String(v)).join(",")
         : String(allowed);
-      parts.push(`${displayAttributeName(attr)}: ${label}`);
+      parts.push(`${attr}:[${label}]`);
     } else if (spec !== undefined && spec !== null) {
-      parts.push(`${displayAttributeName(attr)}: ${String(spec)}`);
+      parts.push(`${attr}:${String(spec)}`);
     }
   }
-  if (parts.length) return parts.join(" · ");
-  return JSON.stringify(context);
+  return parts.length ? parts.join("|") : JSON.stringify(context);
+}
+
+/** Renders a context object as a human-readable rule, mirroring feature targeting. */
+function ContextRuleLabel({
+  row,
+  attributeOrder,
+}: {
+  row: ContextualBanditResponseSnapshot;
+  attributeOrder: string[];
+}) {
+  const { context } = row;
+  const clauses: { attr: string; operator: string; values: string[] }[] = [];
+  for (const attr of attributeOrder) {
+    const spec = context[attr];
+    if (spec === undefined || spec === null) continue;
+    if (typeof spec === "object" && "$in" in spec) {
+      const allowed = (spec as { $in: unknown }).$in;
+      const values = Array.isArray(allowed)
+        ? allowed.map((v) => String(v))
+        : [String(allowed)];
+      clauses.push({ attr, operator: "is any of", values });
+    } else {
+      clauses.push({ attr, operator: "is", values: [String(spec)] });
+    }
+  }
+
+  if (!clauses.length) {
+    return (
+      <Text size="medium" color="text-low">
+        All contexts
+      </Text>
+    );
+  }
+
+  return (
+    <Flex wrap="wrap" gap="2" align="center">
+      {clauses.map((clause, i) => (
+        <Flex key={clause.attr} wrap="wrap" gap="2" align="center">
+          <Text size="medium" weight="medium">
+            {i === 0 ? "IF" : "AND"}
+          </Text>
+          <Badge
+            color="gray"
+            label={
+              <Text size="inherit" whiteSpace="pre" color="text-high">
+                {displayAttributeName(clause.attr)}
+              </Text>
+            }
+          />
+          <Text size="medium">{clause.operator}</Text>
+          {clause.operator === "is any of" ? (
+            <Flex wrap="wrap" gap="2" align="center">
+              <Text size="medium" weight="medium">
+                (
+              </Text>
+              <MultiValuesDisplay values={clause.values} />
+              <Text size="medium" weight="medium">
+                )
+              </Text>
+            </Flex>
+          ) : (
+            <Badge
+              color="gray"
+              label={
+                <Text size="inherit" whiteSpace="pre" color="text-high">
+                  {clause.values[0]}
+                </Text>
+              }
+            />
+          )}
+        </Flex>
+      ))}
+    </Flex>
+  );
+}
+
+/** Colored, numbered circle + variation name (matches experiment variation labels). */
+function VariationLabel({
+  index,
+  name,
+  truncate = false,
+}: {
+  index: number;
+  name: string;
+  truncate?: boolean;
+}) {
+  const color = getVariationColor(index);
+  return (
+    <Flex
+      align="center"
+      gap="2"
+      style={{ minWidth: 0, overflow: "hidden" }}
+      title={name}
+    >
+      <Flex
+        align="center"
+        justify="center"
+        style={{
+          flexShrink: 0,
+          width: 18,
+          height: 18,
+          borderRadius: "50%",
+          backgroundColor: color,
+          color: readableTextColor(color),
+          fontSize: 11,
+          fontWeight: 600,
+          lineHeight: 1,
+        }}
+      >
+        {index}
+      </Flex>
+      <Text size="medium" weight="medium" truncate={truncate}>
+        {name}
+      </Text>
+    </Flex>
+  );
+}
+
+/** Pick black/white text for a hex background based on perceived luminance. */
+function readableTextColor(hex: string): string {
+  const normalized = hex.replace("#", "");
+  if (normalized.length < 6) return "#fff";
+  const r = parseInt(normalized.slice(0, 2), 16);
+  const g = parseInt(normalized.slice(2, 4), 16);
+  const b = parseInt(normalized.slice(4, 6), 16);
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance > 0.6 ? "var(--gray-12)" : "#fff";
 }
 
 function cellValues(
   row: ContextualBanditResponseSnapshot,
-  mode: "weights" | "means",
+  mode: ComparisonMode,
   numVariations: number,
 ): (number | null)[] {
   const source =
     mode === "means"
       ? row.sampleMeans
-      : (row.updatedWeights ?? row.bestArmProbabilities);
+      : mode === "units"
+        ? row.sampleSizePerVariation
+        : (row.updatedWeights ?? row.bestArmProbabilities);
   if (!source || source.length === 0) {
     return Array(numVariations).fill(null);
   }
@@ -105,106 +211,101 @@ function cellValues(
   );
 }
 
-function formatCell(value: number | null, mode: "weights" | "means"): string {
-  if (value === null || Number.isNaN(value)) return "—";
-  if (mode === "weights") {
-    if (value > 0 && value < 0.01) {
-      return "< 1%";
+/** Total units assigned to each variation across all contexts. */
+function computeOverallVariationUnits(
+  responses: ContextualBanditResponseSnapshot[],
+  numVariations: number,
+): number[] {
+  const totals = Array(numVariations).fill(0);
+  responses.forEach((row) => {
+    const sizes = row.sampleSizePerVariation;
+    if (!sizes?.length) return;
+    for (let i = 0; i < numVariations; i++) {
+      totals[i] += sizes[i] ?? 0;
     }
-    const rounded = Math.round(value * 100) / 100;
-    return new Intl.NumberFormat(undefined, {
-      style: "percent",
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(rounded);
-  }
+  });
+  return totals;
+}
+
+function formatWeight(value: number): string {
+  if (value > 0 && value < 0.01) return "< 1%";
+  const rounded = Math.round(value * 100) / 100;
+  return new Intl.NumberFormat(undefined, {
+    style: "percent",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(rounded);
+}
+
+function formatModeValue(value: number, mode: ComparisonMode): string {
+  if (Number.isNaN(value)) return "—";
+  if (mode === "weights") return formatWeight(value);
+  if (mode === "units") return numberFormatter.format(Math.round(value));
   return new Intl.NumberFormat(undefined, {
     maximumSignificantDigits: 3,
   }).format(value);
 }
 
-/** Normalize each value to [0, 1] using min/max within the row. */
-function rowHeatmapIntensities(values: (number | null)[]): (number | null)[] {
-  const numeric = values.filter(
-    (v): v is number => v !== null && !Number.isNaN(v),
-  );
-  if (numeric.length === 0) {
-    return values.map(() => null);
-  }
-  const min = Math.min(...numeric);
-  const max = Math.max(...numeric);
-  const range = max - min;
-  return values.map((v) => {
-    if (v === null || Number.isNaN(v)) return null;
-    if (range === 0) return 0;
-    return (v - min) / range;
-  });
-}
-
-const HEATMAP_HUE = 214;
-
-function heatmapColor(intensity: number): {
-  saturation: number;
-  lightness: number;
-} {
-  return {
-    saturation: 72 + intensity * 12,
-    lightness: 94 - intensity * 52,
-  };
-}
-
-function heatmapCellStyle(intensity: number | null): CSSProperties | undefined {
-  if (intensity === null) return undefined;
-  const { saturation, lightness } = heatmapColor(intensity);
-  return {
-    backgroundColor: `hsl(${HEATMAP_HUE}, ${saturation}%, ${lightness}%)`,
-    borderRadius: 6,
-  };
-}
-
-function heatmapIsLightCell(intensity: number | null): boolean {
-  if (intensity === null) return false;
-  return heatmapColor(intensity).lightness > 55;
-}
-
-const HEATMAP_LIGHT_TEXT = `hsl(${HEATMAP_HUE}, 45%, 16%)`;
-
-function heatmapTextColor(intensity: number | null): string | undefined {
-  if (intensity === null) return undefined;
-  return heatmapIsLightCell(intensity) ? HEATMAP_LIGHT_TEXT : "#fff";
-}
-
-function HeatmapValueCell({
-  value,
-  intensity,
-  mode,
+/** Overall weights summary — one card per variation, sorted by weight desc. */
+function OverallWeights({
+  variations,
+  weights,
+  units,
+  unitDisplayName,
 }: {
-  value: number | null;
-  intensity: number | null;
-  mode: "weights" | "means";
+  variations: ApiContextualBanditInterface["variations"];
+  weights: (number | null)[];
+  units: number[];
+  unitDisplayName: string;
 }) {
-  const cellStyle = heatmapCellStyle(intensity);
-  const textColor = heatmapTextColor(intensity);
-  const isLightCell = heatmapIsLightCell(intensity);
+  const cards = variations
+    .map((v, index) => ({
+      id: v.id,
+      index,
+      name: v.name,
+      weight: weights[index] ?? null,
+      units: units[index] ?? 0,
+    }))
+    .sort((a, b) => (b.weight ?? -1) - (a.weight ?? -1));
+
   return (
-    <TableCell
-      justify="end"
-      style={cellStyle}
-      className={cellStyle ? styles.heatmapCell : undefined}
+    <Flex
+      align="stretch"
+      style={{ overflowX: "auto" }}
+      role="list"
+      aria-label="Overall weights by variation"
     >
-      <span
-        className={isLightCell ? styles.heatmapCellLightText : undefined}
-        style={textColor ? { color: textColor } : undefined}
-      >
-        <Text size="medium">{formatCell(value, mode)}</Text>
-      </span>
-    </TableCell>
+      {cards.map((card, i) => (
+        <Box
+          key={card.id}
+          role="listitem"
+          px="3"
+          py="1"
+          style={{
+            minWidth: 110,
+            flex: "1 1 0",
+            borderLeft: i === 0 ? undefined : "1px solid var(--gray-a4)",
+          }}
+        >
+          <VariationLabel index={card.index} name={card.name} truncate />
+          <Heading as="h4" size="x-large" weight="medium" mt="2">
+            {card.weight === null ? "—" : formatWeight(card.weight)}
+          </Heading>
+          <Text size="small" color="text-low">
+            {numberFormatter.format(card.units)} {unitDisplayName.toLowerCase()}
+          </Text>
+        </Box>
+      ))}
+    </Flex>
   );
 }
 
 /**
- * CB-native results table. Consumes the CB API shape and the CB results context directly —
+ * CB-native results. Consumes the CB API shape and the CB results context directly —
  * no experiment SnapshotProvider, no phases, no experiment-shaped adapter.
+ *
+ * Layout follows the Results design: an "Overall Weights" summary followed by a
+ * "Comparison" heatmap (reusable `@/ui/Heatmap`) of per-context, per-variation values.
  */
 export default function ContextualBanditResultsTable({
   cb,
@@ -213,7 +314,7 @@ export default function ContextualBanditResultsTable({
   cb: ApiContextualBanditInterface;
   mutate: () => void;
 }) {
-  const [mode, setMode] = useState<"weights" | "means">("weights");
+  const [mode, setMode] = useState<ComparisonMode>("weights");
   const [queriesModalOpen, setQueriesModalOpen] = useState(false);
   const { getDatasourceById, metricGroups } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
@@ -258,7 +359,10 @@ export default function ContextualBanditResultsTable({
   const numVariations = variations.length;
 
   const hasTableData = Boolean(contextualBanditSnapshot?.responses?.length);
-  const attributes = contextualBanditSnapshot?.attributes ?? [];
+  const attributes = useMemo(
+    () => contextualBanditSnapshot?.attributes ?? [],
+    [contextualBanditSnapshot?.attributes],
+  );
   const responses = useMemo(
     () => contextualBanditSnapshot?.responses ?? [],
     [contextualBanditSnapshot?.responses],
@@ -277,6 +381,11 @@ export default function ContextualBanditResultsTable({
     [responses, numVariations],
   );
 
+  const overallVariationUnits = useMemo(
+    () => computeOverallVariationUnits(responses, numVariations),
+    [responses, numVariations],
+  );
+
   const totalUnits = useMemo(
     () => responses.reduce((sum, row) => sum + contextTotalSampleSize(row), 0),
     [responses],
@@ -285,72 +394,134 @@ export default function ContextualBanditResultsTable({
   const showQueries =
     !!queryLatest && (status === "failed" || status === "partially-succeeded");
 
+  const comparisonColumns: HeatmapColumn[] = useMemo(
+    () =>
+      variations.map((v, index) => ({
+        key: v.id,
+        header: <VariationLabel index={index} name={v.name} truncate />,
+        align: "start",
+        cellAlign: "center",
+      })),
+    [variations],
+  );
+
+  const comparisonRows: HeatmapRow[] = useMemo(
+    () =>
+      responsesBySampleSize.map((row) => {
+        const messageNode: ReactNode =
+          shouldShowUpdateMessage(row.updateMessage) || row.error ? (
+            <>
+              {shouldShowUpdateMessage(row.updateMessage) ? (
+                <Text size="small" color="text-low" as="div" mt="1">
+                  {row.updateMessage}
+                </Text>
+              ) : null}
+              {row.error ? (
+                <Box mt="1" style={{ color: "var(--red-11)" }}>
+                  <Text size="small" as="div">
+                    {row.error}
+                  </Text>
+                </Box>
+              ) : null}
+            </>
+          ) : null;
+
+        return {
+          key: contextRowKey(row, attributes),
+          label: (
+            <Box>
+              <ContextRuleLabel row={row} attributeOrder={attributes} />
+              {messageNode}
+            </Box>
+          ),
+          leading: [
+            <Text key="units" size="medium" color="text-mid">
+              {numberFormatter.format(contextTotalSampleSize(row))}
+            </Text>,
+          ],
+          cells: cellValues(row, mode, numVariations).map((value) => ({
+            value,
+          })),
+        };
+      }),
+    [responsesBySampleSize, attributes, mode, numVariations],
+  );
+
+  const headerActions = (
+    <Flex align="center" gap="4" wrap="wrap">
+      {contextualBanditSnapshot ? (
+        <Metadata
+          label={unitDisplayName}
+          value={numberFormatter.format(totalUnits)}
+          style={{ whiteSpace: "nowrap" }}
+        />
+      ) : null}
+      <QueriesLastRun
+        status={status}
+        dateCreated={queryLatest?.dateCreated}
+        latestQueryDate={queryLatest?.dateCreated}
+        nextUpdate={undefined}
+        autoUpdateEnabled={false}
+        showAutoUpdateWidget={false}
+        failedString={
+          queryLatest && !queryLatest.queries.length && queryLatest.error
+            ? `Snapshot update failed: ${queryLatest.error}`
+            : undefined
+        }
+        queries={
+          showQueries ? queryLatest.queries.map((q) => q.query) : undefined
+        }
+        onViewQueries={
+          showQueries ? () => setQueriesModalOpen(true) : undefined
+        }
+      />
+      {canRunQueries ? (
+        <Button
+          loading={refreshing}
+          onClick={async () => {
+            await refresh();
+            mutate();
+          }}
+        >
+          Update results
+        </Button>
+      ) : null}
+      <ResultMoreMenu
+        datasource={datasource}
+        project={cb.project}
+        hasData={hasTableData}
+        legacyQueries={queryLatest?.queries ?? []}
+        legacyQueryError={queryLatest?.error}
+        forceRefresh={
+          canRunQueries
+            ? async () => {
+                await refresh();
+                mutate();
+              }
+            : undefined
+        }
+        notebookUrl=""
+        notebookFilename={cb.trackingKey}
+        supportsNotebooks={false}
+      />
+    </Flex>
+  );
+
   return (
     <Box>
-      <Flex justify="end" align="center" mb="3" gap="4" wrap="wrap">
-        {contextualBanditSnapshot ? (
-          <Metadata
-            label={unitDisplayName}
-            value={numberFormatter.format(totalUnits)}
-            style={{ whiteSpace: "nowrap" }}
-          />
-        ) : null}
-        <Flex align="center" gap="2">
-          <QueriesLastRun
-            status={status}
-            dateCreated={queryLatest?.dateCreated}
-            latestQueryDate={queryLatest?.dateCreated}
-            nextUpdate={undefined}
-            autoUpdateEnabled={false}
-            showAutoUpdateWidget={false}
-            failedString={
-              queryLatest && !queryLatest.queries.length && queryLatest.error
-                ? `Snapshot update failed: ${queryLatest.error}`
-                : undefined
-            }
-            queries={
-              showQueries ? queryLatest.queries.map((q) => q.query) : undefined
-            }
-            onViewQueries={
-              showQueries ? () => setQueriesModalOpen(true) : undefined
-            }
-          />
-        </Flex>
-        {canRunQueries ? (
-          <Button
-            loading={refreshing}
-            onClick={async () => {
-              await refresh();
-              mutate();
-            }}
-          >
-            Update results
-          </Button>
-        ) : null}
-        <ResultMoreMenu
-          datasource={datasource}
-          project={cb.project}
-          hasData={hasTableData}
-          legacyQueries={queryLatest?.queries ?? []}
-          legacyQueryError={queryLatest?.error}
-          forceRefresh={
-            canRunQueries
-              ? async () => {
-                  await refresh();
-                  mutate();
-                }
-              : undefined
-          }
-          notebookUrl=""
-          notebookFilename={cb.trackingKey}
-          supportsNotebooks={false}
-        />
+      <Flex justify="between" align="center" mb="3" gap="4" wrap="wrap">
+        <Heading as="h3" size="small">
+          Overall Weights
+        </Heading>
+        {headerActions}
       </Flex>
+
       {refreshError ? (
         <Callout status="error" mb="3">
           {refreshError}
         </Callout>
       ) : null}
+
       {!hasTableData ? (
         <Callout status="info">
           Contextual bandit results are not available for this snapshot yet. Run
@@ -358,108 +529,59 @@ export default function ContextualBanditResultsTable({
         </Callout>
       ) : (
         <>
-          <Table variant="list" className={styles.contextualBanditTable} mb="4">
-            <ContextualBanditColGroup numVariations={numVariations} />
-            <TableHeader>
-              <TableRow>
-                <TableColumnHeader />
-                {variations.map((v) => (
-                  <TableColumnHeader key={v.id} justify="end">
-                    {v.name}
-                  </TableColumnHeader>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              <TableRow>
-                <TableCell>
-                  <Text size="medium" weight="medium">
-                    Overall weights
-                  </Text>
-                </TableCell>
-                {(() => {
-                  const intensities = rowHeatmapIntensities(
-                    overallVariationWeights,
-                  );
-                  return overallVariationWeights.map((val, vi) => (
-                    <HeatmapValueCell
-                      key={vi}
-                      value={val}
-                      intensity={intensities[vi]}
-                      mode="weights"
-                    />
-                  ));
-                })()}
-              </TableRow>
-            </TableBody>
-          </Table>
-          <Flex justify="end" align="center" mb="2" gap="2">
-            <Text size="medium" color="text-low">
-              Weights
-            </Text>
-            <Switch
-              value={mode === "means"}
-              onChange={(checked) => setMode(checked ? "means" : "weights")}
-              aria-label="Toggle variation means versus weights"
-            />
-            <Text size="medium" color="text-low">
-              Means
-            </Text>
-          </Flex>
-          <Table
-            variant="list"
-            stickyHeader
-            className={styles.contextualBanditTable}
+          <OverallWeights
+            variations={variations}
+            weights={overallVariationWeights}
+            units={overallVariationUnits}
+            unitDisplayName={unitDisplayName}
+          />
+
+          <Flex
+            justify="between"
+            align="center"
+            mt="5"
+            mb="3"
+            gap="3"
+            wrap="wrap"
           >
-            <ContextualBanditColGroup numVariations={numVariations} />
-            <TableHeader>
-              <TableRow>
-                <TableColumnHeader>Context</TableColumnHeader>
-                {variations.map((v) => (
-                  <TableColumnHeader key={v.id} justify="end">
-                    {v.name}
-                  </TableColumnHeader>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {responsesBySampleSize.map((row) => (
-                <TableRow key={contextRowLabel(row, attributes)}>
-                  <TableCell>
-                    <Text size="medium">
-                      {contextRowLabel(row, attributes)}
-                    </Text>
-                    {shouldShowUpdateMessage(row.updateMessage) ? (
-                      <Text size="small" color="text-low" as="div" mt="1">
-                        {row.updateMessage}
-                      </Text>
-                    ) : null}
-                    {row.error ? (
-                      <Box mt="1" style={{ color: "var(--red-11)" }}>
-                        <Text size="small" as="div">
-                          {row.error}
-                        </Text>
-                      </Box>
-                    ) : null}
-                  </TableCell>
-                  {(() => {
-                    const values = cellValues(row, mode, numVariations);
-                    const intensities = rowHeatmapIntensities(values);
-                    return values.map((val, vi) => (
-                      <HeatmapValueCell
-                        key={vi}
-                        value={val}
-                        intensity={intensities[vi]}
-                        mode={mode}
-                      />
-                    ));
-                  })()}
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+            <Heading as="h3" size="small">
+              Comparison
+            </Heading>
+            <SegmentedControl.Root
+              size="1"
+              value={mode}
+              onValueChange={(value) => setMode(value as ComparisonMode)}
+              aria-label="Comparison value type"
+            >
+              <SegmentedControl.Item value="weights">
+                Weights
+              </SegmentedControl.Item>
+              <SegmentedControl.Item value="means">Means</SegmentedControl.Item>
+              <SegmentedControl.Item value="units">
+                {unitDisplayName}
+              </SegmentedControl.Item>
+            </SegmentedControl.Root>
+          </Flex>
+
+          <Heatmap
+            labelHeader="Context"
+            leadingColumns={[
+              {
+                key: "units",
+                header: unitDisplayName,
+                align: "end",
+                width: "14%",
+              },
+            ]}
+            columns={comparisonColumns}
+            rows={comparisonRows}
+            colorScale="violet"
+            stickyHeader
+            formatValue={(value) => formatModeValue(value, mode)}
+          />
         </>
       )}
+
       {queriesModalOpen && showQueries && (
         <AsyncQueriesModal
           close={() => setQueriesModalOpen(false)}

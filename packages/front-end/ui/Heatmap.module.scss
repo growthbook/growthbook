@@ -1,0 +1,14 @@
+.heatmap {
+  :global(.rt-TableRootTable) {
+    table-layout: fixed;
+    width: 100%;
+  }
+}
+
+// Tinted value cells: keep a consistent height and round the colored fill so
+// the grid reads as discrete heat swatches (matches the design).
+.cell {
+  padding: 6px 8px !important;
+  vertical-align: middle;
+  border-radius: var(--radius-3);
+}
