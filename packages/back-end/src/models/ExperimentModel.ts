@@ -573,6 +573,13 @@ export async function getAllExperimentsForStaleGraph(
     // Mirror upgradeExperimentDoc's releasedVariationId backfill — the only
     // projected field that migration derives. Keep in sync if that changes.
     if (!("releasedVariationId" in exp)) {
+      // upgradeExperimentDoc backfills missing variation ids to their index
+      // before deriving releasedVariationId, so do the same here — otherwise a
+      // legacy doc without stored variation ids yields "" and is wrongly
+      // dropped from the payload by includeExperimentInPayload.
+      exp.variations?.forEach((v, i) => {
+        if (!v.id) v.id = i + "";
+      });
       if (exp.status === "stopped" && exp.results === "lost") {
         exp.releasedVariationId = exp.variations?.[0]?.id || "";
       } else if (exp.status === "stopped" && exp.results === "won") {
