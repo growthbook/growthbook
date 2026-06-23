@@ -17607,6 +17607,8 @@ paths:
                       properties:
                         id:
                           type: string
+                        name:
+                          type: string
                         project:
                           type: string
                       required:
@@ -18456,17 +18458,6 @@ paths:
                     enum:
                       - overwrite
                       - discard
-                      - union
-                customValues:
-                  description: >-
-                    Custom values to use for `union` strategy fields. Keyed by
-                    field name.
-                  type: object
-                  propertyNames:
-                    type: string
-                  additionalProperties:
-                    type: array
-                    items: {}
               additionalProperties: false
       responses:
         '200':
@@ -45105,6 +45096,8 @@ components:
             type: object
             properties:
               id:
+                type: string
+              name:
                 type: string
               project:
                 type: string

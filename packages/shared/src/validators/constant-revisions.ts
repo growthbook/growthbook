@@ -353,15 +353,11 @@ export const postConstantRevisionRebaseValidator = {
   paramsSchema: revisionParamsStrict,
   bodySchema: z
     .object({
+      // No `union` strategy: constants have no list/array field to merge (their
+      // content is a scalar `value` + an `environmentValues` map).
       conflictResolutions: z
-        .record(z.string(), z.enum(["overwrite", "discard", "union"]))
+        .record(z.string(), z.enum(["overwrite", "discard"]))
         .optional(),
-      customValues: z
-        .record(z.string(), z.array(z.unknown()))
-        .optional()
-        .describe(
-          "Custom values to use for `union` strategy fields. Keyed by field name.",
-        ),
     })
     .strict(),
   querySchema: z.never(),

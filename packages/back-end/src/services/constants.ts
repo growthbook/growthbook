@@ -34,7 +34,7 @@ export async function constantUpdated(
 }
 
 export type ConstantReferences = {
-  features: { id: string; project?: string }[];
+  features: { id: string; name: string; project?: string }[];
   constants: { id: string; key: string; name: string; project?: string }[];
 };
 
@@ -94,7 +94,9 @@ export async function loadConstantReferences(
   const allFeatures = await getAllFeatures(context, {});
   const features = allFeatures
     .filter((f) => featureConstantKeys(f).has(target.key))
-    .map((f) => ({ id: f.id, project: f.project || undefined }));
+    // Features have no display name distinct from their id; surface it as
+    // `name` for parity with the saved-group references shape.
+    .map((f) => ({ id: f.id, name: f.id, project: f.project || undefined }));
 
   const constants = allConstants
     .filter(

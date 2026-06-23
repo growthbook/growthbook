@@ -1,7 +1,11 @@
 import useSWR from "swr";
 import { useAuth } from "@/services/auth";
 
-export type ConstantFeatureRef = { id: string; project?: string };
+export type ConstantFeatureRef = {
+  id: string;
+  name?: string;
+  project?: string;
+};
 export type ConstantConstantRef = {
   id: string;
   key: string;

@@ -252,7 +252,13 @@ export const apiConstantReferencesValidator = namedSchema(
   z
     .object({
       features: z.array(
-        z.object({ id: z.string(), project: z.string().optional() }).strict(),
+        z
+          .object({
+            id: z.string(),
+            name: z.string().optional(),
+            project: z.string().optional(),
+          })
+          .strict(),
       ),
       constants: z.array(
         z

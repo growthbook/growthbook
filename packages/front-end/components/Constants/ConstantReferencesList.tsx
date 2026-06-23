@@ -15,7 +15,7 @@ const ConstantReferencesList: FC<ConstantReferences> = ({
       resourceType: "feature",
       items: features.map((f) => ({
         id: f.id,
-        label: f.id,
+        label: f.name ?? f.id,
         href: `/features/${f.id}`,
         projectIds: f.project ? [f.project] : undefined,
       })),

@@ -82,6 +82,17 @@ describe("getConstantRevisionChange", () => {
       metadataOnly: true,
     });
   });
+
+  it("classifies a project-only change as metadata-only (single `project` field)", () => {
+    const change = getConstantRevisionChange({ value: "v" }, [
+      { op: "replace", path: "/project", value: "prj_123" },
+    ]);
+    expect(change).toEqual({
+      valueChanged: false,
+      changedEnvironments: [],
+      metadataOnly: true,
+    });
+  });
 });
 
 describe("constantRequiresReview", () => {

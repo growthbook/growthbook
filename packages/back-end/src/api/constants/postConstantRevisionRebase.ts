@@ -54,16 +54,12 @@ export const postConstantRevisionRebase = createApiRequestHandler(
 
   const conflicts = mergeResult.conflicts || [];
   const strategies = req.body.conflictResolutions ?? {};
-  const customValues = req.body.customValues;
 
-  // Every conflicting field needs an explicit strategy, else 400.
+  // Every conflicting field needs an explicit strategy, else 400. Constants have
+  // no array field, so only overwrite/discard apply (no `union`).
   for (const conflict of conflicts) {
     const strategy = strategies[conflict.field];
-    if (
-      strategy !== "overwrite" &&
-      strategy !== "discard" &&
-      strategy !== "union"
-    ) {
+    if (strategy !== "overwrite" && strategy !== "discard") {
       throw new MergeConflictError(
         `Please resolve conflict for field: ${conflict.field}`,
         conflicts,
@@ -105,38 +101,6 @@ export const postConstantRevisionRebase = createApiRequestHandler(
           path: `/${field}`,
           value: conflict.proposedValue,
         });
-      }
-    } else if (strategy === "union") {
-      const custom = customValues?.[field];
-      let resolvedValue: unknown;
-      if (custom !== undefined) {
-        resolvedValue = custom;
-      } else if (
-        Array.isArray(conflict.liveValue) &&
-        Array.isArray(conflict.proposedValue)
-      ) {
-        const seen = new Set<string>();
-        const result: unknown[] = [];
-        for (const item of [
-          ...(conflict.liveValue as unknown[]),
-          ...(conflict.proposedValue as unknown[]),
-        ]) {
-          const key =
-            typeof item === "object" ? JSON.stringify(item) : String(item);
-          if (!seen.has(key)) {
-            seen.add(key);
-            result.push(item);
-          }
-        }
-        resolvedValue = result;
-      } else {
-        resolvedValue = conflict.proposedValue;
-      }
-      if (
-        resolvedValue != null &&
-        !isEqual(resolvedValue, liveSnapshot[field])
-      ) {
-        newOps.push({ op: "replace", path: `/${field}`, value: resolvedValue });
       }
     }
     // strategy === "discard" → drop the op (live value wins)
