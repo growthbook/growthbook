@@ -171,11 +171,21 @@ function ReviewAndPublishRevision<T>({
   // as Conversation, `#review,changes` as Changes. Diff-ref widgets in
   // comments broadcast a sub-tab request before scrolling. ──
   const [urlHash, setUrlHash] = useURLHash();
+  const subTabHash = urlHash?.split(",")[1];
   const subTab: ReviewSubTab =
-    urlHash?.split(",")[1] === "changes" ? "changes" : "overview";
+    subTabHash === "changes"
+      ? "changes"
+      : subTabHash === "overview"
+        ? "overview"
+        : // No explicit sub-tab in the URL: a revision in review defaults to
+          // Changes so reviewers land on the diff; otherwise Conversation.
+          revision.status === "pending-review" ||
+            revision.status === "changes-requested"
+          ? "changes"
+          : "overview";
   const setSubTab = useCallback(
     (t: ReviewSubTab) => {
-      setUrlHash(t === "changes" ? "review,changes" : "review");
+      setUrlHash(t === "changes" ? "review,changes" : "review,overview");
     },
     [setUrlHash],
   );
