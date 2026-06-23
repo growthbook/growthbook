@@ -44,7 +44,7 @@ export function buildPerEntryDiffSnapshots<T>(
         runningProposed,
       ) as T;
       const afterBaseline =
-        entry.targetSnapshot != null
+        (entry.targetSnapshot ?? null) !== null
           ? (entry.targetSnapshot as T)
           : runningBaseline;
       const afterSnapshot = applyTopLevelPatchOps(
@@ -53,7 +53,7 @@ export function buildPerEntryDiffSnapshots<T>(
       ) as T;
       return { baseSnapshot: beforeSnapshot, proposedSnapshot: afterSnapshot };
     }
-    if (entry.targetSnapshot != null) {
+    if ((entry.targetSnapshot ?? null) !== null) {
       runningBaseline = entry.targetSnapshot as T;
     }
     runningProposed = (entry.proposedChangesSnapshot ??

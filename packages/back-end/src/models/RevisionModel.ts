@@ -838,7 +838,10 @@ export class RevisionModel extends BaseClass {
     // this.update can't $unset, so clear any pending dated schedule + locks in a
     // follow-up raw write — otherwise a stale scheduledPublishAt could fire on a
     // later re-arm before a new review cycle completes.
-    if (existing.autoPublishOnApproval || existing.scheduledPublishAt != null) {
+    if (
+      existing.autoPublishOnApproval ||
+      (existing.scheduledPublishAt ?? null) !== null
+    ) {
       await this.disarmScheduledPublish(id);
     }
     return updated;
@@ -1113,7 +1116,10 @@ export class RevisionModel extends BaseClass {
 
     // Fully scrub the schedule fields on publish (this.update can't $unset),
     // matching the feature flow's markRevisionAsPublished.
-    if (existing.autoPublishOnApproval || existing.scheduledPublishAt != null) {
+    if (
+      existing.autoPublishOnApproval ||
+      (existing.scheduledPublishAt ?? null) !== null
+    ) {
       await this.disarmScheduledPublish(id);
     }
     return merged;
@@ -1150,7 +1156,10 @@ export class RevisionModel extends BaseClass {
 
     // Fully scrub the schedule fields on discard (this.update can't $unset),
     // matching the feature flow.
-    if (existing.autoPublishOnApproval || existing.scheduledPublishAt != null) {
+    if (
+      existing.autoPublishOnApproval ||
+      (existing.scheduledPublishAt ?? null) !== null
+    ) {
       await this.disarmScheduledPublish(id);
     }
     return discarded;
@@ -1484,19 +1493,20 @@ export class RevisionModel extends BaseClass {
    * record of a change that has actually landed.
    */
   /**
-   * Returns active draft status counts per saved-group ID.
-   * Mirrors `getActiveDraftStates` in FeatureRevisionModel but operates on
-   * the shared Revision collection (target.type === "saved-group").
+   * Returns active draft status counts per entity ID for the given entity type.
+   * Mirrors `getActiveDraftStates` in FeatureRevisionModel but operates on the
+   * shared Revision collection, scoped to one entity type.
    */
   async getActiveDraftStates(
-    groupIds?: string[],
+    entityType: RevisionTargetType,
+    entityIds?: string[],
   ): Promise<Record<string, Partial<Record<ActiveDraftStatus, number>>>> {
     const filter: Record<string, unknown> = {
-      "target.type": "saved-group",
+      "target.type": entityType,
       status: { $in: ACTIVE_DRAFT_STATUSES },
     };
-    if (groupIds && groupIds.length > 0) {
-      filter["target.id"] = { $in: groupIds };
+    if (entityIds && entityIds.length > 0) {
+      filter["target.id"] = { $in: entityIds };
     }
     const docs = await this._dangerousGetCollection()
       .find(
@@ -1510,11 +1520,11 @@ export class RevisionModel extends BaseClass {
       Partial<Record<ActiveDraftStatus, number>>
     > = {};
     for (const doc of docs) {
-      const gid = doc.target?.id as string;
+      const entityId = doc.target?.id as string;
       const status = doc.status as ActiveDraftStatus;
-      if (!gid) continue;
-      if (!result[gid]) result[gid] = {};
-      result[gid][status] = (result[gid][status] ?? 0) + 1;
+      if (!entityId) continue;
+      if (!result[entityId]) result[entityId] = {};
+      result[entityId][status] = (result[entityId][status] ?? 0) + 1;
     }
     return result;
   }

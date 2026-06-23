@@ -46,6 +46,7 @@ export default function ScheduledPublishControl({
   requiresApproval,
   autopublishOnApproval,
   isReviewRequester,
+  rebaseRequired = false,
   mutate,
 }: {
   revision: Revision;
@@ -60,6 +61,12 @@ export default function ScheduledPublishControl({
   // The viewer is the draft author / requested this review (gates arming the
   // "when approved" mode — mirrors the feature `isArmingOwner` rule).
   isReviewRequester: boolean;
+  // The draft has diverged from live and the org requires a rebase before
+  // publishing (or its approval is stale). A dated schedule fires at a fixed
+  // time, so it would hit the rebase gate and fail at publish — block arming
+  // one until rebased. "When approved" arming is unaffected: it fires after
+  // approval, by which point the draft will have been rebased.
+  rebaseRequired?: boolean;
   mutate: () => void | Promise<void>;
 }) {
   const { apiCall } = useAuth();
@@ -175,6 +182,10 @@ export default function ScheduledPublishControl({
 
   // Save a dated schedule (arm or re-arm).
   const doSchedule = async () => {
+    if (rebaseRequired) {
+      setError("Rebase this draft with live before scheduling a publish.");
+      return;
+    }
     if (!date) {
       setError("Pick a date and time first.");
       return;
@@ -348,8 +359,20 @@ export default function ScheduledPublishControl({
                       />
                     </Box>
                   )}
+                  {rebaseRequired && (
+                    <HelperText status="warning" size="sm" mt="2">
+                      Rebase this draft with live before scheduling — a
+                      scheduled publish fires at a fixed time and would fail
+                      while the draft is behind.
+                    </HelperText>
+                  )}
                   <Flex gap="2" mt="3">
-                    <Button size="sm" onClick={doSchedule} loading={saving}>
+                    <Button
+                      size="sm"
+                      onClick={doSchedule}
+                      loading={saving}
+                      disabled={rebaseRequired}
+                    >
                       {isScheduled ? "Update schedule" : "Schedule publish"}
                     </Button>
                     {isScheduled && (

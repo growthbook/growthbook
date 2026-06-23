@@ -960,6 +960,7 @@ function ReviewAndPublishRevision<T>({
               requiresApproval={requiresApproval}
               autopublishOnApproval={autopublishOnApproval}
               isReviewRequester={isAuthor}
+              rebaseRequired={mustRebase}
               mutate={mutate}
             />
           )}

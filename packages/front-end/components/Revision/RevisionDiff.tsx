@@ -70,13 +70,14 @@ export function RevisionDiff({
                 )}
 
                 {customRenderGroups.some(
-                  ({ renders }) => renders.length > 0 && renders[0] != null,
+                  ({ renders }) =>
+                    renders.length > 0 && (renders[0] ?? null) !== null,
                 ) && (
                   <Flex direction="column" gap="0">
                     {customRenderGroups
                       .filter(
                         ({ renders }) =>
-                          renders.length > 0 && renders[0] != null,
+                          renders.length > 0 && (renders[0] ?? null) !== null,
                       )
                       .map(({ label, renders, suppressCardLabel }) => (
                         <Box

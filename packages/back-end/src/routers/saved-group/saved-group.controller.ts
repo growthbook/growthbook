@@ -1008,7 +1008,10 @@ export const getSavedGroupDraftStates = async (
   const groupIds = req.query.ids
     ? req.query.ids.split(",").filter(Boolean)
     : undefined;
-  const groups = await context.models.revisions.getActiveDraftStates(groupIds);
+  const groups = await context.models.revisions.getActiveDraftStates(
+    "saved-group",
+    groupIds,
+  );
   return res.status(200).json({ status: 200, groups });
 };
 
