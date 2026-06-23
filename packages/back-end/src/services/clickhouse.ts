@@ -39,6 +39,7 @@ import {
 import {
   buildMaterializedColumnJsonFields,
   buildMaterializedColumnRewriteMap,
+  resolveMigrationFinalState,
   rewriteFactMetricColumns,
 } from "back-end/src/util/migrateManagedWarehouseColumns";
 import { logger } from "back-end/src/util/logger";
@@ -516,45 +517,35 @@ export async function migrateManagedWarehouseToJson(
   } finally {
     const finalDs =
       await dangerouslyGetGrowthbookDatasourceBypassPermission(context);
-    // Keep blocking queries when the tables were already recreated as JSON but the
-    // run failed before rewriting metric refs: those metrics still point at dropped
-    // top-level columns and would hit "Unknown identifier" ClickHouse errors. The
-    // re-triggered run finishes the rewrite and clears the state. If recreate never
-    // ran, the legacy tables are still valid, so clear the state and let queries proceed.
-    const keepBlocked =
-      recreated &&
-      finalDs?.type === "growthbook_clickhouse" &&
-      isManagedWarehouseAwaitingJsonMigration(finalDs);
     if (
-      !keepBlocked &&
       finalDs &&
       finalDs.type === "growthbook_clickhouse" &&
       finalDs.settings.migrating
     ) {
-      try {
-        await updateDataSource(
-          context,
-          finalDs,
-          {
-            settings: {
-              ...finalDs.settings,
-              migrating: false,
-              // If recreate never ran, the per-org tables are still legacy-format.
-              // Revert the flag so the warehouse is fully legacy-consistent (not a
-              // JSON-flagged warehouse on legacy tables) until the re-triggered run
-              // re-flips it right before recreate.
-              ...(recreated ? {} : { useJsonColumns: false }),
-            },
-          },
-          { skipExposureQueryValidation: true },
-        );
-      } catch (e) {
-        // Leaves the warehouse stuck `migrating: true`; the recovery branch on the
-        // next run (re-triggered by runQuery's enqueue) clears it without manual help.
-        logger.error(
-          e,
-          `Managed warehouse migration for org ${finalDs.organization}: failed to clear migrating flag; will self-heal on next use`,
-        );
+      // Compute the settle state from whether recreate ran and whether the run finished
+      // (see resolveMigrationFinalState). null = stay blocked: the tables are JSON but
+      // metric refs aren't rewritten yet, so queries must keep blocking until the
+      // re-triggered run finishes (else they'd hit "Unknown identifier").
+      const patch = resolveMigrationFinalState({
+        recreated,
+        stillAwaiting: isManagedWarehouseAwaitingJsonMigration(finalDs),
+      });
+      if (patch) {
+        try {
+          await updateDataSource(
+            context,
+            finalDs,
+            { settings: { ...finalDs.settings, ...patch } },
+            { skipExposureQueryValidation: true },
+          );
+        } catch (e) {
+          // Leaves the warehouse stuck `migrating: true`; the recovery branch on the
+          // next run (re-triggered by runQuery's enqueue) clears it without manual help.
+          logger.error(
+            e,
+            `Managed warehouse migration for org ${finalDs.organization}: failed to clear migrating flag; will self-heal on next use`,
+          );
+        }
       }
     }
   }

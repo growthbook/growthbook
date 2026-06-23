@@ -3,6 +3,7 @@ import { ColumnRef, FactTableColumnType } from "shared/types/fact-table";
 import {
   buildMaterializedColumnJsonFields,
   buildMaterializedColumnRewriteMap,
+  resolveMigrationFinalState,
   rewriteColumnRef,
   rewriteFactMetricColumns,
 } from "back-end/src/util/migrateManagedWarehouseColumns";
@@ -195,5 +196,30 @@ describe("rewriteFactMetricColumns", () => {
     expect(result?.numerator.column).toBe("attributes.plan");
     // denominator on a custom fact table keeps its original column
     expect(result?.denominator?.column).toBe("plan");
+  });
+});
+
+describe("resolveMigrationFinalState", () => {
+  it("full success (recreated, not still awaiting): clears migrating only", () => {
+    expect(
+      resolveMigrationFinalState({ recreated: true, stillAwaiting: false }),
+    ).toEqual({ migrating: false });
+  });
+
+  it("recreated but unfinished (still awaiting): stays blocked (null)", () => {
+    expect(
+      resolveMigrationFinalState({ recreated: true, stillAwaiting: true }),
+    ).toBeNull();
+  });
+
+  it("recreate never ran: clears migrating AND reverts useJsonColumns", () => {
+    expect(
+      resolveMigrationFinalState({ recreated: false, stillAwaiting: true }),
+    ).toEqual({ migrating: false, useJsonColumns: false });
+    // stillAwaiting can't actually be false when recreate didn't run, but the result
+    // is still the safe legacy-consistent state.
+    expect(
+      resolveMigrationFinalState({ recreated: false, stillAwaiting: false }),
+    ).toEqual({ migrating: false, useJsonColumns: false });
   });
 });
