@@ -108,6 +108,7 @@ import { DimensionSlicesQueryRunner } from "back-end/src/queryRunners/DimensionS
 import { logger } from "back-end/src/util/logger";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
+  clearManagedWarehouseDriftTombstone,
   getReservedColumnNames,
   updateMaterializedColumns,
 } from "back-end/src/services/clickhouse";
@@ -2046,6 +2047,11 @@ export async function postRecreateManagedWarehouse(
   }
 
   await dangerousRecreateClickhouseTables(context.org.id);
+
+  // Force-retry escape hatch: clear any drift tombstone so a warehouse that was
+  // skipped for manual migration re-attempts on next query (no DB edit needed,
+  // which matters for self-hosted warehouses we can't reach).
+  await clearManagedWarehouseDriftTombstone(context);
 
   res.status(200).json({
     status: 200,

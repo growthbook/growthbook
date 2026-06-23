@@ -330,6 +330,11 @@ export async function syncManagedWarehouseIdentifiersOnAttributeChange(
   attributeSchema: SDKAttributeSchema | undefined,
 ): Promise<void> {
   try {
+    // An attribute change may have resolved the identifier drift that tombstoned a
+    // JSON migration (e.g. the dropped userIdType is a hashAttribute again) — clear
+    // the tombstone so the next query re-attempts. Self-healing without DB access,
+    // which matters for self-hosted warehouses we can't reach.
+    await clearManagedWarehouseDriftTombstone(context);
     await syncManagedWarehouseIdentifiers(context, attributeSchema);
   } catch (e) {
     logger.error(
@@ -337,6 +342,29 @@ export async function syncManagedWarehouseIdentifiersOnAttributeChange(
       "Failed to sync managed warehouse identifiers after attribute change",
     );
   }
+}
+
+// Clear the drift tombstone (if set) so the on-read migration re-attempts. Called when
+// the cause of drift may have been resolved: an attribute-schema change, or a manual
+// super-admin warehouse recreate. Both are user-accessible (no DB edit needed).
+export async function clearManagedWarehouseDriftTombstone(
+  context: ReqContext | ApiReqContext,
+): Promise<void> {
+  const datasource =
+    await dangerouslyGetGrowthbookDatasourceBypassPermission(context);
+  if (
+    !datasource ||
+    datasource.type !== "growthbook_clickhouse" ||
+    !isManagedWarehouseJsonMigrationBlocked(datasource)
+  ) {
+    return;
+  }
+  await updateDataSource(
+    context,
+    datasource,
+    { settings: { ...datasource.settings, migrationDriftDetected: false } },
+    { skipExposureQueryValidation: true },
+  );
 }
 
 // Rewrite fact-metric column refs that pointed at dropped (non-identifier,
