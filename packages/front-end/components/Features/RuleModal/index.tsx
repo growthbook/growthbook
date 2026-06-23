@@ -1356,7 +1356,12 @@ export default function RuleModal({
                 !isNoOpSchedule &&
                 rampState.mode === "edit" &&
                 ruleRampSchedule?.id &&
-                ruleRampSchedule.status !== "running"
+                // Multi-step ramps can't be edited once running (re-capturing
+                // steps/startDate mid-ramp is unsafe). Simple schedules have no
+                // step machinery — editing a running one only changes its
+                // cutoffDate/name, which the publish-time applier handles safely
+                // (FeatureModel.createRampSchedulesForRevision) — so allow it.
+                (isScheduleMode || ruleRampSchedule.status !== "running")
               ) {
                 rampScheduleInline = {
                   mode: "update",
