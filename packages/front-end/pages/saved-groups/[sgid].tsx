@@ -1251,7 +1251,11 @@ export default function EditSavedGroupPage() {
         </Box>
         {tab === "review" && (
           <ReviewAndPublishTab<SavedGroupInterface>
-            revision={selectedRevision}
+            // When viewing "live" (no explicit selection) fall back to the
+            // live revision — the latest merged one — so the tab renders its
+            // read-only Live view (Live badge + Roll back) instead of the
+            // "select a revision" empty state, matching the feature flow.
+            revision={selectedRevision ?? displayRevision ?? null}
             allRevisions={allRevisions}
             currentState={savedGroup}
             diffConfig={REVISION_SAVED_GROUP_DIFF_CONFIG}
