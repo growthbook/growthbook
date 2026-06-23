@@ -20,6 +20,7 @@ import { getSettingsForSnapshotMetrics } from "back-end/src/services/experiments
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { getPayloadKeysForContextualBandit } from "back-end/src/services/contextualBanditChanges";
+import { computeContextualBanditStageAndSchedule } from "back-end/src/services/contextualBanditSchedule";
 import {
   ContextualBanditResultsQueryRunner,
   ContextualBanditSrmResult,
@@ -254,10 +255,15 @@ export async function persistContextualBanditEvent(
     ...(result.srm ? { degreesOfFreedom: result.srm.degreesOfFreedom } : {}),
   });
 
-  // Always patch on a successful snapshot so `banditVersion` advances once per CBE, even when
-  // there are no leaf weights to write. `patchLeafWeights` leaves `currentLeafWeights` untouched
-  // when `leafWeights` is empty, so this can't wipe existing weights.
-  await context.models.contextualBandits.patchLeafWeights(cb.id, leafWeights);
+  const patched = await context.models.contextualBandits.patchLeafWeights(
+    cb.id,
+    leafWeights,
+  );
+
+  const scheduleChanges = computeContextualBanditStageAndSchedule(patched);
+  if (Object.keys(scheduleChanges).length > 0) {
+    await context.models.contextualBandits.update(patched, scheduleChanges);
+  }
 
   const payloadKeys = getPayloadKeysForContextualBandit(context, cb);
   if (payloadKeys.length > 0) {

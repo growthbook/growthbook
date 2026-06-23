@@ -1,6 +1,10 @@
 import { ContextualBanditInterface } from "shared/validators";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
+import {
+  ContextualBanditUpdate,
+  determineNextContextualBanditSchedule,
+} from "back-end/src/services/contextualBanditSchedule";
 import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/features";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
@@ -84,11 +88,32 @@ export async function executeContextualBanditStart(
   }
 
   const now = new Date();
+  const s = context.org.settings;
 
-  const updated = await context.models.contextualBandits.update(cb, {
+  const startChanges: ContextualBanditUpdate = {
     status: "running",
     dateStarted: cb.dateStarted ?? now,
-  });
+    autoSnapshots: true,
+    contextualBanditStage: "explore",
+    contextualBanditStageDateStarted: now,
+    contextualBanditScheduleValue:
+      cb.contextualBanditScheduleValue ?? s?.banditScheduleValue ?? 1,
+    contextualBanditScheduleUnit:
+      cb.contextualBanditScheduleUnit ?? s?.banditScheduleUnit ?? "days",
+    contextualBanditBurnInValue:
+      cb.contextualBanditBurnInValue ?? s?.banditBurnInValue ?? 1,
+    contextualBanditBurnInUnit:
+      cb.contextualBanditBurnInUnit ?? s?.banditBurnInUnit ?? "days",
+  };
+  startChanges.nextSnapshotAttempt = determineNextContextualBanditSchedule({
+    ...cb,
+    ...startChanges,
+  } as ContextualBanditInterface);
+
+  const updated = await context.models.contextualBandits.update(
+    cb,
+    startChanges,
+  );
 
   await context.auditLog({
     event: "contextualBandit.start",
