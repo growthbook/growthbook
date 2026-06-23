@@ -775,14 +775,27 @@ export class RevisionModel extends BaseClass {
       updated.status === "changes-requested" &&
       updated.autoPublishOnApproval
     ) {
-      await this._dangerousGetCollection().updateOne(
-        { organization: this.context.org.id, id },
-        { $set: { autoPublishOnApproval: false } },
-      );
+      // Clear the whole schedule (not just the armed flag) so a later
+      // "when approved" re-arm can't fire the stale dated schedule.
+      await this.disarmScheduledPublish(id);
       updated.autoPublishOnApproval = false;
     }
 
     return updated;
+  }
+
+  // Disarm auto-publish AND clear the dated schedule + locks in one raw write
+  // (this.update can't $unset). Used by the disarm paths (changes-requested,
+  // recall) so a later "when approved" re-arm can't resurrect a stale dated
+  // schedule and fire it without a fresh approval.
+  private async disarmScheduledPublish(id: string): Promise<void> {
+    await this._dangerousGetCollection().updateOne(
+      { organization: this.context.org.id, id },
+      {
+        $set: { autoPublishOnApproval: false },
+        $unset: { ...SCHEDULED_PUBLISH_UNSET, autoPublishEnabledBy: 1 },
+      },
+    );
   }
 
   // Recall / undo / comment-edit (review lifecycle)
@@ -806,11 +819,9 @@ export class RevisionModel extends BaseClass {
       throw new Error("Only a revision in review can be returned to draft");
     }
 
-    return this.update(existing, {
+    const updated = await this.update(existing, {
       status: "draft",
       reviews: [],
-      // Returning to draft un-arms auto-publish; a stale autoPublishEnabledBy is
-      // harmless since autoPublishOnApproval gates everything.
       autoPublishOnApproval: false,
       activityLog: [
         ...this.cleanActivityLog(existing.activityLog),
@@ -823,6 +834,14 @@ export class RevisionModel extends BaseClass {
         },
       ],
     } as UpdateProps<Revision>);
+
+    // this.update can't $unset, so clear any pending dated schedule + locks in a
+    // follow-up raw write — otherwise a stale scheduledPublishAt could fire on a
+    // later re-arm before a new review cycle completes.
+    if (existing.autoPublishOnApproval || existing.scheduledPublishAt != null) {
+      await this.disarmScheduledPublish(id);
+    }
+    return updated;
   }
 
   /**
@@ -1070,7 +1089,7 @@ export class RevisionModel extends BaseClass {
       ? "Merged revision (bypass)"
       : "Merged revision";
 
-    return this.update(existing, {
+    const merged = await this.update(existing, {
       status: "merged",
       // Publishing disarms any pending schedule and releases the lock-others
       // partial index (which keys on autoPublishOnApproval:true).
@@ -1091,6 +1110,13 @@ export class RevisionModel extends BaseClass {
         },
       ],
     } as UpdateProps<Revision>);
+
+    // Fully scrub the schedule fields on publish (this.update can't $unset),
+    // matching the feature flow's markRevisionAsPublished.
+    if (existing.autoPublishOnApproval || existing.scheduledPublishAt != null) {
+      await this.disarmScheduledPublish(id);
+    }
+    return merged;
   }
 
   async close(id: string, userId: string, reason?: string) {
@@ -1101,7 +1127,7 @@ export class RevisionModel extends BaseClass {
       throw new Error("Cannot discard an already discarded or merged revision");
     }
 
-    return this.update(existing, {
+    const discarded = await this.update(existing, {
       status: "discarded",
       // Discarding disarms any pending schedule (releases lock-others index).
       autoPublishOnApproval: false,
@@ -1121,6 +1147,13 @@ export class RevisionModel extends BaseClass {
         },
       ],
     } as UpdateProps<Revision>);
+
+    // Fully scrub the schedule fields on discard (this.update can't $unset),
+    // matching the feature flow.
+    if (existing.autoPublishOnApproval || existing.scheduledPublishAt != null) {
+      await this.disarmScheduledPublish(id);
+    }
+    return discarded;
   }
 
   async reopen(id: string, userId: string) {

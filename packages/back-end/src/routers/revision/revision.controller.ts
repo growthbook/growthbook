@@ -1480,6 +1480,17 @@ export const putComment = async (
     return res.status(404).json({ message: "Revision not found" });
   }
 
+  // Require entity edit permission (the model also enforces author-only),
+  // matching the other review-lifecycle endpoints.
+  if (
+    !getAdapter(existingRevision.target.type).canUpdate(
+      context,
+      existingRevision.target.snapshot as Record<string, unknown>,
+    )
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
   const revision = await revisionModel.editComment(
     id,
     reviewId,
@@ -1521,6 +1532,17 @@ export const deleteComment = async (
   const existingRevision = await revisionModel.getById(id);
   if (!existingRevision) {
     return res.status(404).json({ message: "Revision not found" });
+  }
+
+  // Require entity edit permission (the model also enforces author-only),
+  // matching the other review-lifecycle endpoints.
+  if (
+    !getAdapter(existingRevision.target.type).canUpdate(
+      context,
+      existingRevision.target.snapshot as Record<string, unknown>,
+    )
+  ) {
+    context.permissions.throwPermissionError();
   }
 
   const revision = await revisionModel.deleteComment(id, reviewId, userId);
