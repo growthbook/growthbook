@@ -73,6 +73,9 @@ export const activityLogEntryValidator = z.object({
     "merged",
     "discarded",
     "reopened",
+    "scheduled-publish",
+    "scheduled-publish-updated",
+    "scheduled-publish-canceled",
   ]),
   description: z.string().nullish(),
   dateCreated: z.date(),
@@ -128,6 +131,23 @@ export const revisionValidator = z.object({
   // auto-publish executes with this user's authority. Falls back to
   // `authorId` when absent.
   autoPublishEnabledBy: z.string().optional(),
+  // ── Scheduled / deferred publish (shape mirrors FeatureRevisionInterface) ──
+  // Defers an armed revision's auto-publish until on/after this date (and, if
+  // required, approved). null/absent = publish as soon as approved.
+  scheduledPublishAt: z.union([z.null(), z.date()]).optional(),
+  // While pending, freeze content edits to this draft (rebase still allowed).
+  scheduledPublishLockEdits: z.boolean().optional(),
+  // While pending, block publishing other drafts of the same entity.
+  scheduledPublishLockOthers: z.boolean().optional(),
+  // True when an admin armed this schedule via the bypass-approval override; the
+  // schedule is then cancel-and-re-arm only. Fire-time bypass still derives from
+  // the armer's live role, not this flag.
+  scheduledPublishBypassApproval: z.boolean().optional(),
+  // Poller bookkeeping when a due publish can't go through yet (e.g. awaiting
+  // approval, merge conflict). Surfaces a "stuck" schedule instead of silently
+  // retrying. Cleared on a successful publish or when the schedule is canceled.
+  scheduledPublishAttempts: z.number().optional(),
+  scheduledPublishLastError: z.string().optional(),
   activityLog: z.array(activityLogEntryValidator),
   resolution: z
     .object({
@@ -142,6 +162,16 @@ export const revisionValidator = z.object({
   organization: z.string(),
 });
 export type Revision = z.infer<typeof revisionValidator>;
+
+// Input for arming/canceling a scheduled publish. `scheduledPublishAt: null`
+// cancels the schedule (and disarms auto-publish). Mirrors the feature
+// schedule-publish request body.
+export type ScheduledPublishInput = {
+  scheduledPublishAt: Date | null;
+  lockEdits?: boolean;
+  lockOthers?: boolean;
+  bypassApproval?: boolean;
+};
 
 export const revisionCreateValidator = z.object({
   target: z.object({

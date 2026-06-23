@@ -68,4 +68,19 @@ export interface EntityRevisionAdapter<
     changes: Record<string, unknown>,
     options?: { isRevert?: boolean },
   ): Promise<void>;
+
+  // ---------- Scheduled publish (optional; adapters opt in) ----------
+
+  /**
+   * Whether the caller may ARM a date-based scheduled publish. Typically gates
+   * on a premium feature plus publish authority. Canceling only needs
+   * `canPublishRevision`. When absent, scheduling is unsupported for this type.
+   */
+  canSchedulePublish?(context: Context, snapshot: TSnapshot): boolean;
+
+  /**
+   * Publish authority over the entity — gates publishing, canceling a pending
+   * schedule, and taking one over. Defaults to `canUpdate` when absent.
+   */
+  canPublishRevision?(context: Context, snapshot: TSnapshot): boolean;
 }

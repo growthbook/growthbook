@@ -1316,6 +1316,348 @@ export const postReopen = async (
 
 // endregion POST /revision/:id/reopen
 
+// region POST /revision/:id/recall-review
+
+type PostRecallReviewRequest = AuthRequest<never, { id: string }>;
+
+type PostRecallReviewResponse = {
+  status: 200;
+  revision: Revision;
+};
+
+/**
+ * POST /revision/:id/recall-review
+ * Pull a review request back to draft (clears reviews, disarms auto-publish)
+ */
+export const postRecallReview = async (
+  req: PostRecallReviewRequest,
+  res: Response<PostRecallReviewResponse | ApiErrorResponse>,
+) => {
+  const context = getContextFromReq(req);
+  const { userId } = context;
+  const { id } = req.params;
+
+  const revisionModel = context.models.revisions;
+
+  const existingRevision = await revisionModel.getById(id);
+  if (!existingRevision) {
+    return res.status(404).json({ message: "Revision not found" });
+  }
+
+  if (
+    !["pending-review", "changes-requested", "approved"].includes(
+      existingRevision.status,
+    )
+  ) {
+    return res.status(400).json({
+      message: "Only a revision in review can be returned to draft",
+    });
+  }
+
+  // Author can always recall; otherwise require permission to edit the entity.
+  if (existingRevision.authorId !== userId) {
+    if (
+      !getAdapter(existingRevision.target.type).canUpdate(
+        context,
+        existingRevision.target.snapshot as Record<string, unknown>,
+      )
+    ) {
+      context.permissions.throwPermissionError();
+    }
+  }
+
+  const revision = await revisionModel.recallReview(id, userId);
+
+  await getRevisionWebhookAdapter(revision.target.type)?.dispatch(
+    context,
+    revision,
+    { type: "reopened" },
+  );
+
+  res.status(200).json({ status: 200, revision });
+};
+
+// endregion POST /revision/:id/recall-review
+
+// region POST /revision/:id/undo-review
+
+type PostUndoReviewRequest = AuthRequest<never, { id: string }>;
+
+type PostUndoReviewResponse = {
+  status: 200;
+  revision: Revision;
+};
+
+/**
+ * POST /revision/:id/undo-review
+ * Retract the calling user's own active review verdict
+ */
+export const postUndoReview = async (
+  req: PostUndoReviewRequest,
+  res: Response<PostUndoReviewResponse | ApiErrorResponse>,
+) => {
+  const context = getContextFromReq(req);
+  const { userId } = context;
+  const { id } = req.params;
+
+  const revisionModel = context.models.revisions;
+
+  const existingRevision = await revisionModel.getById(id);
+  if (!existingRevision) {
+    return res.status(404).json({ message: "Revision not found" });
+  }
+
+  // Must be able to edit the entity to touch verdicts; the model enforces that
+  // only the caller's own active verdict is retracted.
+  if (
+    !getAdapter(existingRevision.target.type).canUpdate(
+      context,
+      existingRevision.target.snapshot as Record<string, unknown>,
+    )
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
+  const revision = await revisionModel.undoReview(id, userId);
+
+  await getRevisionWebhookAdapter(revision.target.type)?.dispatch(
+    context,
+    revision,
+    { type: "updated" },
+  );
+
+  // Retracting a request-changes can flip the revision back to approved; if it's
+  // armed, auto-publish like the review path.
+  if (revision.status === "approved" && revision.autoPublishOnApproval) {
+    const entityModel = getEntityModel(context, revision.target.type);
+    const entity = entityModel
+      ? await entityModel.getById(revision.target.id)
+      : null;
+    if (entity) {
+      const afterAutoPublish = await maybeAutoPublishRevision(
+        context,
+        revision,
+        entity as Record<string, unknown>,
+      );
+      return res.status(200).json({ status: 200, revision: afterAutoPublish });
+    }
+  }
+
+  res.status(200).json({ status: 200, revision });
+};
+
+// endregion POST /revision/:id/undo-review
+
+// region PUT /revision/:id/comment/:reviewId
+
+type PutCommentRequest = AuthRequest<
+  { comment: string },
+  { id: string; reviewId: string }
+>;
+
+type PutCommentResponse = {
+  status: 200;
+  revision: Revision;
+};
+
+/**
+ * PUT /revision/:id/comment/:reviewId
+ * Edit a comment the calling user authored
+ */
+export const putComment = async (
+  req: PutCommentRequest,
+  res: Response<PutCommentResponse | ApiErrorResponse>,
+) => {
+  const context = getContextFromReq(req);
+  const { userId } = context;
+  const { id, reviewId } = req.params;
+  const { comment } = req.body;
+
+  const revisionModel = context.models.revisions;
+
+  const existingRevision = await revisionModel.getById(id);
+  if (!existingRevision) {
+    return res.status(404).json({ message: "Revision not found" });
+  }
+
+  const revision = await revisionModel.editComment(
+    id,
+    reviewId,
+    userId,
+    comment,
+  );
+
+  res.status(200).json({ status: 200, revision });
+};
+
+// endregion PUT /revision/:id/comment/:reviewId
+
+// region DELETE /revision/:id/comment/:reviewId
+
+type DeleteCommentRequest = AuthRequest<
+  never,
+  { id: string; reviewId: string }
+>;
+
+type DeleteCommentResponse = {
+  status: 200;
+  revision: Revision;
+};
+
+/**
+ * DELETE /revision/:id/comment/:reviewId
+ * Delete a comment the calling user authored
+ */
+export const deleteComment = async (
+  req: DeleteCommentRequest,
+  res: Response<DeleteCommentResponse | ApiErrorResponse>,
+) => {
+  const context = getContextFromReq(req);
+  const { userId } = context;
+  const { id, reviewId } = req.params;
+
+  const revisionModel = context.models.revisions;
+
+  const existingRevision = await revisionModel.getById(id);
+  if (!existingRevision) {
+    return res.status(404).json({ message: "Revision not found" });
+  }
+
+  const revision = await revisionModel.deleteComment(id, reviewId, userId);
+
+  res.status(200).json({ status: 200, revision });
+};
+
+// endregion DELETE /revision/:id/comment/:reviewId
+
+// region POST /revision/:id/schedule-publish
+
+type PostSchedulePublishRequest = AuthRequest<
+  {
+    scheduledPublishAt: string | null;
+    lockEdits?: boolean;
+    lockOthers?: boolean;
+    bypassApproval?: boolean;
+  },
+  { id: string }
+>;
+
+type PostSchedulePublishResponse = {
+  status: 200;
+  revision: Revision;
+};
+
+const SCHEDULABLE_STATUSES = [
+  "draft",
+  "pending-review",
+  "changes-requested",
+  "approved",
+];
+
+/**
+ * POST /revision/:id/schedule-publish
+ * Arm (date set) or cancel (date null) a deferred publish.
+ */
+export const postSchedulePublish = async (
+  req: PostSchedulePublishRequest,
+  res: Response<PostSchedulePublishResponse | ApiErrorResponse>,
+) => {
+  const context = getContextFromReq(req);
+  const { userId } = context;
+  const { id } = req.params;
+  const { scheduledPublishAt, lockEdits, lockOthers, bypassApproval } =
+    req.body;
+
+  const revisionModel = context.models.revisions;
+
+  const existingRevision = await revisionModel.getById(id);
+  if (!existingRevision) {
+    return res.status(404).json({ message: "Revision not found" });
+  }
+
+  if (!SCHEDULABLE_STATUSES.includes(existingRevision.status)) {
+    return res.status(400).json({
+      message: "This revision can no longer be scheduled",
+    });
+  }
+
+  const adapter = getAdapter(existingRevision.target.type);
+  const snapshot = existingRevision.target.snapshot as Record<string, unknown>;
+  const isCancel = scheduledPublishAt === null;
+
+  // Parse + validate the target date (arming only).
+  let parsedDate: Date | null = null;
+  if (!isCancel) {
+    parsedDate = new Date(scheduledPublishAt);
+    if (isNaN(parsedDate.getTime())) {
+      return res
+        .status(400)
+        .json({ message: "Invalid scheduledPublishAt date" });
+    }
+  }
+
+  // Canceling needs publish authority; arming additionally needs the
+  // scheduled-publish capability (premium + publish authority).
+  const canPublish = adapter.canPublishRevision
+    ? adapter.canPublishRevision(context, snapshot)
+    : adapter.canUpdate(context, snapshot);
+  if (isCancel) {
+    if (!canPublish) context.permissions.throwPermissionError();
+  } else if (
+    !(adapter.canSchedulePublish
+      ? adapter.canSchedulePublish(context, snapshot)
+      : false)
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
+  // Bypass-approval intent is only honored for callers who can bypass.
+  const wantsBypass =
+    !!bypassApproval && adapter.canBypassApproval(context, snapshot);
+
+  // The schedule fires with this user's authority; require a resolvable actor.
+  const enabledBy =
+    userId ||
+    existingRevision.autoPublishEnabledBy ||
+    existingRevision.authorId ||
+    null;
+  if (!isCancel && !enabledBy) {
+    return res.status(400).json({
+      message: "A scheduled publish needs a user to run as",
+    });
+  }
+
+  // No-approval-path guard: arming a draft that still requires approval (without
+  // bypass) isn't allowed — request review first.
+  if (!isCancel && existingRevision.status === "draft" && !wantsBypass) {
+    const approvalRequired = adapter.isApprovalRequiredForRevision
+      ? adapter.isApprovalRequiredForRevision(context, existingRevision)
+      : adapter.isApprovalRequired(context);
+    if (approvalRequired) {
+      return res.status(400).json({
+        message: "Request review before scheduling this draft's publish.",
+      });
+    }
+  }
+
+  const revision = await revisionModel.setScheduledPublish(id, enabledBy, {
+    scheduledPublishAt: parsedDate,
+    lockEdits,
+    lockOthers,
+    bypassApproval: wantsBypass,
+  });
+
+  await getRevisionWebhookAdapter(revision.target.type)?.dispatch(
+    context,
+    revision,
+    { type: "updated" },
+  );
+
+  res.status(200).json({ status: 200, revision });
+};
+
+// endregion POST /revision/:id/schedule-publish
+
 // region GET /revision/entity/:entityType/:entityId/history
 
 type GetRevisionHistoryRequest = AuthRequest<

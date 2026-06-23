@@ -129,6 +129,21 @@ export const savedGroupAdapter: EntityRevisionAdapter<SavedGroupInterface> = {
     return canBypassAcrossProjects(context, snapshot);
   },
 
+  // Publish authority for saved groups == edit permission (no environment
+  // dimension). Gates publishing and canceling a pending schedule.
+  canPublishRevision(context: Context, snapshot: SavedGroupInterface): boolean {
+    return canEditSavedGroup(context, snapshot);
+  },
+
+  // Arming a date-based schedule needs the premium feature on top of publish
+  // authority. Mirrors the feature flow's `scheduled-revisions` gate.
+  canSchedulePublish(context: Context, snapshot: SavedGroupInterface): boolean {
+    return (
+      context.hasPremiumFeature("scheduled-revisions") &&
+      canEditSavedGroup(context, snapshot)
+    );
+  },
+
   async applyChanges(
     context: Context,
     entity: SavedGroupInterface,

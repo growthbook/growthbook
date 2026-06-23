@@ -3,6 +3,7 @@ import clsx from "clsx";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import AuthorizedImage from "@/components/AuthorizedImage";
+import MarkdownCodeBlock from "@/components/SyntaxHighlighting/MarkdownCodeBlock";
 import styles from "./Markdown.module.scss";
 
 const imageCache = {};
@@ -18,6 +19,10 @@ interface MarkdownProps
    * External links (with a protocol) still open in a new tab.
    */
   onInternalLinkClick?: (href: string) => void;
+  // Opt-in: syntax-highlight fenced code blocks (lazy-loaded Prism). Enabled
+  // on the review surfaces (revision descriptions / comments); other markdown
+  // surfaces keep plain code blocks.
+  highlightCode?: boolean;
 }
 
 /** A relative, same-origin path like `/features/foo` — not protocol-relative. */
@@ -32,6 +37,7 @@ const Markdown: FC<MarkdownProps> = ({
   shareUid,
   shareType = "experiment",
   onInternalLinkClick,
+  highlightCode = false,
   ...props
 }) => {
   if (typeof children !== "string") {
@@ -79,8 +85,15 @@ const Markdown: FC<MarkdownProps> = ({
           {...props}
         />
       ),
+      ...(highlightCode
+        ? {
+            pre: ({ ...props }) => (
+              <MarkdownCodeBlock>{props.children}</MarkdownCodeBlock>
+            ),
+          }
+        : {}),
     }),
-    [isPublic, shareUid, shareType, onInternalLinkClick],
+    [isPublic, shareUid, shareType, onInternalLinkClick, highlightCode],
   );
 
   return (
