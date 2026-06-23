@@ -12,6 +12,8 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
 import LinkButton from "@/ui/LinkButton";
 import Link from "@/ui/Link";
+import Text from "@/ui/Text";
+import Heading from "@/ui/Heading";
 import EmptyState from "@/components/EmptyState";
 import ProjectBadges from "@/components/ProjectBadges";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -183,10 +185,16 @@ export default function ConstantsPage(): React.ReactElement {
   return (
     <>
       <Box className="contents container-fluid pagecontents" mb="3" mt="2">
-        <Flex mb="3" mt="2" align="center" justify="between">
-          <h1 style={{ margin: 0 }}>Constants</h1>
+        <Flex align="center" justify="between" mb="3" mt="2">
+          <Heading as="h1" size="2x-large">
+            Constants
+          </Heading>
           {hasConstants && canAdd && addButton}
         </Flex>
+        <Text as="p" mb="3" color="text-mid">
+          Define a value once and reference it across your feature flags. Change
+          it in one place and every consumer updates.
+        </Text>
 
         {!hasConstants ? (
           <EmptyState
