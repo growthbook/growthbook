@@ -195,16 +195,18 @@ export default function ConstantValueModal({
         approvalRequired={draft.selectorApprovalRequired}
       />
 
-      <FeatureValueField
-        label="Value"
-        id="constant-value"
-        value={form.watch("value")}
-        setValue={(v) => form.setValue("value", v)}
-        valueType={type}
-        useCodeInput={type === "json"}
-        showFullscreenButton={type === "json"}
-        constantContext={constantContext}
-      />
+      <Box mb="5">
+        <FeatureValueField
+          label="Value"
+          id="constant-value"
+          value={form.watch("value")}
+          setValue={(v) => form.setValue("value", v)}
+          valueType={type}
+          useCodeInput={type === "json"}
+          showFullscreenButton={type === "json"}
+          constantContext={constantContext}
+        />
+      </Box>
 
       {cyclicRefs.length > 0 && (
         <Callout status="warning" size="sm" mb="3">
@@ -224,6 +226,7 @@ export default function ConstantValueModal({
             {addableEnvs.length > 0 && (
               <DropdownMenu
                 menuPlacement="end"
+                variant="soft"
                 trigger={
                   <Button variant="outline" size="sm">
                     <Flex align="center" gap="1">
@@ -249,7 +252,7 @@ export default function ConstantValueModal({
             </Text>
           ) : (
             overrideEnvIds.map((envId) => (
-              <Box key={envId} mb="3">
+              <Box key={envId} mb="4">
                 <Flex align="center" justify="between" mb="1">
                   <Text weight="medium">{envId}</Text>
                   <IconButton

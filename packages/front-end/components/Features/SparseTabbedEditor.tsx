@@ -61,7 +61,9 @@ export default function SparseTabbedEditor({
   // override — respect it as-is.
   const sparseDefaultHeight =
     defaultHeight ?? (condensed ? 64 : Math.round(TEN_LINES_HEIGHT / 2));
-  const tabsSize: "1" | "2" = condensed && !fullscreen ? "1" : "2";
+  // Use the compact tab size everywhere except fullscreen — the larger size 2
+  // strip is needlessly tall above the editor.
+  const tabsSize: "1" | "2" = fullscreen ? "2" : "1";
 
   // Escape exits fullscreen (mirrors CodeTextArea's behavior).
   useEffect(() => {

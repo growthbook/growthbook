@@ -251,19 +251,21 @@ export default function StandardRuleFields({
 
       <RuleEnvironmentScopeField {...envScope} my="5" />
 
-      <FeatureValueField
-        label={`Value to ${ruleType === "rollout" ? "roll out" : "force"}`}
-        id="value"
-        value={form.watch("value")}
-        setValue={(v) => form.setValue("value", v)}
-        valueType={feature.valueType}
-        feature={feature}
-        renderJSONInline={true}
-        useCodeInput={true}
-        showFullscreenButton={true}
-        sparse={!!form.watch("sparse")}
-        setSparse={(v) => form.setValue("sparse", v)}
-      />
+      <Box mb="4">
+        <FeatureValueField
+          label={`Value to ${ruleType === "rollout" ? "roll out" : "force"}`}
+          id="value"
+          value={form.watch("value")}
+          setValue={(v) => form.setValue("value", v)}
+          valueType={feature.valueType}
+          feature={feature}
+          renderJSONInline={true}
+          useCodeInput={true}
+          showFullscreenButton={true}
+          sparse={!!form.watch("sparse")}
+          setSparse={(v) => form.setValue("sparse", v)}
+        />
+      </Box>
 
       <div className="mb-3">
         <Heading as="h3" size="small" mb="2">
