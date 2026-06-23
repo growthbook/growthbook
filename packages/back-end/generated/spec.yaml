@@ -266,6 +266,9 @@ tags:
     description: >-
       Server metadata, including the running build's version and commit for
       version-skew checks.
+  - name: constants
+    x-displayName: constants
+    description: ''
   - name: Dashboards
     x-displayName: Dashboards
     description: ''
@@ -302,6 +305,12 @@ tags:
   - name: CodeRef_model
     x-displayName: Code Ref
     description: <SchemaDefinition schemaRef="#/components/schemas/CodeRef" />
+  - name: Constant_model
+    x-displayName: Constant
+    description: <SchemaDefinition schemaRef="#/components/schemas/Constant" />
+  - name: ConstantReferences_model
+    x-displayName: Constant References
+    description: <SchemaDefinition schemaRef="#/components/schemas/ConstantReferences" />
   - name: CustomField_model
     x-displayName: Custom Field
     description: <SchemaDefinition schemaRef="#/components/schemas/CustomField" />
@@ -497,6 +506,9 @@ tags:
   - name: SavedGroup_model
     x-displayName: Saved Group
     description: <SchemaDefinition schemaRef="#/components/schemas/SavedGroup" />
+  - name: SavedGroupReferences_model
+    x-displayName: Saved Group References
+    description: <SchemaDefinition schemaRef="#/components/schemas/SavedGroupReferences" />
   - name: SavedGroupRevision_model
     x-displayName: Saved Group Revision
     description: <SchemaDefinition schemaRef="#/components/schemas/SavedGroupRevision" />
@@ -16255,6 +16267,72 @@ paths:
             curl -X POST
             'https://api.growthbook.io/api/v1/saved-groups/abc123/unarchive' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/saved-groups/{id}/references:
+    get:
+      operationId: getSavedGroupReferences
+      summary: >-
+        Get features, experiments, and saved groups that reference this saved
+        group
+      tags:
+        - saved-groups
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                id: SavedGroupReferences
+                type: object
+                properties:
+                  features:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        name:
+                          type: string
+                        project:
+                          type: string
+                      required:
+                        - id
+                      additionalProperties: false
+                  experiments:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        name:
+                          type: string
+                        project:
+                          type: string
+                        projects:
+                          type: array
+                          items:
+                            type: string
+                      required:
+                        - id
+                      additionalProperties: false
+                  savedGroups:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/savedGroups'
+                required:
+                  - features
+                  - experiments
+                  - savedGroups
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/saved-groups/abc123/references' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/saved-groups-revisions/{savedGroupId}:
     get:
       operationId: getSavedGroupRevisions
@@ -17287,6 +17365,339 @@ paths:
           source: >-
             curl -X POST
             'https://api.growthbook.io/api/v1/saved-groups-revisions/{savedGroupId}/{version}/revert'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/constants:
+    get:
+      operationId: listConstants
+      summary: Get all constants
+      tags:
+        - constants
+      parameters:
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    properties:
+                      constants:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Constant'
+                    required:
+                      - constants
+                    additionalProperties: false
+                  - $ref: '#/components/schemas/PaginationFields'
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/constants' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    post:
+      operationId: postConstant
+      summary: Create a single constant
+      tags:
+        - constants
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                key:
+                  description: >-
+                    Stable reference handle (lowercase slug, unique per org),
+                    referenced as `@const:key`
+                  type: string
+                  pattern: ^[a-z0-9][a-z0-9\-_]*$
+                name:
+                  description: The display name of the constant
+                  type: string
+                type:
+                  description: >-
+                    `string` (interpolated as `{{ @const:key }}`) or `json`
+                    (substituted as a whole value)
+                  type: string
+                  enum:
+                    - string
+                    - json
+                value:
+                  type: string
+                environmentValues:
+                  type: object
+                  propertyNames:
+                    type: string
+                  additionalProperties:
+                    type: string
+                description:
+                  type: string
+                  maxLength: 10000
+                project:
+                  type: string
+                owner:
+                  description: >-
+                    The userId or email address of the owner. If an email
+                    address is provided, it will be used to look up the userId
+                    of the matching organization member. If an ID is provided,
+                    it will be validated as existing in the organization. When
+                    omitted, it defaults to the user associated with the
+                    request's Personal Access Token (PAT), if one is being used.
+                  type: string
+                bypassApproval:
+                  description: >-
+                    Set to true to skip the approval flow when the org requires
+                    approvals for this constant's project. Requires the
+                    `bypassApprovalChecks` permission (or the org-level REST
+                    bypass setting). When approvals aren't required, this flag
+                    has no effect.
+                  type: boolean
+              required:
+                - key
+                - name
+                - type
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  constant:
+                    $ref: '#/components/schemas/Constant'
+                required:
+                  - constant
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X POST 'https://api.growthbook.io/api/v1/constants' \
+              -H 'Authorization: Bearer YOUR_API_KEY' \
+              -H 'Content-Type: application/json' \
+              -d '{"key":"config-snippet","name":"Config Snippet","type":"json","value":"{\"timeout\":30}"}'
+  /v1/constants/{id}/references:
+    get:
+      operationId: getConstantReferences
+      summary: Get features and constants that reference this constant
+      tags:
+        - constants
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                id: ConstantReferences
+                type: object
+                properties:
+                  features:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        project:
+                          type: string
+                      required:
+                        - id
+                      additionalProperties: false
+                  constants:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/constants'
+                required:
+                  - features
+                  - constants
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/constants/const_abc123/references'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/constants/{id}:
+    get:
+      operationId: getConstant
+      summary: Get a single constant
+      tags:
+        - constants
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  constant:
+                    $ref: '#/components/schemas/Constant'
+                required:
+                  - constant
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/constants/const_abc123' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    post:
+      operationId: updateConstant
+      summary: Partially update a single constant
+      tags:
+        - constants
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                value:
+                  type: string
+                environmentValues:
+                  type: object
+                  propertyNames:
+                    type: string
+                  additionalProperties:
+                    type: string
+                description:
+                  type: string
+                  maxLength: 10000
+                project:
+                  type: string
+                owner:
+                  description: >-
+                    The userId or email address of the owner. If an email
+                    address is provided, it will be used to look up the userId
+                    of the matching organization member. If an ID is provided,
+                    it will be validated as existing in the organization.
+                  type: string
+                bypassApproval:
+                  description: >-
+                    Set to true to skip the approval flow when the org requires
+                    approvals for this constant's project. Requires the
+                    `bypassApprovalChecks` permission (or the org-level REST
+                    bypass setting). When approvals aren't required, this flag
+                    has no effect.
+                  type: boolean
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  constant:
+                    $ref: '#/components/schemas/Constant'
+                required:
+                  - constant
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/constants/const_abc123' \
+              -H 'Authorization: Bearer YOUR_API_KEY' \
+              -H 'Content-Type: application/json' \
+              -d '{"value":"{\"timeout\":60}"}'
+    delete:
+      operationId: deleteConstant
+      summary: Delete a single constant
+      tags:
+        - constants
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Resource deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deletedId:
+                    type: string
+                required:
+                  - deletedId
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X DELETE
+            'https://api.growthbook.io/api/v1/constants/const_abc123' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/constants/{id}/archive:
+    post:
+      operationId: archiveConstant
+      summary: Archive a single constant
+      tags:
+        - constants
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  constant:
+                    $ref: '#/components/schemas/Constant'
+                required:
+                  - constant
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/constants/const_abc123/archive' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/constants/{id}/unarchive:
+    post:
+      operationId: unarchiveConstant
+      summary: Unarchive a single constant
+      tags:
+        - constants
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  constant:
+                    $ref: '#/components/schemas/Constant'
+                required:
+                  - constant
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/constants/const_abc123/unarchive'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/organizations:
@@ -38497,6 +38908,65 @@ components:
         - action
         - dateCreated
       additionalProperties: false
+    Constant:
+      type: object
+      properties:
+        id:
+          type: string
+        key:
+          description: Stable reference handle; used as `@const:key` in values
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+          enum:
+            - string
+            - json
+        owner:
+          description: The userId of the owner (or raw owner name/email for legacy records)
+          type: string
+        ownerEmail:
+          description: >-
+            The email address of the owner, when the owner can be resolved to a
+            known user.
+          type: string
+        value:
+          description: >-
+            The default value (raw string for `string` constants, JSON-encoded
+            for `json` constants)
+          type: string
+        environmentValues:
+          description: >-
+            Per-environment value overrides (environment id → value). Falls back
+            to `value` when an environment is absent.
+          type: object
+          propertyNames:
+            type: string
+          additionalProperties:
+            type: string
+        description:
+          type: string
+          maxLength: 10000
+        project:
+          description: The project this constant belongs to (empty = all projects)
+          type: string
+        archived:
+          type: boolean
+        dateCreated:
+          format: date-time
+          type: string
+        dateUpdated:
+          format: date-time
+          type: string
+      required:
+        - id
+        - key
+        - name
+        - type
+        - dateCreated
+        - dateUpdated
+      additionalProperties: false
     Organization:
       type: object
       properties:
@@ -43372,6 +43842,43 @@ components:
         - steps
         - order
       additionalProperties: false
+    ConstantReferences:
+      type: object
+      properties:
+        features:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              project:
+                type: string
+            required:
+              - id
+            additionalProperties: false
+        constants:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              key:
+                type: string
+              name:
+                type: string
+              project:
+                type: string
+            required:
+              - id
+              - key
+              - name
+            additionalProperties: false
+      required:
+        - features
+        - constants
+      additionalProperties: false
     ExperimentSnapshot:
       type: object
       properties:
@@ -43385,6 +43892,62 @@ components:
         - id
         - experiment
         - status
+      additionalProperties: false
+    SavedGroupReferences:
+      type: object
+      properties:
+        features:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              name:
+                type: string
+              project:
+                type: string
+            required:
+              - id
+            additionalProperties: false
+        experiments:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              name:
+                type: string
+              project:
+                type: string
+              projects:
+                type: array
+                items:
+                  type: string
+            required:
+              - id
+            additionalProperties: false
+        savedGroups:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              groupName:
+                type: string
+              projects:
+                type: array
+                items:
+                  type: string
+            required:
+              - id
+            additionalProperties: false
+      required:
+        - features
+        - experiments
+        - savedGroups
       additionalProperties: false
     FeatureBaseRule:
       type: object
@@ -45460,6 +46023,36 @@ components:
         - id
         - name
       additionalProperties: false
+    savedGroups:
+      type: object
+      properties:
+        id:
+          type: string
+        groupName:
+          type: string
+        projects:
+          type: array
+          items:
+            type: string
+      required:
+        - id
+      additionalProperties: false
+    constants:
+      type: object
+      properties:
+        id:
+          type: string
+        key:
+          type: string
+        name:
+          type: string
+        project:
+          type: string
+      required:
+        - id
+        - key
+        - name
+      additionalProperties: false
     updatedMember:
       type: object
       properties:
@@ -46055,6 +46648,7 @@ x-tagGroups:
       - attributes
       - usage
       - meta
+      - constants
       - Dashboards
       - CustomFields
       - MetricGroups
@@ -46069,6 +46663,8 @@ x-tagGroups:
       - Archetype_model
       - Attribute_model
       - CodeRef_model
+      - Constant_model
+      - ConstantReferences_model
       - CustomField_model
       - Dashboard_model
       - DataSource_model
@@ -46126,6 +46722,7 @@ x-tagGroups:
       - Report_model
       - Safe Rollout Rule_model
       - SavedGroup_model
+      - SavedGroupReferences_model
       - SavedGroupRevision_model
       - SavedGroupRevisionActivityLogEntry_model
       - SavedGroupRevisionReview_model

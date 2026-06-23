@@ -1,5 +1,5 @@
 import { ConstantInterface, ConstantWithoutValue } from "shared/types/constant";
-import { constantValidator } from "shared/validators";
+import { ApiConstant, constantValidator } from "shared/validators";
 import { UpdateProps } from "shared/types/base-model";
 import { constantUpdated } from "back-end/src/services/constants";
 import { MakeModelClass } from "./BaseModel";
@@ -93,6 +93,26 @@ export class ConstantModel extends BaseClass {
       { projection: { value: 0, environmentValues: 0 } },
     );
     return constants as ConstantWithoutValue[];
+  }
+
+  // External REST API shape. Owner email is resolved separately by the handler
+  // (via resolveOwnerEmail) since it requires an async user lookup.
+  public toApiInterface(constant: ConstantInterface): ApiConstant {
+    return {
+      id: constant.id,
+      key: constant.key,
+      name: constant.name,
+      type: constant.type,
+      owner: constant.owner,
+      ownerEmail: "",
+      value: constant.value,
+      environmentValues: constant.environmentValues,
+      description: constant.description,
+      project: constant.project,
+      archived: constant.archived,
+      dateCreated: constant.dateCreated.toISOString(),
+      dateUpdated: constant.dateUpdated.toISOString(),
+    };
   }
 
   // When a project is deleted, unset it on any constant scoped to it (becomes

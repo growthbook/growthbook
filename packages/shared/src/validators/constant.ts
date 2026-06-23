@@ -1,10 +1,13 @@
 import { z } from "zod";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import {
+  ownerEmailField,
   ownerField,
   ownerInputField,
   optionalOwnerInputField,
 } from "./owner-field";
+import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
+import { namedSchema } from "./openapi-helpers";
 
 export const constantTypeValidator = z.enum(["string", "json"]);
 
@@ -155,3 +158,228 @@ export const putConstantBodyValidator = z.object({
   project: z.string().optional(),
   archived: z.boolean().optional(),
 });
+
+// ---------------------------------------------------------------------------
+// External REST API (mirrors saved groups). Validators carry the OpenAPI route
+// metadata consumed by createApiRequestHandler + generate-openapi.
+// ---------------------------------------------------------------------------
+
+export const apiConstantValidator = namedSchema(
+  "Constant",
+  z
+    .object({
+      id: z.string(),
+      key: z
+        .string()
+        .describe("Stable reference handle; used as `@const:key` in values"),
+      name: z.string(),
+      type: constantTypeValidator,
+      owner: ownerField.optional(),
+      ownerEmail: ownerEmailField,
+      value: z
+        .string()
+        .describe(
+          "The default value (raw string for `string` constants, JSON-encoded for `json` constants)",
+        )
+        .optional(),
+      environmentValues: z
+        .record(z.string(), z.string())
+        .describe(
+          "Per-environment value overrides (environment id → value). Falls back to `value` when an environment is absent.",
+        )
+        .optional(),
+      description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+      project: z
+        .string()
+        .describe("The project this constant belongs to (empty = all projects)")
+        .optional(),
+      archived: z.boolean().optional(),
+      dateCreated: z.string().meta({ format: "date-time" }),
+      dateUpdated: z.string().meta({ format: "date-time" }),
+    })
+    .strict(),
+);
+
+export type ApiConstant = z.infer<typeof apiConstantValidator>;
+
+const bypassApprovalField = z
+  .boolean()
+  .describe(
+    "Set to true to skip the approval flow when the org requires approvals for this constant's project. Requires the `bypassApprovalChecks` permission (or the org-level REST bypass setting). When approvals aren't required, this flag has no effect.",
+  )
+  .optional();
+
+const postConstantApiBody = z
+  .object({
+    key: keyField.describe(
+      "Stable reference handle (lowercase slug, unique per org), referenced as `@const:key`",
+    ),
+    name: z.string().describe("The display name of the constant"),
+    type: constantTypeValidator.describe(
+      "`string` (interpolated as `{{ @const:key }}`) or `json` (substituted as a whole value)",
+    ),
+    value: z.string().optional(),
+    environmentValues: z.record(z.string(), z.string()).optional(),
+    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+    project: z.string().optional(),
+    owner: optionalOwnerInputField,
+    bypassApproval: bypassApprovalField,
+  })
+  .strict();
+
+const updateConstantApiBody = z
+  .object({
+    name: z.string().optional(),
+    value: z.string().optional(),
+    environmentValues: z.record(z.string(), z.string()).optional(),
+    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+    project: z.string().optional(),
+    owner: ownerInputField.optional(),
+    bypassApproval: bypassApprovalField,
+  })
+  .strict();
+
+const constantIdParams = z
+  .object({ id: z.string().describe("The id of the requested resource") })
+  .strict();
+
+const apiConstantResponse = z
+  .object({ constant: apiConstantValidator })
+  .strict();
+
+export const apiConstantReferencesValidator = namedSchema(
+  "ConstantReferences",
+  z
+    .object({
+      features: z.array(
+        z.object({ id: z.string(), project: z.string().optional() }).strict(),
+      ),
+      constants: z.array(
+        z
+          .object({
+            id: z.string(),
+            key: z.string(),
+            name: z.string(),
+            project: z.string().optional(),
+          })
+          .strict(),
+      ),
+    })
+    .strict(),
+);
+
+export const listConstantsValidator = {
+  bodySchema: z.never(),
+  querySchema: z.object({ ...paginationQueryFields }).strict(),
+  paramsSchema: z.never(),
+  responseSchema: z.intersection(
+    z.object({ constants: z.array(apiConstantValidator) }),
+    apiPaginationFieldsValidator,
+  ),
+  summary: "Get all constants",
+  operationId: "listConstants",
+  tags: ["constants"],
+  method: "get" as const,
+  path: "/constants",
+};
+
+export const getConstantValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: constantIdParams,
+  responseSchema: apiConstantResponse,
+  summary: "Get a single constant",
+  operationId: "getConstant",
+  tags: ["constants"],
+  method: "get" as const,
+  path: "/constants/:id",
+  exampleRequest: { params: { id: "const_abc123" } },
+};
+
+export const postConstantValidator = {
+  bodySchema: postConstantApiBody,
+  querySchema: z.never(),
+  paramsSchema: z.never(),
+  responseSchema: apiConstantResponse,
+  summary: "Create a single constant",
+  operationId: "postConstant",
+  tags: ["constants"],
+  method: "post" as const,
+  path: "/constants",
+  exampleRequest: {
+    body: {
+      key: "config-snippet",
+      name: "Config Snippet",
+      type: "json",
+      value: '{"timeout":30}',
+    },
+  },
+};
+
+export const updateConstantValidator = {
+  bodySchema: updateConstantApiBody,
+  querySchema: z.never(),
+  paramsSchema: constantIdParams,
+  responseSchema: apiConstantResponse,
+  summary: "Partially update a single constant",
+  operationId: "updateConstant",
+  tags: ["constants"],
+  method: "post" as const,
+  path: "/constants/:id",
+  exampleRequest: {
+    params: { id: "const_abc123" },
+    body: { value: '{"timeout":60}' },
+  },
+};
+
+export const archiveConstantValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: constantIdParams,
+  responseSchema: apiConstantResponse,
+  summary: "Archive a single constant",
+  operationId: "archiveConstant",
+  tags: ["constants"],
+  method: "post" as const,
+  path: "/constants/:id/archive",
+  exampleRequest: { params: { id: "const_abc123" } },
+};
+
+export const unarchiveConstantValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: constantIdParams,
+  responseSchema: apiConstantResponse,
+  summary: "Unarchive a single constant",
+  operationId: "unarchiveConstant",
+  tags: ["constants"],
+  method: "post" as const,
+  path: "/constants/:id/unarchive",
+  exampleRequest: { params: { id: "const_abc123" } },
+};
+
+export const deleteConstantValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: constantIdParams,
+  responseSchema: z.object({ deletedId: z.string() }).strict(),
+  summary: "Delete a single constant",
+  operationId: "deleteConstant",
+  tags: ["constants"],
+  method: "delete" as const,
+  path: "/constants/:id",
+  exampleRequest: { params: { id: "const_abc123" } },
+};
+
+export const getConstantReferencesValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: constantIdParams,
+  responseSchema: apiConstantReferencesValidator,
+  summary: "Get features and constants that reference this constant",
+  operationId: "getConstantReferences",
+  tags: ["constants"],
+  method: "get" as const,
+  path: "/constants/:id/references",
+  exampleRequest: { params: { id: "const_abc123" } },
+};
