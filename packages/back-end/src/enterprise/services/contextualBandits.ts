@@ -155,6 +155,8 @@ export async function runContextualBanditSnapshot(
     snapshotSettings,
     variationNames,
   });
+  // @teresayung I'm not sure we want to await the entire query and
+  // analysis to finish, for both inline and for job updates.
   await runner.waitForResults();
 
   const finalCbs =

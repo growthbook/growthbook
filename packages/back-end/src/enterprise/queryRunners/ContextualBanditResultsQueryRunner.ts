@@ -349,6 +349,11 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
             : "success",
     };
 
+    // @teresayung I'm concerned about this happening inside the `update` call.
+    // What if the update gets called multiple times with status succeeded and there
+    // is just some other change? Won't it re-write the results. In general, this calls
+    // for a separate way to handle a side-effect of writing the bandit event, IMO.
+
     // Fan out side effects BEFORE the final CBS write so `contextualBanditEventId` is never published half-consistent.
     if (status === "succeeded" && result) {
       const cbe = await persistContextualBanditEvent(

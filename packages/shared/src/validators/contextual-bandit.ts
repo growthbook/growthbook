@@ -17,6 +17,8 @@ export const variationWeightPairValidator = z.object({
 export type VariationWeightPair = z.infer<typeof variationWeightPairValidator>;
 
 export const leafWeightValidator = z.object({
+  // @teresayung should this be named `leafId`? I'm not sure we ever
+  // have a contextId.
   contextId: z.string(),
   weights: z.array(variationWeightPairValidator),
 });

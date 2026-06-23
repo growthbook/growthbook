@@ -24,7 +24,10 @@ export const contextualBanditQueryValidator = baseSchema
     query: z.string(),
     /** Assignment-query columns mapping to org targeting attributes (must appear in SELECT). */
     targetingAttributeColumns: z.array(z.string()),
+    // @teresayung do we need dimensions at all? let's just consider every column a dimnension if we
+    // need to care about this in code at all. I think you can remove this.
     dimensions: z.array(z.string()).optional(),
+    // @teresayung remove hasNameCol
     hasNameCol: z.boolean().optional(),
   })
   .strict();
