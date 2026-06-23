@@ -6,7 +6,7 @@ import {
   isScheduledPublishLockActive,
   isScheduledPublishPending,
 } from "shared/enterprise";
-import { PiClockFill } from "react-icons/pi";
+import { PiClockFill, PiLock } from "react-icons/pi";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import Button from "@/ui/Button";
@@ -17,6 +17,7 @@ import HelperText from "@/ui/HelperText";
 import RadioGroup from "@/ui/RadioGroup";
 import DatePicker from "@/components/DatePicker";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import NoticeBanner from "@/components/Reviews/NoticeBanner";
 
 type Mode = "approve" | "date";
 
@@ -224,39 +225,54 @@ export default function ScheduledPublishControl({
 
   // ── Read-only summary: a committed dated schedule (always for admin-armed,
   // which is cancel-and-re-arm only). Shown to everyone so the schedule is
-  // visible; only managers get Change/Cancel. ──
+  // visible; only managers get Change/Cancel. Uses the shared NoticeBanner so
+  // it reads identically to the feature-flow scheduled-publish card. ──
   if (isScheduled && (!editing || scheduleArmedByAdmin)) {
     return (
       <Box mb="3">
-        <Callout status={pending && !lockActive ? "warning" : "info"} size="sm">
-          <Flex direction="column" gap="1" align="start">
-            <Flex align="center" gap="2">
-              <PiClockFill />
-              <Text size="small" weight="medium">
-                Scheduled to publish{" "}
-                {format(new Date(scheduledAtIso), "MMM d, yyyy 'at' h:mm a")}
-                {pending && !lockActive ? " · pending approval" : ""}
-              </Text>
-            </Flex>
-            {lockTargets && (
-              <Text size="small" color="text-low">
-                {lockActive ? "Locks" : "Will lock"} {lockTargets} until it
-                publishes.
-              </Text>
-            )}
-            {scheduleArmedByAdmin && (
-              <Text size="small" color="text-low">
-                Armed by an admin (approval bypassed) — cancel to make changes.
-              </Text>
-            )}
-            {revision.scheduledPublishLastError && (
-              <HelperText status="error" size="sm">
-                Publish is stuck and keeps retrying:{" "}
-                {revision.scheduledPublishLastError}
-              </HelperText>
-            )}
-            {canEdit && (
-              <Flex gap="2" mt="1">
+        <NoticeBanner
+          icon={<PiClockFill />}
+          iconColor="violet"
+          title="Scheduled to publish"
+          body={
+            <>
+              {format(new Date(scheduledAtIso), "PPp")}
+              {pending && !lockActive ? " · pending approval" : ""}
+            </>
+          }
+          footer={
+            <>
+              {lockTargets && (
+                <HelperText status="warning" size="sm" icon={<PiLock />} mt="2">
+                  {lockActive ? "Locks " : "Will lock "}
+                  {lockTargets}
+                </HelperText>
+              )}
+              {scheduleArmedByAdmin && (
+                <HelperText status="info" size="sm" mt="2">
+                  Armed by an admin (approval bypassed). Cancel and re-arm to
+                  change it.
+                </HelperText>
+              )}
+              {revision.scheduledPublishLastError && (
+                <HelperText status="error" size="sm" mt="2">
+                  Publish is stuck and keeps retrying:{" "}
+                  {revision.scheduledPublishLastError}
+                </HelperText>
+              )}
+            </>
+          }
+          action={
+            canEdit ? (
+              <Flex gap="2" align="center">
+                <Button
+                  variant="ghost"
+                  color="red"
+                  size="xs"
+                  onClick={doDisarm}
+                >
+                  Cancel schedule
+                </Button>
                 {canManageAutoPublish && !scheduleArmedByAdmin && (
                   <Button
                     variant="outline"
@@ -266,13 +282,10 @@ export default function ScheduledPublishControl({
                     Change
                   </Button>
                 )}
-                <Button variant="ghost" size="xs" onClick={doDisarm}>
-                  Cancel schedule
-                </Button>
               </Flex>
-            )}
-          </Flex>
-        </Callout>
+            ) : undefined
+          }
+        />
         {error && (
           <Callout status="error" size="sm" mt="2">
             {error}
