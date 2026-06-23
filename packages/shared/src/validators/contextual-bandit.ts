@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { apiBaseSchema, baseSchema } from "./base-model";
 import {
+  banditStageType,
   metricOverride,
   nextScheduledStatusUpdateValidator,
   statusUpdateScheduleValidator,
@@ -101,11 +102,15 @@ export const contextualBanditValidator = baseSchema
           .strict(),
       )
       .optional(),
-
+    contextualBanditScheduleValue: z.number().optional(),
+    contextualBanditScheduleUnit: z.enum(["days", "hours"]).optional(),
+    contextualBanditBurnInValue: z.number().optional(),
+    contextualBanditBurnInUnit: z.enum(["days", "hours"]).optional(),
+    contextualBanditStage: z.enum(banditStageType).optional(),
+    contextualBanditStageDateStarted: z.date().optional(),
     autoSnapshots: z.boolean().optional(),
     lastSnapshotAttempt: z.date().optional(),
     nextSnapshotAttempt: z.date().optional(),
-
     statusUpdateSchedule: statusUpdateScheduleValidator.optional().nullable(),
     nextScheduledStatusUpdate: nextScheduledStatusUpdateValidator
       .optional()
@@ -166,6 +171,12 @@ export const apiContextualBanditValidator = namedSchema(
     maxLeaves: z.number().int().positive(),
     holdoutPercent: z.number().min(0).max(0.5),
     canonicalFormVersion: z.number().int().nonnegative(),
+    contextualBanditScheduleValue: z.number().optional(),
+    contextualBanditScheduleUnit: z.enum(["days", "hours"]).optional(),
+    contextualBanditBurnInValue: z.number().optional(),
+    contextualBanditBurnInUnit: z.enum(["days", "hours"]).optional(),
+    contextualBanditStage: z.enum(banditStageType).optional(),
+    contextualBanditStageDateStarted: z.iso.datetime().optional(),
   }),
 );
 
@@ -217,6 +228,11 @@ export const apiCreateContextualBanditBody = z.strictObject({
   contextualAttributes: z.array(z.string()),
   minUsersPerLeaf: z.number().int().positive().optional(),
   maxLeaves: z.number().int().positive().optional(),
+
+  contextualBanditScheduleValue: z.number().optional(),
+  contextualBanditScheduleUnit: z.enum(["days", "hours"]).optional(),
+  contextualBanditBurnInValue: z.number().optional(),
+  contextualBanditBurnInUnit: z.enum(["days", "hours"]).optional(),
 });
 
 export type ApiCreateContextualBanditBody = z.infer<
@@ -247,6 +263,10 @@ export const apiUpdateContextualBanditBody = z.object({
   decisionMetric: z.string().optional(),
   minUsersPerLeaf: z.number().int().positive().optional(),
   maxLeaves: z.number().int().positive().optional(),
+  contextualBanditScheduleValue: z.number().optional(),
+  contextualBanditScheduleUnit: z.enum(["days", "hours"]).optional(),
+  contextualBanditBurnInValue: z.number().optional(),
+  contextualBanditBurnInUnit: z.enum(["days", "hours"]).optional(),
 
   archived: z.boolean().optional(),
   status: z.enum(contextualBanditStatus).optional(),
@@ -283,6 +303,10 @@ export const CONTEXTUAL_BANDIT_API_UPDATE_FIELDS = [
   "decisionMetric",
   "minUsersPerLeaf",
   "maxLeaves",
+  "contextualBanditScheduleValue",
+  "contextualBanditScheduleUnit",
+  "contextualBanditBurnInValue",
+  "contextualBanditBurnInUnit",
   "archived",
   "status",
   "coverage",

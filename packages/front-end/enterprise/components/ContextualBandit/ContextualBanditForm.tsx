@@ -188,7 +188,7 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
       banditScheduleValue: scopedSettings.banditScheduleValue.value,
       banditScheduleUnit: scopedSettings.banditScheduleUnit.value,
       banditBurnInValue: scopedSettings.banditBurnInValue.value,
-      banditBurnInUnit: scopedSettings.banditScheduleUnit.value,
+      banditBurnInUnit: scopedSettings.banditBurnInUnit.value,
       banditConversionWindowValue: initialValue?.banditConversionWindowValue,
       banditConversionWindowUnit:
         initialValue?.banditConversionWindowUnit ?? "hours",
@@ -430,6 +430,11 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
       activationMetric: data.activationMetric || undefined,
       skipPartialData: data.skipPartialData,
       regressionAdjustmentEnabled: data.regressionAdjustmentEnabled,
+
+      contextualBanditScheduleValue: data.banditScheduleValue,
+      contextualBanditScheduleUnit: data.banditScheduleUnit,
+      contextualBanditBurnInValue: data.banditBurnInValue,
+      contextualBanditBurnInUnit: data.banditBurnInUnit,
 
       contextualAttributes: submitContextualAttributes,
     };

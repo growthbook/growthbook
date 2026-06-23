@@ -167,6 +167,13 @@ export function toApiContextualBandit(
     holdoutPercent: doc.holdoutPercent,
     canonicalFormVersion: doc.canonicalFormVersion,
     banditVersion: doc.banditVersion ?? 0,
+    contextualBanditScheduleValue: doc.contextualBanditScheduleValue,
+    contextualBanditScheduleUnit: doc.contextualBanditScheduleUnit,
+    contextualBanditBurnInValue: doc.contextualBanditBurnInValue,
+    contextualBanditBurnInUnit: doc.contextualBanditBurnInUnit,
+    contextualBanditStage: doc.contextualBanditStage,
+    contextualBanditStageDateStarted:
+      doc.contextualBanditStageDateStarted?.toISOString(),
   };
 }
 
@@ -200,10 +207,26 @@ export class ContextualBanditModel extends BaseClass {
 
   protected async processApiCreateBody(rawBody: unknown) {
     const body = apiCreateContextualBanditBody.parse(rawBody);
-    const orgPrior = this.context.org.settings?.metricDefaults?.priorSettings;
+    const orgSettings = this.context.org.settings;
+    const orgPrior = orgSettings?.metricDefaults?.priorSettings;
 
     return {
       ...body,
+      // Schedule + exploratory (burn-in) config: caller value -> org default -> hardcoded default.
+      contextualBanditScheduleValue:
+        body.contextualBanditScheduleValue ??
+        orgSettings?.banditScheduleValue ??
+        1,
+      contextualBanditScheduleUnit:
+        body.contextualBanditScheduleUnit ??
+        orgSettings?.banditScheduleUnit ??
+        "days",
+      contextualBanditBurnInValue:
+        body.contextualBanditBurnInValue ?? orgSettings?.banditBurnInValue ?? 1,
+      contextualBanditBurnInUnit:
+        body.contextualBanditBurnInUnit ??
+        orgSettings?.banditBurnInUnit ??
+        "days",
       tags: body.tags ?? [],
       owner: body.owner ?? "",
       archived: false,

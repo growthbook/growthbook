@@ -28227,6 +28227,20 @@ paths:
                 maxLeaves:
                   type: integer
                   exclusiveMinimum: 0
+                contextualBanditScheduleValue:
+                  type: number
+                contextualBanditScheduleUnit:
+                  type: string
+                  enum:
+                    - days
+                    - hours
+                contextualBanditBurnInValue:
+                  type: number
+                contextualBanditBurnInUnit:
+                  type: string
+                  enum:
+                    - days
+                    - hours
                 archived:
                   type: boolean
                 status:
@@ -28348,6 +28362,20 @@ paths:
                 maxLeaves:
                   type: integer
                   exclusiveMinimum: 0
+                contextualBanditScheduleValue:
+                  type: number
+                contextualBanditScheduleUnit:
+                  type: string
+                  enum:
+                    - days
+                    - hours
+                contextualBanditBurnInValue:
+                  type: number
+                contextualBanditBurnInUnit:
+                  type: string
+                  enum:
+                    - days
+                    - hours
               required:
                 - name
                 - trackingKey
@@ -44115,6 +44143,29 @@ components:
         canonicalFormVersion:
           type: integer
           minimum: 0
+        contextualBanditScheduleValue:
+          type: number
+        contextualBanditScheduleUnit:
+          type: string
+          enum:
+            - days
+            - hours
+        contextualBanditBurnInValue:
+          type: number
+        contextualBanditBurnInUnit:
+          type: string
+          enum:
+            - days
+            - hours
+        contextualBanditStage:
+          type: string
+          enum:
+            - explore
+            - exploit
+            - paused
+        contextualBanditStageDateStarted:
+          type: string
+          format: date-time
       required:
         - id
         - dateCreated
