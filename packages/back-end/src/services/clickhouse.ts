@@ -10,7 +10,6 @@ import {
   isManagedWarehouseJsonMigrationBlocked,
   isManagedWarehouseMigrating,
   MANAGED_WAREHOUSE_ATTRIBUTES_COLUMN,
-  MANAGED_WAREHOUSE_DEFAULT_DIMENSIONS,
   MANAGED_WAREHOUSE_RESERVED_COLUMN_NAMES,
 } from "shared/util";
 import {
@@ -344,9 +343,26 @@ export async function syncManagedWarehouseIdentifiersOnAttributeChange(
   }
 }
 
-// Clear the drift tombstone (if set) so the on-read migration re-attempts. Called when
-// the cause of drift may have been resolved: an attribute-schema change, or a manual
-// super-admin warehouse recreate. Both are user-accessible (no DB edit needed).
+// Legacy `userIdType`s that wouldn't survive re-derivation from the org's
+// hashAttributes (identifiers must be real top-level join columns). These block the
+// JSON migration; dimensions never do (they fall back to the `attributes` JSON column).
+function getManagedWarehouseDroppedIdentifiers(
+  datasource: GrowthbookClickhouseDataSource,
+  attributeSchema: SDKAttributeSchema | undefined,
+): string[] {
+  const newUserIdTypes = new Set(
+    getManagedWarehouseUserIdTypes(attributeSchema),
+  );
+  return (datasource.settings.userIdTypes || [])
+    .map((u) => u.userIdType)
+    .filter((t) => !newUserIdTypes.has(t));
+}
+
+// Clear the drift tombstone so the on-read migration re-attempts — but only once the
+// drift is actually resolved. Called when the cause may have been fixed: an attribute-
+// schema change (re-adding the dropped hashAttribute) or a super-admin recreate. Both
+// are user-accessible (no DB edit needed). Re-checking here means a non-resolving change
+// is a no-op rather than triggering a re-attempt that just re-tombstones and re-logs.
 export async function clearManagedWarehouseDriftTombstone(
   context: ReqContext | ApiReqContext,
 ): Promise<void> {
@@ -356,6 +372,14 @@ export async function clearManagedWarehouseDriftTombstone(
     !datasource ||
     datasource.type !== "growthbook_clickhouse" ||
     !isManagedWarehouseJsonMigrationBlocked(datasource)
+  ) {
+    return;
+  }
+  if (
+    getManagedWarehouseDroppedIdentifiers(
+      datasource,
+      context.org.settings?.attributeSchema,
+    ).length
   ) {
     return;
   }
@@ -449,33 +473,23 @@ export async function migrateManagedWarehouseToJson(
   const matColumns = datasource.settings.materializedColumns || [];
   const attributeSchema = context.org.settings?.attributeSchema;
 
-  // Re-deriving identifiers/dimensions from the attribute schema would silently drop
-  // any that aren't current hashAttributes / default dimensions, breaking experiments
-  // and metrics keyed on them. Rather than convert and break, leave the warehouse on
-  // the legacy model (it keeps working) and surface it to Sentry for manual migration.
-  const newUserIdTypes = new Set(
-    getManagedWarehouseUserIdTypes(attributeSchema),
+  // Identifiers are re-derived from the org's hashAttributes; a legacy `userIdType`
+  // that isn't one would be dropped, breaking experiments/metrics keyed on it (an
+  // identifier must be a real top-level join column, so it can't fall back to the JSON
+  // column). Rather than convert and break, leave the warehouse legacy (it keeps
+  // working) and tombstone it for manual migration. Dimensions are NOT a blocker:
+  // their metric refs are rewritten to `attributes.<field>` and the value stays
+  // queryable, so a dropped exposure-query breakdown is acceptable, not breaking.
+  const droppedIdentifiers = getManagedWarehouseDroppedIdentifiers(
+    datasource,
+    attributeSchema,
   );
-  const droppedIdentifiers = (datasource.settings.userIdTypes || [])
-    .map((u) => u.userIdType)
-    .filter((t) => !newUserIdTypes.has(t));
-  const droppedDimensions = [
-    ...new Set(
-      (datasource.settings.queries?.exposure || []).flatMap(
-        (q) => q.dimensions || [],
-      ),
-    ),
-  ].filter((d) => !MANAGED_WAREHOUSE_DEFAULT_DIMENSIONS.includes(d));
-  if (droppedIdentifiers.length || droppedDimensions.length) {
+  if (droppedIdentifiers.length) {
     // Tombstone so the on-read trigger stops re-enqueueing + re-logging this warehouse
     // on every query (it can't auto-migrate). Log once, on first detection.
     logger.error(
-      {
-        organization: datasource.organization,
-        droppedIdentifiers,
-        droppedDimensions,
-      },
-      "Managed warehouse JSON migration skipped: re-derived identifiers/dimensions would drop existing ones; needs manual migration",
+      { organization: datasource.organization, droppedIdentifiers },
+      "Managed warehouse JSON migration skipped: re-derived identifiers would drop an existing userIdType; needs manual migration",
     );
     await updateDataSource(
       context,
