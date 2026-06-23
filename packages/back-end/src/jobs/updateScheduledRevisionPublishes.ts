@@ -11,7 +11,11 @@ type PublishScheduledRevisionJob = Job<{
 }>;
 
 const QUEUE_SCHEDULED_REVISION_PUBLISHES = "queueScheduledRevisionPublishes";
-const PUBLISH_SCHEDULED_REVISION = "publishScheduledRevision";
+// Must stay distinct from the feature flow's per-revision job name in
+// updateScheduledPublishes.ts. Agenda keys handlers by name, so a shared name
+// makes the second agenda.define() overwrite the first — whichever registers
+// last wins and silently swallows the other flow's jobs at its entry guard.
+const PUBLISH_SCHEDULED_REVISION = "publishScheduledEntityRevision";
 
 const POLL_INTERVAL_MINUTES = 1;
 
