@@ -16,7 +16,6 @@ import type { Ace } from "ace-builds";
 import { ConstantWithoutValue } from "shared/types/constant";
 import {
   getValidation,
-  parsePlainJSONObject,
   stripDefaultsForSparse,
   expandSparseToFull,
 } from "shared/util";
@@ -260,13 +259,13 @@ export default function FeatureValueField({
   }
 
   if (valueType === "json") {
-    // Sparse patch mode (JSON features whose default is a plain object): the
-    // value is a partial object merged onto the default. We show a toggle on
-    // the label row and, when on, Edit/Preview tabs.
-    const defaultIsObject =
-      parsePlainJSONObject(feature?.defaultValue ?? "") !== null;
-    const showSparseToggle = !!setSparse && defaultIsObject;
-    const isSparse = defaultIsObject && !!sparse;
+    // Sparse patch mode (JSON features): the value is a partial object merged
+    // onto the default. We show a toggle on the label row and, when on,
+    // Edit/Preview tabs. Offered whenever the caller wires `setSparse` — when the
+    // default isn't a plain object (array/null/primitive) there's nothing to
+    // merge onto, so the patch simply replaces the value (see the toggle tooltip).
+    const showSparseToggle = !!setSparse;
+    const isSparse = !!sparse;
 
     // Cursor-aware insertion targets the Ace editor (the code-editor path, or the
     // sparse Edit tab — both Ace). It sits right-aligned on the label row.

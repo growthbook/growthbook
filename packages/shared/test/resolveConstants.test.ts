@@ -189,6 +189,32 @@ describe("resolveConstantRefs — JSON spread among other keys", () => {
       { "@const:name": true, other: 1 },
     );
   });
+
+  it("spreads inside an object nested in an array element", () => {
+    expect(
+      resolveConstantRefs({ list: [{ "@const:cfg": true, x: 1 }] }, map),
+    ).toEqual({ list: [{ a: 1, b: 2, x: 1 }] });
+  });
+
+  it("resolves deeply nested placeholders through objects and arrays", () => {
+    expect(
+      resolveConstantRefs({ outer: [{ inner: { "@const:cfg": true } }] }, map),
+    ).toEqual({ outer: [{ inner: { a: 1, b: 2 } }] });
+  });
+
+  it("spreads multiple constants across separate array elements", () => {
+    expect(
+      resolveConstantRefs(
+        { rows: [{ "@const:cfg": true }, { "@const:more": true, id: 9 }] },
+        map,
+      ),
+    ).toEqual({
+      rows: [
+        { a: 1, b: 2 },
+        { b: 99, c: 3, id: 9 },
+      ],
+    });
+  });
 });
 
 describe("resolveConstantRefs — nested constants and cycles", () => {
@@ -208,6 +234,38 @@ describe("resolveConstantRefs — nested constants and cycles", () => {
       full: { type: "string", value: "{{ @const:first }} Doe" },
     });
     expect(resolveConstantRefs("{{ @const:full }}", map)).toBe("Jane Doe");
+  });
+
+  it("resolves a constant that spreads another constant among its keys", () => {
+    const map = mapOf({
+      inner: { type: "json", value: '{"b":2}' },
+      outer: { type: "json", value: '{"a":1,"@const:inner":true}' },
+    });
+    expect(resolveConstantRefs({ "@const:outer": true }, map)).toEqual({
+      a: 1,
+      b: 2,
+    });
+  });
+
+  it("resolves a JSON constant whose string leaf references a string constant", () => {
+    const map = mapOf({
+      name: { type: "string", value: "world" },
+      cfg: { type: "json", value: '{"greeting":"hi {{@const:name}}"}' },
+    });
+    expect(resolveConstantRefs({ "@const:cfg": true }, map)).toEqual({
+      greeting: "hi world",
+    });
+  });
+
+  it("resolves a three-level JSON constant chain", () => {
+    const map = mapOf({
+      c: { type: "json", value: '{"z":1}' },
+      b: { type: "json", value: '{"wrap":{"@const:c":true}}' },
+      a: { type: "json", value: '{"top":{"@const:b":true}}' },
+    });
+    expect(resolveConstantRefs({ "@const:a": true }, map)).toEqual({
+      top: { wrap: { z: 1 } },
+    });
   });
 
   it("renders a self-referential constant verbatim (cycle guard)", () => {

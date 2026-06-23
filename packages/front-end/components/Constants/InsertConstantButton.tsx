@@ -116,27 +116,39 @@ function ConstantOption({
     <DropdownMenuItem className="multiline-item" onClick={handleClick}>
       <Box width="100%">
         <ConstantValuePreview constant={constant}>
-          <Flex align="center" justify="between" gap="3" width="100%">
-            <Flex direction="column" style={{ minWidth: 0 }}>
+          {/* Single row: fixed name column | flexible @const:key | type. The key
+              column flex-shrinks so the row never overflows the menu width; all
+              columns truncate with an ellipsis rather than wrapping. */}
+          <Flex align="center" gap="2" width="100%">
+            <Box style={{ width: 120, flexShrink: 0 }}>
               <Text weight="medium">
                 <OverflowText
-                  maxWidth={230}
+                  maxWidth={120}
                   title={constant.name || constant.key}
                 >
                   {constant.name || constant.key}
                 </OverflowText>
               </Text>
+            </Box>
+            <Box
+              title={`@const:${constant.key}`}
+              style={{
+                flexGrow: 1,
+                minWidth: 0,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+                fontSize: "11px",
+                color: "var(--color-text-low)",
+              }}
+            >
+              @const:{constant.key}
+            </Box>
+            <Box style={{ flexShrink: 0 }}>
               <Text size="small" color="text-low">
-                <OverflowText maxWidth={230} title={`@const:${constant.key}`}>
-                  @const:{constant.key}
-                </OverflowText>
+                {constant.type === "json" ? "JSON" : "String"}
               </Text>
-            </Flex>
-            <Badge
-              variant="soft"
-              color={constant.type === "json" ? "violet" : "gray"}
-              label={constant.type === "json" ? "JSON" : "String"}
-            />
+            </Box>
           </Flex>
         </ConstantValuePreview>
         {failed && (
@@ -269,7 +281,7 @@ export default function InsertConstantButton({
       variant="soft"
       menuPlacement="end"
       menuSide="top"
-      menuWidth={320}
+      menuWidth={340}
       open={open}
       onOpenChange={(o) => {
         // Swallow the close that Radix fires after a failed select.
