@@ -7,7 +7,7 @@ import {
 import { ConstantInterface } from "shared/types/constant";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { BadRequestError } from "back-end/src/util/errors";
+import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
 import {
   buildPatchOps,
@@ -23,7 +23,7 @@ export const updateConstant = createApiRequestHandler(updateConstantValidator)(
 
     const constant = await req.context.models.constants.getById(id);
     if (!constant) {
-      throw new Error(`Unable to locate the constant: ${id}`);
+      throw new NotFoundError(`Unable to locate the constant: ${id}`);
     }
 
     if (

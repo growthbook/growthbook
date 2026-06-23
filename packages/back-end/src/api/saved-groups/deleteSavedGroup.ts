@@ -1,5 +1,6 @@
 import { deleteSavedGroupValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { NotFoundError } from "back-end/src/util/errors";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
 
 export const deleteSavedGroup = createApiRequestHandler(
@@ -10,7 +11,7 @@ export const deleteSavedGroup = createApiRequestHandler(
   );
 
   if (!savedGroup) {
-    throw new Error("Unable to delete saved group. No group found.");
+    throw new NotFoundError("Unable to delete saved group. No group found.");
   }
 
   if (!req.context.permissions.canDeleteSavedGroup(savedGroup)) {

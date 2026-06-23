@@ -6,6 +6,7 @@ import { ConstantInterface } from "shared/types/constant";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { ApiReqContext } from "back-end/types/api";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { NotFoundError } from "back-end/src/util/errors";
 
 async function buildResponse(
   context: ApiReqContext,
@@ -26,7 +27,7 @@ async function setArchivedState(
 ) {
   const constant = await context.models.constants.getById(id);
   if (!constant) {
-    throw new Error(`Unable to locate the constant: ${id}`);
+    throw new NotFoundError(`Unable to locate the constant: ${id}`);
   }
 
   if (!context.permissions.canUpdateConstant(constant, constant)) {

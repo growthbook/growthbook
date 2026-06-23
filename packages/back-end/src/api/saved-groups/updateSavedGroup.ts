@@ -6,7 +6,7 @@ import { UpdateSavedGroupProps } from "shared/types/saved-group";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { validateListSize } from "back-end/src/routers/saved-group/saved-group.controller";
-import { BadRequestError } from "back-end/src/util/errors";
+import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
 import {
   buildPatchOps,
@@ -24,7 +24,7 @@ export const updateSavedGroup = createApiRequestHandler(
   const savedGroup = await req.context.models.savedGroups.getById(id);
 
   if (!savedGroup) {
-    throw new Error(`Unable to locate the saved-group: ${id}`);
+    throw new NotFoundError(`Unable to locate the saved-group: ${id}`);
   }
 
   if (

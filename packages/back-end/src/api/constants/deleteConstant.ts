@@ -1,13 +1,14 @@
 import { PermissionError } from "shared/util";
 import { deleteConstantValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { NotFoundError } from "back-end/src/util/errors";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
 
 export const deleteConstant = createApiRequestHandler(deleteConstantValidator)(
   async (req) => {
     const constant = await req.context.models.constants.getById(req.params.id);
     if (!constant) {
-      throw new Error(
+      throw new NotFoundError(
         `Unable to delete - could not find constant ID ${req.params.id}`,
       );
     }
