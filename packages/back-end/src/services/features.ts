@@ -1438,6 +1438,7 @@ export function evaluateFeature({
   safeRolloutMap,
   namespaces,
   organization,
+  constants,
 }: {
   feature: FeatureInterface;
   attributes: ArchetypeAttributeValues;
@@ -1456,6 +1457,9 @@ export function evaluateFeature({
   // Drives project-scoping intersect inside `getFeatureDefinition`; omitting
   // it leaks `allEnvironments: true` rules into project-scoped-out envs.
   organization?: OrganizationInterface;
+  // When provided, `@const:` references are resolved so preview/test results
+  // match what the SDK payload actually serves (same as generateFeaturesPayload).
+  constants?: ConstantInterface[];
 }) {
   const results: FeatureTestResult[] = [];
   const savedGroups = getSavedGroupsValuesFromGroupMap(groupMap);
@@ -1494,6 +1498,17 @@ export function evaluateFeature({
       });
 
       if (definition) {
+        // Resolve `@const:` references so the preview matches the served
+        // payload. Cycles are left unresolved (rendered as-is), same as payload
+        // generation — no logging needed in this preview-only path.
+        if (constants?.length) {
+          resolveConstantsInDefinition(
+            definition,
+            buildConstantValueMap(constants, env.id),
+            () => undefined,
+          );
+        }
+
         // Prerequisite scrubbing:
         const rulesWithPrereqs: FeatureDefinitionRule[] = [];
         if (scrubPrerequisites) {

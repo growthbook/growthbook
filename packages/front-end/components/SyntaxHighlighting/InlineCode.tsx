@@ -5,9 +5,71 @@ import {
 import { Suspense, lazy } from "react";
 import cloneDeep from "lodash/cloneDeep";
 import clsx from "clsx";
+import { createElement, createElementProps } from "react-syntax-highlighter";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { Language } from "./Code";
 import PrismFallback from "./PrismFallback";
+
+// Turn substrings of the highlighted code that match `pattern` (a regex with a
+// single capture group) into links. `getHref` receives the captured group; a
+// returned URL becomes an `<a>`, `undefined` leaves the text untouched.
+export interface LinkifyConfig {
+  pattern: RegExp;
+  getHref: (captured: string) => string | undefined;
+}
+
+// The hast-like nodes react-syntax-highlighter passes to a custom `renderer`
+// and feeds back into createElement.
+type RNode = createElementProps["node"];
+
+// Split a text node's value on `pattern`, replacing matched references with
+// anchor nodes. Unknown references (getHref → undefined) stay as plain text.
+function linkifyText(text: string, linkify: LinkifyConfig): RNode[] {
+  const re = new RegExp(linkify.pattern.source, "g");
+  const out: RNode[] = [];
+  let last = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    const href = linkify.getHref(m[1]);
+    if (href === undefined) continue; // not a known reference — leave as text
+    if (m.index > last)
+      out.push({ type: "text", value: text.slice(last, m.index) });
+    out.push({
+      type: "element",
+      tagName: "a",
+      properties: {
+        href,
+        target: "_blank",
+        rel: "noreferrer",
+        className: ["hover-underline"],
+        style: {
+          cursor: "pointer",
+          color: "var(--gray-11)",
+          textUnderlineOffset: "calc(.025em + 2px)",
+        },
+        // Don't let the link click bubble to a clickable parent (e.g. a rule row).
+        onClick: (e: React.MouseEvent) => e.stopPropagation(),
+      },
+      children: [{ type: "text", value: m[0] }],
+    });
+    last = m.index + m[0].length;
+  }
+  if (!out.length) return [{ type: "text", value: text }];
+  if (last < text.length) out.push({ type: "text", value: text.slice(last) });
+  return out;
+}
+
+function linkifyNodes(nodes: RNode[], linkify: LinkifyConfig): RNode[] {
+  return nodes.flatMap((node) => {
+    if (node.type === "text" && typeof node.value === "string") {
+      return linkifyText(node.value, linkify);
+    }
+    if (node.children) {
+      return [{ ...node, children: linkifyNodes(node.children, linkify) }];
+    }
+    return [node];
+  });
+}
 
 // Lazy-load syntax highlighting to improve page load time
 const Prism = lazy(() => import("./Prism"));
@@ -22,6 +84,9 @@ export interface Props {
   // rest are de-emphasized (lightened), so the highlighted lines stand out
   // against Prism's already-semibold baseline.
   boldLines?: number[];
+  // When set, matching substrings of the rendered code become links (see
+  // LinkifyConfig). Used to make `@const:key` references clickable.
+  linkify?: LinkifyConfig;
 }
 
 export default function InlineCode({
@@ -30,6 +95,7 @@ export default function InlineCode({
   className,
   inTooltip,
   boldLines,
+  linkify,
 }: Props) {
   const { theme } = useAppearanceUITheme();
 
@@ -74,6 +140,23 @@ export default function InlineCode({
         // via `style` instead — it's merged through and the JSON tokens carry
         // no font-weight of their own, so the heavier weight inherits down.
         wrapLines={!!boldLineSet}
+        // A custom renderer rebuilds the token tree with `@const:` references
+        // swapped for anchors. lineProps styling is already baked into the row
+        // nodes, so delegating each row to the library's createElement preserves
+        // the boldLines behavior above.
+        renderer={
+          linkify
+            ? ({ rows, stylesheet, useInlineStyles }) =>
+                linkifyNodes(rows, linkify).map((node, i) =>
+                  createElement({
+                    node,
+                    stylesheet,
+                    useInlineStyles,
+                    key: `code-line-${i}`,
+                  }),
+                )
+            : undefined
+        }
         lineProps={
           boldLineSet
             ? () => {

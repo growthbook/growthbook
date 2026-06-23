@@ -8,7 +8,12 @@ import {
 
 export const constantTypeValidator = z.enum(["string", "json"]);
 
-const CONST_REF_RE = /@const:([a-z0-9][a-z0-9_-]*)/g;
+// The source of a `@const:<key>` reference (capture group 1 = the key). Exported
+// so the front-end can build a fresh `RegExp` from it (e.g. to linkify
+// references when displaying a value) without duplicating the pattern.
+export const CONSTANT_REF_PATTERN = "@const:([a-z0-9][a-z0-9_-]*)";
+
+const CONST_REF_RE = new RegExp(CONSTANT_REF_PATTERN, "g");
 
 // Extract the unique `@const:` keys referenced by a constant's value and every
 // environment override (the conservative union across environments). Used to
