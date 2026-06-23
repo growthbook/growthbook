@@ -13,14 +13,14 @@ import {
   isSavedGroupRevisionMetadataOnly,
 } from "shared/enterprise";
 import { ago, datetime } from "shared/dates";
-import { FaPlusCircle } from "react-icons/fa";
+import { REVIEW_REQUESTED_STATUSES } from "shared/validators";
+import { FaArrowRight, FaPlusCircle } from "react-icons/fa";
 import {
   PiArrowsDownUp,
   PiPencil,
   PiProhibit,
   PiLockSimple,
   PiPencilSimpleFill,
-  PiGitDiff,
   PiCaretRightFill,
 } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
@@ -36,16 +36,15 @@ import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Badge from "@/ui/Badge";
 import { getStatusBadge } from "@/components/Revision/revisionUtils";
+import { draftStatusTooltip } from "@/components/Reviews/RevisionStatusBadge";
+import Markdown from "@/components/Markdown/Markdown";
+import EditRevisionDescriptionModal from "@/components/Revision/EditRevisionDescriptionModal";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import SavedGroupForm from "@/components/SavedGroups/SavedGroupForm";
 import SavedGroupArchiveModal from "@/components/SavedGroups/SavedGroupArchiveModal";
 import SavedGroupDeleteModal from "@/components/SavedGroups/SavedGroupDeleteModal";
-import {
-  SavedGroupConflictModal,
-  useSavedGroupMergeResult,
-} from "@/components/SavedGroups/useSavedGroupConflictModal";
 import Modal from "@/components/Modal";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { IdListItemInput } from "@/components/SavedGroups/IdListItemInput";
@@ -79,6 +78,7 @@ import {
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
 import ReviewAndPublishTab from "@/components/Revision/ReviewAndPublishTab";
+import SavedGroupRevertModal from "@/components/Revision/SavedGroupRevertModal";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
 import SavedGroupRevisionDropdown from "@/components/SavedGroups/SavedGroupRevisionDropdown";
 import CompareSavedGroupRevisionsModal from "@/components/SavedGroups/CompareSavedGroupRevisionsModal";
@@ -165,7 +165,6 @@ export default function EditSavedGroupPage() {
   const [tab, setTab] = useState<SavedGroupTab>("overview");
   const [compareRevisionsModalOpen, setCompareRevisionsModalOpen] =
     useState<boolean>(false);
-  const [conflictModal, setConflictModal] = useState<boolean>(false);
   const [confirmNewDraft, setConfirmNewDraft] = useState<boolean>(false);
   const [newDraftTitle, setNewDraftTitle] = useState("");
   const [newDraftTitleStash, setNewDraftTitleStash] = useState("");
@@ -187,18 +186,10 @@ export default function EditSavedGroupPage() {
   const [revisionToRevert, setRevisionToRevert] = useState<Revision | null>(
     null,
   );
-  // Whether the user has opted to flip `archived` as part of a revert when
-  // the live entity's archive state has drifted from the target revision's.
-  // Defaults are set in the effect below: true for "will un-archive" (the
-  // common recovery path), false for "will re-archive" (so re-archiving stays
-  // an opt-in action).
-  const [revertIncludeArchive, setRevertIncludeArchive] =
-    useState<boolean>(false);
-  // When the org allows reverts to bypass approval, the revert dialog defaults
-  // to publishing immediately; the user can still opt to create a draft instead.
-  const [revertPublishNow, setRevertPublishNow] = useState<boolean>(false);
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState("");
+  const [editDescriptionModal, setEditDescriptionModal] = useState(false);
+  const [commentExpanded, setCommentExpanded] = useState(false);
 
   const bannerRef = useRef<HTMLDivElement>(null);
   const [bannerPinned, setBannerPinned] = useState(false);
@@ -292,11 +283,30 @@ export default function EditSavedGroupPage() {
   const isMerged = selectedRevision && selectedRevision.status === "merged";
   const hasRevisions = allRevisions.length > 0;
 
+  // Count of active drafts awaiting/in review (pending-review, approved,
+  // changes-requested) — drives the count bubble on the "Review & Publish"
+  // tab, matching the feature header.
+  const draftStatusCounts: Partial<Record<string, number>> = {};
+  allRevisions.forEach((r) => {
+    if ((REVIEW_REQUESTED_STATUSES as readonly string[]).includes(r.status)) {
+      draftStatusCounts[r.status] = (draftStatusCounts[r.status] ?? 0) + 1;
+    }
+  });
+  const activeDraftCount = Object.values(draftStatusCounts).reduce<number>(
+    (sum, n) => sum + (n ?? 0),
+    0,
+  );
+
   // Per-revision approval gate: even when the org globally requires approval
   // for saved groups, a metadata-only revision can be published without
   // review when the `requireMetadataReview` setting is disabled. Mirrors the
   // server-side rule in the saved-group adapter so UI affordances (CTA copy,
   // publish button) match what the merge endpoint will actually allow.
+  //
+  // Reverts are NOT special-cased here (matching features): a revert saved as
+  // a draft is gated by its content like any other change, so editing it still
+  // requires review. Only the immediate "Publish Now" revert bypasses approval
+  // (handled server-side in PUT /saved-groups via the revert-bypass shortcut).
   const selectedRevisionRequiresApproval =
     !!selectedRevision &&
     approvalRequired &&
@@ -305,40 +315,11 @@ export default function EditSavedGroupPage() {
         selectedRevision.target.proposedChanges,
       ));
 
-  // Check for conflicts if there's a draft
-  const mergeResult = useSavedGroupMergeResult(
-    savedGroup,
-    selectedRevision,
-    allRevisions,
-    isDraft,
-  );
-
-  // When the user opens a revert modal, default `revertIncludeArchive` based
-  // on the direction of the archive drift: pre-checked for "will un-archive"
-  // (the common recovery flow), unchecked for "will re-archive" so the more
-  // disruptive direction stays opt-in.
-  useEffect(() => {
-    if (!confirmRevert || !revisionToRevert || !savedGroup) return;
-    setRevertPublishNow(revertsBypassApproval);
-    const targetState = applyTopLevelPatchOps(
-      revisionToRevert.target.snapshot as SavedGroupInterface,
-      revisionToRevert.target.proposedChanges,
-    ) as SavedGroupInterface;
-    const targetArchived = !!targetState.archived;
-    const liveArchived = !!savedGroup.archived;
-    if (targetArchived === liveArchived) {
-      setRevertIncludeArchive(false);
-      return;
-    }
-    // Drift exists: default to `true` only when the revert would un-archive
-    // (i.e. live is archived but the target was not).
-    setRevertIncludeArchive(liveArchived && !targetArchived);
-  }, [confirmRevert, revisionToRevert, savedGroup, revertsBypassApproval]);
-
   // Sync title draft when selected revision changes
   useEffect(() => {
     setEditingTitle(false);
     setTitleDraft(selectedRevision?.title || "");
+    setCommentExpanded(false);
   }, [selectedRevision?.id, selectedRevision?.title]);
 
   const commitTitleEdit = useCallback(async () => {
@@ -806,141 +787,26 @@ export default function EditSavedGroupPage() {
           />
         </Modal>
       )}
-      {confirmRevert &&
-        revisionToRevert &&
-        (() => {
-          // Compute the target state and archive-drift direction so we can
-          // both render the opt-in checkbox and use the same target inside
-          // the submit handler.
-          const targetState = applyTopLevelPatchOps(
-            revisionToRevert.target.snapshot as SavedGroupInterface,
-            revisionToRevert.target.proposedChanges,
-          ) as SavedGroupInterface;
-          const targetArchived = !!targetState.archived;
-          const liveArchived = !!savedGroup.archived;
-          const archiveDrifts = targetArchived !== liveArchived;
-          const willUnarchive =
-            archiveDrifts && liveArchived && !targetArchived;
-          return (
-            <Modal
-              header="Revert Merged Revision"
-              trackingEventModalType="revert-revision"
-              close={() => {
-                setConfirmRevert(false);
-                setRevisionToRevert(null);
-              }}
-              open={confirmRevert}
-              cta={
-                revertPublishNow ? "Revert & Publish" : "Create Revert Draft"
-              }
-              submitColor="primary"
-              submit={async () => {
-                // Calculate changes needed to go from current live state to target state
-                const revertChanges: Record<string, unknown> = {};
-
-                // Compare each field in the target state with the current live state
-                const fieldsToCheck = [
-                  "groupName",
-                  "owner",
-                  "values",
-                  "condition",
-                  "description",
-                  "projects",
-                ] as const;
-
-                fieldsToCheck.forEach((key) => {
-                  const targetValue = targetState[key];
-                  const currentValue = savedGroup[key];
-                  if (
-                    JSON.stringify(targetValue) !== JSON.stringify(currentValue)
-                  ) {
-                    revertChanges[key] = targetValue;
-                  }
-                });
-
-                // Only include `archived` when the user explicitly opted in;
-                // by default a revert leaves the live archive state alone,
-                // matching the "live + ops" merge semantics.
-                if (archiveDrifts && revertIncludeArchive) {
-                  revertChanges.archived = targetArchived;
-                }
-
-                // Build the revert title using the source revision's title
-                const sourceTitle =
-                  revisionToRevert.title ||
-                  (() => {
-                    const sortedRevisions = [...allRevisions].sort(
-                      (a, b) =>
-                        new Date(a.dateCreated).getTime() -
-                        new Date(b.dateCreated).getTime(),
-                    );
-                    const num =
-                      sortedRevisions.findIndex(
-                        (r) => r.id === revisionToRevert.id,
-                      ) + 1;
-                    return `Revision ${num}`;
-                  })();
-                const title = `Revert to "${sourceTitle}"`;
-
-                // Create a new revision with the revert changes, title, and link back to original
-                const res = await apiCall<{
-                  status: number;
-                  requiresApproval?: boolean;
-                  revision?: Revision;
-                }>(
-                  `/saved-groups/${savedGroup.id}?forceCreateRevision=1${
-                    revertPublishNow ? "&autoPublish=1" : ""
-                  }&title=${encodeURIComponent(title)}&revertedFrom=${revisionToRevert.id}`,
-                  {
-                    method: "PUT",
-                    body: JSON.stringify(revertChanges),
-                  },
-                );
-
-                if (res?.revision) {
-                  onRevisionCreated(res.revision);
-                }
-
-                setConfirmRevert(false);
-                setRevisionToRevert(null);
-              }}
-            >
-              <Text>
-                This will create a new revision that restores the saved group to
-                exactly how it was at the time of the selected revision
-                (including all changes that were part of that revision).
-              </Text>
-              {archiveDrifts && (
-                <Callout status="warning" mt="3">
-                  <Checkbox
-                    label={
-                      willUnarchive
-                        ? "Also un-archive (currently archived)"
-                        : "Also archive (currently active)"
-                    }
-                    value={revertIncludeArchive}
-                    setValue={setRevertIncludeArchive}
-                  />
-                </Callout>
-              )}
-              {revertsBypassApproval && (
-                <Box mt="3">
-                  <Checkbox
-                    label="Publish immediately"
-                    description="Reverts restore an already-reviewed state, so they can be published without approval. Uncheck to create a draft for review instead."
-                    value={revertPublishNow}
-                    setValue={setRevertPublishNow}
-                  />
-                </Box>
-              )}
-              <Text mt="3" weight="medium">
-                {revertPublishNow
-                  ? "This will be published immediately."
-                  : "The new revision will need to be published to go live."}
-              </Text>
-            </Modal>
-          );
-        })()}
+      {confirmRevert && revisionToRevert && (
+        <SavedGroupRevertModal
+          savedGroup={savedGroup}
+          revision={revisionToRevert}
+          allRevisions={allRevisions}
+          diffConfig={REVISION_SAVED_GROUP_DIFF_CONFIG}
+          revertsBypassApproval={revertsBypassApproval}
+          approvalRequired={approvalRequired}
+          canBypassApproval={!!canAdminPublish}
+          close={() => {
+            setConfirmRevert(false);
+            setRevisionToRevert(null);
+          }}
+          onRevisionCreated={(rev) => {
+            onRevisionCreated(rev);
+            setConfirmRevert(false);
+            setRevisionToRevert(null);
+          }}
+        />
+      )}
       {compareRevisionsModalOpen && (
         <CompareSavedGroupRevisionsModal
           savedGroup={savedGroup}
@@ -958,11 +824,10 @@ export default function EditSavedGroupPage() {
           requiresApproval={approvalRequired}
         />
       )}
-      {conflictModal && selectedRevision && savedGroup && (
-        <SavedGroupConflictModal
-          savedGroup={savedGroup}
-          selectedRevision={selectedRevision}
-          close={() => setConflictModal(false)}
+      {editDescriptionModal && displayRevision && (
+        <EditRevisionDescriptionModal
+          revision={displayRevision}
+          close={() => setEditDescriptionModal(false)}
           mutate={async () => {
             await Promise.all([mutateRevisions(), mutate()]);
           }}
@@ -1245,7 +1110,21 @@ export default function EditSavedGroupPage() {
           >
             <TabsList>
               <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="review">Review &amp; Publish</TabsTrigger>
+              <TabsTrigger value="review">
+                Review &amp; Publish
+                {activeDraftCount > 0 && (
+                  <Tooltip body={draftStatusTooltip(draftStatusCounts)}>
+                    <Badge
+                      label={String(activeDraftCount)}
+                      color="red"
+                      variant="solid"
+                      radius="full"
+                      ml="2"
+                      style={{ minWidth: 18, height: 18 }}
+                    />
+                  </Tooltip>
+                )}
+              </TabsTrigger>
             </TabsList>
           </Tabs>
         </Box>
@@ -1608,59 +1487,8 @@ export default function EditSavedGroupPage() {
                             </Flex>
                           )}
                         </Flex>
-                        {hasRevisions && allRevisions.length >= 2 && (
-                          <>
-                            <Separator
-                              orientation="vertical"
-                              style={{ marginTop: 2 }}
-                            />
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              icon={<PiGitDiff />}
-                              onClick={() => setCompareRevisionsModalOpen(true)}
-                              style={{ position: "relative", top: -5 }}
-                            >
-                              Compare revisions
-                            </Button>
-                          </>
-                        )}
                       </Flex>
                       <Flex align="center" justify="end" gap="4" flexGrow="1">
-                        {hasRevisions && isDiscarded && displayRevision && (
-                          <Button
-                            onClick={() => handleReopen(displayRevision.id)}
-                            size="sm"
-                          >
-                            Reopen
-                          </Button>
-                        )}
-                        {hasRevisions && isMerged && displayRevision && (
-                          <Button
-                            onClick={() => {
-                              setRevisionToRevert(displayRevision);
-                              setConfirmRevert(true);
-                            }}
-                            size="sm"
-                          >
-                            Revert to Previous
-                          </Button>
-                        )}
-                        {hasRevisions &&
-                          isDraft &&
-                          displayRevision &&
-                          displayRevision.authorId === user?.id && (
-                            <Button
-                              onClick={async () => {
-                                await handleDiscard(displayRevision.id);
-                              }}
-                              color="red"
-                              variant="ghost"
-                              size="sm"
-                            >
-                              Discard
-                            </Button>
-                          )}
                         {isLive && (
                           <Button
                             onClick={() => setConfirmNewDraft(true)}
@@ -1671,43 +1499,14 @@ export default function EditSavedGroupPage() {
                           </Button>
                         )}
                         {hasRevisions && isDraft && (
-                          <>
-                            {mergeResult && !mergeResult.success && (
-                              <Tooltip body="There have been conflicting changes published since this draft was created. Resolve them before publishing.">
-                                <Button
-                                  variant="ghost"
-                                  color="red"
-                                  onClick={() => {
-                                    setConflictModal(true);
-                                  }}
-                                  size="sm"
-                                >
-                                  Fix conflicts
-                                </Button>
-                              </Tooltip>
-                            )}
-                            <Tooltip
-                              body={
-                                mergeResult && !mergeResult.success
-                                  ? "This revision has conflicts — resolve them before publishing"
-                                  : ""
-                              }
-                            >
-                              <Button
-                                onClick={() => setTabAndScroll("review")}
-                                size="sm"
-                              >
-                                {selectedRevisionRequiresApproval
-                                  ? displayRevision?.status === "draft"
-                                    ? "Request Approval to Publish"
-                                    : displayRevision?.status ===
-                                        "pending-review"
-                                      ? "View Approval Request"
-                                      : "View Changes"
-                                  : "Review & Publish"}
-                              </Button>
-                            </Tooltip>
-                          </>
+                          <Button
+                            icon={<FaArrowRight />}
+                            iconPosition="right"
+                            onClick={() => setTabAndScroll("review")}
+                            style={{ whiteSpace: "nowrap" }}
+                          >
+                            Review and Publish
+                          </Button>
                         )}
                       </Flex>
                     </Flex>
@@ -1779,6 +1578,107 @@ export default function EditSavedGroupPage() {
                               authorId={displayRevision.authorId}
                               contributorIds={coAuthorIds}
                             />
+                          );
+                        })()}
+                      {hasRevisions &&
+                        displayRevision &&
+                        (() => {
+                          const canEditDescription =
+                            !!isDraft && displayRevision.authorId === user?.id;
+                          return (
+                            <Flex
+                              align="start"
+                              gap="2"
+                              style={{ width: "fit-content" }}
+                            >
+                              <Text weight="semibold" color="text-high">
+                                Revision description:
+                              </Text>{" "}
+                              {displayRevision.comment ? (
+                                <Flex align="start" gap="1">
+                                  <Box>
+                                    <Box
+                                      style={
+                                        !commentExpanded
+                                          ? {
+                                              display: "-webkit-box",
+                                              WebkitLineClamp: 2,
+                                              WebkitBoxOrient: "vertical",
+                                              overflow: "hidden",
+                                            }
+                                          : undefined
+                                      }
+                                    >
+                                      <Markdown className="speech-bubble">
+                                        {displayRevision.comment}
+                                      </Markdown>
+                                    </Box>
+                                    {displayRevision.comment.length > 80 && (
+                                      <Box mt={commentExpanded ? "1" : "0"}>
+                                        <Link
+                                          onClick={() =>
+                                            setCommentExpanded((v) => !v)
+                                          }
+                                          style={{ whiteSpace: "nowrap" }}
+                                        >
+                                          {commentExpanded
+                                            ? "show less"
+                                            : "show more"}
+                                        </Link>
+                                      </Box>
+                                    )}
+                                  </Box>
+                                  {canEditDescription && (
+                                    <IconButton
+                                      variant="ghost"
+                                      color="violet"
+                                      size="2"
+                                      radius="full"
+                                      onClick={() =>
+                                        setEditDescriptionModal(true)
+                                      }
+                                      style={{
+                                        flexShrink: 0,
+                                        marginTop: -2,
+                                        marginBottom: -2,
+                                        marginLeft: 4,
+                                        marginRight: 0,
+                                      }}
+                                    >
+                                      <PiPencilSimpleFill />
+                                    </IconButton>
+                                  )}
+                                </Flex>
+                              ) : (
+                                <>
+                                  <em
+                                    style={{ color: "var(--color-text-mid)" }}
+                                  >
+                                    none
+                                  </em>
+                                  {canEditDescription && (
+                                    <IconButton
+                                      variant="ghost"
+                                      color="violet"
+                                      size="2"
+                                      radius="full"
+                                      onClick={() =>
+                                        setEditDescriptionModal(true)
+                                      }
+                                      style={{
+                                        flexShrink: 0,
+                                        marginTop: -2,
+                                        marginBottom: -2,
+                                        marginLeft: 4,
+                                        marginRight: 0,
+                                      }}
+                                    >
+                                      <PiPencilSimpleFill />
+                                    </IconButton>
+                                  )}
+                                </>
+                              )}
+                            </Flex>
                           );
                         })()}
                     </Flex>
