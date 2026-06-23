@@ -146,6 +146,27 @@ function ReviewAndPublishRevision<T>({
   const isActiveDraft = (ACTIVE_STATUSES as readonly string[]).includes(
     revision.status,
   );
+
+  // ── Live vs. previously-published (mirrors the feature tab). The live
+  // revision is the most recently merged one (matching the page's
+  // `displayRevision` derivation); `previousPublishedRevision` is the merged
+  // revision just before it — the target a "Roll back" restores. ──
+  const mergedNewestFirst = useMemo(
+    () =>
+      allRevisions
+        .filter((r) => r.status === "merged")
+        .sort(
+          (a, b) =>
+            new Date(b.dateUpdated).getTime() -
+            new Date(a.dateUpdated).getTime(),
+        ),
+    [allRevisions],
+  );
+  const liveRevision = mergedNewestFirst[0];
+  const isLive =
+    !isActiveDraft && !!liveRevision && liveRevision.id === revision.id;
+  const previousPublishedRevision = isLive ? mergedNewestFirst[1] : undefined;
+
   const isAuthor = !!userId && revision.authorId === userId;
   const contributorIds = useMemo(() => {
     const ids = revision.contributors ?? [];
@@ -506,7 +527,9 @@ function ReviewAndPublishRevision<T>({
   };
 
   // ── Shared layout pieces ──
-  const statusForBadge = toBadgeStatus(revision.status);
+  // The live revision reads as a green "Live" badge (matching the feature
+  // tab); other terminal/merged revisions fall back to "Locked".
+  const statusForBadge = isLive ? "live" : toBadgeStatus(revision.status);
   const statusColor = revisionStatusColor(statusForBadge);
   const headerTitle =
     revision.title?.trim() ||
@@ -525,7 +548,7 @@ function ReviewAndPublishRevision<T>({
             variant={revisionStatusBadgeVariant(statusForBadge)}
             radius="full"
             color={statusColor}
-            label={revisionStatusLabel(revision.status)}
+            label={revisionStatusLabel(statusForBadge)}
           />
         </Box>
         <Text as="span" color="text-low">
@@ -826,6 +849,11 @@ function ReviewAndPublishRevision<T>({
                 This revision was discarded. Reopen it as a draft to continue
                 editing, request review, and publish.
               </>
+            ) : isLive ? (
+              <>
+                This revision is currently live. Rolling back reverts to the
+                previously published revision.
+              </>
             ) : (
               <>
                 This revision was published and is now locked.
@@ -843,6 +871,20 @@ function ReviewAndPublishRevision<T>({
           >
             Reopen as draft
           </Button>
+        ) : isLive ? (
+          onRevert ? (
+            <Button
+              color="red"
+              variant="outline"
+              onClick={() =>
+                previousPublishedRevision && onRevert(previousPublishedRevision)
+              }
+              disabled={!canEditEntity || !previousPublishedRevision}
+              style={{ width: "100%" }}
+            >
+              Roll back
+            </Button>
+          ) : null
         ) : onRevert ? (
           <Button
             color="red"
@@ -858,6 +900,11 @@ function ReviewAndPublishRevision<T>({
         {!canEditEntity && (
           <HelperText status="info" size="md" mt="5">
             You don&apos;t have permission to manage revisions for this entity.
+          </HelperText>
+        )}
+        {isLive && canEditEntity && onRevert && !previousPublishedRevision && (
+          <HelperText status="info" size="md" mt="5">
+            There is no previously published revision to roll back to.
           </HelperText>
         )}
       </Box>
