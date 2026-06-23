@@ -514,6 +514,14 @@ export default function ContextualBanditResultsTable({
         {headerActions}
       </Flex>
 
+      {cb.contextualBanditStage === "explore" ? (
+        <Callout status="info" mb="3">
+          This Contextual Bandit is in its exploratory stage. Updating results
+          recomputes stats but does not change variation weights — weights stay
+          evenly split until the exploratory stage ends.
+        </Callout>
+      ) : null}
+
       {refreshError ? (
         <Callout status="error" mb="3">
           {refreshError}
