@@ -158,6 +158,11 @@ RUN test -f node_modules/pm2/bin/pm2-runtime \
 # and don't depend on this shim.
 RUN ln -sf ../pm2/bin/pm2-runtime node_modules/.bin/pm2-runtime
 
+# Stage an empty uploads dir OUTSIDE the packages tree so the broad `COPY packages`
+# in the final stage doesn't create (root-owned) uploads first; the final stage then
+# COPYs this in with --chown=1000:1000 (see there).
+RUN mkdir -p /uploads
+
 # ----------------------------------------------------------------------------
 # Stage 3: collect the runtime Kerberos libs (kerberos@2.x, for MongoDB GSSAPI).
 # The addon dlopen()s libgssapi_krb5.so.2 by name at runtime, so it's not an ELF
@@ -224,6 +229,13 @@ ENV PM2_HOME=/tmp/.pm2
 COPY --from=nodebuild /usr/local/src/app/packages ./packages
 COPY --from=nodebuild /usr/local/src/app/node_modules ./node_modules
 COPY --from=nodebuild /usr/local/src/app/package.json ./package.json
+
+# Create the local-uploads dir owned by uid 1000 (sourced from /uploads, staged
+# outside packages so this COPY creates it fresh rather than re-owning a root-owned
+# dir). A freshly provisioned local volume seeds its ownership from this dir, so it's
+# writable by the non-root runtime out of the box. Existing root-owned volumes from
+# the previous root image still need a one-time chown to 1000.
+COPY --from=nodebuild --chown=1000:1000 /uploads ./packages/back-end/uploads
 
 # pm2 process config (the CMD below runs it). bin/yarn is omitted: it's a bash
 # shim that can't run in a shell-less runtime, and the CMD invokes pm2 directly.
