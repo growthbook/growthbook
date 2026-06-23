@@ -163,7 +163,13 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
     context: Context,
     entity: ConstantInterface,
     changes: Record<string, unknown>,
+    // Accepted for interface conformance (matches the saved-group adapter).
+    // Constants have no model-level validation to skip on a revert, so the
+    // `isRevert` flag is currently a no-op — wire it through if validation is
+    // ever added to ConstantModel.update.
+    options?: { isRevert?: boolean },
   ): Promise<void> {
+    void options;
     // Filter to updatable fields and only include fields that actually differ.
     const filteredChanges: Record<string, unknown> = {};
     for (const key of Object.keys(changes)) {

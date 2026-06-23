@@ -133,15 +133,11 @@ export const postConstantRevisionRevert = createApiRequestHandler(
     return { revision: await toApiConstantRevision(draft, req.context) };
   }
 
-  // Apply to live first, then record the revert as a single already-merged
-  // revision (closes the partial-failure window — see saved-group handler).
-  await adapter.applyChanges(
-    req.context,
-    constant as unknown as Record<string, unknown>,
-    fieldsToUpdate,
-    { isRevert: true },
-  );
-
+  // Record the already-merged revert revision FIRST, then apply it to the live
+  // entity. If the apply fails, delete the just-created revision so we never
+  // leave a "reverted" record with no corresponding live change. (There's no
+  // concurrent-discard vector here — the revision is created in its terminal
+  // `merged` state — so this is a clean abort rather than a claim-then-CAS.)
   const merged = await req.context.models.revisions.createMerged({
     type: "constant",
     id: constant.id,
@@ -151,6 +147,22 @@ export const postConstantRevisionRevert = createApiRequestHandler(
     title,
     revertedFrom: targetRevision.id,
   });
+
+  try {
+    await adapter.applyChanges(
+      req.context,
+      constant as unknown as Record<string, unknown>,
+      fieldsToUpdate,
+      { isRevert: true },
+    );
+  } catch (e) {
+    try {
+      await req.context.models.revisions.deleteById(merged.id);
+    } catch {
+      // ignore — surface the original applyChanges error
+    }
+    throw e;
+  }
 
   await dispatchConstantRevisionEvent(req.context, merged, {
     type: "reverted",
