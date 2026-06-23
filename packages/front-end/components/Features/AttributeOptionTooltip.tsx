@@ -36,7 +36,12 @@ export function AttributeOptionTooltipContent({
         <PiArrowSquareOut />
       </Link>
       {option.documentationUrl && (
-        <Link href={option.documentationUrl} target="_blank" size="2">
+        <Link
+          href={option.documentationUrl}
+          target="_blank"
+          rel="noreferrer"
+          size="2"
+        >
           Docs <PiArrowSquareOut />
         </Link>
       )}

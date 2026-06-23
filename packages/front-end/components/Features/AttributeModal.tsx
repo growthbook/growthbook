@@ -4,6 +4,7 @@ import {
   SDKAttributeFormat,
   SDKAttributeType,
 } from "shared/types/organization";
+import { documentationUrlSchema } from "shared/validators";
 import { FaExclamationCircle, FaInfoCircle } from "react-icons/fa";
 import React from "react";
 import { useAttributeSchema } from "@/services/features";
@@ -211,9 +212,12 @@ export default function AttributeModal({ close, attribute }: Props) {
         {...form.register("documentationUrl", {
           validate: (val) => {
             if (!val) return true;
-            return val.startsWith("http://") || val.startsWith("https://")
-              ? true
-              : "URL must start with http:// or https://";
+            const result = documentationUrlSchema.safeParse(val);
+            if (result.success) return true;
+            return (
+              result.error.issues[0]?.message ??
+              "URL must start with http:// or https://"
+            );
           },
         })}
         error={form.formState.errors.documentationUrl?.message}

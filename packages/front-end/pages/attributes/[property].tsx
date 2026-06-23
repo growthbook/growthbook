@@ -313,7 +313,11 @@ export default function AttributeDetailPage() {
             {attribute.documentationUrl && (
               <Flex align="center" gap="2">
                 <Text>Docs:</Text>
-                <Link href={attribute.documentationUrl} target="_blank">
+                <Link
+                  href={attribute.documentationUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                >
                   {attribute.documentationUrl} <PiArrowSquareOut />
                 </Link>
               </Flex>
