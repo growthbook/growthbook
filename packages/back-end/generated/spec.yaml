@@ -38401,6 +38401,9 @@ components:
             - merged
             - discarded
             - reopened
+            - scheduled-publish
+            - scheduled-publish-updated
+            - scheduled-publish-canceled
         description:
           anyOf:
             - type: string
