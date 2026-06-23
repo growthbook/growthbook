@@ -237,7 +237,7 @@ const ConstantReviews: FC = () => {
 
   return (
     <Box mt="4">
-      <Flex gap="4" align="start" justify="between" mb="4" wrap="wrap">
+      <Flex gap="4" align="center" justify="between" mb="4" wrap="wrap">
         <Box style={{ flexBasis: 300, flexShrink: 0 }}>
           <Field placeholder="Search..." type="search" {...searchInputProps} />
         </Box>
