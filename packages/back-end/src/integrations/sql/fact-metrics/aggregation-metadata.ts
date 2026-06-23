@@ -53,7 +53,6 @@ export function getAggregationMetadata(
       intermediateDataType: "integer",
       partialAggregationFunction: (column: string) =>
         `COALESCE(MAX(${column}), 0)`,
-      mergePartialsFunction: (column: string) => `COALESCE(MAX(${column}), 0)`,
       finalDataType: "integer",
       reAggregationFunction: (column: string) => `COALESCE(MAX(${column}), 0)`,
       fullAggregationFunction: (column: string) =>
@@ -69,8 +68,6 @@ export function getAggregationMetadata(
     return {
       intermediateDataType: "integer",
       partialAggregationFunction: (column: string) =>
-        `SUM(COALESCE((${column}), 0))`,
-      mergePartialsFunction: (column: string) =>
         `SUM(COALESCE((${column}), 0))`,
       finalDataType: "integer",
       reAggregationFunction: (column: string) =>
@@ -90,7 +87,6 @@ export function getAggregationMetadata(
     return {
       intermediateDataType: "integer",
       partialAggregationFunction: (column: string) => `COUNT(${column})`,
-      mergePartialsFunction: (column: string) => `SUM(COALESCE(${column}, 0))`,
       finalDataType: "integer",
       reAggregationFunction,
       fullAggregationFunction,
@@ -109,7 +105,6 @@ export function getAggregationMetadata(
       intermediateDataType: "date",
       partialAggregationFunction: (column: string) =>
         dialect.castToDate(`MAX(${column})`),
-      mergePartialsFunction: (column: string) => `MAX(${column})`,
       finalDataType: "integer",
       reAggregationFunction,
       fullAggregationFunction,
@@ -134,8 +129,6 @@ export function getAggregationMetadata(
       intermediateDataType: "hll",
       partialAggregationFunction: (column: string) =>
         castToHllDataType(dialect, dialect.hllAggregate(column)),
-      mergePartialsFunction: (column: string) =>
-        castToHllDataType(dialect, dialect.hllReaggregate(column)),
       finalDataType: "integer",
       reAggregationFunction,
       fullAggregationFunction,
@@ -147,7 +140,6 @@ export function getAggregationMetadata(
       intermediateDataType: "float",
       partialAggregationFunction: (column: string) =>
         `COALESCE(MAX(${column}), 0)`,
-      mergePartialsFunction: (column: string) => `COALESCE(MAX(${column}), 0)`,
       reAggregationFunction: (column: string) => `COALESCE(MAX(${column}), 0)`,
       finalDataType: "float",
       fullAggregationFunction: (column: string) =>
@@ -170,8 +162,6 @@ export function getAggregationMetadata(
     return {
       intermediateDataType: "hll",
       partialAggregationFunction: (column: string) =>
-        castToHllDataType(dialect, dialect.hllReaggregate(column)),
-      mergePartialsFunction: (column: string) =>
         castToHllDataType(dialect, dialect.hllReaggregate(column)),
       finalDataType: "integer",
       reAggregationFunction,
@@ -203,8 +193,6 @@ export function getAggregationMetadata(
           intermediateDataType: "quantileSketch",
           partialAggregationFunction: (column: string) =>
             dialect.quantileSketchMergePartial(column),
-          mergePartialsFunction: (column: string) =>
-            dialect.quantileSketchMergePartial(column),
           reAggregationFunction: (column: string) =>
             dialect.quantileSketchMergePartial(column),
           finalDataType: "integer",
@@ -222,8 +210,6 @@ export function getAggregationMetadata(
         intermediateDataType: "quantileSketch",
         partialAggregationFunction: (column: string) =>
           dialect.quantileSketchInit(column),
-        mergePartialsFunction: (column: string) =>
-          dialect.quantileSketchMergePartial(column),
         reAggregationFunction: (column: string) =>
           dialect.quantileSketchMergePartial(column),
         finalDataType: "integer",
@@ -246,7 +232,6 @@ export function getAggregationMetadata(
     intermediateDataType: "float",
     partialAggregationFunction: (column: string) =>
       `SUM(COALESCE(${column}, 0))`,
-    mergePartialsFunction: (column: string) => `SUM(COALESCE(${column}, 0))`,
     finalDataType: "float",
     reAggregationFunction,
     fullAggregationFunction,

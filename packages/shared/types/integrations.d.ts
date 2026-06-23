@@ -69,13 +69,6 @@ export type FactMetricAggregationMetadata = {
   // stored at the user-date level as intermediateDataType.
   partialAggregationFunction: (column: string) => string;
 
-  // Combines several partial values for the same key into one partial value of
-  // the same `intermediateDataType` (e.g. SUM for a COUNT partial, HLL merge
-  // for a sketch). Associative/commutative by construction. Used by the salted
-  // two-level pre-aggregation in the aggregated-fact-table INSERT to collapse
-  // salt buckets back to one row per (idType, event_date) before persisting.
-  mergePartialsFunction: (column: string) => string;
-
   // Takes the partially aggregated value and re-aggregates it to the user level
   // for producing the final metric value. This should produce a value of type
   // `finalDataType`, but is returned directly to the back-end, not stored in
@@ -460,11 +453,8 @@ export interface InsertAggregatedFactTableDataQueryParams {
   exclusiveStart: boolean;
   // Exclusive upper bound on event timestamp. Set for all but the last chunk
   // of a chunked restate so chunks tile [windowStart, now) half-open; null for
-  // incremental and the final restate chunk (open-ended to "now").
+  // incremental, the final restate chunk, and unchunked restates (open to "now").
   windowEndDate: Date | null;
-  // Optional salt-bucket count for the two-level GROUP BY (default 0 = off;
-  // range 0–64). Threaded from `aggregatedFactTableSettings.saltBuckets`.
-  saltBuckets?: number;
 }
 
 export interface AggregatedFactTableMaxTimestampQueryParams {

@@ -93,13 +93,9 @@ export const aggregatedFactTableSettingsValidator = z
     lookbackWindow: z.number().int().positive(),
     // How many days each sequential INSERT covers when fullRestate rebuilds
     // the table. Smaller chunks keep each query's output inside the engine's
-    // per-stage write budget on wide fact tables; default 2.
+    // per-stage write budget on wide fact tables. Unset = no chunking (a single
+    // full-window INSERT).
     restateChunkDays: z.number().int().min(1).max(7).optional(),
-    // Optional salt-bucket count for a two-level GROUP BY in the INSERT.
-    // 0 (default) disables salting; >0 spreads each (idType, date) across N
-    // buckets as extra insurance against per-chunk skew. See
-    // DEFAULT_SALT_BUCKETS.
-    saltBuckets: z.number().int().min(0).max(64).optional(),
   })
   .strict();
 

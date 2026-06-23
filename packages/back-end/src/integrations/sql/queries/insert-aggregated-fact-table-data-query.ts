@@ -9,25 +9,6 @@ import { encodeMetricIdForColumnName } from "back-end/src/integrations/sql/fact-
 import { castToTimestamp } from "back-end/src/integrations/sql/primitives/cast-to-timestamp";
 import { getAggregatedFactTableSchema } from "back-end/src/integrations/sql/fact-metrics/aggregated-fact-table-schema";
 
-// Optional salted two-level GROUP BY (off by default; see DEFAULT_SALT_BUCKETS).
-//
-// A wide fact table whose SQL has a JOIN can blow the per-worker memory budget
-// on the final GROUP BY merge: the engine's first partial-aggregation pass
-// hashes on the join key, not the group-by key, so a hot (idType, event_date)
-// fans out into many wide partial rows that all land in one hash bucket.
-// Salting the first GROUP BY by `__salt` spreads each key across N buckets;
-// the second GROUP BY collapses the salt buckets back to one row per key.
-//
-// This is *not* the primary defence against wide-FT restate stalls — that is
-// date chunking in AggregatedFactTableQueryRunner (each chunk's output fits
-// the engine's per-stage write budget). Salt is extra insurance for extreme
-// per-chunk skew, opt-in per fact table via
-// `aggregatedFactTableSettings.saltBuckets`.
-//
-// Dialects without `intHash` ignore the salt setting and always emit the
-// single-level GROUP BY.
-export const DEFAULT_SALT_BUCKETS = 0;
-
 // Append-only INSERT materializing a new slice of daily aggregates per
 // `(idType, event_date)`. Each output row is a disjoint partial of one event
 // slice (multiple rows per key across runs), re-aggregated by the read path.
@@ -102,9 +83,8 @@ export function getInsertAggregatedFactTableDataQuery(
     };
   });
 
-  // Level-1 partial aggregation: raw fact rows -> intermediate state per
-  // (idType, event_date[, __salt]). Same expressions as before; the read path
-  // re-aggregates these partials.
+  // Partial aggregation to the (idType, event_date) grain; the read path
+  // re-aggregates the disjoint partials.
   const partialAggregations = metricCols
     .map(({ metric, index, enc, numeratorMeta, denominatorMeta }) => {
       const numeratorCol = numeratorMeta
@@ -140,70 +120,18 @@ export function getInsertAggregatedFactTableDataQuery(
     })
     .join("\n");
 
-  // Salt expression — hash on the raw event timestamp so a single
-  // (idType, event_date) group's events spread across buckets. Off by default
-  // (saltBuckets = 0); opt-in per fact table. Dialects without intHash ignore
-  // it.
-  const saltBuckets = params.saltBuckets ?? DEFAULT_SALT_BUCKETS;
-  const saltExpr =
-    saltBuckets > 0 && dialect.intHash
-      ? `MOD(${dialect.intHash(dialect.castToString("timestamp"))}, ${saltBuckets})`
-      : null;
-
-  // Level-2 merge: collapse salt buckets back to one partial row per
-  // (idType, event_date). Uses each metric's associative `mergePartialsFunction`
-  // (SUM for SUM/COUNT, MAX for MAX, HLL/KLL merge for sketches), so the
-  // persisted state is identical to the un-salted single-level output. Within a
-  // restate chunk the input is small enough that whether the optimizer folds
-  // the two CTE levels back into one is immaterial.
-  const mergeAggregations = metricCols
-    .map(({ enc, numeratorMeta, denominatorMeta, isEventQuantile }) => {
-      const numeratorCol = numeratorMeta
-        ? `, ${numeratorMeta.mergePartialsFunction(
-            `${enc}_value`,
-          )} AS ${enc}_value`
-        : "";
-      const denominatorCol = denominatorMeta
-        ? `, ${denominatorMeta.mergePartialsFunction(
-            `${enc}_denominator_value`,
-          )} AS ${enc}_denominator_value`
-        : "";
-      const nEventsCol = isEventQuantile
-        ? `, SUM(COALESCE(${enc}_n_events, 0)) AS ${enc}_n_events`
-        : "";
-      return `${numeratorCol}${denominatorCol}${nEventsCol}`;
-    })
-    .join("\n");
-
-  // The watermark (max source timestamp seen) used to be a separate
-  // `__maxTimestamp` CTE selecting from `__factTable`. Engines that inline CTEs
-  // (BigQuery) re-evaluate the fact-table SQL for that second reference, so a
-  // wide FT with a JOIN was scanned twice. Carrying the per-group MAX through
-  // and lifting it with a window in the final SELECT keeps it to one scan; the
-  // window runs over already-aggregated rows so it's cheap.
-  const dailyValuesCte = saltExpr
-    ? `
-      , __dailyValuesPartial AS (
-        SELECT
-          ${idType} AS ${idType}
-          , ${dialect.castToDate("timestamp")} AS event_date
-          , ${saltExpr} AS __salt
-          , MAX(timestamp) AS __max_ts
-          ${partialAggregations}
-        FROM __factTable
-        WHERE ${idType} IS NOT NULL
-        GROUP BY 1, 2, 3
-      )
-      , __dailyValues AS (
-        SELECT
-          ${idType}
-          , event_date
-          , MAX(__max_ts) AS __max_ts
-          ${mergeAggregations}
-        FROM __dailyValuesPartial
-        GROUP BY 1, 2
-      )`
-    : `
+  // The watermark (max source timestamp seen) is carried through as a per-group
+  // MAX and lifted with a window in the final SELECT, rather than a separate
+  // `__maxTimestamp` CTE. Engines that inline CTEs (BigQuery) re-evaluate the
+  // fact-table SQL for a second reference, so a wide FT with a JOIN was scanned
+  // twice; this keeps it to one scan and the window runs over already-aggregated
+  // rows so it's cheap.
+  return format(
+    `
+    INSERT INTO ${tableFullName}
+    (${columnNames.join(", \n")})
+    SELECT * FROM (
+      WITH __factTable AS (${factTableCTE})
       , __dailyValues AS (
         SELECT
           ${idType} AS ${idType}
@@ -215,15 +143,7 @@ export function getInsertAggregatedFactTableDataQuery(
         GROUP BY
           ${idType}
           , ${dialect.castToDate("timestamp")}
-      )`;
-
-  return format(
-    `
-    INSERT INTO ${tableFullName}
-    (${columnNames.join(", \n")})
-    SELECT * FROM (
-      WITH __factTable AS (${factTableCTE})
-      ${dailyValuesCte}
+      )
       SELECT
         dv.${idType} AS ${idType}
         , dv.event_date AS event_date

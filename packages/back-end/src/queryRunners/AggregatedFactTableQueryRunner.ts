@@ -15,13 +15,11 @@ import { QueryRunner, QueryMap } from "./QueryRunner";
 
 export const AGGREGATED_FACT_TABLE_PREFIX = "gb_aggregated";
 
-export const DEFAULT_RESTATE_CHUNK_DAYS = 2;
-
-// Slice the restate window into half-open [start, end) chunks of `chunkDays`
-// each so every chunk's INSERT output fits the engine's per-stage write
-// budget. The final chunk has end=null (open to "now") so late-arriving
-// events between planning and execution aren't dropped. Chunks tile the
-// window with no overlap or gap (chunk[i].end === chunk[i+1].start).
+// Slice the restate window into half-open [start, end) chunks ~chunkDays wide
+// so each chunk's INSERT fits the engine's per-stage write budget. Internal
+// seams snap to UTC midnight so an event_date (= DATE(timestamp), UTC) never
+// spans two chunks. Final chunk is open-ended so late events aren't dropped;
+// chunks tile the window with no overlap or gap.
 export function getRestateChunkBounds(
   windowStart: Date,
   now: Date,
@@ -31,15 +29,15 @@ export function getRestateChunkBounds(
   const chunks: Array<{ start: Date; end: Date | null }> = [];
   let cursor = windowStart;
   while (cursor.getTime() < now.getTime()) {
-    const next = new Date(cursor.getTime() + chunkMs);
+    // snapToUtcDayStart(cursor + chunkMs) is always > cursor for chunkDays >= 1.
+    const next = snapToUtcDayStart(new Date(cursor.getTime() + chunkMs));
     chunks.push({
       start: cursor,
       end: next.getTime() >= now.getTime() ? null : next,
     });
     cursor = next;
   }
-  // Degenerate windows (windowStart >= now) still emit one open-ended chunk so
-  // the run always has an INSERT for the coverage query to depend on.
+  // Degenerate windows (windowStart >= now) still emit one open-ended chunk.
   if (chunks.length === 0) {
     chunks.push({ start: windowStart, end: null });
   }
@@ -338,8 +336,6 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
     this.coverageScanStartDate = coverageScanStartDate;
     this.coverageRetentionFloor = coverageRetentionFloor;
 
-    const saltBuckets = factTable.aggregatedFactTableSettings?.saltBuckets;
-
     // In incremental mode the insert is the first committing op against a still
     // valid table, so mark it in flight now (restate already invalidated the
     // table before the drop).
@@ -347,20 +343,16 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
       await this.markInFlight(executionId);
     }
 
-    // Restate is sliced into sequential `restateChunkDays`-wide INSERTs so each
-    // query's output stays inside the engine's per-stage write budget on wide
-    // fact tables (a single 14-day INSERT stalls on BigQuery's S1C output-write
-    // stage; 2-day chunks complete). Incremental already operates on a small
-    // tail slice, so it stays single-INSERT.
+    // Restate optionally slices into sequential `restateChunkDays`-wide INSERTs
+    // so each query's output stays inside the engine's per-stage write budget on
+    // wide fact tables. Unset (or incremental) runs a single full-window INSERT.
+    const restateChunkDays =
+      factTable.aggregatedFactTableSettings?.restateChunkDays;
     const chunks =
-      mode === "restate"
-        ? getRestateChunkBounds(
-            restateWindowStart,
-            now,
-            factTable.aggregatedFactTableSettings?.restateChunkDays ??
-              DEFAULT_RESTATE_CHUNK_DAYS,
-          )
+      mode === "restate" && restateChunkDays
+        ? getRestateChunkBounds(restateWindowStart, now, restateChunkDays)
         : [{ start: windowStartDate, end: null }];
+    const chunked = chunks.length > 1;
 
     let lastInsertQuery: QueryPointer | null = null;
     for (let i = 0; i < chunks.length; i++) {
@@ -374,18 +366,15 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
           windowStartDate: chunk.start,
           windowEndDate: chunk.end,
           exclusiveStart,
-          saltBuckets,
         });
 
       const insertQuery: QueryPointer = await this.startQuery({
-        name:
-          mode === "restate"
-            ? `insert_aggregated_fact_table_data_chunk_${i}`
-            : "insert_aggregated_fact_table_data",
-        displayTitle:
-          mode === "restate"
-            ? `Restate Aggregated Fact Table chunk ${i + 1}/${chunks.length} (${factTable.name} / ${idType})`
-            : `Update Aggregated Fact Table (${factTable.name} / ${idType})`,
+        name: chunked
+          ? `insert_aggregated_fact_table_data_chunk_${i}`
+          : "insert_aggregated_fact_table_data",
+        displayTitle: chunked
+          ? `Restate Aggregated Fact Table chunk ${i + 1}/${chunks.length} (${factTable.name} / ${idType})`
+          : `Update Aggregated Fact Table (${factTable.name} / ${idType})`,
         query: insertQueryString,
         // Chunks run strictly sequentially: chunk 0 waits on CREATE, chunk i>0
         // waits on chunk i-1. This bounds concurrent write load and lets a

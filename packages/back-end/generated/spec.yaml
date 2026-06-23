@@ -17070,6 +17070,10 @@ paths:
                     lookbackWindow:
                       type: integer
                       exclusiveMinimum: 0
+                    restateChunkDays:
+                      type: integer
+                      minimum: 1
+                      maximum: 7
                   required:
                     - idTypes
                     - updateTime
@@ -17208,6 +17212,10 @@ paths:
                     lookbackWindow:
                       type: integer
                       exclusiveMinimum: 0
+                    restateChunkDays:
+                      type: integer
+                      minimum: 1
+                      maximum: 7
                   required:
                     - idTypes
                     - updateTime
@@ -38507,6 +38515,10 @@ components:
             lookbackWindow:
               type: integer
               exclusiveMinimum: 0
+            restateChunkDays:
+              type: integer
+              minimum: 1
+              maximum: 7
           required:
             - idTypes
             - updateTime
