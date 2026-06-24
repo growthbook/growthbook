@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import { subDays } from "date-fns";
 import { createClient, ResponseJSON } from "@clickhouse/client";
 import {
@@ -5,6 +6,7 @@ import {
   FeatureUsageAggregateRow,
   FeatureUsageLookback,
   QueryResponse,
+  ExternalIdCallback,
 } from "shared/types/integrations";
 import { ClickHouseConnectionParams } from "shared/types/integrations/clickhouse";
 import {
@@ -49,11 +51,8 @@ export default class ClickHouse extends SqlIntegration {
     return super.testConnection();
   }
 
-  async runQuery(sql: string): Promise<QueryResponse> {
-    if (isManagedWarehouseAwaitingProvisioning(this.datasource)) {
-      throw new ManagedWarehousePendingError();
-    }
-    const client = createClient({
+  private getClient() {
+    return createClient({
       url: getHost(this.params.url, this.params.port),
       username: this.params.username,
       password: this.params.password,
@@ -67,7 +66,27 @@ export default class ClickHouse extends SqlIntegration {
         ),
       },
     });
-    const results = await client.query({ query: sql, format: "JSON" });
+  }
+
+  async runQuery(
+    sql: string,
+    setExternalId?: ExternalIdCallback,
+  ): Promise<QueryResponse> {
+    if (isManagedWarehouseAwaitingProvisioning(this.datasource)) {
+      throw new ManagedWarehousePendingError();
+    }
+    const client = this.getClient();
+
+    const queryId = randomUUID();
+    if (setExternalId) {
+      await setExternalId(queryId);
+    }
+
+    const results = await client.query({
+      query_id: queryId,
+      query: sql,
+      format: "JSON",
+    });
     // eslint-disable-next-line
     const data: ResponseJSON<Record<string, any>[]> = await results.json();
     return {
@@ -80,6 +99,21 @@ export default class ClickHouse extends SqlIntegration {
           }
         : undefined,
     };
+  }
+
+  async cancelQuery(externalId: string): Promise<void> {
+    if (isManagedWarehouseAwaitingProvisioning(this.datasource)) {
+      throw new ManagedWarehousePendingError();
+    }
+    const client = this.getClient();
+
+    // KILL QUERY is async by default — this returns once ClickHouse accepts
+    // the request, not once the target query has actually stopped.
+    await client.command({
+      query: "KILL QUERY WHERE query_id = {qid:String}",
+      query_params: { qid: externalId },
+    });
+    logger.info({ externalId }, "ClickHouse cancel request accepted");
   }
 
   getInformationSchemaWhereClause(): string {
@@ -152,7 +186,8 @@ export default class ClickHouse extends SqlIntegration {
       throw new Error(`Invalid lookback: ${lookback}`);
     }
 
-    const res = await this.runQuery(`
+    const res = await this.runQuery(
+      `
 WITH _data as (
 	SELECT
 	  ${this.getSqlDialect().formatDateTimeString(roundedTimestamp)} as ts,
@@ -184,7 +219,9 @@ WITH _data as (
     variationId
   ORDER BY evaluations DESC
   LIMIT 200
-      `);
+      `,
+      undefined,
+    );
 
     return {
       start: start.getTime(),
