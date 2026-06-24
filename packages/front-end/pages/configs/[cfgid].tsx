@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { ConstantInterface } from "shared/types/constant";
-import { SchemaField } from "shared/types/feature";
+import { SchemaField, SimpleSchema } from "shared/types/feature";
 import {
   Revision,
   applyTopLevelPatchOps,
@@ -37,6 +37,8 @@ import Metadata from "@/ui/Metadata";
 import Callout from "@/ui/Callout";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 import Field from "@/components/Forms/Field";
+import SelectField from "@/components/Forms/SelectField";
+import Checkbox from "@/ui/Checkbox";
 import Code from "@/components/SyntaxHighlighting/Code";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import Table, {
@@ -136,6 +138,134 @@ function LineageTree({
   );
 }
 
+// A blank field definition, with the same defaults the feature schema editor
+// uses (every SchemaField property is required by the validator).
+const blankField = (): SchemaField => ({
+  key: "",
+  type: "string",
+  required: false,
+  default: "",
+  description: "",
+  enum: [],
+  min: 0,
+  max: 256,
+});
+
+const FIELD_TYPE_OPTIONS = [
+  { label: "String", value: "string" },
+  { label: "Integer", value: "integer" },
+  { label: "Float", value: "float" },
+  { label: "Boolean", value: "boolean" },
+];
+
+// Inline editor for a single field's schema definition (add or edit). Kept on
+// the page itself — no modal — so schema authoring happens right in the form.
+function FieldDefForm({
+  initial,
+  existingKeys,
+  onCancel,
+  onSave,
+}: {
+  initial: SchemaField;
+  // Other field keys in scope (effective schema), to block duplicates.
+  existingKeys: string[];
+  onCancel: () => void;
+  onSave: (field: SchemaField) => void | Promise<void>;
+}): React.ReactElement {
+  const [field, setField] = useState<SchemaField>(initial);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const trimmedKey = field.key.trim();
+  const duplicate =
+    trimmedKey !== initial.key && existingKeys.includes(trimmedKey);
+
+  const save = async () => {
+    if (!trimmedKey) {
+      setErr("Key is required");
+      return;
+    }
+    if (duplicate) {
+      setErr(`A field named "${trimmedKey}" already exists`);
+      return;
+    }
+    setErr(null);
+    setSaving(true);
+    try {
+      await onSave({ ...field, key: trimmedKey });
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Failed to save field");
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Box
+      mt="3"
+      p="3"
+      style={{
+        border: "1px solid var(--slate-a5)",
+        borderRadius: "var(--radius-3)",
+      }}
+    >
+      <Flex gap="3" wrap="wrap" align="start">
+        <Box style={{ flex: "1 1 160px" }}>
+          <Field
+            label="Key"
+            value={field.key}
+            onChange={(e) => setField({ ...field, key: e.target.value })}
+          />
+        </Box>
+        <Box style={{ flex: "1 1 140px" }}>
+          <SelectField
+            label="Type"
+            value={field.type}
+            onChange={(v) =>
+              setField({ ...field, type: v as SchemaField["type"] })
+            }
+            options={FIELD_TYPE_OPTIONS}
+            sort={false}
+          />
+        </Box>
+        <Box style={{ flex: "1 1 160px" }}>
+          <Field
+            label="Default"
+            value={field.default}
+            onChange={(e) => setField({ ...field, default: e.target.value })}
+          />
+        </Box>
+      </Flex>
+      <Box mb="3">
+        <Field
+          label="Description (optional)"
+          value={field.description}
+          onChange={(e) => setField({ ...field, description: e.target.value })}
+        />
+      </Box>
+      <Box mb="3">
+        <Checkbox
+          value={field.required}
+          setValue={(v) => setField({ ...field, required: v })}
+          label="Required"
+        />
+      </Box>
+      {err && (
+        <Callout status="error" mb="3" size="sm">
+          {err}
+        </Callout>
+      )}
+      <Flex gap="2">
+        <Button onClick={save} disabled={saving}>
+          Save field
+        </Button>
+        <Button variant="ghost" onClick={onCancel} disabled={saving}>
+          Cancel
+        </Button>
+      </Flex>
+    </Box>
+  );
+}
+
 export default function ConfigDetailPage(): React.ReactElement {
   const router = useRouter();
   const { cfgid } = router.query;
@@ -157,10 +287,14 @@ export default function ConfigDetailPage(): React.ReactElement {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showCreateChild, setShowCreateChild] = useState(false);
 
-  // Field currently being overridden (inline edit), and the draft JSON text.
+  // Field currently being overridden (inline value edit), and the draft text.
   const [editKey, setEditKey] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const [editError, setEditError] = useState<string | null>(null);
+
+  // Inline schema authoring: "add" shows a blank field form; a key string edits
+  // that field's definition.
+  const [schemaEdit, setSchemaEdit] = useState<"add" | string | null>(null);
 
   // The detail page is addressed by the config's `key`; the resolved endpoint
   // returns the underlying constant (`config`) plus its lineage chain + tree.
@@ -249,7 +383,7 @@ export default function ConfigDetailPage(): React.ReactElement {
       };
     const chain = data.chain.map((n) =>
       n.key === displayedConfig.key
-        ? { ...n, value: displayedConfig.value }
+        ? { ...n, value: displayedConfig.value, schema: displayedConfig.schema }
         : n,
     );
     return resolveConfigChain(chain);
@@ -352,6 +486,54 @@ export default function ConfigDetailPage(): React.ReactElement {
     }
     await saveValue({ ...ownValue(), [editKey]: parsed });
     setEditKey(null);
+  };
+
+  // The fields this config *appends* (its own schema). Inherited fields are
+  // owned by ancestors and can't be edited or removed here.
+  const ownSchema = (): SimpleSchema =>
+    displayedConfig.schema ?? { type: "object", fields: [] };
+  const ownSchemaKeys = ownSchema().fields.map((sf) => sf.key);
+
+  // Persist a new appended-schema (optionally clearing a value override in the
+  // same write) through the revision system.
+  const saveSchema = async (
+    fields: SchemaField[],
+    valueOverride?: Record<string, unknown>,
+  ) => {
+    const schema: SimpleSchema = { type: ownSchema().type, fields };
+    const res = await apiCall<{ revision?: Revision }>(
+      `/constants/${config.id}${writeQuery()}`,
+      {
+        method: "PUT",
+        body: JSON.stringify({
+          schema,
+          ...(valueOverride ? { value: JSON.stringify(valueOverride) } : {}),
+        }),
+      },
+    );
+    await mutate();
+    if (res?.revision) await onRevisionCreated(res.revision);
+  };
+
+  const saveField = async (field: SchemaField) => {
+    const fields = ownSchema().fields;
+    const idx = fields.findIndex((f) => f.key === schemaEdit);
+    const next =
+      idx >= 0
+        ? fields.map((f, i) => (i === idx ? field : f))
+        : [...fields, field];
+    await saveSchema(next);
+    setSchemaEdit(null);
+  };
+
+  const deleteFieldDef = async (key: string) => {
+    const v = ownValue();
+    const hadOverride = key in v;
+    delete v[key];
+    await saveSchema(
+      ownSchema().fields.filter((f) => f.key !== key),
+      hadOverride ? v : undefined,
+    );
   };
 
   return (
@@ -503,12 +685,6 @@ export default function ConfigDetailPage(): React.ReactElement {
               </Box>
             )}
 
-            <Callout status="info" mb="4">
-              A config doesn&apos;t reach your SDKs on its own — it&apos;s
-              instantiated by a feature flag. Reference this config from a flag
-              value to deliver it.
-            </Callout>
-
             <RevisionSummaryCard
               allRevisions={allRevisions}
               selectedRevision={selectedRevision}
@@ -553,95 +729,172 @@ export default function ConfigDetailPage(): React.ReactElement {
                   <TabsTrigger value="json">JSON</TabsTrigger>
                 </TabsList>
                 <TabsContent value="form">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableColumnHeader>Key</TableColumnHeader>
-                        <TableColumnHeader>Value</TableColumnHeader>
-                        <TableColumnHeader>Source</TableColumnHeader>
-                        <TableColumnHeader>{""}</TableColumnHeader>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {resolved.fields.map((f) => {
-                        const here = f.source === config.key;
-                        return (
-                          <TableRow key={f.key}>
-                            <TableCell>{f.key}</TableCell>
-                            <TableCell>
-                              {editKey === f.key ? (
-                                <Box style={{ maxWidth: 360 }}>
-                                  <Field
-                                    textarea
-                                    minRows={2}
-                                    value={editText}
-                                    onChange={(e) =>
-                                      setEditText(e.target.value)
-                                    }
-                                  />
-                                  {editError && (
-                                    <Text size="small" color="text-mid">
-                                      {editError}
-                                    </Text>
-                                  )}
-                                </Box>
-                              ) : (
-                                <code>{JSON.stringify(f.value)}</code>
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              {here ? (
-                                <Badge
-                                  label="defined here"
-                                  color="violet"
-                                  variant="soft"
-                                />
-                              ) : (
-                                <Badge
-                                  label={f.source ?? "—"}
-                                  color="gray"
-                                  variant="soft"
-                                />
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              <Flex gap="2" justify="end">
+                  {resolved.fields.length > 0 && (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableColumnHeader>Key</TableColumnHeader>
+                          <TableColumnHeader>Type</TableColumnHeader>
+                          <TableColumnHeader>Value</TableColumnHeader>
+                          <TableColumnHeader>Source</TableColumnHeader>
+                          <TableColumnHeader>{""}</TableColumnHeader>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {resolved.fields.map((f) => {
+                          const here = f.source === config.key;
+                          const ownField = ownSchemaKeys.includes(f.key);
+                          return (
+                            <TableRow key={f.key}>
+                              <TableCell>{f.key}</TableCell>
+                              <TableCell>
+                                <Text color="text-mid">
+                                  {f.field?.type ?? "—"}
+                                </Text>
+                              </TableCell>
+                              <TableCell>
                                 {editKey === f.key ? (
-                                  <>
-                                    <Button size="xs" onClick={submitOverride}>
-                                      Save
-                                    </Button>
-                                    <Button
-                                      size="xs"
-                                      variant="ghost"
-                                      onClick={() => setEditKey(null)}
-                                    >
-                                      Cancel
-                                    </Button>
-                                  </>
+                                  <Box style={{ maxWidth: 360 }}>
+                                    <Field
+                                      textarea
+                                      minRows={2}
+                                      value={editText}
+                                      onChange={(e) =>
+                                        setEditText(e.target.value)
+                                      }
+                                    />
+                                    {editError && (
+                                      <Text size="small" color="text-mid">
+                                        {editError}
+                                      </Text>
+                                    )}
+                                  </Box>
+                                ) : f.value !== undefined ? (
+                                  <code>{JSON.stringify(f.value)}</code>
+                                ) : f.field?.default ? (
+                                  <Text color="text-low">
+                                    <code>{f.field.default}</code> (default)
+                                  </Text>
                                 ) : (
-                                  canEditNow && (
-                                    <>
-                                      <Link onClick={() => startOverride(f)}>
-                                        override
-                                      </Link>
-                                      {here && (
-                                        <Link onClick={() => resetField(f.key)}>
-                                          reset
-                                        </Link>
-                                      )}
-                                    </>
-                                  )
+                                  <Text color="text-low">—</Text>
                                 )}
-                              </Flex>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                  {resolved.fields.length === 0 && (
-                    <Text color="text-low">No fields yet.</Text>
+                              </TableCell>
+                              <TableCell>
+                                {here ? (
+                                  <Badge
+                                    label="defined here"
+                                    color="violet"
+                                    variant="soft"
+                                  />
+                                ) : (
+                                  <Badge
+                                    label={f.source ?? "default"}
+                                    color="gray"
+                                    variant="soft"
+                                  />
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                <Flex gap="2" justify="end">
+                                  {editKey === f.key ? (
+                                    <>
+                                      <Button
+                                        size="xs"
+                                        onClick={submitOverride}
+                                      >
+                                        Save
+                                      </Button>
+                                      <Button
+                                        size="xs"
+                                        variant="ghost"
+                                        onClick={() => setEditKey(null)}
+                                      >
+                                        Cancel
+                                      </Button>
+                                    </>
+                                  ) : (
+                                    canEditNow &&
+                                    schemaEdit === null && (
+                                      <>
+                                        <Link onClick={() => startOverride(f)}>
+                                          override
+                                        </Link>
+                                        {here && (
+                                          <Link
+                                            onClick={() => resetField(f.key)}
+                                          >
+                                            reset
+                                          </Link>
+                                        )}
+                                        {ownField && (
+                                          <>
+                                            <Link
+                                              onClick={() =>
+                                                setSchemaEdit(f.key)
+                                              }
+                                            >
+                                              edit field
+                                            </Link>
+                                            <Link
+                                              color="red"
+                                              onClick={() =>
+                                                deleteFieldDef(f.key)
+                                              }
+                                            >
+                                              delete
+                                            </Link>
+                                          </>
+                                        )}
+                                      </>
+                                    )
+                                  )}
+                                </Flex>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  )}
+
+                  {schemaEdit !== null && schemaEdit !== "add" && (
+                    <FieldDefForm
+                      key={schemaEdit}
+                      initial={
+                        ownSchema().fields.find((f) => f.key === schemaEdit) ??
+                        blankField()
+                      }
+                      existingKeys={resolved.fields.map((f) => f.key)}
+                      onCancel={() => setSchemaEdit(null)}
+                      onSave={saveField}
+                    />
+                  )}
+
+                  {schemaEdit === "add" ? (
+                    <FieldDefForm
+                      key="add"
+                      initial={blankField()}
+                      existingKeys={resolved.fields.map((f) => f.key)}
+                      onCancel={() => setSchemaEdit(null)}
+                      onSave={saveField}
+                    />
+                  ) : (
+                    canEditNow &&
+                    schemaEdit === null && (
+                      <Box mt="3">
+                        {resolved.fields.length === 0 && (
+                          <Text as="p" color="text-low" mb="2">
+                            No fields yet.
+                          </Text>
+                        )}
+                        <Button
+                          variant="soft"
+                          onClick={() => setSchemaEdit("add")}
+                        >
+                          + Add field
+                        </Button>
+                      </Box>
+                    )
                   )}
                 </TabsContent>
                 <TabsContent value="json">
