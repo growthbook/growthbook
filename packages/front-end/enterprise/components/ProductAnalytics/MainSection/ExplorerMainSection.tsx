@@ -23,6 +23,10 @@ export default function ExplorerMainSection() {
     draftExploreState,
     handleSubmit,
     isSubmittable,
+    compareEnabled,
+    comparisonExploration,
+    comparisonComputed,
+    submittedPreviousTimeFrame,
   } = useExplorerContext();
 
   const showChartSection = shouldChartSectionShow({
@@ -69,6 +73,12 @@ export default function ExplorerMainSection() {
                     error={error}
                     submittedExploreState={submittedExploreState}
                     loading={loading}
+                    compareEnabled={compareEnabled}
+                    comparisonExploration={comparisonExploration}
+                    submittedPreviousTimeFrame={submittedPreviousTimeFrame}
+                    serverBigNumberTrends={
+                      comparisonComputed?.bigNumberTrends ?? null
+                    }
                   />
                 </Panel>
                 <PanelResizeHandle
@@ -107,6 +117,11 @@ export default function ExplorerMainSection() {
                 hasChart={showChartSection}
                 isStale={isStale}
                 query={query}
+                compareEnabled={compareEnabled}
+                comparisonExploration={comparisonExploration}
+                serverTableTrendsByRow={
+                  comparisonComputed?.tableTrendsByRow ?? null
+                }
               />
             </Panel>
           </PanelGroup>
@@ -139,6 +154,8 @@ export default function ExplorerMainSection() {
               top: 15,
               right: 15,
               width: "auto",
+              backgroundColor: "var(--color-panel-solid)",
+              borderRadius: "var(--radius-3)",
             }}
           >
             <Callout status="info" size="sm" icon={null} contentsAs="div">
