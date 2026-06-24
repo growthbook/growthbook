@@ -37,8 +37,12 @@ function operatorToText({
       return `≠`;
     case "$includes":
       return `includes`;
+    case "$includesAnyOf":
+      return `includes any of`;
     case "$notIncludes":
       return `does not include`;
+    case "$notIncludesAnyOf":
+      return `includes none of`;
     case "$empty":
       return `is empty`;
     case "$notEmpty":
@@ -91,7 +95,14 @@ function needsValue(operator: string) {
   return !["$exists", "$notExists", "$empty", "$notEmpty"].includes(operator);
 }
 function hasMultiValues(operator: string) {
-  return ["$in", "$nin", "$ini", "$nini"].includes(operator);
+  return [
+    "$in",
+    "$nin",
+    "$ini",
+    "$nini",
+    "$includesAnyOf",
+    "$notIncludesAnyOf",
+  ].includes(operator);
 }
 function getValue(
   operator: string,
