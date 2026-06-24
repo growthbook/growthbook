@@ -10,7 +10,6 @@ import type {
   ContextualBanditResultsContext,
 } from "shared/experiments";
 import Text from "@/ui/Text";
-import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Metadata from "@/ui/Metadata";
@@ -21,7 +20,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useContextualBanditResults } from "@/hooks/useContextualBandits";
 import { useContextualBanditQueries } from "@/hooks/useContextualBanditQueries";
-import { MultiValuesDisplay } from "@/components/Features/ConditionDisplay";
+import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import QueriesLastRun from "@/components/Queries/QueriesLastRun";
 import AsyncQueriesModal from "@/components/Queries/AsyncQueriesModal";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
@@ -61,17 +60,6 @@ function sortClauseValues(values: string[]): string[] {
   );
 }
 
-/**
- * Try to factor a leaf's member contexts into a compact AND-of-clauses, e.g.
- * `{browser:1}` + `{browser:2}` → `browser is [1, 2]`. Only the simple case is
- * handled: every context must share the same attribute keys and differ in at
- * most one of them. Returns null when the contexts can't be losslessly
- * factored this way (e.g. a cartesian product across 2+ attributes) so the
- * caller can fall back to listing each context.
- *
- * TODO(cb): factor multi-attribute cartesian leaves
- * (`country is [US, CA] and browser is [1, 2, 3]`).
- */
 function factorLeafContexts(
   contexts: ContextualBanditResultsContext[],
 ): LeafClause[] | null {
@@ -114,75 +102,61 @@ function factorLeafContexts(
   }));
 }
 
-/** One `attribute is value(s)` clause line. */
-function ClauseRow({ clause }: { clause: LeafClause }) {
-  return (
-    <Flex wrap="wrap" gap="2" align="center">
-      <Badge
-        color="gray"
-        label={
-          <Text size="inherit" whiteSpace="pre" color="text-high">
-            {displayAttributeName(clause.attr)}
-          </Text>
-        }
-      />
-      <Text size="medium">is</Text>
-      {clause.values.length === 1 ? (
-        <Badge
-          color="gray"
-          label={
-            <Text size="inherit" whiteSpace="pre" color="text-high">
-              {clause.values[0]}
-            </Text>
-          }
-        />
-      ) : (
-        <MultiValuesDisplay values={clause.values} />
-      )}
-    </Flex>
-  );
-}
-
-/** Renders one context's attributes as stacked `attr is value` clauses. */
-function ContextClause({
-  attributes,
-  attributeOrder,
-}: {
-  attributes: Record<string, string>;
-  attributeOrder: string[];
-}) {
-  const ordered = orderAttributes(
+/** Build the prefix-stripped, attribute-ordered equality object for one context. */
+function contextToEqualityObject(
+  attributes: Record<string, string>,
+  attributeOrder: string[],
+): Record<string, string> {
+  const keys = orderAttributes(
     Object.keys(attributes).filter((attr) => attributes[attr] != null),
     attributeOrder,
   );
-
-  if (!ordered.length) {
-    return (
-      <Text size="medium" color="text-low">
-        All contexts
-      </Text>
-    );
-  }
-
-  // One clause per line, no IF/AND connectors (matches the design).
-  return (
-    <Flex direction="column" gap="1">
-      {ordered.map((attr) => (
-        <ClauseRow
-          key={attr}
-          clause={{ attr, values: [String(attributes[attr])] }}
-        />
-      ))}
-    </Flex>
-  );
+  const obj: Record<string, string> = {};
+  keys.forEach((attr) => {
+    obj[displayAttributeName(attr)] = String(attributes[attr]);
+  });
+  return obj;
 }
 
 /**
- * Label for a leaf row. A leaf pools every context routed to it; when those
- * contexts factor cleanly (share keys, differ in ≤1 attribute) we render a
- * single compact AND-of-clauses. Otherwise we fall back to listing each
- * context separated by "or".
+ * Convert a leaf's member contexts into a MongoDB-style condition string that
+ * `ConditionDisplay` can render. When the contexts factor cleanly (shared keys,
+ * ≤1 varying attribute) we emit a single AND object — collapsing the varying
+ * attribute into `$in` so it renders as `attr is any of [...]`. Otherwise we
+ * emit an `$or` of explicit per-context equality objects, which ConditionDisplay
+ * renders as separate OR groups. Attribute names are de-prefixed for display.
  */
+function leafContextsToCondition(
+  contexts: ContextualBanditResultsContext[],
+  attributeOrder: string[],
+): string {
+  const clauses = factorLeafContexts(contexts);
+
+  if (clauses) {
+    const ordered = orderAttributes(
+      clauses.map((clause) => clause.attr),
+      attributeOrder,
+    );
+    const byAttr = new Map(clauses.map((clause) => [clause.attr, clause]));
+    const obj: Record<string, unknown> = {};
+    ordered.forEach((attr) => {
+      const clause = byAttr.get(attr);
+      if (!clause) return;
+      obj[displayAttributeName(attr)] =
+        clause.values.length === 1 ? clause.values[0] : { $in: clause.values };
+    });
+    return JSON.stringify(obj);
+  }
+
+  // Complex leaf (cartesian / scattered across multiple attributes): list each
+  // context explicitly so we never over-claim the covered combinations.
+  return JSON.stringify({
+    $or: contexts.map((ctx) =>
+      contextToEqualityObject(ctx.attributes, attributeOrder),
+    ),
+  });
+}
+
 function LeafContextsLabel({
   contexts,
   attributeOrder,
@@ -190,49 +164,20 @@ function LeafContextsLabel({
   contexts: ContextualBanditResultsContext[];
   attributeOrder: string[];
 }) {
-  const clauses = useMemo(() => factorLeafContexts(contexts), [contexts]);
+  const condition = useMemo(
+    () => leafContextsToCondition(contexts, attributeOrder),
+    [contexts, attributeOrder],
+  );
 
-  if (clauses) {
-    if (!clauses.length) {
-      return (
-        <Text size="medium" color="text-low">
-          All contexts
-        </Text>
-      );
-    }
-    const byAttr = new Map(clauses.map((clause) => [clause.attr, clause]));
-    const ordered = orderAttributes(
-      clauses.map((clause) => clause.attr),
-      attributeOrder,
-    );
+  if (!contexts.length || condition === "{}") {
     return (
-      <Flex direction="column" gap="1">
-        {ordered.map((attr) => {
-          const clause = byAttr.get(attr);
-          return clause ? <ClauseRow key={attr} clause={clause} /> : null;
-        })}
-      </Flex>
+      <Text size="medium" color="text-low">
+        All contexts
+      </Text>
     );
   }
 
-  // Complex leaf (cartesian across multiple attributes): list each context.
-  return (
-    <Flex direction="column" gap="2">
-      {contexts.map((ctx, i) => (
-        <Box key={i}>
-          {i > 0 ? (
-            <Text size="small" color="text-low" as="div" mb="1">
-              or
-            </Text>
-          ) : null}
-          <ContextClause
-            attributes={ctx.attributes}
-            attributeOrder={attributeOrder}
-          />
-        </Box>
-      ))}
-    </Flex>
-  );
+  return <ConditionDisplay condition={condition} />;
 }
 
 /**
