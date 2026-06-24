@@ -21,7 +21,7 @@ const PREDEFINED_LABELS: Record<(typeof dateRangePredefined)[number], string> =
 
 function MicroLabel({ children }: { children: ReactNode }) {
   return (
-    <Text size="small" color="text-low" weight="medium">
+    <Text size="small" color="text-low" weight="regular">
       {children}
     </Text>
   );
@@ -137,42 +137,57 @@ function DateRangePresetSelect({
     </Select>
   );
 
+  const presetSelect = (
+    <Select
+      size="2"
+      style={fullWidth ? { width: "100%" } : undefined}
+      value={dateRange.predefined}
+      placeholder="Select range"
+      setValue={(v) => {
+        setDraftExploreState((prev) => ({
+          ...prev,
+          dateRange: {
+            ...prev.dateRange,
+            predefined: v as (typeof dateRangePredefined)[number],
+          },
+        }));
+      }}
+    >
+      {dateRangePredefined.map((option) => (
+        <SelectItem key={option} value={option}>
+          {PREDEFINED_LABELS[option] || option}
+        </SelectItem>
+      ))}
+    </Select>
+  );
+
+  const isCustomLookback = dateRange.predefined === "customLookback";
+
+  if (fullWidth) {
+    // Custom Lookback keeps the preset dropdown, number, and unit on one row
+    // (preset widest, number compact, unit moderate); other presets are just
+    // the full-width dropdown.
+    if (isCustomLookback) {
+      return (
+        <Flex gap="2" align="center" width="100%">
+          <Box style={{ flex: 2, minWidth: 0 }}>{presetSelect}</Box>
+          {lookbackNumberField}
+          <Box style={{ flex: 1, minWidth: 0 }}>{lookbackUnitSelect}</Box>
+        </Flex>
+      );
+    }
+    return presetSelect;
+  }
+
   return (
     <>
-      <Select
-        size="2"
-        style={fullWidth ? { width: "100%" } : undefined}
-        value={dateRange.predefined}
-        placeholder="Select range"
-        setValue={(v) => {
-          setDraftExploreState((prev) => ({
-            ...prev,
-            dateRange: {
-              ...prev.dateRange,
-              predefined: v as (typeof dateRangePredefined)[number],
-            },
-          }));
-        }}
-      >
-        {dateRangePredefined.map((option) => (
-          <SelectItem key={option} value={option}>
-            {PREDEFINED_LABELS[option] || option}
-          </SelectItem>
-        ))}
-      </Select>
-
-      {dateRange.predefined === "customLookback" &&
-        (fullWidth ? (
-          <Flex gap="2" align="center" width="100%">
-            {lookbackNumberField}
-            <Box style={{ flex: 1, minWidth: 0 }}>{lookbackUnitSelect}</Box>
-          </Flex>
-        ) : (
-          <>
-            {lookbackNumberField}
-            {lookbackUnitSelect}
-          </>
-        ))}
+      {presetSelect}
+      {isCustomLookback && (
+        <>
+          {lookbackNumberField}
+          {lookbackUnitSelect}
+        </>
+      )}
     </>
   );
 }
@@ -198,6 +213,7 @@ function CurrentCustomRangeField({
     <DatePicker
       containerClassName="mb-0"
       compact
+      fluid={fullWidth}
       wrapRangeInputs={fullWidth ? false : shouldWrap}
       date={
         dateRange.startDate
@@ -313,6 +329,7 @@ function ComparisonPreviousRangePicker({
     <DatePicker
       containerClassName="mb-0"
       compact
+      fluid={fullWidth}
       wrapRangeInputs={fullWidth ? false : shouldWrap}
       date={getValidDateOffsetByUTC(previousTimeFrame.startDate)}
       date2={getValidDateOffsetByUTC(previousTimeFrame.endDate)}
@@ -416,18 +433,20 @@ export function ComparisonDateControls({
   /** Optional group-by control rendered alongside the prior picker. */
   groupBySlot?: ReactNode;
   /**
-   * Stack vertically at full width: the preset dropdown spans 100%, and
-   * Prior / Current become `100px 1fr` rows (fixed label column + picker),
-   * laid out Prior above Current.
+   * Full-width layout: the preset dropdown spans 100%, then Prior and Current
+   * stack as `100px 1fr` rows (fixed label column + single-line range field
+   * that truncates to fit), with `vs` between them. Prior sits above Current.
    */
   fullWidth?: boolean;
 }) {
   if (fullWidth) {
+    // Fixed 100px label column; the field column shrinks/truncates rather than
+    // forcing width (minmax(0, …) overrides the grid item's min-content floor).
     const labeledRow = (label: string, field: ReactNode) => (
       <Box
         style={{
           display: "grid",
-          gridTemplateColumns: "100px 1fr",
+          gridTemplateColumns: "100px minmax(0, 1fr)",
           alignItems: "center",
           columnGap: "var(--space-2)",
         }}
@@ -439,11 +458,16 @@ export function ComparisonDateControls({
     return (
       <Flex direction="column" gap="2" width="100%" style={{ minWidth: 0 }}>
         <DateRangePresetSelect fullWidth />
-        {labeledRow("Prior", <ComparisonPreviousRangePicker fullWidth />)}
-        <Text size="small" weight="medium">
-          vs
-        </Text>
-        {labeledRow("Current", <CurrentCustomRangeField fullWidth />)}
+        <Flex direction="column" gap="1" width="100%" style={{ minWidth: 0 }}>
+          {labeledRow("Prior", <ComparisonPreviousRangePicker fullWidth />)}
+          {labeledRow(
+            "",
+            <Text size="small" weight="semibold">
+              vs
+            </Text>,
+          )}
+          {labeledRow("Current", <CurrentCustomRangeField fullWidth />)}
+        </Flex>
         {groupBySlot}
       </Flex>
     );

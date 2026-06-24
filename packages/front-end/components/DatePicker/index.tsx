@@ -41,6 +41,12 @@ type Props = {
   clearButton?: boolean;
   wrapRangeInputs?: boolean;
   compact?: boolean;
+  /**
+   * Let the field shrink to fill a constrained container (drops the range
+   * input's 220px min-width) and truncate its text with an ellipsis instead of
+   * forcing width. Use when the picker sits in a narrow/flexible layout cell.
+   */
+  fluid?: boolean;
   disabled?: boolean;
   fixedSpanMode?: {
     phase: "committed" | "choosing";
@@ -115,6 +121,7 @@ export default function DatePicker({
   clearButton = false,
   wrapRangeInputs = false,
   compact = false,
+  fluid = false,
   disabled,
   fixedSpanMode,
 }: Props) {
@@ -349,7 +356,7 @@ export default function DatePicker({
                 width:
                   inputWidth ||
                   (wrapRangeInputs && isRange ? undefined : "100%"),
-                minWidth: isRange ? 220 : undefined,
+                minWidth: fluid ? 0 : isRange ? 220 : undefined,
                 height: compact ? inputHeight : undefined,
                 minHeight: inputHeight,
                 flex: wrapRangeInputs && isRange ? "1 1 220px" : undefined,
@@ -387,10 +394,17 @@ export default function DatePicker({
                     readOnly={!!fixedSpanMode}
                     style={{
                       border: 0,
-                      marginRight: -20,
-                      width: "calc(100% + 30px)",
+                      marginRight: fluid ? 0 : -20,
+                      width: fluid ? "100%" : "calc(100% + 30px)",
                       minHeight: inputHeight,
                       cursor: "pointer",
+                      ...(fluid
+                        ? {
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          }
+                        : {}),
                       ...compactFieldStyle,
                     }}
                     className={clsx("date-picker-field", {
