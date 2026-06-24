@@ -1,7 +1,11 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Flex } from "@radix-ui/themes";
 import { format } from "date-fns";
-import { dateRangePredefined, lookbackUnit } from "shared/validators";
+import {
+  dateRangePredefined,
+  ExplorationConfig,
+  lookbackUnit,
+} from "shared/validators";
 import { getValidDateOffsetByUTC } from "shared/dates";
 import { Select, SelectItem } from "@/ui/Select";
 import Field from "@/components/Forms/Field";
@@ -19,15 +23,16 @@ const PREDEFINED_LABELS: Record<(typeof dateRangePredefined)[number], string> =
   };
 
 interface DateRangePickerProps {
+  value: ExplorationConfig["dateRange"];
+  onChange: (dateRange: ExplorationConfig["dateRange"]) => void;
   shouldWrap?: boolean;
 }
 
-export default function DateRangePicker({
+export function DateRangePicker({
+  value: dateRange,
+  onChange,
   shouldWrap = false,
-}: DateRangePickerProps = {}) {
-  const { draftExploreState, setDraftExploreState } = useExplorerContext();
-  const { dateRange } = draftExploreState;
-
+}: DateRangePickerProps) {
   const [localLookbackValue, setLocalLookbackValue] = useState<string | null>(
     null,
   );
@@ -52,10 +57,7 @@ export default function DateRangePicker({
       return;
     }
 
-    setDraftExploreState((prev) => ({
-      ...prev,
-      dateRange: { ...prev.dateRange, lookbackValue: parsed },
-    }));
+    onChange({ ...dateRange, lookbackValue: parsed });
     setLocalLookbackValue(null);
     latestLookbackRef.current = "";
   };
@@ -73,13 +75,10 @@ export default function DateRangePicker({
         value={dateRange.predefined}
         placeholder="Select range"
         setValue={(v) => {
-          setDraftExploreState((prev) => ({
-            ...prev,
-            dateRange: {
-              ...prev.dateRange,
-              predefined: v as (typeof dateRangePredefined)[number],
-            },
-          }));
+          onChange({
+            ...dateRange,
+            predefined: v as (typeof dateRangePredefined)[number],
+          });
         }}
       >
         {dateRangePredefined.map((option) => (
@@ -139,13 +138,10 @@ export default function DateRangePicker({
             size="2"
             value={dateRange.lookbackUnit || "day"}
             setValue={(v) => {
-              setDraftExploreState((prev) => ({
-                ...prev,
-                dateRange: {
-                  ...prev.dateRange,
-                  lookbackUnit: v as (typeof lookbackUnit)[number],
-                },
-              }));
+              onChange({
+                ...dateRange,
+                lookbackUnit: v as (typeof lookbackUnit)[number],
+              });
             }}
           >
             {lookbackUnit.map((u) => (
@@ -173,26 +169,39 @@ export default function DateRangePicker({
               : undefined
           }
           setDate={(d) => {
-            setDraftExploreState((prev) => ({
-              ...prev,
-              dateRange: {
-                ...prev.dateRange,
-                startDate: d ? format(d, "yyyy-MM-dd") : null,
-              },
-            }));
+            onChange({
+              ...dateRange,
+              startDate: d ? format(d, "yyyy-MM-dd") : null,
+            });
           }}
           setDate2={(d) => {
-            setDraftExploreState((prev) => ({
-              ...prev,
-              dateRange: {
-                ...prev.dateRange,
-                endDate: d ? format(d, "yyyy-MM-dd") : null,
-              },
-            }));
+            onChange({
+              ...dateRange,
+              endDate: d ? format(d, "yyyy-MM-dd") : null,
+            });
           }}
           precision="date"
         />
       )}
     </Flex>
+  );
+}
+
+export function ExplorerDateRangePicker({
+  shouldWrap = false,
+}: Pick<DateRangePickerProps, "shouldWrap"> = {}) {
+  const { draftExploreState, setDraftExploreState } = useExplorerContext();
+
+  return (
+    <DateRangePicker
+      value={draftExploreState.dateRange}
+      onChange={(dateRange) => {
+        setDraftExploreState((prev) => ({
+          ...prev,
+          dateRange,
+        }));
+      }}
+      shouldWrap={shouldWrap}
+    />
   );
 }

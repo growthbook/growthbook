@@ -15,7 +15,7 @@ import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/Exp
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import GraphTypeSelector from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/GraphTypeSelector";
-import DateRangePicker from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/DateRangePicker";
+import { ExplorerDateRangePicker } from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/DateRangePicker";
 import GranularitySelector from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/GranularitySelector";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Callout from "@/ui/Callout";
@@ -219,7 +219,7 @@ export default function ExplorerSideBar({
           <Flex gap="2" wrap="wrap">
             <Flex direction="column" gap="2" style={{ minWidth: 0 }}>
               <Text weight="medium">Date Range</Text>
-              <DateRangePicker shouldWrap />
+              <ExplorerDateRangePicker shouldWrap />
             </Flex>
             {["line", "area", "timeseries-table"].includes(
               draftExploreState.chartType,
