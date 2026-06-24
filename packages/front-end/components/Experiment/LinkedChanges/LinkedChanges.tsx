@@ -73,9 +73,9 @@ export default function LinkedChanges({
 
   return (
     <Frame>
-      <Flex justify="between" align="center" mb="4" mx="1" gap="3">
+      <Flex justify="between" align="center" mb="4" gap="3">
         <Heading color="text-high" as="h4" size="small">
-          {isPublic || hideVariations ? "Values" : "Variations & Values"}
+          {isPublic || hideVariations ? "Linked Changes" : "Linked Changes"}
         </Heading>
         {!isPublic && !hideVariations && onAddVariation ? (
           <Button variant="ghost" onClick={onAddVariation}>

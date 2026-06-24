@@ -1,5 +1,5 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { Separator } from "@radix-ui/themes";
+import { Box } from "@radix-ui/themes";
 import { useAttributeSchema, useEnvironments } from "@/services/features";
 import TargetingFieldsGroup from "@/components/Features/TargetingFieldsGroup";
 import FallbackAttributeSelector from "@/components/Features/FallbackAttributeSelector";
@@ -135,24 +135,26 @@ export default function EditTargetingModal({
             project={experiment.project}
           />
 
-          <Separator size="4" my="5" />
-
-          <TargetingFieldsGroup
-            project={experiment.project || ""}
-            environments={envs}
-            savedGroups={form.watch("savedGroups") || []}
-            setSavedGroups={(v) => form.setValue("savedGroups", v)}
-            condition={form.watch("condition")}
-            setCondition={(condition) => form.setValue("condition", condition)}
-            conditionKey={conditionKey}
-            prerequisites={form.watch("prerequisites") || []}
-            setPrerequisites={(prerequisites) =>
-              form.setValue("prerequisites", prerequisites)
-            }
-            setPrerequisiteTargetingSdkIssues={
-              setPrerequisiteTargetingSdkIssues
-            }
-          />
+          <Box mt="6">
+            <TargetingFieldsGroup
+              project={experiment.project || ""}
+              environments={envs}
+              savedGroups={form.watch("savedGroups") || []}
+              setSavedGroups={(v) => form.setValue("savedGroups", v)}
+              condition={form.watch("condition")}
+              setCondition={(condition) =>
+                form.setValue("condition", condition)
+              }
+              conditionKey={conditionKey}
+              prerequisites={form.watch("prerequisites") || []}
+              setPrerequisites={(prerequisites) =>
+                form.setValue("prerequisites", prerequisites)
+              }
+              setPrerequisiteTargetingSdkIssues={
+                setPrerequisiteTargetingSdkIssues
+              }
+            />
+          </Box>
         </div>
       </ModalStandard>
     );
