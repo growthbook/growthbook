@@ -191,7 +191,9 @@ function makeContext(cb: ContextualBanditInterface): ReqContext {
         })),
       },
       contextualBanditSnapshots: {
-        getBySnapshotIdInOrg: jest.fn().mockResolvedValue(null),
+        // Freshest CBS read by updateModel's idempotency guard; defaults to a
+        // snapshot that has not yet recorded a CBE so the success path persists.
+        getBySnapshotIdInOrg: jest.fn().mockResolvedValue(makeCbsModel()),
         updateById: jest
           .fn()
           .mockImplementation(async (_id, updates) => updates),
@@ -365,6 +367,49 @@ describe("ContextualBanditResultsQueryRunner", () => {
       expect(updated.status).toBe("success");
       expect(updated.contextualBanditEventId).toBe("cbe_42");
       expect(updated.weightsWereUpdated).toBe(true);
+    });
+
+    it("on a repeat `succeeded` call, does NOT re-persist when the CBS already has a CBE", async () => {
+      const cb = makeCb();
+      const context = makeContext(cb);
+      const runner = newRunner(context);
+
+      // Freshest CBS already recorded a CBE (e.g. a prior onQueryFinish re-drive),
+      // so the side effect must be skipped to stay idempotent.
+      (
+        context.models.contextualBanditSnapshots
+          .getBySnapshotIdInOrg as jest.Mock
+      ).mockResolvedValue(
+        makeCbsModel({ contextualBanditEventId: "cbe_existing" }),
+      );
+
+      const result: ContextualBanditResult = {
+        attributes: ["country"],
+        responses: [
+          {
+            context: { country: "US" },
+            updatedWeights: [0.4, 0.6],
+            updateMessage: "ok",
+          },
+        ],
+      };
+
+      const updated = await runner.updateModel({
+        status: "succeeded",
+        queries: [],
+        runStarted: new Date(),
+        result,
+      });
+
+      expect(persistContextualBanditEventMock).not.toHaveBeenCalled();
+      // A normal status/queries write still happens, but without re-stamping the CBE.
+      expect(
+        context.models.contextualBanditSnapshots.updateById,
+      ).toHaveBeenCalledWith(
+        "cbs_1",
+        expect.objectContaining({ status: "success" }),
+      );
+      expect(updated.contextualBanditEventId).toBeUndefined();
     });
 
     it("on `failed`, stamps `status: error` + error message and does NOT persist a CBE", async () => {
