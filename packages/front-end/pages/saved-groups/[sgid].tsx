@@ -79,6 +79,13 @@ import {
 import ReviewAndPublishTab from "@/components/Revision/ReviewAndPublishTab";
 import SavedGroupRevertModal from "@/components/Revision/SavedGroupRevertModal";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
+import Table, {
+  TableBody,
+  TableCell,
+  TableColumnHeader,
+  TableHeader,
+  TableRow,
+} from "@/ui/Table";
 import SavedGroupRevisionDropdown from "@/components/SavedGroups/SavedGroupRevisionDropdown";
 import CompareSavedGroupRevisionsModal from "@/components/SavedGroups/CompareSavedGroupRevisionsModal";
 import { useSavedGroupRevision } from "@/hooks/useSavedGroupRevision";
@@ -1779,10 +1786,10 @@ export default function EditSavedGroupPage() {
                   </Flex>
                 </Flex>
 
-                <table className="table gbtable table-hover appbox table-valign-top">
-                  <thead>
-                    <tr>
-                      <th style={{ width: "48px" }}>
+                <Table variant="list" stickyHeader={false}>
+                  <TableHeader>
+                    <TableRow>
+                      <TableColumnHeader style={{ width: "48px" }}>
                         <Checkbox
                           value={
                             filteredValues.length > 0 &&
@@ -1797,8 +1804,8 @@ export default function EditSavedGroupPage() {
                           }}
                           size="sm"
                         />
-                      </th>
-                      <th>
+                      </TableColumnHeader>
+                      <TableColumnHeader>
                         <Flex justify="between" align="center">
                           <span>{savedGroup.attributeKey}</span>
                           <Button
@@ -1814,13 +1821,13 @@ export default function EditSavedGroupPage() {
                             {sortNewestFirst ? "newest first" : "oldest first"}
                           </Button>
                         </Flex>
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
+                      </TableColumnHeader>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                     {valuesPage.map((value) => {
                       return (
-                        <tr
+                        <TableRow
                           key={value}
                           onClick={() => {
                             if (selected.has(value)) {
@@ -1832,7 +1839,7 @@ export default function EditSavedGroupPage() {
                             }
                           }}
                         >
-                          <td onClick={(e) => e.stopPropagation()}>
+                          <TableCell onClick={(e) => e.stopPropagation()}>
                             <Checkbox
                               value={selected.has(value)}
                               setValue={(checked) => {
@@ -1846,27 +1853,27 @@ export default function EditSavedGroupPage() {
                               }}
                               size="sm"
                             />
-                          </td>
-                          <td>{value}</td>
-                        </tr>
+                          </TableCell>
+                          <TableCell>{value}</TableCell>
+                        </TableRow>
                       );
                     })}
                     {!displayedValues.length && (
-                      <tr>
-                        <td colSpan={2}>
+                      <TableRow>
+                        <TableCell colSpan={2}>
                           This group doesn&apos;t have any items yet
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     )}
                     {displayedValues.length && !filteredValues.length ? (
-                      <tr>
-                        <td colSpan={2}>No matching items</td>
-                      </tr>
+                      <TableRow>
+                        <TableCell colSpan={2}>No matching items</TableCell>
+                      </TableRow>
                     ) : (
                       <></>
                     )}
-                  </tbody>
-                </table>
+                  </TableBody>
+                </Table>
                 {Math.ceil(filteredValues.length / NUM_PER_PAGE) > 1 && (
                   <Pagination
                     numItemsTotal={displayedValues.length}
