@@ -52,6 +52,7 @@ export default function ScheduledPublishControl({
   autopublishOnApproval,
   isReviewRequester,
   rebaseRequired = false,
+  hasConflicts = false,
   mutate,
 }: {
   revision: Revision;
@@ -72,6 +73,10 @@ export default function ScheduledPublishControl({
   // one until rebased. "When approved" arming is unaffected: it fires after
   // approval, by which point the draft will have been rebased.
   rebaseRequired?: boolean;
+  // The draft has unresolved merge conflicts with live, so it can't be published
+  // as-is. Like rebaseRequired, this blocks arming the admin bypass — a bypassing
+  // schedule would just fail at its fixed time.
+  hasConflicts?: boolean;
   mutate: () => void | Promise<void>;
 }) {
   const { apiCall } = useAuth();
@@ -97,10 +102,15 @@ export default function ScheduledPublishControl({
   // picker render below, not the option itself).
   const canArmOnDate = canEdit;
   const canManageAutoPublish = canArmWhenApproved || canArmOnDate;
-  // The admin bypass is only meaningful when the revision would otherwise need
-  // approval to publish (review required and not yet approved).
-  const canBypassScheduleApproval =
+  // The schedule's admin bypass is only relevant when the revision would
+  // otherwise need approval (review required, not yet approved).
+  const canSeeScheduleBypass =
     canBypassApproval && requiresApproval && status !== "approved";
+  // ...but you can't arm a bypassing schedule for a draft you couldn't publish:
+  // with merge conflicts or a pending rebase, the publish would fail at its
+  // scheduled time. Keep the option visible but disabled until it's publishable.
+  const publishBlocked = rebaseRequired || hasConflicts;
+  const canArmScheduleBypass = canSeeScheduleBypass && !publishBlocked;
 
   const [armed, setArmed] = useState(persistedArmed);
   const [mode, setMode] = useState<Mode>(scheduledAtIso ? "date" : "approve");
@@ -152,7 +162,7 @@ export default function ScheduledPublishControl({
   // Mirrors the feature `schedulePersistsImmediately` gate so we only auto-save
   // when the backend will accept it; engaging the admin bypass flips it true.
   const schedulePersistsImmediately =
-    status !== "draft" || !requiresApproval || bypass;
+    status !== "draft" || !requiresApproval || (canArmScheduleBypass && bypass);
 
   const lockTargets = (() => {
     const parts: string[] = [];
@@ -221,7 +231,7 @@ export default function ScheduledPublishControl({
           scheduledPublishAt: d,
           lockEdits: le,
           lockOthers: lo,
-          bypassApproval: canBypassScheduleApproval ? by : false,
+          bypassApproval: canArmScheduleBypass ? by : false,
         }),
       });
       await mutate();
@@ -314,8 +324,10 @@ export default function ScheduledPublishControl({
     setBypass(v);
     // Engaging bypass flips schedulePersistsImmediately true for a review-required
     // draft, so recompute the gate with the new value — toggling it on arms the
-    // schedule immediately.
-    const persists = status !== "draft" || !requiresApproval || v;
+    // schedule immediately. (Only reachable when canArmScheduleBypass; the box is
+    // disabled otherwise.)
+    const persists =
+      status !== "draft" || !requiresApproval || (canArmScheduleBypass && v);
     persistIfReady(date, lockEdits, lockOthers, v, persists);
   };
 
@@ -456,7 +468,7 @@ export default function ScheduledPublishControl({
                       />
                     </Box>
                   )}
-                  {canBypassScheduleApproval && (
+                  {canSeeScheduleBypass && (
                     <Box mt="2">
                       <Checkbox
                         label={
@@ -465,8 +477,15 @@ export default function ScheduledPublishControl({
                           </span>
                         }
                         weight="regular"
-                        disabled={saving}
-                        value={bypass}
+                        disabled={!canArmScheduleBypass || saving}
+                        disabledMessage={
+                          publishBlocked
+                            ? hasConflicts
+                              ? "Resolve the merge conflicts first."
+                              : "Rebase this draft with live first."
+                            : undefined
+                        }
+                        value={canArmScheduleBypass && bypass}
                         setValue={(v) => onBypassToggle(!!v)}
                       />
                     </Box>
@@ -481,7 +500,7 @@ export default function ScheduledPublishControl({
                   {date && !schedulePersistsImmediately && !rebaseRequired && (
                     <HelperText status="info" size="sm" mt="2">
                       Request review before scheduling this draft&apos;s publish
-                      {canBypassScheduleApproval
+                      {canArmScheduleBypass
                         ? ", or enable the admin bypass above to arm it now."
                         : "."}
                     </HelperText>

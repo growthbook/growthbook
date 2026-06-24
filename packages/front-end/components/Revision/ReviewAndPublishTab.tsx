@@ -1063,6 +1063,7 @@ function ReviewAndPublishRevision<T>({
               autopublishOnApproval={autopublishOnApproval}
               isReviewRequester={isAuthor}
               rebaseRequired={mustRebase}
+              hasConflicts={!mergeSuccess}
               mutate={mutate}
             />
           )}
