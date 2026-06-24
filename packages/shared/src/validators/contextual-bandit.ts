@@ -1,12 +1,6 @@
 import { z } from "zod";
 import { apiBaseSchema, baseSchema } from "./base-model";
-import {
-  banditStageType,
-  metricOverride,
-  nextScheduledStatusUpdateValidator,
-  statusUpdateScheduleValidator,
-  variation,
-} from "./experiments";
+import { banditStageType, metricOverride, variation } from "./experiments";
 import { priorSettingsValidator } from "./fact-table";
 import { namedSchema } from "./openapi-helpers";
 import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
@@ -111,10 +105,6 @@ export const contextualBanditValidator = baseSchema
     autoSnapshots: z.boolean().optional(),
     lastSnapshotAttempt: z.date().optional(),
     nextSnapshotAttempt: z.date().optional(),
-    statusUpdateSchedule: statusUpdateScheduleValidator.optional().nullable(),
-    nextScheduledStatusUpdate: nextScheduledStatusUpdateValidator
-      .optional()
-      .nullable(),
   })
   .strict();
 

@@ -454,27 +454,3 @@ export async function dangerousFindContextualBanditsToUpdate(
 
   return docs.map((d) => ({ id: d.id, organization: d.organization }));
 }
-
-/** Cross-org scheduled-status agenda query: CBs whose `nextScheduledStatusUpdate.date` is due. */
-export async function dangerousFindContextualBanditsWithScheduledStatusUpdate(): Promise<
-  Pick<ContextualBanditInterface, "id" | "organization">[]
-> {
-  const now = new Date();
-  const docs = await getCollection<ContextualBanditInterface>(COLLECTION)
-    .find({
-      "nextScheduledStatusUpdate.date": {
-        $exists: true,
-        $ne: null,
-        $lte: now,
-      },
-    })
-    .project<Pick<ContextualBanditInterface, "id" | "organization">>({
-      id: true,
-      organization: true,
-    })
-    .limit(100)
-    .sort({ "nextScheduledStatusUpdate.date": 1 })
-    .toArray();
-
-  return docs.map((d) => ({ id: d.id, organization: d.organization }));
-}
