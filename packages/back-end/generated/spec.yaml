@@ -17450,6 +17450,7 @@ paths:
                   enum:
                     - string
                     - json
+                    - config
                 value:
                   type: string
                 environmentValues:
@@ -40203,6 +40204,7 @@ components:
           enum:
             - string
             - json
+            - config
         owner:
           description: The userId of the owner (or raw owner name/email for legacy records)
           type: string
@@ -45651,101 +45653,6 @@ components:
         - steps
         - order
       additionalProperties: false
-    ConstantReferences:
-      type: object
-      properties:
-        features:
-          type: array
-          items:
-            type: object
-            properties:
-              id:
-                type: string
-              name:
-                type: string
-              project:
-                type: string
-            required:
-              - id
-            additionalProperties: false
-        constants:
-          type: array
-          items:
-            type: object
-            properties:
-              id:
-                type: string
-              key:
-                type: string
-              name:
-                type: string
-              project:
-                type: string
-            required:
-              - id
-              - key
-              - name
-            additionalProperties: false
-      required:
-        - features
-        - constants
-      additionalProperties: false
-    SavedGroupReferences:
-      type: object
-      properties:
-        features:
-          type: array
-          items:
-            type: object
-            properties:
-              id:
-                type: string
-              name:
-                type: string
-              project:
-                type: string
-            required:
-              - id
-            additionalProperties: false
-        experiments:
-          type: array
-          items:
-            type: object
-            properties:
-              id:
-                type: string
-              name:
-                type: string
-              project:
-                type: string
-              projects:
-                type: array
-                items:
-                  type: string
-            required:
-              - id
-            additionalProperties: false
-        savedGroups:
-          type: array
-          items:
-            type: object
-            properties:
-              id:
-                type: string
-              groupName:
-                type: string
-              projects:
-                type: array
-                items:
-                  type: string
-            required:
-              - id
-            additionalProperties: false
-      required:
-        - features
-        - experiments
-        - savedGroups
-      additionalProperties: false
     ExperimentSnapshot:
       type: object
       properties:
@@ -45924,6 +45831,101 @@ components:
             additionalProperties: false
       required:
         - defaultValue
+      additionalProperties: false
+    ConstantReferences:
+      type: object
+      properties:
+        features:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              name:
+                type: string
+              project:
+                type: string
+            required:
+              - id
+            additionalProperties: false
+        constants:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              key:
+                type: string
+              name:
+                type: string
+              project:
+                type: string
+            required:
+              - id
+              - key
+              - name
+            additionalProperties: false
+      required:
+        - features
+        - constants
+      additionalProperties: false
+    SavedGroupReferences:
+      type: object
+      properties:
+        features:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              name:
+                type: string
+              project:
+                type: string
+            required:
+              - id
+            additionalProperties: false
+        experiments:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              name:
+                type: string
+              project:
+                type: string
+              projects:
+                type: array
+                items:
+                  type: string
+            required:
+              - id
+            additionalProperties: false
+        savedGroups:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              groupName:
+                type: string
+              projects:
+                type: array
+                items:
+                  type: string
+            required:
+              - id
+            additionalProperties: false
+      required:
+        - features
+        - experiments
+        - savedGroups
       additionalProperties: false
     AnalyticsExploration:
       type: object

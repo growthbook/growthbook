@@ -201,7 +201,7 @@ export default function ConstantValueModal({
           id="constant-value"
           value={form.watch("value")}
           setValue={(v) => form.setValue("value", v)}
-          valueType={type}
+          valueType={type === "string" ? "string" : "json"}
           useCodeInput={type === "json"}
           showFullscreenButton={type === "json"}
           constantContext={constantContext}
@@ -270,7 +270,7 @@ export default function ConstantValueModal({
                   id={`constant-env-${envId}`}
                   value={envValues[envId] || ""}
                   setValue={(v) => setOverrideValue(envId, v)}
-                  valueType={type}
+                  valueType={type === "string" ? "string" : "json"}
                   useCodeInput={type === "json"}
                   showFullscreenButton={type === "json"}
                   constantContext={constantContext}

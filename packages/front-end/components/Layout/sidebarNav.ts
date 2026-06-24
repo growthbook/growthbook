@@ -21,7 +21,27 @@ export const navlinks: SidebarLinkProps[] = [
     name: "Features",
     href: "/features",
     Icon: BsFlag,
-    path: /^(features)/,
+    path: /^(features|constants|configs)/,
+    // Clicking the parent navigates to Feature Flags and expands, so the first
+    // sub-link is pre-selected.
+    navigateOnExpand: true,
+    subLinks: [
+      {
+        name: "Feature Flags",
+        href: "/features",
+        path: /^features/,
+      },
+      {
+        name: "Constants",
+        href: "/constants",
+        path: /^constants/,
+      },
+      {
+        name: "Configs",
+        href: "/configs",
+        path: /^configs/,
+      },
+    ],
   },
   {
     name: "Experimentation",
@@ -168,7 +188,7 @@ export const navlinks: SidebarLinkProps[] = [
   {
     name: "SDK Configuration",
     href: "/sdks",
-    path: /^(attributes|environments|saved-groups|constants|sdks|archetypes)/,
+    path: /^(attributes|environments|saved-groups|sdks|archetypes)/,
     autoClose: true,
     Icon: BsCodeSlash,
     subLinks: [
@@ -191,11 +211,6 @@ export const navlinks: SidebarLinkProps[] = [
         name: "Saved Groups",
         href: "/saved-groups",
         path: /^saved-groups/,
-      },
-      {
-        name: "Constants",
-        href: "/constants",
-        path: /^constants/,
       },
       {
         name: "Archetypes",

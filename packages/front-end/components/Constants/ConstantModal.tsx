@@ -79,7 +79,7 @@ export default function ConstantModal({
     defaultValues: {
       key: existing?.key ?? "",
       name: existing?.name ?? "",
-      type: existing?.type ?? "string",
+      type: existing?.type === "config" ? "json" : (existing?.type ?? "string"),
       // Owner is stored as a userId; backend defaults it to the creator when blank.
       owner: existing?.owner ?? "",
       description: existing?.description ?? "",

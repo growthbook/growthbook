@@ -14,7 +14,13 @@ import {
   normalizeProposedChanges,
   getConstantRevisionChange,
 } from "shared/enterprise";
-import { constantRequiresReview } from "shared/util";
+import {
+  constantRequiresReview,
+  parsePlainJSONObject,
+  resolveConfigChain,
+  ConfigChainNode,
+} from "shared/util";
+import { CONSTANT_EXTENDS_KEY } from "shared/constants";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
@@ -125,6 +131,78 @@ export const getConstantReferences = async (
     return context.throwNotFoundError("Constant not found");
   }
   return res.status(200).json({ status: 200, ...references });
+};
+
+// The single `@const:<key>` parent a config extends (its lineage parent), or
+// null for a base config. Configs use exactly one `$extends` ref.
+function configParentKey(value: string | undefined): string | null {
+  const obj = parsePlainJSONObject(value ?? "");
+  const list = obj?.[CONSTANT_EXTENDS_KEY];
+  if (!Array.isArray(list)) return null;
+  const first = list.find((r): r is string => typeof r === "string");
+  const m = first?.match(/^@const:([a-z0-9][a-z0-9_-]*)$/);
+  return m ? m[1] : null;
+}
+
+// GET /constants/:key/resolved — the Configuration editor view for a `config`:
+// the config itself, its effective schema and per-field resolved values (walking
+// the base→leaf lineage), and the full lineage tree it belongs to.
+export const getConstantConfigResolved = async (
+  req: AuthRequest<null, { key: string }>,
+  res: Response,
+) => {
+  const context = getContextFromReq(req);
+  const config = await context.models.constants.getByKey(req.params.key);
+  if (!config || config.type !== "config") {
+    return context.throwNotFoundError("Config not found");
+  }
+
+  // Walk ancestors (leaf → base), then reverse to base → leaf for resolution.
+  const chain: ConfigChainNode[] = [];
+  const visited = new Set<string>();
+  let cur: typeof config | null = config;
+  while (cur && !visited.has(cur.key)) {
+    visited.add(cur.key);
+    chain.unshift({
+      key: cur.key,
+      name: cur.name,
+      value: cur.value,
+      schema: cur.schema,
+    });
+    const parentKey = configParentKey(cur.value);
+    cur = parentKey ? await context.models.constants.getByKey(parentKey) : null;
+  }
+
+  const { effectiveSchema, fields } = resolveConfigChain(chain);
+
+  // Lineage tree: every config descending from this chain's base, so the editor
+  // sidebar can render the whole family and let you browse between them.
+  const allConfigs = (await context.models.constants.getAll()).filter(
+    (c) => c.type === "config",
+  );
+  const rootKey = chain[0]?.key ?? config.key;
+  const lineage: { key: string; name: string; parentKey: string | null }[] = [];
+  const seen = new Set<string>();
+  const queue = [rootKey];
+  while (queue.length) {
+    const k = queue.shift() as string;
+    if (seen.has(k)) continue;
+    seen.add(k);
+    const node = allConfigs.find((c) => c.key === k);
+    if (!node) continue;
+    lineage.push({
+      key: node.key,
+      name: node.name,
+      parentKey: configParentKey(node.value),
+    });
+    for (const child of allConfigs) {
+      if (configParentKey(child.value) === k) queue.push(child.key);
+    }
+  }
+
+  return res
+    .status(200)
+    .json({ status: 200, config, effectiveSchema, fields, lineage });
 };
 
 export const postConstant = async (

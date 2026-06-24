@@ -28,6 +28,7 @@ import { featureHasEnvironment } from "./features";
 export * from "./strings";
 export * from "./event-forwarder-destination";
 export * from "./features";
+export * from "./configs";
 export * from "./managedWarehouse";
 export * from "./saved-groups";
 export * from "./metric-time-series";

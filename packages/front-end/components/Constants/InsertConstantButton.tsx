@@ -69,7 +69,7 @@ function ConstantValuePreview({
     <Box style={{ minWidth: 220, maxWidth: 340 }}>
       <ValueDisplay
         value={value}
-        type={constant.type}
+        type={constant.type === "string" ? "string" : "json"}
         full
         showCopyButton={false}
         showFullscreenButton={false}

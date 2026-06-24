@@ -39,6 +39,7 @@ import ConstantSearchFilters from "@/components/Search/ConstantSearchFilters";
 const TYPE_LABEL: Record<ConstantWithoutValue["type"], string> = {
   string: "String",
   json: "JSON",
+  config: "Config",
 };
 
 const VALID_TABS = ["all", "drafts"] as const;
@@ -84,8 +85,11 @@ export default function ConstantsPage(): React.ReactElement {
 
   const visibleConstants = useMemo(
     () =>
-      constants.filter((c) =>
-        isProjectListValidForProject(c.project ? [c.project] : [], project),
+      constants.filter(
+        (c) =>
+          // `config`-type constants live on the dedicated /configs page.
+          c.type !== "config" &&
+          isProjectListValidForProject(c.project ? [c.project] : [], project),
       ),
     [constants, project],
   );
