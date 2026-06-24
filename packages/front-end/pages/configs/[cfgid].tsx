@@ -977,37 +977,36 @@ export default function ConfigDetailPage(): React.ReactElement {
 
                 {/* Form — per-field resolved values (override / reset). */}
                 <TabsContent value="form">
-                  {/* Column header — aligns with the insert row (FIELD_COLS).
-                      Source carries the inheritance/lineage provenance. */}
-                  {(resolved.fields.length > 0 || schemaEdit === "add") && (
-                    <Flex
-                      gap="2"
-                      align="center"
-                      pb="1"
-                      mb="1"
-                      style={{ borderBottom: "1px solid var(--slate-a4)" }}
-                    >
-                      {[
-                        ["Key", FIELD_COLS.key],
-                        ["Value", FIELD_COLS.value],
-                        ["Type", FIELD_COLS.type],
-                      ].map(([label, w]) => (
-                        <Box
-                          key={label}
-                          style={{ width: w as number, flexShrink: 0 }}
-                        >
-                          <Text size="small" weight="semibold" color="text-low">
-                            {label}
-                          </Text>
-                        </Box>
-                      ))}
-                      <Box style={{ flex: 1, minWidth: 80 }}>
+                  {/* Column header — always shown, aligns with the insert row
+                      (FIELD_COLS). Source carries the inheritance/lineage
+                      provenance. */}
+                  <Flex
+                    gap="2"
+                    align="center"
+                    pb="1"
+                    mb="1"
+                    style={{ borderBottom: "1px solid var(--slate-a4)" }}
+                  >
+                    {[
+                      ["Key", FIELD_COLS.key],
+                      ["Value", FIELD_COLS.value],
+                      ["Type", FIELD_COLS.type],
+                    ].map(([label, w]) => (
+                      <Box
+                        key={label}
+                        style={{ width: w as number, flexShrink: 0 }}
+                      >
                         <Text size="small" weight="semibold" color="text-low">
-                          Source
+                          {label}
                         </Text>
                       </Box>
-                    </Flex>
-                  )}
+                    ))}
+                    <Box style={{ flex: 1, minWidth: 80 }}>
+                      <Text size="small" weight="semibold" color="text-low">
+                        Source
+                      </Text>
+                    </Box>
+                  </Flex>
 
                   {resolved.fields.map((f) => {
                     const here = f.source === config.key;
