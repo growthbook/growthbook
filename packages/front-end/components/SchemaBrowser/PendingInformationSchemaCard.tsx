@@ -36,7 +36,7 @@ export default function PendingInformationSchemaCard({
         <Callout
           status="info"
           action={
-            <Button variant="ghost" disabled loading={fetching}>
+            <Button color="inherit" variant="ghost" disabled loading={fetching}>
               Checking Status
             </Button>
           }

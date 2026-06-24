@@ -87,18 +87,8 @@ export default forwardRef<
     return <RadixStatusIcon status={status} size={size} />;
   })();
 
-  // The icon, action, and dismiss button are each sized to the text's first
-  // line and centered within it. They align on that line and never grow the
-  // row, so multi-line content stays top-aligned and tall actions (buttons)
-  // overflow into the padding instead of pushing the content down.
   const lineHeight =
     size === "sm" ? "var(--line-height-1)" : "var(--line-height-2)";
-  const firstLineBox: React.CSSProperties = {
-    height: lineHeight,
-    display: "flex",
-    alignItems: "center",
-    flexShrink: 0,
-  };
 
   return (
     <RadixCallout.Root
@@ -108,11 +98,14 @@ export default forwardRef<
       role={role ?? (status === "error" ? "alert" : undefined)}
       size={getRadixSize(size)}
       {...containerProps}
-      style={{
-        display: "flex",
-        position: "relative",
-        ...style,
-      }}
+      style={
+        {
+          display: "flex",
+          position: "relative",
+          "--callout-line-height": lineHeight,
+          ...style,
+        } as React.CSSProperties
+      }
       variant="soft"
     >
       {renderedIcon ? (
@@ -126,9 +119,9 @@ export default forwardRef<
         <Text as="div" size={getRadixSize(size)} style={{ flex: 1 }}>
           {children}
         </Text>
-        {action ? <Box style={firstLineBox}>{action}</Box> : null}
+        {action ? <Box className={styles.firstLineBox}>{action}</Box> : null}
         {dismissible && id ? (
-          <Box style={firstLineBox}>
+          <Box className={styles.firstLineBox}>
             <Tooltip content="Dismiss">
               <IconButton
                 variant="ghost"

@@ -117,7 +117,7 @@ export function StripeProvider({
       <Callout
         status="error"
         action={
-          <Button variant="soft" onClick={retrySetupStripe}>
+          <Button color="inherit" variant="soft" onClick={retrySetupStripe}>
             Retry
           </Button>
         }

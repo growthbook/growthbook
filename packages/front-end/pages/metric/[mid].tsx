@@ -421,7 +421,7 @@ const MetricPage: FC = () => {
       />
 
       {metric.status === "archived" && (
-        <Callout status="info" mb="2">
+        <Callout status="info" color="gray" mb="2">
           <strong>This metric is archived.</strong> Existing references will
           continue working, but you will be unable to add this metric to new
           experiments.
