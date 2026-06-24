@@ -37,8 +37,7 @@ import Metadata from "@/ui/Metadata";
 import Callout from "@/ui/Callout";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 import Field from "@/components/Forms/Field";
-import SelectField from "@/components/Forms/SelectField";
-import Checkbox from "@/ui/Checkbox";
+import EditSchemaField from "@/components/Features/EditSchemaField";
 import Code from "@/components/SyntaxHighlighting/Code";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import Table, {
@@ -151,22 +150,19 @@ const blankField = (): SchemaField => ({
   max: 256,
 });
 
-const FIELD_TYPE_OPTIONS = [
-  { label: "String", value: "string" },
-  { label: "Integer", value: "integer" },
-  { label: "Float", value: "float" },
-  { label: "Boolean", value: "boolean" },
-];
-
-// Inline editor for a single field's schema definition (add or edit). Kept on
-// the page itself — no modal — so schema authoring happens right in the form.
+// Inline editor for a single field's schema definition (add or edit). Reuses
+// the feature schema editor's per-field mechanics (EditSchemaField), kept on the
+// page itself — no modal — so schema authoring happens right in the form.
 function FieldDefForm({
   initial,
+  index,
   existingKeys,
   onCancel,
   onSave,
 }: {
   initial: SchemaField;
+  // Position in the field list (used to keep input ids unique).
+  index: number;
   // Other field keys in scope (effective schema), to block duplicates.
   existingKeys: string[];
   onCancel: () => void;
@@ -182,7 +178,7 @@ function FieldDefForm({
 
   const save = async () => {
     if (!trimmedKey) {
-      setErr("Key is required");
+      setErr("Property key is required");
       return;
     }
     if (duplicate) {
@@ -208,47 +204,12 @@ function FieldDefForm({
         borderRadius: "var(--radius-3)",
       }}
     >
-      <Flex gap="3" wrap="wrap" align="start">
-        <Box style={{ flex: "1 1 160px" }}>
-          <Field
-            label="Key"
-            value={field.key}
-            onChange={(e) => setField({ ...field, key: e.target.value })}
-          />
-        </Box>
-        <Box style={{ flex: "1 1 140px" }}>
-          <SelectField
-            label="Type"
-            value={field.type}
-            onChange={(v) =>
-              setField({ ...field, type: v as SchemaField["type"] })
-            }
-            options={FIELD_TYPE_OPTIONS}
-            sort={false}
-          />
-        </Box>
-        <Box style={{ flex: "1 1 160px" }}>
-          <Field
-            label="Default"
-            value={field.default}
-            onChange={(e) => setField({ ...field, default: e.target.value })}
-          />
-        </Box>
-      </Flex>
-      <Box mb="3">
-        <Field
-          label="Description (optional)"
-          value={field.description}
-          onChange={(e) => setField({ ...field, description: e.target.value })}
-        />
-      </Box>
-      <Box mb="3">
-        <Checkbox
-          value={field.required}
-          setValue={(v) => setField({ ...field, required: v })}
-          label="Required"
-        />
-      </Box>
+      <EditSchemaField
+        i={index}
+        value={field}
+        inObject={true}
+        onChange={setField}
+      />
       {err && (
         <Callout status="error" mb="3" size="sm">
           {err}
@@ -860,6 +821,12 @@ export default function ConfigDetailPage(): React.ReactElement {
                   {schemaEdit !== null && schemaEdit !== "add" && (
                     <FieldDefForm
                       key={schemaEdit}
+                      index={Math.max(
+                        0,
+                        ownSchema().fields.findIndex(
+                          (f) => f.key === schemaEdit,
+                        ),
+                      )}
                       initial={
                         ownSchema().fields.find((f) => f.key === schemaEdit) ??
                         blankField()
@@ -873,6 +840,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                   {schemaEdit === "add" ? (
                     <FieldDefForm
                       key="add"
+                      index={ownSchema().fields.length}
                       initial={blankField()}
                       existingKeys={resolved.fields.map((f) => f.key)}
                       onCancel={() => setSchemaEdit(null)}
