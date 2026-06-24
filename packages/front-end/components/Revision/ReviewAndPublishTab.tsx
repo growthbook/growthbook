@@ -16,6 +16,7 @@ import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import useURLHash from "@/hooks/useURLHash";
 import Button from "@/ui/Button";
+import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import Badge from "@/ui/Badge";
@@ -576,6 +577,58 @@ function ReviewAndPublishRevision<T>({
     revision.comment?.trim() ||
     `Revision ${revision.version ?? ""}`.trim();
 
+  // Other active drafts of this entity, surfaced as quick navigation in the
+  // header — mirrors the feature flow's "N other drafts need attention" nav.
+  const otherAttentionDrafts = allRevisions
+    .filter(
+      (r) =>
+        (ACTIVE_STATUSES as readonly string[]).includes(r.status) &&
+        r.id !== revision.id,
+    )
+    .sort((a, b) => (b.version ?? 0) - (a.version ?? 0));
+  const draftNavLabel = (r: Revision) =>
+    r.title?.trim() || `Revision ${r.version ?? ""}`.trim();
+  const otherDraftsNav =
+    otherAttentionDrafts.length === 1 ? (
+      <Flex align="center" gap="2" wrap="wrap">
+        <Text color="text-mid">1 other draft needs attention:</Text>
+        <Link
+          weight="medium"
+          onClick={() => selectRevision(otherAttentionDrafts[0])}
+        >
+          {draftNavLabel(otherAttentionDrafts[0])}
+        </Link>
+        <Badge
+          variant={revisionStatusBadgeVariant(
+            toBadgeStatus(otherAttentionDrafts[0].status),
+          )}
+          radius="full"
+          color={revisionStatusColor(
+            toBadgeStatus(otherAttentionDrafts[0].status),
+          )}
+          label={revisionStatusLabel(
+            toBadgeStatus(otherAttentionDrafts[0].status),
+          )}
+        />
+      </Flex>
+    ) : otherAttentionDrafts.length > 1 ? (
+      <DropdownMenu
+        trigger={
+          <Link weight="medium">
+            {otherAttentionDrafts.length} other drafts need attention{" "}
+            <PiCaretDownBold size={11} />
+          </Link>
+        }
+        menuPlacement="end"
+      >
+        {otherAttentionDrafts.map((r) => (
+          <DropdownMenuItem key={r.id} onClick={() => selectRevision(r)}>
+            {draftNavLabel(r)} — {revisionStatusLabel(toBadgeStatus(r.status))}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenu>
+    ) : null;
+
   const header = (
     <Box mb="6" pt="4">
       <Heading as="h3" size="large" mb="2">
@@ -615,6 +668,7 @@ function ReviewAndPublishRevision<T>({
           )}
         </Text>
       </Flex>
+      {otherDraftsNav && <Box mt="3">{otherDraftsNav}</Box>}
     </Box>
   );
 
