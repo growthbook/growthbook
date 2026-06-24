@@ -37,7 +37,7 @@ import Badge from "@/ui/Badge";
 import { getStatusBadge } from "@/components/Revision/revisionUtils";
 import { draftStatusTooltip } from "@/components/Reviews/RevisionStatusBadge";
 import Markdown from "@/components/Markdown/Markdown";
-import EditRevisionDescriptionModal from "@/components/Revision/EditRevisionDescriptionModal";
+import EditRevisionDescriptionModal from "@/components/Reviews/EditRevisionDescriptionModal";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
@@ -784,9 +784,13 @@ export default function EditSavedGroupPage() {
       )}
       {editDescriptionModal && displayRevision && (
         <EditRevisionDescriptionModal
-          revision={displayRevision}
+          initialValue={displayRevision.comment || ""}
           close={() => setEditDescriptionModal(false)}
-          mutate={async () => {
+          onSubmit={async (description) => {
+            await apiCall(`/revision/${displayRevision.id}/description`, {
+              method: "PATCH",
+              body: JSON.stringify({ description }),
+            });
             await Promise.all([mutateRevisions(), mutate()]);
           }}
         />

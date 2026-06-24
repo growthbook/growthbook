@@ -72,7 +72,7 @@ import {
   FeatureUsageSparkline,
   useFeatureUsage,
 } from "@/components/Features/FeatureUsageGraph";
-import EditRevisionCommentModal from "@/components/Features/EditRevisionCommentModal";
+import EditRevisionDescriptionModal from "@/components/Reviews/EditRevisionDescriptionModal";
 import RevisionStatusBadge from "@/components/Reviews/RevisionStatusBadge";
 import RevisionLabel, {
   revisionLabelText,
@@ -1934,11 +1934,20 @@ export default function FeaturesOverview({
           </Modal>
         )}
         {editCommentModel && revision && (
-          <EditRevisionCommentModal
+          <EditRevisionDescriptionModal
             close={() => setEditCommentModal(false)}
-            feature={feature}
-            mutate={mutate}
-            revision={revision}
+            initialValue={revision.comment || ""}
+            trackingEventModalType=""
+            onSubmit={async (comment) => {
+              await apiCall(
+                `/feature/${feature.id}/${revision.version}/comment`,
+                {
+                  method: "PUT",
+                  body: JSON.stringify({ comment }),
+                },
+              );
+              mutate();
+            }}
           />
         )}
         {prerequisiteModal !== null && (
