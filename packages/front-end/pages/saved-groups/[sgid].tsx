@@ -21,7 +21,6 @@ import {
   PiProhibit,
   PiLockSimple,
   PiPencilSimpleFill,
-  PiCaretRightFill,
 } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { isIdListSupportedAttribute } from "shared/util";
@@ -87,6 +86,7 @@ import { useSavedGroupReferences } from "@/hooks/useSavedGroupReferences";
 import { REVISION_SAVED_GROUP_DIFF_CONFIG } from "@/components/Revision/RevisionDiffConfig";
 import { useUser } from "@/services/UserContext";
 import EventUser from "@/components/Avatar/EventUser";
+import CoAuthorsList from "@/components/Reviews/CoAuthorsList";
 import { useScrollPosition } from "@/hooks/useScrollPosition";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -95,55 +95,6 @@ import SavedGroupDraftSelectorForChanges, {
 } from "@/components/SavedGroups/SavedGroupDraftSelectorForChanges";
 
 const NUM_PER_PAGE = 10;
-
-function CoAuthorsFromIds({
-  authorId,
-  contributorIds,
-}: {
-  authorId: string;
-  contributorIds: string[];
-}) {
-  const [open, setOpen] = useState(false);
-  const filtered = contributorIds.filter((id) => id !== authorId);
-  if (filtered.length === 0) return null;
-  const label = `Co-author${filtered.length > 1 ? "s" : ""} (${filtered.length})`;
-  return (
-    <Box mt="3" mb="3">
-      <div
-        className="link-purple"
-        style={{
-          cursor: "pointer",
-          userSelect: "none",
-          display: "inline-block",
-        }}
-        onClick={() => setOpen((o) => !o)}
-      >
-        <PiCaretRightFill
-          style={{
-            display: "inline",
-            marginRight: 4,
-            transition: "transform 0.15s ease",
-            transform: open ? "rotate(90deg)" : "none",
-          }}
-        />
-        {label}
-      </div>
-      {open && (
-        <Flex direction="column" gap="2" mt="2" ml="3">
-          {filtered.map((id) => (
-            <EventUser
-              key={id}
-              user={{ type: "dashboard", id, name: "", email: "" }}
-              display="avatar-name-email"
-              size="sm"
-              wrap={true}
-            />
-          ))}
-        </Flex>
-      )}
-    </Box>
-  );
-}
 
 const savedGroupTabs = ["overview", "review"] as const;
 type SavedGroupTab = (typeof savedGroupTabs)[number];
@@ -1261,17 +1212,12 @@ export default function EditSavedGroupPage() {
                           <>
                             Viewing a previously <strong>published</strong>{" "}
                             revision.{" "}
-                            <span
-                              style={{
-                                cursor: "pointer",
-                                color: "var(--accent-11)",
-                                fontWeight: 600,
-                                textUnderlineOffset: 2,
-                              }}
+                            <Link
+                              weight="medium"
                               onClick={() => selectFlow(null)}
                             >
                               Switch to live
-                            </span>
+                            </Link>
                           </>
                         ),
                       }
@@ -1300,19 +1246,14 @@ export default function EditSavedGroupPage() {
                                 {activeDrafts.length === 1 && (
                                   <>
                                     {". "}
-                                    <span
-                                      style={{
-                                        cursor: "pointer",
-                                        color: "var(--accent-11)",
-                                        fontWeight: 600,
-                                        textUnderlineOffset: 2,
-                                      }}
+                                    <Link
+                                      weight="medium"
                                       onClick={() =>
                                         selectFlow(activeDrafts[0])
                                       }
                                     >
                                       Switch to draft
-                                    </span>
+                                    </Link>
                                   </>
                                 )}
                               </>
@@ -1574,9 +1515,10 @@ export default function EditSavedGroupPage() {
                           ).filter((id) => id !== displayRevision.authorId);
                           if (coAuthorIds.length === 0) return null;
                           return (
-                            <CoAuthorsFromIds
-                              authorId={displayRevision.authorId}
-                              contributorIds={coAuthorIds}
+                            <CoAuthorsList
+                              coAuthorIds={coAuthorIds}
+                              mt="3"
+                              mb="3"
                             />
                           );
                         })()}
