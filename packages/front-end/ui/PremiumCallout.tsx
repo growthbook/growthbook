@@ -9,7 +9,7 @@ import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { useState } from "react";
 import { PiArrowSquareOut, PiLightbulb, PiX } from "react-icons/pi";
 import { useUser } from "@/services/UserContext";
-import { DocLink, DocSection } from "@/components/DocLink";
+import { DocSection, docUrl } from "@/components/DocLink";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
@@ -68,11 +68,25 @@ export default function PremiumCallout({
     <PaidFeatureBadge commercialFeature={commercialFeature} useTip={false} />
   );
 
+  // Underline only the label text, leaving the gap and external-link icon
+  // un-underlined (the anchor's own underline is disabled via underline="none").
+  const externalLinkLabel = (label: string) => (
+    <>
+      <span style={{ textDecoration: "underline" }}>{label}</span>{" "}
+      <PiArrowSquareOut size={15} />
+    </>
+  );
+
   const link =
     hasFeature && docSection ? (
-      <DocLink docSection={docSection} useRadix={true}>
-        View docs <PiArrowSquareOut size={15} />
-      </DocLink>
+      <Link
+        href={docUrl(docSection)}
+        target="_blank"
+        rel="noopener noreferrer"
+        underline="none"
+      >
+        {externalLinkLabel("View docs")}
+      </Link>
     ) : pro ? (
       <Link
         href="#"
@@ -88,9 +102,9 @@ export default function PremiumCallout({
         href="https://www.growthbook.io/demo"
         target="_blank"
         rel="noreferrer"
-        style={{ whiteSpace: "nowrap" }}
+        underline="none"
       >
-        Talk to Sales <PiArrowSquareOut size={15} />
+        {externalLinkLabel("Talk to Sales")}
       </Link>
     );
 
@@ -120,7 +134,8 @@ export default function PremiumCallout({
         <Text as="div" size="2">
           <Flex align="start" gap="1" pr="3">
             <div>{children}</div>
-            <div style={{ flex: 1 }}>{link}</div>
+            {/* nowrap keeps the CTA label + external-link icon on one line */}
+            <div style={{ flex: 1, whiteSpace: "nowrap" }}>{link}</div>
           </Flex>
         </Text>
         {dismissible ? (
