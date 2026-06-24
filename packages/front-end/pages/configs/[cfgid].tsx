@@ -803,10 +803,13 @@ export default function ConfigDetailPage(): React.ReactElement {
               <Tabs defaultValue="form">
                 <TabsList>
                   <TabsTrigger value="form">Form</TabsTrigger>
+                  <TabsTrigger value="schema">Schema</TabsTrigger>
                   <TabsTrigger value="json">JSON</TabsTrigger>
                 </TabsList>
+
+                {/* Form — per-field resolved values (override / reset). */}
                 <TabsContent value="form">
-                  {resolved.fields.length > 0 && (
+                  {resolved.fields.length > 0 ? (
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -820,7 +823,6 @@ export default function ConfigDetailPage(): React.ReactElement {
                       <TableBody>
                         {resolved.fields.map((f) => {
                           const here = f.source === config.key;
-                          const ownField = ownSchemaKeys.includes(f.key);
                           return (
                             <TableRow key={f.key}>
                               <TableCell>{f.key}</TableCell>
@@ -890,8 +892,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                                       </Button>
                                     </>
                                   ) : (
-                                    canEditInline &&
-                                    schemaEdit === null && (
+                                    canEditInline && (
                                       <>
                                         <Link onClick={() => startOverride(f)}>
                                           override
@@ -903,28 +904,92 @@ export default function ConfigDetailPage(): React.ReactElement {
                                             reset
                                           </Link>
                                         )}
-                                        {ownField && (
-                                          <>
-                                            <Link
-                                              onClick={() =>
-                                                setSchemaEdit(f.key)
-                                              }
-                                            >
-                                              edit field
-                                            </Link>
-                                            <Link
-                                              color="red"
-                                              onClick={() =>
-                                                deleteFieldDef(f.key)
-                                              }
-                                            >
-                                              delete
-                                            </Link>
-                                          </>
-                                        )}
                                       </>
                                     )
                                   )}
+                                </Flex>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  ) : (
+                    <Text color="text-low">
+                      No fields yet — define them in the Schema tab.
+                    </Text>
+                  )}
+                </TabsContent>
+
+                {/* Schema — field definitions (add / edit / delete). */}
+                <TabsContent value="schema">
+                  {resolved.fields.length > 0 && (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableColumnHeader>Key</TableColumnHeader>
+                          <TableColumnHeader>Type</TableColumnHeader>
+                          <TableColumnHeader>Description</TableColumnHeader>
+                          <TableColumnHeader>Defined in</TableColumnHeader>
+                          <TableColumnHeader>{""}</TableColumnHeader>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {resolved.fields.map((f) => {
+                          const ownField = ownSchemaKeys.includes(f.key);
+                          return (
+                            <TableRow key={f.key}>
+                              <TableCell>{f.key}</TableCell>
+                              <TableCell>
+                                <Text color="text-mid">
+                                  {f.field?.type ?? "—"}
+                                </Text>
+                              </TableCell>
+                              <TableCell>
+                                <Text
+                                  color={
+                                    f.field?.description
+                                      ? "text-mid"
+                                      : "text-low"
+                                  }
+                                >
+                                  {f.field?.description || "—"}
+                                </Text>
+                              </TableCell>
+                              <TableCell>
+                                {ownField ? (
+                                  <Badge
+                                    label="this config"
+                                    color="violet"
+                                    variant="soft"
+                                  />
+                                ) : (
+                                  <Badge
+                                    label="inherited"
+                                    color="gray"
+                                    variant="soft"
+                                  />
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                <Flex gap="2" justify="end">
+                                  {canEditInline &&
+                                    schemaEdit === null &&
+                                    ownField && (
+                                      <>
+                                        <Link
+                                          onClick={() => setSchemaEdit(f.key)}
+                                        >
+                                          edit
+                                        </Link>
+                                        <Link
+                                          color="red"
+                                          onClick={() => deleteFieldDef(f.key)}
+                                        >
+                                          delete
+                                        </Link>
+                                      </>
+                                    )}
                                 </Flex>
                               </TableCell>
                             </TableRow>
@@ -975,6 +1040,8 @@ export default function ConfigDetailPage(): React.ReactElement {
                     )
                   )}
                 </TabsContent>
+
+                {/* JSON — raw value (read-only; paste-to-import is future work). */}
                 <TabsContent value="json">
                   <Code
                     language="json"
