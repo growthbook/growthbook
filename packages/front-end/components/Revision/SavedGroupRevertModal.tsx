@@ -3,8 +3,7 @@ import { Box, Flex } from "@radix-ui/themes";
 import { Revision, applyTopLevelPatchOps } from "shared/enterprise";
 import { SavedGroupInterface } from "shared/types/saved-group";
 import { useAuth } from "@/services/auth";
-// eslint-disable-next-line no-restricted-imports
-import Modal from "@/components/Modal";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
@@ -147,7 +146,7 @@ export default function SavedGroupRevertModal({
   const visibleDiffs = diffs.filter((d) => d.a !== d.b);
 
   return (
-    <Modal
+    <ModalStandard
       header="Revert"
       trackingEventModalType="revert-revision"
       open={true}
@@ -278,6 +277,6 @@ export default function SavedGroupRevertModal({
         value={comment}
         onChange={(e) => setComment(e.target.value)}
       />
-    </Modal>
+    </ModalStandard>
   );
 }

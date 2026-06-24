@@ -3,6 +3,7 @@ import { PiCaretRightFill } from "react-icons/pi";
 import { Box, Flex } from "@radix-ui/themes";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { useUser } from "@/services/UserContext";
+import Link from "@/ui/Link";
 import EventUser from "@/components/Avatar/EventUser";
 
 interface Props extends MarginProps {
@@ -23,14 +24,10 @@ export default function CoAuthorsList({ coAuthorIds, ...marginProps }: Props) {
 
   return (
     <Box {...marginProps}>
-      <div
-        className="link-purple"
-        style={{
-          cursor: "pointer",
-          userSelect: "none",
-          display: "inline-block",
-        }}
+      <Link
+        weight="medium"
         onClick={() => setOpen((o) => !o)}
+        style={{ userSelect: "none" }}
       >
         <PiCaretRightFill
           style={{
@@ -41,7 +38,7 @@ export default function CoAuthorsList({ coAuthorIds, ...marginProps }: Props) {
           }}
         />
         {label}
-      </div>
+      </Link>
       {open && (
         <Flex direction="column" gap="2" mt="2" ml="3">
           {coAuthorIds.map((id) => {
