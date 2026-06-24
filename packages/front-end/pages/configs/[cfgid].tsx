@@ -39,6 +39,7 @@ import ConfirmDialog from "@/ui/ConfirmDialog";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
+import Checkbox from "@/ui/Checkbox";
 import Code from "@/components/SyntaxHighlighting/Code";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import Table, {
@@ -161,10 +162,22 @@ const FIELD_TYPE_OPTIONS = [
   { value: "boolean", label: "Boolean" },
 ];
 
+// tsc-style label for a field's type, including nullable (`| null`) and optional
+// (`| undefined`) modifiers; "advanced" when a raw JSON Schema is set.
+function fieldTypeLabel(f: SchemaField | null): string {
+  if (!f) return "—";
+  if (f.jsonSchema !== undefined) return "advanced";
+  let label: string = f.type;
+  if (f.nullable) label += " | null";
+  if (!f.required) label += " | undefined";
+  return label;
+}
+
 // Inline editor for a single field's schema definition (add or edit). Compact by
-// default — key + type on one line — with progressive disclosure: "+ description"
-// adds a second line, "+ validation" reveals the allowed-values / min-max rules.
-// Kept on the page itself (no modal).
+// default — key + type on one line, with optional/nullable toggles and
+// progressive "+ description" / "+ validation" rows. Selecting "Advanced…" as the
+// type switches the field to a raw JSON Schema escape hatch (stored on the field
+// as `jsonSchema`, which supersedes the simple type). Kept on the page (no modal).
 function FieldDefForm({
   initial,
   existingKeys,
@@ -186,6 +199,9 @@ function FieldDefForm({
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
+  // Advanced mode is driven by the presence of a raw per-field JSON Schema.
+  const advanced = field.jsonSchema !== undefined;
+
   const trimmedKey = field.key.trim();
   const duplicate =
     trimmedKey !== initial.key && existingKeys.includes(trimmedKey);
@@ -193,6 +209,23 @@ function FieldDefForm({
   const intOr0 = (v: string): number => {
     const n = parseInt(v);
     return Number.isNaN(n) ? 0 : n;
+  };
+
+  const onTypeChange = (v: string) => {
+    if (v === "advanced") {
+      // Seed the editor with the JSON Schema equivalent of the current type.
+      const base =
+        field.type === "integer" || field.type === "float"
+          ? "number"
+          : field.type;
+      setField({ ...field, jsonSchema: `{\n  "type": "${base}"\n}` });
+    } else {
+      setField({
+        ...field,
+        type: v as SchemaField["type"],
+        jsonSchema: undefined,
+      });
+    }
   };
 
   const save = async () => {
@@ -203,6 +236,18 @@ function FieldDefForm({
     if (duplicate) {
       setErr(`A field named "${trimmedKey}" already exists`);
       return;
+    }
+    if (advanced) {
+      try {
+        JSON.parse(field.jsonSchema || "");
+      } catch (e) {
+        setErr(
+          `Invalid JSON Schema — ${
+            e instanceof Error ? e.message : "could not parse"
+          }`,
+        );
+        return;
+      }
     }
     setErr(null);
     setSaving(true);
@@ -234,13 +279,14 @@ function FieldDefForm({
             containerStyle={{ marginBottom: 0 }}
           />
         </Box>
-        <Box style={{ width: 130 }}>
+        <Box style={{ width: 150 }}>
           <SelectField
-            value={field.type}
-            onChange={(v) =>
-              setField({ ...field, type: v as SchemaField["type"] })
-            }
-            options={FIELD_TYPE_OPTIONS}
+            value={advanced ? "advanced" : field.type}
+            onChange={onTypeChange}
+            options={[
+              ...FIELD_TYPE_OPTIONS,
+              { value: "advanced", label: "Advanced…" },
+            ]}
             sort={false}
           />
         </Box>
@@ -259,77 +305,112 @@ function FieldDefForm({
         </Flex>
       </Flex>
 
-      {/* Line 2: description (progressive) */}
-      {showDescription && (
+      {advanced ? (
+        /* Advanced — raw JSON Schema escape hatch for this field. */
         <Box mt="2">
           <Field
-            placeholder="description (optional)"
-            value={field.description}
-            onChange={(e) =>
-              setField({ ...field, description: e.target.value })
-            }
+            label="JSON Schema"
+            textarea
+            minRows={5}
+            value={field.jsonSchema ?? ""}
+            onChange={(e) => setField({ ...field, jsonSchema: e.target.value })}
             containerStyle={{ marginBottom: 0 }}
           />
+          <Text size="small" color="text-low">
+            Raw JSON Schema for this field — supersedes the simple type.
+          </Text>
         </Box>
-      )}
+      ) : (
+        <>
+          {/* Optional / nullable modifiers (T | undefined, T | null) */}
+          <Flex gap="4" mt="2" align="center">
+            <Checkbox
+              value={!field.required}
+              setValue={(v) => setField({ ...field, required: !v })}
+              label="Optional"
+            />
+            <Checkbox
+              value={!!field.nullable}
+              setValue={(v) => setField({ ...field, nullable: v })}
+              label="Nullable"
+            />
+          </Flex>
 
-      {/* Optional expansion: schema validation (not applicable to booleans) */}
-      {showValidation && field.type !== "boolean" && (
-        <Box mt="2">
-          <MultiSelectField
-            label="Allowed values"
-            placeholder="(any)"
-            value={field.enum}
-            onChange={(e) =>
-              setField({
-                ...field,
-                enum: e
-                  .filter((v) => v !== "" && v.length <= 256)
-                  .slice(0, 256),
-              })
-            }
-            options={field.enum.map((v) => ({ value: v, label: v }))}
-            creatable
-            noMenu
-          />
-          {field.enum.length === 0 && (
-            <Flex gap="2" mt="2">
-              <Box style={{ flex: 1 }}>
-                <Field
-                  label={field.type === "string" ? "Min length" : "Min"}
-                  type="number"
-                  value={field.min}
-                  onChange={(e) =>
-                    setField({ ...field, min: intOr0(e.target.value) })
-                  }
-                  containerStyle={{ marginBottom: 0 }}
-                />
-              </Box>
-              <Box style={{ flex: 1 }}>
-                <Field
-                  label={field.type === "string" ? "Max length" : "Max"}
-                  type="number"
-                  value={field.max}
-                  onChange={(e) =>
-                    setField({ ...field, max: intOr0(e.target.value) })
-                  }
-                  containerStyle={{ marginBottom: 0 }}
-                />
-              </Box>
-            </Flex>
+          {/* description (progressive) */}
+          {showDescription && (
+            <Box mt="2">
+              <Field
+                placeholder="description (optional)"
+                value={field.description}
+                onChange={(e) =>
+                  setField({ ...field, description: e.target.value })
+                }
+                containerStyle={{ marginBottom: 0 }}
+              />
+            </Box>
           )}
-        </Box>
-      )}
 
-      {/* Progressive-disclosure toggles */}
-      <Flex gap="3" mt="2" align="center">
-        {!showDescription && (
-          <Link onClick={() => setShowDescription(true)}>+ description</Link>
-        )}
-        {!showValidation && field.type !== "boolean" && (
-          <Link onClick={() => setShowValidation(true)}>+ validation</Link>
-        )}
-      </Flex>
+          {/* validation (progressive; not applicable to booleans) */}
+          {showValidation && field.type !== "boolean" && (
+            <Box mt="2">
+              <MultiSelectField
+                label="Allowed values"
+                placeholder="(any)"
+                value={field.enum}
+                onChange={(e) =>
+                  setField({
+                    ...field,
+                    enum: e
+                      .filter((v) => v !== "" && v.length <= 256)
+                      .slice(0, 256),
+                  })
+                }
+                options={field.enum.map((v) => ({ value: v, label: v }))}
+                creatable
+                noMenu
+              />
+              {field.enum.length === 0 && (
+                <Flex gap="2" mt="2">
+                  <Box style={{ flex: 1 }}>
+                    <Field
+                      label={field.type === "string" ? "Min length" : "Min"}
+                      type="number"
+                      value={field.min}
+                      onChange={(e) =>
+                        setField({ ...field, min: intOr0(e.target.value) })
+                      }
+                      containerStyle={{ marginBottom: 0 }}
+                    />
+                  </Box>
+                  <Box style={{ flex: 1 }}>
+                    <Field
+                      label={field.type === "string" ? "Max length" : "Max"}
+                      type="number"
+                      value={field.max}
+                      onChange={(e) =>
+                        setField({ ...field, max: intOr0(e.target.value) })
+                      }
+                      containerStyle={{ marginBottom: 0 }}
+                    />
+                  </Box>
+                </Flex>
+              )}
+            </Box>
+          )}
+
+          {/* Progressive-disclosure toggles */}
+          <Flex gap="3" mt="2" align="center">
+            {!showDescription && (
+              <Link onClick={() => setShowDescription(true)}>
+                + description
+              </Link>
+            )}
+            {!showValidation && field.type !== "boolean" && (
+              <Link onClick={() => setShowValidation(true)}>+ validation</Link>
+            )}
+          </Flex>
+        </>
+      )}
 
       {err && (
         <Callout status="error" mt="2" size="sm">
@@ -851,7 +932,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                               <TableCell>{f.key}</TableCell>
                               <TableCell>
                                 <Text color="text-mid">
-                                  {f.field?.type ?? "—"}
+                                  {fieldTypeLabel(f.field)}
                                 </Text>
                               </TableCell>
                               <TableCell>
@@ -966,7 +1047,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                               <TableCell>{f.key}</TableCell>
                               <TableCell>
                                 <Text color="text-mid">
-                                  {f.field?.type ?? "—"}
+                                  {fieldTypeLabel(f.field)}
                                 </Text>
                               </TableCell>
                               <TableCell>

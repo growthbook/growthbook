@@ -36,6 +36,12 @@ export const simpleSchemaFieldValidator = z.object({
   enum: z.array(z.string().max(256)).max(256),
   min: z.number(),
   max: z.number(),
+  // Optional, additive (features ignore these; used by the config field editor):
+  // `nullable` allows the value to be null (T | null). `jsonSchema`, when set, is
+  // the field's raw JSON Schema — the "Advanced" escape hatch — and supersedes
+  // the simple type/enum/min/max.
+  nullable: z.boolean().optional(),
+  jsonSchema: z.string().optional(),
 });
 
 export const simpleSchemaValidator = z.object({

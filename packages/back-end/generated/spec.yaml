@@ -2933,6 +2933,10 @@ paths:
                                 type: number
                               max:
                                 type: number
+                              nullable:
+                                type: boolean
+                              jsonSchema:
+                                type: string
                             required:
                               - key
                               - type
@@ -7828,6 +7832,10 @@ paths:
                                 type: number
                               max:
                                 type: number
+                              nullable:
+                                type: boolean
+                              jsonSchema:
+                                type: string
                             required:
                               - key
                               - type
