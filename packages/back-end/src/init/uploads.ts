@@ -11,9 +11,10 @@ import { logger } from "back-end/src/util/logger";
 export async function uploadsInit() {
   if (UPLOAD_METHOD !== "local") return;
 
-  const dir = getUploadsDir();
-  const probe = path.join(dir, ".write-probe");
+  let dir = "the uploads directory";
   try {
+    dir = getUploadsDir();
+    const probe = path.join(dir, ".write-probe");
     await fs.promises.mkdir(dir, { recursive: true });
     await fs.promises.writeFile(probe, "");
     await fs.promises.unlink(probe);
