@@ -100,7 +100,16 @@ export async function getContextualBanditResultsForUi(
 export async function runContextualBanditSnapshot(
   context: ApiReqContext,
   cb: ContextualBanditInterface,
-  opts: { triggeredBy: "manual" | "scheduled" },
+  opts: {
+    triggeredBy: "manual" | "scheduled";
+    /**
+     * When true, block until queries + analysis finish and return the resulting
+     * CBE id. Background jobs that own the run lifecycle set this (mirroring
+     * `updateExperimentResults`). Interactive/API callers leave it false so the
+     * request returns immediately with a "running" snapshot the caller can poll.
+     */
+    wait?: boolean;
+  },
 ): Promise<{ snapshotId: string; cbeId?: string }> {
   // Defense-in-depth: re-check licensing so background jobs / internal callers can't bypass.
   if (!context.hasPremiumFeature("contextual-bandits")) {
@@ -156,8 +165,14 @@ export async function runContextualBanditSnapshot(
     snapshotSettings,
     variationNames,
   });
-  // @teresayung I'm not sure we want to await the entire query and
-  // analysis to finish, for both inline and for job updates.
+
+  // Default path: queries are dispatched and the QueryRunner's own polling
+  // (onQueryFinish timers) drives the run to completion and writes results to the
+  // CBS in the background, so we return the "running" snapshot id without blocking.
+  if (!opts.wait) {
+    return { snapshotId: cbs.id };
+  }
+
   await runner.waitForResults();
 
   const finalCbs =
