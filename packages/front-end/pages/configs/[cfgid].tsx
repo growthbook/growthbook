@@ -329,7 +329,7 @@ function FieldDefForm({
           />
         </Box>
         {withValue && (
-          <Box style={{ width: 180, flexShrink: 0 }}>
+          <Box style={{ width: 300, flexShrink: 0 }}>
             {field.type === "boolean" ? (
               <SelectField
                 value={valueText}
