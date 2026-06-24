@@ -386,15 +386,10 @@ export default function ConfigDetailPage(): React.ReactElement {
   // Editing is only meaningful on the live state or a draft.
   const canEditNow = canUpdate && (!selectedRevision || isDraft);
   // Inline field/value editing is draft-only: changes must land in an active
-  // draft (not silently auto-publish from the live view), so the editor prompts
-  // for a draft when one isn't selected.
+  // draft (not silently auto-publish from the live view). The standard
+  // RevisionSummaryCard banner ("Switch to draft" / "New Draft") handles getting
+  // the user into a draft, so there's no bespoke prompt here.
   const canEditInline = canUpdate && isDraft;
-  // An open draft to point the "switch to a draft to edit" callout at (prefer
-  // the current user's own draft); otherwise the callout offers to create one.
-  const existingDraft =
-    openRevisions.find((r) => r.authorId === userId) ??
-    openRevisions[0] ??
-    null;
   const canBypassApproval = permissionsUtil.canBypassApprovalChecks({
     project: config.project || "",
   });
@@ -686,21 +681,6 @@ export default function ConfigDetailPage(): React.ReactElement {
               onFixConflicts={() => setConflictOpen(true)}
               onReviewPublish={() => setShowChangesModal(true)}
             />
-
-            {canUpdate && !isDraft && (
-              <Callout status="info" mb="4">
-                Switch to a draft to edit.{" "}
-                {existingDraft ? (
-                  <Link onClick={() => selectRevision(existingDraft)}>
-                    <strong>Switch to draft</strong>
-                  </Link>
-                ) : (
-                  <Link onClick={handleNewDraft}>
-                    <strong>Create a draft</strong>
-                  </Link>
-                )}
-              </Callout>
-            )}
 
             <Text as="p" color="text-mid" mb="3">
               {resolved.effectiveSchema.length} fields ·{" "}
