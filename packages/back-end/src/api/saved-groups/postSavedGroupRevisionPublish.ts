@@ -84,6 +84,18 @@ export const postSavedGroupRevisionPublish = createApiRequestHandler(
     adapter.getUpdatableFields(),
   );
 
+  // The live check above covers the source projects. If the revision moves the
+  // group to different projects, also require update permission on the
+  // destination.
+  if (
+    !adapter.canUpdate(req.context, {
+      ...(savedGroup as unknown as Record<string, unknown>),
+      ...desiredState,
+    })
+  ) {
+    req.context.permissions.throwPermissionError();
+  }
+
   // Pre-merge conflict guard so we don't let a revision land on top of out-of
   // -band edits to the same field — caller must rebase first.
   const conflictResult = checkMergeConflicts(

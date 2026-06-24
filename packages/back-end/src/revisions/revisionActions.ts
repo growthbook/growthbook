@@ -144,6 +144,14 @@ export async function publishRevision(
     adapter.getUpdatableFields(),
   );
 
+  // The check above covers the live (source) entity. If the revision moves the
+  // entity to a different project, also require update permission on the
+  // destination — publishing a project move must not land where the caller
+  // lacks access.
+  if (!adapter.canUpdate(context, { ...entity, ...desiredState })) {
+    context.permissions.throwPermissionError();
+  }
+
   const updatableFields = adapter.getUpdatableFields();
   const hasChanges = Object.keys(desiredState).some((key) => {
     if (!updatableFields.has(key)) return false;

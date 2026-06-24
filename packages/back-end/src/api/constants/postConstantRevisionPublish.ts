@@ -75,6 +75,18 @@ export const postConstantRevisionPublish = createApiRequestHandler(
     adapter.getUpdatableFields(),
   );
 
+  // The live check above covers the source project. If the revision moves the
+  // constant to a different project, also require update permission on the
+  // destination.
+  if (
+    !adapter.canUpdate(req.context, {
+      ...(constant as unknown as Record<string, unknown>),
+      ...desiredState,
+    })
+  ) {
+    req.context.permissions.throwPermissionError();
+  }
+
   // Pre-merge conflict guard — block landing on top of out-of-band edits to the
   // same field; caller must rebase first.
   const conflictResult = checkMergeConflicts(
