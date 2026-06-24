@@ -215,12 +215,32 @@ function FieldDefForm({
   const duplicate =
     trimmedKey !== initial.key && existingKeys.includes(trimmedKey);
 
+  // Once the user picks a type explicitly, stop auto-detecting from the value.
+  const [typeTouched, setTypeTouched] = useState(false);
+
   const intOr0 = (v: string): number => {
     const n = parseInt(v);
     return Number.isNaN(n) ? 0 : n;
   };
 
+  // Guess a field type from a literal value the user typed.
+  const detectType = (v: string): SchemaField["type"] => {
+    const t = v.trim();
+    if (t === "true" || t === "false") return "boolean";
+    if (/^-?\d+$/.test(t)) return "integer";
+    if (/^-?\d*\.\d+$/.test(t) || /^-?\d+\.\d*$/.test(t)) return "float";
+    return "string";
+  };
+
+  const onValueChange = (v: string) => {
+    setValueText(v);
+    if (!typeTouched && !advanced && v.trim() !== "") {
+      setField((f) => ({ ...f, type: detectType(v) }));
+    }
+  };
+
   const onTypeChange = (v: string) => {
+    setTypeTouched(true);
     if (v === "advanced") {
       // Seed the editor with the JSON Schema equivalent of the current type.
       const base =
@@ -294,9 +314,10 @@ function FieldDefForm({
         borderRadius: "var(--radius-3)",
       }}
     >
-      {/* Line 1: key + type (+ value when inserting) + save/cancel */}
+      {/* Line 1: key + value + type + save/cancel. Fixed-width columns so the
+          row doesn't shift as you type or the type auto-detects. */}
       <Flex gap="2" align="center" wrap="wrap">
-        <Box style={{ flex: "1 1 160px", minWidth: 120 }}>
+        <Box style={{ width: 200, flexShrink: 0 }}>
           <Field
             autoFocus
             placeholder="field key"
@@ -305,7 +326,17 @@ function FieldDefForm({
             containerStyle={{ marginBottom: 0 }}
           />
         </Box>
-        <Box style={{ width: 150 }}>
+        {showValueInput && (
+          <Box style={{ width: 180, flexShrink: 0 }}>
+            <Field
+              placeholder="value"
+              value={valueText}
+              onChange={(e) => onValueChange(e.target.value)}
+              containerStyle={{ marginBottom: 0 }}
+            />
+          </Box>
+        )}
+        <Box style={{ width: 150, flexShrink: 0 }}>
           <SelectField
             value={advanced ? "advanced" : field.type}
             onChange={onTypeChange}
@@ -316,35 +347,6 @@ function FieldDefForm({
             sort={false}
           />
         </Box>
-        {showValueInput &&
-          (field.type === "boolean" ? (
-            <Box style={{ width: 120 }}>
-              <SelectField
-                value={valueText}
-                onChange={setValueText}
-                options={[
-                  { value: "true", label: "true" },
-                  { value: "false", label: "false" },
-                ]}
-                initialOption="value…"
-                sort={false}
-              />
-            </Box>
-          ) : (
-            <Box style={{ flex: "1 1 120px", minWidth: 90 }}>
-              <Field
-                placeholder="value"
-                type={
-                  field.type === "integer" || field.type === "float"
-                    ? "number"
-                    : undefined
-                }
-                value={valueText}
-                onChange={(e) => setValueText(e.target.value)}
-                containerStyle={{ marginBottom: 0 }}
-              />
-            </Box>
-          ))}
         <Flex gap="2" ml="auto">
           <Button size="sm" onClick={save} disabled={saving}>
             Save
