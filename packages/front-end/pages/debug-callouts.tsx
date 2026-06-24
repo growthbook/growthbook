@@ -430,7 +430,7 @@ const sections: Section[] = [
                 <Callout
                   status="error"
                   mb="3"
-                  action={<Button>Check it again.</Button>}
+                  action={<Button color="red">Check it again.</Button>}
                 >
                   This query had an error with it the last time it ran:{" "}
                   <Box className="font-weight-bold" py="2">

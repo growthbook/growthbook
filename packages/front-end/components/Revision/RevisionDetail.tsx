@@ -452,6 +452,7 @@ function RevisionDetail<T>({
             <Button
               onClick={() => setShowFixConflicts(true)}
               variant="outline"
+              color="red"
               size="sm"
             >
               Fix Conflicts

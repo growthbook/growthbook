@@ -1562,6 +1562,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                       <Button
                         size="xs"
                         variant="ghost"
+                        color="red"
                         onClick={() => setRampApproveError("")}
                       >
                         Dismiss
