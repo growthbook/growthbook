@@ -4223,5 +4223,25 @@ describe("sparse JSON rule helpers", () => {
         b: 2,
       });
     });
+
+    it("preserves an inline-object $extends entry through a round-trip", () => {
+      // Inline objects are positional, so the toggle keeps the $extends array
+      // verbatim rather than ref-diffing it.
+      const def2 = JSON.stringify({ $extends: ["@const:foo"], a: 1 });
+      const full = JSON.stringify({
+        $extends: ["@const:foo", { b: 2 }],
+        a: 1,
+        c: 3,
+      });
+      const patch = stripDefaultsForSparse(full, def2);
+      // $extends kept verbatim; own keys still diffed (a stripped, c kept)
+      expect(JSON.parse(patch)).toEqual({
+        $extends: ["@const:foo", { b: 2 }],
+        c: 3,
+      });
+      expect(JSON.parse(expandSparseToFull(patch, def2))).toEqual(
+        JSON.parse(full),
+      );
+    });
   });
 });

@@ -186,6 +186,15 @@ function resolveValue(
     const extendsList = obj[EXTENDS_KEY];
     if (Array.isArray(extendsList)) {
       for (const ref of extendsList) {
+        // Advanced escape hatch: an inline object literal in the `$extends`
+        // list merges as a layer at its array position (so a later reference
+        // can override it — something own keys, which always win, can't do).
+        // Resolved recursively so nested references/`$extends` inside it work.
+        if (isPlainObject(ref)) {
+          const resolvedInline = resolveValue(ref, visited, ctx);
+          if (isPlainObject(resolvedInline)) Object.assign(out, resolvedInline);
+          continue;
+        }
         const key = extendsRefKey(ref);
         if (key === null) continue;
         const resolved = resolveExtendsRef(key);

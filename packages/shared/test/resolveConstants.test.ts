@@ -196,6 +196,61 @@ describe("resolveConstantRefs — $extends merge precedence", () => {
   });
 });
 
+describe("resolveConstantRefs — $extends inline objects (escape hatch)", () => {
+  const map = mapOf({
+    cfg: { type: "json", value: '{"a":1,"b":2}' },
+    name: { type: "string", value: "world" },
+  });
+
+  it("merges an inline object at its array position", () => {
+    expect(resolveConstantRefs({ $extends: [{ a: 9, x: "y" }] }, map)).toEqual({
+      a: 9,
+      x: "y",
+    });
+  });
+
+  it("lets a later reference override an earlier inline object", () => {
+    // inline {a:9} first, then cfg {a:1,b:2} → cfg's a wins
+    expect(
+      resolveConstantRefs({ $extends: [{ a: 9 }, "@const:cfg"] }, map),
+    ).toEqual({ a: 1, b: 2 });
+  });
+
+  it("lets an inline object override an earlier reference", () => {
+    expect(
+      resolveConstantRefs({ $extends: ["@const:cfg", { a: 9 }] }, map),
+    ).toEqual({ a: 9, b: 2 });
+  });
+
+  it("still lets own keys win over an inline object", () => {
+    expect(
+      resolveConstantRefs({ $extends: [{ a: 9 }], a: "own" }, map),
+    ).toEqual({ a: "own" });
+  });
+
+  it("resolves references inside an inline object", () => {
+    expect(
+      resolveConstantRefs(
+        {
+          $extends: [
+            { greeting: "hi {{ @const:name }}", $extends: ["@const:cfg"] },
+          ],
+        },
+        map,
+      ),
+    ).toEqual({ a: 1, b: 2, greeting: "hi world" });
+  });
+
+  it("still ignores non-object, non-reference junk entries", () => {
+    expect(
+      resolveConstantRefs(
+        { $extends: ["@const:cfg", 2, true, "nonsense"], own: 1 },
+        map,
+      ),
+    ).toEqual({ a: 1, b: 2, own: 1 });
+  });
+});
+
 describe("resolveConstantRefs — nested constants and cycles", () => {
   it("resolves a JSON constant that $extends another constant", () => {
     const map = mapOf({

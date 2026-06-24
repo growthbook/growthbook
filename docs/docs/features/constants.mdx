@@ -80,6 +80,18 @@ So the position of `$extends` in the object doesn't matter — own keys always w
 
 A constant's value can itself reference other constants; they're resolved recursively.
 
+:::note Advanced: control merge order with inline objects
+
+An `$extends` entry can also be an **inline object** instead of a `@const:` reference. It merges at that position, so a _later_ reference can override it — something own keys can't do (they always win). Most templates only need references plus own keys; reach for this only when you need a literal layer beneath a referenced one.
+
+```json
+{ "$extends": [{ "timeout": 30 }, "@const:override-pack"] }
+```
+
+Here `@const:override-pack` can override the inline `timeout`. Loose entries that are neither a reference nor an object (numbers, booleans, bare strings) are rejected when you save.
+
+:::
+
 ## How resolution works
 
 References are resolved **when the SDK payload is built**, on the server. SDKs receive the fully-resolved value, so no SDK changes or upgrades are required.
@@ -88,7 +100,7 @@ A few rules:
 
 - **On by default.** Feature values are scanned for references automatically.
 - **Escape literals.** To keep a literal `{{ @const:... }}` or `@const:` key in a value, wrap it in backticks.
-- **Graceful failure.** A reference that can't be resolved — the constant doesn't exist, the type doesn't match the syntax (e.g. `{{ }}` pointing at a JSON constant), or it would form a cycle — is left in place as literal text rather than failing the build.
+- **Graceful failure.** An unresolvable `{{ @const:... }}` interpolation — unknown constant, type mismatch, or a cycle — is left in place as literal text rather than failing the build. An unresolvable `$extends` reference is dropped instead (a leftover directive would be invalid config).
 - **Archived references are stripped.** Archiving a referenced constant is blocked (see [Editing and approvals](#editing-and-approvals)), but any reference that still points at an archived constant is removed from the value (string interpolations dropped, JSON references removed) rather than resolved.
 
 ## Editing and approvals

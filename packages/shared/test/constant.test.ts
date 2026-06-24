@@ -51,6 +51,33 @@ describe("validateConstantValue", () => {
     expect(() => validateConstantValue("json", "{'a':1}")).toThrow();
   });
 
+  it("accepts @const refs and inline objects in $extends", () => {
+    expect(() =>
+      validateConstantValue(
+        "json",
+        '{"$extends":["@const:base",{"a":1}],"b":2}',
+      ),
+    ).not.toThrow();
+  });
+
+  it("rejects malformed $extends entries (junk and bare strings)", () => {
+    expect(() =>
+      validateConstantValue("json", '{"$extends":["@const:ok",2]}'),
+    ).toThrow(/\$extends/);
+    expect(() => validateConstantValue("json", '{"$extends":[true]}')).toThrow(
+      /\$extends/,
+    );
+    expect(() =>
+      validateConstantValue("json", '{"$extends":["nonsense"]}'),
+    ).toThrow(/\$extends/);
+  });
+
+  it("rejects malformed $extends nested inside an inline object", () => {
+    expect(() =>
+      validateConstantValue("json", '{"$extends":[{"$extends":[5]}]}'),
+    ).toThrow(/\$extends/);
+  });
+
   it("prefixes the error with the label when provided", () => {
     expect(() => validateConstantValue("json", "{bad", "dev")).toThrow(/^dev:/);
   });
@@ -253,6 +280,15 @@ describe("getConstantReferenceKeys", () => {
         undefined,
       ),
     ).toEqual(["ok"]);
+  });
+
+  it("collects refs nested inside inline-object $extends entries", () => {
+    expect(
+      getConstantReferenceKeys(
+        '{ "$extends": ["@const:a", { "$extends": ["@const:b"], "x": "{{ @const:c }}" }] }',
+        undefined,
+      ).sort(),
+    ).toEqual(["a", "b", "c"]);
   });
 });
 

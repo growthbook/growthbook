@@ -32,6 +32,9 @@ import {
 } from "shared/types/organization";
 import { ProjectInterface } from "shared/types/project";
 import { GroupMap } from "shared/types/saved-group";
+// Direct file import (not the `shared/validators` barrel) to avoid a runtime
+// import cycle: the barrel pulls safe-rollout-snapshot → enterprise → util.
+import { assertValidExtendsEntries } from "../validators/constant";
 import { RampScheduleInterface } from "../validators/ramp-schedule";
 import { getValidDate } from "../dates";
 import {
@@ -326,6 +329,9 @@ export function validateFeatureValue(
     if (!valid) {
       throw new Error(prefix + errors.join(", "));
     }
+    // Reject malformed `$extends` entries (the resolver silently drops them).
+    // Inline objects are allowed (advanced escape hatch); loose junk isn't.
+    assertValidExtendsEntries(parsedValue, prefix);
     // If the JSON was invalid but could be parsed by 'dirty-json', return the fixed JSON
     if (!validJSON) {
       return stringify(parsedValue);
@@ -394,14 +400,31 @@ function getExtendsRefs(obj: Record<string, unknown>): string[] {
     : [];
 }
 
+// The raw `$extends` array (string references plus any inline-object literals).
+function getExtendsEntries(obj: Record<string, unknown>): unknown[] {
+  const list = obj[EXTENDS_KEY];
+  return Array.isArray(list) ? list : [];
+}
+
+// True when `$extends` carries an inline-object literal (the advanced escape
+// hatch). Those entries are positional, so the string-ref diff/union below
+// can't safely reorder them — we preserve the array verbatim instead.
+function hasInlineExtendsObject(obj: Record<string, unknown>): boolean {
+  return getExtendsEntries(obj).some(
+    (e) => e !== null && typeof e === "object",
+  );
+}
+
 // Rebuilds a JSON object string with `$extends` first (when non-empty) followed
 // by the given own keys, one key per line.
 function serializeExtendsObject(
-  extendsRefs: string[],
+  extendsEntries: unknown[],
   ownKeys: Record<string, unknown>,
 ): string {
   return formatJsonMultilineObjects(
-    extendsRefs.length ? { [EXTENDS_KEY]: extendsRefs, ...ownKeys } : ownKeys,
+    extendsEntries.length
+      ? { [EXTENDS_KEY]: extendsEntries, ...ownKeys }
+      : ownKeys,
   );
 }
 
@@ -423,9 +446,6 @@ export function stripDefaultsForSparse(
   const defaultObj = parsePlainJSONObject(defaultValueStr);
   if (!value || !defaultObj) return valueStr;
 
-  const defaultRefs = new Set(getExtendsRefs(defaultObj));
-  const patchRefs = getExtendsRefs(value).filter((r) => !defaultRefs.has(r));
-
   const patch: Record<string, unknown> = {};
   for (const [key, v] of Object.entries(value)) {
     if (key === EXTENDS_KEY) continue;
@@ -433,6 +453,16 @@ export function stripDefaultsForSparse(
       patch[key] = v;
     }
   }
+
+  // Inline-object `$extends` entries are positional and can't be ref-diffed
+  // safely, so preserve the value's `$extends` array verbatim (lossless, just
+  // not minimal). Only the all-string case gets the minimal set-difference.
+  if (hasInlineExtendsObject(value) || hasInlineExtendsObject(defaultObj)) {
+    return serializeExtendsObject(getExtendsEntries(value), patch);
+  }
+
+  const defaultRefs = new Set(getExtendsRefs(defaultObj));
+  const patchRefs = getExtendsRefs(value).filter((r) => !defaultRefs.has(r));
   return serializeExtendsObject(patchRefs, patch);
 }
 
@@ -455,17 +485,27 @@ export function expandSparseToFull(
   const defaultObj = parsePlainJSONObject(defaultValueStr);
   if (!patch || !defaultObj) return valueStr;
 
-  const mergedRefs = [...getExtendsRefs(defaultObj)];
-  for (const ref of getExtendsRefs(patch)) {
-    if (!mergedRefs.includes(ref)) mergedRefs.push(ref);
-  }
-
   const ownKeys: Record<string, unknown> = {};
   for (const [key, v] of Object.entries(defaultObj)) {
     if (key !== EXTENDS_KEY) ownKeys[key] = v;
   }
   for (const [key, v] of Object.entries(patch)) {
     if (key !== EXTENDS_KEY) ownKeys[key] = v;
+  }
+
+  // With inline-object `$extends` entries the patch already carries the full
+  // intended `$extends` (stripDefaultsForSparse preserved it verbatim), so use
+  // it as-is rather than union-ing string refs.
+  if (hasInlineExtendsObject(patch) || hasInlineExtendsObject(defaultObj)) {
+    const entries = getExtendsEntries(patch).length
+      ? getExtendsEntries(patch)
+      : getExtendsEntries(defaultObj);
+    return serializeExtendsObject(entries, ownKeys);
+  }
+
+  const mergedRefs = [...getExtendsRefs(defaultObj)];
+  for (const ref of getExtendsRefs(patch)) {
+    if (!mergedRefs.includes(ref)) mergedRefs.push(ref);
   }
   return serializeExtendsObject(mergedRefs, ownKeys);
 }

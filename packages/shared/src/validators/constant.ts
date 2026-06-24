@@ -61,9 +61,15 @@ function collectJsonRefs(value: unknown, into: Set<string>): void {
     const extendsList = obj[CONSTANT_EXTENDS_KEY];
     if (Array.isArray(extendsList)) {
       for (const ref of extendsList) {
-        const m =
-          typeof ref === "string" ? ref.match(PLACEHOLDER_KEY_RE) : null;
-        if (m) into.add(m[1]);
+        if (typeof ref === "string") {
+          const m = ref.match(PLACEHOLDER_KEY_RE);
+          if (m) into.add(m[1]);
+        } else if (ref !== null && typeof ref === "object") {
+          // Inline-object `$extends` entry (advanced): scan it for nested
+          // references so cycle detection and the archive reference-block see
+          // them too.
+          collectJsonRefs(ref, into);
+        }
       }
     }
     for (const [k, v] of Object.entries(obj)) {
@@ -168,6 +174,38 @@ export function getCyclicConstantRefs(
   return proposedRefs.filter((r) => r === key || referencing.has(r));
 }
 
+// Validates that every `$extends` array in a JSON value (recursively) holds only
+// `@const:key` references or inline object literals — never numbers, booleans,
+// null, nested arrays, or bare strings. Those are authoring mistakes the
+// resolver silently drops, so we reject them at save time instead. Literal
+// values belong as own keys (or an inline object), not loose `$extends` entries.
+// Exported so feature JSON values can reuse the same gate.
+export function assertValidExtendsEntries(value: unknown, prefix = ""): void {
+  if (Array.isArray(value)) {
+    for (const v of value) assertValidExtendsEntries(v, prefix);
+    return;
+  }
+  if (value === null || typeof value !== "object") return;
+  const obj = value as Record<string, unknown>;
+  const list = obj[CONSTANT_EXTENDS_KEY];
+  if (Array.isArray(list)) {
+    for (const entry of list) {
+      const isRef = typeof entry === "string" && PLACEHOLDER_KEY_RE.test(entry);
+      const isInlineObject =
+        entry !== null && typeof entry === "object" && !Array.isArray(entry);
+      if (!isRef && !isInlineObject) {
+        throw new Error(
+          `${prefix}Invalid "$extends" entry ${JSON.stringify(entry)} — each ` +
+            `entry must be a "@const:key" reference or an inline object. Put ` +
+            `literal values as the object's own keys instead.`,
+        );
+      }
+    }
+  }
+  // Descend into own keys and inline-object `$extends` entries (via the array).
+  for (const v of Object.values(obj)) assertValidExtendsEntries(v, prefix);
+}
+
 // Validates a constant value string before saving. JSON constants must contain
 // parseable JSON; an empty string is always permitted (an intentional "no
 // value"). Throws a friendly error on invalid JSON, otherwise returns nothing.
@@ -194,6 +232,7 @@ export function validateConstantValue(
       `${prefix}JSON constants must be a JSON object (key/value map), not an array or primitive.`,
     );
   }
+  assertValidExtendsEntries(parsed, prefix);
 }
 
 // A reusable named value referenced from feature flag values. `key` is the
