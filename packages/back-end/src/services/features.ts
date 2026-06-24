@@ -55,7 +55,6 @@ import { ProjectInterface } from "shared/types/project";
 import {
   HoldoutInterface,
   SdkConnectionCacheAuditContext,
-  ApiEventUser,
   apiFeatureRevisionValidator,
   ApiFeatureWithRevisions,
   ApiFeatureEnvironment,
@@ -131,6 +130,7 @@ import {
   getContextForAgendaJobByOrgObject,
   getEnvironmentIdsFromOrg,
 } from "./organizations";
+import { eventUserToApiEventUser } from "./event-user";
 
 export function generateFeaturesPayload({
   features,
@@ -1789,36 +1789,7 @@ function eventUserToString(
   return user.name || undefined;
 }
 
-// API-safe projection of the internal EventUser union. Deliberately never
-// exposes the api_key actor's `apiKey` field — only stable identifying fields.
-export function eventUserToApiEventUser(
-  user: FeatureRevisionInterface["createdBy"] | undefined,
-): ApiEventUser | undefined {
-  if (!user) return undefined;
-  switch (user.type) {
-    case "dashboard":
-      return {
-        type: "dashboard",
-        id: user.id,
-        name: user.name,
-        email: user.email,
-      };
-    case "api_key":
-      return {
-        type: "api_key",
-        id: user.id,
-        name: user.name,
-        email: user.email,
-      };
-    case "system":
-      return {
-        type: "system",
-        id: user.id,
-      };
-  }
-  // Fail closed for legacy stored documents with an unrecognized type.
-  return undefined;
-}
+export { eventUserToApiEventUser };
 
 export function normalizeRuleForApi(rule: FeatureRule): ApiFeatureRule {
   const base = {

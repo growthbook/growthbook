@@ -38496,8 +38496,8 @@ components:
             - discarded
         authorId:
           type: string
-        authorEmail:
-          type: string
+        createdBy:
+          $ref: '#/components/schemas/EventUser'
         contributors:
           type: array
           items:
@@ -38522,6 +38522,8 @@ components:
                 - discarded
             userId:
               type: string
+            user:
+              $ref: '#/components/schemas/EventUser'
             dateCreated:
               format: date-time
               type: string

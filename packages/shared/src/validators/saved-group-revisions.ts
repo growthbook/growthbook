@@ -14,6 +14,7 @@ import {
 } from "./revisions";
 import { ownerInputField } from "./owner-field";
 import { namedSchema } from "./openapi-helpers";
+import { apiEventUserValidator } from "./features";
 
 // ---- Shared param schemas ----
 
@@ -108,7 +109,9 @@ export const apiSavedGroupRevisionValidator = namedSchema(
       title: z.string().optional(),
       status: revisionStatusSchema,
       authorId: z.string(),
-      authorEmail: z.string().optional(),
+      createdBy: apiEventUserValidator
+        .optional()
+        .describe("The user (or automated actor) who created this revision"),
       contributors: z.array(z.string()).optional(),
       revertedFrom: z.string().optional(),
       reviews: z.array(apiReviewValidator),
@@ -117,6 +120,11 @@ export const apiSavedGroupRevisionValidator = namedSchema(
         .object({
           action: z.enum(["merged", "discarded"]),
           userId: z.string(),
+          user: apiEventUserValidator
+            .optional()
+            .describe(
+              "The user (or automated actor) who merged or discarded this revision",
+            ),
           dateCreated: z.string().meta({ format: "date-time" }),
         })
         .strict()

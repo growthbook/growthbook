@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { savedGroupValidator } from "./saved-group";
+import { eventUser } from "./event-user";
 
 export const revisionStatus = [
   "draft",
@@ -111,6 +112,12 @@ export type RevisionTarget = z.infer<typeof revisionTargetValidator>;
 export const revisionValidator = z.object({
   id: z.string(),
   authorId: z.string(),
+  // Structured snapshot of the actor who created the revision, taken from
+  // context.auditUser at creation time. Unlike authorId (which is empty for
+  // org-scoped API keys), this captures api_key and system actors too.
+  // Optional for backward compatibility with revisions created before this
+  // field existed.
+  author: eventUser.optional(),
   version: z.number().optional(), // Optional for backward compatibility with existing revisions
   title: z.string().optional(),
   comment: z.string().optional(), // Optional free-form context supplied at draft creation
@@ -133,6 +140,9 @@ export const revisionValidator = z.object({
     .object({
       action: z.enum(["merged", "discarded"]),
       userId: z.string(),
+      // Structured snapshot of the actor who merged/discarded the revision.
+      // Optional for backward compatibility.
+      user: eventUser.optional(),
       dateCreated: z.date(),
     })
     .optional(),
