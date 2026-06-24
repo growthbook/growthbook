@@ -44,6 +44,7 @@ export const getContextualBanditResults = createApiRequestHandler(
           responses: contextualBanditSnapshot.responses,
           leaf_map: contextualBanditSnapshot.leaf_map,
           leaf_stats: contextualBanditSnapshot.leaf_stats,
+          sse_trajectory: contextualBanditSnapshot.sse_trajectory,
         }
       : null,
     overallWeights,

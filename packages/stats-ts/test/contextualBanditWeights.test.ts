@@ -146,6 +146,45 @@ describe("computeContextualBanditWeights", () => {
     expect(caW[0]).toBeGreaterThan(caW[1]);
   });
 
+  it("records the total-SSE trajectory across splits (root then after each split)", () => {
+    const data = rows([
+      countRow("US", "v0", 200, 1),
+      countRow("US", "v1", 200, 2),
+      countRow("CA", "v0", 200, 2),
+      countRow("CA", "v1", 200, 1),
+    ]);
+
+    const result = computeContextualBanditWeights(input(data));
+
+    expect(result.sse_trajectory).toBeDefined();
+    // numSplits is 0 (root) then 1 (after the single US/CA split).
+    expect(result.sse_trajectory!.map((s) => s.numSplits)).toEqual([0, 1]);
+
+    // Root pools US+CA per variation: each variation contributes
+    // sumSquares - sum^2/n = 1398 - 900 = 498, so root total SSE = 996.
+    expect(result.sse_trajectory![0].totalSse).toBeCloseTo(996, 6);
+    // After the split each single-context leaf has SSE 398, total = 796.
+    expect(result.sse_trajectory![1].totalSse).toBeCloseTo(796, 6);
+
+    // The greedy tree only ever reduces total SSE.
+    expect(result.sse_trajectory![1].totalSse).toBeLessThan(
+      result.sse_trajectory![0].totalSse,
+    );
+  });
+
+  it("returns a single root entry in the SSE trajectory when no split helps", () => {
+    const data = rows([
+      countRow("US", "v0", 200, 1),
+      countRow("US", "v1", 200, 2),
+    ]);
+
+    const result = computeContextualBanditWeights(input(data));
+
+    // One context => no split is possible, so only the root entry is recorded.
+    expect(result.sse_trajectory!.map((s) => s.numSplits)).toEqual([0]);
+    expect(result.sse_trajectory![0].totalSse).toBeCloseTo(398, 6);
+  });
+
   it("keeps identical contexts in a single leaf", () => {
     const data = rows([
       countRow("US", "v0", 200, 1),

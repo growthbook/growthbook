@@ -5,6 +5,7 @@ import type {
   ContextualBanditSnapshot,
   ContextualLeafMapEntry,
   ContextualLeafStatsEntry,
+  ContextualSseTrajectoryEntry,
   MetricSettingsForStatsEngine,
 } from "shared/types/stats";
 import {
@@ -339,7 +340,21 @@ function leafSumOfSquaredErrors(
   return sse;
 }
 
-/** Greedy SSE regression tree up to `maxLeaves`; returns leaf id per context. */
+type BuildTreeResult = {
+  /** Leaf id assigned to each context (parallel to `contexts`). */
+  leafByContext: number[];
+  /**
+   * Total within-tree SSE at each stage of greedy growth, in order:
+   * index 0 is the root (before the first split), index 1 is after the first
+   * split, index 2 after the second split, etc. Length = (splits applied) + 1.
+   */
+  sseTrajectory: number[];
+};
+
+/**
+ * Greedy SSE regression tree up to `maxLeaves`. Returns the per-context leaf
+ * assignment plus the total-SSE trajectory captured as the tree grows.
+ */
 function buildTree(
   contexts: ContextEntry[],
   features: Feature[],
@@ -347,17 +362,37 @@ function buildTree(
   numVariations: number,
   maxLeaves: number,
   minUsersPerLeaf: number,
-): number[] {
+): BuildTreeResult {
   const currentLeaf = new Array<number>(contexts.length).fill(0);
-  if (contexts.length === 0) return currentLeaf;
+  if (contexts.length === 0) {
+    return { leafByContext: currentLeaf, sseTrajectory: [] };
+  }
 
-  const leafUnits = (ctxIdxs: number[]): number => {
+  // True only if every variation has at least `minUsersPerLeaf` users across `ctxIdxs`.
+  const sideMeetsMinPerVariation = (ctxIdxs: number[]): boolean => {
+    for (let v = 0; v < numVariations; v++) {
+      let total = 0;
+      for (const idx of ctxIdxs) total += contexts[idx].arms[v].n;
+      if (total < minUsersPerLeaf) return false;
+    }
+    return true;
+  };
+
+  // Total SSE summed across all current leaves of the tree.
+  const totalSse = (): number => {
     let total = 0;
-    for (const idx of ctxIdxs) {
-      for (const arm of contexts[idx].arms) total += arm.n;
+    for (const leafId of new Set(currentLeaf)) {
+      const inLeaf: ContextEntry[] = [];
+      for (let c = 0; c < contexts.length; c++) {
+        if (currentLeaf[c] === leafId) inLeaf.push(contexts[c]);
+      }
+      total += leafSumOfSquaredErrors(inLeaf, metric, numVariations);
     }
     return total;
   };
+
+  // Root SSE (single leaf containing every context), before the first split.
+  const sseTrajectory: number[] = [totalSse()];
 
   for (let iteration = 0; iteration < maxLeaves - 1; iteration++) {
     const leafIds = [...new Set(currentLeaf)];
@@ -386,9 +421,10 @@ function buildTree(
           else side0.push(c);
         }
         if (side0.length === 0 || side1.length === 0) continue;
+        // Require at least `minUsersPerLeaf` users in every variation on both sides.
         if (
-          leafUnits(side1) < minUsersPerLeaf ||
-          leafUnits(side0) < minUsersPerLeaf
+          !sideMeetsMinPerVariation(side0) ||
+          !sideMeetsMinPerVariation(side1)
         ) {
           continue;
         }
@@ -424,9 +460,12 @@ function buildTree(
         currentLeaf[c] = newLeaf;
       }
     }
+
+    // Record the new total SSE now that this split has been applied.
+    sseTrajectory.push(totalSse());
   }
 
-  return currentLeaf;
+  return { leafByContext: currentLeaf, sseTrajectory };
 }
 
 /** Compute updated contextual-bandit weights, returning the Python-shape snapshot. */
@@ -464,7 +503,7 @@ export function computeContextualBanditWeights(
   }
 
   const features = buildFeatures(contexts, attrColumns);
-  const leafByContext = buildTree(
+  const { leafByContext, sseTrajectory } = buildTree(
     contexts,
     features,
     metricSettings,
@@ -495,9 +534,10 @@ export function computeContextualBanditWeights(
   }
 
   // Per-leaf pooled sample stats (data-only), parallel to the per-context ones.
-  const leaf_stats: ContextualLeafStatsEntry[] = [...leafArms.entries()]
-    .sort((a, b) => a[0] - b[0])
-    .map(([leafId, arms]) => {
+  const sortedLeafArms = [...leafArms.entries()].sort((a, b) => a[0] - b[0]);
+
+  const leaf_stats: ContextualLeafStatsEntry[] = sortedLeafArms.map(
+    ([leafId, arms]) => {
       const stats = arms.map((arm) =>
         armMomentStat(arm, metricSettings, false),
       );
@@ -507,7 +547,15 @@ export function computeContextualBanditWeights(
         sampleMeans: stats.map((s) => s.unadjustedMean),
         sampleVariances: stats.map((s) => s.unadjustedVariance),
       };
-    });
+    },
+  );
+
+  // Total within-tree SSE captured at each stage of greedy growth: the SSE
+  // before the first split (root), after the first split, after the second,
+  // etc. `numSplits` is the count of splits applied so far (0 = root).
+  const sse_trajectory: ContextualSseTrajectoryEntry[] = sseTrajectory.map(
+    (totalSse, numSplits) => ({ numSplits, totalSse }),
+  );
 
   const responses: ContextualBanditResponseSnapshot[] = [];
   const leaf_map: ContextualLeafMapEntry[] = [];
@@ -544,5 +592,6 @@ export function computeContextualBanditWeights(
     responses,
     leaf_map,
     leaf_stats,
+    sse_trajectory,
   };
 }

@@ -3,6 +3,7 @@ import type {
   ContextualBanditResponseSnapshot,
   ContextualLeafMapEntry,
   ContextualLeafStatsEntry,
+  ContextualSseTrajectoryEntry,
 } from "../../types/stats";
 import { computeOverallVariationWeights } from "./contextual-bandit-weights";
 
@@ -57,6 +58,14 @@ export type ContextualBanditResultsLeaf = {
   contexts: ContextualBanditResultsContext[];
 };
 
+/** Total within-tree SSE at one stage of greedy tree growth. */
+export type ContextualBanditSseStep = {
+  /** Number of splits applied so far. 0 = root, before the first split. */
+  numSplits: number;
+  /** Total SSE summed across every leaf of the tree at this stage. */
+  totalSse: number;
+};
+
 /**
  * Leaf-first view of a contextual-bandit snapshot: one entry per tree leaf
  * (the decision unit), each carrying its weights + pooled stats and the list of
@@ -64,6 +73,11 @@ export type ContextualBanditResultsLeaf = {
  */
 export type ContextualBanditResultsView = {
   attributes: string[];
+  /**
+   * Total within-tree SSE at each stage of greedy growth, ordered root-first
+   * (numSplits 0 = before the first split). Empty when no tree was built.
+   */
+  sseTrajectory: ContextualBanditSseStep[];
   overall: { variations: ContextualBanditOverallVariation[] };
   leaves: ContextualBanditResultsLeaf[];
 };
@@ -81,6 +95,8 @@ export function buildContextualBanditResultsView(
     snapshot.responses ?? [];
   const leafMap: ContextualLeafMapEntry[] = snapshot.leaf_map ?? [];
   const leafStats: ContextualLeafStatsEntry[] = snapshot.leaf_stats ?? [];
+  const sseTrajectorySnapshot: ContextualSseTrajectoryEntry[] =
+    snapshot.sse_trajectory ?? [];
   const numVariations = variations.length;
 
   const meta = (i: number) => ({
@@ -171,8 +187,13 @@ export function buildContextualBanditResultsView(
     }),
   );
 
+  const sseTrajectory: ContextualBanditSseStep[] = sseTrajectorySnapshot.map(
+    (step) => ({ numSplits: step.numSplits, totalSse: step.totalSse }),
+  );
+
   return {
     attributes: snapshot.attributes ?? [],
+    sseTrajectory,
     overall: { variations: overallVariations },
     leaves,
   };
