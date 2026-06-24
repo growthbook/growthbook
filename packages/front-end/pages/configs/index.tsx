@@ -13,7 +13,6 @@ import LinkButton from "@/ui/LinkButton";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
-import Callout from "@/ui/Callout";
 import EmptyState from "@/components/EmptyState";
 import ProjectBadges from "@/components/ProjectBadges";
 import ConfigModal from "@/components/Constants/ConfigModal";
@@ -86,11 +85,6 @@ export default function ConfigsPage(): React.ReactElement {
         Strongly-typed configuration objects with a base config and field-level
         overrides, composed and delivered through your feature flags.
       </Text>
-      <Callout status="info" mb="3">
-        A config isn&apos;t a standalone object in your SDK payload — it&apos;s
-        instantiated by a feature flag. Build the config here, then reference it
-        from a flag value to deliver it.
-      </Callout>
 
       {!hasConfigs ? (
         <EmptyState
