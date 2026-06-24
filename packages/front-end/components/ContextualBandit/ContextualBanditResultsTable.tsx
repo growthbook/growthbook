@@ -3,12 +3,11 @@ import { ReactNode, useMemo, useState } from "react";
 import { Box, Flex, SegmentedControl } from "@radix-ui/themes";
 import { startCase } from "lodash";
 import { ApiContextualBanditInterface } from "shared/validators";
-import type { ContextualBanditResponseSnapshot } from "shared/types/stats";
 import { ATTR_CB_PREFIX } from "shared/constants";
-import {
-  computeOverallVariationWeights,
-  contextTotalSampleSize,
-  expandMetricGroups,
+import { expandMetricGroups } from "shared/experiments";
+import type {
+  ContextualBanditResultsLeaf,
+  ContextualBanditResultsContext,
 } from "shared/experiments";
 import Text from "@/ui/Text";
 import Badge from "@/ui/Badge";
@@ -43,53 +42,121 @@ function shouldShowUpdateMessage(message: string | null | undefined): boolean {
   return message.trim().toLowerCase() !== "successfully updated";
 }
 
-/** Stable string key for a context row. */
-function contextRowKey(
-  row: ContextualBanditResponseSnapshot,
-  attributeOrder: string[],
-): string {
-  const { context } = row;
-  const parts: string[] = [];
-  for (const attr of attributeOrder) {
-    const spec = context[attr];
-    if (spec && typeof spec === "object" && "$in" in spec) {
-      const allowed = (spec as { $in: unknown }).$in;
-      const label = Array.isArray(allowed)
-        ? allowed.map((v) => String(v)).join(",")
-        : String(allowed);
-      parts.push(`${attr}:[${label}]`);
-    } else if (spec !== undefined && spec !== null) {
-      parts.push(`${attr}:${String(spec)}`);
-    }
-  }
-  return parts.length ? parts.join("|") : JSON.stringify(context);
+/** A factored targeting clause: one attribute matched against one or more values. */
+type LeafClause = { attr: string; values: string[] };
+
+/** Order attribute keys by the snapshot's attribute order, extras last. */
+function orderAttributes(keys: string[], attributeOrder: string[]): string[] {
+  return [
+    ...attributeOrder.filter((attr) => keys.includes(attr)),
+    ...keys.filter((attr) => !attributeOrder.includes(attr)),
+  ];
 }
 
-/** Renders a context object as a human-readable rule, mirroring feature targeting. */
-function ContextRuleLabel({
-  row,
+/** Sort values numerically when they're all numeric, else lexicographically. */
+function sortClauseValues(values: string[]): string[] {
+  const allNumeric = values.every((v) => v !== "" && !Number.isNaN(Number(v)));
+  return [...values].sort((a, b) =>
+    allNumeric ? Number(a) - Number(b) : a.localeCompare(b),
+  );
+}
+
+/**
+ * Try to factor a leaf's member contexts into a compact AND-of-clauses, e.g.
+ * `{browser:1}` + `{browser:2}` → `browser is [1, 2]`. Only the simple case is
+ * handled: every context must share the same attribute keys and differ in at
+ * most one of them. Returns null when the contexts can't be losslessly
+ * factored this way (e.g. a cartesian product across 2+ attributes) so the
+ * caller can fall back to listing each context.
+ *
+ * TODO(cb): factor multi-attribute cartesian leaves
+ * (`country is [US, CA] and browser is [1, 2, 3]`).
+ */
+function factorLeafContexts(
+  contexts: ContextualBanditResultsContext[],
+): LeafClause[] | null {
+  if (!contexts.length) return [];
+
+  const keysOf = (ctx: ContextualBanditResultsContext) =>
+    Object.keys(ctx.attributes)
+      .filter((k) => ctx.attributes[k] != null)
+      .sort();
+
+  const firstKeys = keysOf(contexts[0]);
+  const sameKeys = contexts.every((ctx) => {
+    const ks = keysOf(ctx);
+    return (
+      ks.length === firstKeys.length && ks.every((k, i) => k === firstKeys[i])
+    );
+  });
+  if (!sameKeys) return null;
+
+  const valuesByKey = new Map<string, Set<string>>(
+    firstKeys.map((k) => [k, new Set<string>()]),
+  );
+  contexts.forEach((ctx) =>
+    firstKeys.forEach((k) =>
+      valuesByKey.get(k)?.add(String(ctx.attributes[k])),
+    ),
+  );
+
+  // More than one attribute varying means the contexts are a cartesian product
+  // (or scattered points); listing `attr is [...]` per key would over-claim the
+  // covered combinations, so bail out to the per-context fallback.
+  const varyingKeys = firstKeys.filter(
+    (k) => (valuesByKey.get(k)?.size ?? 0) > 1,
+  );
+  if (varyingKeys.length > 1) return null;
+
+  return firstKeys.map((k) => ({
+    attr: k,
+    values: sortClauseValues(Array.from(valuesByKey.get(k) ?? [])),
+  }));
+}
+
+/** One `attribute is value(s)` clause line. */
+function ClauseRow({ clause }: { clause: LeafClause }) {
+  return (
+    <Flex wrap="wrap" gap="2" align="center">
+      <Badge
+        color="gray"
+        label={
+          <Text size="inherit" whiteSpace="pre" color="text-high">
+            {displayAttributeName(clause.attr)}
+          </Text>
+        }
+      />
+      <Text size="medium">is</Text>
+      {clause.values.length === 1 ? (
+        <Badge
+          color="gray"
+          label={
+            <Text size="inherit" whiteSpace="pre" color="text-high">
+              {clause.values[0]}
+            </Text>
+          }
+        />
+      ) : (
+        <MultiValuesDisplay values={clause.values} />
+      )}
+    </Flex>
+  );
+}
+
+/** Renders one context's attributes as stacked `attr is value` clauses. */
+function ContextClause({
+  attributes,
   attributeOrder,
 }: {
-  row: ContextualBanditResponseSnapshot;
+  attributes: Record<string, string>;
   attributeOrder: string[];
 }) {
-  const { context } = row;
-  const clauses: { attr: string; isList: boolean; values: string[] }[] = [];
-  for (const attr of attributeOrder) {
-    const spec = context[attr];
-    if (spec === undefined || spec === null) continue;
-    if (typeof spec === "object" && "$in" in spec) {
-      const allowed = (spec as { $in: unknown }).$in;
-      const values = Array.isArray(allowed)
-        ? allowed.map((v) => String(v))
-        : [String(allowed)];
-      clauses.push({ attr, isList: true, values });
-    } else {
-      clauses.push({ attr, isList: false, values: [String(spec)] });
-    }
-  }
+  const ordered = orderAttributes(
+    Object.keys(attributes).filter((attr) => attributes[attr] != null),
+    attributeOrder,
+  );
 
-  if (!clauses.length) {
+  if (!ordered.length) {
     return (
       <Text size="medium" color="text-low">
         All contexts
@@ -100,30 +167,69 @@ function ContextRuleLabel({
   // One clause per line, no IF/AND connectors (matches the design).
   return (
     <Flex direction="column" gap="1">
-      {clauses.map((clause) => (
-        <Flex key={clause.attr} wrap="wrap" gap="2" align="center">
-          <Badge
-            color="gray"
-            label={
-              <Text size="inherit" whiteSpace="pre" color="text-high">
-                {displayAttributeName(clause.attr)}
-              </Text>
-            }
+      {ordered.map((attr) => (
+        <ClauseRow
+          key={attr}
+          clause={{ attr, values: [String(attributes[attr])] }}
+        />
+      ))}
+    </Flex>
+  );
+}
+
+/**
+ * Label for a leaf row. A leaf pools every context routed to it; when those
+ * contexts factor cleanly (share keys, differ in ≤1 attribute) we render a
+ * single compact AND-of-clauses. Otherwise we fall back to listing each
+ * context separated by "or".
+ */
+function LeafContextsLabel({
+  contexts,
+  attributeOrder,
+}: {
+  contexts: ContextualBanditResultsContext[];
+  attributeOrder: string[];
+}) {
+  const clauses = useMemo(() => factorLeafContexts(contexts), [contexts]);
+
+  if (clauses) {
+    if (!clauses.length) {
+      return (
+        <Text size="medium" color="text-low">
+          All contexts
+        </Text>
+      );
+    }
+    const byAttr = new Map(clauses.map((clause) => [clause.attr, clause]));
+    const ordered = orderAttributes(
+      clauses.map((clause) => clause.attr),
+      attributeOrder,
+    );
+    return (
+      <Flex direction="column" gap="1">
+        {ordered.map((attr) => {
+          const clause = byAttr.get(attr);
+          return clause ? <ClauseRow key={attr} clause={clause} /> : null;
+        })}
+      </Flex>
+    );
+  }
+
+  // Complex leaf (cartesian across multiple attributes): list each context.
+  return (
+    <Flex direction="column" gap="2">
+      {contexts.map((ctx, i) => (
+        <Box key={i}>
+          {i > 0 ? (
+            <Text size="small" color="text-low" as="div" mb="1">
+              or
+            </Text>
+          ) : null}
+          <ContextClause
+            attributes={ctx.attributes}
+            attributeOrder={attributeOrder}
           />
-          <Text size="medium">is</Text>
-          {clause.isList ? (
-            <MultiValuesDisplay values={clause.values} />
-          ) : (
-            <Badge
-              color="gray"
-              label={
-                <Text size="inherit" whiteSpace="pre" color="text-high">
-                  {clause.values[0]}
-                </Text>
-              }
-            />
-          )}
-        </Flex>
+        </Box>
       ))}
     </Flex>
   );
@@ -190,39 +296,32 @@ function readableTextColor(hex: string): string {
   return luminance > 0.6 ? "var(--gray-12)" : "#fff";
 }
 
-function cellValues(
-  row: ContextualBanditResponseSnapshot,
+/**
+ * Per-variation heatmap values for a leaf. Weights are the leaf decision
+ * weights (shared by every context in the leaf); means and units are the
+ * leaf-pooled aggregates from `leaf_stats`.
+ */
+function leafCellValues(
+  leaf: ContextualBanditResultsLeaf,
   mode: ComparisonMode,
   numVariations: number,
 ): (number | null)[] {
-  const source =
-    mode === "means"
-      ? row.sampleMeans
-      : mode === "units"
-        ? row.sampleSizePerVariation
-        : (row.updatedWeights ?? row.bestArmProbabilities);
-  if (!source || source.length === 0) {
-    return Array(numVariations).fill(null);
-  }
-  return Array.from({ length: numVariations }, (_, i) =>
-    source[i] !== undefined && source[i] !== null ? Number(source[i]) : null,
-  );
+  return Array.from({ length: numVariations }, (_, i) => {
+    const v = leaf.variations[i];
+    if (!v) return null;
+    const value =
+      mode === "means"
+        ? v.mean
+        : mode === "units"
+          ? v.users
+          : (v.weight ?? v.bestArmProbability);
+    return value !== undefined && value !== null ? Number(value) : null;
+  });
 }
 
-/** Total units assigned to each variation across all contexts. */
-function computeOverallVariationUnits(
-  responses: ContextualBanditResponseSnapshot[],
-  numVariations: number,
-): number[] {
-  const totals = Array(numVariations).fill(0);
-  responses.forEach((row) => {
-    const sizes = row.sampleSizePerVariation;
-    if (!sizes?.length) return;
-    for (let i = 0; i < numVariations; i++) {
-      totals[i] += sizes[i] ?? 0;
-    }
-  });
-  return totals;
+/** Total pooled units across all variations for a leaf. */
+function leafTotalSampleSize(leaf: ContextualBanditResultsLeaf): number {
+  return leaf.variations.reduce((sum, v) => sum + (v.users ?? 0), 0);
 }
 
 function formatWeight(value: number): string {
@@ -319,6 +418,7 @@ export default function ContextualBanditResultsTable({
 
   const {
     contextualBanditSnapshot,
+    results,
     latest,
     refresh,
     refreshing,
@@ -356,37 +456,50 @@ export default function ContextualBanditResultsTable({
   const variations = cb.variations;
   const numVariations = variations.length;
 
-  const hasTableData = Boolean(contextualBanditSnapshot?.responses?.length);
   const attributes = useMemo(
-    () => contextualBanditSnapshot?.attributes ?? [],
-    [contextualBanditSnapshot?.attributes],
-  );
-  const responses = useMemo(
-    () => contextualBanditSnapshot?.responses ?? [],
-    [contextualBanditSnapshot?.responses],
+    () => results?.attributes ?? [],
+    [results?.attributes],
   );
 
-  const responsesBySampleSize = useMemo(
+  // Leaves are the decision unit: each pools the contexts routed to it. We
+  // display these aggregates rather than the raw per-context `responses`.
+  const leaves = useMemo(() => results?.leaves ?? [], [results?.leaves]);
+  const hasTableData = leaves.length > 0;
+
+  const leavesBySampleSize = useMemo(
     () =>
-      [...responses].sort(
-        (a, b) => contextTotalSampleSize(b) - contextTotalSampleSize(a),
+      [...leaves].sort(
+        (a, b) => leafTotalSampleSize(b) - leafTotalSampleSize(a),
       ),
-    [responses],
+    [leaves],
   );
 
+  // Overall (marginal) weights/units across all contexts, aligned positionally
+  // to the bandit's variation order.
+  const overallVariations = useMemo(
+    () => results?.overall.variations ?? [],
+    [results?.overall.variations],
+  );
   const overallVariationWeights = useMemo(
-    () => computeOverallVariationWeights(responses, numVariations),
-    [responses, numVariations],
+    () =>
+      Array.from(
+        { length: numVariations },
+        (_, i) => overallVariations[i]?.weight ?? null,
+      ),
+    [numVariations, overallVariations],
   );
-
   const overallVariationUnits = useMemo(
-    () => computeOverallVariationUnits(responses, numVariations),
-    [responses, numVariations],
+    () =>
+      Array.from(
+        { length: numVariations },
+        (_, i) => overallVariations[i]?.users ?? 0,
+      ),
+    [numVariations, overallVariations],
   );
 
   const totalUnits = useMemo(
-    () => responses.reduce((sum, row) => sum + contextTotalSampleSize(row), 0),
-    [responses],
+    () => leaves.reduce((sum, leaf) => sum + leafTotalSampleSize(leaf), 0),
+    [leaves],
   );
 
   const showQueries =
@@ -405,19 +518,19 @@ export default function ContextualBanditResultsTable({
 
   const comparisonRows: HeatmapRow[] = useMemo(
     () =>
-      responsesBySampleSize.map((row) => {
+      leavesBySampleSize.map((leaf) => {
         const messageNode: ReactNode =
-          shouldShowUpdateMessage(row.updateMessage) || row.error ? (
+          shouldShowUpdateMessage(leaf.updateMessage) || leaf.error ? (
             <>
-              {shouldShowUpdateMessage(row.updateMessage) ? (
+              {shouldShowUpdateMessage(leaf.updateMessage) ? (
                 <Text size="small" color="text-low" as="div" mt="1">
-                  {row.updateMessage}
+                  {leaf.updateMessage}
                 </Text>
               ) : null}
-              {row.error ? (
+              {leaf.error ? (
                 <Box mt="1" style={{ color: "var(--red-11)" }}>
                   <Text size="small" as="div">
-                    {row.error}
+                    {leaf.error}
                   </Text>
                 </Box>
               ) : null}
@@ -425,24 +538,27 @@ export default function ContextualBanditResultsTable({
           ) : null;
 
         return {
-          key: contextRowKey(row, attributes),
+          key: `leaf-${leaf.leafId}`,
           label: (
             <Box>
-              <ContextRuleLabel row={row} attributeOrder={attributes} />
+              <LeafContextsLabel
+                contexts={leaf.contexts}
+                attributeOrder={attributes}
+              />
               {messageNode}
             </Box>
           ),
           leading: [
             <Text key="units" size="medium" color="text-mid">
-              {numberFormatter.format(contextTotalSampleSize(row))}
+              {numberFormatter.format(leafTotalSampleSize(leaf))}
             </Text>,
           ],
-          cells: cellValues(row, mode, numVariations).map((value) => ({
+          cells: leafCellValues(leaf, mode, numVariations).map((value) => ({
             value,
           })),
         };
       }),
-    [responsesBySampleSize, attributes, mode, numVariations],
+    [leavesBySampleSize, attributes, mode, numVariations],
   );
 
   const headerActions = (

@@ -125,6 +125,10 @@ export function useContextualBanditResults(cbId: string | undefined) {
   return {
     loading: !!cbId && !error && !data,
     contextualBanditSnapshot: data?.contextualBanditSnapshot ?? null,
+    // Normalized leaf-first view: one entry per tree leaf (the decision unit),
+    // each pooling the contexts that route to it. Preferred over the raw
+    // per-context `responses` for display.
+    results: data?.results ?? null,
     latest,
     error,
     mutate,
