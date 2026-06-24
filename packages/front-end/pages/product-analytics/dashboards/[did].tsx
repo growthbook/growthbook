@@ -74,6 +74,7 @@ function SingleDashboardPage() {
         enableAutoUpdates?: DashboardInterface["enableAutoUpdates"];
         blocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
         userId?: string;
+        filters?: DashboardInterface["filters"];
       };
     }) => {
       const res = (await apiCall(
@@ -88,6 +89,7 @@ function SingleDashboardPage() {
                   editLevel: data.editLevel,
                   enableAutoUpdates: data.enableAutoUpdates,
                   userId: data.userId,
+                  filters: data.filters,
                 }
               : data,
           ),
@@ -200,8 +202,16 @@ function SingleDashboardPage() {
             isEditing={false}
             title={dashboard.title}
             blocks={dashboard.blocks}
+            filters={dashboard.filters}
             enableAutoUpdates={dashboard.enableAutoUpdates}
             setBlock={canEdit ? memoizedSetBlock : undefined}
+            onFiltersChange={async (filters) => {
+              await submitDashboard({
+                method: "PUT",
+                dashboardId: dashboard.id,
+                data: { filters },
+              });
+            }}
             projects={dashboard.projects ? dashboard.projects : []}
             mutate={mutate}
             updateSchedule={dashboard.updateSchedule || undefined}

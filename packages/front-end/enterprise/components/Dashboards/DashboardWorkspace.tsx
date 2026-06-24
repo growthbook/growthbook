@@ -442,6 +442,7 @@ export default function DashboardWorkspace({
               }
               title={dashboard.title}
               blocks={effectiveBlocks}
+              filters={dashboard.filters}
               isEditing={true}
               isGeneralDashboard={isGeneralDashboard}
               enableAutoUpdates={dashboard.enableAutoUpdates}
@@ -451,6 +452,22 @@ export default function DashboardWorkspace({
                   : dashboard.nextUpdate
               }
               dashboardLastUpdated={dashboard.lastUpdated}
+              onFiltersChange={async (filters) => {
+                setSaving(true);
+                setSaveError(undefined);
+                try {
+                  await submitDashboard({
+                    method: "PUT",
+                    dashboardId: dashboard.id,
+                    data: { filters },
+                  });
+                } catch (e) {
+                  setSaveError(e.message);
+                  throw e;
+                } finally {
+                  setSaving(false);
+                }
+              }}
               setBlock={(i, block) => {
                 if (i === editingBlockIndex) {
                   setStagedEditBlock(block);

@@ -120,9 +120,9 @@ export function getEffectiveComparison(
   return comparison?.enabled === true ? comparison : undefined;
 }
 
-export function getDashboardFilterApplicability(
-  dashboard: Pick<DashboardInterface, "blocks">,
-): {
+export function getDashboardFilterApplicability(dashboard: {
+  blocks: readonly DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
+}): {
   supportedBlocks: DashboardFilterSupportedBlock[];
   optedInBlocks: (DashboardFilterSupportedBlock & {
     useDashboardFilters: true;
@@ -187,7 +187,9 @@ function getDatasourceFromLookup(
 }
 
 export function canAutoRefreshDashboard(
-  dashboard: Pick<DashboardInterface, "blocks">,
+  dashboard: {
+    blocks: readonly DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
+  },
   datasourcesById: DatasourceLookup,
 ): boolean {
   const { optedInBlocks } = getDashboardFilterApplicability(dashboard);

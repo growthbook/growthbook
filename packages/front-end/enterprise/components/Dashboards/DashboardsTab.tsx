@@ -41,6 +41,7 @@ export type CreateDashboardArgs = {
     updateSchedule?: DashboardUpdateSchedule;
     blocks?: DashboardBlockData<DashboardBlockInterface>[];
     projects?: string[];
+    filters?: DashboardInterface["filters"];
   };
 };
 export type UpdateDashboardArgs = {
@@ -55,6 +56,7 @@ export type UpdateDashboardArgs = {
     enableAutoUpdates: boolean;
     updateSchedule?: DashboardUpdateSchedule;
     projects?: string[];
+    filters?: DashboardInterface["filters"];
   }>;
 };
 export type SubmitDashboard<
@@ -208,6 +210,7 @@ function DashboardsTab({
                 enableAutoUpdates: data.enableAutoUpdates,
                 shareLevel: data.shareLevel,
                 userId: data.userId,
+                filters: data.filters,
               }
             : {
                 blocks: data.blocks ?? [],
@@ -216,6 +219,7 @@ function DashboardsTab({
                 enableAutoUpdates: data.enableAutoUpdates,
                 shareLevel: data.shareLevel,
                 experimentId: experiment.id,
+                filters: data.filters,
               },
         ),
       });

@@ -26,12 +26,14 @@ interface DateRangePickerProps {
   value: ExplorationConfig["dateRange"];
   onChange: (dateRange: ExplorationConfig["dateRange"]) => void;
   shouldWrap?: boolean;
+  disabled?: boolean;
 }
 
 export function DateRangePicker({
   value: dateRange,
   onChange,
   shouldWrap = false,
+  disabled = false,
 }: DateRangePickerProps) {
   const [localLookbackValue, setLocalLookbackValue] = useState<string | null>(
     null,
@@ -74,6 +76,7 @@ export function DateRangePicker({
         size="2"
         value={dateRange.predefined}
         placeholder="Select range"
+        disabled={disabled}
         setValue={(v) => {
           onChange({
             ...dateRange,
@@ -99,6 +102,7 @@ export function DateRangePicker({
             }}
             placeholder="#"
             min="1"
+            disabled={disabled}
             value={
               localLookbackValue !== null
                 ? localLookbackValue
@@ -137,6 +141,7 @@ export function DateRangePicker({
           <Select
             size="2"
             value={dateRange.lookbackUnit || "day"}
+            disabled={disabled}
             setValue={(v) => {
               onChange({
                 ...dateRange,
@@ -181,6 +186,7 @@ export function DateRangePicker({
             });
           }}
           precision="date"
+          disabled={disabled}
         />
       )}
     </Flex>

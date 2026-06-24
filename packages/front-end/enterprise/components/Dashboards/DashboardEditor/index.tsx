@@ -70,6 +70,7 @@ import AsyncQueriesModal from "@/components/Queries/AsyncQueriesModal";
 import { DashboardSnapshotContext } from "@/enterprise/components/Dashboards/DashboardSnapshotProvider";
 import DashboardUpdateDisplay from "./DashboardUpdateDisplay";
 import DashboardBlock from "./DashboardBlock";
+import DashboardFilterBar from "./DashboardFilterBar";
 
 export const DASHBOARD_TOPBAR_HEIGHT = "40px";
 export const BLOCK_TYPE_INFO: Record<
@@ -329,6 +330,7 @@ interface Props {
   projects: string[];
   enableAutoUpdates: boolean;
   updateSchedule: DashboardUpdateSchedule | undefined;
+  filters?: DashboardInterface["filters"];
   ownerId: string;
   initialEditLevel: DashboardEditLevel;
   initialShareLevel: DashboardShareLevel;
@@ -341,6 +343,7 @@ interface Props {
         index: number,
         block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
       ) => void);
+  onFiltersChange?: (filters: DashboardInterface["filters"]) => Promise<void>;
   mutate: () => void;
   switchToExperimentView?: () => void;
   isGeneralDashboard: boolean;
@@ -356,6 +359,7 @@ function DashboardEditor({
   isEditing,
   enableAutoUpdates,
   updateSchedule,
+  filters,
   ownerId,
   initialEditLevel,
   initialShareLevel,
@@ -365,6 +369,7 @@ function DashboardEditor({
   dashboardLastUpdated,
   projects,
   setBlock,
+  onFiltersChange,
   mutate,
   switchToExperimentView,
   isGeneralDashboard = false,
@@ -389,6 +394,7 @@ function DashboardEditor({
   const [duplicateDashboard, setDuplicateDashboard] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [queriesModalOpen, setQueriesModalOpen] = useState(false);
+  const [needsUpdate, setNeedsUpdate] = useState(false);
   const { apiCall } = useAuth();
   const { userId } = useUser();
   const permissionsUtil = usePermissionsUtil();
@@ -421,6 +427,7 @@ function DashboardEditor({
 
   const error = snapshotError;
   const count = queryStrings.length + savedQueryIds.length;
+  const hasDashboardDateFilter = Boolean(filters?.dateRange);
 
   const handleViewQueries = () => {
     setQueriesModalOpen(true);
@@ -524,6 +531,7 @@ function DashboardEditor({
                 experimentId: "",
                 updateSchedule: data.updateSchedule,
                 projects: data.projects,
+                filters,
                 blocks: (data.blocks ?? []).map(getBlockData),
               }),
             });
@@ -586,6 +594,8 @@ function DashboardEditor({
             dashboardLastUpdated={dashboardLastUpdated}
             disabled={!!editSidebarDirty}
             isEditing={isEditing}
+            needsUpdate={needsUpdate}
+            onUpdated={() => setNeedsUpdate(false)}
           />
           {isGeneralDashboard && setIsEditing && !isEditing ? (
             <Flex align="center" gap="4" ml="4" flexShrink="0">
@@ -703,6 +713,18 @@ function DashboardEditor({
             </Flex>
           ) : null}
         </Flex>
+        {isGeneralDashboard &&
+        onFiltersChange &&
+        (isEditing || hasDashboardDateFilter) ? (
+          <DashboardFilterBar
+            blocks={blocks}
+            filters={filters}
+            canEdit={canEdit}
+            isEditing={isEditing}
+            onFiltersChange={onFiltersChange}
+            setNeedsUpdate={setNeedsUpdate}
+          />
+        ) : null}
         {!isEditing && (
           <Flex align="center" gap="3">
             <Flex align="center" gap="1">

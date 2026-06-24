@@ -76,6 +76,7 @@ export default function NewDashboardPage() {
                   experimentId: "",
                   projects: dashboard.projects || [],
                   blocks: args.data.blocks || dashboard.blocks,
+                  filters: args.data.filters ?? dashboard.filters,
                   updateSchedule:
                     args.data.updateSchedule || dashboard.updateSchedule,
                   userId: args.data.userId || dashboard.userId,
@@ -90,6 +91,7 @@ export default function NewDashboardPage() {
                   updateSchedule:
                     args.data.updateSchedule ?? dashboard.updateSchedule,
                   userId: args.data.userId,
+                  filters: args.data.filters,
                 },
           ),
         });
