@@ -117,7 +117,6 @@ export class ContextualBanditQueryModel extends BaseClass {
       userIdType: doc.userIdType,
       query: doc.query,
       targetingAttributeColumns: doc.targetingAttributeColumns,
-      hasNameCol: doc.hasNameCol,
     };
   }
 

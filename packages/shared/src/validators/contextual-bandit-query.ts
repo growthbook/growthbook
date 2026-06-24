@@ -24,8 +24,6 @@ export const contextualBanditQueryValidator = baseSchema
     query: z.string(),
     /** Assignment-query columns mapping to org targeting attributes (must appear in SELECT). */
     targetingAttributeColumns: z.array(z.string()),
-    // @teresayung remove hasNameCol
-    hasNameCol: z.boolean().optional(),
   })
   .strict();
 
@@ -44,7 +42,6 @@ export const apiContextualBanditQueryValidator = namedSchema(
     userIdType: z.string(),
     query: z.string(),
     targetingAttributeColumns: z.array(z.string()),
-    hasNameCol: z.boolean().optional(),
   }),
 );
 
@@ -68,7 +65,6 @@ export const apiCreateContextualBanditQueryBody = z.strictObject({
   userIdType: z.string(),
   query: z.string(),
   targetingAttributeColumns: z.array(z.string()),
-  hasNameCol: z.boolean().optional(),
 });
 
 export type ApiCreateContextualBanditQueryBody = z.infer<
@@ -81,7 +77,6 @@ export const apiUpdateContextualBanditQueryBody = z.strictObject({
   userIdType: z.string().optional(),
   query: z.string().optional(),
   targetingAttributeColumns: z.array(z.string()).optional(),
-  hasNameCol: z.boolean().optional(),
 });
 
 export type ApiUpdateContextualBanditQueryBody = z.infer<

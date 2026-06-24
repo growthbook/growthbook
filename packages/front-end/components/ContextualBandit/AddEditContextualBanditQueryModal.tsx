@@ -1,6 +1,5 @@
 import React, { FC, Fragment, useMemo, useState } from "react";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
-import { Flex } from "@radix-ui/themes";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import {
   ApiContextualBanditQueryInterface,
@@ -19,7 +18,6 @@ import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Callout from "@/ui/Callout";
 import Field from "@/components/Forms/Field";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
-import Checkbox from "@/ui/Checkbox";
 import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
@@ -30,7 +28,6 @@ type CbQueryFormValues = {
   userIdType: string;
   query: string;
   targetingAttributeColumns: string[];
-  hasNameCol?: boolean;
 };
 
 type Props = {
@@ -81,7 +78,6 @@ export const AddEditContextualBanditQueryModal: FC<Props> = ({
             query: contextualBanditQuery.query,
             targetingAttributeColumns:
               contextualBanditQuery.targetingAttributeColumns ?? [],
-            hasNameCol: contextualBanditQuery.hasNameCol ?? false,
           }
         : {
             name: "",
@@ -89,7 +85,6 @@ export const AddEditContextualBanditQueryModal: FC<Props> = ({
             userIdType: userIdTypeOptions ? userIdTypeOptions[0]?.value : "",
             query: defaultQuery,
             targetingAttributeColumns: [],
-            hasNameCol: false,
           },
   });
 
@@ -98,7 +93,6 @@ export const AddEditContextualBanditQueryModal: FC<Props> = ({
   const userEnteredTargetingAttributeColumns = form.watch(
     "targetingAttributeColumns",
   );
-  const userEnteredHasNameCol = form.watch("hasNameCol");
 
   const requiredColumns = useMemo(() => {
     return new Set([
@@ -108,13 +102,8 @@ export const AddEditContextualBanditQueryModal: FC<Props> = ({
       userEnteredUserIdType,
       ...(userEnteredTargetingAttributeColumns || []),
       ...CONTEXTUAL_BANDIT_EAQ_REQUIRED_COLUMNS,
-      ...(userEnteredHasNameCol ? ["experiment_name", "variation_name"] : []),
     ]);
-  }, [
-    userEnteredUserIdType,
-    userEnteredTargetingAttributeColumns,
-    userEnteredHasNameCol,
-  ]);
+  }, [userEnteredUserIdType, userEnteredTargetingAttributeColumns]);
 
   const saveEnabled = !!userEnteredUserIdType && !!userEnteredQuery;
 
@@ -164,7 +153,6 @@ export const AddEditContextualBanditQueryModal: FC<Props> = ({
       userIdType: value.userIdType,
       query: value.query,
       targetingAttributeColumns: columns,
-      hasNameCol: !!value.hasNameCol,
     };
 
     const res =
@@ -294,15 +282,6 @@ export const AddEditContextualBanditQueryModal: FC<Props> = ({
               SELECT.
             </small>
           </div>
-
-          <Flex gap="1" my="3">
-            <Checkbox
-              id="cbqUseNameCol"
-              label="Use Name columns"
-              value={form.watch("hasNameCol") || false}
-              setValue={(value) => form.setValue("hasNameCol", value)}
-            />
-          </Flex>
         </div>
       </ModalStandard>
     </>

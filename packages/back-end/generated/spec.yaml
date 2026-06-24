@@ -28653,8 +28653,6 @@ paths:
                   type: array
                   items:
                     type: string
-                hasNameCol:
-                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -28701,8 +28699,6 @@ paths:
                   type: array
                   items:
                     type: string
-                hasNameCol:
-                  type: boolean
               required:
                 - datasourceId
                 - name
@@ -44205,8 +44201,6 @@ components:
           type: array
           items:
             type: string
-        hasNameCol:
-          type: boolean
       required:
         - id
         - dateCreated
