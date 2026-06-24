@@ -81,6 +81,6 @@ export class ContextualBanditEventModel extends BaseClass {
     contextualBandit: string,
   ): Promise<void> {
     const events = await this._find({ contextualBandit });
-    await Promise.all(events.map((event) => this.delete(event))); // @teresayung - this will be one deletion per event for a CB? is it okay, or should I scope a dangerous method to bulk delete?
+    await Promise.all(events.map((event) => this.delete(event)));
   }
 }

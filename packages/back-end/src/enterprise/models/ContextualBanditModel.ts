@@ -289,6 +289,15 @@ export class ContextualBanditModel extends BaseClass {
     return this.context.permissions.canDeleteContextualBandit(doc);
   }
 
+  protected async afterDelete(doc: ContextualBanditInterface) {
+    await this.context.models.contextualBanditSnapshots.deleteForContextualBandit(
+      doc.id,
+    );
+    await this.context.models.contextualBanditEvents.deleteForContextualBandit(
+      doc.id,
+    );
+  }
+
   public async patchLeafWeights(
     cbId: string,
     leafWeights: LeafWeight[],
