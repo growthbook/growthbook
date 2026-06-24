@@ -612,6 +612,29 @@ export default function ConfigDetailPage(): React.ReactElement {
     );
   };
 
+  // The add-field affordance (compact form when adding, button otherwise).
+  // Shared so a field can be added from either the Form or Schema tab without
+  // jumping tabs. Only the active tab is mounted, so it renders once.
+  const addFieldControls =
+    schemaEdit === "add" ? (
+      <FieldDefForm
+        key="add"
+        initial={blankField()}
+        existingKeys={resolved.fields.map((f) => f.key)}
+        onCancel={() => setSchemaEdit(null)}
+        onSave={saveField}
+      />
+    ) : (
+      canEditInline &&
+      schemaEdit === null && (
+        <Box mt="3">
+          <Button variant="soft" onClick={() => setSchemaEdit("add")}>
+            + Add field
+          </Button>
+        </Box>
+      )
+    );
+
   return (
     <>
       <PageHead
@@ -915,10 +938,11 @@ export default function ConfigDetailPage(): React.ReactElement {
                       </TableBody>
                     </Table>
                   ) : (
-                    <Text color="text-low">
-                      No fields yet — define them in the Schema tab.
+                    <Text as="p" color="text-low" mb="2">
+                      No fields yet.
                     </Text>
                   )}
+                  {addFieldControls}
                 </TabsContent>
 
                 {/* Schema — field definitions (add / edit / delete). */}
@@ -1012,33 +1036,12 @@ export default function ConfigDetailPage(): React.ReactElement {
                     />
                   )}
 
-                  {schemaEdit === "add" ? (
-                    <FieldDefForm
-                      key="add"
-                      initial={blankField()}
-                      existingKeys={resolved.fields.map((f) => f.key)}
-                      onCancel={() => setSchemaEdit(null)}
-                      onSave={saveField}
-                    />
-                  ) : (
-                    schemaEdit === null && (
-                      <Box mt="3">
-                        {resolved.fields.length === 0 && (
-                          <Text as="p" color="text-low" mb="2">
-                            No fields yet.
-                          </Text>
-                        )}
-                        {canEditInline && (
-                          <Button
-                            variant="soft"
-                            onClick={() => setSchemaEdit("add")}
-                          >
-                            + Add field
-                          </Button>
-                        )}
-                      </Box>
-                    )
+                  {resolved.fields.length === 0 && schemaEdit === null && (
+                    <Text as="p" color="text-low" mb="2">
+                      No fields yet.
+                    </Text>
                   )}
+                  {addFieldControls}
                 </TabsContent>
 
                 {/* JSON — raw value (read-only; paste-to-import is future work). */}
