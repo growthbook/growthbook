@@ -39,7 +39,6 @@ import ConfirmDialog from "@/ui/ConfirmDialog";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
-import Checkbox from "@/ui/Checkbox";
 import Code from "@/components/SyntaxHighlighting/Code";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import Table, {
@@ -174,23 +173,32 @@ function fieldTypeLabel(f: SchemaField | null): string {
 }
 
 // Inline editor for a single field's schema definition (add or edit). Compact by
-// default — key + type on one line, with optional/nullable toggles and
-// progressive "+ description" / "+ validation" rows. Selecting "Advanced…" as the
-// type switches the field to a raw JSON Schema escape hatch (stored on the field
-// as `jsonSchema`, which supersedes the simple type). Kept on the page (no modal).
+// default — key + type (+ value when inserting) on one line — with progressive
+// "+ description" / "+ validation" rows. Selecting "Advanced…" as the type
+// switches the field to a raw JSON Schema escape hatch (stored as `jsonSchema`,
+// which supersedes the simple type). Kept on the page (no modal).
+//
+// `nullable`/`optional` are intentionally NOT simple-mode toggles: when you also
+// set a value here there's no clean way to express them, so that nuance lives in
+// the Advanced (raw JSON Schema) mode instead.
 function FieldDefForm({
   initial,
   existingKeys,
+  withValue = false,
   onCancel,
   onSave,
 }: {
   initial: SchemaField;
   // Other field keys in scope (effective schema), to block duplicates.
   existingKeys: string[];
+  // When true (inserting a new field), also offer a value input so the field can
+  // be created with its value in one step.
+  withValue?: boolean;
   onCancel: () => void;
-  onSave: (field: SchemaField) => void | Promise<void>;
+  onSave: (field: SchemaField, value?: unknown) => void | Promise<void>;
 }): React.ReactElement {
   const [field, setField] = useState<SchemaField>(initial);
+  const [valueText, setValueText] = useState("");
   // Expand the optional sections up front when the field already uses them.
   const [showDescription, setShowDescription] = useState(!!initial.description);
   const [showValidation, setShowValidation] = useState(
@@ -201,6 +209,7 @@ function FieldDefForm({
 
   // Advanced mode is driven by the presence of a raw per-field JSON Schema.
   const advanced = field.jsonSchema !== undefined;
+  const showValueInput = withValue && !advanced;
 
   const trimmedKey = field.key.trim();
   const duplicate =
@@ -249,10 +258,27 @@ function FieldDefForm({
         return;
       }
     }
+    // Coerce the (optional) value to the field's type. Blank = leave unset.
+    let value: unknown = undefined;
+    if (showValueInput && valueText.trim() !== "") {
+      const t = valueText.trim();
+      if (field.type === "boolean") {
+        value = t === "true";
+      } else if (field.type === "integer" || field.type === "float") {
+        const n = field.type === "integer" ? parseInt(t, 10) : parseFloat(t);
+        if (Number.isNaN(n)) {
+          setErr("Value must be a number");
+          return;
+        }
+        value = n;
+      } else {
+        value = valueText;
+      }
+    }
     setErr(null);
     setSaving(true);
     try {
-      await onSave({ ...field, key: trimmedKey });
+      await onSave({ ...field, key: trimmedKey }, value);
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Failed to save field");
       setSaving(false);
@@ -268,7 +294,7 @@ function FieldDefForm({
         borderRadius: "var(--radius-3)",
       }}
     >
-      {/* Line 1: key + type + save/cancel */}
+      {/* Line 1: key + type (+ value when inserting) + save/cancel */}
       <Flex gap="2" align="center" wrap="wrap">
         <Box style={{ flex: "1 1 160px", minWidth: 120 }}>
           <Field
@@ -290,6 +316,35 @@ function FieldDefForm({
             sort={false}
           />
         </Box>
+        {showValueInput &&
+          (field.type === "boolean" ? (
+            <Box style={{ width: 120 }}>
+              <SelectField
+                value={valueText}
+                onChange={setValueText}
+                options={[
+                  { value: "true", label: "true" },
+                  { value: "false", label: "false" },
+                ]}
+                initialOption="value…"
+                sort={false}
+              />
+            </Box>
+          ) : (
+            <Box style={{ flex: "1 1 120px", minWidth: 90 }}>
+              <Field
+                placeholder="value"
+                type={
+                  field.type === "integer" || field.type === "float"
+                    ? "number"
+                    : undefined
+                }
+                value={valueText}
+                onChange={(e) => setValueText(e.target.value)}
+                containerStyle={{ marginBottom: 0 }}
+              />
+            </Box>
+          ))}
         <Flex gap="2" ml="auto">
           <Button size="sm" onClick={save} disabled={saving}>
             Save
@@ -317,25 +372,12 @@ function FieldDefForm({
             containerStyle={{ marginBottom: 0 }}
           />
           <Text size="small" color="text-low">
-            Raw JSON Schema for this field — supersedes the simple type.
+            Raw JSON Schema for this field — supersedes the simple type. Use
+            this for nullable/optional unions and nested shapes.
           </Text>
         </Box>
       ) : (
         <>
-          {/* Optional / nullable modifiers (T | undefined, T | null) */}
-          <Flex gap="4" mt="2" align="center">
-            <Checkbox
-              value={!field.required}
-              setValue={(v) => setField({ ...field, required: !v })}
-              label="Optional"
-            />
-            <Checkbox
-              value={!!field.nullable}
-              setValue={(v) => setField({ ...field, nullable: v })}
-              label="Nullable"
-            />
-          </Flex>
-
           {/* description (progressive) */}
           {showDescription && (
             <Box mt="2">
@@ -672,14 +714,18 @@ export default function ConfigDetailPage(): React.ReactElement {
     if (res?.revision) await onRevisionCreated(res.revision);
   };
 
-  const saveField = async (field: SchemaField) => {
+  const saveField = async (field: SchemaField, value?: unknown) => {
     const fields = ownSchema().fields;
     const idx = fields.findIndex((f) => f.key === schemaEdit);
     const next =
       idx >= 0
         ? fields.map((f, i) => (i === idx ? field : f))
         : [...fields, field];
-    await saveSchema(next);
+    // When a value was supplied (insert flow), set it on this config in the
+    // same write as the schema change.
+    const valueOverride =
+      value !== undefined ? { ...ownValue(), [field.key]: value } : undefined;
+    await saveSchema(next, valueOverride);
     setSchemaEdit(null);
   };
 
@@ -700,6 +746,7 @@ export default function ConfigDetailPage(): React.ReactElement {
     schemaEdit === "add" ? (
       <FieldDefForm
         key="add"
+        withValue
         initial={blankField()}
         existingKeys={resolved.fields.map((f) => f.key)}
         onCancel={() => setSchemaEdit(null)}
