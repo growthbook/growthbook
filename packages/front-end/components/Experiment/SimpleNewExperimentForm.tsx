@@ -332,7 +332,7 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
       dsSettings: datasource
         ? getDatasourceById(datasource)?.settings
         : undefined,
-      hashAttribute,
+      hashAttribute: hashAttribute || "",
       templateExposureQueryId: data.exposureQueryId || "",
     });
 
