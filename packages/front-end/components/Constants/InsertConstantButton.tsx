@@ -6,6 +6,7 @@ import React, {
   useState,
 } from "react";
 import { ConstantInterface, ConstantWithoutValue } from "shared/types/constant";
+import { CONSTANT_REF_PATTERN } from "shared/validators";
 import { Box, Flex } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useApi from "@/hooks/useApi";
@@ -20,8 +21,9 @@ import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 
 // Matches a `@const:<key>` reference in either syntax (string interpolation or
-// JSON placeholder) within a feature value.
-const CONST_REF_RE = /@const:([a-z0-9][a-z0-9_-]*)/g;
+// JSON placeholder) within a feature value. Built from the shared pattern so it
+// can't drift from the resolver/validators.
+const CONST_REF_RE = new RegExp(CONSTANT_REF_PATTERN, "g");
 
 // Constants eligible for a given field: string values only allow string
 // constants; JSON values allow both. Scoped to the field's project (global
@@ -265,6 +267,10 @@ export default function InsertConstantButton({
   );
 
   const eligible = useMemo(() => {
+    // `excludeKeys` is for keys that must never be offered (cycle prevention).
+    // A constant already referenced elsewhere in the value is intentionally
+    // still offered — referencing the same constant in multiple places is valid
+    // (it's not a limit-1 situation), so we don't dedupe on current usage.
     const exclude = new Set(excludeKeys ?? []);
     return filterEligibleConstants(constants, valueType, project)
       .filter((c) => !exclude.has(c.key))
@@ -305,9 +311,21 @@ export default function InsertConstantButton({
       }
     >
       {eligible.length ? (
-        eligible.map((c) => (
-          <ConstantOption key={c.id} constant={c} onInsert={handleInsert} />
-        ))
+        <>
+          {eligible.map((c) => (
+            <ConstantOption key={c.id} constant={c} onInsert={handleInsert} />
+          ))}
+          <Box
+            px="3"
+            pt="2"
+            mt="1"
+            style={{ borderTop: "1px solid var(--gray-a4)" }}
+          >
+            <Text size="small" color="text-low">
+              Wrap a reference in backticks to keep it literal.
+            </Text>
+          </Box>
+        </>
       ) : (
         <DropdownMenuItem disabled onClick={() => undefined}>
           <Text size="small" color="text-low">

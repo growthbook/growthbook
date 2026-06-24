@@ -89,8 +89,21 @@ describe("buildJsonConstantInsertion", () => {
     );
   });
 
-  it("returns null when no object is in reach", () => {
-    expect(run("[ | ]", "cfg")).toBe(null);
+  it("inserts the whole-value object into an empty document", () => {
+    expect(run("|", "cfg")).toBe('{ "@const:cfg": true }');
+  });
+
+  it("inserts the whole-value object as an element of an empty array", () => {
+    expect(run("[|]", "cfg")).toBe('[\n  { "@const:cfg": true }\n]');
+  });
+
+  it("appends the whole-value object as a new array element", () => {
+    expect(run("[\n  1\n|]", "cfg")).toBe(
+      '[\n  1,\n  { "@const:cfg": true }\n]',
+    );
+  });
+
+  it("returns null when nothing is in reach", () => {
     expect(run('{ "a": "|" }', "cfg")).toBe(null);
     expect(run("12345|", "cfg")).toBe(null);
   });

@@ -138,11 +138,14 @@ export class ConstantModel extends BaseClass {
   }
 
   // When a project is deleted, unset it on any constant scoped to it (becomes
-  // global), mirroring how features clear a deleted project.
+  // global), mirroring how features clear a deleted project. Update each through
+  // the model (bypassing only the per-constant update permission, since this is
+  // a system cascade) so afterUpdate still fires — audit log, webhooks, SDK
+  // payload refresh, and dateUpdated. A raw updateMany would skip all of those.
   public async removeProjectIdFromAll(projectId: string) {
-    await this._dangerousGetCollection().updateMany(
-      { organization: this.context.org.id, project: projectId },
-      { $set: { project: "" } },
-    );
+    const affected = await this._find({ project: projectId });
+    for (const constant of affected) {
+      await this.dangerousUpdateBypassPermission(constant, { project: "" });
+    }
   }
 }

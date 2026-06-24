@@ -7,6 +7,7 @@ import {
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
 import { dispatchConstantRevisionEvent } from "back-end/src/services/constantRevisionEvents";
+import { assertNoConstantCycle } from "back-end/src/services/constants";
 import {
   assertValidConstantValueEdit,
   discardIfJustCreated,
@@ -39,6 +40,14 @@ export const putConstantRevisionValue = createApiRequestHandler(
 
   // Validate against the constant's type before persisting.
   assertValidConstantValueEdit(constant, value, environmentValues);
+
+  // Reject a draft value that would close a reference cycle (merged value).
+  await assertNoConstantCycle(
+    req.context,
+    constant.key,
+    value ?? constant.value,
+    environmentValues ?? constant.environmentValues,
+  );
 
   const fieldsToUpdate: Record<string, unknown> = {};
   if (value !== undefined) fieldsToUpdate.value = value;

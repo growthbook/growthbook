@@ -30,9 +30,15 @@ export function getJsonInsertContext(
   return stack.length ? stack[stack.length - 1] : "none";
 }
 
-// Find the index of the closing `}` of the object the cursor is directly inside.
-// Returns -1 if not found (malformed). Skips nested braces and string contents.
-function findCurrentObjectClose(text: string, offset: number): number {
+// Find the index of the closing bracket (`}` or `]`) of the container the
+// cursor is directly inside. Returns -1 if not found (malformed). Skips nested
+// brackets and string contents.
+function findCurrentClose(
+  text: string,
+  offset: number,
+  closeChar: "}" | "]",
+): number {
+  const otherClose = closeChar === "}" ? "]" : "}";
   let inString = false;
   let escaped = false;
   let depth = 0;
@@ -46,13 +52,17 @@ function findCurrentObjectClose(text: string, offset: number): number {
     }
     if (ch === '"') inString = true;
     else if (ch === "{" || ch === "[") depth++;
-    else if (ch === "]") depth--;
-    else if (ch === "}") {
+    else if (ch === otherClose) depth--;
+    else if (ch === closeChar) {
       if (depth === 0) return i;
       depth--;
     }
   }
   return -1;
+}
+
+function findCurrentObjectClose(text: string, offset: number): number {
+  return findCurrentClose(text, offset, "}");
 }
 
 export type ConstantInsertion = { index: number; text: string };
@@ -113,19 +123,62 @@ function insertAtObjectOpen(
   return { index: open + 1, text: `\n${indent}${entry},` };
 }
 
-// Build the edit for inserting a JSON constant as a new object entry. When the
-// cursor is inside an object the entry is appended at the end. Forgiving: when
-// the cursor sits just outside an object (only whitespace between), it snaps to
-// it — appending when just past a closing `}`, prepending a row when just before
-// an opening `{`. Returns null when no object is in reach.
+// Append the whole-value object `{ "@const:key": true }` as a new array element
+// just before the array's closing bracket `close`.
+function insertAtArrayClose(
+  text: string,
+  close: number,
+  key: string,
+): ConstantInsertion {
+  const element = `{ "@const:${key}": true }`;
+  let last = close - 1;
+  while (last >= 0 && /\s/.test(text[last])) last--;
+
+  if (last < 0 || text[last] === "[") {
+    const closeIndent = lineIndent(text, close);
+    return {
+      index: close,
+      text: `\n${closeIndent}  ${element}\n${closeIndent}`,
+    };
+  }
+  const indent = lineIndent(text, last);
+  const needsComma = text[last] !== ",";
+  return {
+    index: last + 1,
+    text: `${needsComma ? "," : ""}\n${indent}${element}`,
+  };
+}
+
+// Build the edit for inserting a JSON constant. The whole-value form
+// `{ "@const:key": true }` is the primary one, so an empty document or an array
+// context inserts that object; inside an object the `"@const:key": true` entry
+// is appended. Forgiving: when the cursor sits just outside an object (only
+// whitespace between), it snaps to it — appending past a `}`, prepending past a
+// `{`. Returns null when nothing is in reach.
 export function buildJsonConstantInsertion(
   text: string,
   offset: number,
   key: string,
 ): ConstantInsertion | null {
-  if (getJsonInsertContext(text, offset) === "object") {
+  // Empty/whitespace value → the constant is the entire value.
+  if (text.trim() === "") {
+    return {
+      index: Math.min(offset, text.length),
+      text: `{ "@const:${key}": true }`,
+    };
+  }
+
+  const context = getJsonInsertContext(text, offset);
+
+  if (context === "object") {
     const close = findCurrentObjectClose(text, offset);
     if (close !== -1) return insertAtObjectClose(text, close, key);
+  }
+
+  // Inside an array → add the whole-value object as an element.
+  if (context === "array") {
+    const close = findCurrentClose(text, offset, "]");
+    if (close !== -1) return insertAtArrayClose(text, close, key);
   }
 
   // Nearest non-whitespace char before the caret — append if it's a `}`.

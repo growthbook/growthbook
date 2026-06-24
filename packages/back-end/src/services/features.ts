@@ -144,6 +144,7 @@ function resolveConstantsInDefinition(
   def: FeatureDefinition,
   map: ConstantValueMap,
   onCycle: (key: string) => void,
+  featureProject: string,
 ): void {
   if (def.defaultValue !== undefined) {
     def.defaultValue = resolveConstantRefs(
@@ -151,15 +152,22 @@ function resolveConstantsInDefinition(
       map,
       new Set(),
       onCycle,
+      featureProject,
     );
   }
   def.rules?.forEach((rule) => {
     if (rule.force !== undefined) {
-      rule.force = resolveConstantRefs(rule.force, map, new Set(), onCycle);
+      rule.force = resolveConstantRefs(
+        rule.force,
+        map,
+        new Set(),
+        onCycle,
+        featureProject,
+      );
     }
     if (rule.variations !== undefined) {
       rule.variations = rule.variations.map((v) =>
-        resolveConstantRefs(v, map, new Set(), onCycle),
+        resolveConstantRefs(v, map, new Set(), onCycle, featureProject),
       );
     }
   });
@@ -256,19 +264,24 @@ export function generateFeaturesPayload({
     if (def) {
       if (constantMap && constantMap.size) {
         const reported = new Set<string>();
-        resolveConstantsInDefinition(def, constantMap, (key) => {
-          if (reported.has(key)) return;
-          reported.add(key);
-          logger.warn(
-            {
-              organization: organization?.id,
-              feature: feature.id,
-              environment,
-              constant: key,
-            },
-            "Cyclic constant reference detected during SDK payload generation; left unresolved",
-          );
-        });
+        resolveConstantsInDefinition(
+          def,
+          constantMap,
+          (key) => {
+            if (reported.has(key)) return;
+            reported.add(key);
+            logger.warn(
+              {
+                organization: organization?.id,
+                feature: feature.id,
+                environment,
+                constant: key,
+              },
+              "Cyclic constant reference detected during SDK payload generation; left unresolved",
+            );
+          },
+          feature.project || "",
+        );
       }
       defs[feature.id] = def;
     }
@@ -1515,6 +1528,7 @@ export function evaluateFeature({
             definition,
             envConstantMap,
             () => undefined,
+            feature.project || "",
           );
         }
 

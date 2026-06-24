@@ -26,6 +26,7 @@ import {
 } from "back-end/src/revisions/util";
 import { getAdapter } from "back-end/src/revisions";
 import {
+  assertNoConstantCycle,
   ConstantReferences,
   loadConstantReferences,
 } from "back-end/src/services/constants";
@@ -140,6 +141,14 @@ export const postConstant = async (
     validateConstantValue(body.type, v, envId);
   }
 
+  // Reject values that would close a reference cycle.
+  await assertNoConstantCycle(
+    context,
+    body.key,
+    body.value,
+    body.environmentValues,
+  );
+
   // Keys are unique per org; pre-check for a friendly error rather than a raw
   // duplicate-key failure from the unique index.
   if (await context.models.constants.getByKey(body.key)) {
@@ -228,6 +237,16 @@ export const putConstant = async (
   }
   for (const [envId, v] of Object.entries(environmentValues ?? {})) {
     validateConstantValue(existing.type, v, envId);
+  }
+
+  // Reject values that would close a reference cycle (against the merged value).
+  if (value !== undefined || environmentValues !== undefined) {
+    await assertNoConstantCycle(
+      context,
+      existing.key,
+      value ?? existing.value,
+      environmentValues ?? existing.environmentValues,
+    );
   }
 
   // If updating a specific revision, compare against its current (patched) state

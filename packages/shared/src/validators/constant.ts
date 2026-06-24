@@ -18,9 +18,18 @@ export const CONSTANT_REF_PATTERN = "@const:([a-z0-9][a-z0-9_-]*)";
 
 const CONST_REF_RE = new RegExp(CONSTANT_REF_PATTERN, "g");
 
+// A backtick-wrapped string interpolation — the resolver emits these literally
+// (without substituting), so the key inside is NOT a real reference. Stripped
+// before reference detection so escaped literals aren't over-counted.
+const ESCAPED_INTERP_RE = new RegExp(
+  "`\\{\\{\\s*@const:[a-z0-9][a-z0-9_-]*\\s*\\}\\}`",
+  "g",
+);
+
 // Extract the unique `@const:` keys referenced by a constant's value and every
 // environment override (the conservative union across environments). Used to
-// build the cross-constant reference graph for cycle detection.
+// build the cross-constant reference graph for cycle detection. Backtick-escaped
+// interpolations are excluded — they render verbatim and never resolve.
 export function getConstantReferenceKeys(
   value: string | undefined,
   environmentValues: Record<string, string> | undefined,
@@ -28,9 +37,10 @@ export function getConstantReferenceKeys(
   const keys = new Set<string>();
   const scan = (s: string | undefined) => {
     if (!s) return;
+    const cleaned = s.replace(ESCAPED_INTERP_RE, "");
     const re = new RegExp(CONST_REF_RE.source, "g");
     let m: RegExpExecArray | null;
-    while ((m = re.exec(s)) !== null) keys.add(m[1]);
+    while ((m = re.exec(cleaned)) !== null) keys.add(m[1]);
   };
   scan(value);
   for (const v of Object.values(environmentValues ?? {})) scan(v);
@@ -69,6 +79,38 @@ export function getReferencingConstantKeys(
   return result;
 }
 
+// Given a proposed value (+ env overrides) for `key`, return the referenced
+// keys that would close a cycle: a self-reference, or a reference to a constant
+// that already (transitively) references `key`. Empty = safe. Used to reject
+// cyclic writes (the runtime resolver degrades gracefully, but a stored cycle
+// leaks raw `@const:` placeholders into the payload).
+export function getCyclicConstantRefs(
+  key: string,
+  proposedValue: string | undefined,
+  proposedEnvironmentValues: Record<string, string> | undefined,
+  existingConstants: {
+    key: string;
+    value?: string;
+    environmentValues?: Record<string, string>;
+  }[],
+): string[] {
+  const proposedRefs = getConstantReferenceKeys(
+    proposedValue,
+    proposedEnvironmentValues,
+  );
+  if (!proposedRefs.length) return [];
+  const referencesByKey = new Map(
+    existingConstants
+      .filter((c) => c.key !== key)
+      .map((c) => [
+        c.key,
+        getConstantReferenceKeys(c.value, c.environmentValues),
+      ]),
+  );
+  const referencing = getReferencingConstantKeys(key, referencesByKey);
+  return proposedRefs.filter((r) => r === key || referencing.has(r));
+}
+
 // Validates a constant value string before saving. JSON constants must contain
 // parseable JSON; an empty string is always permitted (an intentional "no
 // value"). Throws a friendly error on invalid JSON, otherwise returns nothing.
@@ -104,7 +146,8 @@ export const constantValidator = z
     type: constantTypeValidator,
     // Resolved per environment as `environmentValues[env] ?? value`.
     // Each value is the raw string (type "string") or JSON-encoded (type
-    // "json"). At least one of `value` / an environment override must be set.
+    // "json"). Both are optional — a reference to a constant with no value for
+    // an environment is left verbatim in the payload.
     value: z.string().optional(),
     environmentValues: z.record(z.string(), z.string()).optional(),
     description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),

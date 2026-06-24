@@ -24,7 +24,7 @@ Each constant has one type:
 
 ## Per-environment values
 
-A constant has a base **value** plus optional **per-environment overrides**: when a flag is built for an environment, its override is used if set, otherwise the base value. A constant must define at least one of the two.
+A constant has a base **value** plus optional **per-environment overrides**: when a flag is built for an environment, its override is used if set, otherwise the base value. A reference to a constant with no value for the target environment is left as-is in the payload.
 
 <MaxWidthImage maxWidth={700} border>
   ![Editing a constant value with per-environment overrides](/images/features/constant-edit.png)

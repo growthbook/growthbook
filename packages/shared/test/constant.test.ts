@@ -2,6 +2,7 @@ import {
   validateConstantValue,
   getConstantReferenceKeys,
   getReferencingConstantKeys,
+  getCyclicConstantRefs,
 } from "../src/validators/constant";
 import { constantRequiresReview } from "../src/util/features";
 import { getConstantRevisionChange } from "../src/revisions/helpers";
@@ -193,6 +194,48 @@ describe("getConstantReferenceKeys", () => {
   it("returns [] when there are no references", () => {
     expect(getConstantReferenceKeys("plain", { dev: "x" })).toEqual([]);
     expect(getConstantReferenceKeys(undefined, undefined)).toEqual([]);
+  });
+
+  it("ignores backtick-escaped interpolations (rendered verbatim, not resolved)", () => {
+    expect(
+      getConstantReferenceKeys("`{{ @const:escaped }}` {{ @const:real }}", {}),
+    ).toEqual(["real"]);
+  });
+});
+
+describe("getCyclicConstantRefs", () => {
+  // existing graph: b references a (b -> a)
+  const existing = [
+    { key: "a", value: "" },
+    { key: "b", value: "{{ @const:a }}" },
+  ];
+
+  it("flags a self-reference", () => {
+    expect(
+      getCyclicConstantRefs("a", "{{ @const:a }}", undefined, existing),
+    ).toEqual(["a"]);
+  });
+
+  it("flags a reference to a constant that already references the target", () => {
+    // a referencing b would close a->b->a
+    expect(
+      getCyclicConstantRefs("a", "{{ @const:b }}", undefined, existing),
+    ).toEqual(["b"]);
+  });
+
+  it("allows a non-cyclic reference", () => {
+    expect(
+      getCyclicConstantRefs("a", "{{ @const:c }}", undefined, [
+        ...existing,
+        { key: "c", value: "" },
+      ]),
+    ).toEqual([]);
+  });
+
+  it("returns [] when the proposed value has no references", () => {
+    expect(getCyclicConstantRefs("a", "plain", undefined, existing)).toEqual(
+      [],
+    );
   });
 });
 

@@ -1,7 +1,11 @@
 import { FeatureInterface } from "shared/types/feature";
-import { getConstantReferenceKeys } from "shared/validators";
+import {
+  getConstantReferenceKeys,
+  getCyclicConstantRefs,
+} from "shared/validators";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
+import { BadRequestError } from "back-end/src/util/errors";
 import { getPayloadKeysForAllEnvs } from "back-end/src/models/ExperimentModel";
 import { getAllFeatures } from "back-end/src/models/FeatureModel";
 import { queueSDKPayloadRefresh } from "./features";
@@ -31,6 +35,27 @@ export async function constantUpdated(
       model: "constant",
     },
   });
+}
+
+// Reject a constant value (create or update) that would close a reference cycle.
+// The runtime resolver leaves cyclic refs verbatim rather than crashing, but a
+// stored cycle leaks raw `@const:` placeholders into the SDK payload, so we
+// block it at write time (mirrors the picker's cyclic-key scrubbing).
+export async function assertNoConstantCycle(
+  context: ReqContext | ApiReqContext,
+  key: string,
+  value: string | undefined,
+  environmentValues: Record<string, string> | undefined,
+): Promise<void> {
+  const all = await context.models.constants.getAll();
+  const cyclic = getCyclicConstantRefs(key, value, environmentValues, all);
+  if (cyclic.length) {
+    throw new BadRequestError(
+      `This value references ${cyclic
+        .map((k) => `@const:${k}`)
+        .join(", ")}, which would create a reference cycle.`,
+    );
+  }
 }
 
 export type ConstantReferences = {

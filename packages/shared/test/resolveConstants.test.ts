@@ -21,10 +21,12 @@ describe("buildConstantValueMap", () => {
     expect(buildConstantValueMap(constants, "production").get("host")).toEqual({
       type: "string",
       value: "prod.example.com",
+      project: "",
     });
     expect(buildConstantValueMap(constants, "dev").get("host")).toEqual({
       type: "string",
       value: "default.example.com",
+      project: "",
     });
   });
 
@@ -40,6 +42,7 @@ describe("buildConstantValueMap", () => {
     expect(buildConstantValueMap(constants, "dev").get("x")).toEqual({
       type: "string",
       value: "",
+      project: "",
     });
   });
 
@@ -312,6 +315,7 @@ describe("buildConstantValueMap — archived", () => {
       type: "json",
       value: "",
       archived: true,
+      project: "",
     });
   });
 });
@@ -370,6 +374,74 @@ describe("resolveConstantRefs — archived scrubbing", () => {
     });
     // Archived string interp inside the live constant's value is stripped.
     expect(resolveConstantRefs("{{ @const:live-str }}", nested)).toBe("x=!");
+  });
+});
+
+describe("resolveConstantRefs — project scoping", () => {
+  const map: ConstantValueMap = new Map([
+    ["global-str", { type: "string", value: "G", project: "" }],
+    ["proj-a-str", { type: "string", value: "A", project: "prj_a" }],
+    ["proj-a-json", { type: "json", value: '{"a":1}', project: "prj_a" }],
+  ]);
+
+  it("resolves a global constant for any feature project", () => {
+    expect(
+      resolveConstantRefs(
+        "x={{ @const:global-str }}",
+        map,
+        undefined,
+        undefined,
+        "prj_b",
+      ),
+    ).toBe("x=G");
+  });
+
+  it("resolves a project-scoped constant for a feature in the same project", () => {
+    expect(
+      resolveConstantRefs(
+        "x={{ @const:proj-a-str }}",
+        map,
+        undefined,
+        undefined,
+        "prj_a",
+      ),
+    ).toBe("x=A");
+  });
+
+  it("scrubs a project-scoped string reference for a feature in another project", () => {
+    expect(
+      resolveConstantRefs(
+        "x={{ @const:proj-a-str }}",
+        map,
+        undefined,
+        undefined,
+        "prj_b",
+      ),
+    ).toBe("x=");
+  });
+
+  it("scrubs an out-of-scope JSON whole-value reference to an empty object", () => {
+    expect(
+      resolveConstantRefs(
+        { "@const:proj-a-json": true },
+        map,
+        undefined,
+        undefined,
+        "prj_b",
+      ),
+    ).toEqual({});
+  });
+
+  it("drops an out-of-scope JSON spread reference but keeps siblings", () => {
+    expect(
+      resolveConstantRefs(
+        { "@const:proj-a-json": true, keep: 1 },
+        map,
+        undefined,
+        undefined,
+        "prj_b",
+      ),
+    ).toEqual({ keep: 1 });
   });
 });
 

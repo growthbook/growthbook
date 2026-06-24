@@ -589,7 +589,13 @@ export function getFeatureDefinition({
     if (feature.valueType !== "json") return null;
     const base = parsePlainJSONObject(defaultValue);
     if (!base || !constantMap) return base;
-    const resolved = resolveConstantRefs(base, constantMap);
+    const resolved = resolveConstantRefs(
+      base,
+      constantMap,
+      undefined,
+      undefined,
+      feature.project || "",
+    );
     return resolved !== null &&
       typeof resolved === "object" &&
       !Array.isArray(resolved)
@@ -607,7 +613,13 @@ export function getFeatureDefinition({
         // fields are "further down". Non-object resolutions (e.g. a whole-value
         // JSON constant that resolves to an array) replace the value outright.
         const resolvedPatch = constantMap
-          ? resolveConstantRefs(patch, constantMap)
+          ? resolveConstantRefs(
+              patch,
+              constantMap,
+              undefined,
+              undefined,
+              feature.project || "",
+            )
           : patch;
         if (
           resolvedPatch !== null &&

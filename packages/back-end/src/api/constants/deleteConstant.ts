@@ -1,7 +1,6 @@
-import { PermissionError } from "shared/util";
 import { deleteConstantValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { NotFoundError } from "back-end/src/util/errors";
+import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
 
 export const deleteConstant = createApiRequestHandler(deleteConstantValidator)(
@@ -22,7 +21,7 @@ export const deleteConstant = createApiRequestHandler(deleteConstantValidator)(
     // only when the org has opted into unrestricted REST writes; otherwise
     // require archiving first.
     if (!constant.archived && !canUseRestApiBypassSetting(req)) {
-      throw new PermissionError(
+      throw new BadRequestError(
         "Cannot delete a live constant via the REST API when 'REST API always bypasses approval requirements' is disabled. " +
           "Archive the constant first, or enable the bypass setting in organization settings.",
       );
