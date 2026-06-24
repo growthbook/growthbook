@@ -10,6 +10,7 @@ import Button from "@/ui/Button";
 import UIText from "@/ui/Text";
 import Link from "@/ui/Link";
 import { DocLink } from "@/components/DocLink";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { UserContext } from "@/services/UserContext";
 
@@ -39,6 +40,13 @@ function Example({
 
 const STATUSES: Status[] = ["wizard", "info", "warning", "error", "success"];
 const SIZES = ["sm", "md"] as const;
+
+const CANDIDATE_LABEL_STYLE: React.CSSProperties = {
+  fontFamily: "monospace",
+  fontSize: 13,
+  fontWeight: 500,
+  marginBottom: 8,
+};
 
 type Section = {
   id: string;
@@ -290,6 +298,151 @@ const sections: Section[] = [
         </Example>
       </Flex>
     ),
+  },
+  {
+    id: "archetype-b",
+    title: "Archetype B — stacked CTA (migration candidates)",
+    description: (
+      <>
+        These call sites stack the action <em>below</em> the text (Box mt /
+        column Flex). They were left out of the <code>action</code>-prop sweep
+        because converting them moves the action up and to the right, pinned to
+        the first text line. That is a visual redesign, not a
+        behavior-preserving change. Each pair shows the current layout next to
+        the proposed <code>action</code>-slot version. Mocked, static data.
+      </>
+    ),
+    render: () => {
+      const sampleSchemaError =
+        "Permission denied while reading INFORMATION_SCHEMA.COLUMNS";
+      const sampleQueryError =
+        "Syntax error: Unexpected end of input near 'GROUP BY'";
+      return (
+        <Flex direction="column" gap="5">
+          <Box>
+            <div style={CANDIDATE_LABEL_STYLE}>EventForwarder.tsx</div>
+            <Flex direction="column" gap="2">
+              <Example label="Original: text + button below in Box mt">
+                <Callout status="info">
+                  Event Forwarder is not configured for this datasource.
+                  <Box mt="3">
+                    <Button>Set Up Event Forwarder</Button>
+                  </Box>
+                </Callout>
+              </Example>
+              <Example label="Proposed: action slot">
+                <Callout
+                  status="info"
+                  action={<Button>Set Up Event Forwarder</Button>}
+                >
+                  Event Forwarder is not configured for this datasource.
+                </Callout>
+              </Example>
+            </Flex>
+          </Box>
+
+          <Box>
+            <div style={CANDIDATE_LABEL_STYLE}>ReviewAndPublish.tsx</div>
+            <Flex direction="column" gap="2">
+              <Example label="Original: text + button below in Box mt">
+                <Callout status="info">
+                  Select a revision from the dropdown above to review.
+                  <Box mt="2">
+                    <Button variant="soft">Back to Overview</Button>
+                  </Box>
+                </Callout>
+              </Example>
+              <Example label="Proposed: action slot">
+                <Callout
+                  status="info"
+                  action={<Button variant="soft">Back to Overview</Button>}
+                >
+                  Select a revision from the dropdown above to review.
+                </Callout>
+              </Example>
+            </Flex>
+          </Box>
+
+          <Box>
+            <div style={CANDIDATE_LABEL_STYLE}>DatasourceConfigurator.tsx</div>
+            <Flex direction="column" gap="2">
+              <Example label="Original: error + reason + retry, column Flex">
+                <Callout status="error" mt="2">
+                  <Flex direction="column" gap="2">
+                    <UIText weight="medium">
+                      We&apos;re unable to identify tables for this Data Source.
+                    </UIText>
+                    <UIText>Reason: {sampleSchemaError}</UIText>
+                    <Tooltip
+                      body="You do not have permission to retry generating an information schema for this datasource."
+                      shouldDisplay={false}
+                    >
+                      <Button variant="soft" color="red">
+                        Retry
+                      </Button>
+                    </Tooltip>
+                  </Flex>
+                </Callout>
+              </Example>
+              <Example label="Proposed: action slot (Retry pins to the first line)">
+                <Callout
+                  status="error"
+                  mt="2"
+                  action={
+                    <Tooltip
+                      body="You do not have permission to retry generating an information schema for this datasource."
+                      shouldDisplay={false}
+                    >
+                      <Button variant="soft" color="red">
+                        Retry
+                      </Button>
+                    </Tooltip>
+                  }
+                >
+                  <Flex direction="column" gap="2">
+                    <UIText weight="medium">
+                      We&apos;re unable to identify tables for this Data Source.
+                    </UIText>
+                    <UIText>Reason: {sampleSchemaError}</UIText>
+                  </Flex>
+                </Callout>
+              </Example>
+            </Flex>
+          </Box>
+
+          <Box>
+            <div style={CANDIDATE_LABEL_STYLE}>
+              FeatureEvaluationQueries.tsx
+            </div>
+            <Flex direction="column" gap="2">
+              <Example label="Original: intro + bold error box + retry below">
+                <Callout status="error" mb="3">
+                  This query had an error with it the last time it ran:{" "}
+                  <Box className="font-weight-bold" py="2">
+                    {sampleQueryError}
+                  </Box>
+                  <Box mt="3">
+                    <Button>Check it again.</Button>
+                  </Box>
+                </Callout>
+              </Example>
+              <Example label="Proposed: action slot (button pins to the first line, above the error box)">
+                <Callout
+                  status="error"
+                  mb="3"
+                  action={<Button>Check it again.</Button>}
+                >
+                  This query had an error with it the last time it ran:{" "}
+                  <Box className="font-weight-bold" py="2">
+                    {sampleQueryError}
+                  </Box>
+                </Callout>
+              </Example>
+            </Flex>
+          </Box>
+        </Flex>
+      );
+    },
   },
   {
     id: "dismissible",
