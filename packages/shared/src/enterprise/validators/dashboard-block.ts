@@ -324,22 +324,29 @@ export type MetricExplorerBlockInterface = z.infer<
   typeof metricExplorerBlockInterface
 >;
 
+const dashboardFilterBlockFields = {
+  useDashboardFilters: z.boolean().optional(),
+} as const;
+
 const metricExplorationBlockInterface = baseBlockInterface.extend({
   type: z.literal("metric-exploration"),
   explorerAnalysisId: z.string(),
   config: metricExplorationConfigValidator,
+  ...dashboardFilterBlockFields,
 });
 
 const factTableExplorationBlockInterface = baseBlockInterface.extend({
   type: z.literal("fact-table-exploration"),
   explorerAnalysisId: z.string(),
   config: factTableExplorationConfigValidator,
+  ...dashboardFilterBlockFields,
 });
 
 const dataSourceExplorationBlockInterface = baseBlockInterface.extend({
   type: z.literal("data-source-exploration"),
   explorerAnalysisId: z.string(),
   config: dataSourceExplorationConfigValidator,
+  ...dashboardFilterBlockFields,
 });
 
 export type MetricExplorationBlockInterface = z.infer<
@@ -423,6 +430,9 @@ export const apiCreateDashboardBlockInterface = z.discriminatedUnion("type", [
   experimentTrafficBlockInterface.omit(createOmits),
   sqlExplorerBlockInterface.omit(createOmits),
   apiMetricExplorerBlockInterface.omit(createOmits),
+  metricExplorationBlockInterface.omit(createOmits),
+  factTableExplorationBlockInterface.omit(createOmits),
+  dataSourceExplorationBlockInterface.omit(createOmits),
 ]);
 export type CreateDashboardBlockInterface = z.infer<
   typeof createDashboardBlockInterface

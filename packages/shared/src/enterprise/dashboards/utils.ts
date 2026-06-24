@@ -5,6 +5,10 @@ import {
   DashboardBlockInterfaceOrData,
   CreateDashboardBlockInterface,
   DashboardTemplateInterface,
+  DashboardInterface,
+  MetricExplorationBlockInterface,
+  FactTableExplorationBlockInterface,
+  DataSourceExplorationBlockInterface,
 } from "shared/enterprise";
 import {
   MetricExplorationConfig,
@@ -20,8 +24,9 @@ import {
   ExperimentSnapshotInterface,
 } from "shared/types/experiment-snapshot";
 import { MetricGroupInterface } from "shared/types/metric-groups";
+import { DataSourceInterface } from "shared/types/datasource";
 import { isNumber, isString } from "../../util/types";
-import { getSnapshotAnalysis } from "../../util";
+import { getSnapshotAnalysis, isManagedWarehouse } from "../../util";
 import {
   parseSliceQueryString,
   generateSliceString,
@@ -58,6 +63,142 @@ export function dashboardBlockHasIds<T extends DashboardBlockInterface>(
 ): data is T {
   const block = data as T;
   return !!(block.id && block.uid && block.organization);
+}
+
+type DashboardFilterSupportedBlock = DashboardBlockInterfaceOrData<
+  | MetricExplorationBlockInterface
+  | FactTableExplorationBlockInterface
+  | DataSourceExplorationBlockInterface
+>;
+
+export type DashboardFilterComparison = NonNullable<
+  NonNullable<DashboardInterface["filters"]>["comparison"]
+>;
+
+const dashboardFilterSupportedBlockTypes = new Set<DashboardBlockType>([
+  "metric-exploration",
+  "fact-table-exploration",
+  "data-source-exploration",
+]);
+
+export function isDashboardFilterSupportedBlock(
+  block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+): block is DashboardFilterSupportedBlock {
+  return dashboardFilterSupportedBlockTypes.has(block.type);
+}
+
+export function blockUsesDashboardFilters(
+  block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+): block is DashboardFilterSupportedBlock & { useDashboardFilters: true } {
+  return (
+    isDashboardFilterSupportedBlock(block) && block.useDashboardFilters === true
+  );
+}
+
+export function getEffectiveExplorationConfig<
+  T extends DashboardFilterSupportedBlock,
+>(block: T, dashboard: Pick<DashboardInterface, "filters">): T["config"] {
+  if (block.useDashboardFilters !== true || !dashboard.filters?.dateRange) {
+    return block.config;
+  }
+
+  return {
+    ...block.config,
+    dateRange: dashboard.filters.dateRange,
+  } as T["config"];
+}
+
+export function getEffectiveComparison(
+  block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+  dashboard: Pick<DashboardInterface, "filters">,
+): DashboardFilterComparison | undefined {
+  if (!blockUsesDashboardFilters(block)) {
+    return undefined;
+  }
+
+  const comparison = dashboard.filters?.comparison;
+  return comparison?.enabled === true ? comparison : undefined;
+}
+
+export function getDashboardFilterApplicability(
+  dashboard: Pick<DashboardInterface, "blocks">,
+): {
+  supportedBlocks: DashboardFilterSupportedBlock[];
+  optedInBlocks: (DashboardFilterSupportedBlock & {
+    useDashboardFilters: true;
+  })[];
+  notOptedInBlocks: DashboardFilterSupportedBlock[];
+  unsupportedBlocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
+} {
+  const supportedBlocks: DashboardFilterSupportedBlock[] = [];
+  const optedInBlocks: (DashboardFilterSupportedBlock & {
+    useDashboardFilters: true;
+  })[] = [];
+  const notOptedInBlocks: DashboardFilterSupportedBlock[] = [];
+  const unsupportedBlocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[] =
+    [];
+
+  dashboard.blocks.forEach((block) => {
+    if (!isDashboardFilterSupportedBlock(block)) {
+      unsupportedBlocks.push(block);
+      return;
+    }
+
+    supportedBlocks.push(block);
+    if (blockUsesDashboardFilters(block)) {
+      optedInBlocks.push(block);
+    } else {
+      notOptedInBlocks.push(block);
+    }
+  });
+
+  return {
+    supportedBlocks,
+    optedInBlocks,
+    notOptedInBlocks,
+    unsupportedBlocks,
+  };
+}
+
+type DatasourceMap = ReadonlyMap<
+  string,
+  Pick<DataSourceInterface, "type"> | undefined
+>;
+type DatasourceRecord = Readonly<
+  Record<string, Pick<DataSourceInterface, "type"> | undefined>
+>;
+type DatasourceLookup = DatasourceMap | DatasourceRecord;
+
+function isDatasourceMap(
+  datasourcesById: DatasourceLookup,
+): datasourcesById is DatasourceMap {
+  return datasourcesById instanceof Map;
+}
+
+function getDatasourceFromLookup(
+  datasourcesById: DatasourceLookup,
+  datasourceId: string,
+): Pick<DataSourceInterface, "type"> | undefined {
+  if (isDatasourceMap(datasourcesById)) {
+    return datasourcesById.get(datasourceId);
+  }
+
+  return datasourcesById[datasourceId];
+}
+
+export function canAutoRefreshDashboard(
+  dashboard: Pick<DashboardInterface, "blocks">,
+  datasourcesById: DatasourceLookup,
+): boolean {
+  const { optedInBlocks } = getDashboardFilterApplicability(dashboard);
+
+  return optedInBlocks.every((block) => {
+    const datasource = getDatasourceFromLookup(
+      datasourcesById,
+      block.config.datasource,
+    );
+    return datasource ? isManagedWarehouse(datasource) : false;
+  });
 }
 
 export function isDifferenceType(

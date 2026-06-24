@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { namedSchema } from "../../validators/openapi-helpers";
 
+import { baseExplorationConfigValidator } from "../../validators/product-analytics";
 import {
   apiCreateDashboardBlockInterface,
   apiDashboardBlockInterface,
@@ -43,6 +44,21 @@ export const dashboardGridConfig = z
   .strict();
 export type DashboardGridConfig = z.infer<typeof dashboardGridConfig>;
 
+export const dashboardFiltersValidator = z
+  .object({
+    dateRange: baseExplorationConfigValidator.shape.dateRange.optional(),
+    comparison: z
+      .object({
+        enabled: z.boolean(),
+        previousTimeFrame:
+          baseExplorationConfigValidator.shape.dateRange.optional(),
+      })
+      .strict()
+      .optional(),
+  })
+  .strict();
+export type DashboardFilters = z.infer<typeof dashboardFiltersValidator>;
+
 export const dashboardInterface = z
   .object({
     id: z.string(),
@@ -58,6 +74,7 @@ export const dashboardInterface = z
     updateSchedule: dashboardUpdateSchedule.optional(),
     title: z.string(),
     blocks: z.array(dashboardBlockInterface),
+    filters: dashboardFiltersValidator.optional(),
     grid: dashboardGridConfig.optional(),
     projects: z.array(z.string()).optional(), // General dashboards only, experiment dashboards use the experiment's projects
     nextUpdate: z.date().optional(),
@@ -125,6 +142,7 @@ export const apiCreateDashboardBody = z
         "General Dashboards only, Experiment Dashboards use the experiment's projects",
       )
       .optional(),
+    filters: dashboardFiltersValidator.optional(),
     blocks: z.array(apiCreateDashboardBlockInterface),
   })
   .strict();
