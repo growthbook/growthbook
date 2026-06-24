@@ -6,6 +6,7 @@ import {
   getCyclicConstantRefs,
 } from "shared/validators";
 import { UpdateProps } from "shared/types/base-model";
+import { BadRequestError } from "back-end/src/util/errors";
 import { constantUpdated } from "back-end/src/services/constants";
 import {
   logConstantCreatedEvent,
@@ -64,6 +65,13 @@ export class ConstantModel extends BaseClass {
   // concurrently-created drafts (each cycle-free vs. live at creation time)
   // could otherwise store a cycle. Resolution degrades gracefully on a cycle,
   // but the memo relies on acyclicity, so we keep stored data acyclic.
+  //
+  // The graph is read via the permission-filtered `getAll()`. A cycle crossing a
+  // project boundary the writer can't fully read could slip through, but that's
+  // harmless by design: cross-project reference edges are scrubbed at resolution
+  // (so they can't form a resolvable cycle), and the one narrow resolvable case
+  // degrades gracefully via the memo (leftover placeholders — no DoS, no wrong
+  // value). Not worth an unfiltered read.
   private async assertNoCycle(
     key: string,
     value: string | undefined,
@@ -76,7 +84,7 @@ export class ConstantModel extends BaseClass {
       await this.getAll(),
     );
     if (cyclic.length) {
-      throw new Error(
+      throw new BadRequestError(
         `This value references ${cyclic
           .map((k) => `@const:${k}`)
           .join(", ")}, which would create a reference cycle.`,
