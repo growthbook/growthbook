@@ -6,11 +6,12 @@ import { useAuth } from "@/services/auth";
 // eslint-disable-next-line no-restricted-imports
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
-import SelectField from "@/components/Forms/SelectField";
 import Text from "@/ui/Text";
+import Heading from "@/ui/Heading";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import RadioGroup from "@/ui/RadioGroup";
+import { Select, SelectItem } from "@/ui/Select";
 import { useRevisionDiff, RevisionDiffConfig } from "./useRevisionDiff";
 import { RevisionDiff } from "./RevisionDiff";
 
@@ -222,19 +223,23 @@ export default function SavedGroupRevertModal({
         </Callout>
       )}
 
-      <h3>Review Changes</h3>
+      <Heading as="h4" size="medium" mb="3">
+        Review Changes
+      </Heading>
       <Flex align="center" gap="2" mb="3" wrap="wrap">
         <Text weight="medium">Reverting to:</Text>
         <Box style={{ flex: 1, minWidth: 200, maxWidth: 480 }}>
-          <SelectField
+          <Select
             value={targetId}
-            options={targetOptions}
-            sort={false}
-            isSearchable={false}
-            label=""
+            setValue={(value) => setTargetId(value)}
             style={{ width: "100%", maxWidth: "100%" }}
-            onChange={(value) => setTargetId(value)}
-          />
+          >
+            {targetOptions.map((o) => (
+              <SelectItem key={o.value} value={o.value}>
+                {o.label}
+              </SelectItem>
+            ))}
+          </Select>
         </Box>
       </Flex>
 

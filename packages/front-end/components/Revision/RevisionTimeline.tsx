@@ -364,26 +364,25 @@ export default function RevisionTimeline<T>({
                           <Flex gap="3" ml="auto">
                             {onEditComment && (
                               <Link
+                                size="2"
                                 onClick={(e) => {
                                   e.preventDefault();
                                   setEditingId(entry.id);
                                 }}
-                                style={{ cursor: "pointer", fontSize: 13 }}
+                                style={{ cursor: "pointer" }}
                               >
                                 Edit
                               </Link>
                             )}
                             {onDeleteComment && (
                               <Link
+                                size="2"
+                                color="red"
                                 onClick={(e) => {
                                   e.preventDefault();
                                   setDeleteId(entry.id);
                                 }}
-                                style={{
-                                  cursor: "pointer",
-                                  fontSize: 13,
-                                  color: "var(--red-11)",
-                                }}
+                                style={{ cursor: "pointer" }}
                               >
                                 Delete
                               </Link>

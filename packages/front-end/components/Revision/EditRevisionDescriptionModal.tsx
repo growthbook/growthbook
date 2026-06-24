@@ -20,7 +20,7 @@ export default function EditRevisionDescriptionModal({
 
   return (
     <ModalStandard
-      trackingEventModalType=""
+      trackingEventModalType="edit-revision-description"
       open={true}
       close={close}
       header="Edit Revision Description"

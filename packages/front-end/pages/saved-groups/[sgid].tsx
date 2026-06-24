@@ -1609,7 +1609,10 @@ export default function EditSavedGroupPage() {
                                           : undefined
                                       }
                                     >
-                                      <Markdown className="speech-bubble">
+                                      <Markdown
+                                        className="speech-bubble"
+                                        highlightCode
+                                      >
                                         {displayRevision.comment}
                                       </Markdown>
                                     </Box>
@@ -1651,11 +1654,9 @@ export default function EditSavedGroupPage() {
                                 </Flex>
                               ) : (
                                 <>
-                                  <em
-                                    style={{ color: "var(--color-text-mid)" }}
-                                  >
+                                  <Text as="span" color="text-mid">
                                     none
-                                  </em>
+                                  </Text>
                                   {canEditDescription && (
                                     <IconButton
                                       variant="ghost"
@@ -1830,6 +1831,7 @@ export default function EditSavedGroupPage() {
                       <Button
                         variant="outline"
                         disabled={!!(isMerged || isDiscarded)}
+                        icon={<FaPlusCircle />}
                         onClick={() => {
                           // When viewing live, switch to/create draft first
                           if (!selectedRevision && userOpenRevision) {
@@ -1849,10 +1851,7 @@ export default function EditSavedGroupPage() {
                           setAddItems(true);
                         }}
                       >
-                        <span className="mr-1 lh-full">
-                          <FaPlusCircle />
-                        </span>
-                        <span className="lh-full">Add items</span>
+                        Add items
                       </Button>
                     </Tooltip>
                   </Flex>
@@ -1880,21 +1879,18 @@ export default function EditSavedGroupPage() {
                       <th>
                         <Flex justify="between" align="center">
                           <span>{savedGroup.attributeKey}</span>
-                          <div
-                            className="cursor-pointer text-color-primary"
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            icon={<PiArrowsDownUp />}
                             onClick={() => {
                               setSortNewestFirst(!sortNewestFirst);
                               setCurrentPage(1);
                             }}
                           >
-                            <PiArrowsDownUp className="mr-1 lh-full align-middle" />
-                            <span className="lh-full align-middle">
-                              Showing{" "}
-                              {sortNewestFirst
-                                ? "newest first"
-                                : "oldest first"}
-                            </span>
-                          </div>
+                            Showing{" "}
+                            {sortNewestFirst ? "newest first" : "oldest first"}
+                          </Button>
                         </Flex>
                       </th>
                     </tr>
