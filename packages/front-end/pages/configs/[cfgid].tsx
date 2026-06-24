@@ -161,6 +161,10 @@ const FIELD_TYPE_OPTIONS = [
   { value: "boolean", label: "Boolean" },
 ];
 
+// Shared fixed column widths so the Form-tab header, value rows, and the insert
+// row all line up on key / value / type.
+const FIELD_COLS = { key: 200, value: 300, type: 150 };
+
 // tsc-style label for a field's type, including nullable (`| null`) and optional
 // (`| undefined`) modifiers; "advanced" when a raw JSON Schema is set.
 function fieldTypeLabel(f: SchemaField | null): string {
@@ -308,18 +312,12 @@ function FieldDefForm({
   };
 
   return (
-    <Box
-      mt="3"
-      p="3"
-      style={{
-        border: "1px solid var(--slate-a5)",
-        borderRadius: "var(--radius-3)",
-      }}
-    >
-      {/* Line 1: key + value + type + save/cancel. Fixed-width columns so the
-          row doesn't shift as you type or the type auto-detects. */}
+    <Box mt="2" pt="3" style={{ borderTop: "1px solid var(--slate-a5)" }}>
+      {/* Line 1: key + value + type + save/cancel. Fixed-width columns (shared
+          with the Form-tab header/rows) so the row lines up and doesn't shift as
+          you type or the type auto-detects. */}
       <Flex gap="2" align="center" wrap="wrap">
-        <Box style={{ width: 200, flexShrink: 0 }}>
+        <Box style={{ width: FIELD_COLS.key, flexShrink: 0 }}>
           <Field
             autoFocus
             placeholder="field key"
@@ -329,7 +327,7 @@ function FieldDefForm({
           />
         </Box>
         {withValue && (
-          <Box style={{ width: 300, flexShrink: 0 }}>
+          <Box style={{ width: FIELD_COLS.value, flexShrink: 0 }}>
             {field.type === "boolean" ? (
               <SelectField
                 value={valueText}
@@ -353,7 +351,7 @@ function FieldDefForm({
             )}
           </Box>
         )}
-        <Box style={{ width: 150, flexShrink: 0 }}>
+        <Box style={{ width: FIELD_COLS.type, flexShrink: 0 }}>
           <SelectField
             value={advanced ? "advanced" : field.type}
             onChange={onTypeChange}
@@ -979,113 +977,139 @@ export default function ConfigDetailPage(): React.ReactElement {
 
                 {/* Form — per-field resolved values (override / reset). */}
                 <TabsContent value="form">
-                  {resolved.fields.length > 0 ? (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableColumnHeader>Key</TableColumnHeader>
-                          <TableColumnHeader>Type</TableColumnHeader>
-                          <TableColumnHeader>Value</TableColumnHeader>
-                          <TableColumnHeader>Source</TableColumnHeader>
-                          <TableColumnHeader>{""}</TableColumnHeader>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {resolved.fields.map((f) => {
-                          const here = f.source === config.key;
-                          return (
-                            <TableRow key={f.key}>
-                              <TableCell>{f.key}</TableCell>
-                              <TableCell>
-                                <Text color="text-mid">
-                                  {fieldTypeLabel(f.field)}
+                  {/* Column header — aligns with the insert row (FIELD_COLS).
+                      Source carries the inheritance/lineage provenance. */}
+                  {(resolved.fields.length > 0 || schemaEdit === "add") && (
+                    <Flex
+                      gap="2"
+                      align="center"
+                      pb="1"
+                      mb="1"
+                      style={{ borderBottom: "1px solid var(--slate-a4)" }}
+                    >
+                      {[
+                        ["Key", FIELD_COLS.key],
+                        ["Value", FIELD_COLS.value],
+                        ["Type", FIELD_COLS.type],
+                      ].map(([label, w]) => (
+                        <Box
+                          key={label}
+                          style={{ width: w as number, flexShrink: 0 }}
+                        >
+                          <Text size="small" weight="semibold" color="text-low">
+                            {label}
+                          </Text>
+                        </Box>
+                      ))}
+                      <Box style={{ flex: 1, minWidth: 80 }}>
+                        <Text size="small" weight="semibold" color="text-low">
+                          Source
+                        </Text>
+                      </Box>
+                    </Flex>
+                  )}
+
+                  {resolved.fields.map((f) => {
+                    const here = f.source === config.key;
+                    return (
+                      <Flex
+                        key={f.key}
+                        gap="2"
+                        align="center"
+                        py="2"
+                        style={{ borderBottom: "1px solid var(--slate-a3)" }}
+                      >
+                        <Box style={{ width: FIELD_COLS.key, flexShrink: 0 }}>
+                          {f.key}
+                        </Box>
+                        <Box
+                          style={{
+                            width: FIELD_COLS.value,
+                            flexShrink: 0,
+                            minWidth: 0,
+                            overflowWrap: "anywhere",
+                          }}
+                        >
+                          {editKey === f.key ? (
+                            <>
+                              <Field
+                                textarea
+                                minRows={2}
+                                value={editText}
+                                onChange={(e) => setEditText(e.target.value)}
+                                containerStyle={{ marginBottom: 0 }}
+                              />
+                              {editError && (
+                                <Text size="small" color="text-mid">
+                                  {editError}
                                 </Text>
-                              </TableCell>
-                              <TableCell>
-                                {editKey === f.key ? (
-                                  <Box style={{ maxWidth: 360 }}>
-                                    <Field
-                                      textarea
-                                      minRows={2}
-                                      value={editText}
-                                      onChange={(e) =>
-                                        setEditText(e.target.value)
-                                      }
-                                    />
-                                    {editError && (
-                                      <Text size="small" color="text-mid">
-                                        {editError}
-                                      </Text>
-                                    )}
-                                  </Box>
-                                ) : f.value !== undefined ? (
-                                  <code>{JSON.stringify(f.value)}</code>
-                                ) : f.field?.default ? (
-                                  <Text color="text-low">
-                                    <code>{f.field.default}</code> (default)
-                                  </Text>
-                                ) : (
-                                  <Text color="text-low">—</Text>
+                              )}
+                            </>
+                          ) : f.value !== undefined ? (
+                            <code>{JSON.stringify(f.value)}</code>
+                          ) : f.field?.default ? (
+                            <Text color="text-low">
+                              <code>{f.field.default}</code> (default)
+                            </Text>
+                          ) : (
+                            <Text color="text-low">—</Text>
+                          )}
+                        </Box>
+                        <Box style={{ width: FIELD_COLS.type, flexShrink: 0 }}>
+                          <Text color="text-mid">
+                            {fieldTypeLabel(f.field)}
+                          </Text>
+                        </Box>
+                        <Box style={{ flex: 1, minWidth: 80 }}>
+                          {here ? (
+                            <Badge
+                              label="defined here"
+                              color="violet"
+                              variant="soft"
+                            />
+                          ) : (
+                            <Badge
+                              label={f.source ?? "default"}
+                              color="gray"
+                              variant="soft"
+                            />
+                          )}
+                        </Box>
+                        <Flex gap="2" align="center" style={{ flexShrink: 0 }}>
+                          {editKey === f.key ? (
+                            <>
+                              <Button size="xs" onClick={submitOverride}>
+                                Save
+                              </Button>
+                              <Button
+                                size="xs"
+                                variant="ghost"
+                                onClick={() => setEditKey(null)}
+                              >
+                                Cancel
+                              </Button>
+                            </>
+                          ) : (
+                            canEditInline && (
+                              <>
+                                <Link onClick={() => startOverride(f)}>
+                                  override
+                                </Link>
+                                {here && (
+                                  <Link onClick={() => resetField(f.key)}>
+                                    reset
+                                  </Link>
                                 )}
-                              </TableCell>
-                              <TableCell>
-                                {here ? (
-                                  <Badge
-                                    label="defined here"
-                                    color="violet"
-                                    variant="soft"
-                                  />
-                                ) : (
-                                  <Badge
-                                    label={f.source ?? "default"}
-                                    color="gray"
-                                    variant="soft"
-                                  />
-                                )}
-                              </TableCell>
-                              <TableCell>
-                                <Flex gap="2" justify="end">
-                                  {editKey === f.key ? (
-                                    <>
-                                      <Button
-                                        size="xs"
-                                        onClick={submitOverride}
-                                      >
-                                        Save
-                                      </Button>
-                                      <Button
-                                        size="xs"
-                                        variant="ghost"
-                                        onClick={() => setEditKey(null)}
-                                      >
-                                        Cancel
-                                      </Button>
-                                    </>
-                                  ) : (
-                                    canEditInline && (
-                                      <>
-                                        <Link onClick={() => startOverride(f)}>
-                                          override
-                                        </Link>
-                                        {here && (
-                                          <Link
-                                            onClick={() => resetField(f.key)}
-                                          >
-                                            reset
-                                          </Link>
-                                        )}
-                                      </>
-                                    )
-                                  )}
-                                </Flex>
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
-                  ) : (
-                    <Text as="p" color="text-low" mb="2">
+                              </>
+                            )
+                          )}
+                        </Flex>
+                      </Flex>
+                    );
+                  })}
+
+                  {resolved.fields.length === 0 && schemaEdit !== "add" && (
+                    <Text as="p" color="text-low" mt="2" mb="2">
                       No fields yet.
                     </Text>
                   )}
