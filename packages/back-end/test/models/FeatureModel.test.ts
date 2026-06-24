@@ -7,6 +7,7 @@ import {
   migrateRawFeatureToV2,
   buildFeatureUpdate,
   toInterface,
+  getFeatureMetaInfoById,
 } from "back-end/src/models/FeatureModel";
 import { ReqContext } from "back-end/types/request";
 
@@ -1649,5 +1650,104 @@ describe("toInterface round-trip", () => {
     const result = toInterface(doc, mockContext());
     expect((result as unknown as { _id?: unknown })._id).toBeUndefined();
     expect((result as unknown as { __v?: unknown }).__v).toBeUndefined();
+  });
+});
+
+describe("getFeatureMetaInfoById ruleTypes extraction", () => {
+  let findSpy: jest.SpyInstance;
+
+  beforeEach(() => {
+    findSpy = jest.spyOn(FeatureModel, "find");
+  });
+
+  afterEach(() => {
+    findSpy.mockRestore();
+  });
+
+  const mockContextWithPerms = {
+    org: { id: "test_org" },
+    permissions: {
+      canReadSingleProjectResource: () => true,
+    },
+  } as unknown as ReqContext;
+
+  it("extracts v2 top-level rules correctly with sorting", async () => {
+    findSpy.mockResolvedValue([
+      {
+        id: "feat1",
+        project: "test",
+        rules: [
+          { type: "force" },
+          { type: "experiment" },
+          { type: "experiment-ref" },
+        ],
+      },
+    ]);
+
+    const res = await getFeatureMetaInfoById(mockContextWithPerms);
+    expect(res).toHaveLength(1);
+    expect(res[0].ruleTypes).toEqual(["experiment", "experiment-ref", "force"]);
+  });
+
+  it("extracts v1 environment rules correctly", async () => {
+    findSpy.mockResolvedValue([
+      {
+        id: "feat1",
+        project: "test",
+        environmentSettings: {
+          dev: {
+            rules: [{ type: "rollout" }],
+          },
+          production: {
+            rules: [{ type: "safe-rollout" }, { type: "force" }],
+          },
+        },
+      },
+    ]);
+
+    const res = await getFeatureMetaInfoById(mockContextWithPerms);
+    expect(res).toHaveLength(1);
+    expect(res[0].ruleTypes).toEqual(["safe-rollout", "rollout", "force"]);
+  });
+
+  it("deduplicates duplicate rule types", async () => {
+    findSpy.mockResolvedValue([
+      {
+        id: "feat1",
+        project: "test",
+        rules: [{ type: "force" }, { type: "force" }],
+        environmentSettings: {
+          dev: {
+            rules: [{ type: "force" }, { type: "experiment" }],
+          },
+        },
+      },
+    ]);
+
+    const res = await getFeatureMetaInfoById(mockContextWithPerms);
+    expect(res).toHaveLength(1);
+    expect(res[0].ruleTypes).toEqual(["experiment", "force"]);
+  });
+
+  it("returns empty array for features with no rules", async () => {
+    findSpy.mockResolvedValue([
+      {
+        id: "feat1",
+        project: "test",
+        rules: [],
+        environmentSettings: {
+          dev: { rules: [] },
+        },
+      },
+      {
+        id: "feat2",
+        project: "test",
+      },
+    ]);
+
+    const res = await getFeatureMetaInfoById(mockContextWithPerms);
+    expect(res).toHaveLength(2);
+    expect(res[0].ruleTypes).toEqual([]);
+    expect(res[1].ruleTypes).toEqual([]);
   });
 });

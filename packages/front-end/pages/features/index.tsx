@@ -3,7 +3,7 @@ import { useRouter } from "next/router";
 import { useFeature } from "@growthbook/growthbook-react";
 import { Box, Flex } from "@radix-ui/themes";
 import { FaRegCircleCheck, FaRegCircleXmark } from "react-icons/fa6";
-import { FeatureInterface } from "shared/types/feature";
+import { FeatureInterface, FeatureMetaInfo } from "shared/types/feature";
 import { date, datetime } from "shared/dates";
 import { featureHasEnvironment } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
@@ -45,6 +45,7 @@ import {
   draftStatusDots,
   draftStatusTooltip,
 } from "@/components/Reviews/RevisionStatusBadge";
+import Badge from "@/ui/Badge";
 import { useFeatureContentSearch } from "@/hooks/useFeatureContentSearch";
 import type { ContentSearchParams } from "@/hooks/useFeatureContentSearch";
 import { useFeatureRampStates } from "@/hooks/useFeatureRampStates";
@@ -154,7 +155,7 @@ export default function FeaturesPage() {
     () =>
       showArchived
         ? undefined
-        : (items: FeatureInterface[]) => items.filter((f) => !f.archived),
+        : (items: FeatureMetaInfo[]) => items.filter((f) => !f.archived),
     [showArchived],
   );
 
@@ -165,7 +166,7 @@ export default function FeaturesPage() {
     setSearchValue,
     syntaxFilters,
   } = useFeatureSearch({
-    allFeatures: allFeatures as unknown as FeatureInterface[],
+    allFeatures,
     environments,
     environmentStatus: statusHook.environmentStatus,
     draftStates: draftHook.draftStates,
@@ -349,6 +350,7 @@ export default function FeaturesPage() {
                 >
                   Tags
                 </TableColumnHeader>
+                <TableColumnHeader>Rules</TableColumnHeader>
                 {toggleEnvs.map((en) => (
                   <TableColumnHeader
                     key={en.id}
@@ -449,6 +451,33 @@ export default function FeaturesPage() {
                           )}
                         />
                       </div>
+                    </TableCell>
+                    <TableCell>
+                      {feature.ruleTypes && feature.ruleTypes.length > 0 ? (
+                        <div
+                          style={{
+                            display: "flex",
+                            gap: "4px",
+                            flexWrap: "wrap",
+                          }}
+                        >
+                          {feature.ruleTypes.map((type) => {
+                            let label =
+                              type.charAt(0).toUpperCase() + type.slice(1);
+                            if (type === "experiment-ref")
+                              label = "Experiment Ref";
+                            else if (type === "safe-rollout")
+                              label = "Safe Rollout";
+                            return (
+                              <Badge key={type} color="gray">
+                                {label}
+                              </Badge>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        "—"
+                      )}
                     </TableCell>
                     {toggleEnvs.map((en) => (
                       <TableCell key={en.id}>
