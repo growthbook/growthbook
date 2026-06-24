@@ -4,6 +4,7 @@ import { useAuth } from "@/services/auth";
 import Button from "@/components/Button";
 import Markdown from "@/components/Markdown/Markdown";
 import Callout from "@/ui/Callout";
+import Link from "@/ui/Link";
 import { useSnapshot } from "./SnapshotProvider";
 
 export interface Props {
@@ -104,20 +105,20 @@ export default function StatusBanner({ mutateExperiment, editResult }: Props) {
 
   if (experiment?.status === "running") {
     return (
-      <Callout status="info" mb="0">
-        {editResult && (
-          <a
-            href="#"
-            className="alert-link float-right ml-2"
-            onClick={(e) => {
-              e.preventDefault();
-              editResult();
-            }}
-          >
-            Stop{" "}
-            {experiment.type === "multi-armed-bandit" ? "Bandit" : "Experiment"}
-          </a>
-        )}
+      <Callout
+        status="info"
+        mb="0"
+        action={
+          editResult && (
+            <Link onClick={() => editResult()}>
+              Stop{" "}
+              {experiment.type === "multi-armed-bandit"
+                ? "Bandit"
+                : "Experiment"}
+            </Link>
+          )
+        }
+      >
         <strong>This experiment is currently running.</strong>
       </Callout>
     );
@@ -125,25 +126,30 @@ export default function StatusBanner({ mutateExperiment, editResult }: Props) {
 
   if (experiment?.status === "draft") {
     return (
-      <Callout status="warning" mb="0">
-        {editResult && (
-          <Button
-            color="link"
-            className="alert-link float-right ml-2 p-0"
-            onClick={async () => {
-              // Already has a phase, just update the status
-              await apiCall(`/experiment/${experiment?.id}/status`, {
-                method: "POST",
-                body: JSON.stringify({
-                  status: "running",
-                }),
-              });
-              mutateExperiment();
-            }}
-          >
-            Start Experiment
-          </Button>
-        )}
+      <Callout
+        status="warning"
+        mb="0"
+        action={
+          editResult && (
+            <Button
+              color="link"
+              className="p-0"
+              onClick={async () => {
+                // Already has a phase, just update the status
+                await apiCall(`/experiment/${experiment?.id}/status`, {
+                  method: "POST",
+                  body: JSON.stringify({
+                    status: "running",
+                  }),
+                });
+                mutateExperiment();
+              }}
+            >
+              Start Experiment
+            </Button>
+          )
+        }
+      >
         <strong>This is a draft experiment.</strong>
       </Callout>
     );

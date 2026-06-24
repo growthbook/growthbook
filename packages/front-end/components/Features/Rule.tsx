@@ -1555,19 +1555,20 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                   </Text>
                 )}
                 {rampApproveError && (
-                  <Callout status="error" mb="2">
-                    <Flex justify="between" align="start" gap="3">
-                      <Text>{rampApproveError}</Text>
-                      <Flex gap="2" flexShrink="0">
-                        <Button
-                          size="xs"
-                          variant="ghost"
-                          onClick={() => setRampApproveError("")}
-                        >
-                          Dismiss
-                        </Button>
-                      </Flex>
-                    </Flex>
+                  <Callout
+                    status="error"
+                    mb="2"
+                    action={
+                      <Button
+                        size="xs"
+                        variant="ghost"
+                        onClick={() => setRampApproveError("")}
+                      >
+                        Dismiss
+                      </Button>
+                    }
+                  >
+                    <Text>{rampApproveError}</Text>
                   </Callout>
                 )}
                 {rampSchedule.status === "rolled-back" &&

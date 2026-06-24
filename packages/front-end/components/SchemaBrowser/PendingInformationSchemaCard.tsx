@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
-import { Flex } from "@radix-ui/themes";
-import LoadingSpinner from "@/components/LoadingSpinner";
 import Callout from "@/ui/Callout";
+import Button from "@/ui/Button";
 
 export default function PendingInformationSchemaCard({
   mutate,
@@ -34,16 +33,16 @@ export default function PendingInformationSchemaCard({
   return (
     <div>
       {!error ? (
-        <Callout status="info">
-          <Flex align="center" justify="between" gap="2">
-            <div>
-              We&apos;re generating the information schema for this datasource.
-              This may take a minute, depending on the size of the datasource.
-            </div>
-            <button disabled={true} className="btn btn-link">
-              {fetching && <LoadingSpinner />} Checking Status
-            </button>
-          </Flex>
+        <Callout
+          status="info"
+          action={
+            <Button variant="ghost" disabled loading={fetching}>
+              Checking Status
+            </Button>
+          }
+        >
+          We&apos;re generating the information schema for this datasource. This
+          may take a minute, depending on the size of the datasource.
         </Callout>
       ) : (
         <Callout status="error">{error}</Callout>

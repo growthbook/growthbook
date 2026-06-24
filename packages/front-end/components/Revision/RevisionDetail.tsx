@@ -445,12 +445,10 @@ function RevisionDetail<T>({
         />
       )}
       {mergeResult && !mergeResult.success && (
-        <Callout status="error" mb="4">
-          <Flex justify="between" align="center">
-            <Text size="medium">
-              You have conflicts with the current state of the entity. Please
-              resolve the conflicts before merging.
-            </Text>
+        <Callout
+          status="error"
+          mb="4"
+          action={
             <Button
               onClick={() => setShowFixConflicts(true)}
               variant="outline"
@@ -458,7 +456,12 @@ function RevisionDetail<T>({
             >
               Fix Conflicts
             </Button>
-          </Flex>
+          }
+        >
+          <Text size="medium">
+            You have conflicts with the current state of the entity. Please
+            resolve the conflicts before merging.
+          </Text>
         </Callout>
       )}
       {mergeError && (
@@ -468,18 +471,17 @@ function RevisionDetail<T>({
       )}
       {revision.status === "merged" && (
         <Callout status="success" mb="4">
-          <Flex justify="between" align="center">
-            <Text size="medium">
-              This revision has been merged and published.
-            </Text>
-          </Flex>
+          <Text size="medium">
+            This revision has been merged and published.
+          </Text>
         </Callout>
       )}
       {revision.status === "discarded" && (
-        <Callout status="warning" mb="4">
-          <Flex justify="between" align="center">
-            <Text size="medium">This revision has been discarded.</Text>
-            {onReopen && (
+        <Callout
+          status="warning"
+          mb="4"
+          action={
+            onReopen && (
               <Button
                 variant="solid"
                 color="violet"
@@ -488,8 +490,10 @@ function RevisionDetail<T>({
               >
                 Reopen
               </Button>
-            )}
-          </Flex>
+            )
+          }
+        >
+          <Text size="medium">This revision has been discarded.</Text>
         </Callout>
       )}
 

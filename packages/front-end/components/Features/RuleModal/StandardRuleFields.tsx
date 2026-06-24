@@ -385,9 +385,11 @@ export default function StandardRuleFields({
                         disabled={isTerminal || isPendingRemoval}
                       />
                       {isTerminal && !isPendingRemoval && (
-                        <Callout status="info" mt="3" size="sm">
-                          <Flex align="center" justify="between" gap="3">
-                            <Text>This schedule has finished.</Text>
+                        <Callout
+                          status="info"
+                          mt="3"
+                          size="sm"
+                          action={
                             <Button
                               size="xs"
                               variant="outline"
@@ -400,7 +402,9 @@ export default function StandardRuleFields({
                             >
                               Remove schedule
                             </Button>
-                          </Flex>
+                          }
+                        >
+                          <Text>This schedule has finished.</Text>
                         </Callout>
                       )}
                       {isPendingRemoval && (

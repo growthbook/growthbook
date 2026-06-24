@@ -199,26 +199,24 @@ const DataSourceForm: FC<{
       }
     >
       {importSampleData && !datasource.type && (
-        <Callout status="info">
-          <div className="row align-items-center">
-            <div className="col">
-              <div>
-                <strong>Not ready to connect to your data source?</strong>
-              </div>{" "}
-              Try out GrowthBook first with a sample dataset.
-            </div>
-            <div className="col-auto">
-              <Button
-                color="info"
-                className="btn-sm"
-                onClick={async () => {
-                  await importSampleData();
-                }}
-              >
-                Use Sample Data
-              </Button>
-            </div>
-          </div>
+        <Callout
+          status="info"
+          action={
+            <Button
+              color="info"
+              className="btn-sm"
+              onClick={async () => {
+                await importSampleData();
+              }}
+            >
+              Use Sample Data
+            </Button>
+          }
+        >
+          <div>
+            <strong>Not ready to connect to your data source?</strong>
+          </div>{" "}
+          Try out GrowthBook first with a sample dataset.
         </Callout>
       )}
       <SelectField
