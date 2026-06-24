@@ -35,7 +35,6 @@ type SessionReplayRow = {
   clientKey: string;
   userId: string;
   deviceId: string;
-  s3Key: string;
   startedAt: string;
   endedAt: string;
   lastEventAt: string;
@@ -193,7 +192,6 @@ export default function SessionReplayPage() {
   // ---- list / filter state -------------------------------------------------
   const [userIdFilter, setUserIdFilter] = useState("");
   const [clientKeyFilter, setClientKeyFilter] = useState("");
-  const [stateFilter, setStateFilter] = useState("");
   const [urlFilter, setUrlFilter] = useState("");
 
   // ---- UI panel state ------------------------------------------------------
@@ -218,9 +216,6 @@ export default function SessionReplayPage() {
     setClientKeyFilter(
       typeof router.query.clientKey === "string" ? router.query.clientKey : "",
     );
-    setStateFilter(
-      typeof router.query.state === "string" ? router.query.state : "",
-    );
     setUrlFilter(typeof router.query.url === "string" ? router.query.url : "");
   }, [router.isReady, router.query]);
 
@@ -240,20 +235,11 @@ export default function SessionReplayPage() {
     if (typeof router.query.clientKey === "string" && router.query.clientKey) {
       params.set("clientKey", router.query.clientKey);
     }
-    if (typeof router.query.state === "string" && router.query.state) {
-      params.set("state", router.query.state);
-    }
     if (typeof router.query.url === "string" && router.query.url) {
       params.set("url", router.query.url);
     }
     return params.toString();
-  }, [
-    page,
-    router.query.clientKey,
-    router.query.state,
-    router.query.url,
-    router.query.userId,
-  ]);
+  }, [page, router.query.clientKey, router.query.url, router.query.userId]);
 
   const { data: sessionsData, error: sessionsError } = useApi<{
     sessions: SessionReplayRow[];
@@ -290,7 +276,6 @@ export default function SessionReplayPage() {
   const updateRouteQuery = (next: {
     userId?: string;
     clientKey?: string;
-    state?: string;
     url?: string;
     page: number;
     sessionId?: string;
@@ -300,7 +285,6 @@ export default function SessionReplayPage() {
     };
     if (next.userId) query.userId = next.userId;
     if (next.clientKey) query.clientKey = next.clientKey;
-    if (next.state) query.state = next.state;
     if (next.url) query.url = next.url;
     if (next.sessionId) query.sessionId = next.sessionId;
     void router.push(
@@ -317,7 +301,6 @@ export default function SessionReplayPage() {
     updateRouteQuery({
       userId: userIdFilter.trim(),
       clientKey: clientKeyFilter.trim(),
-      state: stateFilter,
       url: urlFilter.trim(),
       page: 1,
       sessionId: selectedSessionId,
@@ -327,7 +310,6 @@ export default function SessionReplayPage() {
   const clearFilters = () => {
     setUserIdFilter("");
     setClientKeyFilter("");
-    setStateFilter("");
     setUrlFilter("");
     updateRouteQuery({ page: 1, sessionId: selectedSessionId });
   };
@@ -340,7 +322,6 @@ export default function SessionReplayPage() {
         typeof router.query.clientKey === "string"
           ? router.query.clientKey
           : "",
-      state: typeof router.query.state === "string" ? router.query.state : "",
       url: typeof router.query.url === "string" ? router.query.url : "",
       page: nextPage,
       sessionId: selectedSessionId,
@@ -355,7 +336,6 @@ export default function SessionReplayPage() {
         typeof router.query.clientKey === "string"
           ? router.query.clientKey
           : "",
-      state: typeof router.query.state === "string" ? router.query.state : "",
       url: typeof router.query.url === "string" ? router.query.url : "",
       page,
       sessionId,
@@ -388,7 +368,6 @@ export default function SessionReplayPage() {
         typeof router.query.clientKey === "string"
           ? router.query.clientKey
           : "",
-      state: typeof router.query.state === "string" ? router.query.state : "",
       url: typeof router.query.url === "string" ? router.query.url : "",
     };
     if (key === "userId") {
@@ -404,33 +383,6 @@ export default function SessionReplayPage() {
       setUrlFilter("");
     }
     updateRouteQuery({ ...next, page: 1, sessionId: selectedSessionId });
-  };
-
-  // ---- show tabs (maps to stateFilter) ------------------------------------
-  // "All" → no state filter, "Recorded" → finalized, "Live" → recording
-  const showTab = useMemo(() => {
-    const s = typeof router.query.state === "string" ? router.query.state : "";
-    if (s === "finalized") return "recorded";
-    if (s === "recording") return "live";
-    return "all";
-  }, [router.query.state]);
-
-  const handleShowTabChange = (tab: string) => {
-    const newState =
-      tab === "recorded" ? "finalized" : tab === "live" ? "recording" : "";
-    setStateFilter(newState);
-    updateRouteQuery({
-      userId:
-        typeof router.query.userId === "string" ? router.query.userId : "",
-      clientKey:
-        typeof router.query.clientKey === "string"
-          ? router.query.clientKey
-          : "",
-      state: newState,
-      url: typeof router.query.url === "string" ? router.query.url : "",
-      page: 1,
-      sessionId: selectedSessionId,
-    });
   };
 
   // ---- player / chunk loading ----------------------------------------------
@@ -645,20 +597,6 @@ export default function SessionReplayPage() {
             >
               {""}
             </Button>
-          </Flex>
-
-          {/* Show tabs */}
-          <Flex align="center" gap="2" mt="3">
-            <Text size="small" color="text-high" weight="medium">
-              Show:
-            </Text>
-            <Tabs value={showTab} onValueChange={handleShowTabChange}>
-              <TabsList size="1">
-                <TabsTrigger value="all">All</TabsTrigger>
-                <TabsTrigger value="recorded">Recorded</TabsTrigger>
-                <TabsTrigger value="live">Live</TabsTrigger>
-              </TabsList>
-            </Tabs>
           </Flex>
 
           {/* Add filter toggle */}
