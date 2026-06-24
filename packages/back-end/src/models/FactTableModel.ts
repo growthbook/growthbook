@@ -17,6 +17,7 @@ import { ApiReqContext } from "back-end/types/api";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { projectFilterQuery } from "back-end/src/util/mongo.util";
 import { createModelAuditLogger } from "back-end/src/services/audit";
+import { deferAggregatedFactTableToNextSlot } from "back-end/src/services/aggregatedFactTables";
 
 const audit = createModelAuditLogger({
   entity: "factTable",
@@ -303,6 +304,8 @@ export async function createFactTable(
   const factTable = toInterface(doc);
 
   await audit.logCreate(context, factTable);
+
+  await deferAggregatedFactTableToNextSlot(context, factTable);
 
   return factTable;
 }
