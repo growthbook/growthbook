@@ -1,5 +1,8 @@
+import { promisify } from "util";
 import zlib from "zlib";
 import { getSessionReplayObjectBuffer, listSessionReplayChunks } from "./files";
+
+const gunzip = promisify(zlib.gunzip);
 
 export async function getSessionReplayEventsByStoragePrefix(
   storagePrefix: string,
@@ -18,7 +21,8 @@ export async function getSessionReplayEventsByStoragePrefix(
   const eventsByChunk = await Promise.all(
     sortedChunkKeys.map(async (chunkKey) => {
       const gzippedChunk = await getSessionReplayObjectBuffer(chunkKey);
-      return JSON.parse(zlib.gunzipSync(gzippedChunk).toString("utf-8"));
+      const decompressed = await gunzip(gzippedChunk);
+      return JSON.parse(decompressed.toString("utf-8"));
     }),
   );
 
