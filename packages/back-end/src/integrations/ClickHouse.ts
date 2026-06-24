@@ -101,6 +101,24 @@ export default class ClickHouse extends SqlIntegration {
     };
   }
 
+  // Resolve the cluster to target for cluster-aware statements. The managed
+  // warehouse runs on ClickHouse Cloud, whose predefined cluster is `default`;
+  // a bare KILL only reaches the replica that receives it, so it must broadcast.
+  private resolveCluster(): string | null {
+    if (this.params.cluster) return this.params.cluster;
+    if (this.datasource.type === "growthbook_clickhouse") return "default";
+    return null;
+  }
+
+  private onClusterClause(): string {
+    const cluster = this.resolveCluster();
+    if (!cluster) return "";
+    if (!/^[a-zA-Z0-9_]+$/.test(cluster)) {
+      throw new Error(`Invalid ClickHouse cluster name: ${cluster}`);
+    }
+    return ` ON CLUSTER \`${cluster}\``;
+  }
+
   async cancelQuery(externalId: string): Promise<void> {
     if (isManagedWarehouseAwaitingProvisioning(this.datasource)) {
       throw new ManagedWarehousePendingError();
@@ -110,7 +128,7 @@ export default class ClickHouse extends SqlIntegration {
     // KILL QUERY is async by default — this returns once ClickHouse accepts
     // the request, not once the target query has actually stopped.
     await client.command({
-      query: "KILL QUERY WHERE query_id = {qid:String}",
+      query: `KILL QUERY${this.onClusterClause()} WHERE query_id = {qid:String}`,
       query_params: { qid: externalId },
     });
     logger.info({ externalId }, "ClickHouse cancel request accepted");

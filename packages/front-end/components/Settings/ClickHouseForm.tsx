@@ -86,6 +86,17 @@ const ClickHouseForm: FC<{
             placeholder={"Default: 1800"}
           />
         </div>
+        <div className="form-group col-md-12">
+          <label>Cluster (optional)</label>
+          <input
+            type="text"
+            className="form-control"
+            name="cluster"
+            value={params.cluster || ""}
+            onChange={onParamChange}
+            placeholder="Required to cancel queries on a multi-replica cluster (e.g. default)"
+          />
+        </div>
       </div>
     </>
   );
