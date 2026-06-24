@@ -57,7 +57,8 @@ function FunnelCard({
   return (
     <Box
       className="appbox"
-      width="692px"
+      maxWidth="692px"
+      width="100%"
       mb="0"
       py="4"
       style={{ paddingLeft: 20, paddingRight: 20 }}
