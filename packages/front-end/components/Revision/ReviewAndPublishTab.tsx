@@ -11,7 +11,7 @@ import {
   findPublishLockingScheduledRevision,
 } from "shared/enterprise";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import { PiCaretDownBold, PiGitDiff } from "react-icons/pi";
+import { PiCaretDownBold, PiGitDiff, PiGitMergeBold } from "react-icons/pi";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import useURLHash from "@/hooks/useURLHash";
@@ -285,6 +285,15 @@ function ReviewAndPublishRevision<T>({
   );
   const featureLockedBySchedule = !!lockingScheduledSibling;
   const scheduledPending = isScheduledPublishPending(revision);
+  const scheduleArmedByAdmin =
+    scheduledPending && !!revision.scheduledPublishBypassApproval;
+  // A pending dated schedule blocks "publish now": the schedule card already
+  // explains it and offers Cancel/Change, so (matching the feature tab) we hide
+  // the otherwise-dead Publish button. An admin can override a non-admin-armed
+  // schedule by checking the bypass box; an admin-armed schedule is
+  // cancel-and-re-arm only, so it always blocks.
+  const scheduleBlocksPublish =
+    scheduledPending && (!adminPublish || scheduleArmedByAdmin);
 
   // ── Reviewers: latest verdict per user within the current review cycle.
   // Mirrors RevisionModel.addReview — "reopened" activity entries (submit
@@ -538,6 +547,30 @@ function ReviewAndPublishRevision<T>({
   // tab); other terminal/merged revisions fall back to "Locked".
   const statusForBadge = isLive ? "live" : toBadgeStatus(revision.status);
   const statusColor = revisionStatusColor(statusForBadge);
+  // The actions-column header band reflects the review lifecycle, not deployment
+  // state — "Live"/"Locked" aren't lifecycle stages, so terminal (merged/live)
+  // revisions all read as "Published" (grey) here, matching the feature tab. The
+  // title badge above still shows the precise Live/Locked state; discarded stays
+  // as-is (it can be reopened).
+  const isDiscarded = revision.status === "discarded";
+  const headerStatus: Parameters<typeof revisionStatusColor>[0] = isActiveDraft
+    ? statusForBadge
+    : isDiscarded
+      ? "discarded"
+      : "published";
+  const headerStatusColor = revisionStatusColor(headerStatus);
+  const headerStatusLabel = isActiveDraft
+    ? revisionStatusLabel(statusForBadge)
+    : isDiscarded
+      ? "Discarded"
+      : "Published";
+  const headerStatusIcon = isActiveDraft ? (
+    revisionStatusIcon(statusForBadge)
+  ) : isDiscarded ? (
+    revisionStatusIcon("discarded")
+  ) : (
+    <PiGitMergeBold />
+  );
   const headerTitle =
     revision.title?.trim() ||
     revision.comment?.trim() ||
@@ -757,7 +790,7 @@ function ReviewAndPublishRevision<T>({
       align="center"
       px="4"
       style={{
-        background: `var(--${statusColor}-a3)`,
+        background: `var(--${headerStatusColor}-a3)`,
         borderBottom: "1px solid var(--gray-a4)",
         minHeight: 40,
       }}
@@ -765,16 +798,16 @@ function ReviewAndPublishRevision<T>({
       <Flex
         align="center"
         gap="2"
-        style={{ color: `var(--${statusColor}-11)` }}
+        style={{ color: `var(--${headerStatusColor}-11)` }}
       >
-        {revisionStatusIcon(statusForBadge) && (
+        {headerStatusIcon && (
           <Box style={{ fontSize: 18, lineHeight: 1, display: "flex" }}>
-            {revisionStatusIcon(statusForBadge)}
+            {headerStatusIcon}
           </Box>
         )}
         <Heading as="h4" size="small">
-          <span style={{ color: `var(--${statusColor}-11)` }}>
-            {revisionStatusLabel(revision.status)}
+          <span style={{ color: `var(--${headerStatusColor}-11)` }}>
+            {headerStatusLabel}
           </span>
         </Heading>
       </Flex>
@@ -1058,7 +1091,11 @@ function ReviewAndPublishRevision<T>({
               (revision.status !== "approved" || adminPublish) && (
                 <Box mb="3">
                   <Checkbox
-                    label="Admin: bypass approval and publish now"
+                    label={
+                      <span style={{ color: "var(--red-11)" }}>
+                        Admin: bypass approval and publish now
+                      </span>
+                    }
                     weight="regular"
                     value={adminPublish}
                     setValue={(val) => setAdminPublish(!!val)}
@@ -1066,24 +1103,26 @@ function ReviewAndPublishRevision<T>({
                 </Box>
               )}
 
-            <Button
-              onClick={
-                state.submitAction === "publish" &&
-                state.ctaEnabled &&
-                canEditEntity
-                  ? doSubmit
-                  : undefined
-              }
-              loading={submitting && state.submitAction === "publish"}
-              disabled={
-                state.submitAction !== "publish" ||
-                !state.ctaEnabled ||
-                !canEditEntity
-              }
-              style={{ width: "100%" }}
-            >
-              Publish
-            </Button>
+            {!scheduleBlocksPublish && (
+              <Button
+                onClick={
+                  state.submitAction === "publish" &&
+                  state.ctaEnabled &&
+                  canEditEntity
+                    ? doSubmit
+                    : undefined
+                }
+                loading={submitting && state.submitAction === "publish"}
+                disabled={
+                  state.submitAction !== "publish" ||
+                  !state.ctaEnabled ||
+                  !canEditEntity
+                }
+                style={{ width: "100%" }}
+              >
+                Publish
+              </Button>
+            )}
 
             <Flex direction="column" gap="2" mt="3">
               {submitError && (
