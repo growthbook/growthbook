@@ -76,6 +76,27 @@ const snapshotContext = React.createContext<{
   mutate: () => Promise.resolve(),
 });
 
+export function getSnapshotSummaryPath({
+  experimentId,
+  phase,
+  dimension,
+  snapshotType,
+}: {
+  experimentId: string;
+  phase: number;
+  dimension: string;
+  snapshotType?: SnapshotType;
+}): string {
+  const query = new URLSearchParams({
+    ...(dimension && { dimension }),
+    ...(snapshotType && { type: snapshotType }),
+  }).toString();
+  return (
+    `/experiment/${experimentId}/snapshot-summary/${phase}` +
+    (query ? `?${query}` : "")
+  );
+}
+
 export function getPrecomputedDimensions(
   snapshot: ExperimentSnapshotInterface | undefined,
   dimensionless: ExperimentSnapshotInterface | undefined,
@@ -224,15 +245,15 @@ export default function SnapshotProvider({
   // `latest` is sourced from a dedicated status endpoint that skips loading
   // and decoding the per-metric analysis chunks. Keyed by the same
   // phase/dimension/type tuple as the main snapshot fetch.
-  const statusQuery = new URLSearchParams({
-    ...(dimension && { dimension }),
-    ...(snapshotType && { type: snapshotType }),
-  }).toString();
   const { data: statusData, mutate: mutateStatus } = useApi<{
     latest: SnapshotStatusSummary | null;
   }>(
-    `/experiment/${experiment.id}/snapshot-summary/${phase}` +
-      (statusQuery ? `?${statusQuery}` : ""),
+    getSnapshotSummaryPath({
+      experimentId: experiment.id,
+      phase,
+      dimension,
+      snapshotType,
+    }),
   );
 
   const mutate = useCallback(

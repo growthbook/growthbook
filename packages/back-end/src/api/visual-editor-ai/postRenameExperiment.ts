@@ -25,6 +25,9 @@ const validation = {
   method: "post" as const,
   path: "/visual-editor/rename-experiment",
   operationId: "postVisualEditorRenameExperiment",
+  // Internal Visual Editor extension endpoint — not part of the
+  // public OpenAPI spec.
+  excludeFromSpec: true,
 };
 
 export const postRenameExperiment = createApiRequestHandler(validation)(async (

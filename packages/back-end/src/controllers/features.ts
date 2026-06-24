@@ -119,6 +119,7 @@ import {
   getLiveRevisionForFeature,
   getDraftRevision,
   assertCanAutoPublish,
+  revisionRequiresReview,
 } from "back-end/src/services/features";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import {
@@ -164,6 +165,7 @@ import {
   submitReviewAndComments,
   updateRevision,
   setAutoPublishOnApproval,
+  setRevisionScheduledPublish,
 } from "back-end/src/models/FeatureRevisionModel";
 import {
   buildFeatureLookups,
@@ -196,7 +198,7 @@ import {
   getExperimentById,
   getExperimentsByIds,
   getExperimentsByTrackingKeys,
-  getAllExperiments,
+  getAllExperimentsForStaleGraph,
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
 import { ApiReqContext } from "back-end/types/api";
@@ -218,7 +220,10 @@ import {
 } from "back-end/src/util/errors";
 import {
   canEnableFeatureAutoPublishOnApproval,
+  canPublishFeatureRevision,
+  canScheduleFeaturePublish,
   maybeAutoPublishFeatureRevision,
+  parseScheduledPublishDate,
 } from "back-end/src/api/features/autoPublishOnApproval";
 import {
   shouldValidateCustomFieldsOnUpdate,
@@ -1021,6 +1026,8 @@ export async function postFeatureRebase(
       ),
     },
     resetReview,
+    // Rebase is permitted while a "lock edits" schedule is active.
+    { bypassScheduleLock: true },
   );
 
   const rebased = await getRevision({
@@ -1062,11 +1069,15 @@ export async function postFeatureRebase(
     status: 200,
   });
 }
-export async function postFeatureRequestReview(
+// Arm or cancel a deferred publish on a draft (scheduledPublishAt: null cancels).
+// The Agenda poller fires it once the date arrives and governance allows.
+export async function postFeatureScheduledPublish(
   req: AuthRequest<
     {
-      comment: string;
-      autoPublishOnApproval?: boolean;
+      scheduledPublishAt: string | null;
+      lockEdits?: boolean;
+      lockOthers?: boolean;
+      bypassApproval?: boolean;
     },
     { id: string; version: string }
   >,
@@ -1074,7 +1085,101 @@ export async function postFeatureRequestReview(
 ) {
   const context = getContextFromReq(req);
   const { id, version } = req.params;
-  const { comment, autoPublishOnApproval } = req.body;
+  const { scheduledPublishAt, lockEdits, lockOthers } = req.body;
+
+  const feature = await getFeature(context, id);
+  if (!feature) throw new Error("Could not find feature");
+
+  const revision = await getRevision({
+    context,
+    organization: context.org.id,
+    featureId: feature.id,
+    feature,
+    version: parseInt(version),
+  });
+  if (!revision) throw new Error("Could not find feature revision");
+
+  if (
+    !["draft", "pending-review", "changes-requested", "approved"].includes(
+      revision.status,
+    )
+  ) {
+    throw new Error(
+      "Cannot schedule publish on a published or discarded revision",
+    );
+  }
+
+  const date = parseScheduledPublishDate(scheduledPublishAt);
+  // Arming needs the premium feature + publish authority; canceling needs only
+  // publish authority.
+  const allowed = date
+    ? canScheduleFeaturePublish(context, feature)
+    : canPublishFeatureRevision(context, feature);
+  if (!allowed) {
+    context.permissions.throwPermissionError();
+  }
+
+  // Committing a schedule on a draft is the no-approval path (fires without a
+  // review cycle), so only allow it when the change doesn't require review (or
+  // the caller can bypass). Review-required drafts arm via request-review instead.
+  if (date && revision.status === "draft") {
+    // Fail closed when the base can't be resolved: don't engage locks/schedule
+    // on a draft we can't confirm is review-exempt.
+    const requiresReview = await revisionRequiresReview(
+      context,
+      feature,
+      revision,
+      { treatUnresolvedBaseAsReview: true },
+    );
+    if (
+      requiresReview &&
+      !context.permissions.canBypassApprovalChecks(feature)
+    ) {
+      throw new Error(
+        "This change requires approval — request review to schedule its publish.",
+      );
+    }
+  }
+
+  // Persist the admin bypass-approval intent only when the caller actually has
+  // that permission — a requested bypass from a non-admin is silently ignored.
+  const bypassApproval =
+    !!req.body.bypassApproval &&
+    context.permissions.canBypassApprovalChecks(feature);
+
+  await setRevisionScheduledPublish(
+    context,
+    revision,
+    { scheduledPublishAt: date, lockEdits, lockOthers, bypassApproval },
+    context.userId || null,
+  );
+
+  res.status(200).json({ status: 200 });
+}
+
+export async function postFeatureRequestReview(
+  req: AuthRequest<
+    {
+      comment: string;
+      autoPublishOnApproval?: boolean;
+      // Optional deferred-publish schedule armed alongside the review request.
+      scheduledPublishAt?: string | null;
+      scheduledPublishLockEdits?: boolean;
+      scheduledPublishLockOthers?: boolean;
+    },
+    { id: string; version: string }
+  >,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const { id, version } = req.params;
+  const {
+    comment,
+    autoPublishOnApproval,
+    scheduledPublishAt,
+    scheduledPublishLockEdits,
+    scheduledPublishLockOthers,
+  } = req.body;
   const feature = await getFeature(context, id);
   if (!feature) {
     throw new Error("Could not find feature");
@@ -1100,12 +1205,22 @@ export async function postFeatureRequestReview(
     autoPublishOnApproval &&
     canEnableFeatureAutoPublishOnApproval(context, feature);
 
+  const scheduledDate = parseScheduledPublishDate(scheduledPublishAt);
+  if (scheduledDate !== null && !canScheduleFeaturePublish(context, feature)) {
+    context.permissions.throwPermissionError();
+  }
+
   await markRevisionAsReviewRequested(
     context,
     revision,
     res.locals.eventAudit,
     comment,
-    { autoPublishOnApproval: enableAutoPublish },
+    {
+      autoPublishOnApproval: enableAutoPublish,
+      scheduledPublishAt: scheduledDate,
+      scheduledPublishLockEdits,
+      scheduledPublishLockOthers,
+    },
   );
 
   const updatedRevision = await getRevision({
@@ -6358,7 +6473,7 @@ export async function getFeaturesStaleStates(
 
   const [allFeatures, allExperiments, draftRevisions] = await Promise.all([
     getAllFeaturesForStaleGraph(context),
-    getAllExperiments(context, { includeArchived: false }),
+    getAllExperimentsForStaleGraph(context),
     getRevisionsByStatus(context as ReqContext, [...ACTIVE_DRAFT_STATUSES], {
       sparse: true,
     }),
@@ -6474,7 +6589,7 @@ export async function getFeaturesDependents(
 
   const [allFeatures, allExperiments] = await Promise.all([
     getAllFeaturesForStaleGraph(context, { includeArchived: true }),
-    getAllExperiments(context, { includeArchived: true }),
+    getAllExperimentsForStaleGraph(context, { includeArchived: true }),
   ]);
 
   const {
@@ -6811,9 +6926,7 @@ export async function getFeatureExperimentStates(
     ? req.query.ids.split(",").filter(Boolean)
     : undefined;
 
-  const allExperiments = await getAllExperiments(context, {
-    includeArchived: false,
-  });
+  const allExperiments = await getAllExperimentsForStaleGraph(context);
 
   const tempRolloutExpIds = new Set<string>();
 
