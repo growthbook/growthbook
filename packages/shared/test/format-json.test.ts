@@ -44,4 +44,17 @@ describe("formatJsonMultilineObjects", () => {
       '{\n  "a": {\n    "b": {\n      "c": 1\n    }\n  }\n}',
     );
   });
+
+  it("never emits literal undefined (matches JSON.stringify semantics)", () => {
+    // An object key with an undefined value is dropped (like JSON.stringify).
+    const obj = formatJsonMultilineObjects({ a: 1, b: undefined });
+    expect(obj).toBe('{\n  "a": 1\n}');
+    expect(() => JSON.parse(obj)).not.toThrow();
+
+    // An undefined array element becomes null (like JSON.stringify), never the
+    // literal token `undefined` (which would be invalid JSON).
+    const arr = formatJsonMultilineObjects({ xs: [1, undefined, 2] });
+    expect(arr).toBe('{\n  "xs": [1, null, 2]\n}');
+    expect(JSON.parse(arr)).toEqual({ xs: [1, null, 2] });
+  });
 });

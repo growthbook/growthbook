@@ -94,6 +94,12 @@ export function getConstantReferenceKeys(
   const keys = new Set<string>();
   const scan = (s: string | undefined) => {
     if (!s) return;
+    // Cheap pre-check before the JSON.parse + recursive walk: every reference
+    // (`@const:key` in `$extends`, `{{ @const:key }}` interpolation) contains
+    // the literal "@const:". The overwhelming majority of feature/constant
+    // values hold no reference, so this short-circuits the hot path (archive
+    // checks and the cycle graph parse every value of every feature otherwise).
+    if (!s.includes("@const:")) return;
     let parsed: unknown;
     try {
       parsed = JSON.parse(s);
@@ -180,30 +186,52 @@ export function getCyclicConstantRefs(
 // resolver silently drops, so we reject them at save time instead. Literal
 // values belong as own keys (or an inline object), not loose `$extends` entries.
 // Exported so feature JSON values can reuse the same gate.
-export function assertValidExtendsEntries(value: unknown, prefix = ""): void {
+//
+// `onlyMergeDirectives` (used for feature values) restricts the check to arrays
+// that are *clearly* a constant-merge directive — i.e. that already contain at
+// least one `@const:` ref or inline object. A pre-existing feature whose JSON
+// happened to use `$extends` as a plain data key (e.g. `{"$extends":["a","b"]}`
+// or `{"$extends":[1,2]}`) is left alone so it still saves; only a malformed
+// entry mixed in with real refs/objects is rejected. Constants pass the default
+// (strict): they're new, `$extends` is the documented merge directive, and there
+// is no legacy data to grandfather.
+export function assertValidExtendsEntries(
+  value: unknown,
+  prefix = "",
+  onlyMergeDirectives = false,
+): void {
   if (Array.isArray(value)) {
-    for (const v of value) assertValidExtendsEntries(v, prefix);
+    for (const v of value)
+      assertValidExtendsEntries(v, prefix, onlyMergeDirectives);
     return;
   }
   if (value === null || typeof value !== "object") return;
   const obj = value as Record<string, unknown>;
   const list = obj[CONSTANT_EXTENDS_KEY];
   if (Array.isArray(list)) {
-    for (const entry of list) {
-      const isRef = typeof entry === "string" && PLACEHOLDER_KEY_RE.test(entry);
-      const isInlineObject =
-        entry !== null && typeof entry === "object" && !Array.isArray(entry);
-      if (!isRef && !isInlineObject) {
-        throw new Error(
-          `${prefix}Invalid "$extends" entry ${JSON.stringify(entry)} — each ` +
-            `entry must be a "@const:key" reference or an inline object. Put ` +
-            `literal values as the object's own keys instead.`,
-        );
+    const isRef = (e: unknown): boolean =>
+      typeof e === "string" && PLACEHOLDER_KEY_RE.test(e);
+    const isInlineObject = (e: unknown): boolean =>
+      e !== null && typeof e === "object" && !Array.isArray(e);
+    const looksLikeMergeDirective = list.some(
+      (e) => isRef(e) || isInlineObject(e),
+    );
+    if (!onlyMergeDirectives || looksLikeMergeDirective) {
+      for (const entry of list) {
+        if (!isRef(entry) && !isInlineObject(entry)) {
+          throw new Error(
+            `${prefix}Invalid "$extends" entry ${JSON.stringify(entry)} — each ` +
+              `entry must be a "@const:key" reference or an inline object. Put ` +
+              `literal values as the object's own keys instead.`,
+          );
+        }
       }
     }
   }
   // Descend into own keys and inline-object `$extends` entries (via the array).
-  for (const v of Object.values(obj)) assertValidExtendsEntries(v, prefix);
+  for (const v of Object.values(obj)) {
+    assertValidExtendsEntries(v, prefix, onlyMergeDirectives);
+  }
 }
 
 // Validates a constant value string before saving. JSON constants must contain

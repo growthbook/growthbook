@@ -331,7 +331,10 @@ export function validateFeatureValue(
     }
     // Reject malformed `$extends` entries (the resolver silently drops them).
     // Inline objects are allowed (advanced escape hatch); loose junk isn't.
-    assertValidExtendsEntries(parsedValue, prefix);
+    // Lenient for features: only enforce on arrays already used as a merge
+    // directive (≥1 ref/inline object), so a pre-existing flag that used
+    // `$extends` as a plain data key still saves.
+    assertValidExtendsEntries(parsedValue, prefix, true);
     // If the JSON was invalid but could be parsed by 'dirty-json', return the fixed JSON
     if (!validJSON) {
       return stringify(parsedValue);
@@ -2677,12 +2680,15 @@ export function getReviewSetting(
   }
 }
 
+// `entity` is any project-scoped entity (a feature, or a constant which mirrors
+// the feature `project` field) — matched by its single project via
+// `getReviewSetting`. Constants reuse this via `constantAutopublishOnApproval`.
 export function getFeatureAutopublishOnApproval(
   requireReviews: boolean | RequireReview[] | undefined,
-  feature: FeatureInterface,
+  entity: { project?: string },
 ): boolean {
   if (!Array.isArray(requireReviews)) return false;
-  return !!getReviewSetting(requireReviews, feature)?.autopublishOnApproval;
+  return !!getReviewSetting(requireReviews, entity)?.autopublishOnApproval;
 }
 
 export function checkEnvironmentsMatch(
@@ -2813,14 +2819,13 @@ export function constantResetReviewOnChange(
 }
 
 // Whether auto-publish-on-approval may be armed for a constant, per the matched
-// review rule (mirrors getFeatureAutopublishOnApproval).
+// review rule. Constants share the feature `requireReviews` model, so this is a
+// thin wrapper over `getFeatureAutopublishOnApproval` (single source of truth).
 export function constantAutopublishOnApproval(
   constant: { project?: string },
   settings?: OrganizationSettings,
 ): boolean {
-  const requireReviews = settings?.requireReviews;
-  if (!Array.isArray(requireReviews)) return false;
-  return !!getReviewSetting(requireReviews, constant)?.autopublishOnApproval;
+  return getFeatureAutopublishOnApproval(settings?.requireReviews, constant);
 }
 
 // Whether self-approval is blocked for a constant, per the matched review rule

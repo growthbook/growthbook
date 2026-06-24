@@ -16,12 +16,20 @@ function isPrimitive(v: unknown): boolean {
   return v === null || typeof v !== "object";
 }
 
+// `JSON.stringify` returns the JS value `undefined` (not a string) for
+// `undefined`, functions, and symbols. Interpolating that into the output would
+// emit literal `undefined` (invalid JSON), so coerce to `"null"` — matching how
+// `JSON.stringify` renders these inside arrays.
+function stringifyPrimitive(value: unknown): string {
+  return JSON.stringify(value) ?? "null";
+}
+
 function format(value: unknown, indent: number): string {
   if (Array.isArray(value)) {
     if (value.length === 0) return "[]";
     // Inline only when every element is a primitive and the result fits.
     if (value.every(isPrimitive)) {
-      const inline = `[${value.map((v) => JSON.stringify(v)).join(", ")}]`;
+      const inline = `[${value.map(stringifyPrimitive).join(", ")}]`;
       if (indent + inline.length <= MAX_INLINE_ARRAY_LENGTH) return inline;
     }
     const childPad = " ".repeat(indent + 2);
@@ -30,7 +38,13 @@ function format(value: unknown, indent: number): string {
   }
 
   if (value !== null && typeof value === "object") {
-    const entries = Object.entries(value as Record<string, unknown>);
+    // Skip keys whose value can't serialize (undefined/function/symbol), exactly
+    // as `JSON.stringify` drops them — so a salvaged object never emits
+    // `"key": undefined`.
+    const entries = Object.entries(value as Record<string, unknown>).filter(
+      ([, v]) =>
+        v !== undefined && typeof v !== "function" && typeof v !== "symbol",
+    );
     if (entries.length === 0) return "{}";
     const childPad = " ".repeat(indent + 2);
     const items = entries.map(
@@ -39,7 +53,7 @@ function format(value: unknown, indent: number): string {
     return `{\n${items.join(",\n")}\n${" ".repeat(indent)}}`;
   }
 
-  return JSON.stringify(value);
+  return stringifyPrimitive(value);
 }
 
 // Serialize `value` with objects expanded one key per line and short

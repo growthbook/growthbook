@@ -75,6 +75,16 @@ describe("addJsonConstantExtends", () => {
     );
   });
 
+  it("preserves inline-object $extends layers when adding a ref", () => {
+    const input = '{ "$extends": ["@const:base", { "x": 1 }] }';
+    const result = addJsonConstantExtends(input, "cfg");
+    expect(result).not.toBeNull();
+    // The inline-object layer must survive (it's a supported escape hatch).
+    expect(JSON.parse(result as string)).toEqual({
+      $extends: ["@const:base", { x: 1 }, "@const:cfg"],
+    });
+  });
+
   it("returns null for invalid JSON", () => {
     expect(addJsonConstantExtends('{ "a": ', "cfg")).toBe(null);
   });

@@ -3,6 +3,7 @@ import {
   getConstantReferenceKeys,
   getReferencingConstantKeys,
   getCyclicConstantRefs,
+  assertValidExtendsEntries,
 } from "../src/validators/constant";
 import { constantRequiresReview } from "../src/util/features";
 import { getConstantRevisionChange } from "../src/revisions/helpers";
@@ -212,6 +213,51 @@ describe("constantRequiresReview", () => {
     expect(
       constantRequiresReview({ project: "prj_b" }, valueChange, settings),
     ).toBe(false);
+  });
+});
+
+describe("assertValidExtendsEntries", () => {
+  describe("strict (constants — default)", () => {
+    it("rejects a $extends array of pure junk", () => {
+      expect(() => assertValidExtendsEntries({ $extends: [1, 2] })).toThrow(
+        /\$extends/,
+      );
+      expect(() =>
+        assertValidExtendsEntries({ $extends: ["nonsense"] }),
+      ).toThrow(/\$extends/);
+    });
+
+    it("rejects junk mixed with a valid ref", () => {
+      expect(() =>
+        assertValidExtendsEntries({ $extends: ["@const:base", 5] }),
+      ).toThrow(/\$extends/);
+    });
+
+    it("accepts refs and inline objects", () => {
+      expect(() =>
+        assertValidExtendsEntries({ $extends: ["@const:a", { x: 1 }] }),
+      ).not.toThrow();
+    });
+  });
+
+  describe("lenient (features — onlyMergeDirectives)", () => {
+    it("grandfathers a $extends array used as plain data", () => {
+      // No ref/inline-object entry → not treated as a merge directive → allowed,
+      // so a pre-existing feature value that used `$extends` as data still saves.
+      expect(() =>
+        assertValidExtendsEntries({ $extends: ["a", "b"] }, "", true),
+      ).not.toThrow();
+      expect(() =>
+        assertValidExtendsEntries({ $extends: [1, 2] }, "", true),
+      ).not.toThrow();
+    });
+
+    it("still rejects junk once the array is clearly a merge directive", () => {
+      // Contains a real ref → it IS a merge directive → the stray entry is a bug.
+      expect(() =>
+        assertValidExtendsEntries({ $extends: ["@const:base", 5] }, "", true),
+      ).toThrow(/\$extends/);
+    });
   });
 });
 

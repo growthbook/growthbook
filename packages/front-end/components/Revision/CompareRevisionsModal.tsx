@@ -291,7 +291,7 @@ function buildPerEntryDiffSnapshots<T extends Record<string, unknown>>(
         runningProposed,
       ) as T;
       const afterBaseline =
-        entry.targetSnapshot != null
+        (entry.targetSnapshot ?? null) !== null
           ? (entry.targetSnapshot as unknown as T)
           : runningBaseline;
       const afterSnapshot = applyTopLevelPatchOps(
@@ -300,7 +300,7 @@ function buildPerEntryDiffSnapshots<T extends Record<string, unknown>>(
       ) as T;
       return { baseSnapshot: beforeSnapshot, proposedSnapshot: afterSnapshot };
     }
-    if (entry.targetSnapshot != null) {
+    if ((entry.targetSnapshot ?? null) !== null) {
       runningBaseline = entry.targetSnapshot as unknown as T;
     }
     runningProposed = (entry.proposedChangesSnapshot ??

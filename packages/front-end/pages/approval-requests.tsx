@@ -190,7 +190,9 @@ function buildRevisionUrl(revision: Revision): string {
   }
   const key = getRevisionKey(revision.target.type);
   const base = `/${key ?? revision.target.type}/${revision.target.id}`;
-  return revision.version != null ? `${base}?v=${revision.version}` : base;
+  return (revision.version ?? null) !== null
+    ? `${base}?v=${revision.version}`
+    : base;
 }
 
 function featureRevisionToRow(

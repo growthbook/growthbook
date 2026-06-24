@@ -179,6 +179,7 @@ export function generateFeaturesPayload({
   environment,
   groupMap,
   constants,
+  constantMap: providedConstantMap,
   prereqStateCache = {},
   safeRolloutMap,
   holdoutsMap,
@@ -201,6 +202,9 @@ export function generateFeaturesPayload({
   environment: string;
   groupMap: GroupMap;
   constants?: ConstantInterface[];
+  // Optional pre-built per-environment constant map (see SDKPayloadRawData).
+  // When omitted, it's built here from `constants` + `environment`.
+  constantMap?: ConstantValueMap | null;
   prereqStateCache?: Record<string, PrerequisiteStateResult>;
   safeRolloutMap: Map<string, SafeRolloutInterface>;
   holdoutsMap: Map<
@@ -228,11 +232,16 @@ export function generateFeaturesPayload({
     prereqStateCache,
   );
 
-  // Resolve `@const:` references at payload-build time (per environment). Skip
-  // entirely when the org has no constants — zero overhead for the common case.
-  const constantMap = constants?.length
-    ? buildConstantValueMap(constants, environment)
-    : null;
+  // Resolve `@const:` references at payload-build time (per environment). Use a
+  // caller-provided map when present (the bulk refresh builds it once per env);
+  // otherwise build it here. Skip entirely when the org has no constants — zero
+  // overhead for the common case.
+  const constantMap =
+    providedConstantMap !== undefined
+      ? providedConstantMap
+      : constants?.length
+        ? buildConstantValueMap(constants, environment)
+        : null;
 
   newFeatures.forEach((feature) => {
     const def = getFeatureDefinition({
@@ -831,9 +840,16 @@ export async function refreshSDKPayloadCache({
       { holdout: HoldoutInterface; holdoutExperiment: ExperimentInterface }
     >
   > = {};
+  // Build the constant value map once per environment (parsing each JSON
+  // constant once), shared across every connection in that env — rather than
+  // rebuilding it inside generateFeaturesPayload per connection.
+  const constantMapByEnv: Record<string, ConstantValueMap | null> = {};
   for (const environment of allEnvironmentsToUpdate) {
     holdoutsMapByEnv[environment] =
       await context.models.holdout.getAllPayloadHoldouts(environment);
+    constantMapByEnv[environment] = constants.length
+      ? buildConstantValueMap(constants, environment)
+      : null;
   }
 
   const sdkConnections = payloadKeys.length
@@ -906,7 +922,7 @@ export async function refreshSDKPayloadCache({
               connection.allowedCustomFieldsInMetadata,
             includeTagsInMetadata: connection.includeTagsInMetadata,
           },
-          data: { ...rawData, holdoutsMap },
+          data: { ...rawData, holdoutsMap, constantMap: constantMapByEnv[env] },
         });
 
         const auditContext: SdkConnectionCacheAuditContext | undefined =
@@ -1155,6 +1171,11 @@ export type SDKPayloadRawData = {
   projectsMap?: Map<string, ProjectInterface>;
   rampMonitoredRuleMap?: Map<string, RampMonitoredRuleInfo>;
   constants?: ConstantInterface[];
+  // Pre-built per-environment constant value map. Hoisted out of
+  // generateFeaturesPayload so the bulk refresh builds it once per env (next to
+  // holdoutsMapByEnv) instead of re-parsing every JSON constant for every
+  // connection. When omitted, generateFeaturesPayload builds it from `constants`.
+  constantMap?: ConstantValueMap | null;
 };
 
 // Payload-relevant subset of SDK connection (plus derived capabilities). Pass through encryptPayload + encryptionKey; effective key is derived inside buildSDKPayloadForConnection.
@@ -1285,6 +1306,7 @@ export async function buildSDKPayloadForConnection(
     environment,
     groupMap: data.groupMap,
     constants: data.constants,
+    constantMap: data.constantMap,
     experimentMap: filteredExperimentMap,
     prereqStateCache,
     safeRolloutMap: data.safeRolloutMap,

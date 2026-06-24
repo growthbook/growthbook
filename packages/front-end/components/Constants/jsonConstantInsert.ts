@@ -65,10 +65,12 @@ export function addJsonConstantExtends(
     obj = parsed;
   }
 
+  // Keep all existing entries — string refs AND inline-object layers (the
+  // advanced `$extends` escape hatch the resolver/validator support); only the
+  // new string ref is de-duped. Filtering to strings here would silently drop
+  // those inline-object layers.
   const existing = obj[CONSTANT_EXTENDS_KEY];
-  const refs = Array.isArray(existing)
-    ? existing.filter((r): r is string => typeof r === "string")
-    : [];
+  const refs: unknown[] = Array.isArray(existing) ? [...existing] : [];
   if (!refs.includes(ref)) refs.push(ref);
 
   // Keep `$extends` first so the merge base reads top-to-bottom; preserve the
