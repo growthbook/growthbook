@@ -4,7 +4,6 @@ import { calculateNamespaceCoverage } from "shared/util";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { PiCaretDownBold, PiPencilSimple, PiPlus } from "react-icons/pi";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import { AttributeBadge } from "@/components/Features/AttributeBadge";
 import { getHoldoutTrafficBreakdown } from "@/services/utils";
@@ -40,14 +39,14 @@ const CONNECTOR_COLOR = "var(--slate-a7)";
 // the title for richer content (e.g. the traffic coverage bar).
 function FunnelCard({
   title,
-  info,
+  titleColor = "text-high",
   inlineSummary,
   onEdit,
   children,
   disabled = false,
 }: {
   title: string;
-  info?: string;
+  titleColor?: "text-disabled" | "text-high";
   inlineSummary?: ReactNode;
   onEdit?: (() => void) | null;
   children?: ReactNode;
@@ -64,21 +63,16 @@ function FunnelCard({
     >
       <Flex justify="between" align="center" gap="3">
         <Flex align="baseline" gap="2" wrap="wrap">
-          <Text
-            size="large"
-            weight="medium"
-            color={disabled ? "text-disabled" : "text-high"}
-          >
+          <Text size="large" weight="medium" color={titleColor}>
             {title}
           </Text>
-          {info ? <Tooltip body={info} /> : null}
           {inlineSummary ? (
             <Text color="text-low" ml="1">
               {inlineSummary}
             </Text>
           ) : null}
         </Flex>
-        {onEdit ? (
+        {onEdit && !disabled ? (
           <IconButton
             variant="ghost"
             color="purple"
@@ -216,7 +210,7 @@ export default function TrafficAllocationFunnel({
 
   const isBandit = experiment.type === "multi-armed-bandit";
   const isHoldout = experiment.type === "holdout";
-  const runningBandit = isBandit && experiment.status === "running";
+  const isRunning = experiment.status === "running";
 
   const hasConfiguredTargeting =
     phase &&
@@ -245,6 +239,7 @@ export default function TrafficAllocationFunnel({
         </Heading>
         {!isHoldout &&
           editNamespace &&
+          !isRunning &&
           !hasNamespace &&
           !!namespaces?.length && (
             <Button
@@ -263,13 +258,13 @@ export default function TrafficAllocationFunnel({
             <>
               <FunnelCard
                 title="Namespace"
-                onEdit={runningBandit ? null : editNamespace}
+                onEdit={isRunning ? null : editNamespace}
                 inlineSummary={
                   <Text size="large" color="text-mid">
                     {namespaceName}
                   </Text>
                 }
-                disabled={!hasNamespace}
+                disabled={isRunning}
               />
               <FunnelConnector label={includedLabel} />
             </>
@@ -277,7 +272,8 @@ export default function TrafficAllocationFunnel({
 
           <FunnelCard
             title="Targeting"
-            onEdit={runningBandit ? null : editTargeting}
+            titleColor={!hasConfiguredTargeting ? "text-disabled" : undefined}
+            onEdit={isRunning ? null : editTargeting}
             inlineSummary={
               hasConfiguredTargeting ? undefined : (
                 <Text size="large">
@@ -285,7 +281,7 @@ export default function TrafficAllocationFunnel({
                 </Text>
               )
             }
-            disabled={!hasConfiguredTargeting}
+            disabled={isRunning}
           >
             <Flex direction="column" gap="3">
               {hasConfiguredTargeting ? (
@@ -326,7 +322,8 @@ export default function TrafficAllocationFunnel({
 
           <FunnelCard
             title="Traffic"
-            onEdit={runningBandit ? null : editTraffic}
+            onEdit={isRunning ? null : editTraffic}
+            disabled={isRunning}
           >
             {!isHoldout ? (
               <Flex direction="column" gap="3">
@@ -334,16 +331,17 @@ export default function TrafficAllocationFunnel({
                   <Text weight="semibold" color="text-high">
                     Included in this experiment:{" "}
                     <Text color="text-high" weight="regular">
-                      {Math.floor(phase.coverage * 100)}%
+                      {Math.round(phase.coverage * 100)}%
                     </Text>
                   </Text>
                   <Box
-                    mt="2"
+                    mt="3"
+                    height="8px"
+                    overflow="hidden"
                     style={{
                       height: 8,
                       borderRadius: 4,
                       backgroundColor: "var(--gray-a4)",
-                      overflow: "hidden",
                     }}
                   >
                     <Box

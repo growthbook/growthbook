@@ -7,6 +7,7 @@ import { HoldoutInterfaceStringDates } from "shared/validators";
 import {
   PiArrowSquareOut,
   PiPencilSimpleFill,
+  PiPlus,
   PiWarningFill,
 } from "react-icons/pi";
 import { format } from "date-fns-tz";
@@ -156,35 +157,50 @@ export default function SetupTabOverview({
           <Heading color="text-high" as="h2" size="large" mb="0">
             Overview
           </Heading>
-          {showAddHoldoutSchedule || showAddExperimentSchedule ? (
-            <Button variant="ghost" onClick={() => editSchedule()}>
-              + Add Schedule
-            </Button>
-          ) : null}
-          {experiment.status === "draft" &&
-          experiment.type !== "holdout" &&
-          experimentHasSchedule &&
-          !experimentScheduleApproved &&
-          editSchedule ? (
-            <Tooltip
-              content="Scheduled start date has passed—edit scheduled time"
-              enabled={showScheduleIsInThePastWarning}
-            >
-              <Button variant="ghost" onClick={() => editSchedule()}>
-                {showScheduleIsInThePastWarning && (
-                  <PiWarningFill color="var(--warning)" className="mr-1" />
-                )}
-                Target Start:{" "}
-                {experiment.statusUpdateSchedule?.startAt
-                  ? format(
-                      new Date(experiment.statusUpdateSchedule.startAt),
-                      "MMM d, yyyy 'at' h:mm a (z)",
-                    )
-                  : ""}{" "}
-                <PiPencilSimpleFill className="ml-1" />
+          <Flex align="center">
+            {canEditExperiment && !experiment.description ? (
+              <Button
+                variant="ghost"
+                onClick={() => setShowDescriptionModal(true)}
+                icon={<PiPlus size="15" />}
+              >
+                Add Description
               </Button>
-            </Tooltip>
-          ) : null}
+            ) : null}
+            {showAddHoldoutSchedule || showAddExperimentSchedule ? (
+              <Button
+                variant="ghost"
+                onClick={() => editSchedule()}
+                icon={<PiPlus size="15" />}
+              >
+                Add Schedule
+              </Button>
+            ) : null}
+            {experiment.status === "draft" &&
+            experiment.type !== "holdout" &&
+            experimentHasSchedule &&
+            !experimentScheduleApproved &&
+            editSchedule ? (
+              <Tooltip
+                content="Scheduled start date has passed—edit scheduled time"
+                enabled={showScheduleIsInThePastWarning}
+              >
+                <Button variant="ghost" onClick={() => editSchedule()}>
+                  {showScheduleIsInThePastWarning && (
+                    <PiWarningFill color="var(--warning)" className="mr-1" />
+                  )}
+                  Target Start:{" "}
+                  {experiment.statusUpdateSchedule?.startAt
+                    ? format(
+                        new Date(experiment.statusUpdateSchedule.startAt),
+                        "MMM d, yyyy 'at' h:mm a (z)",
+                      )
+                    : ""}{" "}
+                  <PiPencilSimpleFill className="ml-1" />
+                </Button>
+              </Tooltip>
+            ) : null}
+          </Flex>
         </Flex>
         {isHoldout && holdout && holdoutHasSchedule && editSchedule ? (
           <Frame id="holdout-schedule" style={{ scrollMarginTop: "100px" }}>
@@ -231,90 +247,6 @@ export default function SetupTabOverview({
             <HoldoutSchedule holdout={holdout} experiment={experiment} />
           </Frame>
         ) : null}
-        <Frame>
-          <Collapsible
-            open={!!experiment.description && expandDescription}
-            transitionTime={100}
-            triggerDisabled={!experiment.description}
-            onOpening={() => setExpandDescription(true)}
-            onClosing={() => setExpandDescription(false)}
-            trigger={
-              <Box
-                as="div"
-                style={{
-                  cursor: `${experiment.description ? "pointer" : "default"}`,
-                }}
-              >
-                <Flex align="center" justify="between" className="text-dark">
-                  <Heading color="text-high" mb="0" as="h4" size="small">
-                    Description
-                  </Heading>
-                  <Flex align="center" gap="2">
-                    {canEditExperiment ? (
-                      <Button
-                        variant="ghost"
-                        stopPropagation
-                        onClick={() => setShowDescriptionModal(true)}
-                      >
-                        Edit
-                      </Button>
-                    ) : null}
-                    {experiment.description ? (
-                      <FaAngleRight className="chevron" />
-                    ) : null}
-                  </Flex>
-                </Flex>
-              </Box>
-            }
-          >
-            {experiment.description ? (
-              <>
-                <ScrollArea
-                  style={{
-                    maxHeight: "491px",
-                  }}
-                  className="py-2 fade-mask-vertical-1rem"
-                >
-                  <Markdown>{experiment.description}</Markdown>
-                </ScrollArea>
-                {!customFields.length &&
-                experiment.description &&
-                !isHoldout &&
-                !isDemoExperiment ? (
-                  <PremiumCallout
-                    mt="3"
-                    commercialFeature="custom-metadata"
-                    dismissable={true}
-                    id="exp-description-custom-metadata"
-                    docSection="customMetadata"
-                  >
-                    <strong>Custom Fields</strong> add structured metadata to
-                    experiments and feature flags, like Jira links, categories
-                    and more.
-                  </PremiumCallout>
-                ) : null}
-              </>
-            ) : null}
-          </Collapsible>
-        </Frame>
-
-        {showHoldoutTimeline && (
-          <div className="box p-4 my-4">
-            <HoldoutTimeline
-              experiments={holdoutExperiments}
-              startDate={
-                experiment.phases[0]?.dateStarted
-                  ? new Date(experiment.phases[0].dateStarted)
-                  : new Date()
-              }
-              holdoutEndDate={
-                experiment.phases[0]?.dateEnded
-                  ? new Date(experiment.phases[0].dateEnded)
-                  : undefined
-              }
-            />
-          </div>
-        )}
 
         {!isBandit && !isHoldout && (
           <Frame>
@@ -399,6 +331,94 @@ export default function SetupTabOverview({
             ) : null}
           </Frame>
         )}
+
+        {experiment.description ? (
+          <Frame>
+            <Collapsible
+              open={!!experiment.description && expandDescription}
+              transitionTime={100}
+              triggerDisabled={!experiment.description}
+              onOpening={() => setExpandDescription(true)}
+              onClosing={() => setExpandDescription(false)}
+              trigger={
+                <Box
+                  as="div"
+                  style={{
+                    cursor: `${experiment.description ? "pointer" : "default"}`,
+                  }}
+                >
+                  <Flex align="center" justify="between" className="text-dark">
+                    <Heading color="text-high" mb="0" as="h4" size="small">
+                      Description
+                    </Heading>
+                    <Flex align="center" gap="2">
+                      {canEditExperiment ? (
+                        <Button
+                          variant="ghost"
+                          stopPropagation
+                          onClick={() => setShowDescriptionModal(true)}
+                        >
+                          Edit
+                        </Button>
+                      ) : null}
+                      {experiment.description ? (
+                        <FaAngleRight className="chevron" />
+                      ) : null}
+                    </Flex>
+                  </Flex>
+                </Box>
+              }
+            >
+              {experiment.description ? (
+                <>
+                  <ScrollArea
+                    style={{
+                      maxHeight: "491px",
+                    }}
+                    className="py-2 fade-mask-vertical-1rem"
+                  >
+                    <Markdown>{experiment.description}</Markdown>
+                  </ScrollArea>
+                  {!customFields.length &&
+                  experiment.description &&
+                  !isHoldout &&
+                  !isDemoExperiment ? (
+                    <PremiumCallout
+                      mt="3"
+                      commercialFeature="custom-metadata"
+                      dismissable={true}
+                      id="exp-description-custom-metadata"
+                      docSection="customMetadata"
+                    >
+                      <strong>Custom Fields</strong> add structured metadata to
+                      experiments and feature flags, like Jira links, categories
+                      and more.
+                    </PremiumCallout>
+                  ) : null}
+                </>
+              ) : null}
+            </Collapsible>
+          </Frame>
+        ) : null}
+
+        {showHoldoutTimeline && (
+          <div className="box p-4 my-4">
+            <HoldoutTimeline
+              experiments={holdoutExperiments}
+              startDate={
+                experiment.phases[0]?.dateStarted
+                  ? new Date(experiment.phases[0].dateStarted)
+                  : new Date()
+              }
+              holdoutEndDate={
+                experiment.phases[0]?.dateEnded
+                  ? new Date(experiment.phases[0].dateEnded)
+                  : undefined
+              }
+            />
+          </div>
+        )}
+
         <CustomFieldDisplay
           target={experiment}
           canEdit={canEditExperiment}
