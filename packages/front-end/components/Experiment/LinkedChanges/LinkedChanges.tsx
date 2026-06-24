@@ -77,7 +77,7 @@ export default function LinkedChanges({
         <Heading color="text-high" as="h4" size="small">
           {isPublic || hideVariations ? "Linked Changes" : "Linked Changes"}
         </Heading>
-        {!isPublic && !hideVariations && onAddVariation ? (
+        {!isPublic && onAddVariation ? (
           <Button variant="ghost" onClick={onAddVariation}>
             Edit Variations
           </Button>

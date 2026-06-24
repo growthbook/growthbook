@@ -9,7 +9,6 @@ import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import { AttributeBadge } from "@/components/Features/AttributeBadge";
 import { getHoldoutTrafficBreakdown } from "@/services/utils";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
-import { HashVersionTooltip } from "@/components/Experiment/HashVersionSelector";
 import VariationsTable from "@/components/Experiment/VariationsTable";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Text from "@/ui/Text";
@@ -406,7 +405,7 @@ function AssignmentAttribute({
 }) {
   const isHoldout = experiment.type === "holdout";
   return (
-    <div>
+    <Box>
       <Text weight="semibold" color="text-high" mr="2">
         Assignment Attribute{experiment.fallbackAttribute ? "s" : ""}:{" "}
       </Text>
@@ -416,23 +415,16 @@ function AssignmentAttribute({
           , <AttributeBadge attributeId={experiment.fallbackAttribute} />
         </>
       ) : null}
-      {!isHoldout ? (
-        <HashVersionTooltip>
-          <small className="text-muted ml-1">
-            (V{experiment.hashVersion || 2} hashing)
-          </small>
-        </HashVersionTooltip>
-      ) : null}
       {!isHoldout && experiment.disableStickyBucketing ? (
-        <div className="mt-1">
+        <Box mt="1">
           <Text weight="semibold" color="text-high" mr="2">
             Sticky bucketing:
           </Text>
           <Text color="text-mid">
             <em>Disabled</em>
           </Text>
-        </div>
+        </Box>
       ) : null}
-    </div>
+    </Box>
   );
 }

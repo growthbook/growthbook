@@ -82,7 +82,7 @@ const ScreenshotUpload = ({
     <>
       <div
         {...typedRootProps}
-        className={clsx(styles.droparea, "my-1", {
+        className={clsx(styles.droparea, {
           [styles.dragging]: isDragActive,
         })}
       >

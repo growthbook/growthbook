@@ -9,6 +9,7 @@ import {
   PiCameraLight,
   PiCameraPlusLight,
   PiPencilSimple,
+  PiPlus,
 } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import { trafficSplitPercentages } from "@/services/utils";
@@ -19,6 +20,7 @@ import Button from "@/ui/Button";
 import Text from "@/ui/Text";
 import ExperimentCarouselModal from "@/components/Experiment/ExperimentCarouselModal";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import Metadata from "@/ui/Metadata";
 
 const imageCache = {};
 
@@ -154,6 +156,7 @@ export function VariationBox({
   experiment,
   showDescription,
   showIds,
+  showNoImage = true,
   height = 200,
   canEdit,
   allowImages = true,
@@ -171,6 +174,7 @@ export function VariationBox({
   experiment: ExperimentInterfaceStringDates;
   showDescription?: boolean;
   showIds?: boolean;
+  showNoImage?: boolean;
   height?: number;
   canEdit?: boolean;
   allowImages?: boolean;
@@ -184,6 +188,7 @@ export function VariationBox({
   onEditMetadata?: (variationIndex: number) => void;
 }) {
   const { blockFileUploads } = useOrgSettings();
+  const isBandit = experiment.type === "multi-armed-bandit";
 
   return (
     <Box
@@ -206,9 +211,9 @@ export function VariationBox({
           height: "6px",
         }}
       />
-      <Flex gap="2" direction="column" justify="between" height="100%">
+      <Flex direction="column" justify="between" height="100%">
         <Box>
-          <Box mb="3">
+          <Box>
             <Flex gap="0" align="center" justify="between">
               <Flex gap="0" align="center">
                 <Box className="">
@@ -232,7 +237,7 @@ export function VariationBox({
             </Flex>
           </Box>
           {allowImages && (
-            <Box>
+            <Box mt={showNoImage ? "3" : "0"}>
               {v.screenshots.length > 0 ? (
                 <ScreenshotCarousel
                   key={i}
@@ -246,7 +251,7 @@ export function VariationBox({
                   shareUid={shareUid}
                   shareType={shareType}
                 />
-              ) : (
+              ) : !showNoImage ? null : (
                 <>
                   {canEdit && !blockFileUploads ? (
                     <>
@@ -266,16 +271,17 @@ export function VariationBox({
             </Box>
           )}
         </Box>
-        <Box>
+        <Box mt="2">
           {showDescription ? (
-            <Box>{v.description || <Text color="text-mid">--</Text>}</Box>
+            <Box mb="2">
+              {v.description || <Text color="text-mid">--</Text>}
+            </Box>
           ) : null}
           {showIds ? <code className="small">ID: {v.key}</code> : null}
           <Flex align="center" justify="between">
             <Box>
-              {experiment.type !== "multi-armed-bandit" &&
-              percent !== undefined ? (
-                <Box>Split: {percent.toFixed(0)}%</Box>
+              {!isBandit && percent !== undefined ? (
+                <Metadata label="Split" value={`${percent.toFixed(0)}%`} />
               ) : null}
             </Box>
             {allowImages && (
@@ -293,8 +299,13 @@ export function VariationBox({
                       experiment={experiment.id}
                       onSuccess={() => mutate?.()}
                     >
-                      <Button variant="ghost" style={{ padding: 0, margin: 0 }}>
-                        Add{v.screenshots.length > 0 ? "" : " image"}
+                      <Button
+                        icon={<PiPlus size="15" />}
+                        variant="ghost"
+                        size="xs"
+                        style={{ padding: 0, margin: 0 }}
+                      >
+                        Image
                       </Button>
                     </ScreenshotUpload>
                   </div>
@@ -375,6 +386,7 @@ const VariationsTable: FC<Props> = ({
               shareUid={shareUid}
               shareType={shareType}
               onEditMetadata={onEditMetadata}
+              showNoImage={experiment.status === "draft"}
             />
           ),
         )}
