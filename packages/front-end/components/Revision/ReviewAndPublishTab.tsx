@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { format } from "date-fns";
 import {
@@ -79,6 +79,33 @@ function toBadgeStatus(
   status: Revision["status"],
 ): Parameters<typeof revisionStatusColor>[0] {
   return status === "merged" ? "published" : status;
+}
+
+// The 40px header band shared by the actions column and the revision-description
+// card — one source of truth for the px/border/min-height styling.
+function CardHeader({
+  children,
+  background,
+  gap,
+}: {
+  children: ReactNode;
+  background?: string;
+  gap?: "1" | "2" | "3" | "4";
+}) {
+  return (
+    <Flex
+      align="center"
+      gap={gap}
+      px="4"
+      style={{
+        background,
+        borderBottom: "1px solid var(--gray-a4)",
+        minHeight: 40,
+      }}
+    >
+      {children}
+    </Flex>
+  );
 }
 
 export interface ReviewAndPublishTabProps<T> {
@@ -866,15 +893,7 @@ function ReviewAndPublishRevision<T>({
   );
 
   const actionsColumnHeader = (
-    <Flex
-      align="center"
-      px="4"
-      style={{
-        background: `var(--${headerStatusColor}-a3)`,
-        borderBottom: "1px solid var(--gray-a4)",
-        minHeight: 40,
-      }}
-    >
+    <CardHeader background={`var(--${headerStatusColor}-a3)`}>
       <Flex
         align="center"
         gap="2"
@@ -949,7 +968,7 @@ function ReviewAndPublishRevision<T>({
           </DropdownMenu>
         </Box>
       )}
-    </Flex>
+    </CardHeader>
   );
 
   // ── Read-only actions column (merged / discarded) ──
@@ -1262,16 +1281,11 @@ function RevisionDescriptionSection({ revision }: { revision: Revision }) {
 
   return (
     <Box mb="4" className="appbox">
-      <Flex
-        align="center"
-        gap="2"
-        px="4"
-        style={{ borderBottom: "1px solid var(--gray-a4)", minHeight: 40 }}
-      >
+      <CardHeader gap="2">
         <Heading as="h5" size="small" color="text-mid" mb="0">
           Revision description
         </Heading>
-      </Flex>
+      </CardHeader>
       <Box p="4">
         <Markdown className="speech-bubble" highlightCode>
           {description}

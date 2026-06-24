@@ -1585,6 +1585,24 @@ export default function EditSavedGroupPage() {
                         (() => {
                           const canEditDescription =
                             !!isDraft && displayRevision.authorId === user?.id;
+                          const editDescriptionButton = canEditDescription ? (
+                            <IconButton
+                              variant="ghost"
+                              color="violet"
+                              size="2"
+                              radius="full"
+                              onClick={() => setEditDescriptionModal(true)}
+                              style={{
+                                flexShrink: 0,
+                                marginTop: -2,
+                                marginBottom: -2,
+                                marginLeft: 4,
+                                marginRight: 0,
+                              }}
+                            >
+                              <PiPencilSimpleFill />
+                            </IconButton>
+                          ) : null;
                           return (
                             <Flex
                               align="start"
@@ -1631,52 +1649,14 @@ export default function EditSavedGroupPage() {
                                       </Box>
                                     )}
                                   </Box>
-                                  {canEditDescription && (
-                                    <IconButton
-                                      variant="ghost"
-                                      color="violet"
-                                      size="2"
-                                      radius="full"
-                                      onClick={() =>
-                                        setEditDescriptionModal(true)
-                                      }
-                                      style={{
-                                        flexShrink: 0,
-                                        marginTop: -2,
-                                        marginBottom: -2,
-                                        marginLeft: 4,
-                                        marginRight: 0,
-                                      }}
-                                    >
-                                      <PiPencilSimpleFill />
-                                    </IconButton>
-                                  )}
+                                  {editDescriptionButton}
                                 </Flex>
                               ) : (
                                 <>
                                   <Text as="span" color="text-mid">
                                     none
                                   </Text>
-                                  {canEditDescription && (
-                                    <IconButton
-                                      variant="ghost"
-                                      color="violet"
-                                      size="2"
-                                      radius="full"
-                                      onClick={() =>
-                                        setEditDescriptionModal(true)
-                                      }
-                                      style={{
-                                        flexShrink: 0,
-                                        marginTop: -2,
-                                        marginBottom: -2,
-                                        marginLeft: 4,
-                                        marginRight: 0,
-                                      }}
-                                    >
-                                      <PiPencilSimpleFill />
-                                    </IconButton>
-                                  )}
+                                  {editDescriptionButton}
                                 </>
                               )}
                             </Flex>
