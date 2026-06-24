@@ -202,7 +202,7 @@ export const getConstantConfigResolved = async (
 
   return res
     .status(200)
-    .json({ status: 200, config, effectiveSchema, fields, lineage });
+    .json({ status: 200, config, chain, effectiveSchema, fields, lineage });
 };
 
 export const postConstant = async (
