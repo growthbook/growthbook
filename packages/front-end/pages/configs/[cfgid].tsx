@@ -209,7 +209,9 @@ function FieldDefForm({
 
   // Advanced mode is driven by the presence of a raw per-field JSON Schema.
   const advanced = field.jsonSchema !== undefined;
-  const showValueInput = withValue && !advanced;
+  // The value input is always rendered (when inserting) to avoid layout shift,
+  // but is disabled when a value can't apply (Advanced/raw-schema mode).
+  const valueEnabled = withValue && !advanced;
 
   const trimmedKey = field.key.trim();
   const duplicate =
@@ -280,7 +282,7 @@ function FieldDefForm({
     }
     // Coerce the (optional) value to the field's type. Blank = leave unset.
     let value: unknown = undefined;
-    if (showValueInput && valueText.trim() !== "") {
+    if (valueEnabled && valueText.trim() !== "") {
       const t = valueText.trim();
       if (field.type === "boolean") {
         value = t === "true";
@@ -326,14 +328,29 @@ function FieldDefForm({
             containerStyle={{ marginBottom: 0 }}
           />
         </Box>
-        {showValueInput && (
+        {withValue && (
           <Box style={{ width: 180, flexShrink: 0 }}>
-            <Field
-              placeholder="value"
-              value={valueText}
-              onChange={(e) => onValueChange(e.target.value)}
-              containerStyle={{ marginBottom: 0 }}
-            />
+            {field.type === "boolean" ? (
+              <SelectField
+                value={valueText}
+                onChange={setValueText}
+                options={[
+                  { value: "true", label: "true" },
+                  { value: "false", label: "false" },
+                ]}
+                initialOption="value…"
+                sort={false}
+                disabled={!valueEnabled}
+              />
+            ) : (
+              <Field
+                placeholder="value"
+                value={valueText}
+                onChange={(e) => onValueChange(e.target.value)}
+                containerStyle={{ marginBottom: 0 }}
+                disabled={!valueEnabled}
+              />
+            )}
           </Box>
         )}
         <Box style={{ width: 150, flexShrink: 0 }}>
