@@ -213,7 +213,6 @@ function CurrentCustomRangeField({
     <DatePicker
       containerClassName="mb-0"
       compact
-      fluid={fullWidth}
       wrapRangeInputs={fullWidth ? false : shouldWrap}
       date={
         dateRange.startDate
@@ -329,7 +328,6 @@ function ComparisonPreviousRangePicker({
     <DatePicker
       containerClassName="mb-0"
       compact
-      fluid={fullWidth}
       wrapRangeInputs={fullWidth ? false : shouldWrap}
       date={getValidDateOffsetByUTC(previousTimeFrame.startDate)}
       date2={getValidDateOffsetByUTC(previousTimeFrame.endDate)}
