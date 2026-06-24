@@ -10,6 +10,7 @@ import {
   isScheduledPublishPending,
   findPublishLockingScheduledRevision,
 } from "shared/enterprise";
+import type { PublishGovernanceResult } from "shared/util";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiCaretDownBold, PiGitDiff, PiGitMergeBold } from "react-icons/pi";
 import { useUser } from "@/services/UserContext";
@@ -34,6 +35,7 @@ import EventUser from "@/components/Avatar/EventUser";
 import Markdown from "@/components/Markdown/Markdown";
 import CommentComposer from "@/components/Comments/CommentComposer";
 import ReviewCommentPopover from "@/components/Reviews/ReviewCommentPopover";
+import DivergenceNotice from "@/components/Reviews/DivergenceNotice";
 import {
   PersonRow,
   ReviewerVerdictIcon,
@@ -276,6 +278,22 @@ function ReviewAndPublishRevision<T>({
   const staleApproval = revision.status === "approved" && diverged;
   const mustRebase =
     mergeSuccess && diverged && (requireRebase || staleApproval);
+
+  // Governance result for the shared DivergenceNotice (the feature flow's
+  // conflict / "rebase with live" banners). Built from the content-based
+  // divergence above rather than version math, since revisions here have no
+  // tracked base version.
+  const governance: PublishGovernanceResult = {
+    diverged,
+    divergence: !mergeSuccess ? "conflict" : diverged ? "diverged" : "current",
+    liveChanges: [],
+    staleApproval,
+    recommendRebase: !mergeSuccess || diverged || staleApproval,
+    rebaseRequired: !mergeSuccess || mustRebase,
+    canPublish: mergeSuccess && !mustRebase,
+    blockReason: null,
+  };
+  const liveVersion = liveRevision?.version ?? 0;
 
   // ── Scheduled publish: a sibling draft's committed lock-others schedule
   // freezes publishing of this one (treated like the feature ramp/schedule lock). ──
@@ -1085,57 +1103,20 @@ function ReviewAndPublishRevision<T>({
 
           {/* Publish section */}
           <Box mt="4" pt="4" style={{ borderTop: "1px solid var(--gray-a5)" }}>
-            {mergeResult && !mergeResult.success && (
-              <Callout status="error" size="sm" mb="3">
-                <Flex direction="column" gap="2" align="start">
-                  <Text size="small">
-                    This revision conflicts with changes published since it was
-                    created. Resolve the conflicts before publishing.
-                  </Text>
-                  <Button
-                    variant="outline"
-                    size="xs"
-                    color="red"
-                    onClick={() => setShowFixConflicts(true)}
-                    disabled={!canEditEntity}
-                  >
-                    Fix conflicts
-                  </Button>
-                </Flex>
-              </Callout>
-            )}
-
-            {/* Divergence (live moved since this draft's base) — distinct from a
-                hard conflict. Blocks publish when require-rebase / stale-approval. */}
-            {diverged && mergeSuccess && (
-              <Callout
-                status={mustRebase ? "warning" : "info"}
-                size="sm"
-                mb="3"
-              >
-                <Flex direction="column" gap="2" align="start">
-                  <Text size="small">
-                    {staleApproval
-                      ? `Changes were published after this draft was approved. Rebase with the live version${
-                          mustRebase
-                            ? " and get re-approval before publishing."
-                            : "."
-                        }`
-                      : `This draft is based on an older version. Rebase with the live version${
-                          mustRebase ? " before publishing." : "."
-                        }`}
-                  </Text>
-                  <Button
-                    variant="outline"
-                    size="xs"
-                    onClick={doRebase}
-                    disabled={!canEditEntity}
-                    loading={submitting}
-                  >
-                    Rebase with live
-                  </Button>
-                </Flex>
-              </Callout>
+            {/* Conflict / divergence / stale-approval banners — shared with the
+                feature flow so the revision tab reads identically. */}
+            {(governance.divergence !== "current" || staleApproval) && (
+              <Box mb="3">
+                <DivergenceNotice
+                  governance={governance}
+                  liveVersion={liveVersion}
+                  baseVersion={liveVersion}
+                  canRebase={canEditEntity}
+                  updating={submitting}
+                  onResolveConflicts={() => setShowFixConflicts(true)}
+                  onUpdateFromLive={doRebase}
+                />
+              </Box>
             )}
 
             {/* A sibling draft's committed lock-others schedule freezes publish. */}
