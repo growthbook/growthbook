@@ -3,7 +3,7 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { calculateNamespaceCoverage } from "shared/util";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
-import { PiPencilSimple } from "react-icons/pi";
+import { PiPencilSimple, PiPlus } from "react-icons/pi";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import { AttributeBadge } from "@/components/Features/AttributeBadge";
@@ -16,6 +16,7 @@ import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
+import Button from "@/ui/Button";
 
 export interface Props {
   phaseIndex?: number | null;
@@ -87,7 +88,7 @@ function FunnelCard({
           </IconButton>
         ) : null}
       </Flex>
-      {children ? <Box mt="4">{children}</Box> : null}
+      {children ? <Box mt="3">{children}</Box> : null}
     </Box>
   );
 }
@@ -256,26 +257,31 @@ export default function TrafficAllocationFunnel({
         <Heading color="text-high" as="h4" size="small" mb="0">
           Traffic Allocation
         </Heading>
+        {!isHoldout &&
+          editNamespace &&
+          !hasNamespace &&
+          !!namespaces?.length && (
+            <Button
+              variant="ghost"
+              onClick={editNamespace}
+              icon={<PiPlus size="15" />}
+            >
+              Add Namespace
+            </Button>
+          )}
       </Flex>
 
       <Flex direction="column">
         <Flex align="center" direction="column">
-          {!isHoldout && (
+          {!isHoldout && hasNamespace && (
             <>
               <FunnelCard
                 title="Namespace"
-                info="Use namespaces to run mutually exclusive experiments. Manage namespaces under Experimentation → Namespaces"
                 onEdit={runningBandit ? null : editNamespace}
                 inlineSummary={
-                  hasNamespace ? (
-                    <Text size="large" color="text-mid">
-                      {namespaceName}
-                    </Text>
-                  ) : (
-                    <Text size="large">
-                      <em>Optional</em>
-                    </Text>
-                  )
+                  <Text size="large" color="text-mid">
+                    {namespaceName}
+                  </Text>
                 }
                 disabled={!hasNamespace}
               />
@@ -293,6 +299,7 @@ export default function TrafficAllocationFunnel({
                 </Text>
               )
             }
+            disabled={!hasConfiguredTargeting}
           >
             <Flex direction="column" gap="3">
               {hasConfiguredTargeting ? (

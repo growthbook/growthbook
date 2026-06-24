@@ -33,6 +33,7 @@ export default function EditNamespaceModal({
         open={true}
         close={close}
         header="Edit Namespace"
+        subheader="Run mutually exclusive experiments within a shared namespace."
         ctaEnabled={canSubmit}
         submit={onSubmit(mutate, "namespace")}
         size="lg"
@@ -44,6 +45,7 @@ export default function EditNamespaceModal({
             trackingKey={experiment.trackingKey}
             experimentHashAttribute={form.watch("hashAttribute")}
             fallbackAttribute={form.watch("fallbackAttribute")}
+            hideEnableToggle
           />
         </div>
       </ModalStandard>
