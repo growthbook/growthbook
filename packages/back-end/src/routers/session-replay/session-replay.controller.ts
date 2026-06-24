@@ -17,7 +17,6 @@ type SessionReplayListItem = Pick<
   | "clientKey"
   | "userId"
   | "deviceId"
-  | "s3Key"
   | "startedAt"
   | "endedAt"
   | "lastEventAt"
@@ -95,7 +94,6 @@ function toListItem(session: SessionReplayInterface): SessionReplayListItem {
     clientKey: session.clientKey,
     userId: session.userId,
     deviceId: session.deviceId,
-    s3Key: session.s3Key,
     startedAt: session.startedAt,
     endedAt: session.endedAt,
     lastEventAt: session.lastEventAt,

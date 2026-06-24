@@ -177,7 +177,7 @@ describe("session-replay API", () => {
       expect(res.status).toBe(200);
       expect(res.body.sessions[0].featureKeys).toEqual(["flag_1"]);
       expect(res.body.sessions[0].experimentKeys).toEqual(["exp_1"]);
-      expect(res.body.sessions[0]).toHaveProperty("s3Key");
+      expect(res.body.sessions[0]).not.toHaveProperty("s3Key");
       expect(res.body.sessions[0]).toHaveProperty("attributes");
       expect(res.body.sessions[0]).not.toHaveProperty("featureEvals");
       expect(res.body.sessions[0]).not.toHaveProperty("experimentEvals");
