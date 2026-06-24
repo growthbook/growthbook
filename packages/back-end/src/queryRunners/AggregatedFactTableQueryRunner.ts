@@ -396,11 +396,9 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
           // marker to let the next run retry the same window instead of
           // restating.
           //
-          // Restate has no marker to clear here: the table was already
-          // invalidated up front and is only restored on coverage success, so
-          // any chunk failure leaves the registry pointing at no table and the
-          // next run restates (reads fall back via no-materialized-table
-          // meanwhile).
+          // Restate failure should not clear any marker; any existing cache
+          // was already invalid and we want to make sure the next run restates
+          // the table.
           if (mode !== "incremental") return;
           this.context.models.aggregatedFactTables
             .updateByKeyIfCurrentExecution(this.getKey(), executionId, {
