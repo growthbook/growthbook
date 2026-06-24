@@ -389,6 +389,12 @@ export default function ConfigDetailPage(): React.ReactElement {
   // draft (not silently auto-publish from the live view), so the editor prompts
   // for a draft when one isn't selected.
   const canEditInline = canUpdate && isDraft;
+  // An open draft to point the "switch to a draft to edit" callout at (prefer
+  // the current user's own draft); otherwise the callout offers to create one.
+  const existingDraft =
+    openRevisions.find((r) => r.authorId === userId) ??
+    openRevisions[0] ??
+    null;
   const canBypassApproval = permissionsUtil.canBypassApprovalChecks({
     project: config.project || "",
   });
@@ -512,7 +518,7 @@ export default function ConfigDetailPage(): React.ReactElement {
       <Box className="contents container-fluid pagecontents" mt="2">
         <Flex gap="5" align="start">
           {/* Lineage sidebar — always shows the full base → child family. */}
-          <Box style={{ width: 220, flexShrink: 0 }}>
+          <Box style={{ width: 170, flexShrink: 0 }}>
             <Text size="small" weight="semibold" color="text-low">
               CONFIGS
             </Text>
@@ -681,6 +687,21 @@ export default function ConfigDetailPage(): React.ReactElement {
               onReviewPublish={() => setShowChangesModal(true)}
             />
 
+            {canUpdate && !isDraft && (
+              <Callout status="info" mb="4">
+                Switch to a draft to edit.{" "}
+                {existingDraft ? (
+                  <Link onClick={() => selectRevision(existingDraft)}>
+                    <strong>Switch to draft</strong>
+                  </Link>
+                ) : (
+                  <Link onClick={handleNewDraft}>
+                    <strong>Create a draft</strong>
+                  </Link>
+                )}
+              </Callout>
+            )}
+
             <Text as="p" color="text-mid" mb="3">
               {resolved.effectiveSchema.length} fields ·{" "}
               {resolved.fields.filter((f) => f.source === config.key).length}{" "}
@@ -694,20 +715,6 @@ export default function ConfigDetailPage(): React.ReactElement {
                   <TabsTrigger value="json">JSON</TabsTrigger>
                 </TabsList>
                 <TabsContent value="form">
-                  {canUpdate && !isDraft && (
-                    <Callout status="info" mb="3">
-                      <Flex align="center" justify="between" gap="3">
-                        <Text>
-                          Editing happens in a draft. Create a draft, or select
-                          one from the version menu above, to add or edit
-                          fields.
-                        </Text>
-                        <Button size="sm" onClick={handleNewDraft}>
-                          Create draft
-                        </Button>
-                      </Flex>
-                    </Callout>
-                  )}
                   {resolved.fields.length > 0 && (
                     <Table>
                       <TableHeader>
