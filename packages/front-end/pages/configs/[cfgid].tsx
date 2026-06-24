@@ -772,7 +772,7 @@ export default function ConfigDetailPage(): React.ReactElement {
     ) : (
       canEditInline &&
       schemaEdit === null && (
-        <Box mt="3">
+        <Box mt="2">
           <Button variant="soft" onClick={() => setSchemaEdit("add")}>
             + Add field
           </Button>
@@ -984,28 +984,32 @@ export default function ConfigDetailPage(): React.ReactElement {
                     gap="2"
                     align="center"
                     pb="1"
-                    mb="1"
                     style={{ borderBottom: "1px solid var(--slate-a4)" }}
                   >
                     {[
                       ["Key", FIELD_COLS.key],
                       ["Value", FIELD_COLS.value],
                       ["Type", FIELD_COLS.type],
+                      ["Source", undefined],
                     ].map(([label, w]) => (
                       <Box
                         key={label}
-                        style={{ width: w as number, flexShrink: 0 }}
+                        style={
+                          w === undefined
+                            ? { flex: 1, minWidth: 80 }
+                            : { width: w as number, flexShrink: 0 }
+                        }
                       >
-                        <Text size="small" weight="semibold" color="text-low">
+                        <Text
+                          size="small"
+                          weight="medium"
+                          color="text-low"
+                          textTransform="uppercase"
+                        >
                           {label}
                         </Text>
                       </Box>
                     ))}
-                    <Box style={{ flex: 1, minWidth: 80 }}>
-                      <Text size="small" weight="semibold" color="text-low">
-                        Source
-                      </Text>
-                    </Box>
                   </Flex>
 
                   {resolved.fields.map((f) => {
@@ -1108,7 +1112,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                   })}
 
                   {resolved.fields.length === 0 && schemaEdit !== "add" && (
-                    <Text as="p" color="text-low" mt="2" mb="2">
+                    <Text as="p" size="small" color="text-low" mt="3" mb="1">
                       No fields yet.
                     </Text>
                   )}
