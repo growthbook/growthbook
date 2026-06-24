@@ -141,35 +141,42 @@ export default function ExplorerMainSection() {
               width: "auto",
             }}
           >
-            <Callout status="info" size="sm" icon={null}>
-              <Flex align="center" gap="2">
-                {loading ? (
-                  <Flex align="center" gap="2">
-                    <LoadingSpinner style={{ width: "12px", height: "12px" }} />
-                    <Text>Loading...</Text>
-                  </Flex>
+            <Callout
+              status="info"
+              size="sm"
+              icon={
+                loading ? (
+                  <LoadingSpinner style={{ width: "12px", height: "12px" }} />
                 ) : (
-                  <>
-                    <Text title="Some configuration changes require running a new SQL query against your data source">
-                      <PiInfo /> Latest changes not applied
-                    </Text>
-                    <Button
-                      size="sm"
-                      variant="solid"
-                      disabled={
-                        !draftExploreState?.dataset?.values?.length ||
-                        !isSubmittable
-                      }
-                      onClick={() => handleSubmit({ force: true })}
-                    >
-                      <Flex align="center" gap="2">
-                        <PiArrowsClockwise />
-                        Refresh
-                      </Flex>
-                    </Button>
-                  </>
-                )}
-              </Flex>
+                  <PiInfo />
+                )
+              }
+              action={
+                loading ? undefined : (
+                  <Button
+                    size="sm"
+                    variant="solid"
+                    disabled={
+                      !draftExploreState?.dataset?.values?.length ||
+                      !isSubmittable
+                    }
+                    onClick={() => handleSubmit({ force: true })}
+                  >
+                    <Flex align="center" gap="2">
+                      <PiArrowsClockwise />
+                      Refresh
+                    </Flex>
+                  </Button>
+                )
+              }
+            >
+              {loading ? (
+                "Loading..."
+              ) : (
+                <Text title="Some configuration changes require running a new SQL query against your data source">
+                  Latest changes not applied
+                </Text>
+              )}
             </Callout>
           </Box>
         )}

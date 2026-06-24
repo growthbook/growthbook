@@ -228,8 +228,8 @@ export default function HealthTab({
   if (!snapshot?.health?.traffic.dimension?.dim_exposure_date) {
     if (loading) {
       return (
-        <Callout status="info" mt="3">
-          <LoadingSpinner /> Snapshot refreshing, health data loading...
+        <Callout status="info" mt="3" icon={<LoadingSpinner />}>
+          Snapshot refreshing, health data loading...
         </Callout>
       );
     }
