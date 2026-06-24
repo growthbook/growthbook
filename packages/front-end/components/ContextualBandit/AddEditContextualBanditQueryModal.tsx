@@ -30,7 +30,6 @@ type CbQueryFormValues = {
   userIdType: string;
   query: string;
   targetingAttributeColumns: string[];
-  dimensions: string[];
   hasNameCol?: boolean;
 };
 
@@ -82,7 +81,6 @@ export const AddEditContextualBanditQueryModal: FC<Props> = ({
             query: contextualBanditQuery.query,
             targetingAttributeColumns:
               contextualBanditQuery.targetingAttributeColumns ?? [],
-            dimensions: contextualBanditQuery.dimensions ?? [],
             hasNameCol: contextualBanditQuery.hasNameCol ?? false,
           }
         : {
@@ -91,14 +89,12 @@ export const AddEditContextualBanditQueryModal: FC<Props> = ({
             userIdType: userIdTypeOptions ? userIdTypeOptions[0]?.value : "",
             query: defaultQuery,
             targetingAttributeColumns: [],
-            dimensions: [],
             hasNameCol: false,
           },
   });
 
   const userEnteredUserIdType = form.watch("userIdType");
   const userEnteredQuery = form.watch("query");
-  const userEnteredDimensions = form.watch("dimensions");
   const userEnteredTargetingAttributeColumns = form.watch(
     "targetingAttributeColumns",
   );
@@ -110,14 +106,12 @@ export const AddEditContextualBanditQueryModal: FC<Props> = ({
       "variation_id",
       "timestamp",
       userEnteredUserIdType,
-      ...(userEnteredDimensions || []),
       ...(userEnteredTargetingAttributeColumns || []),
       ...CONTEXTUAL_BANDIT_EAQ_REQUIRED_COLUMNS,
       ...(userEnteredHasNameCol ? ["experiment_name", "variation_name"] : []),
     ]);
   }, [
     userEnteredUserIdType,
-    userEnteredDimensions,
     userEnteredTargetingAttributeColumns,
     userEnteredHasNameCol,
   ]);
@@ -170,7 +164,6 @@ export const AddEditContextualBanditQueryModal: FC<Props> = ({
       userIdType: value.userIdType,
       query: value.query,
       targetingAttributeColumns: columns,
-      dimensions: value.dimensions ?? [],
       hasNameCol: !!value.hasNameCol,
     };
 
@@ -194,7 +187,6 @@ export const AddEditContextualBanditQueryModal: FC<Props> = ({
 
   const validateResponse = (result: TestQueryRow) => {
     if (!result) return;
-    const returnedColumns = new Set<string>(Object.keys(result));
     const missingColumns = Array.from(requiredColumns).filter(
       (col) => !(col in result),
     );
@@ -202,16 +194,6 @@ export const AddEditContextualBanditQueryModal: FC<Props> = ({
       throw new Error(
         `You are missing the following columns: ${missingColumns.join(", ")}`,
       );
-    }
-    // Surface unexpected columns as dimensions, mirroring the EAQ modal.
-    const optionalColumns = [...returnedColumns].filter(
-      (col) => !requiredColumns.has(col),
-    );
-    if (optionalColumns.length > 0) {
-      form.setValue("dimensions", [
-        ...userEnteredDimensions,
-        ...optionalColumns,
-      ]);
     }
   };
 
@@ -321,12 +303,6 @@ export const AddEditContextualBanditQueryModal: FC<Props> = ({
               setValue={(value) => form.setValue("hasNameCol", value)}
             />
           </Flex>
-
-          <StringArrayField
-            label="Dimension Columns"
-            value={userEnteredDimensions}
-            onChange={(dimensions) => form.setValue("dimensions", dimensions)}
-          />
         </div>
       </ModalStandard>
     </>

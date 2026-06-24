@@ -28653,10 +28653,6 @@ paths:
                   type: array
                   items:
                     type: string
-                dimensions:
-                  type: array
-                  items:
-                    type: string
                 hasNameCol:
                   type: boolean
               additionalProperties: false
@@ -28702,10 +28698,6 @@ paths:
                 query:
                   type: string
                 targetingAttributeColumns:
-                  type: array
-                  items:
-                    type: string
-                dimensions:
                   type: array
                   items:
                     type: string
@@ -44210,10 +44202,6 @@ components:
         query:
           type: string
         targetingAttributeColumns:
-          type: array
-          items:
-            type: string
-        dimensions:
           type: array
           items:
             type: string
