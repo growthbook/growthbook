@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   createDashboardBlockInterface,
   dashboardBlockInterface,
+  dashboardFiltersValidator,
   legacyDashboardBlockInterface,
   dashboardEditLevel,
   dashboardShareLevel,
@@ -24,6 +25,7 @@ export const createDashboardBody = z
     shareLevel: dashboardShareLevel,
     enableAutoUpdates: z.boolean(),
     updateSchedule: dashboardUpdateSchedule.optional(),
+    filters: dashboardFiltersValidator.optional(),
     blocks: z.array(createDashboardBlockInterface),
     projects: z.array(z.string()).optional(),
     userId: z.string().optional(),
@@ -38,6 +40,7 @@ export const updateDashboardBody = z
     shareLevel: dashboardShareLevel.optional(),
     enableAutoUpdates: z.boolean().optional(),
     updateSchedule: dashboardUpdateSchedule.optional(),
+    filters: dashboardFiltersValidator.optional(),
     projects: z.array(z.string()).optional(),
     blocks: z
       .array(

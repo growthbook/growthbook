@@ -8,12 +8,12 @@ import {
   getBlockAnalysisSettings,
   getBlockSnapshotAnalysis,
   getBlockSnapshotSettings,
+  getEffectiveExplorationConfig,
   snapshotSatisfiesBlock,
   DashboardInterface,
   MetricExplorerBlockInterface,
   DashboardBlockInterface,
 } from "shared/enterprise";
-import { ExplorationConfig } from "shared/validators";
 import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
@@ -222,6 +222,7 @@ export async function updateExperimentDashboards({
     const explorationsUpdated = await updateDashboardExplorations(
       context,
       editableBlocks,
+      dashboard,
     );
     if (metricAnalysesUpdated || explorationsUpdated) {
       await context.models.dashboards.dangerousUpdateBypassPermission(
@@ -240,7 +241,7 @@ export async function updateNonExperimentDashboard(
   const newBlocks = dashboard.blocks.map((block) => ({ ...block }));
   await updateDashboardMetricAnalyses(context, newBlocks);
   await updateDashboardSavedQueries(context, newBlocks);
-  await updateDashboardExplorations(context, newBlocks);
+  await updateDashboardExplorations(context, newBlocks, dashboard);
   await context.models.dashboards.dangerousUpdateBypassPermission(dashboard, {
     blocks: newBlocks,
     nextUpdate:
@@ -318,19 +319,20 @@ export async function updateDashboardMetricAnalyses(
 
   return results.some((updated) => updated);
 }
-
 const PRODUCT_ANALYTICS_EXPLORATION_BLOCK_TYPES = [
   "metric-exploration",
   "fact-table-exploration",
   "data-source-exploration",
 ] as const;
 
+type ProductAnalyticsExplorationBlock = Extract<
+  DashboardInterface["blocks"][number],
+  { type: (typeof PRODUCT_ANALYTICS_EXPLORATION_BLOCK_TYPES)[number] }
+>;
+
 function isProductAnalyticsExplorationBlock(
   block: DashboardInterface["blocks"][number],
-): block is DashboardInterface["blocks"][number] & {
-  explorerAnalysisId: string;
-  config: ExplorationConfig;
-} {
+): block is ProductAnalyticsExplorationBlock {
   return (
     PRODUCT_ANALYTICS_EXPLORATION_BLOCK_TYPES.includes(
       block.type as (typeof PRODUCT_ANALYTICS_EXPLORATION_BLOCK_TYPES)[number],
@@ -348,6 +350,7 @@ function isProductAnalyticsExplorationBlock(
 export async function updateDashboardExplorations(
   context: ReqContext | ApiReqContext,
   blocks: DashboardInterface["blocks"],
+  dashboard: Pick<DashboardInterface, "filters">,
 ): Promise<boolean> {
   const explorationBlocks = blocks.filter(isProductAnalyticsExplorationBlock);
   if (explorationBlocks.length === 0) return false;
@@ -357,7 +360,7 @@ export async function updateDashboardExplorations(
     try {
       const exploration = await runProductAnalyticsExploration(
         context,
-        block.config,
+        getEffectiveExplorationConfig(block, dashboard),
         { cache: "never" },
       );
       // This should never happen when cache="never", but just in case
