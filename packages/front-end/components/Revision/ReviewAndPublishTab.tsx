@@ -1,6 +1,5 @@
 import { ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
-import { format } from "date-fns";
 import {
   Revision,
   checkMergeConflicts,
@@ -13,19 +12,16 @@ import {
 } from "shared/enterprise";
 import type { PublishGovernanceResult } from "shared/util";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import { PiCaretDownBold, PiGitDiff, PiGitMergeBold } from "react-icons/pi";
+import { PiCaretDownBold, PiGitMergeBold } from "react-icons/pi";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import useURLHash from "@/hooks/useURLHash";
 import Button from "@/ui/Button";
-import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
-import Badge from "@/ui/Badge";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import HelperText from "@/ui/HelperText";
-import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
 import {
   DropdownMenu,
   DropdownMenuGroup,
@@ -42,7 +38,7 @@ import {
   ReviewerVerdictIcon,
 } from "@/components/Reviews/ReviewPeople";
 import {
-  revisionStatusBadgeVariant,
+  RevisionLike,
   revisionStatusColor,
   revisionStatusIcon,
   revisionStatusLabel,
@@ -57,6 +53,7 @@ import RevisionTimeline, {
   REVIEW_ACTIVITY_ACTIONS,
 } from "@/components/Reviews/RevisionTimeline";
 import ScheduledPublishControl from "@/components/Reviews/ScheduledPublishControl";
+import ReviewHeader from "@/components/Reviews/ReviewHeader";
 import { useRevisionDiff, RevisionDiffConfig } from "./useRevisionDiff";
 import { RevisionDiff } from "./RevisionDiff";
 import { revisionTimelineLogs } from "./revisionTimelineLogs";
@@ -610,7 +607,6 @@ function ReviewAndPublishRevision<T>({
   // The live revision reads as a green "Live" badge (matching the feature
   // tab); other terminal/merged revisions fall back to "Locked".
   const statusForBadge = isLive ? "live" : toBadgeStatus(revision.status);
-  const statusColor = revisionStatusColor(statusForBadge);
   // The actions-column header band reflects the review lifecycle, not deployment
   // state — "Live"/"Locked" aren't lifecycle stages, so terminal (merged/live)
   // revisions all read as "Published" (grey) here, matching the feature tab. The
@@ -649,128 +645,37 @@ function ReviewAndPublishRevision<T>({
         r.id !== revision.id,
     )
     .sort((a, b) => (b.version ?? 0) - (a.version ?? 0));
-  const draftNavLabel = (r: Revision) =>
-    r.title?.trim() || `Revision ${r.version ?? ""}`.trim();
-  const otherDraftsNav =
-    otherAttentionDrafts.length === 1 ? (
-      <Flex align="center" gap="2" wrap="wrap">
-        <Text color="text-mid">1 other draft needs attention:</Text>
-        <Link
-          weight="medium"
-          onClick={() => selectRevision(otherAttentionDrafts[0])}
-        >
-          {draftNavLabel(otherAttentionDrafts[0])}
-        </Link>
-        <Badge
-          variant={revisionStatusBadgeVariant(
-            toBadgeStatus(otherAttentionDrafts[0].status),
-          )}
-          radius="full"
-          color={revisionStatusColor(
-            toBadgeStatus(otherAttentionDrafts[0].status),
-          )}
-          label={revisionStatusLabel(
-            toBadgeStatus(otherAttentionDrafts[0].status),
-          )}
-        />
-      </Flex>
-    ) : otherAttentionDrafts.length > 1 ? (
-      <DropdownMenu
-        trigger={
-          <Link weight="medium">
-            {otherAttentionDrafts.length} other drafts need attention{" "}
-            <PiCaretDownBold size={11} />
-          </Link>
-        }
-        menuPlacement="end"
-      >
-        {otherAttentionDrafts.map((r) => (
-          <DropdownMenuItem key={r.id} onClick={() => selectRevision(r)}>
-            {draftNavLabel(r)} — {revisionStatusLabel(toBadgeStatus(r.status))}
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenu>
-    ) : null;
-
-  const header = (
-    <Box mb="6" pt="4">
-      <Flex align="start" justify="between" gap="4">
-        <Box>
-          <Heading as="h3" size="large" mb="2">
-            {headerTitle}
-          </Heading>
-          <Flex align="center" gap="2">
-            <Box style={{ flexShrink: 0 }}>
-              <Badge
-                size="lg"
-                variant={revisionStatusBadgeVariant(statusForBadge)}
-                radius="full"
-                color={statusColor}
-                label={revisionStatusLabel(statusForBadge)}
-              />
-            </Box>
-            <Text as="span" color="text-low">
-              {revision.status === "merged" ? (
-                <>
-                  Revision <strong>{revision.version}</strong> was published
-                  {revision.resolution?.dateCreated
-                    ? ` on ${format(
-                        new Date(revision.resolution.dateCreated),
-                        "MMM d, yyyy",
-                      )}`
-                    : ""}
-                </>
-              ) : revision.status === "discarded" ? (
-                <>
-                  Revision <strong>{revision.version}</strong> was discarded and
-                  never published
-                </>
-              ) : (
-                <>
-                  Merging revision <strong>{revision.version}</strong> into the
-                  live version
-                </>
-              )}
-            </Text>
-          </Flex>
-        </Box>
-        {otherDraftsNav && (
-          <Box flexShrink="0" pt="1">
-            {otherDraftsNav}
-          </Box>
-        )}
-      </Flex>
-    </Box>
-  );
-
-  const subTabBar = (
-    <Box mb="4">
-      <Tabs value={subTab} onValueChange={(v) => setSubTab(v as ReviewSubTab)}>
-        <Flex
-          align="center"
-          justify="between"
-          style={{ boxShadow: "inset 0 -1px 0 0 var(--slate-a3)" }}
-        >
-          <TabsList style={{ boxShadow: "none" }}>
-            <TabsTrigger value="overview">Conversation</TabsTrigger>
-            <TabsTrigger value="changes">Changes</TabsTrigger>
-          </TabsList>
-          {onCompareRevisions && (
-            <Box pl="2" flexShrink="0">
-              <Button
-                variant="ghost"
-                size="sm"
-                icon={<PiGitDiff />}
-                onClick={onCompareRevisions}
-                style={{ whiteSpace: "nowrap" }}
-              >
-                Compare revisions
-              </Button>
-            </Box>
-          )}
-        </Flex>
-      </Tabs>
-    </Box>
+  // The shared Review & Publish top section (title + status + merging line +
+  // other-drafts nav + sub-tab bar). Saved groups has no distinct base revision,
+  // so `baseVersion` is omitted (the "· based on revision N" text is feature-only).
+  const reviewHeader = (
+    <ReviewHeader
+      title={headerTitle}
+      badgeStatus={statusForBadge}
+      version={revision.version ?? 0}
+      liveVersion={liveVersion}
+      lifecycle={
+        revision.status === "merged"
+          ? "merged"
+          : revision.status === "discarded"
+            ? "discarded"
+            : "active"
+      }
+      publishedDate={revision.resolution?.dateCreated}
+      otherDrafts={otherAttentionDrafts.map((r) => ({
+        key: r.id,
+        version: r.version ?? 0,
+        title: r.title,
+        badge: {
+          version: r.version ?? 0,
+          status: toBadgeStatus(r.status),
+        } as RevisionLike,
+        onNavigate: () => selectRevision(r),
+      }))}
+      subTab={subTab}
+      setSubTab={setSubTab}
+      onCompareRevisions={onCompareRevisions}
+    />
   );
 
   const leftColumn = (
@@ -1279,8 +1184,7 @@ function ReviewAndPublishRevision<T>({
         </ModalStandard>
       )}
 
-      {header}
-      {subTabBar}
+      {reviewHeader}
       <Flex gap="5" align="start">
         <Box style={{ flex: 1, minWidth: 0 }}>{leftColumn}</Box>
         <Box style={{ width: 360, minWidth: 360, flexShrink: 0 }}>
