@@ -241,6 +241,7 @@ export const postConstant = async (
     environmentValues: body.environmentValues,
     description: body.description,
     project: body.project,
+    schema: body.schema,
   });
 
   // Backfill an initial "live" revision so the history view has a baseline.
@@ -288,6 +289,7 @@ export const putConstant = async (
     description,
     project,
     archived,
+    schema,
   } = req.body;
   const { id } = req.params;
 
@@ -364,6 +366,10 @@ export const putConstant = async (
   }
   if (hasChanged(archived, comparisonBase.archived)) {
     fieldsToUpdate.archived = archived;
+  }
+  // `schema` (config field definitions) is a content change like `value`.
+  if (hasChanged(schema, comparisonBase.schema)) {
+    fieldsToUpdate.schema = schema;
   }
 
   // Block the archive transition when the constant is still referenced (same

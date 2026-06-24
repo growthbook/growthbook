@@ -133,7 +133,12 @@ export const getConstantRevisionChange = (
     ops,
   ) as Pick<ConstantInterface, "value" | "environmentValues">;
 
-  const valueChanged = (snapshot.value ?? "") !== (patched.value ?? "");
+  // A config's `schema` (field definitions) is a content change like `value`:
+  // it changes what the SDK resolves, so it requires full review when approval
+  // is enabled rather than counting as metadata.
+  const schemaChanged = ops.some((op) => op.path.split("/")[1] === "schema");
+  const valueChanged =
+    (snapshot.value ?? "") !== (patched.value ?? "") || schemaChanged;
 
   const oldEnvs = snapshot.environmentValues ?? {};
   const newEnvs = patched.environmentValues ?? {};

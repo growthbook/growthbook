@@ -154,6 +154,71 @@ export function renderConstantSettings(pre: Pre, post: Post): ReactNode | null {
   return rows.length ? <Box mt="1">{rows}</Box> : null;
 }
 
+// Config field definitions (the `schema` field). One before/after chunk per
+// changed field key, so adds, removes, and edits are all visible.
+export function renderConstantSchema(pre: Pre, post: Post): ReactNode | null {
+  const preFields = pre?.schema?.fields ?? [];
+  const postFields = post.schema?.fields ?? [];
+  if (isEqual(preFields, postFields)) return null;
+
+  const keys = Array.from(
+    new Set([...preFields.map((f) => f.key), ...postFields.map((f) => f.key)]),
+  ).sort();
+  const rows: ReactNode[] = [];
+  for (const k of keys) {
+    const a = preFields.find((f) => f.key === k);
+    const b = postFields.find((f) => f.key === k);
+    if (isEqual(a, b)) continue;
+    rows.push(
+      <ValueRow
+        key={k}
+        label={k || "(new field)"}
+        pre={a ? JSON.stringify(a, null, 2) : undefined}
+        post={b ? JSON.stringify(b, null, 2) : undefined}
+      />,
+    );
+  }
+  return rows.length ? <Box mt="1">{rows}</Box> : null;
+}
+
+export function getConstantSchemaBadges(pre: Pre, post: Post): DiffBadge[] {
+  const preFields = pre?.schema?.fields ?? [];
+  const postFields = post.schema?.fields ?? [];
+  if (isEqual(preFields, postFields)) return [];
+
+  const preKeys = new Set(preFields.map((f) => f.key));
+  const postKeys = new Set(postFields.map((f) => f.key));
+  const added = [...postKeys].filter((k) => !preKeys.has(k)).length;
+  const removed = [...preKeys].filter((k) => !postKeys.has(k)).length;
+  const edited = [...postKeys].filter(
+    (k) =>
+      preKeys.has(k) &&
+      !isEqual(
+        preFields.find((f) => f.key === k),
+        postFields.find((f) => f.key === k),
+      ),
+  ).length;
+
+  const badges: DiffBadge[] = [];
+  const plural = (n: number) => (n !== 1 ? "s" : "");
+  if (added)
+    badges.push({
+      label: `${added} field${plural(added)} added`,
+      action: "add field",
+    });
+  if (removed)
+    badges.push({
+      label: `${removed} field${plural(removed)} removed`,
+      action: "remove field",
+    });
+  if (edited)
+    badges.push({
+      label: `${edited} field${plural(edited)} edited`,
+      action: "edit field",
+    });
+  return badges;
+}
+
 export function getConstantSettingsBadges(pre: Pre, post: Post): DiffBadge[] {
   const badges: DiffBadge[] = [];
   if (!isEqual(pre?.name, post.name) && post.name !== undefined)
@@ -214,12 +279,19 @@ export const REVISION_CONSTANT_DIFF_CONFIG: RevisionDiffConfig<ConstantInterface
         render: renderConstantValues,
         getBadges: getConstantValuesBadges,
       },
+      {
+        label: "Fields",
+        keys: ["schema"] as (keyof ConstantInterface)[],
+        render: renderConstantSchema,
+        getBadges: getConstantSchemaBadges,
+      },
     ],
     // For JSON constants, parse the value (and per-env overrides) into objects
     // so the raw diff expands them as nested JSON rather than escaped strings.
     // Mirrors the saved-group `condition` and feature value handling.
     normalizeSnapshot: (snapshot: ConstantInterface): ConstantInterface => {
-      if (snapshot.type !== "json") return snapshot;
+      if (snapshot.type !== "json" && snapshot.type !== "config")
+        return snapshot;
       const parse = (v: string): string => {
         if (v === "") return v;
         try {

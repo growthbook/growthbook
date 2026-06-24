@@ -63,8 +63,10 @@ import {
   REVISION_CONSTANT_DIFF_CONFIG,
   renderConstantSettings,
   renderConstantValues,
+  renderConstantSchema,
   getConstantSettingsBadges,
   getConstantValuesBadges,
+  getConstantSchemaBadges,
 } from "@/components/Constants/ConstantDiffRenders";
 import {
   ConstantConflictModal,
@@ -383,6 +385,10 @@ export default function ConfigDetailPage(): React.ReactElement {
     permissionsUtil.canDeleteConstant(config) && !!config.archived;
   // Editing is only meaningful on the live state or a draft.
   const canEditNow = canUpdate && (!selectedRevision || isDraft);
+  // Inline field/value editing is draft-only: changes must land in an active
+  // draft (not silently auto-publish from the live view), so the editor prompts
+  // for a draft when one isn't selected.
+  const canEditInline = canUpdate && isDraft;
   const canBypassApproval = permissionsUtil.canBypassApprovalChecks({
     project: config.project || "",
   });
@@ -405,15 +411,13 @@ export default function ConfigDetailPage(): React.ReactElement {
   const ownValue = (): Record<string, unknown> =>
     parsePlainJSONObject(displayedConfig.value ?? "") ?? {};
 
-  // Route a value change through the revision system: edit the selected draft
-  // when one is in view, otherwise publish directly (or spin a new draft when
-  // approvals are required and the user can't bypass).
-  const writeQuery = (): string => {
-    if (selectedRevision && isDraft)
-      return `?revisionId=${selectedRevision.id}`;
-    if (!approvalRequired || canBypassApproval) return `?autoPublish=1`;
-    return `?forceCreateRevision=1`;
-  };
+  // Inline edits are gated to an active draft (see canEditInline), so they
+  // always target the selected draft rather than silently publishing. The
+  // forceCreateRevision fallback is defensive — it should not be reached.
+  const writeQuery = (): string =>
+    selectedRevision && isDraft
+      ? `?revisionId=${selectedRevision.id}`
+      : `?forceCreateRevision=1`;
 
   const saveValue = async (next: Record<string, unknown>) => {
     const res = await apiCall<{ revision?: Revision }>(
@@ -690,6 +694,20 @@ export default function ConfigDetailPage(): React.ReactElement {
                   <TabsTrigger value="json">JSON</TabsTrigger>
                 </TabsList>
                 <TabsContent value="form">
+                  {canUpdate && !isDraft && (
+                    <Callout status="info" mb="3">
+                      <Flex align="center" justify="between" gap="3">
+                        <Text>
+                          Editing happens in a draft. Create a draft, or select
+                          one from the version menu above, to add or edit
+                          fields.
+                        </Text>
+                        <Button size="sm" onClick={handleNewDraft}>
+                          Create draft
+                        </Button>
+                      </Flex>
+                    </Callout>
+                  )}
                   {resolved.fields.length > 0 && (
                     <Table>
                       <TableHeader>
@@ -774,7 +792,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                                       </Button>
                                     </>
                                   ) : (
-                                    canEditNow &&
+                                    canEditInline &&
                                     schemaEdit === null && (
                                       <>
                                         <Link onClick={() => startOverride(f)}>
@@ -847,7 +865,6 @@ export default function ConfigDetailPage(): React.ReactElement {
                       onSave={saveField}
                     />
                   ) : (
-                    canEditNow &&
                     schemaEdit === null && (
                       <Box mt="3">
                         {resolved.fields.length === 0 && (
@@ -855,12 +872,14 @@ export default function ConfigDetailPage(): React.ReactElement {
                             No fields yet.
                           </Text>
                         )}
-                        <Button
-                          variant="soft"
-                          onClick={() => setSchemaEdit("add")}
-                        >
-                          + Add field
-                        </Button>
+                        {canEditInline && (
+                          <Button
+                            variant="soft"
+                            onClick={() => setSchemaEdit("add")}
+                          >
+                            + Add field
+                          </Button>
+                        )}
                       </Box>
                     )
                   )}
@@ -995,6 +1014,12 @@ export default function ConfigDetailPage(): React.ReactElement {
                 keys: ["value", "environmentValues"],
                 render: renderConstantValues,
                 getBadges: getConstantValuesBadges,
+              },
+              {
+                label: "Fields",
+                keys: ["schema"],
+                render: renderConstantSchema,
+                getBadges: getConstantSchemaBadges,
               },
             ],
             updateEventNames: ["constant.updated"],

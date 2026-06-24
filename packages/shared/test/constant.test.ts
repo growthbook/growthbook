@@ -129,6 +129,19 @@ describe("getConstantRevisionChange", () => {
       metadataOnly: true,
     });
   });
+
+  it("treats a config schema change as a (reviewable) value change", () => {
+    const change = getConstantRevisionChange({ value: "v" }, [
+      {
+        op: "replace",
+        path: "/schema",
+        value: { type: "object", fields: [{ key: "a", type: "string" }] },
+      },
+    ]);
+    expect(change.valueChanged).toBe(true);
+    expect(change.metadataOnly).toBe(false);
+    expect(change.changedEnvironments).toEqual([]);
+  });
 });
 
 describe("constantRequiresReview", () => {
