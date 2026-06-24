@@ -59,9 +59,15 @@ export const postConstant = createApiRequestHandler(postConstantValidator)(
     // draft against on create, so the only non-UI path when approval is required
     // is bypass.
     const adapter = getAdapter("constant");
+    // Include metadata fields too (not just value/env), so a metadata-only
+    // create is still gated when the project requires metadata review.
     const patchOps = buildPatchOps({
+      name,
       ...(value !== undefined ? { value } : {}),
       ...(environmentValues ? { environmentValues } : {}),
+      ...(description !== undefined ? { description } : {}),
+      ...(project ? { project } : {}),
+      ...(owner ? { owner } : {}),
     });
     const approvalRequired = adapter.isApprovalRequiredForRevision
       ? adapter.isApprovalRequiredForRevision(req.context, {

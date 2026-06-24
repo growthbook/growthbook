@@ -274,7 +274,12 @@ const updateConstantApiBody = z
   .object({
     name: z.string().optional(),
     value: z.string().optional(),
-    environmentValues: z.record(z.string(), z.string()).optional(),
+    environmentValues: z
+      .record(z.string(), z.string())
+      .describe(
+        "Per-environment value overrides (environment id → value). When provided, this REPLACES the entire override map — send the complete set, not just the environments you want to change (omit the field to leave overrides unchanged).",
+      )
+      .optional(),
     description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
     project: z.string().optional(),
     owner: ownerInputField.optional(),

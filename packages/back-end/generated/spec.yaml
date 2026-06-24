@@ -17675,6 +17675,11 @@ paths:
                 value:
                   type: string
                 environmentValues:
+                  description: >-
+                    Per-environment value overrides (environment id → value).
+                    When provided, this REPLACES the entire override map — send
+                    the complete set, not just the environments you want to
+                    change (omit the field to leave overrides unchanged).
                   type: object
                   propertyNames:
                     type: string
