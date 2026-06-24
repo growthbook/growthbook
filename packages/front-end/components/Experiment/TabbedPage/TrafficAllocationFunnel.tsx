@@ -3,7 +3,7 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { calculateNamespaceCoverage } from "shared/util";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
-import { PiPencilSimple, PiPlus } from "react-icons/pi";
+import { PiCaretDownBold, PiPencilSimple, PiPlus } from "react-icons/pi";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import { AttributeBadge } from "@/components/Features/AttributeBadge";
@@ -33,6 +33,8 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
   maximumFractionDigits: 2,
 });
+
+const CONNECTOR_COLOR = "var(--slate-a7)";
 
 // A single card in the traffic-allocation funnel. `inlineSummary` renders to
 // the right of the title (e.g. "Targeting  Everyone"); `children` render below
@@ -93,43 +95,24 @@ function FunnelCard({
   );
 }
 
-const CONNECTOR_COLOR = "var(--gray-a6)";
-
-// An outlined (not filled) downward chevron arrowhead.
-function ArrowHead() {
-  return (
-    <svg
-      width="11"
-      height="7"
-      viewBox="0 0 11 7"
-      fill="none"
-      style={{ display: "block", marginTop: -1 }}
-      aria-hidden="true"
-    >
-      <path
-        d="M1 1L5.5 5.5L10 1"
-        stroke={CONNECTOR_COLOR}
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
 // Vertical connector between funnel cards, with a centered label showing how
 // much traffic is carried into the next stage.
 function FunnelConnector({ label }: { label?: ReactNode }) {
   return (
-    <Flex direction="column" align="center" py="1">
-      <Box style={{ width: 1, height: 12, backgroundColor: CONNECTOR_COLOR }} />
+    <Flex direction="column" align="center" justify="center" pb="2">
+      <Box
+        width="1px"
+        height="15px"
+        style={{ backgroundColor: CONNECTOR_COLOR }}
+      />
+      <Box mt="-3">
+        <PiCaretDownBold color={CONNECTOR_COLOR} size="11" />
+      </Box>
       {label ? (
         <Text size="small" color="text-low" my="1">
           {label}
         </Text>
       ) : null}
-      <Box style={{ width: 1, height: 12, backgroundColor: CONNECTOR_COLOR }} />
-      <ArrowHead />
     </Flex>
   );
 }
@@ -146,9 +129,12 @@ const VARIATION_COL_GAP = 16; // Radix gap="4"
 function VariationFork({ count, label }: { count: number; label?: ReactNode }) {
   const cols = Math.min(count, 3);
   return (
-    <Box py="1">
+    <Box pb="2">
       {label ? (
-        <Flex justify="center" mb="1">
+        <Flex direction="column" align="center" justify="center" mb="1">
+          <Box
+            style={{ width: 1, height: 12, backgroundColor: CONNECTOR_COLOR }}
+          />
           <Text size="small" color="text-low">
             {label}
           </Text>
@@ -185,13 +171,13 @@ function VariationFork({ count, label }: { count: number; label?: ReactNode }) {
                 style={{ width: VARIATION_COL_WIDTH, maxWidth: "100%" }}
               >
                 <Box
-                  style={{
-                    width: 1,
-                    height: 12,
-                    backgroundColor: CONNECTOR_COLOR,
-                  }}
+                  width="1px"
+                  height="22px"
+                  style={{ backgroundColor: CONNECTOR_COLOR }}
                 />
-                <ArrowHead />
+                <Box mt="-3">
+                  <PiCaretDownBold color={CONNECTOR_COLOR} size="11" />
+                </Box>
               </Flex>
             ))}
           </Flex>
@@ -422,12 +408,6 @@ function AssignmentAttribute({
     <div>
       <Text weight="semibold" color="text-high" mr="2">
         Assignment Attribute{experiment.fallbackAttribute ? "s" : ""}:{" "}
-        {/* <Tooltip
-          popperStyle={{ lineHeight: 1.5 }}
-          body="This user attribute will be used to assign variations. This is typically either a logged-in user id or an anonymous id stored in a long-lived cookie."
-        >
-          <GBInfo />
-        </Tooltip> */}
       </Text>
       <AttributeBadge attributeId={experiment.hashAttribute || "id"} />
       {experiment.fallbackAttribute ? (
