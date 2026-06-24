@@ -233,16 +233,17 @@ export async function persistContextualBanditEvent(
   }
 
   const currentLeafWeights = cb.currentLeafWeights ?? [];
-  const weightsWereUpdated = contextualBanditWeightsWereUpdated(
-    result,
-    cb.id,
-    currentLeafWeights,
-  );
-  const leafWeights = leafWeightsFromContextualBanditResult(
-    cb.id,
-    result,
-    cb.variations,
-  );
+  // During the exploratory (explore) stage we still record the run + advance
+  // banditVersion, but we do NOT apply new weights — weights stay at their current
+  // (even) split until the bandit transitions to exploit. Passing an empty leafWeights
+  // array leaves `currentLeafWeights` untouched in `patchLeafWeights`.
+  const inExploreStage = cb.contextualBanditStage === "explore";
+  const weightsWereUpdated = inExploreStage
+    ? false
+    : contextualBanditWeightsWereUpdated(result, cb.id, currentLeafWeights);
+  const leafWeights = inExploreStage
+    ? []
+    : leafWeightsFromContextualBanditResult(cb.id, result, cb.variations);
 
   const cbe = await context.models.contextualBanditEvents.create({
     contextualBandit: cb.id,
