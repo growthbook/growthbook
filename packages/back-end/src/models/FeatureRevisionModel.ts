@@ -40,9 +40,33 @@ import {
 import { getEnvironments } from "back-end/src/util/organization.util";
 import { logger } from "back-end/src/util/logger";
 import { syncFeatureExperimentLinkages } from "back-end/src/util/featureExperimentSync";
+import { createWithVersionRetry } from "back-end/src/util/mongo.util";
 import { runValidateFeatureRevisionHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
+import {
+  migrateRampScheduleEndCondition,
+  migrateRampStepTriggers,
+} from "./RampScheduleModel";
 
 export type ReviewSubmittedType = "Comment" | "Approved" | "Requested Changes";
+
+// Read-time migration: old docs stored contributors as EventUser objects;
+// new docs store plain user-ID strings. Normalize to string[] so callers
+// always see the current schema.
+function migrateContributors(raw: unknown[] | undefined): string[] | undefined {
+  if (!raw?.length) return raw as undefined;
+
+  const ids = new Set<string>();
+  for (const entry of raw) {
+    if (entry == null) continue;
+    if (typeof entry === "string") {
+      if (entry) ids.add(entry);
+    } else if (typeof entry === "object" && "id" in entry) {
+      const id = (entry as { id?: string }).id;
+      if (id) ids.add(id);
+    }
+  }
+  return ids.size > 0 ? [...ids] : undefined;
+}
 
 const featureRevisionSchema = new mongoose.Schema({
   organization: String,
@@ -182,6 +206,33 @@ export function buildFeatureRevisionInterface(
       applicableEnvs,
     });
   }
+
+  // JIT migration: normalize legacy ramp action shapes on read:
+  //   - endCondition → cutoffDate
+  //   - steps[].trigger discriminated union → steps[].interval + holdConditions
+  // Old DB documents may still hold these legacy shapes even though the schema
+  // no longer defines them — cast through `unknown` so the migration can read.
+  if (revision.rampActions?.length) {
+    revision.rampActions = revision.rampActions.map((action) => {
+      if (action.mode !== "create") return action;
+      const endCondMigrated = migrateRampScheduleEndCondition(
+        action as unknown as Parameters<
+          typeof migrateRampScheduleEndCondition
+        >[0],
+      );
+      const triggersMigrated = migrateRampStepTriggers(
+        endCondMigrated as unknown as Parameters<
+          typeof migrateRampStepTriggers
+        >[0],
+      );
+      return triggersMigrated as unknown as typeof action;
+    });
+  }
+
+  revision.contributors = migrateContributors(
+    revision.contributors as unknown as unknown[],
+  );
+
   return revision;
 }
 
@@ -230,6 +281,7 @@ export async function countDocuments(
   if (involvedUserId) {
     filter.$or = [
       { "createdBy.id": involvedUserId },
+      { contributors: involvedUserId },
       { "contributors.id": involvedUserId },
     ];
   }
@@ -278,7 +330,13 @@ export async function getMinimalRevisions(
     status: m.status,
     comment: m.comment || "",
     ...(m.title ? { title: m.title } : {}),
-    ...(m.contributors?.length ? { contributors: m.contributors } : {}),
+    ...(m.contributors?.length
+      ? {
+          contributors: migrateContributors(
+            m.contributors as unknown as unknown[],
+          ),
+        }
+      : {}),
   }));
 }
 
@@ -411,6 +469,7 @@ export async function getFeatureRevisionsByStatus({
   if (involvedUserId) {
     filter.$or = [
       { "createdBy.id": involvedUserId },
+      { contributors: involvedUserId },
       { "contributors.id": involvedUserId },
     ];
   }
@@ -443,6 +502,7 @@ export async function getLatestActiveDraftForFeature(
   if (involvedUserId) {
     filter.$or = [
       { "createdBy.id": involvedUserId },
+      { contributors: involvedUserId },
       { "contributors.id": involvedUserId },
     ];
   }
@@ -693,7 +753,11 @@ export async function createRevision({
   org: OrganizationInterface;
   canBypassApprovalChecks?: boolean;
 }) {
-  // Get max version number
+  // Read once to (a) seed the baseVersion default, (b) compute the initial
+  // version guess used for validation hooks, and (c) prime the first attempt
+  // of the retry loop below. The version is reassigned inside
+  // `createWithVersionRetry` on retry so concurrent creates can't collide
+  // on the (organization, featureId, version) unique index.
   const lastRevision = await getLastRevision(context, feature);
   const newVersion = lastRevision ? lastRevision.version + 1 : 1;
 
@@ -766,6 +830,9 @@ export async function createRevision({
     throw new Error("can not find a base revision");
   }
   const status = "draft";
+  // Version is initially set to the best-guess `newVersion` so validation
+  // hooks see a realistic value. On a duplicate-key collision the retry loop
+  // below reassigns it before the actual insert.
   const revision = {
     organization: feature.organization,
     featureId: feature.id,
@@ -803,6 +870,9 @@ export async function createRevision({
     revision.status = "pending-review";
   }
 
+  // Validation hooks (no-op on cloud; custom user code on self-hosted) MUST
+  // run exactly once — keep them outside the retry loop so a duplicate-key
+  // race never causes a hook to fire twice.
   await runValidateFeatureRevisionHooks({
     context,
     feature,
@@ -810,7 +880,20 @@ export async function createRevision({
     original: baseRevision,
   });
 
-  const doc = await FeatureRevisionModel.create(revision);
+  // Retry the insert on duplicate-key collisions from the
+  // (organization, featureId, version) unique index. The first attempt uses
+  // the already-assigned `newVersion`; on retry we re-read the max version
+  // to pick up the concurrent insert that won the previous race, then
+  // reassign `revision.version` before retrying.
+  let firstAttempt = true;
+  const doc = await createWithVersionRetry(async () => {
+    if (!firstAttempt) {
+      const latest = await getLastRevision(context, feature);
+      revision.version = latest ? latest.version + 1 : 1;
+    }
+    firstAttempt = false;
+    return FeatureRevisionModel.create(revision);
+  });
 
   // Fire and forget - no route that creates the revision expects the log to be there immediately
   context.models.featureRevisionLogs
@@ -906,11 +989,11 @@ export async function updateRevision(
     original: revision,
   });
 
-  // Track contributors atomically using $addToSet (deep equality dedup).
-  // Using a separate operator from $set avoids the race condition where two
-  // concurrent edits both read the same stale contributors array.
+  // Track contributors as user ID strings via atomic $addToSet.
+  const contributorId =
+    log.user != null && "id" in log.user && log.user.id ? log.user.id : null;
   const contributorUpdate =
-    log.user != null ? { $addToSet: { contributors: log.user } } : {};
+    contributorId != null ? { $addToSet: { contributors: contributorId } } : {};
 
   const doc = await FeatureRevisionModel.findOneAndUpdate(
     {
@@ -1209,19 +1292,12 @@ export async function getFeatureRevisionsByFeatureIds(
   return revisionsByFeatureId;
 }
 
-// Higher number = higher priority. When a feature has multiple active
-// revisions, surface the most actionable one.
-const DRAFT_STATUS_PRIORITY: Record<ActiveDraftStatus, number> = {
-  "changes-requested": 4,
-  "pending-review": 3,
-  approved: 2,
-  draft: 1,
-};
+export type DraftStatusCounts = Partial<Record<ActiveDraftStatus, number>>;
 
 export async function getActiveDraftStates(
   orgId: string,
   featureIds?: string[],
-): Promise<Record<string, { status: ActiveDraftStatus; version: number }>> {
+): Promise<Record<string, DraftStatusCounts>> {
   const q: Record<string, unknown> = {
     organization: orgId,
     status: { $in: ACTIVE_DRAFT_STATUSES },
@@ -1232,22 +1308,15 @@ export async function getActiveDraftStates(
   const docs = await FeatureRevisionModel.find(q, {
     featureId: 1,
     status: 1,
-    version: 1,
     _id: 0,
   });
 
-  const result: Record<string, { status: ActiveDraftStatus; version: number }> =
-    {};
+  const result: Record<string, DraftStatusCounts> = {};
   for (const doc of docs) {
     const fid = doc.featureId;
     const status = doc.status as ActiveDraftStatus;
-    const existing = result[fid];
-    if (
-      !existing ||
-      DRAFT_STATUS_PRIORITY[status] > DRAFT_STATUS_PRIORITY[existing.status]
-    ) {
-      result[fid] = { status, version: doc.version };
-    }
+    if (!result[fid]) result[fid] = {};
+    result[fid][status] = (result[fid][status] ?? 0) + 1;
   }
   return result;
 }

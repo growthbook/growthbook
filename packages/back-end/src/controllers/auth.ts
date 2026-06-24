@@ -20,6 +20,8 @@ import {
   IdTokenCookie,
   RefreshTokenCookie,
   SSOConnectionIdCookie,
+  isIdTokenExpired,
+  setIdTokenCookie,
 } from "back-end/src/util/cookie";
 import {
   getContextForAgendaJobByOrgObject,
@@ -47,14 +49,24 @@ export async function getHasOrganizations(req: Request, res: Response) {
 
 const auth = getAuthConnection();
 
+function getSsoConnectionIdForResponse(req: Request) {
+  return SSOConnectionIdCookie.getValue(req) || undefined;
+}
+
 export async function postRefresh(req: Request, res: Response) {
-  // First try getting the idToken from cookies
+  // First try getting the idToken from cookies. If the cookie has outlived
+  // the JWT (e.g. provider access_token TTL > id_token TTL), drop it and
+  // fall through to the refresh-token flow so the session self-heals.
   const idToken = IdTokenCookie.getValue(req);
-  if (idToken) {
+  if (idToken && !isIdTokenExpired(idToken)) {
     return res.json({
       status: 200,
       token: idToken,
+      ssoConnectionId: getSsoConnectionIdForResponse(req),
     });
+  }
+  if (idToken) {
+    IdTokenCookie.setValue("", req, res);
   }
 
   // Then, try using a refreshToken
@@ -63,13 +75,21 @@ export async function postRefresh(req: Request, res: Response) {
     if (!refreshToken) {
       throw new Error("Missing refresh token");
     }
-    const {
-      idToken,
-      refreshToken: newRefreshToken,
-      expiresIn,
-    } = await auth.refresh(req, res, refreshToken);
+    const { idToken, refreshToken: newRefreshToken } = await auth.refresh(
+      req,
+      res,
+      refreshToken,
+    );
 
-    IdTokenCookie.setValue(idToken, req, res, expiresIn * 1000);
+    // Defend against a freshly-issued token that's already expired (severe
+    // clock skew, misbehaving provider). Returning it would make the client
+    // 401 on every call until the next /auth/refresh; bail to the
+    // unauthenticated path instead.
+    if (isIdTokenExpired(idToken)) {
+      throw new Error("Refreshed idToken is already expired");
+    }
+
+    setIdTokenCookie(idToken, req, res);
     if (newRefreshToken) {
       RefreshTokenCookie.setValue(newRefreshToken, req, res);
     }
@@ -77,6 +97,7 @@ export async function postRefresh(req: Request, res: Response) {
     return res.json({
       status: 200,
       token: idToken,
+      ssoConnectionId: getSsoConnectionIdForResponse(req),
     });
   } catch (e) {
     // Could not refresh
@@ -90,7 +111,7 @@ export async function postRefresh(req: Request, res: Response) {
 
 export async function postOAuthCallback(req: Request, res: Response) {
   try {
-    const { idToken, refreshToken, expiresIn } = await auth.processCallback(
+    const { idToken, refreshToken } = await auth.processCallback(
       req,
       res,
       null,
@@ -101,7 +122,7 @@ export async function postOAuthCallback(req: Request, res: Response) {
     }
 
     RefreshTokenCookie.setValue(refreshToken, req, res);
-    IdTokenCookie.setValue(idToken, req, res, expiresIn * 1000);
+    setIdTokenCookie(idToken, req, res);
 
     return res.status(200).json({
       status: 200,
@@ -120,11 +141,7 @@ export async function setResponseCookies(
   res: Response,
   user: UserInterface,
 ) {
-  const { idToken, refreshToken, expiresIn } = await auth.processCallback(
-    req,
-    res,
-    user,
-  );
+  const { idToken, refreshToken } = await auth.processCallback(req, res, user);
 
   if (!idToken) {
     return res.status(400).json({
@@ -133,12 +150,7 @@ export async function setResponseCookies(
     });
   }
 
-  IdTokenCookie.setValue(
-    idToken,
-    req,
-    res,
-    Math.max(10 * 60 * 1000, expiresIn * 1000),
-  );
+  setIdTokenCookie(idToken, req, res);
   RefreshTokenCookie.setValue(refreshToken, req, res);
 
   return idToken;

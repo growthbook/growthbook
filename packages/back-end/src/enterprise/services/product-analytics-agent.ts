@@ -1109,7 +1109,7 @@ async function executeGetColumnValues(
       colsToQuery,
     );
   } catch (err) {
-    return `Failed to query column values: ${
+    return `Failed to query column values on ${datasource.type}: ${
       err instanceof Error ? err.message : "Unknown error"
     }`;
   }

@@ -2,7 +2,7 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { FactTableColumnType } from "shared/types/fact-table";
 import { getScopedSettings } from "shared/settings";
 import {
-  isPrecomputedDimension,
+  isDimensionPrecomputed,
   getEffectiveLookbackOverride,
 } from "shared/experiments";
 import React, { useState, useCallback } from "react";
@@ -27,6 +27,7 @@ import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
+import { getHonoredPrecomputedUnitDimensionIds } from "@/services/experiments";
 import track from "@/services/track";
 import Metadata from "@/ui/Metadata";
 import Link from "@/ui/Link";
@@ -116,8 +117,16 @@ export default function ResultsTab({
     useSnapshot();
 
   const permissionsUtil = usePermissionsUtil();
-  const { organization } = useUser();
+  const { organization, hasCommercialFeature } = useUser();
   const project = getProjectById(experiment.project || "");
+  const honoredPrecomputedUnitDimensionIds =
+    getHonoredPrecomputedUnitDimensionIds(
+      experiment.precomputedUnitDimensionIds,
+      experiment.datasource
+        ? getDatasourceById(experiment.datasource)
+        : undefined,
+      hasCommercialFeature("pipeline-mode"),
+    );
 
   const { settings: scopedSettings } = getScopedSettings({
     organization,
@@ -165,12 +174,21 @@ export default function ResultsTab({
     setAnalysisSettings(null);
     setAnalysisBarSettings((prev) => ({
       ...prev,
-      dimension: isPrecomputedDimension(prev.dimension) ? "" : prev.dimension,
+      dimension: isDimensionPrecomputed(
+        prev.dimension,
+        honoredPrecomputedUnitDimensionIds,
+      )
+        ? ""
+        : prev.dimension,
       baselineRow: 0,
       variationFilter: [],
       differenceType: "relative",
     }));
-  }, [setAnalysisBarSettings, setAnalysisSettings]);
+  }, [
+    setAnalysisBarSettings,
+    setAnalysisSettings,
+    honoredPrecomputedUnitDimensionIds,
+  ]);
 
   const endDate =
     experiment.status !== "running" ? snapshot?.settings?.endDate : undefined;

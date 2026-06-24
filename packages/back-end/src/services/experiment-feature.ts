@@ -3,6 +3,7 @@ import {
   autoMerge,
   getMatchingRules,
   MatchingRule,
+  mergeResultHasChanges,
   resetReviewOnChange,
   checkIfRevisionNeedsReview,
 } from "shared/util";
@@ -25,7 +26,10 @@ import {
   getFeature,
   publishRevision,
 } from "back-end/src/models/FeatureModel";
-import { getRevision } from "back-end/src/models/FeatureRevisionModel";
+import {
+  discardRevision,
+  getRevision,
+} from "back-end/src/models/FeatureRevisionModel";
 import { removePendingFeatureDraftFromExperiment } from "back-end/src/models/ExperimentModel";
 import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
@@ -336,6 +340,7 @@ type ResolvedDraft = { featureId: string; revisionVersion: number };
 export async function publishPendingFeatureDraftsForExperiment(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
+  bypassLockdown = false,
 ): Promise<PendingDraftPublishResult> {
   const drafts = experiment.pendingFeatureDrafts ?? [];
   if (!drafts.length) return { published: [], failed: [] };
@@ -455,14 +460,30 @@ export async function publishPendingFeatureDraftsForExperiment(
       break;
     }
 
+    if (!mergeResultHasChanges(mergeResult)) {
+      logger.info(
+        { experimentId: experiment.id, featureId, revisionVersion },
+        "Discarding no-op pending feature draft on experiment start",
+      );
+      await discardRevision(context, revision, context.auditUser);
+      await removePendingFeatureDraftFromExperiment(
+        context,
+        experiment.id,
+        featureId,
+        revisionVersion,
+      );
+      continue;
+    }
+
     try {
-      await publishRevision(
+      await publishRevision({
         context,
         feature,
         revision,
-        mergeResult.result,
-        `Experiment "${experiment.name}" started`,
-      );
+        result: mergeResult.result,
+        comment: `Experiment "${experiment.name}" started`,
+        bypassLockdown,
+      });
       // Belt-and-suspenders: publishRevision's sweep keys off the revision's
       // own experiment-ref rules and would miss entries if those were deleted
       // pre-publish.

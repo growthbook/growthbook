@@ -65,7 +65,7 @@ export async function submitRevisionReview(
       : undefined;
     if (reviewSetting?.blockSelfApproval) {
       const isSelfApproval = (revision.contributors ?? []).some(
-        (c) => c != null && "id" in c && c.id === req.context.userId,
+        (id) => id === req.context.userId,
       );
       if (isSelfApproval) {
         throw new BadRequestError(

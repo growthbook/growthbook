@@ -7,7 +7,15 @@ import { savedGroupValidator, ApiSavedGroup } from "shared/validators";
 import { UpdateProps } from "shared/types/base-model";
 import { UpdateFilter } from "mongodb";
 import { savedGroupUpdated } from "back-end/src/services/savedGroups";
+import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import { MakeModelClass } from "./BaseModel";
+
+// `skipAttributeValidation` lets revert flows write a previously-published
+// condition even if it now references attributes that have since been removed
+// or archived from the org schema. Normal create/update paths leave it unset.
+type WriteOptions = {
+  skipAttributeValidation?: boolean;
+};
 
 const BaseClass = MakeModelClass({
   schema: savedGroupValidator,
@@ -22,7 +30,7 @@ const BaseClass = MakeModelClass({
   globallyUniquePrimaryKeys: true,
 });
 
-export class SavedGroupModel extends BaseClass {
+export class SavedGroupModel extends BaseClass<WriteOptions> {
   protected canRead(doc: SavedGroupInterface): boolean {
     return this.context.permissions.canReadMultiProjectResource(doc.projects);
   }
@@ -76,6 +84,23 @@ export class SavedGroupModel extends BaseClass {
     return SavedGroupModel.migrateSavedGroup(legacyDoc);
   }
 
+  protected async customValidation(
+    doc: SavedGroupInterface,
+    previousDoc?: SavedGroupInterface,
+    writeOptions?: WriteOptions,
+  ) {
+    if (writeOptions?.skipAttributeValidation) return;
+    if (doc.type === "condition" && doc.condition) {
+      assertRegisteredAttributes(
+        this.context,
+        { condition: doc.condition },
+        "saved group",
+        previousDoc ? { condition: previousDoc.condition } : undefined,
+        doc.projects,
+      );
+    }
+  }
+
   protected async beforeCreate(doc: SavedGroupInterface) {
     doc.useEmptyListGroup = true;
   }
@@ -84,7 +109,14 @@ export class SavedGroupModel extends BaseClass {
     _existing: SavedGroupInterface,
     updates: UpdateProps<SavedGroupInterface>,
   ) {
-    // If the values, condition, or projects change, we need to invalidate cached feature rules
+    // If the values, condition, or projects change, we need to invalidate
+    // cached feature rules.
+    //
+    // We don't refresh on `archived` changes: archiving is blocked while the
+    // group is referenced (see the controller / archive endpoint guards), so
+    // `filterUsedSavedGroups` will already exclude it from the payload, and
+    // unarchiving doesn't change anything live until the group is referenced
+    // again (which itself triggers a refresh via the feature edit).
     if (updates.values || updates.condition || updates.projects) {
       savedGroupUpdated(this.context).catch((e) => {
         this.context.logger.error(
@@ -123,6 +155,8 @@ export class SavedGroupModel extends BaseClass {
       owner: savedGroup.owner || "",
       description: savedGroup.description,
       projects: savedGroup.projects || [],
+      archived: !!savedGroup.archived,
+      useEmptyListGroup: savedGroup.useEmptyListGroup,
     };
   }
 }

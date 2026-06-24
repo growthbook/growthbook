@@ -15,7 +15,8 @@ type AutoChecklistOption = {
     | "project"
     | "tag"
     | "customField"
-    | "prerequisiteTargeting";
+    | "prerequisiteTargeting"
+    | "schedule";
 };
 
 export default function NewExperimentChecklistItem({
@@ -60,6 +61,11 @@ export default function NewExperimentChecklistItem({
       value: "Ensure prerequisite targeting is set for this experiment",
       label: "Ensure prerequisite targeting is set for this experiment",
       propertyKey: "prerequisiteTargeting",
+    },
+    {
+      value: "Add scheduled start date to experiment",
+      label: "Add scheduled start date to experiment",
+      propertyKey: "schedule",
     },
   ];
 

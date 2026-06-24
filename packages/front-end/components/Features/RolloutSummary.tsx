@@ -20,7 +20,9 @@ export default function RolloutSummary({
   coverage: number;
   feature: FeatureInterface;
   hashAttribute: string;
+  monitored?: boolean;
 }) {
+  const displayCoverage = coverage;
   const type = feature.valueType;
   return (
     <Box>
@@ -53,7 +55,7 @@ export default function RolloutSummary({
               <Box
                 className="progress-bar"
                 style={{
-                  width: coverage * 100 + "%",
+                  width: displayCoverage * 100 + "%",
                   top: "0",
                   left: "0",
                   position: "absolute",
@@ -70,7 +72,7 @@ export default function RolloutSummary({
               mr="2"
               label={
                 <Text style={{ color: "var(--slate-12)" }}>
-                  {percentFormatter.format(coverage)}
+                  {percentFormatter.format(displayCoverage)}
                 </Text>
               }
             />

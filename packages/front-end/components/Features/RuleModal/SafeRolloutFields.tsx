@@ -15,7 +15,9 @@ import { FIVE_LINES_HEIGHT } from "@/components/Forms/CodeTextArea";
 import { NewExperimentRefRule, useAttributeSchema } from "@/services/features";
 import SavedGroupTargetingField from "@/components/Features/SavedGroupTargetingField";
 import ConditionInput from "@/components/Features/ConditionInput";
-import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
+import PrerequisiteInput, {
+  type RuleCyclicResult,
+} from "@/components/Features/PrerequisiteInput";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MetricsSelector from "@/components/Experiment/MetricsSelector";
 import Checkbox from "@/ui/Checkbox";
@@ -44,6 +46,7 @@ export default function SafeRolloutFields({
   setScheduleToggleEnabled,
   scheduleToggleEnabled,
   envScope,
+  onRuleCyclicChange,
 }: {
   feature: FeatureInterface;
   environment: string;
@@ -57,6 +60,7 @@ export default function SafeRolloutFields({
   mode: "create" | "edit" | "duplicate";
   isDraft: boolean;
   envScope: EnvScopeProps;
+  onRuleCyclicChange?: (result: RuleCyclicResult) => void;
 }) {
   const form = useFormContext();
   const [advancedOptionsOpen, setAdvancedOptionsOpen] = useState(false);
@@ -117,6 +121,7 @@ export default function SafeRolloutFields({
           feature={feature}
           environments={[environment]}
           setPrerequisiteTargetingSdkIssues={setPrerequisiteTargetingSdkIssues}
+          onRuleCyclicChange={onRuleCyclicChange}
         />
         {isCyclic && (
           <div className="alert alert-danger">
