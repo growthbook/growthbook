@@ -1,6 +1,10 @@
 import { isEqual, omit } from "lodash";
 import { ConstantInterface, ConstantWithoutValue } from "shared/types/constant";
-import { ApiConstant, constantValidator } from "shared/validators";
+import {
+  ApiConstant,
+  constantValidator,
+  getCyclicConstantRefs,
+} from "shared/validators";
 import { UpdateProps } from "shared/types/base-model";
 import { constantUpdated } from "back-end/src/services/constants";
 import {
@@ -52,6 +56,53 @@ export class ConstantModel extends BaseClass {
 
   protected canDelete(doc: ConstantInterface): boolean {
     return this.context.permissions.canDeleteConstant(doc);
+  }
+
+  // Reject a value that would close a reference cycle. Enforced at the model
+  // layer so EVERY write is covered — including the publish path
+  // (adapter.applyChanges → update), which closes the TOCTOU where two
+  // concurrently-created drafts (each cycle-free vs. live at creation time)
+  // could otherwise store a cycle. Resolution degrades gracefully on a cycle,
+  // but the memo relies on acyclicity, so we keep stored data acyclic.
+  private async assertNoCycle(
+    key: string,
+    value: string | undefined,
+    environmentValues: Record<string, string> | undefined,
+  ): Promise<void> {
+    const cyclic = getCyclicConstantRefs(
+      key,
+      value,
+      environmentValues,
+      await this.getAll(),
+    );
+    if (cyclic.length) {
+      throw new Error(
+        `This value references ${cyclic
+          .map((k) => `@const:${k}`)
+          .join(", ")}, which would create a reference cycle.`,
+      );
+    }
+  }
+
+  protected async beforeCreate(doc: ConstantInterface) {
+    await this.assertNoCycle(doc.key, doc.value, doc.environmentValues);
+  }
+
+  protected async beforeUpdate(
+    _existing: ConstantInterface,
+    updates: UpdateProps<ConstantInterface>,
+    newDoc: ConstantInterface,
+  ) {
+    if (
+      updates.value !== undefined ||
+      updates.environmentValues !== undefined
+    ) {
+      await this.assertNoCycle(
+        newDoc.key,
+        newDoc.value,
+        newDoc.environmentValues,
+      );
+    }
   }
 
   protected async afterCreate(doc: ConstantInterface) {

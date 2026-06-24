@@ -5,7 +5,6 @@ import {
 } from "shared/validators";
 import { ConstantInterface } from "shared/types/constant";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
-import { assertNoConstantCycle } from "back-end/src/services/constants";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
@@ -50,8 +49,7 @@ export const postConstant = createApiRequestHandler(postConstantValidator)(
       validateConstantValue(type, v, env);
     }
 
-    // Reject values that would close a reference cycle.
-    await assertNoConstantCycle(req.context, key, value, environmentValues);
+    // Cycle rejection is enforced in ConstantModel (covers every write path).
 
     // Approval gate. Scope it to the new constant's project (change-aware, like
     // the update path) rather than the coarse org-wide check, so a create in a

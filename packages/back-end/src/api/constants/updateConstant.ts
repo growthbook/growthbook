@@ -6,7 +6,6 @@ import {
 } from "shared/validators";
 import { ConstantInterface } from "shared/types/constant";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
-import { assertNoConstantCycle } from "back-end/src/services/constants";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
@@ -73,19 +72,8 @@ export const updateConstant = createApiRequestHandler(updateConstantValidator)(
       fieldsToUpdate.environmentValues = environmentValues;
     }
 
-    // If the value or env overrides changed, reject a cycle against the merged
-    // (post-update) value.
-    if (
-      fieldsToUpdate.value !== undefined ||
-      fieldsToUpdate.environmentValues !== undefined
-    ) {
-      await assertNoConstantCycle(
-        req.context,
-        constant.key,
-        fieldsToUpdate.value ?? constant.value,
-        fieldsToUpdate.environmentValues ?? constant.environmentValues,
-      );
-    }
+    // Cycle rejection is enforced in ConstantModel (covers every write path,
+    // including the publish/applyChanges merge).
 
     if (Object.keys(fieldsToUpdate).length === 0) {
       return {
