@@ -12,6 +12,7 @@ import { useAuth } from "@/services/auth";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
 import Checkbox from "@/ui/Checkbox";
+import Switch from "@/ui/Switch";
 import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
 import RadioGroup from "@/ui/RadioGroup";
@@ -409,11 +410,10 @@ export default function ScheduledPublishControl({
   // ── Editable form (auto-saves on change; no explicit schedule button) ──
   return (
     <Box mb="3">
-      <Checkbox
+      <Switch
         label="Automatically publish"
-        weight="regular"
         value={armed}
-        setValue={(v) => onToggleArmed(!!v)}
+        onChange={(c) => onToggleArmed(c)}
       />
 
       {armed && (
