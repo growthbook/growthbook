@@ -8,6 +8,7 @@ import {
   isUserBlockedFromApproving,
   isAutopublishOnApprovalEnabled,
   isScheduledPublishPending,
+  isScheduledPublishLockActive,
   findPublishLockingScheduledRevision,
 } from "shared/enterprise";
 import type { PublishGovernanceResult } from "shared/util";
@@ -55,11 +56,11 @@ import { DiffCommentsProps } from "@/components/Reviews/Feature/RevisionDiffUtil
 import RevisionTimeline, {
   REVIEW_ACTIVITY_ACTIONS,
 } from "@/components/Reviews/RevisionTimeline";
+import ScheduledPublishControl from "@/components/Reviews/ScheduledPublishControl";
 import { useRevisionDiff, RevisionDiffConfig } from "./useRevisionDiff";
 import { RevisionDiff } from "./RevisionDiff";
 import { revisionTimelineLogs } from "./revisionTimelineLogs";
 import FixRevisionConflictsModal from "./FixRevisionConflictsModal";
-import ScheduledPublishControl from "./ScheduledPublishControl";
 
 // Sub-views of the review surface: "overview" is the conversation-first view
 // (human-readable changes + review activity), "changes" is the diff-first
@@ -1110,13 +1111,16 @@ function ReviewAndPublishRevision<T>({
           {isActiveDraft && (
             <ScheduledPublishControl
               revision={revision}
+              pending={isScheduledPublishPending(revision)}
+              lockActive={isScheduledPublishLockActive(revision)}
+              schedulePublishPath={`/revision/${revision.id}/schedule-publish`}
+              toggleAutoPublishPath={`/revision/${revision.id}/toggle-auto-publish`}
+              entityNoun="saved group"
               canEdit={canEditEntity}
               canBypassApproval={canBypassApproval}
               requiresApproval={requiresApproval}
               autopublishOnApproval={autopublishOnApproval}
               isReviewRequester={isAuthor}
-              rebaseRequired={mustRebase}
-              hasConflicts={!mergeSuccess}
               mutate={mutate}
             />
           )}
