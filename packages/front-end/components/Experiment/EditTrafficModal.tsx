@@ -1,11 +1,14 @@
-import { useState } from "react";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { getLatestPhaseVariations } from "shared/experiments";
+import { useForm } from "react-hook-form";
+import {
+  ExperimentInterfaceStringDates,
+  ExperimentPhaseStringDates,
+} from "shared/types/experiment";
+import { getEqualWeights } from "shared/experiments";
 import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
-import { SortableVariation } from "@/components/Features/SortableFeatureVariationRow";
 import { useAuth } from "@/services/auth";
 import { distributeWeights } from "@/services/utils";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import track from "@/services/track";
 import MakeChangesFlow from "./MakeChangesFlow";
 import { useExperimentTargetingForm } from "./useExperimentTargetingForm";
 
@@ -22,6 +25,152 @@ export default function EditTrafficModal({
   mutate,
   safeToEdit,
 }: Props) {
+  if (safeToEdit) {
+    return (
+      <EditTrafficForm close={close} experiment={experiment} mutate={mutate} />
+    );
+  }
+
+  return <MakeChanges close={close} experiment={experiment} mutate={mutate} />;
+}
+
+function EditTrafficForm({
+  close,
+  experiment,
+  mutate,
+}: {
+  close: () => void;
+  experiment: ExperimentInterfaceStringDates;
+  mutate: () => void;
+}) {
+  const { apiCall } = useAuth();
+  const isBandit = experiment.type === "multi-armed-bandit";
+
+  const latestPhase: ExperimentPhaseStringDates | undefined =
+    experiment.phases[experiment.phases.length - 1];
+
+  const form = useForm<
+    ExperimentInterfaceStringDates & {
+      variationWeights: number[];
+      coverage: number;
+    }
+  >({
+    defaultValues: {
+      variations: experiment.variations,
+      variationWeights:
+        latestPhase?.variationWeights ??
+        getEqualWeights(experiment.variations.length, 4),
+      coverage: latestPhase?.coverage ?? 1,
+    },
+  });
+
+  const submit = form.handleSubmit(async (value) => {
+    const data = { ...value };
+    data.variations = [...value.variations].map((variation, i) => {
+      if (!variation.key) variation.key = i + "";
+      return variation;
+    });
+
+    // fix some common bugs
+    if (!isBandit) {
+      const newWeights = [
+        ...data.variations.map((_, i) =>
+          Math.min(
+            Math.max(
+              data.variationWeights?.[i] ?? 1 / (data.variations?.length || 2),
+              0,
+            ),
+            1,
+          ),
+        ),
+      ];
+      data.variationWeights = distributeWeights(newWeights, true);
+    } else {
+      if (
+        data.variations.length !== data.variationWeights.length ||
+        data.variations.length !== latestPhase.variationWeights.length
+      ) {
+        // only recompute weights if original weights are the wrong size
+        data.variationWeights = getEqualWeights(data.variations.length || 2, 4);
+      } else {
+        data.variationWeights = [...latestPhase.variationWeights];
+      }
+    }
+
+    await apiCall(`/experiment/${experiment.id}`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+    mutate();
+    track("edited-traffic");
+  });
+
+  return (
+    <ModalStandard
+      trackingEventModalType=""
+      open={true}
+      close={close}
+      header="Edit Traffic & Variations"
+      submit={submit}
+      size="lg"
+    >
+      <div className="pt-2">
+        <FeatureVariationsInput
+          label={null}
+          valueAsId={isBandit}
+          hideSplits={isBandit}
+          coverage={form.watch("coverage")}
+          setCoverage={(coverage) => form.setValue("coverage", coverage)}
+          setWeight={(i, weight) =>
+            form.setValue(`variationWeights.${i}`, weight)
+          }
+          variations={
+            form.watch("variations")?.map((v, i) => ({
+              value: v.key || "",
+              name: v.name,
+              description: v.description,
+              screenshots: v.screenshots,
+              weight: form.watch(`variationWeights.${i}`),
+              id: v.id,
+            })) ?? []
+          }
+          setVariations={(v) => {
+            form.setValue(
+              "variations",
+              v.map((data) => {
+                const { value, ...newData } = data;
+                return {
+                  // default values
+                  name: "",
+                  description: "",
+                  screenshots: [],
+                  ...newData,
+                  key: value,
+                };
+              }),
+            );
+            form.setValue(
+              `variationWeights`,
+              v.map((v) => v.weight),
+            );
+          }}
+          showPreview
+          showDescriptions
+        />
+      </div>
+    </ModalStandard>
+  );
+}
+
+function MakeChanges({
+  close,
+  experiment,
+  mutate,
+}: {
+  close: () => void;
+  experiment: ExperimentInterfaceStringDates;
+  mutate: () => void;
+}) {
   const {
     form,
     defaultValues,
@@ -30,104 +179,6 @@ export default function EditTrafficModal({
     canSubmit,
     onSubmit,
   } = useExperimentTargetingForm(experiment);
-
-  const { apiCall } = useAuth();
-  const isBandit = experiment.type === "multi-armed-bandit";
-
-  // Keep variation row metadata (name/value/id) in local state so the input
-  // can add/edit variations. Weights/coverage live in the form, and on submit
-  // we post full variation definitions, weights, and coverage to
-  // `/experiment/:id` (postExperiment), which persists all three in one call.
-  const [variationRows, setVariationRows] = useState(() =>
-    getLatestPhaseVariations(experiment).map((v, i) => ({
-      value: v.key || i + "",
-      name: v.name,
-      id: v.id,
-    })),
-  );
-
-  const submitTraffic = async () => {
-    const weights = distributeWeights(
-      variationRows.map(
-        (_, i) =>
-          form.getValues(`variationWeights.${i}`) ?? 1 / variationRows.length,
-      ),
-      true,
-    );
-
-    // Preserve metadata (key/description/screenshots) for existing variations;
-    // fall back to sensible defaults for newly added ones.
-    const variations = variationRows.map((row, i) => {
-      const existing = experiment.variations.find((v) => v.id === row.id);
-      return {
-        id: row.id,
-        key: row.value || i + "",
-        name: row.name,
-        description: existing?.description ?? "",
-        screenshots: existing?.screenshots ?? [],
-      };
-    });
-
-    await apiCall(`/experiment/${experiment.id}`, {
-      method: "POST",
-      body: JSON.stringify({
-        variations,
-        variationWeights: weights,
-        coverage: form.getValues("coverage"),
-      }),
-    });
-    mutate();
-  };
-
-  if (safeToEdit) {
-    return (
-      <ModalStandard
-        trackingEventModalType=""
-        open={true}
-        close={close}
-        header="Edit Traffic"
-        ctaEnabled={canSubmit}
-        submit={submitTraffic}
-        size="lg"
-      >
-        <div className="pt-2">
-          <FeatureVariationsInput
-            valueType={"string"}
-            coverage={form.watch("coverage")}
-            setCoverage={(coverage) => form.setValue("coverage", coverage)}
-            setWeight={(i, weight) =>
-              form.setValue(`variationWeights.${i}`, weight)
-            }
-            variations={variationRows.map((v, i) => ({
-              ...v,
-              weight: form.watch(`variationWeights.${i}`),
-            }))}
-            setVariations={(next: SortableVariation[]) => {
-              setVariationRows(
-                next.map((v) => ({
-                  value: v.value,
-                  name: v.name ?? "",
-                  id: v.id,
-                })),
-              );
-              form.setValue(
-                "variationWeights",
-                next.map((v) => v.weight),
-              );
-              form.setValue(
-                "variations",
-                next.map((v) => ({ id: v.id, status: "active" as const })),
-              );
-            }}
-            showPreview={true}
-            hideVariations={isBandit}
-            label="Traffic Percentage & Variation Weights"
-            startEditingSplits={true}
-          />
-        </div>
-      </ModalStandard>
-    );
-  }
 
   return (
     <MakeChangesFlow

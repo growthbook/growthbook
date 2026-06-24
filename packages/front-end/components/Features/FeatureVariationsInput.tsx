@@ -18,6 +18,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import Field from "@/components/Forms/Field";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
+import Button from "@/ui/Button";
 import styles from "./VariationsInput.module.scss";
 import ExperimentSplitVisual from "./ExperimentSplitVisual";
 import {
@@ -401,59 +402,53 @@ export default function FeatureVariationsInput({
                   setWeight &&
                   !onlySafeToEditVariationMetadata && (
                     <tr>
-                      <td colSpan={10}>
+                      <td colSpan={10} className="px-0">
                         <div className="row">
-                          <div className="col">
-                            {valueType !== "boolean" && setVariations && (
-                              <a
-                                role="button"
-                                className="btn btn-link link-purple font-weight-bold p-0"
-                                onClick={() => {
-                                  const newWeights = distributeWeights(
-                                    [...weights, 0],
-                                    editingSplits,
-                                  );
+                          {valueType !== "boolean" && setVariations && (
+                            <Button
+                              variant="ghost"
+                              icon={<GBAddCircle />}
+                              onClick={() => {
+                                const newWeights = distributeWeights(
+                                  [...weights, 0],
+                                  editingSplits,
+                                );
 
-                                  // Add a new value and update weights
-                                  const newValues = [
-                                    ...variations,
-                                    {
-                                      value:
-                                        getDefaultVariationValue(defaultValue),
-                                      name: `Variation ${variations.length}`,
-                                      weight: 0,
-                                      id: generateVariationId(),
-                                    },
-                                  ];
-                                  newValues.forEach((v, i) => {
-                                    v.weight = newWeights[i] || 0;
-                                  });
-                                  setVariations(newValues);
-                                  if (isEqualWeights) {
-                                    getEqualWeights(newValues.length).forEach(
-                                      (w, i) => setWeight(i, w),
-                                    );
-                                  }
-                                }}
-                              >
-                                <GBAddCircle className="mr-1" />
-                                Add variation
-                              </a>
-                            )}
-                            {valueType === "boolean" && (
-                              <>
-                                <Tooltip body="Boolean features can only have two variations. Use a different feature type to add multiple variations.">
-                                  <a
-                                    role="button"
-                                    className="btn btn-link p-0 disabled"
-                                  >
-                                    <GBAddCircle className="mr-2" />
-                                    Add variation
-                                  </a>
-                                </Tooltip>
-                              </>
-                            )}
-                          </div>
+                                // Add a new value and update weights
+                                const newValues = [
+                                  ...variations,
+                                  {
+                                    value:
+                                      getDefaultVariationValue(defaultValue),
+                                    name: `Variation ${variations.length}`,
+                                    weight: 0,
+                                    id: generateVariationId(),
+                                  },
+                                ];
+                                newValues.forEach((v, i) => {
+                                  v.weight = newWeights[i] || 0;
+                                });
+                                setVariations(newValues);
+                                if (isEqualWeights) {
+                                  getEqualWeights(newValues.length).forEach(
+                                    (w, i) => setWeight(i, w),
+                                  );
+                                }
+                              }}
+                            >
+                              Add variation
+                            </Button>
+                          )}
+                          {valueType === "boolean" && (
+                            <>
+                              <Tooltip body="Boolean features can only have two variations. Use a different feature type to add multiple variations.">
+                                <Button variant="ghost" disabled>
+                                  <GBAddCircle />
+                                  Add variation
+                                </Button>
+                              </Tooltip>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>
