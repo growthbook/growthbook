@@ -12,9 +12,11 @@ import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Badge from "@/ui/Badge";
+import Button from "@/ui/Button";
 import Link from "@/ui/Link";
-import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import Callout from "@/ui/Callout";
 import Field from "@/components/Forms/Field";
+import ConfigModal from "@/components/Constants/ConfigModal";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import Code from "@/components/SyntaxHighlighting/Code";
 import Table, {
@@ -94,6 +96,7 @@ export default function ConfigDetailPage(): React.ReactElement {
   const [editKey, setEditKey] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const [editError, setEditError] = useState<string | null>(null);
+  const [showCreateChild, setShowCreateChild] = useState(false);
 
   const config = data?.config;
   const parentKey = useMemo(() => {
@@ -171,7 +174,7 @@ export default function ConfigDetailPage(): React.ReactElement {
               />
             </Box>
             <Box mt="3">
-              <Link href={`/configs/new?parent=${config.key}`}>
+              <Link onClick={() => setShowCreateChild(true)}>
                 + Add override config
               </Link>
             </Box>
@@ -189,11 +192,17 @@ export default function ConfigDetailPage(): React.ReactElement {
                 variant="soft"
               />
             </Flex>
-            <Text as="p" color="text-mid" mb="4">
+            <Text as="p" color="text-mid" mb="3">
               {data.effectiveSchema.length} fields ·{" "}
               {data.fields.filter((f) => f.source === config.key).length}{" "}
               overridden here · resolved at request time
             </Text>
+
+            <Callout status="info" mb="4">
+              A config doesn&apos;t reach your SDKs on its own — it&apos;s
+              instantiated by a feature flag. Reference this config from a flag
+              value to deliver it.
+            </Callout>
 
             <Frame>
               <Tabs defaultValue="form">
@@ -218,7 +227,25 @@ export default function ConfigDetailPage(): React.ReactElement {
                           <TableRow key={f.key}>
                             <TableCell>{f.key}</TableCell>
                             <TableCell>
-                              <code>{JSON.stringify(f.value)}</code>
+                              {editKey === f.key ? (
+                                <Box style={{ maxWidth: 360 }}>
+                                  <Field
+                                    textarea
+                                    minRows={2}
+                                    value={editText}
+                                    onChange={(e) =>
+                                      setEditText(e.target.value)
+                                    }
+                                  />
+                                  {editError && (
+                                    <Text size="small" color="text-mid">
+                                      {editError}
+                                    </Text>
+                                  )}
+                                </Box>
+                              ) : (
+                                <code>{JSON.stringify(f.value)}</code>
+                              )}
                             </TableCell>
                             <TableCell>
                               {here ? (
@@ -236,14 +263,31 @@ export default function ConfigDetailPage(): React.ReactElement {
                               )}
                             </TableCell>
                             <TableCell>
-                              <Flex gap="3" justify="end">
-                                <Link onClick={() => startOverride(f)}>
-                                  override
-                                </Link>
-                                {here && (
-                                  <Link onClick={() => resetField(f.key)}>
-                                    reset
-                                  </Link>
+                              <Flex gap="2" justify="end">
+                                {editKey === f.key ? (
+                                  <>
+                                    <Button size="xs" onClick={submitOverride}>
+                                      Save
+                                    </Button>
+                                    <Button
+                                      size="xs"
+                                      variant="ghost"
+                                      onClick={() => setEditKey(null)}
+                                    >
+                                      Cancel
+                                    </Button>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Link onClick={() => startOverride(f)}>
+                                      override
+                                    </Link>
+                                    {here && (
+                                      <Link onClick={() => resetField(f.key)}>
+                                        reset
+                                      </Link>
+                                    )}
+                                  </>
                                 )}
                               </Flex>
                             </TableCell>
@@ -269,24 +313,11 @@ export default function ConfigDetailPage(): React.ReactElement {
         </Flex>
       </Box>
 
-      {editKey && (
-        <ModalStandard
-          open={true}
-          trackingEventModalType="config-field-override"
-          header={`Override "${editKey}"`}
-          close={() => setEditKey(null)}
-          submit={submitOverride}
-          cta="Save override"
-        >
-          <Field
-            label="Value (JSON)"
-            textarea
-            minRows={3}
-            value={editText}
-            onChange={(e) => setEditText(e.target.value)}
-          />
-          {editError && <Text color="text-mid">{editError}</Text>}
-        </ModalStandard>
+      {showCreateChild && (
+        <ConfigModal
+          parentKey={config.key}
+          close={() => setShowCreateChild(false)}
+        />
       )}
     </>
   );

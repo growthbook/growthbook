@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { date } from "shared/dates";
 import { Box, Flex } from "@radix-ui/themes";
 import { ConstantWithoutValue } from "shared/types/constant";
@@ -8,12 +8,15 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import Field from "@/components/Forms/Field";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Button from "@/ui/Button";
 import LinkButton from "@/ui/LinkButton";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
+import Callout from "@/ui/Callout";
 import EmptyState from "@/components/EmptyState";
 import ProjectBadges from "@/components/ProjectBadges";
+import ConfigModal from "@/components/Constants/ConfigModal";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import Table, {
   TableHeader,
@@ -58,6 +61,8 @@ export default function ConfigsPage(): React.ReactElement {
     defaultSortDir: 1,
   });
 
+  const [showCreate, setShowCreate] = useState(false);
+
   if (!ready) {
     return <LoadingOverlay />;
   }
@@ -74,13 +79,18 @@ export default function ConfigsPage(): React.ReactElement {
           Configs
         </Heading>
         {hasConfigs && canAdd && (
-          <LinkButton href="/configs/new">New config</LinkButton>
+          <Button onClick={() => setShowCreate(true)}>New config</Button>
         )}
       </Flex>
       <Text as="p" mb="3" color="text-mid">
         Strongly-typed configuration objects with a base config and field-level
-        overrides. Reference and compose them across your feature flags.
+        overrides, composed and delivered through your feature flags.
       </Text>
+      <Callout status="info" mb="3">
+        A config isn&apos;t a standalone object in your SDK payload — it&apos;s
+        instantiated by a feature flag. Build the config here, then reference it
+        from a flag value to deliver it.
+      </Callout>
 
       {!hasConfigs ? (
         <EmptyState
@@ -97,7 +107,7 @@ export default function ConfigsPage(): React.ReactElement {
           }
           rightButton={
             canAdd ? (
-              <LinkButton href="/configs/new">New config</LinkButton>
+              <Button onClick={() => setShowCreate(true)}>New config</Button>
             ) : null
           }
         />
@@ -153,6 +163,7 @@ export default function ConfigsPage(): React.ReactElement {
           </Table>
         </>
       )}
+      {showCreate && <ConfigModal close={() => setShowCreate(false)} />}
     </Box>
   );
 }
