@@ -37,7 +37,8 @@ import Metadata from "@/ui/Metadata";
 import Callout from "@/ui/Callout";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 import Field from "@/components/Forms/Field";
-import EditSchemaField from "@/components/Features/EditSchemaField";
+import SelectField from "@/components/Forms/SelectField";
+import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Code from "@/components/SyntaxHighlighting/Code";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import Table, {
@@ -140,11 +141,12 @@ function LineageTree({
 }
 
 // A blank field definition, with the same defaults the feature schema editor
-// uses (every SchemaField property is required by the validator).
+// uses. `required` is always true — configs define their full field set on the
+// base; children are partial value-patches, so there are no optional fields.
 const blankField = (): SchemaField => ({
   key: "",
   type: "string",
-  required: false,
+  required: true,
   default: "",
   description: "",
   enum: [],
@@ -152,25 +154,35 @@ const blankField = (): SchemaField => ({
   max: 256,
 });
 
-// Inline editor for a single field's schema definition (add or edit). Reuses
-// the feature schema editor's per-field mechanics (EditSchemaField), kept on the
-// page itself — no modal — so schema authoring happens right in the form.
+const FIELD_TYPE_OPTIONS = [
+  { value: "string", label: "String" },
+  { value: "integer", label: "Integer" },
+  { value: "float", label: "Float" },
+  { value: "boolean", label: "Boolean" },
+];
+
+// Inline editor for a single field's schema definition (add or edit). Compact by
+// default — key + type on one line — with progressive disclosure: "+ description"
+// adds a second line, "+ validation" reveals the allowed-values / min-max rules.
+// Kept on the page itself (no modal).
 function FieldDefForm({
   initial,
-  index,
   existingKeys,
   onCancel,
   onSave,
 }: {
   initial: SchemaField;
-  // Position in the field list (used to keep input ids unique).
-  index: number;
   // Other field keys in scope (effective schema), to block duplicates.
   existingKeys: string[];
   onCancel: () => void;
   onSave: (field: SchemaField) => void | Promise<void>;
 }): React.ReactElement {
   const [field, setField] = useState<SchemaField>(initial);
+  // Expand the optional sections up front when the field already uses them.
+  const [showDescription, setShowDescription] = useState(!!initial.description);
+  const [showValidation, setShowValidation] = useState(
+    initial.enum.length > 0 || initial.min !== 0 || initial.max !== 256,
+  );
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -178,9 +190,14 @@ function FieldDefForm({
   const duplicate =
     trimmedKey !== initial.key && existingKeys.includes(trimmedKey);
 
+  const intOr0 = (v: string): number => {
+    const n = parseInt(v);
+    return Number.isNaN(n) ? 0 : n;
+  };
+
   const save = async () => {
     if (!trimmedKey) {
-      setErr("Property key is required");
+      setErr("A field key is required");
       return;
     }
     if (duplicate) {
@@ -206,25 +223,119 @@ function FieldDefForm({
         borderRadius: "var(--radius-3)",
       }}
     >
-      <EditSchemaField
-        i={index}
-        value={field}
-        inObject={true}
-        onChange={setField}
-      />
+      {/* Line 1: key + type + save/cancel */}
+      <Flex gap="2" align="center" wrap="wrap">
+        <Box style={{ flex: "1 1 160px", minWidth: 120 }}>
+          <Field
+            autoFocus
+            placeholder="field key"
+            value={field.key}
+            onChange={(e) => setField({ ...field, key: e.target.value })}
+            containerStyle={{ marginBottom: 0 }}
+          />
+        </Box>
+        <Box style={{ width: 130 }}>
+          <SelectField
+            value={field.type}
+            onChange={(v) =>
+              setField({ ...field, type: v as SchemaField["type"] })
+            }
+            options={FIELD_TYPE_OPTIONS}
+            sort={false}
+          />
+        </Box>
+        <Flex gap="2" ml="auto">
+          <Button size="sm" onClick={save} disabled={saving}>
+            Save
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={onCancel}
+            disabled={saving}
+          >
+            Cancel
+          </Button>
+        </Flex>
+      </Flex>
+
+      {/* Line 2: description (progressive) */}
+      {showDescription && (
+        <Box mt="2">
+          <Field
+            placeholder="description (optional)"
+            value={field.description}
+            onChange={(e) =>
+              setField({ ...field, description: e.target.value })
+            }
+            containerStyle={{ marginBottom: 0 }}
+          />
+        </Box>
+      )}
+
+      {/* Optional expansion: schema validation (not applicable to booleans) */}
+      {showValidation && field.type !== "boolean" && (
+        <Box mt="2">
+          <MultiSelectField
+            label="Allowed values"
+            placeholder="(any)"
+            value={field.enum}
+            onChange={(e) =>
+              setField({
+                ...field,
+                enum: e
+                  .filter((v) => v !== "" && v.length <= 256)
+                  .slice(0, 256),
+              })
+            }
+            options={field.enum.map((v) => ({ value: v, label: v }))}
+            creatable
+            noMenu
+          />
+          {field.enum.length === 0 && (
+            <Flex gap="2" mt="2">
+              <Box style={{ flex: 1 }}>
+                <Field
+                  label={field.type === "string" ? "Min length" : "Min"}
+                  type="number"
+                  value={field.min}
+                  onChange={(e) =>
+                    setField({ ...field, min: intOr0(e.target.value) })
+                  }
+                  containerStyle={{ marginBottom: 0 }}
+                />
+              </Box>
+              <Box style={{ flex: 1 }}>
+                <Field
+                  label={field.type === "string" ? "Max length" : "Max"}
+                  type="number"
+                  value={field.max}
+                  onChange={(e) =>
+                    setField({ ...field, max: intOr0(e.target.value) })
+                  }
+                  containerStyle={{ marginBottom: 0 }}
+                />
+              </Box>
+            </Flex>
+          )}
+        </Box>
+      )}
+
+      {/* Progressive-disclosure toggles */}
+      <Flex gap="3" mt="2" align="center">
+        {!showDescription && (
+          <Link onClick={() => setShowDescription(true)}>+ description</Link>
+        )}
+        {!showValidation && field.type !== "boolean" && (
+          <Link onClick={() => setShowValidation(true)}>+ validation</Link>
+        )}
+      </Flex>
+
       {err && (
-        <Callout status="error" mb="3" size="sm">
+        <Callout status="error" mt="2" size="sm">
           {err}
         </Callout>
       )}
-      <Flex gap="2">
-        <Button onClick={save} disabled={saving}>
-          Save field
-        </Button>
-        <Button variant="ghost" onClick={onCancel} disabled={saving}>
-          Cancel
-        </Button>
-      </Flex>
     </Box>
   );
 }
@@ -826,12 +937,6 @@ export default function ConfigDetailPage(): React.ReactElement {
                   {schemaEdit !== null && schemaEdit !== "add" && (
                     <FieldDefForm
                       key={schemaEdit}
-                      index={Math.max(
-                        0,
-                        ownSchema().fields.findIndex(
-                          (f) => f.key === schemaEdit,
-                        ),
-                      )}
                       initial={
                         ownSchema().fields.find((f) => f.key === schemaEdit) ??
                         blankField()
@@ -845,7 +950,6 @@ export default function ConfigDetailPage(): React.ReactElement {
                   {schemaEdit === "add" ? (
                     <FieldDefForm
                       key="add"
-                      index={ownSchema().fields.length}
                       initial={blankField()}
                       existingKeys={resolved.fields.map((f) => f.key)}
                       onCancel={() => setSchemaEdit(null)}
