@@ -6,7 +6,21 @@ import {
 
 const mapOf = (
   entries: Record<string, { type: "string" | "json"; value: string }>,
-): ConstantValueMap => new Map(Object.entries(entries));
+): ConstantValueMap =>
+  new Map(
+    Object.entries(entries).map(([k, e]) => {
+      // Mirror buildConstantValueMap: json values are pre-parsed onto the entry.
+      let parsed: unknown;
+      if (e.type === "json") {
+        try {
+          parsed = JSON.parse(e.value);
+        } catch {
+          parsed = undefined;
+        }
+      }
+      return [k, { ...e, parsed }];
+    }),
+  );
 
 describe("buildConstantValueMap", () => {
   it("uses the environment override when present, else the default value", () => {

@@ -11,6 +11,11 @@ export type ConstantValueMapEntry = {
   value: string;
   project?: string;
   archived?: boolean;
+  // The parsed JSON value, computed once at map-build time so a constant
+  // referenced from many features/sites isn't re-`JSON.parse`d on every
+  // `$extends` resolution. Only set for non-archived `json` entries whose value
+  // parses; `undefined` otherwise (string constants, archived, or unparseable).
+  parsed?: unknown;
 };
 export type ConstantValueMap = Map<string, ConstantValueMapEntry>;
 
@@ -62,7 +67,16 @@ export function buildConstantValueMap(
     }
     const value = c.environmentValues?.[environment] ?? c.value;
     if (value === undefined) continue;
-    map.set(c.key, { type: c.type, value, project: c.project || "" });
+    // Parse `json` values once up front so `$extends` resolution can reuse it.
+    let parsed: unknown;
+    if (c.type === "json") {
+      try {
+        parsed = JSON.parse(value);
+      } catch {
+        parsed = undefined;
+      }
+    }
+    map.set(c.key, { type: c.type, value, project: c.project || "", parsed });
   }
   return map;
 }
@@ -167,11 +181,16 @@ function resolveValue(
         const cached = ctx.cache.get(key);
         return isPlainObject(cached) ? cached : null;
       }
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(entry.value);
-      } catch {
-        return null;
+      // Reuse the value parsed once at map-build time (buildConstantValueMap).
+      // Fall back to parsing here for maps built without it (`null` is a valid
+      // parsed value, so only `undefined` triggers the fallback).
+      let parsed = entry.parsed;
+      if (parsed === undefined) {
+        try {
+          parsed = JSON.parse(entry.value);
+        } catch {
+          return null;
+        }
       }
       const resolved = resolveValue(parsed, new Set([...visited, key]), ctx);
       ctx.cache.set(key, resolved);

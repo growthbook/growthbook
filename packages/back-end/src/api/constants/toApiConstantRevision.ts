@@ -12,7 +12,7 @@ import { applyPatchToSnapshot } from "back-end/src/revisions/util";
 import { resolveOwnerEmails } from "back-end/src/services/owner";
 
 function toIsoString(d: Date | string | undefined): string {
-  if (d == null) return new Date(0).toISOString();
+  if (d === undefined) return new Date(0).toISOString();
   if (typeof d === "string") return d;
   return d.toISOString();
 }
@@ -34,7 +34,7 @@ function activityLogToApi(entries: ActivityLogEntry[] | undefined) {
     id: e.id,
     userId: e.userId,
     action: e.action,
-    ...(e.description != null ? { description: e.description } : {}),
+    ...((e.description ?? null) !== null ? { description: e.description } : {}),
     dateCreated: toIsoString(e.dateCreated),
     ...(e.proposedChangesSnapshot
       ? { proposedChangesSnapshot: e.proposedChangesSnapshot }

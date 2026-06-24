@@ -113,8 +113,10 @@ export const updateConstant = createApiRequestHandler(updateConstantValidator)(
         req.context.permissions.throwPermissionError();
       }
 
-      // Persist the live change first, then record it as an already-merged
-      // revision (matches the saved-group REST update ordering).
+      // Record the already-merged revision FIRST, then apply it to the live
+      // entity, rolling the revision back if the apply fails — so we never leave
+      // a merged record with no corresponding live change (mirrors the revert
+      // handler's record-first-then-rollback ordering).
       await ensureLiveRevisionExists(
         req.context,
         "constant",
@@ -124,10 +126,6 @@ export const updateConstant = createApiRequestHandler(updateConstantValidator)(
           dateCreated?: Date;
         },
       );
-      const updated = await req.context.models.constants.update(
-        constant,
-        fieldsToUpdate,
-      );
       const merged = await req.context.models.revisions.createMerged({
         type: "constant",
         id: constant.id,
@@ -135,6 +133,20 @@ export const updateConstant = createApiRequestHandler(updateConstantValidator)(
         proposedChanges: patchOps,
         bypass: true,
       });
+      let updated: Partial<ConstantInterface>;
+      try {
+        updated = await req.context.models.constants.update(
+          constant,
+          fieldsToUpdate,
+        );
+      } catch (e) {
+        try {
+          await req.context.models.revisions.deleteById(merged.id);
+        } catch {
+          // ignore — surface the original update error
+        }
+        throw e;
+      }
       // Fire the revision-published event so REST-bypass publishes are
       // observable like every other publish path (the internal merge path and
       // the revert handler both dispatch this; createMerged itself does not).

@@ -55,13 +55,13 @@ export function useConstantRevision(
     let latest: { version: number; dateUpdated: number } | null = null;
     for (const r of data?.revisions ?? []) {
       if (r.status !== "merged") continue;
-      if (r.version == null) continue;
+      if (r.version === undefined) continue;
       const t = new Date(r.dateUpdated).getTime();
-      if (latest == null || t > latest.dateUpdated) {
+      if (latest === null || t > latest.dateUpdated) {
         latest = { version: r.version, dateUpdated: t };
       }
     }
-    if (latest != null) return latest.version;
+    if (latest !== null) return latest.version;
     // No real merged revisions yet: the synthetic "Revision 1" stands in as live.
     // Guard on `data` being loaded so we don't claim version 1 mid-fetch (when
     // the dropdown is still empty) — matches the synthetic-revision condition.
@@ -77,13 +77,13 @@ export function useConstantRevision(
   // the live version is treated as the live view (no revision selected).
   const selectedRevision = useMemo(() => {
     const revisions = data?.revisions ?? [];
-    if (urlVersion == null) return null;
+    if ((urlVersion ?? null) === null) return null;
     if (urlVersion === liveVersion) return null;
     return revisions.find((f) => f.version === urlVersion) ?? null;
   }, [urlVersion, liveVersion, data?.revisions]);
 
   const selectedRevisionId = selectedRevision?.id ?? null;
-  const hasSelectionInUrl = urlVersion != null;
+  const hasSelectionInUrl = (urlVersion ?? null) !== null;
 
   // Single URL-update helper. Uses routerRef (empty deps) so dependent effects
   // don't re-run on every router refresh. `null` means "go to live" — the live
@@ -100,7 +100,7 @@ export function useConstantRevision(
       };
       delete query.v;
       const versionToUse = revision?.version ?? liveVersionRef.current;
-      if (versionToUse != null) {
+      if ((versionToUse ?? null) !== null) {
         query.v = String(versionToUse);
       }
       const hash = new URL(r.asPath, "http://x").hash.slice(1) || undefined;

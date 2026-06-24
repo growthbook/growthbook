@@ -2,6 +2,7 @@
 // edited. Pure (text in, edit/result out) so the behavior can be unit-tested
 // without the Ace editor.
 import { formatJsonMultilineObjects } from "shared/util";
+import { CONSTANT_EXTENDS_KEY } from "shared/constants";
 
 export type JsonInsertContext = "string" | "object" | "array" | "none";
 
@@ -64,8 +65,9 @@ export function addJsonConstantExtends(
     obj = parsed;
   }
 
-  const refs = Array.isArray(obj.$extends)
-    ? obj.$extends.filter((r): r is string => typeof r === "string")
+  const existing = obj[CONSTANT_EXTENDS_KEY];
+  const refs = Array.isArray(existing)
+    ? existing.filter((r): r is string => typeof r === "string")
     : [];
   if (!refs.includes(ref)) refs.push(ref);
 
@@ -73,10 +75,10 @@ export function addJsonConstantExtends(
   // order of the remaining keys.
   const rest: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(obj)) {
-    if (k === "$extends") continue;
+    if (k === CONSTANT_EXTENDS_KEY) continue;
     rest[k] = v;
   }
-  return formatJsonMultilineObjects({ $extends: refs, ...rest });
+  return formatJsonMultilineObjects({ [CONSTANT_EXTENDS_KEY]: refs, ...rest });
 }
 
 // Build the edit for inserting a string constant reference into a string

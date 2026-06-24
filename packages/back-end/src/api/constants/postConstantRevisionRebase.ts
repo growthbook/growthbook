@@ -91,7 +91,7 @@ export const postConstantRevisionRebase = createApiRequestHandler(
     if (!conflict) continue;
     if (strategy === "overwrite") {
       if (
-        conflict.proposedValue != null &&
+        (conflict.proposedValue ?? null) !== null &&
         !isEqual(conflict.proposedValue, liveSnapshot[field])
       ) {
         newOps.push({

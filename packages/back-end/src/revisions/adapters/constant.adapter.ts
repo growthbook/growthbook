@@ -163,10 +163,13 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
     context: Context,
     entity: ConstantInterface,
     changes: Record<string, unknown>,
-    // Accepted for interface conformance (matches the saved-group adapter).
-    // Constants have no model-level validation to skip on a revert, so the
-    // `isRevert` flag is currently a no-op — wire it through if validation is
-    // ever added to ConstantModel.update.
+    // `isRevert` is intentionally NOT used to bypass validation. ConstantModel's
+    // cycle check (beforeUpdate → assertNoCycle) runs on every write, reverts
+    // included: restoring an old value that would reconstruct a reference cycle
+    // against the *current* graph is correctly rejected (a stored cycle leaks
+    // raw `@const:` placeholders into the payload). Unlike the saved-group
+    // adapter's stale-attribute skip, there's no revert-safe validation to opt
+    // out of here — so the flag is accepted for interface conformance only.
     options?: { isRevert?: boolean },
   ): Promise<void> {
     void options;

@@ -2,6 +2,7 @@ import isEqual from "lodash/isEqual";
 import type {
   ApprovalFlowConfiguration,
   ApprovalFlowConfigurations,
+  OrganizationSettings,
 } from "shared/types/organization";
 import type { TeamInterface } from "shared/types/team";
 import type { ConstantInterface } from "shared/types/constant";
@@ -13,6 +14,14 @@ import type {
   MergeResult,
   JsonPatchOperation,
 } from "../validators/revisions";
+// Constants borrow the feature `requireReviews` model rather than the
+// saved-group `approvalFlows` config, so self-approval / autopublish are read
+// from there. Imported from the specific file (not the barrel) to avoid a
+// runtime import cycle.
+import {
+  constantBlockSelfApproval,
+  constantAutopublishOnApproval,
+} from "../util/features";
 
 /**
  * Resolve the approval-flow configuration for a given entity type.
@@ -140,6 +149,24 @@ export const getConstantRevisionChange = (
 };
 
 /**
+ * Whether self-approval is blocked for this revision's entity, read from the
+ * correct config source: constants use the feature `requireReviews` model
+ * (matched on the constant's project); other entities use `approvalFlows`.
+ */
+const isSelfApprovalBlockedForEntity = (
+  settings: OrganizationSettings | undefined,
+  entityType: RevisionTargetType,
+  revision: Pick<Revision, "target">,
+): boolean => {
+  if (entityType === "constant") {
+    const snapshot = revision.target.snapshot as { project?: string };
+    return constantBlockSelfApproval({ project: snapshot.project }, settings);
+  }
+  return !!getApprovalFlowSettings(settings?.approvalFlows, entityType)
+    ?.blockSelfApproval;
+};
+
+/**
  * Returns true when `userId` contributed to the revision and the entity-type's
  * `blockSelfApproval` setting is enabled — meaning the user must NOT be allowed
  * to approve.
@@ -149,27 +176,34 @@ export const getConstantRevisionChange = (
  * effective gate for them.
  */
 export const isUserBlockedFromApproving = ({
-  approvalFlows,
+  settings,
   entityType,
   revision,
   userId,
 }: {
-  approvalFlows: ApprovalFlowConfigurations | undefined;
+  settings: OrganizationSettings | undefined;
   entityType: RevisionTargetType;
-  revision: Pick<Revision, "authorId" | "contributors">;
+  revision: Pick<Revision, "authorId" | "contributors" | "target">;
   userId: string;
 }): boolean => {
-  const settings = getApprovalFlowSettings(approvalFlows, entityType);
-  if (!settings?.blockSelfApproval) return false;
+  if (!isSelfApprovalBlockedForEntity(settings, entityType, revision)) {
+    return false;
+  }
   const contributors = revision.contributors ?? [revision.authorId];
   return contributors.includes(userId);
 };
 
 export const isAutopublishOnApprovalEnabled = (
-  approvalFlows: ApprovalFlowConfigurations | undefined,
+  settings: OrganizationSettings | undefined,
   entityType: RevisionTargetType,
+  // The constant's project, used to match its `requireReviews` rule. Ignored
+  // for entities that read from `approvalFlows`.
+  project?: string,
 ): boolean => {
-  return !!getApprovalFlowSettings(approvalFlows, entityType)
+  if (entityType === "constant") {
+    return constantAutopublishOnApproval({ project }, settings);
+  }
+  return !!getApprovalFlowSettings(settings?.approvalFlows, entityType)
     ?.autopublishOnApproval;
 };
 

@@ -172,7 +172,7 @@ function RevisionDetail<T>({
     !!userId &&
     hasCommercialFeature("require-approvals") &&
     isUserBlockedFromApproving({
-      approvalFlows: organization?.settings?.approvalFlows,
+      settings: organization?.settings,
       entityType: revision.target.type,
       revision,
       userId,
@@ -180,8 +180,9 @@ function RevisionDetail<T>({
 
   const autopublishOnApproval =
     isAutopublishOnApprovalEnabled(
-      organization?.settings?.approvalFlows,
+      organization?.settings,
       revision.target.type,
+      (revision.target.snapshot as { project?: string })?.project,
     ) && hasCommercialFeature("require-approvals");
 
   const revisionAutoPublishArmed = !!revision.autoPublishOnApproval;

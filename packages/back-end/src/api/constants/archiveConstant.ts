@@ -81,8 +81,10 @@ async function setArchivedState(
           } it through a draft, or use a role/token with the bypass permission.`,
       );
     }
-    // Persist the live change, then record it as an already-merged revision so
-    // the bypass is auditable (mirrors the REST update + internal controller).
+    // Record the already-merged revision FIRST, then apply it to the live
+    // entity. If the apply fails, delete the just-created revision so we never
+    // leave a merged record with no corresponding live change (mirrors the
+    // revert handler's record-first-then-rollback ordering).
     await ensureLiveRevisionExists(
       context,
       "constant",
@@ -92,9 +94,6 @@ async function setArchivedState(
         dateCreated?: Date;
       },
     );
-    const updated = await context.models.constants.update(constant, {
-      archived,
-    });
     const merged = await context.models.revisions.createMerged({
       type: "constant",
       id: constant.id,
@@ -102,6 +101,17 @@ async function setArchivedState(
       proposedChanges: patchOps,
       bypass: true,
     });
+    let updated: Partial<ConstantInterface>;
+    try {
+      updated = await context.models.constants.update(constant, { archived });
+    } catch (e) {
+      try {
+        await context.models.revisions.deleteById(merged.id);
+      } catch {
+        // ignore — surface the original update error
+      }
+      throw e;
+    }
     await dispatchConstantRevisionEvent(context, merged, { type: "published" });
     return buildResponse(context, { ...constant, ...updated });
   }

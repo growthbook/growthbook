@@ -257,8 +257,8 @@ export const putConstant = async (
   // null/undefined means "field wasn't intentionally changed" (the form sends
   // null for untouched fields).
   const hasChanged = (newVal: unknown, oldVal: unknown): boolean => {
-    if (newVal == null) return false;
-    if (oldVal == null) return true;
+    if ((newVal ?? null) === null) return false;
+    if ((oldVal ?? null) === null) return true;
     return !isEqual(newVal, oldVal);
   };
 

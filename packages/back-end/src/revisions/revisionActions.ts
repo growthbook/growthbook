@@ -37,7 +37,7 @@ export async function approveRevision(
   if (
     context.hasPremiumFeature("require-approvals") &&
     isUserBlockedFromApproving({
-      approvalFlows: context.org.settings?.approvalFlows,
+      settings: context.org.settings,
       entityType: revision.target.type,
       revision,
       userId: context.userId,
@@ -226,8 +226,9 @@ export function canEnableAutoPublishOnApproval(
   const enabled = adapter.isAutopublishOnApprovalEnabled
     ? adapter.isAutopublishOnApprovalEnabled(context, entity)
     : isAutopublishOnApprovalEnabled(
-        context.org.settings?.approvalFlows,
+        context.org.settings,
         entityType,
+        (entity as { project?: string }).project,
       );
   if (!enabled) return false;
   return adapter.canUpdate(context, entity);

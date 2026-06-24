@@ -81,7 +81,8 @@ export function buildSavedGroupRevisionUrl(
   revision?: Pick<Revision, "version"> | null,
 ): string {
   const base = `/saved-groups/${savedGroupId}`;
-  if (revision?.version != null) return `${base}?v=${revision.version}`;
+  if (revision && revision.version !== undefined)
+    return `${base}?v=${revision.version}`;
   return base;
 }
 
@@ -92,7 +93,8 @@ export function buildConstantRevisionUrl(
   revision?: Pick<Revision, "version"> | null,
 ): string {
   const base = `/constants/${constantKey}`;
-  if (revision?.version != null) return `${base}?v=${revision.version}`;
+  if (revision && revision.version !== undefined)
+    return `${base}?v=${revision.version}`;
   return base;
 }
 

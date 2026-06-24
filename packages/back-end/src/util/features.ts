@@ -602,8 +602,7 @@ export function getFeatureDefinition({
       : base;
   })();
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const valueForSDK = (valueStr: string, sparse?: boolean): any => {
+  const valueForSDK = (valueStr: string, sparse?: boolean): unknown => {
     if (sparse && jsonDefaultObj) {
       const patch = parsePlainJSONObject(valueStr);
       if (patch !== null) {

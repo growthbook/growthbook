@@ -51,7 +51,7 @@ function ValueRow({
 // expands them), so a value may arrive here already parsed. Re-stringify
 // non-strings for display, matching how saved groups handle `condition`.
 function toStr(v: unknown): string | undefined {
-  if (v == null) return undefined;
+  if ((v ?? null) === null) return undefined;
   return typeof v === "string" ? v : JSON.stringify(v, null, 2);
 }
 
