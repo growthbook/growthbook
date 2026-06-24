@@ -15,6 +15,7 @@ export * from "./attributes";
 export * from "./dimensions";
 export * from "./members";
 export * from "./api-settings";
+export * from "./api-meta";
 export * from "./bulk-import";
 export * from "./code-refs";
 export * from "./information-schema-tables";
@@ -42,6 +43,7 @@ export * from "./feature-webhook-schemas";
 // Having watch (and apikey) loaded first ensures they're available when the cycle is hit.
 export * from "./watch";
 export * from "./apikey";
+export * from "./figma-connection";
 export * from "./events";
 export * from "./experiment-decision";
 export * from "./experiment-info";

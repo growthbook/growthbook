@@ -27,6 +27,13 @@ export const featureRulePatch = z.object({
 });
 export type FeatureRulePatch = z.infer<typeof featureRulePatch>;
 
+// The rule's pre-ramp state, used purely as the rollback/jump-to-start anchor.
+// It is NOT applied when the ramp starts — step 0's coverage takes over
+// immediately on start. A partial patch is merged onto the rule's current
+// state, so `{ coverage: 0 }` keeps existing targeting but rolls back to 0%.
+export const rampStartState = featureRulePatch.omit({ ruleId: true });
+export type RampStartState = z.infer<typeof rampStartState>;
+
 export const lockdownModeArray = ["none", "locked"] as const;
 export type LockdownMode = (typeof lockdownModeArray)[number];
 
@@ -377,10 +384,22 @@ export const rampScheduleTemplateValidator = baseSchema.extend({
   official: z.boolean().optional(),
   lockdownConfig: lockdownConfigSchema.optional(),
   monitoringConfig: rampMonitoringConfig.nullish(),
+  // Manual display/priority order within the org. Lower sorts first; the first
+  // official template in this order is used as the editor default.
+  order: z.number(),
 });
 export type RampScheduleTemplateInterface = z.infer<
   typeof rampScheduleTemplateValidator
 >;
+
+// Body for reordering templates: move `oldId` to the slot currently held by
+// `newId` (mirrors the custom-fields reorder contract).
+export const reorderRampScheduleTemplatesValidator = z
+  .object({
+    oldId: z.string(),
+    newId: z.string(),
+  })
+  .strict();
 
 // Public API step shape. `interval` is the hold duration in seconds; `null`
 // means no time gate. Pure approval steps use
@@ -418,6 +437,11 @@ export const apiRampScheduleTemplateValidator = namedSchema(
     official: z.boolean().optional(),
     monitoringConfig: rampMonitoringConfig.nullish(),
     lockdownConfig: lockdownConfigSchema.nullish(),
+    order: z
+      .number()
+      .describe(
+        "Manual display order within the org (read-only; managed via the app).",
+      ),
   }),
 );
 
