@@ -109,8 +109,8 @@ export async function runContextualBanditSnapshot(
     );
   }
 
-  const ds = await getDataSourceById(context, cb.datasourceId);
-  if (!ds) throw new Error(`Datasource missing: ${cb.datasourceId}`);
+  const ds = await getDataSourceById(context, cb.datasource);
+  if (!ds) throw new Error(`Datasource missing: ${cb.datasource}`);
 
   const cbQuery = await context.models.contextualBanditQueries.getById(
     cb.contextualBanditQueryId,
@@ -312,7 +312,7 @@ export function buildContextualBanditSnapshotSettings(
     trackingKey: cb.trackingKey || cb.id,
     contextualBanditId: cb.id,
 
-    datasourceId: cb.datasourceId,
+    datasourceId: cb.datasource,
     contextualBanditQueryId: cb.contextualBanditQueryId,
     query: cbQuery.query,
     userIdType: cbQuery.userIdType,

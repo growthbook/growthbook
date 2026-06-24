@@ -105,7 +105,7 @@ function makeCb(
     organization: "org_1",
     dateCreated: new Date("2025-01-01T00:00:00Z"),
     dateUpdated: new Date("2025-01-01T00:00:00Z"),
-    datasourceId: "ds_1",
+    datasource: "ds_1",
     contextualBanditQueryId: "cbq_1",
     contextualAttributes: ["country"],
     minUsersPerLeaf: 100,

@@ -46,7 +46,7 @@ function makeCb(
     project: "",
     name: "CB 1",
     trackingKey: "",
-    datasourceId: "ds_1",
+    datasource: "ds_1",
     contextualBanditQueryId: "cbq_1",
     contextualAttributes: ["country", "device"],
     minUsersPerLeaf: 100,

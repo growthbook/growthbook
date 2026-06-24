@@ -212,7 +212,6 @@ export class ContextualBanditModel extends BaseClass {
 
     return {
       ...body,
-      // Schedule + exploratory (burn-in) config: caller value -> org default -> hardcoded default.
       contextualBanditScheduleValue:
         body.contextualBanditScheduleValue ??
         orgSettings?.banditScheduleValue ??
@@ -235,18 +234,14 @@ export class ContextualBanditModel extends BaseClass {
       minUsersPerLeaf: body.minUsersPerLeaf ?? 100,
       maxLeaves: body.maxLeaves ?? 12,
       hashAttribute: body.hashAttribute ?? "id",
-      // Backfill per-variation id/screenshots so the internal validator accepts the doc.
       variations: body.variations.map((v) => ({
         ...v,
         id: generateVariationId(),
         screenshots: [],
       })),
-      // `datasourceId`/`targetingAttributeColumns` mirror `datasource`/`contextualAttributes` for the snapshot orchestrator.
-      datasourceId: body.datasource,
       targetingAttributeColumns: body.contextualAttributes,
       contextualAttributes: body.contextualAttributes,
       status: "draft" as const,
-      // First successful snapshot writes the leaf weights; `dateStarted` is set by the `start` action.
       currentLeafWeights: [],
       banditVersion: 0,
       defaultMetricPriorSettings: orgPrior ?? {
@@ -258,18 +253,13 @@ export class ContextualBanditModel extends BaseClass {
     };
   }
 
-  /** Filters the update body to the CB-shape subset and mirrors datasource/contextualAttributes aliases. */
   protected async processApiUpdateBody(rawBody: unknown) {
     const body = apiUpdateContextualBanditBody.parse(rawBody);
     const out: Partial<ContextualBanditInterface> = {};
     for (const field of CONTEXTUAL_BANDIT_API_UPDATE_FIELDS) {
       if (body[field] !== undefined) {
-        // Cast: per-field types diverge enough that index assignment doesn't narrow through the loop.
         (out as Record<string, unknown>)[field] = body[field];
       }
-    }
-    if (body.datasource !== undefined) {
-      out.datasourceId = body.datasource;
     }
     if (body.contextualAttributes !== undefined) {
       out.targetingAttributeColumns = body.contextualAttributes;
@@ -307,16 +297,13 @@ export class ContextualBanditModel extends BaseClass {
     if (!existingCB) {
       throw new Error(`ContextualBandit not found: ${cbId}`);
     }
-    // Re-assert canUpdate because the atomic write below bypasses BaseModel.updateById's gate.
     if (!this.canUpdate(existingCB)) {
       this.context.permissions.throwPermissionError();
     }
 
-    // this runs in the snapshot/cron path and needs the dangerous method for performance
     const collection = this._dangerousGetCollection();
     const now = new Date();
     const set: Record<string, unknown> = { dateUpdated: now };
-    // Skip writing currentLeafWeights when empty so an empty-result run can't wipe existing weights.
     if (leafWeights.length > 0) {
       set.currentLeafWeights = leafWeights;
     }
@@ -406,7 +393,6 @@ export class ContextualBanditModel extends BaseClass {
     });
   }
 
-  // Strip pending drafts for `featureId` on every CB not in `keepIds`.
   public async clearStalePendingFeatureDrafts(
     featureId: string,
     keepIds: string[],

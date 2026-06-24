@@ -41,9 +41,6 @@ export const contextualBanditValidator = baseSchema
 
     variations: z.array(variation),
 
-    // @teresayung remove datasourceId here and in a few other places
-    /** @deprecated Prefer `datasource`; both fields hold the same value. */
-    datasourceId: z.string(),
     datasource: z.string(),
     contextualBanditQueryId: z.string(),
     queryFilter: z.string().optional(),
