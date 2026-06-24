@@ -1086,6 +1086,15 @@ function shouldLimitAccessDueToExpiredLicense(
   return false;
 }
 
+/**
+ * Datasource cloud + region; routes to the co-located Confluent cluster on the
+ * license server. Optional — absent selects the license server's default cluster.
+ */
+export type EventForwarderClusterSelectorParams = {
+  cloud?: "aws" | "gcp" | "azure";
+  region?: string;
+};
+
 /** Payload for central-license-server `POST .../event-forwarder/provision`. */
 type EventForwarderLicenseProvisionBaseParams = {
   organizationId: string;
@@ -1094,7 +1103,7 @@ type EventForwarderLicenseProvisionBaseParams = {
   attributeSchema: SDKAttributeSchema;
   connectorName?: string;
   connectorId?: string;
-};
+} & EventForwarderClusterSelectorParams;
 
 export type EventForwarderLicenseProvisionParams =
   | (EventForwarderLicenseProvisionBaseParams & {
@@ -1133,14 +1142,16 @@ export async function postProvisionEventForwarderToLicenseServer(
   });
 }
 
-export async function postTeardownEventForwarderToLicenseServer(params: {
-  organizationId: string;
-  datasourceId: string;
-  sinkType: "bigquery" | "snowflake";
-  topic?: string;
-  connectorName?: string;
-  connectorId?: string;
-}): Promise<{ ok: true }> {
+export async function postTeardownEventForwarderToLicenseServer(
+  params: {
+    organizationId: string;
+    datasourceId: string;
+    sinkType: "bigquery" | "snowflake";
+    topic?: string;
+    connectorName?: string;
+    connectorId?: string;
+  } & EventForwarderClusterSelectorParams,
+): Promise<{ ok: true }> {
   const url = `${LICENSE_SERVER_URL}event-forwarder/teardown`;
   return callLicenseServer({
     url,
@@ -1151,11 +1162,13 @@ export async function postTeardownEventForwarderToLicenseServer(params: {
   });
 }
 
-export async function postPauseEventForwarderToLicenseServer(params: {
-  organizationId: string;
-  datasourceId: string;
-  connectorName: string;
-}): Promise<{ ok: true }> {
+export async function postPauseEventForwarderToLicenseServer(
+  params: {
+    organizationId: string;
+    datasourceId: string;
+    connectorName: string;
+  } & EventForwarderClusterSelectorParams,
+): Promise<{ ok: true }> {
   const url = `${LICENSE_SERVER_URL}event-forwarder/pause`;
   return callLicenseServer({
     url,
@@ -1166,11 +1179,13 @@ export async function postPauseEventForwarderToLicenseServer(params: {
   });
 }
 
-export async function postResumeEventForwarderToLicenseServer(params: {
-  organizationId: string;
-  datasourceId: string;
-  connectorName: string;
-}): Promise<{ ok: true }> {
+export async function postResumeEventForwarderToLicenseServer(
+  params: {
+    organizationId: string;
+    datasourceId: string;
+    connectorName: string;
+  } & EventForwarderClusterSelectorParams,
+): Promise<{ ok: true }> {
   const url = `${LICENSE_SERVER_URL}event-forwarder/resume`;
   return callLicenseServer({
     url,
@@ -1194,11 +1209,13 @@ export type EventForwarderLicenseConnectorStatus = {
   taskErrors?: { id: number; state: string; trace?: string }[];
 };
 
-export async function postRestartEventForwarderToLicenseServer(params: {
-  organizationId: string;
-  datasourceId: string;
-  connectorName: string;
-}): Promise<{ ok: true }> {
+export async function postRestartEventForwarderToLicenseServer(
+  params: {
+    organizationId: string;
+    datasourceId: string;
+    connectorName: string;
+  } & EventForwarderClusterSelectorParams,
+): Promise<{ ok: true }> {
   const url = `${LICENSE_SERVER_URL}event-forwarder/restart`;
   return callLicenseServer({
     url,
@@ -1209,11 +1226,13 @@ export async function postRestartEventForwarderToLicenseServer(params: {
   });
 }
 
-export async function postEventForwarderStatusToLicenseServer(params: {
-  organizationId: string;
-  datasourceId: string;
-  connectorName: string;
-}): Promise<EventForwarderLicenseConnectorStatus> {
+export async function postEventForwarderStatusToLicenseServer(
+  params: {
+    organizationId: string;
+    datasourceId: string;
+    connectorName: string;
+  } & EventForwarderClusterSelectorParams,
+): Promise<EventForwarderLicenseConnectorStatus> {
   const url = `${LICENSE_SERVER_URL}event-forwarder/status`;
   return callLicenseServer({
     url,
@@ -1226,7 +1245,7 @@ export async function postEventForwarderStatusToLicenseServer(params: {
 
 /** Payload for central-license-server `POST .../event-forwarder/update-credentials`. */
 export type EventForwarderLicenseUpdateCredentialsParams =
-  | {
+  | ({
       organizationId: string;
       datasourceId: string;
       connectorName: string;
@@ -1235,8 +1254,8 @@ export type EventForwarderLicenseUpdateCredentialsParams =
       bigqueryDataset: string;
       tablePrefix: string;
       serviceAccountKeyJson: string;
-    }
-  | {
+    } & EventForwarderClusterSelectorParams)
+  | ({
       organizationId: string;
       datasourceId: string;
       connectorName: string;
@@ -1253,7 +1272,7 @@ export type EventForwarderLicenseUpdateCredentialsParams =
         role?: string;
         warehouse?: string;
       };
-    };
+    } & EventForwarderClusterSelectorParams);
 
 export async function postUpdateEventForwarderCredentialsToLicenseServer(
   params: EventForwarderLicenseUpdateCredentialsParams,

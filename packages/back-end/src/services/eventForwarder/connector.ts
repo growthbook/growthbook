@@ -5,6 +5,7 @@ import {
   EventForwarderStatus,
   SnowflakeEventForwarderStoredConfig,
 } from "shared/types/event-forwarder";
+import { EventForwarderCloudRegion } from "shared/util";
 import {
   EventForwarderConfigInterface,
   EventForwarderConnectorPhase,
@@ -26,6 +27,7 @@ import {
   decryptEventForwarderConfigModel,
   getBigQueryEventForwarderProjectId,
 } from "back-end/src/services/eventForwarder/config";
+import { deriveEventForwarderCloudRegion } from "back-end/src/services/eventForwarder/clusterRegion";
 import {
   ensureEventForwarderBigQueryTables,
   resolveBigQueryEventForwarderTablePrefix,
@@ -131,6 +133,8 @@ export async function syncEventForwarderStatusFromLicenseServer(
     organizationId: context.org.id,
     datasourceId: eventForwarderConfig.datasourceId,
     connectorName,
+    cloud: eventForwarderConfig.cloud,
+    region: eventForwarderConfig.region,
   });
 
   const response = buildEventForwarderStatusResponse(connectorStatus);
@@ -212,6 +216,7 @@ export async function provisionEventForwarderThroughLicenseServer(
       connectorName: string;
       connectorId: string;
     };
+    let derivedCloudRegion: EventForwarderCloudRegion | null = null;
 
     switch (eventForwarderConfig.sinkType) {
       case "bigquery": {
@@ -252,6 +257,14 @@ export async function provisionEventForwarderThroughLicenseServer(
           serviceAccountKey: decrypted.serviceAccountKey,
         });
 
+        derivedCloudRegion = await deriveEventForwarderCloudRegion({
+          context,
+          datasource,
+          sinkType: "bigquery",
+          decryptedConfig: decrypted,
+          datasourceParams: bigqueryConnectionParams,
+        });
+
         result = await postProvisionEventForwarderToLicenseServer({
           organizationId: context.org.id,
           datasourceId: eventForwarderConfig.datasourceId,
@@ -265,6 +278,8 @@ export async function provisionEventForwarderThroughLicenseServer(
           connectorName:
             eventForwarderConfig.connectorName?.trim() || undefined,
           connectorId: eventForwarderConfig.connectorId?.trim() || undefined,
+          cloud: derivedCloudRegion?.cloud,
+          region: derivedCloudRegion?.region,
         });
         break;
       }
@@ -283,6 +298,14 @@ export async function provisionEventForwarderThroughLicenseServer(
           }),
         );
 
+        derivedCloudRegion = await deriveEventForwarderCloudRegion({
+          context,
+          datasource,
+          sinkType: "snowflake",
+          decryptedConfig: decrypted,
+          datasourceParams: datasourceParams as SnowflakeConnectionParams,
+        });
+
         result = await postProvisionEventForwarderToLicenseServer({
           organizationId: context.org.id,
           datasourceId: eventForwarderConfig.datasourceId,
@@ -293,6 +316,8 @@ export async function provisionEventForwarderThroughLicenseServer(
           connectorName:
             eventForwarderConfig.connectorName?.trim() || undefined,
           connectorId: eventForwarderConfig.connectorId?.trim() || undefined,
+          cloud: derivedCloudRegion?.cloud,
+          region: derivedCloudRegion?.region,
         });
         break;
       }
@@ -309,6 +334,12 @@ export async function provisionEventForwarderThroughLicenseServer(
         connectorName: result.connectorName,
         connectorId: result.connectorId,
         lastProvisioningError: "",
+        ...(derivedCloudRegion
+          ? {
+              cloud: derivedCloudRegion.cloud,
+              region: derivedCloudRegion.region,
+            }
+          : {}),
       });
 
     try {
@@ -370,6 +401,8 @@ export async function provisionEventForwarderThroughLicenseServer(
         organizationId: context.org.id,
         datasourceId: eventForwarderConfig.datasourceId,
         connectorName: result.connectorName,
+        cloud: derivedCloudRegion?.cloud,
+        region: derivedCloudRegion?.region,
       });
     }
   } catch (error) {
@@ -451,6 +484,8 @@ export async function updateEventForwarderCredentialsThroughLicenseServer(
           tablePrefix,
           bigqueryDataset: decrypted.dataset.trim(),
           serviceAccountKeyJson: (decrypted.serviceAccountKey ?? "").trim(),
+          cloud: eventForwarderConfig.cloud,
+          region: eventForwarderConfig.region,
         });
         break;
       }
@@ -466,6 +501,8 @@ export async function updateEventForwarderCredentialsThroughLicenseServer(
           connectorName,
           sinkType: "snowflake",
           snowflake: decrypted,
+          cloud: eventForwarderConfig.cloud,
+          region: eventForwarderConfig.region,
         });
         break;
       }
@@ -525,6 +562,8 @@ export async function pauseEventForwarderThroughLicenseServer(
       organizationId: context.org.id,
       datasourceId: eventForwarderConfig.datasourceId,
       connectorName,
+      cloud: eventForwarderConfig.cloud,
+      region: eventForwarderConfig.region,
     });
 
     await context.models.eventForwarderConfigs.update(eventForwarderConfig, {
@@ -572,6 +611,8 @@ export async function resumeEventForwarderThroughLicenseServer(
       organizationId: context.org.id,
       datasourceId: eventForwarderConfig.datasourceId,
       connectorName,
+      cloud: eventForwarderConfig.cloud,
+      region: eventForwarderConfig.region,
     });
 
     await context.models.eventForwarderConfigs.update(eventForwarderConfig, {
@@ -608,6 +649,8 @@ export async function teardownEventForwarderInfrastructureRemote(snapshot: {
   topic?: string;
   connectorName?: string;
   connectorId?: string;
+  cloud?: "aws" | "gcp" | "azure";
+  region?: string;
 }): Promise<void> {
   await postTeardownEventForwarderToLicenseServer({
     organizationId: snapshot.organizationId,
@@ -616,5 +659,7 @@ export async function teardownEventForwarderInfrastructureRemote(snapshot: {
     topic: snapshot.topic,
     connectorName: snapshot.connectorName,
     connectorId: snapshot.connectorId,
+    cloud: snapshot.cloud,
+    region: snapshot.region,
   });
 }

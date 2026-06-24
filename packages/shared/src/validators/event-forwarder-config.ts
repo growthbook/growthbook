@@ -20,6 +20,14 @@ export const eventForwarderConfigValidator = baseSchema
     schemaId: z.number(), // The confluent schema registry schema id
     sinkType: eventForwarderSinkTypeValidator,
     config: z.string(), // Encrypted sink-specific configuration
+    /**
+     * Cloud + region of the destination warehouse, derived from the datasource
+     * connection at provisioning time. Sent to the license server to route to a
+     * co-located Confluent cluster. Optional/back-compat: absent configs fall
+     * back to the license server's default cluster.
+     */
+    cloud: z.enum(["aws", "gcp", "azure"]).optional(),
+    region: z.string().optional(),
     status: eventForwarderStatusValidator,
     /** Confluent connector name — set after successful provisioning; teardown uses this only (not env-derived). */
     connectorName: z.string().optional(),
