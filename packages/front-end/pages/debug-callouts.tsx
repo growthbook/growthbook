@@ -177,12 +177,9 @@ const sections: Section[] = [
             </Callout>
           </Example>
 
-          <Example label='Loading state (size="sm" icon={null})'>
-            <Callout status="info" size="sm" icon={null}>
-              <Flex align="center" gap="2">
-                <LoadingSpinner />
-                <span>Refreshing list&hellip;</span>
-              </Flex>
+          <Example label="Loading state (icon={<LoadingSpinner />})">
+            <Callout status="info" size="sm" icon={<LoadingSpinner />}>
+              Refreshing list&hellip;
             </Callout>
           </Example>
 
@@ -231,11 +228,7 @@ const sections: Section[] = [
         <Example label={`action={<Button size="xs">Generate</Button>}`}>
           <Callout
             status="info"
-            action={
-              <Button variant="soft" size="xs">
-                Generate
-              </Button>
-            }
+            action={<Button variant="soft">Generate</Button>}
           >
             Before we can build tables, we need to scan your schema.
           </Callout>
