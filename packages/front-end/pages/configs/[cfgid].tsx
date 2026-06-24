@@ -380,17 +380,6 @@ export default function ConfigDetailPage(): React.ReactElement {
     if (res?.revision) await onRevisionCreated(res.revision);
   };
 
-  // Entry point for editing the form from a non-draft view: jump into the
-  // user's own open draft if they have one, otherwise spin up a new draft.
-  const handleEdit = async () => {
-    const myDraft = openRevisions.find((r) => r.authorId === userId);
-    if (myDraft) {
-      selectRevision(myDraft);
-    } else {
-      await handleNewDraft();
-    }
-  };
-
   const canUpdate = permissionsUtil.canUpdateConstant(config, config);
   const canDeleteNow =
     permissionsUtil.canDeleteConstant(config) && !!config.archived;
@@ -690,20 +679,14 @@ export default function ConfigDetailPage(): React.ReactElement {
               onCompare={() => setCompareOpen(true)}
               onFixConflicts={() => setConflictOpen(true)}
               onReviewPublish={() => setShowChangesModal(true)}
+              promptDraftWhenLive
             />
 
-            <Flex align="center" justify="between" gap="3" mb="3">
-              <Text as="p" color="text-mid" mb="0">
-                {resolved.effectiveSchema.length} fields ·{" "}
-                {resolved.fields.filter((f) => f.source === config.key).length}{" "}
-                overridden here · resolved at request time
-              </Text>
-              {canUpdate && !isDraft && (
-                <Button variant="soft" onClick={handleEdit}>
-                  Edit
-                </Button>
-              )}
-            </Flex>
+            <Text as="p" color="text-mid" mb="3">
+              {resolved.effectiveSchema.length} fields ·{" "}
+              {resolved.fields.filter((f) => f.source === config.key).length}{" "}
+              overridden here · resolved at request time
+            </Text>
 
             <Frame>
               <Tabs defaultValue="form">

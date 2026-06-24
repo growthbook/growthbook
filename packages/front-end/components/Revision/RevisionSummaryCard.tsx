@@ -98,6 +98,11 @@ export interface RevisionSummaryCardProps {
   onNewDraft?: () => void;
   onFixConflicts?: () => void;
   onReviewPublish?: () => void;
+  // Opt-in: when viewing the live entity with no open draft, show a banner
+  // prompting the user to create one (for entities edited inline, where there's
+  // no separate edit modal to start a draft). Gated on `onNewDraft` for
+  // permission, so read-only users never see it.
+  promptDraftWhenLive?: boolean;
 }
 
 // Shared revision header used by every revisioned entity's detail page: the
@@ -124,6 +129,7 @@ export default function RevisionSummaryCard({
   onNewDraft,
   onFixConflicts,
   onReviewPublish,
+  promptDraftWhenLive,
 }: RevisionSummaryCardProps) {
   const { getOwnerDisplay } = useUser();
   const bannerRef = useRef<HTMLDivElement>(null);
@@ -275,7 +281,29 @@ export default function RevisionSummaryCard({
                 </>
               ),
             }
-          : null;
+          : promptDraftWhenLive && isLive && onNewDraft
+            ? {
+                icon: <PiPencil size={18} />,
+                color: "var(--gray-11)",
+                bgColor: "var(--gray-a3)",
+                message: (
+                  <>
+                    Viewing the live {entityNoun}.{" "}
+                    <span
+                      style={{
+                        cursor: "pointer",
+                        color: "var(--accent-11)",
+                        fontWeight: 600,
+                        textUnderlineOffset: 2,
+                      }}
+                      onClick={onNewDraft}
+                    >
+                      Create a draft to make changes
+                    </span>
+                  </>
+                ),
+              }
+            : null;
 
   const reviewPublishLabel = requiresApproval
     ? displayRevision?.status === "draft"
