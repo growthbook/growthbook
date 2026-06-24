@@ -452,7 +452,7 @@ function RevisionDetail<T>({
             <Button
               onClick={() => setShowFixConflicts(true)}
               variant="outline"
-              color="red"
+              color="inherit"
               size="sm"
             >
               Fix Conflicts
@@ -485,7 +485,7 @@ function RevisionDetail<T>({
             onReopen && (
               <Button
                 variant="solid"
-                color="violet"
+                color="inherit"
                 size="sm"
                 onClick={() => setConfirmReopen(true)}
               >
