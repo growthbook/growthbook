@@ -631,44 +631,52 @@ function ReviewAndPublishRevision<T>({
 
   const header = (
     <Box mb="6" pt="4">
-      <Heading as="h3" size="large" mb="2">
-        {headerTitle}
-      </Heading>
-      <Flex align="center" gap="2">
-        <Box style={{ flexShrink: 0 }}>
-          <Badge
-            size="lg"
-            variant={revisionStatusBadgeVariant(statusForBadge)}
-            radius="full"
-            color={statusColor}
-            label={revisionStatusLabel(statusForBadge)}
-          />
+      <Flex align="start" justify="between" gap="4">
+        <Box>
+          <Heading as="h3" size="large" mb="2">
+            {headerTitle}
+          </Heading>
+          <Flex align="center" gap="2">
+            <Box style={{ flexShrink: 0 }}>
+              <Badge
+                size="lg"
+                variant={revisionStatusBadgeVariant(statusForBadge)}
+                radius="full"
+                color={statusColor}
+                label={revisionStatusLabel(statusForBadge)}
+              />
+            </Box>
+            <Text as="span" color="text-low">
+              {revision.status === "merged" ? (
+                <>
+                  Revision <strong>{revision.version}</strong> was published
+                  {revision.resolution?.dateCreated
+                    ? ` on ${format(
+                        new Date(revision.resolution.dateCreated),
+                        "MMM d, yyyy",
+                      )}`
+                    : ""}
+                </>
+              ) : revision.status === "discarded" ? (
+                <>
+                  Revision <strong>{revision.version}</strong> was discarded and
+                  never published
+                </>
+              ) : (
+                <>
+                  Merging revision <strong>{revision.version}</strong> into the
+                  live version
+                </>
+              )}
+            </Text>
+          </Flex>
         </Box>
-        <Text as="span" color="text-low">
-          {revision.status === "merged" ? (
-            <>
-              Revision <strong>{revision.version}</strong> was published
-              {revision.resolution?.dateCreated
-                ? ` on ${format(
-                    new Date(revision.resolution.dateCreated),
-                    "MMM d, yyyy",
-                  )}`
-                : ""}
-            </>
-          ) : revision.status === "discarded" ? (
-            <>
-              Revision <strong>{revision.version}</strong> was discarded and
-              never published
-            </>
-          ) : (
-            <>
-              Merging revision <strong>{revision.version}</strong> into the live
-              version
-            </>
-          )}
-        </Text>
+        {otherDraftsNav && (
+          <Box flexShrink="0" pt="1">
+            {otherDraftsNav}
+          </Box>
+        )}
       </Flex>
-      {otherDraftsNav && <Box mt="3">{otherDraftsNav}</Box>}
     </Box>
   );
 
