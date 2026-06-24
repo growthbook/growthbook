@@ -230,6 +230,8 @@ export async function rebaseFeatureRevision(
       ),
     },
     resetReview,
+    // Rebase is permitted while a "lock edits" schedule is active.
+    { bypassScheduleLock: true },
   );
 
   const updated = await getRevision({

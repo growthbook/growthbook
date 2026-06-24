@@ -327,9 +327,60 @@ export default {
           label: "Feature Flag Experiments",
         },
         {
-          type: "doc",
-          id: "visual-editor",
+          type: "category",
           label: "Visual Editor",
+          className: "beta",
+          link: {
+            type: "doc",
+            id: "visual-editor",
+          },
+          items: [
+            {
+              type: "doc",
+              id: "visual-editor/install-and-connect",
+              label: "Install and connect",
+            },
+            {
+              type: "doc",
+              id: "visual-editor/ai-mode",
+              label: "AI mode",
+            },
+            {
+              type: "doc",
+              id: "visual-editor/manual-mode",
+              label: "Manual mode",
+            },
+            {
+              type: "doc",
+              id: "visual-editor/images",
+              label: "Images",
+            },
+            {
+              type: "doc",
+              id: "visual-editor/design-import",
+              label: "Figma & image import",
+            },
+            {
+              type: "doc",
+              id: "visual-editor/running-on-your-site",
+              label: "Running on your site",
+            },
+            {
+              type: "doc",
+              id: "visual-editor/preview-and-qa",
+              label: "Preview and QA",
+            },
+            {
+              type: "doc",
+              id: "visual-editor/troubleshooting",
+              label: "Troubleshooting",
+            },
+            {
+              type: "doc",
+              id: "visual-editor/legacy",
+              label: "Legacy (in-page) editor",
+            },
+          ],
         },
         {
           type: "doc",

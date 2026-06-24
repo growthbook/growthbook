@@ -125,6 +125,7 @@ export function getMetricsForAggregatedFactTable(
   factTableId: string,
 ): FactMetricInterface[] {
   return factMetrics.filter((metric) => {
+    if (metric.archived) return false;
     const referencesFactTable =
       metric.numerator.factTableId === factTableId ||
       (isRatioMetric(metric) &&

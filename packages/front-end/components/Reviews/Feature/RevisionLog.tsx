@@ -17,6 +17,7 @@ import {
   PiPlusMinusBold,
   PiProhibitFill,
   PiRocketLaunch,
+  PiSpinnerGap,
 } from "react-icons/pi";
 import { date, datetime } from "shared/dates";
 import React, {
@@ -81,6 +82,10 @@ export const REVIEW_ACTIVITY_ACTIONS = new Set([
   "revert",
   "discard",
   "reopen",
+  // Deferred (scheduled) publish lifecycle
+  "schedule publish",
+  "update scheduled publish",
+  "cancel scheduled publish",
 ]);
 
 // Action sets must mirror EDITABLE_AUTHOR_ACTIONS / DELETABLE_AUTHOR_ACTIONS
@@ -138,6 +143,9 @@ const AUDIT_ACTION_VERBS: Record<string, string> = {
   "edit metadata": "edited the revision metadata",
   "set ramp schedule": "set a ramp schedule",
   "clear ramp schedule": "cleared a ramp schedule",
+  "schedule publish": "scheduled this revision to publish",
+  "update scheduled publish": "updated the publish schedule",
+  "cancel scheduled publish": "canceled the publish schedule",
   "Recall Review": "recalled their review request",
   "Undo Review": "withdrew their review",
 };
@@ -148,12 +156,8 @@ function auditVerb(action: string): string {
   );
 }
 
-// Icons and colors mirror the revision status presentation in
-// RevisionStatusBadge (`revisionStatusIcon` / `revisionStatusColor`) so the
-// timeline and the actions-column header speak the same visual language:
-// approved = grass check, changes requested = red chat bubble,
-// review requested (→ pending-review) = orange clock,
-// discard = gray prohibit (matches the Discarded badge's gray).
+// Icons and colors mirror RevisionStatusBadge so the timeline and the
+// actions-column header speak the same visual language.
 function rowVisual(action: string): RowVisual {
   switch (action) {
     case "Comment":
@@ -186,7 +190,8 @@ function rowVisual(action: string): RowVisual {
       return {
         color: "orange",
         verb: "requested a review",
-        icon: <PiClockFill />,
+        // Spinner glyph (not a clock) — distinct from the scheduled-publish clock.
+        icon: <PiSpinnerGap />,
         showCommentBody: false,
         showAuditDetails: false,
       };
@@ -244,6 +249,24 @@ function rowVisual(action: string): RowVisual {
         color: "indigo",
         verb: "reopened this revision as a draft",
         icon: <PiArrowCounterClockwiseFill />,
+        showCommentBody: false,
+        showAuditDetails: false,
+      };
+    case "schedule publish":
+    case "update scheduled publish":
+      return {
+        color: "amber",
+        verb: auditVerb(action),
+        icon: <PiClockFill />,
+        showCommentBody: false,
+        // Keep the Details disclosure so the date + lock payload is inspectable.
+        showAuditDetails: true,
+      };
+    case "cancel scheduled publish":
+      return {
+        color: "gray",
+        verb: auditVerb(action),
+        icon: <PiProhibitFill />,
         showCommentBody: false,
         showAuditDetails: false,
       };
