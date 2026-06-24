@@ -18,32 +18,31 @@ function makeSession(
     organization: "org_1",
     dateCreated: now,
     dateUpdated: now,
-    sessionId: "sess_abc123",
     clientKey: "ck_test",
     userId: "user_1",
     deviceId: "device_1",
-    storagePrefix: "org_1/sess_abc123/",
+    s3Key: "session-replays/org_1/2026/04/29/sess_abc123/0.json.gz",
     startedAt: now,
     endedAt: new Date("2026-04-29T17:43:00.000Z"),
     lastEventAt: new Date("2026-04-29T17:42:59.000Z"),
     durationMs: 60000,
     eventCount: 10,
+    errorCount: 0,
     urlFirst: "https://example.com",
     urlsVisited: ["https://example.com"],
     pageTitle: "Home",
     viewportWidth: 1440,
     viewportHeight: 900,
-    utmSource: "",
-    utmMedium: "",
-    utmCampaign: "",
-    utmTerm: "",
-    utmContent: "",
     attributes: {},
+    featureKeys: [],
+    experimentKeys: [],
     featureEvals: { items: [] },
     experimentEvals: { items: [] },
     sessionEvents: { items: [] },
     userAgent: "Mozilla/5.0",
-    state: "finalized",
+    country: "",
+    device: "",
+    browser: "",
     ...overrides,
   };
 }
@@ -58,13 +57,13 @@ function makeSessionReplays(
   overrides: {
     list?: jest.Mock;
     getBySessionId?: jest.Mock;
-    getEventsForStoragePrefix?: jest.Mock;
+    getEventsForS3Key?: jest.Mock;
   } = {},
 ) {
   return {
     list: jest.fn().mockResolvedValue([]),
     getBySessionId: jest.fn().mockResolvedValue(null),
-    getEventsForStoragePrefix: jest.fn().mockResolvedValue([]),
+    getEventsForS3Key: jest.fn().mockResolvedValue([]),
     ...overrides,
   };
 }
@@ -102,8 +101,8 @@ describe("session-replay API", () => {
 
     it("returns 200 with a list of sessions", async () => {
       const sessions = [
-        makeSession({ sessionId: "sess_1" }),
-        makeSession({ sessionId: "sess_2" }),
+        makeSession({ id: "sess_1" }),
+        makeSession({ id: "sess_2" }),
       ];
 
       setReqContext({
@@ -123,20 +122,17 @@ describe("session-replay API", () => {
       expect(res.body.sessions).toHaveLength(2);
     });
 
-    it("returns only safe list metadata and derived filter keys", async () => {
+    it("returns list metadata with filter keys but omits per-chunk eval history", async () => {
       const sessions = [
         makeSession({
+          featureKeys: ["flag_1"],
+          experimentKeys: ["exp_1"],
           featureEvals: {
             items: [
               {
                 featureKey: "flag_1",
                 timestamp: 1000,
                 result: { value: "sensitive-value" },
-              },
-              {
-                featureKey: "flag_1",
-                timestamp: 2000,
-                result: { value: "duplicate" },
               },
             ],
           },
@@ -181,8 +177,8 @@ describe("session-replay API", () => {
       expect(res.status).toBe(200);
       expect(res.body.sessions[0].featureKeys).toEqual(["flag_1"]);
       expect(res.body.sessions[0].experimentKeys).toEqual(["exp_1"]);
-      expect(res.body.sessions[0]).not.toHaveProperty("storagePrefix");
-      expect(res.body.sessions[0]).not.toHaveProperty("attributes");
+      expect(res.body.sessions[0]).toHaveProperty("s3Key");
+      expect(res.body.sessions[0]).toHaveProperty("attributes");
       expect(res.body.sessions[0]).not.toHaveProperty("featureEvals");
       expect(res.body.sessions[0]).not.toHaveProperty("experimentEvals");
       expect(res.body.sessions[0]).not.toHaveProperty("sessionEvents");
@@ -270,23 +266,6 @@ describe("session-replay API", () => {
 
       expect(listMock).toHaveBeenCalledWith(
         expect.objectContaining({ clientKey: "ck_abc" }),
-      );
-    });
-
-    it("passes state filter through to the model", async () => {
-      const listMock = jest.fn().mockResolvedValue([]);
-
-      setReqContext({
-        org,
-        models: { sessionReplays: makeSessionReplays({ list: listMock }) },
-      });
-
-      await request(app)
-        .get("/session-replay/?state=finalized")
-        .set("Authorization", "Bearer foo");
-
-      expect(listMock).toHaveBeenCalledWith(
-        expect.objectContaining({ state: "finalized" }),
       );
     });
 
@@ -400,19 +379,6 @@ describe("session-replay API", () => {
       expect(res.status).toBe(400);
     });
 
-    it("returns 400 for an invalid state enum value", async () => {
-      setReqContext({
-        org,
-        models: { sessionReplays: makeSessionReplays() },
-      });
-
-      const res = await request(app)
-        .get("/session-replay/?state=unknown")
-        .set("Authorization", "Bearer foo");
-
-      expect(res.status).toBe(400);
-    });
-
     it("returns 400 for an unrecognised query parameter (strict schema)", async () => {
       setReqContext({
         org,
@@ -458,7 +424,7 @@ describe("session-replay API", () => {
         models: {
           sessionReplays: makeSessionReplays({
             getBySessionId: jest.fn().mockResolvedValue(session),
-            getEventsForStoragePrefix: jest.fn().mockResolvedValue([]),
+            getEventsForS3Key: jest.fn().mockResolvedValue([]),
           }),
         },
       });
@@ -483,7 +449,7 @@ describe("session-replay API", () => {
         models: {
           sessionReplays: makeSessionReplays({
             getBySessionId: jest.fn().mockResolvedValue(session),
-            getEventsForStoragePrefix: jest.fn().mockResolvedValue(events),
+            getEventsForS3Key: jest.fn().mockResolvedValue(events),
           }),
         },
       });
@@ -494,11 +460,13 @@ describe("session-replay API", () => {
 
       expect(res.status).toBe(200);
       expect(res.body.events).toHaveLength(2);
-      expect(res.body.metadata.sessionId).toBe("sess_abc123");
+      expect(res.body.metadata.id).toBe("sess_abc123");
     });
 
-    it("calls getEventsForStoragePrefix with the session's storagePrefix", async () => {
-      const session = makeSession({ storagePrefix: "org_1/sess_abc123/" });
+    it("calls getEventsForS3Key with the session's s3Key", async () => {
+      const session = makeSession({
+        s3Key: "session-replays/org_1/2026/04/29/sess_abc123/0.json.gz",
+      });
       const getEventsMock = jest.fn().mockResolvedValue([makeEvent()]);
 
       setReqContext({
@@ -506,7 +474,7 @@ describe("session-replay API", () => {
         models: {
           sessionReplays: makeSessionReplays({
             getBySessionId: jest.fn().mockResolvedValue(session),
-            getEventsForStoragePrefix: getEventsMock,
+            getEventsForS3Key: getEventsMock,
           }),
         },
       });
@@ -515,7 +483,9 @@ describe("session-replay API", () => {
         .get("/session-replay/sess_abc123")
         .set("Authorization", "Bearer foo");
 
-      expect(getEventsMock).toHaveBeenCalledWith("org_1/sess_abc123/");
+      expect(getEventsMock).toHaveBeenCalledWith(
+        "session-replays/org_1/2026/04/29/sess_abc123/0.json.gz",
+      );
     });
   });
 });

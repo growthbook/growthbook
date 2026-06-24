@@ -71,7 +71,7 @@ function makeContext(
 function makeRow(overrides: Partial<SessionReplayRow> = {}): SessionReplayRow {
   return {
     session_replay_id: "sess_abc123",
-    org_id: "org_1",
+    organization: "org_1",
     client_key: "ck_test",
     user_id: "user_1",
     device_id: "device_1",
@@ -95,7 +95,6 @@ function makeRow(overrides: Partial<SessionReplayRow> = {}): SessionReplayRow {
     user_agent: "Mozilla/5.0",
     device: "desktop",
     browser: "Chrome",
-    state: "finalized",
     ...overrides,
   };
 }
@@ -246,18 +245,14 @@ describe("SessionReplayModel — list()", () => {
     const result = await model.list();
 
     expect(result).toHaveLength(3);
-    expect(result.map((s) => s.sessionId)).toEqual([
-      "sess_1",
-      "sess_2",
-      "sess_3",
-    ]);
+    expect(result.map((s) => s.id)).toEqual(["sess_1", "sess_2", "sess_3"]);
   });
 
   it("filters out rows from a different org", async () => {
     const rows = [
-      makeRow({ session_replay_id: "sess_1", org_id: "org_1" }),
-      makeRow({ session_replay_id: "sess_2", org_id: "org_other" }),
-      makeRow({ session_replay_id: "sess_3", org_id: "org_1" }),
+      makeRow({ session_replay_id: "sess_1", organization: "org_1" }),
+      makeRow({ session_replay_id: "sess_2", organization: "org_other" }),
+      makeRow({ session_replay_id: "sess_3", organization: "org_1" }),
     ];
     mockListSessionReplays.mockResolvedValue(rows);
 
@@ -267,7 +262,7 @@ describe("SessionReplayModel — list()", () => {
     const result = await model.list();
 
     expect(result).toHaveLength(2);
-    expect(result.map((s) => s.sessionId)).toEqual(["sess_1", "sess_3"]);
+    expect(result.map((s) => s.id)).toEqual(["sess_1", "sess_3"]);
   });
 
   it("filters out all rows when view permission is denied", async () => {
@@ -328,12 +323,11 @@ describe("SessionReplayModel — list()", () => {
     const [session] = await model.list();
 
     expect(session.id).toBe(row.session_replay_id);
-    expect(session.organization).toBe(row.org_id);
-    expect(session.sessionId).toBe(row.session_replay_id);
+    expect(session.organization).toBe(row.organization);
     expect(session.clientKey).toBe(row.client_key);
     expect(session.userId).toBe(row.user_id);
     expect(session.deviceId).toBe(row.device_id);
-    expect(session.storagePrefix).toBe(row.s3_key);
+    expect(session.s3Key).toBe(row.s3_key);
     expect(session.durationMs).toBe(row.duration_ms);
     expect(session.eventCount).toBe(row.event_count);
     expect(session.errorCount).toBe(row.error_count);
@@ -349,7 +343,6 @@ describe("SessionReplayModel — list()", () => {
     expect(session.country).toBe(row.country);
     expect(session.device).toBe(row.device);
     expect(session.browser).toBe(row.browser);
-    expect(session.state).toBe(row.state);
   });
 
   it("defaults null optional fields to empty strings, arrays, and zero", async () => {
@@ -401,7 +394,7 @@ describe("SessionReplayModel — getBySessionId()", () => {
 
   it("returns null when the row belongs to a different org", async () => {
     mockGetSessionReplayBySessionId.mockResolvedValue(
-      makeRow({ org_id: "org_other" }),
+      makeRow({ organization: "org_other" }),
     );
 
     const model = new SessionReplayModel(makeContext("org_1"));
@@ -426,21 +419,21 @@ describe("SessionReplayModel — getBySessionId()", () => {
     const session = await model.getBySessionId("sess_abc123");
 
     expect(session).not.toBeNull();
-    expect(session!.sessionId).toBe("sess_abc123");
+    expect(session!.id).toBe("sess_abc123");
     expect(session!.organization).toBe("org_1");
   });
 });
 
 // ---------------------------------------------------------------------------
-// getEventsForStoragePrefix()
+// getEventsForS3Key()
 // ---------------------------------------------------------------------------
 
-describe("SessionReplayModel — getEventsForStoragePrefix()", () => {
+describe("SessionReplayModel — getEventsForS3Key()", () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  it("returns the events array from the service", async () => {
+  it("strips the chunk filename and passes the directory prefix to the service", async () => {
     const events = [
       { type: 2, timestamp: 1000, data: {} },
       { type: 3, timestamp: 2000, data: {} },
@@ -448,17 +441,23 @@ describe("SessionReplayModel — getEventsForStoragePrefix()", () => {
     mockGetEvents.mockResolvedValue(events as never);
 
     const model = new SessionReplayModel(makeContext());
-    const result = await model.getEventsForStoragePrefix("org_1/sess_abc123/");
+    const result = await model.getEventsForS3Key(
+      "session-replays/org_1/2026/04/29/sess_abc123/0.json.gz",
+    );
 
     expect(result).toEqual(events);
-    expect(mockGetEvents).toHaveBeenCalledWith("org_1/sess_abc123/");
+    expect(mockGetEvents).toHaveBeenCalledWith(
+      "session-replays/org_1/2026/04/29/sess_abc123/",
+    );
   });
 
   it("returns an empty array when the service returns no events", async () => {
     mockGetEvents.mockResolvedValue([]);
 
     const model = new SessionReplayModel(makeContext());
-    const result = await model.getEventsForStoragePrefix("org_1/sess_empty/");
+    const result = await model.getEventsForS3Key(
+      "session-replays/org_1/2026/04/29/sess_empty/0.json.gz",
+    );
 
     expect(result).toEqual([]);
   });

@@ -66,11 +66,10 @@ const sessionEventsColumnSchema = z.object({
 });
 
 export const sessionReplayValidator = baseSchema.safeExtend({
-  sessionId: z.string(),
   clientKey: z.string(),
   userId: z.string(),
   deviceId: z.string(),
-  storagePrefix: z.string(),
+  s3Key: z.string(),
   startedAt: z.date(),
   endedAt: z.date(),
   lastEventAt: z.date(),
@@ -101,7 +100,6 @@ export const sessionReplayValidator = baseSchema.safeExtend({
   country: z.string(),
   device: z.string(),
   browser: z.string(),
-  state: z.enum(["recording", "finalized", "deleted"]),
 });
 
 export type SessionReplayInterface = z.infer<typeof sessionReplayValidator>;

@@ -31,7 +31,6 @@ router.get(
       .object({
         userId: filterString.optional(),
         clientKey: filterString.optional(),
-        state: z.enum(["recording", "finalized", "deleted"]).optional(),
         url: z.string().max(MAX_URL_FILTER_LENGTH).optional(),
         country: shortFilterString.optional(),
         device: shortFilterString.optional(),

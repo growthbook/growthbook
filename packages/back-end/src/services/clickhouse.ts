@@ -169,9 +169,8 @@ export async function updateMaterializedColumns({
 // --- Session Replay ---
 
 export type SessionReplayRow = {
-  // The sessions view groups by session_replay_id (not session_id).
   session_replay_id: string;
-  org_id: string;
+  organization: string;
   client_key: string;
   user_id: string;
   // Persistent device id from the autoAttributesPlugin gbuuid cookie.
@@ -200,7 +199,6 @@ export type SessionReplayRow = {
   user_agent: string;
   device: string;
   browser: string;
-  state: "recording" | "finalized" | "deleted";
   created_at: string;
 };
 
@@ -209,7 +207,6 @@ export async function listSessionReplays(
   options?: {
     userId?: string;
     clientKey?: string;
-    state?: "recording" | "finalized" | "deleted";
     url?: string;
     country?: string;
     device?: string;
@@ -243,9 +240,6 @@ export async function listSessionReplays(
     conditions.push(
       `client_key = '${escapeClickhouseString(options.clientKey)}'`,
     );
-  }
-  if (options?.state) {
-    conditions.push(`state = '${escapeClickhouseString(options.state)}'`);
   }
   if (options?.url) {
     conditions.push(
@@ -294,7 +288,7 @@ export async function listSessionReplays(
 
   const { rows } = await integration.runQuery(`
     SELECT *, ingested_at AS created_at
-    FROM session_replay_sessions
+    FROM session_replay_metadata
     ${where}
     ORDER BY started_at DESC
     LIMIT ${limit}
@@ -327,7 +321,7 @@ export async function getSessionReplayBySessionId(
 
   const { rows } = await integration.runQuery(`
     SELECT *, ingested_at AS created_at
-    FROM session_replay_sessions
+    FROM session_replay_metadata
     WHERE session_replay_id = '${sanitizedSessionId}' AND deleted_at IS NULL
     LIMIT 1
   `);

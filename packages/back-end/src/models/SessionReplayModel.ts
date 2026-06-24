@@ -52,7 +52,6 @@ export class SessionReplayModel {
   public async list(options?: {
     userId?: string;
     clientKey?: string;
-    state?: "recording" | "finalized" | "deleted";
     url?: string;
     country?: string;
     device?: string;
@@ -81,11 +80,14 @@ export class SessionReplayModel {
     return doc;
   }
 
-  public async getEventsForStoragePrefix(
-    storagePrefix: string,
+  public async getEventsForS3Key(
+    s3Key: string,
   ): Promise<SessionReplayRrwebEvent[]> {
+    // s3Key is the full object key (e.g. .../uuid/0.json.gz); strip the
+    // chunk filename so the S3 listing finds all chunks for the session.
+    const prefix = s3Key.substring(0, s3Key.lastIndexOf("/") + 1);
     const events = (await getSessionReplayEventsByStoragePrefix(
-      storagePrefix,
+      prefix,
     )) as unknown as SessionReplayRrwebEvent[];
     return events;
   }
@@ -106,14 +108,13 @@ export class SessionReplayModel {
 
     return {
       id: row.session_replay_id,
-      organization: row.org_id,
+      organization: row.organization,
       dateCreated: createdAt,
       dateUpdated: lastEventAt,
-      sessionId: row.session_replay_id,
       clientKey: row.client_key,
       userId: row.user_id,
       deviceId: row.device_id ?? "",
-      storagePrefix: row.s3_key,
+      s3Key: row.s3_key,
       startedAt,
       endedAt,
       lastEventAt,
@@ -132,7 +133,6 @@ export class SessionReplayModel {
       country: row.country ?? "",
       device: row.device ?? "",
       browser: row.browser ?? "",
-      state: row.state,
     };
   }
 }

@@ -33,22 +33,17 @@ function measurePlayerDims(container: HTMLElement | null): {
 /**
  * Owns the entire rrweb-player lifecycle. The expectation is that the
  * parent renders this with `key={sessionId}` so React physically
- * unmounts/remounts the host DOM on session switch
- * TODO
- * Also silences rrweb's chatty warnings three ways:
- *   1. showWarning:false prop (the documented knob, but the prop
- *      pipeline in this alpha doesn't forward it reliably)
+ * unmounts/remounts the host DOM on session switch.
+ *
+ * Silences rrweb's chatty warnings:
+ *   1. showWarning:false prop
  *   2. logger prop set to a no-op stub (warn/log become drops; errors
- *      still pass through to the real console so genuine failures
- *      aren't hidden)
+ *      still pass through to the real console)
  *
  * The dev-console noise these suppress isn't actionable for customers:
  *   - "destroyed" warnings are expected aftermath of clean unmount
- *     (rrweb's Timer has rAF callbacks already in flight when the
- *     iframe is detached; they fire one tick later and complain).
  *   - "Node with id N not found" comes from multi-FullSnapshot stitching
- *     in sessions that span a page reload (tracked separately as a
- *     back-end fix).
+ *     in sessions that span a page reload
  */
 const RrwebPlayer = forwardRef<RrwebPlayerHandle, Props>(function RrwebPlayer(
   { events },
@@ -73,7 +68,6 @@ const RrwebPlayer = forwardRef<RrwebPlayerHandle, Props>(function RrwebPlayer(
 
     const measured = measurePlayerDims(containerRef.current);
 
-    // TODO Remove: No-op logger drops warn/log; errors still go to the real console.
     const silentLogger = {
       warn: () => {},
       log: () => {},

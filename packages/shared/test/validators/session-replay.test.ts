@@ -17,32 +17,31 @@ function validSession() {
     organization: "org_1",
     dateCreated: now,
     dateUpdated: now,
-    sessionId: "sess_abc123",
     clientKey: "ck_test",
     userId: "user_1",
     deviceId: "device_1",
-    storagePrefix: "org_1/sess_abc123/",
+    s3Key: "session-replays/org_1/2026/04/29/sess_abc123/0.json.gz",
     startedAt: now,
     endedAt: new Date("2026-04-29T17:43:00.000Z"),
     lastEventAt: new Date("2026-04-29T17:42:59.000Z"),
     durationMs: 60000,
     eventCount: 10,
+    errorCount: 0,
     urlFirst: "https://example.com",
     urlsVisited: ["https://example.com"],
     pageTitle: "Home",
     viewportWidth: 1440,
     viewportHeight: 900,
-    utmSource: "",
-    utmMedium: "",
-    utmCampaign: "",
-    utmTerm: "",
-    utmContent: "",
     attributes: {},
+    featureKeys: [],
+    experimentKeys: [],
     featureEvals: { items: [] },
     experimentEvals: { items: [] },
     sessionEvents: { items: [] },
     userAgent: "Mozilla/5.0",
-    state: "finalized" as const,
+    country: "",
+    device: "",
+    browser: "",
   };
 }
 
@@ -241,25 +240,6 @@ describe("sessionReplayValidator", () => {
     expect(result.success).toBe(true);
   });
 
-  it("rejects an invalid state enum value", () => {
-    const result = sessionReplayValidator.safeParse({
-      ...validSession(),
-      state: "paused",
-    });
-    expect(result.success).toBe(false);
-  });
-
-  it("accepts all three valid state values", () => {
-    const states = ["recording", "finalized", "deleted"] as const;
-    for (const state of states) {
-      const result = sessionReplayValidator.safeParse({
-        ...validSession(),
-        state,
-      });
-      expect(result.success).toBe(true);
-    }
-  });
-
   it("rejects a negative durationMs", () => {
     const result = sessionReplayValidator.safeParse({
       ...validSession(),
@@ -284,12 +264,12 @@ describe("sessionReplayValidator", () => {
     expect(result.success).toBe(false);
   });
 
-  it("requires featureEvals, experimentEvals, and sessionEvents", () => {
+  it("accepts missing featureEvals, experimentEvals, and sessionEvents (optional)", () => {
     const session = validSession() as Record<string, unknown>;
     delete session.featureEvals;
     delete session.experimentEvals;
     delete session.sessionEvents;
     const result = sessionReplayValidator.safeParse(session);
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
   });
 });

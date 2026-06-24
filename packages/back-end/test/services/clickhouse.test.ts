@@ -237,7 +237,6 @@ describe("listSessionReplays", () => {
     await listSessionReplays(context, {
       userId: "user'1",
       clientKey: "ck_1",
-      state: "finalized",
       url: "https://example.com/path",
       country: "US",
       device: "desktop",
@@ -256,7 +255,6 @@ describe("listSessionReplays", () => {
     expect(query).toContain("deleted_at IS NULL");
     expect(query).toContain("user_id = 'user\\'1'");
     expect(query).toContain("client_key = 'ck_1'");
-    expect(query).toContain("state = 'finalized'");
     expect(query).toContain(
       "positionCaseInsensitive(url_first, 'https://example.com/path') > 0",
     );

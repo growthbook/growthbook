@@ -13,11 +13,30 @@ type SessionResponse =
 
 type SessionReplayListItem = Pick<
   SessionReplayInterface,
-  "sessionId" | "userId" | "startedAt" | "durationMs" | "eventCount" | "state"
-> & {
-  featureKeys: string[];
-  experimentKeys: string[];
-};
+  | "id"
+  | "clientKey"
+  | "userId"
+  | "deviceId"
+  | "s3Key"
+  | "startedAt"
+  | "endedAt"
+  | "lastEventAt"
+  | "durationMs"
+  | "eventCount"
+  | "errorCount"
+  | "urlFirst"
+  | "urlsVisited"
+  | "pageTitle"
+  | "viewportWidth"
+  | "viewportHeight"
+  | "attributes"
+  | "featureKeys"
+  | "experimentKeys"
+  | "userAgent"
+  | "country"
+  | "device"
+  | "browser"
+>;
 type SessionsResponse = { sessions: SessionReplayListItem[] };
 
 export async function listSessions(
@@ -27,7 +46,6 @@ export async function listSessions(
     {
       userId?: string;
       clientKey?: string;
-      state?: "recording" | "finalized" | "deleted";
       url?: string;
       country?: string;
       device?: string;
@@ -56,7 +74,6 @@ export async function listSessions(
   const sessions = await context.models.sessionReplays.list({
     userId: req.query.userId,
     clientKey: req.query.clientKey,
-    state: req.query.state,
     url: req.query.url,
     country: req.query.country,
     device: req.query.device,
@@ -74,14 +91,29 @@ export async function listSessions(
 
 function toListItem(session: SessionReplayInterface): SessionReplayListItem {
   return {
-    sessionId: session.sessionId,
+    id: session.id,
+    clientKey: session.clientKey,
     userId: session.userId,
+    deviceId: session.deviceId,
+    s3Key: session.s3Key,
     startedAt: session.startedAt,
+    endedAt: session.endedAt,
+    lastEventAt: session.lastEventAt,
     durationMs: session.durationMs,
     eventCount: session.eventCount,
-    state: session.state,
+    errorCount: session.errorCount,
+    urlFirst: session.urlFirst,
+    urlsVisited: session.urlsVisited,
+    pageTitle: session.pageTitle,
+    viewportWidth: session.viewportWidth,
+    viewportHeight: session.viewportHeight,
+    attributes: session.attributes,
     featureKeys: session.featureKeys,
     experimentKeys: session.experimentKeys,
+    userAgent: session.userAgent,
+    country: session.country,
+    device: session.device,
+    browser: session.browser,
   };
 }
 
@@ -99,8 +131,8 @@ export async function getSession(
     return;
   }
 
-  const events = await context.models.sessionReplays.getEventsForStoragePrefix(
-    metadata.storagePrefix,
+  const events = await context.models.sessionReplays.getEventsForS3Key(
+    metadata.s3Key,
   );
   if (!events.length) {
     res.status(404).json({ status: 404, message: "Session data not found" });
