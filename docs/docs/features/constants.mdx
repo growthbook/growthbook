@@ -89,11 +89,13 @@ A few rules:
 - **On by default.** Feature values are scanned for references automatically.
 - **Escape literals.** To keep a literal `{{ @const:... }}` or `@const:` key in a value, wrap it in backticks.
 - **Graceful failure.** A reference that can't be resolved — the constant doesn't exist, the type doesn't match the syntax (e.g. `{{ }}` pointing at a JSON constant), or it would form a cycle — is left in place as literal text rather than failing the build.
-- **Archived constants are stripped.** References to an archived constant are removed from the value (string interpolations dropped, JSON references removed) rather than resolved.
+- **Archived references are stripped.** Archiving a referenced constant is blocked (see [Editing and approvals](#editing-and-approvals)), but any reference that still points at an archived constant is removed from the value (string interpolations dropped, JSON references removed) rather than resolved.
 
 ## Editing and approvals
 
 Constant changes go through the same draft → review → publish flow as features, governed by your organization's [require-reviews settings](/features/publishing-and-approval-flows) matched on the constant's project. You can view past versions, compare revisions, and revert from the constant's page.
+
+Archiving is blocked while a constant is still referenced — the archive dialog lists every feature and constant that uses it, so you can remove those references first.
 
 ## REST API
 
