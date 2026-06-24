@@ -1,5 +1,4 @@
 ---
-draft: true
 title: Run Visual Experiments on Your Site — SDK Setup and Anti-Flicker
 description: Install the GrowthBook Script Tag, JavaScript, React, or Edge SDK to render Visual Editor A/B tests on your live site. Strategies to eliminate flicker (FOOC), including the Edge SDK rendering pattern.
 sidebar_label: Running on your site
@@ -91,7 +90,7 @@ An anti-flicker script blanks the page (usually by setting `body { opacity: 0 }`
 
 This is the same approach **every** client-side A/B testing tool uses. It's a tradeoff: you trade flicker (which looks bad) for a brief blank flash (which makes the page feel slower to appear).
 
-GrowthBook's works hard to keep the library size as small as possible and our performance as high as possible. As a result, our experiments load faster than our competition, with or without a the anti-flicker scripts. The anti-flicker is enabled through SDK config — see the [Script Tag SDK docs](/lib/script-tag#anti-flicker) for the exact snippet.
+GrowthBook's works hard to keep the library size as small as possible and our performance as high as possible. As a result, our experiments load faster than our competition, with or without the anti-flicker scripts. The anti-flicker is enabled through SDK config — see the [Script Tag SDK docs](/lib/script-tag#anti-flicker) for the exact snippet.
 
 - **Set a max-wait timeout.** If the SDK fails to load (network error, API outage), you don't want to leave the page blank forever. A typical timeout is 1–4 seconds.
 
@@ -134,7 +133,7 @@ You will still need `'unsafe-eval'`.
 
 When an experiment finishes and you enable a Temporary Rollout to ship the winning variation, the variation continues to be delivered through the same SDK Connection. The same flicker considerations apply.
 
-Temporary Rollouts are explicitly named **temporary** because long-term you should re-implement the winning variation in your site's code. See [Stopping an Experiment](/app/visual#stopping-an-experiment) on the landing page.
+Temporary Rollouts are explicitly named **temporary** because long-term you should re-implement the winning variation in your site's code.
 
 ## Next steps
 
