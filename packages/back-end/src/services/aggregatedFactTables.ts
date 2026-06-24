@@ -184,14 +184,20 @@ export async function deferAggregatedFactTableToNextSlot(
 
   for (const idType of settings.idTypes) {
     try {
-      await context.models.aggregatedFactTables.claimScheduledSlot(
-        {
-          datasourceId: factTable.datasource,
-          factTableId: factTable.id,
-          idType,
-        },
-        fireTime,
-      );
+      const claimed =
+        await context.models.aggregatedFactTables.claimScheduledSlot(
+          {
+            datasourceId: factTable.datasource,
+            factTableId: factTable.id,
+            idType,
+          },
+          fireTime,
+        );
+      if (!claimed) {
+        logger.debug(
+          `Aggregated fact table slot for ${factTable.id}/${idType} was already claimed for ${fireTime.toISOString()}; deferral had no effect`,
+        );
+      }
     } catch (e) {
       logger.error(
         e,

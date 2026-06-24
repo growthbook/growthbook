@@ -297,15 +297,17 @@ export async function createFactTable(
     context.permissions.throwPermissionError();
   }
 
-  const doc = await FactTableModel.create(
-    createPropsToInterface(context, data),
-  );
+  const factTableProps = createPropsToInterface(context, data);
+
+  // We claim this slot first to avoid a potential race condition when the FactTable is created at
+  // the same time the background job is scheduling the aggregated table update
+  await deferAggregatedFactTableToNextSlot(context, factTableProps);
+
+  const doc = await FactTableModel.create(factTableProps);
 
   const factTable = toInterface(doc);
 
   await audit.logCreate(context, factTable);
-
-  await deferAggregatedFactTableToNextSlot(context, factTable);
 
   return factTable;
 }
