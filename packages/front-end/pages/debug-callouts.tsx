@@ -722,7 +722,10 @@ export default function DebugCalloutsPage() {
                 neutral stubs, custom icons and actions are placeholders, and
                 conditional <code>status</code> is resolved to one branch.
                 Expand <em>source</em> under any entry for the exact
-                configuration.
+                configuration. Each entry is labeled with its{" "}
+                <code>path:line</code> (relative to{" "}
+                <code>packages/front-end/</code>) so design review can map a
+                callout back to its source.
               </p>
               <DebugAllCalloutsGenerated />
             </Box>

@@ -84,7 +84,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/ActivityList.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L27 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/ActivityList.tsx:27 · Callout</div>
               <Callout status="error"><Expr>{"error.message"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">{error.message}</Callout>"}</pre></details>
             </Box>
@@ -94,7 +94,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/ApiWarningModal.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L36 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/ApiWarningModal.tsx:36 · Callout</div>
               <Callout status="warning"><Expr>{"warning"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout key={i} status=\"warning\">\n            {warning}\n          </Callout>"}</pre></details>
             </Box>
@@ -104,7 +104,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Archetype/ArchetypeList.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L38 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Archetype/ArchetypeList.tsx:38 · Callout</div>
               <Callout status="error">An error occurred fetching the lists of archetypes.
       </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n        An error occurred fetching the lists of archetypes.\n      </Callout>"}</pre></details>
@@ -115,12 +115,12 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Archetype/SimulateFeatureValues.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L221 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Archetype/SimulateFeatureValues.tsx:221 · Callout</div>
               <Callout status="info" mb="5"><Expr>{"attributeText"}</Expr><Expr>{"attributeNodes"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" mb=\"5\">\n          {attributeText} {attributeNodes}\n        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L366 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Archetype/SimulateFeatureValues.tsx:366 · Callout</div>
               <Callout status="info" mt="5" mb="5"><Flex align="center" gap="3"><Box flexGrow="1">These results use the JS SDK, which supports the V2 hashing
             algorithm. If you use one of the older or unsupported SDKs, you may
             want to change the hashing algorithm of the experiment to v1 to
@@ -134,12 +134,12 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/AuditHistoryExplorer/CompareAuditEvents.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L689 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/AuditHistoryExplorer/CompareAuditEvents.tsx:689 · Callout</div>
               <Callout status="error"><Expr>{"error"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">{error}</Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L946 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/AuditHistoryExplorer/CompareAuditEvents.tsx:946 · Callout</div>
               <Callout status="error" mt="4"><Flex direction="column" gap="2" align="start"><span>Could not load change
                     <Expr>{"displayFailed.length > 1 ? \"s\" : \"\""}</Expr>.
                   </span><span>The audit record may be missing snapshot data.</span></Flex></Callout>
@@ -151,7 +151,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Auth/CreateOrJoinOrganization.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L213 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Auth/CreateOrJoinOrganization.tsx:213 · Callout</div>
               <Callout status="success" mt="2" mb="0"><div className="mb-2"><Stub name="FaCheck"></Stub>Your membership is pending.
                         </div><div>Please contact your organization&apos;s admin to
                           approve your membership.
@@ -159,12 +159,12 @@ export default function DebugAllCalloutsGenerated() {
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"success\" mt=\"2\" mb=\"0\">\n                        <div className=\"mb-2\">\n                          <FaCheck /> Your membership is pending.\n                        </div>\n                        <div>\n                          Please contact your organization&apos;s admin to\n                          approve your membership.\n                        </div>\n                      </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L378 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Auth/CreateOrJoinOrganization.tsx:378 · Callout</div>
               <Callout status="error" mt="2"><Expr>{"error"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" mt=\"2\">\n                      {error}\n                    </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L398 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Auth/CreateOrJoinOrganization.tsx:398 · Callout</div>
               <Callout status="error">You must be invited by an administrator in order to use
               GrowthBook.
             </Callout>
@@ -176,7 +176,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Auth/SelectInitialPlan.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L271 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Auth/SelectInitialPlan.tsx:271 · Callout</div>
               <Callout status="error" role="alert" mt="3"><Expr>{"error"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" role=\"alert\" mt=\"3\">\n          {error}\n        </Callout>"}</pre></details>
             </Box>
@@ -186,13 +186,13 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Auth/Welcome.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L282 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Auth/Welcome.tsx:282 · Callout</div>
               <Callout status="success" mb="3">Password reset link sent to <strong><Expr>{"email"}</Expr></strong>.
               </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"success\" mb=\"3\">\n                Password reset link sent to <strong>{email}</strong>.\n              </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L360 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Auth/Welcome.tsx:360 · Callout</div>
               <Callout status="error" mb="3"><Expr>{"error"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" mb=\"3\">\n              {error}\n            </Callout>"}</pre></details>
             </Box>
@@ -202,12 +202,12 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/AutoGenerateMetricsModal.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L366 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/AutoGenerateMetricsModal.tsx:366 · Callout</div>
               <Callout status="warning">Sorry - this data source does not support auto generated metrics.{" "}<Stub name="DocLink">Learn More</Stub></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\">\n            Sorry - this data source does not support auto generated metrics.{\" \"}\n            <DocLink docSection={\"metrics\"}>Learn More</DocLink>\n          </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L373 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/AutoGenerateMetricsModal.tsx:373 · Callout</div>
               <Callout status="info">These are the tracked events we found that we can use to
               automatically generate the following metrics for you. And
               don&apos;t worry, you can always edit and remove these metrics at
@@ -216,7 +216,7 @@ export default function DebugAllCalloutsGenerated() {
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\">\n              These are the tracked events we found that we can use to\n              automatically generate the following metrics for you. And\n              don&apos;t worry, you can always edit and remove these metrics at\n              anytime after they&apos;re created.{\" \"}\n              <DocLink docSection={\"metrics\"}>\n                Click here to learn more about GrowthBook Metrics.\n              </DocLink>\n            </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L463 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/AutoGenerateMetricsModal.tsx:463 · Callout</div>
               <Callout status="error"><p>We were unable to identify any metrics to generate for you
                 automatically. The query we ran to identify metrics returned the
                 following error.
@@ -224,13 +224,13 @@ export default function DebugAllCalloutsGenerated() {
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n              <p>\n                We were unable to identify any metrics to generate for you\n                automatically. The query we ran to identify metrics returned the\n                following error.\n              </p>\n              <div>\n                <strong>Error: {autoMetricError}</strong>\n              </div>\n            </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L475 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/AutoGenerateMetricsModal.tsx:475 · Callout</div>
               <Callout status="info">Refreshing list of <Expr>{"schemaName.toLocaleLowerCase()"}</Expr>s...
           </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\">\n            Refreshing list of {schemaName.toLocaleLowerCase()}s...\n          </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L480 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/AutoGenerateMetricsModal.tsx:480 · Callout</div>
               <Callout status="error"><Expr>{"refreshingSchemaError"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">{refreshingSchemaError}</Callout>"}</pre></details>
             </Box>
@@ -240,12 +240,12 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/CustomFields/CustomFieldModal.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L293 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/CustomFields/CustomFieldModal.tsx:293 · Callout</div>
               <Callout status="warning" mt="2"><Expr>{"projectWarning"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\" mt=\"2\">\n                {projectWarning}\n              </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L334 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/CustomFields/CustomFieldModal.tsx:334 · Callout</div>
               <Callout status="info" mt="2"><Expr>{"optionsChangeInfo"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" mt=\"2\">\n                {optionsChangeInfo}\n              </Callout>"}</pre></details>
             </Box>
@@ -255,7 +255,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/DecisionCriteria/DecisionCriteriaSelectorModal.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L115 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/DecisionCriteria/DecisionCriteriaSelectorModal.tsx:115 · Callout</div>
               <Callout status="info" mb="2">Decision criteria can only be created or edited by organization
               admins in the organization settings page.
             </Callout>
@@ -267,7 +267,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/DemoDataSourceGlobalBanner/DemoDataSourceGlobalBanner.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L94 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/DemoDataSourceGlobalBanner/DemoDataSourceGlobalBanner.tsx:94 · Callout</div>
               <Callout status="error" mb="2"><Expr>{"error"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" mb=\"2\">\n                    {error}\n                  </Callout>"}</pre></details>
             </Box>
@@ -277,12 +277,12 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/DemoDataSourcePage/DemoDataSourcePage.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L54 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/DemoDataSourcePage/DemoDataSourcePage.tsx:54 · Callout</div>
               <Callout status="success"><Expr>{"success"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"success\">{success}</Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L57 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/DemoDataSourcePage/DemoDataSourcePage.tsx:57 · Callout</div>
               <Callout status="error"><Expr>{"error"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">{error}</Callout>"}</pre></details>
             </Box>
@@ -292,7 +292,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/DiscussionThread.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L53 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/DiscussionThread.tsx:53 · Callout</div>
               <Callout status="error"><Expr>{"error.message"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">{error.message}</Callout>"}</pre></details>
             </Box>
@@ -302,24 +302,24 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/EventWebHooks/EventWebHookAddEditModal/EventWebHookAddEditModal.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L110 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/EventWebHooks/EventWebHookAddEditModal/EventWebHookAddEditModal.tsx:110 · Callout</div>
               <Callout status="warning" mb="3"><strong>Important:</strong>Do not navigate away from this modal, or
         your changes will not be saved.
       </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\" mb=\"3\">\n        <strong>Important:</strong> Do not navigate away from this modal, or\n        your changes will not be saved.\n      </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L126 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/EventWebHooks/EventWebHookAddEditModal/EventWebHookAddEditModal.tsx:126 · Callout</div>
               <Callout status="success">Test Successful!</Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"success\">Test Successful!</Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L129 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/EventWebHooks/EventWebHookAddEditModal/EventWebHookAddEditModal.tsx:129 · Callout</div>
               <Callout status="error">Test Failed: <Expr>{"state.message"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">Test Failed: {state.message}</Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L287 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/EventWebHooks/EventWebHookAddEditModal/EventWebHookAddEditModal.tsx:287 · Callout</div>
               <Callout status="error">Invalid JSON</Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">Invalid JSON</Callout>"}</pre></details>
             </Box>
@@ -329,7 +329,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/EventWebHooks/EventWebHookDetail/EventWebHookDetail.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L150 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/EventWebHooks/EventWebHookDetail/EventWebHookDetail.tsx:150 · Callout</div>
               <Callout status="success" mb="3"><Expr>{"state.message"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status={state.type === \"success\" ? \"success\" : \"error\"} mb=\"3\">\n          {state.message}\n        </Callout>"}</pre></details>
             </Box>
@@ -339,7 +339,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/EventWebHooks/EventWebHookList/EventWebHookList.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L62 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/EventWebHooks/EventWebHookList/EventWebHookList.tsx:62 · Callout</div>
               <Callout status="error" my="3"><Expr>{"errorMessage"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" my=\"3\">\n          {errorMessage}\n        </Callout>"}</pre></details>
             </Box>
@@ -349,7 +349,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/EventWebHooks/EventWebHookLogs/EventWebHookLogs.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L101 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/EventWebHooks/EventWebHookLogs/EventWebHookLogs.tsx:101 · Callout</div>
               <Callout status="error">Unable to fetch run log history for event web hook <Expr>{"eventWebHookId"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n        Unable to fetch run log history for event web hook {eventWebHookId}\n      </Callout>"}</pre></details>
             </Box>
@@ -359,7 +359,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Events/EventDetail/EventDetail.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L40 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Events/EventDetail/EventDetail.tsx:40 · Callout</div>
               <Callout status="error">Unable to fetch event <Expr>{"eventId"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">Unable to fetch event {eventId}</Callout>"}</pre></details>
             </Box>
@@ -369,19 +369,19 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Events/EventsPage/EventsPage.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L59 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Events/EventsPage/EventsPage.tsx:59 · Callout</div>
               <Callout status="error">You do not have access to view this page.
         </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n          You do not have access to view this page.\n        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L97 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Events/EventsPage/EventsPage.tsx:97 · Callout</div>
               <Callout status="error" mt="2">There was an error loading the events.
         </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" mt=\"2\">\n          There was an error loading the events.\n        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L102 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Events/EventsPage/EventsPage.tsx:102 · Callout</div>
               <Callout status="error" mt="2">There was an error exporting the events.
         </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" mt=\"2\">\n          There was an error exporting the events.\n        </Callout>"}</pre></details>
@@ -392,7 +392,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/ExecReports/ExecReport.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L388 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/ExecReports/ExecReport.tsx:388 · Callout</div>
               <Callout status="info" mb="4">No finished experiments found for the selected project and date range
         </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" mb=\"4\">\n          No finished experiments found for the selected project and date range\n        </Callout>"}</pre></details>
@@ -403,7 +403,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Experiment/AnalysisForm.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L998 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/AnalysisForm.tsx:998 · Callout</div>
               <Callout status="warning" mb="2">Activation metrics are not yet supported with Incremental
                       Refresh. Please{" "}<Stub name="Link">click to remove it
                       </Stub>.
@@ -416,12 +416,12 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Experiment/BanditDateGraph.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L195 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/BanditDateGraph.tsx:195 · Callout</div>
               <Callout status="warning" my="2" size="sm"><Expr>{"d.updateMessage"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\" my=\"2\" size=\"sm\">\n              {d.updateMessage}\n            </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L201 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/BanditDateGraph.tsx:201 · Callout</div>
               <Callout status="error" my="2" size="sm"><Expr>{"d.error"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" my=\"2\" size=\"sm\">\n              {d.error}\n            </Callout>"}</pre></details>
             </Box>
@@ -431,14 +431,14 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Experiment/BanditDecisionMetricSettings.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L202 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/BanditDecisionMetricSettings.tsx:202 · Callout</div>
               <Callout status="warning" my="4">Disabling the conversion window may bias results if units switch
                 variations during the experiment.
               </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\" my=\"4\">\n                Disabling the conversion window may bias results if units switch\n                variations during the experiment.\n              </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L208 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/BanditDecisionMetricSettings.tsx:208 · Callout</div>
               <Callout status="warning" my="4"><Text>Limit how many conversions are counted after a unit may have
                 switched variations by decreasing the metric conversion window
                 to be &le; 10% of the{" "}<Text>Update Cadence</Text>.
@@ -451,7 +451,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Experiment/BreakDownResults.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L219 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/BreakDownResults.tsx:219 · Callout</div>
               <Callout status="info" mt="1" mx="3">Your experiment has an Activation Metric (
             <strong><Expr>{"activationMetricObj?.name"}</Expr></strong>). This report lets you compare activated users with those who
             entered into the experiment, but were not activated.
@@ -464,7 +464,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Experiment/EditDOMMutationsModal.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L350 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/EditDOMMutationsModal.tsx:350 · Callout</div>
               <Callout status="warning"><strong>Warning:</strong>This experiment is currently running. Any
             changes made here may introduce unpredictable effects in your
             experiment results.
@@ -477,7 +477,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Experiment/EditMetricsForm.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L235 · PremiumCallout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/EditMetricsForm.tsx:235 · PremiumCallout</div>
               <MockUser><PremiumCallout commercialFeature="metric-groups" dismissible docSection="metricGroups" mb="4" id="dbg-0"><strong>Metric Groups</strong>make it possible to reuse sets of
           metrics in your experiments.
         </PremiumCallout></MockUser>
@@ -489,7 +489,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Experiment/EditPhaseModal.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L116 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/EditPhaseModal.tsx:116 · Callout</div>
               <Callout status="info" mt="4">Trying to change targeting rules, traffic allocation, or start a new
           phase? Use the{" "}<a role="button" className="a" href="#">Make Changes
           </a>{" "}button instead.
@@ -502,7 +502,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Experiment/EditStatusModal.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L134 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/EditStatusModal.tsx:134 · Callout</div>
               <Callout status="warning" mb="4">Changes you make here will immediately affect any linked Feature Flags
           or Visual Changes.
         </Callout>
@@ -514,7 +514,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Experiment/ExperimentGraph.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L210 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/ExperimentGraph.tsx:210 · Callout</div>
               <Callout status="error">An error occurred: <Expr>{"error.message"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">An error occurred: {error.message}</Callout>"}</pre></details>
             </Box>
@@ -524,7 +524,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Experiment/ExperimentMetricsSelector.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L254 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/ExperimentMetricsSelector.tsx:254 · Callout</div>
               <Callout status="warning" my="4">Mismatch between the randomization unit and the Decision Metric
               identifier type can lead to double counting if the randomization
               unit has multiple exposures.
@@ -537,18 +537,18 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Experiment/ImportExperimentList.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L170 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/ImportExperimentList.tsx:170 · Callout</div>
               <Callout status="error"><Expr>{"error?.message"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">{error?.message}</Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L271 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/ImportExperimentList.tsx:271 · Callout</div>
               <Callout status="error" my="3"><p>Error importing experiments.</p><Expr>{"datasource?.id && ( <> {!!datasource?.dateUpdated && datasource?.dateUpdated > data?.exper…"}</Expr><span><Stub name="ViewAsyncQueriesButton"></Stub>{" "}for more information.
             </span></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" my=\"3\">\n            <p>Error importing experiments.</p>\n            {datasource?.id && (\n              <>\n                {!!datasource?.dateUpdated &&\n                datasource?.dateUpdated > data?.experiments?.dateUpdated ? (\n                  <p>\n                    Your datasource&apos;s{\" \"}\n                    <em>Experiment Assignment Queries</em> may have been\n                    misconfigured. The datasource has been modified since the\n                    last data refresh, so use the &apos;Get New Data&apos;\n                    button above to check if the issue has been resolved.\n                    Otherwise,{\" \"}\n                    <Link href={`/datasources/${datasource.id}?openAll=1`}>\n                      edit the datasource\n                    </Link>\n                    .\n                  </p>\n                ) : (\n                  <p>\n                    Your datasource&apos;s{\" \"}\n                    <em>Experiment Assignment Queries</em> may be misconfigured.{\" \"}\n                    <Link href={`/datasources/${datasource.id}?openAll=1`}>\n                      Edit the datasource\n                    </Link>\n                    .\n                  </p>\n                )}\n              </>\n            )}\n\n            <span>\n              <ViewAsyncQueriesButton\n                queries={data.experiments.queries?.map((q) => q.query) ?? []}\n                error={data.experiments.error}\n                ctaComponent={(onClick) => (\n                  <a className=\"alert-link\" href=\"#\" onClick={onClick}>\n                    View Queries\n                  </a>\n                )}\n              />{\" \"}\n              for more information.\n            </span>\n          </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L637 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/ImportExperimentList.tsx:637 · Callout</div>
               <Callout status="info"><em>No experiments match your current filters.{" "}<a href="#">Clear all filters
                         </a></em></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\">\n                      <em>\n                        No experiments match your current filters.{\" \"}\n                        <a\n                          href=\"#\"\n                          onClick={(e) => {\n                            e.preventDefault();\n                            clearFilters();\n                          }}\n                        >\n                          Clear all filters\n                        </a>\n                      </em>\n                    </Callout>"}</pre></details>
@@ -559,13 +559,13 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Experiment/ImportExperimentModal.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L101 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/ImportExperimentModal.tsx:101 · Callout</div>
               <Callout status="info" mb="3">Don&apos;t see your experiment listed below?{" "}<a role="button" className="link" href="#">Create From Scratch
         </a></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" mb=\"3\">\n        Don&apos;t see your experiment listed below?{\" \"}\n        <a\n          role=\"button\"\n          className=\"link\"\n          onClick={(e) => {\n            e.preventDefault();\n            setImportModal(false);\n          }}\n        >\n          Create From Scratch\n        </a>\n      </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L126 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/ImportExperimentModal.tsx:126 · Callout</div>
               <Callout status="error" mb="3"><Expr>{"error"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" mb=\"3\">\n            {error}\n          </Callout>"}</pre></details>
             </Box>
@@ -575,14 +575,14 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Experiment/LinkedChanges/EditFeatureFlagValuesModal.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L537 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/LinkedChanges/EditFeatureFlagValuesModal.tsx:537 · Callout</div>
               <Callout status="warning" mt="2"><Text>Don&apos;t forget!</Text>{" "}Define values for this new variation in other
                               implementations too.
                             </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\" mt=\"2\">\n                              <Text weight=\"semibold\">Don&apos;t forget!</Text>{\" \"}\n                              Define values for this new variation in other\n                              implementations too.\n                            </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L664 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/LinkedChanges/EditFeatureFlagValuesModal.tsx:664 · Callout</div>
               <Callout status="warning" mt="2"><Text>Don&apos;t forget!</Text>Define
                       values for this new variation in other implementations
                       too.
@@ -595,27 +595,27 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Experiment/LinkedChanges/LinkedFeatureFlag.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L175 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/LinkedChanges/LinkedFeatureFlag.tsx:175 · Callout</div>
               <Callout status="warning" my="4">This feature flag has been archived. Unarchive it to make this
             experiment active.
           </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\" my=\"4\">\n            This feature flag has been archived. Unarchive it to make this\n            experiment active.\n          </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L181 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/LinkedChanges/LinkedFeatureFlag.tsx:181 · Callout</div>
               <Callout status="warning" my="4">The draft revision linking this experiment was discarded. The
             experiment-ref rule is no longer queued.{" "}<Expr>{"canAddLinkedChanges && onReAdd ? ( <Link onClick={onReAdd} style={{ cursor: \"pointer\" }}> …"}</Expr><Expr>{"canUpdateLinkedFeature && ( <> {\" · \"} <Link onClick={handleRemove} style={{ cursor: remov…"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\" my=\"4\">\n            The draft revision linking this experiment was discarded. The\n            experiment-ref rule is no longer queued.{\" \"}\n            {canAddLinkedChanges && onReAdd ? (\n              <Link onClick={onReAdd} style={{ cursor: \"pointer\" }}>\n                Re-add feature flag\n              </Link>\n            ) : (\n              <Link href={`/features/${info.feature?.id}`} target=\"_blank\">\n                Go to feature page <PiArrowSquareOut className=\"ml-1\" />\n              </Link>\n            )}\n            {canUpdateLinkedFeature && (\n              <>\n                {\" · \"}\n                <Link\n                  onClick={handleRemove}\n                  style={{ cursor: removing ? \"wait\" : \"pointer\" }}\n                >\n                  Remove from experiment\n                </Link>\n              </>\n            )}\n          </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L207 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/LinkedChanges/LinkedFeatureFlag.tsx:207 · Callout</div>
               <Callout status="error" my="4" icon={<PlaceholderIcon />}>This feature draft has a <strong>merge conflict</strong>and cannot
             be auto-published.{" "}<Stub name="Link">Fix conflicts
               <Stub name="PiArrowSquareOut"></Stub></Stub></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" my=\"4\" icon={blockedAutoPublishIcon}>\n            This feature draft has a <strong>merge conflict</strong> and cannot\n            be auto-published.{\" \"}\n            <Link\n              href={`/features/${info.feature?.id}${info.draftRevisionVersion != null ? `?v=${info.draftRevisionVersion}` : \"\"}`}\n              target=\"_blank\"\n            >\n              Fix conflicts\n              <PiArrowSquareOut className=\"ml-1\" />\n            </Link>\n          </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L222 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/LinkedChanges/LinkedFeatureFlag.tsx:222 · Callout</div>
               <Callout status="error" my="4" icon={<PlaceholderIcon />}>This feature draft contains{" "}<strong>changes beyond this experiment</strong>and cannot be
               auto-published. Either remove the unrelated edits from the draft
               or publish the full draft manually.{" "}<Stub name="Link">Review draft
@@ -623,12 +623,12 @@ export default function DebugAllCalloutsGenerated() {
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" my=\"4\" icon={blockedAutoPublishIcon}>\n              This feature draft contains{\" \"}\n              <strong>changes beyond this experiment</strong> and cannot be\n              auto-published. Either remove the unrelated edits from the draft\n              or publish the full draft manually.{\" \"}\n              <Link\n                href={`/features/${info.feature?.id}${info.draftRevisionVersion != null ? `?v=${info.draftRevisionVersion}` : \"\"}`}\n                target=\"_blank\"\n              >\n                Review draft\n                <PiArrowSquareOut className=\"ml-1\" />\n              </Link>\n            </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L239 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/LinkedChanges/LinkedFeatureFlag.tsx:239 · Callout</div>
               <Callout status="info" my="4" icon={<PlaceholderIcon />}><Expr>{"info.pendingApproval ? ( <> Rule changes for this feature are in a{\" \"} {info.draftRevisio…"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout\n              status=\"info\"\n              my=\"4\"\n              icon={<PiGitMerge style={{ fontSize: \"1.2em\" }} />}\n            >\n              {info.pendingApproval ? (\n                <>\n                  Rule changes for this feature are in a{\" \"}\n                  {info.draftRevisionStatus === \"approved\" ? (\n                    <>\n                      <strong>draft</strong> revision that has been{\" \"}\n                      <strong>approved</strong>\n                    </>\n                  ) : (\n                    <>\n                      <strong>draft</strong> revision pending approval\n                    </>\n                  )}\n                  .{\" \"}\n                  {info.draftRevisionStatus === \"approved\"\n                    ? \"They\"\n                    : \"Once approved, they\"}{\" \"}\n                  will be auto-published when this experiment starts, or you can\n                  publish manually.\n                  <Box mt=\"1\">\n                    <Link\n                      href={`/features/${info.feature?.id}${info.draftRevisionVersion != null ? `?v=${info.draftRevisionVersion}` : \"\"}`}\n                      target=\"_blank\"\n                    >\n                      Review and approve draft\n                      <PiArrowSquareOut className=\"ml-1\" />\n                    </Link>\n                  </Box>\n                </>\n              ) : (\n                <>\n                  Rule changes for this feature are in a <strong>draft</strong>{\" \"}\n                  revision. They will be auto-published when this experiment\n                  starts, or you can publish manually from the{\" \"}\n                  <Link href={`/features/${info.feature?.id}`} target=\"_blank\">\n                    Feature Flag detail page\n                    <PiArrowSquareOut className=\"ml-1\" />\n                  </Link>\n                  .\n                </>\n              )}\n            </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L315 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/LinkedChanges/LinkedFeatureFlag.tsx:315 · Callout</div>
               <Callout status="warning"><strong>Warning:</strong>This experiment is included
                       multiple times with different values. The values above are
                       from the first matching experiment in{" "}<strong><Expr>{"info.valuesFrom"}</Expr></strong>.
@@ -636,7 +636,7 @@ export default function DebugAllCalloutsGenerated() {
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\">\n                      <strong>Warning:</strong> This experiment is included\n                      multiple times with different values. The values above are\n                      from the first matching experiment in{\" \"}\n                      <strong>{info.valuesFrom}</strong>.\n                    </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L324 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/LinkedChanges/LinkedFeatureFlag.tsx:324 · Callout</div>
               <Callout status="info"><strong>Notice:</strong>There are feature rules above
                       this experiment so some users might not be included.
                     </Callout>
@@ -648,7 +648,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Experiment/MakeChangesFlow.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L151 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/MakeChangesFlow.tsx:151 · Callout</div>
               <Callout status="warning"><Flex align="center" justify="between" gap="3"><Text><Text>Warning:</Text>Changes made will
                   apply to linked Feature Flags, Visual Changes, and URL
                   Redirects immediately upon publishing
@@ -661,7 +661,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Experiment/MultipleExposureWarning.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L56 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/MultipleExposureWarning.tsx:56 · Callout</div>
               <Callout status="warning"><strong>Multiple Exposures Warning</strong>.{" "}<Expr>{"numberFormatter.format(multipleExposures)"}</Expr>users (
       <Expr>{"percentFormatter.format(multipleExposureHealth.rawDecimal)"}</Expr>) saw multiple
       variations and were automatically removed from results. Check for bugs in
@@ -675,7 +675,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Experiment/NamespaceModal.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L245 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/NamespaceModal.tsx:245 · Callout</div>
               <Callout status="info" mb="3">This is a legacy namespace. To use the new multi-range features, create
         a new namespace.
       </Callout>
@@ -687,12 +687,12 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Experiment/NewExperimentForm.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L856 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/NewExperimentForm.tsx:856 · Callout</div>
               <Callout status="info"><Expr>{"msg"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\">{msg}</Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L859 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/NewExperimentForm.tsx:859 · Callout</div>
               <Callout status="warning">You are creating an experiment under the demo datasource
                 project. This experiment will be deleted when the demo
                 datasource project is deleted.
@@ -700,7 +700,7 @@ export default function DebugAllCalloutsGenerated() {
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\">\n                You are creating an experiment under the demo datasource\n                project. This experiment will be deleted when the demo\n                datasource project is deleted.\n              </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L1046 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/NewExperimentForm.tsx:1046 · Callout</div>
               <Callout status="warning"><Expr>{"missingEmbeddingKey.provider"}</Expr>API key is required for
                     checking similar experiments. Please set{" "}<code><Expr>{"missingEmbeddingKey.envVar"}</Expr></code>in your
                     environment variables.
@@ -708,7 +708,7 @@ export default function DebugAllCalloutsGenerated() {
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\">\n                    {missingEmbeddingKey.provider} API key is required for\n                    checking similar experiments. Please set{\" \"}\n                    <code>{missingEmbeddingKey.envVar}</code> in your\n                    environment variables.\n                  </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L1462 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/NewExperimentForm.tsx:1462 · Callout</div>
               <Callout status="info" mb="3">We&apos;ve guessed the variation weights below based on the
                   data we&apos;ve seen. They may need to be adjusted.
                 </Callout>
@@ -720,7 +720,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Experiment/NewPhaseForm.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L135 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/NewPhaseForm.tsx:135 · Callout</div>
               <Callout status="warning"><strong>Warning:</strong>Starting a new phase will immediately affect
           all linked Feature Flags and Visual Changes.
         </Callout>
@@ -732,13 +732,13 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Experiment/Public/PublicExperimentResults.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L127 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/Public/PublicExperimentResults.tsx:127 · Callout</div>
               <Callout status="error">Experiment snapshot error
             </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n              Experiment snapshot error\n            </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L133 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/Public/PublicExperimentResults.tsx:133 · Callout</div>
               <Callout status="error">Missing analysis
             </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n              Missing analysis\n            </Callout>"}</pre></details>
@@ -749,14 +749,14 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Experiment/ReleaseChangesForm.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L219 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/ReleaseChangesForm.tsx:219 · Callout</div>
               <Callout status="warning" mt="2" className="text-danger"><Stub name="FaExclamationCircle"></Stub>This Bandit will restart. Variation weights will reset (
               <Expr>{"(() => { const variations = getLatestPhaseVariations(experiment); return variations .map((…"}</Expr>).
             </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\" mt=\"2\" className=\"text-danger\">\n              <FaExclamationCircle className=\"mr-2\" />\n              This Bandit will restart. Variation weights will reset (\n              {(() => {\n                const variations = getLatestPhaseVariations(experiment);\n                return variations\n                  .map((_, i) =>\n                    i < 3\n                      ? formatPercent(1 / (variations.length ?? 2))\n                      : i === 3\n                        ? \"...\"\n                        : null,\n                  )\n                  .filter(Boolean)\n                  .join(\", \");\n              })()}\n              ).\n            </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L251 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/ReleaseChangesForm.tsx:251 · Callout</div>
               <Callout status="warning"><Stub name="FaExclamationCircle"></Stub>Starting a new phase without
           re-randomizing can lead to carryover bias. Consider re-randomizing to
           mitigate.
@@ -764,13 +764,13 @@ export default function DebugAllCalloutsGenerated() {
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\">\n          <FaExclamationCircle className=\"mr-1\" /> Starting a new phase without\n          re-randomizing can lead to carryover bias. Consider re-randomizing to\n          mitigate.\n        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L426 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/ReleaseChangesForm.tsx:426 · Callout</div>
               <Callout status="info" mt="2" mb="0"><Stub name="BsLightbulb"></Stub>Re-randomize traffic{" "}<Expr>{"recommendStickyBucketing && switchToSB ? \" or use Sticky Bucketing\" : \"\""}</Expr>{" "}to help mitigate.
                 </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" mt=\"2\" mb=\"0\">\n                  <BsLightbulb /> Re-randomize traffic{\" \"}\n                  {recommendStickyBucketing && switchToSB\n                    ? \" or use Sticky Bucketing\"\n                    : \"\"}{\" \"}\n                  to help mitigate.\n                </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L461 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/ReleaseChangesForm.tsx:461 · Callout</div>
               <Callout status="info" mt="2" mb="0"><Stub name="BsLightbulb"></Stub>You may be able to use Sticky Bucketing to prevent
               variation hopping.
             </Callout>
@@ -782,23 +782,23 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Experiment/Results.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L198 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/Results.tsx:198 · Callout</div>
               <Callout status="error" mx="3" my="4"><Expr>{"error.message"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" mx=\"3\" my=\"4\">\n        {error.message}\n      </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L231 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/Results.tsx:231 · Callout</div>
               <Callout status="info" m="3">Add at least 1 metric to view results.{" "}<Expr>{"editMetrics && ( <button className=\"btn btn-primary btn-sm ml-3\" type=\"button\" onClick={(e…"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" m=\"3\">\n          Add at least 1 metric to view results.{\" \"}\n          {editMetrics && (\n            <button\n              className=\"btn btn-primary btn-sm ml-3\"\n              type=\"button\"\n              onClick={(e) => {\n                e.preventDefault();\n                editMetrics();\n              }}\n            >\n              Add Metrics\n            </button>\n          )}\n        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L249 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/Results.tsx:249 · Callout</div>
               <Callout status="error" mx="3" my="4">The most recent update failed.
           <Expr>{"hasQueries ? ( <> {\" \"} <Link onClick={() => setQueriesModalOpen(true)}> View queries </Li…"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" mx=\"3\" my=\"4\">\n          The most recent update failed.\n          {hasQueries ? (\n            <>\n              {\" \"}\n              <Link onClick={() => setQueriesModalOpen(true)}>\n                View queries\n              </Link>\n              {\" to see what went wrong.\"}\n            </>\n          ) : (\n            \"\"\n          )}\n        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L271 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/Results.tsx:271 · Callout</div>
               <Callout status="info" mx="3" mb="4">No data yet.{" "}<Expr>{"!hasValidStatsEngine ? ( \"Stats engine was changed. Try clicking the 'Update' button above…"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" mx=\"3\" mb=\"4\">\n            No data yet.{\" \"}\n            {!hasValidStatsEngine ? (\n              \"Stats engine was changed. Try clicking the 'Update' button above to re-run the analysis.\"\n            ) : (\n              <>\n                {snapshot &&\n                  phaseAgeMinutes >= 120 &&\n                  `Make sure your ${\n                    isBandit\n                      ? \"Bandit\"\n                      : experiment.type === \"holdout\"\n                        ? \"Holdout\"\n                        : \"Experiment\"\n                  } is tracking properly.`}\n                {snapshot &&\n                  phaseAgeMinutes < 120 &&\n                  (phaseAgeMinutes < 0\n                    ? \"This experiment will start \" +\n                      relativeDate(\n                        experiment.phases[phase]?.dateStarted ?? \"\",\n                      ) +\n                      \". Wait until it's been running for a little while and click the 'Update' button above to check again.\"\n                    : \"It was just started \" +\n                      ago(experiment.phases[phase]?.dateStarted ?? \"\") +\n                      \". Give it a little longer and click the 'Update' button above to check again.\")}\n                {!snapshot &&\n                  datasource &&\n                  permissionsUtil.canRunExperimentQueries(datasource) &&\n                  `Click the \"Update\" button above.`}\n                {snapshotLoading && <div> Snapshot loading...</div>}\n              </>\n            )}\n          </Callout>"}</pre></details>
             </Box>
@@ -808,12 +808,12 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Experiment/ResultsFilter/MigrateResultsToDashboardModalPages.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L211 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/ResultsFilter/MigrateResultsToDashboardModalPages.tsx:211 · Callout</div>
               <Callout status="error" mb="3"><Expr>{"error"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" mb=\"3\">\n            {error}\n          </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L368 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/ResultsFilter/MigrateResultsToDashboardModalPages.tsx:368 · Callout</div>
               <Callout status="wizard" mt="3">This dashboard already contains a similar block. Click &quot;Save
             &amp; Continue&quot; to create this block anyhow.
           </Callout>
@@ -825,22 +825,22 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Experiment/SRMWarning.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L115 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/SRMWarning.tsx:115 · Callout</div>
               <Callout status="info"><Expr>{"NOT_ENOUGH_EVIDENCE_MESSAGE"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\">{NOT_ENOUGH_EVIDENCE_MESSAGE}</Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L126 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/SRMWarning.tsx:126 · Callout</div>
               <Callout status="warning"><Expr>{"srmWarningMessage"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\">{srmWarningMessage}</Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L178 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/SRMWarning.tsx:178 · Callout</div>
               <Callout status="success"><b>No Sample Ratio Mismatch (SRM) detected. P-value above{" "}<Expr>{"srmThreshold"}</Expr>.{" "}<Expr>{"!isBandit && ( <LearnMore type={type} setOpen={setOpen} body={NOT_ENOUGH_EVIDENCE_MESSAGE}…"}</Expr></b></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"success\">\n          <b>\n            No Sample Ratio Mismatch (SRM) detected. P-value above{\" \"}\n            {srmThreshold}.{\" \"}\n            {!isBandit && (\n              <LearnMore\n                type={type}\n                setOpen={setOpen}\n                body={NOT_ENOUGH_EVIDENCE_MESSAGE}\n              />\n            )}\n          </b>\n        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L192 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/SRMWarning.tsx:192 · Callout</div>
               <Callout status="warning"><strong>Sample Ratio Mismatch (SRM) detected. P-value below{" "}<Expr>{"pValueFormatter(srmThreshold)"}</Expr></strong>.{" "}<Expr>{"linkToHealthTab && setTab && snapshot?.health?.traffic.dimension?.dim_exposure_date ? ( <p…"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\">\n          <strong>\n            Sample Ratio Mismatch (SRM) detected. P-value below{\" \"}\n            {pValueFormatter(srmThreshold)}\n          </strong>\n          .{\" \"}\n          {linkToHealthTab &&\n          setTab &&\n          snapshot?.health?.traffic.dimension?.dim_exposure_date ? (\n            <p className=\"mb-0\">\n              Results are likely untrustworthy. See the{\" \"}\n              <a\n                className=\"a\"\n                role=\"button\"\n                onClick={() => {\n                  track(\"Open health tab\", {\n                    source: \"results-tab-srm-warning\",\n                  });\n                  setTab(\"health\");\n                }}\n              >\n                health tab\n              </a>{\" \"}\n              for more details.\n            </p>\n          ) : (\n            <p className=\"mb-0\">\n              There is likely a bug in the implementation.{\" \"}\n              <LearnMore\n                type={type}\n                setOpen={setOpen}\n                body={srmWarningMessage}\n              />\n            </p>\n          )}\n        </Callout>"}</pre></details>
             </Box>
@@ -850,19 +850,19 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Experiment/StatusBanner.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L35 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/StatusBanner.tsx:35 · Callout</div>
               <Callout status="success" mb="0"><div className="d-flex"><div className="mr-auto"><strong><Expr>{"result === \"won\" && `The experiment won!`"}</Expr><Expr>{"result === \"lost\" && `The experiment lost!`"}</Expr><Expr>{"result === \"dnf\" && `The experiment was stopped early and did not finish.`"}</Expr><Expr>{"result === \"inconclusive\" && `The results were inconclusive.`"}</Expr><Expr>{"!result && `The experiment was stopped, but a final decision has not been made yet.`"}</Expr></strong></div><Expr>{"releasedVariation && ( <div className=\"px-3\"> {(result === \"won\" || result === \"lost\") && …"}</Expr><Expr>{"editResult && ( <div> <a href=\"#\" className=\"alert-link float-right ml-2\" onClick={(e) => …"}</Expr></div><Expr>{"experiment?.analysis && ( <div className=\"card text-dark mt-2\"> <div className=\"card-body\"…"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout\n        status={\n          result === \"won\"\n            ? \"success\"\n            : result === \"lost\"\n              ? \"error\"\n              : result === \"dnf\"\n                ? \"warning\"\n                : \"info\"\n        }\n        mb=\"0\"\n      >\n        <div className=\"d-flex\">\n          <div className=\"mr-auto\">\n            <strong>\n              {result === \"won\" && `The experiment won!`}\n              {result === \"lost\" && `The experiment lost!`}\n              {result === \"dnf\" &&\n                `The experiment was stopped early and did not finish.`}\n              {result === \"inconclusive\" && `The results were inconclusive.`}\n              {!result &&\n                `The experiment was stopped, but a final decision has not been made yet.`}\n            </strong>\n          </div>\n          {releasedVariation && (\n            <div className=\"px-3\">\n              {(result === \"won\" || result === \"lost\") &&\n              winningVariation !== releasedVariation ? (\n                <>\n                  <strong>\n                    &quot;\n                    {winningVariation}\n                    &quot;\n                  </strong>{\" \"}\n                  won, but{\" \"}\n                </>\n              ) : null}\n              <strong>\n                &quot;\n                {releasedVariation}\n                &quot;\n              </strong>{\" \"}\n              was rolled out to 100%\n            </div>\n          )}\n          {editResult && (\n            <div>\n              <a\n                href=\"#\"\n                className=\"alert-link float-right ml-2\"\n                onClick={(e) => {\n                  e.preventDefault();\n                  editResult();\n                }}\n              >\n                <FaPencilAlt />\n              </a>\n            </div>\n          )}\n        </div>\n        {experiment?.analysis && (\n          <div className=\"card text-dark mt-2\">\n            <div className=\"card-body\">\n              <Markdown className=\"card-text\">{experiment.analysis}</Markdown>\n            </div>\n          </div>\n        )}\n      </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L108 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/StatusBanner.tsx:108 · Callout</div>
               <Callout status="info" mb="0" action={<ActionPlaceholder />}><strong>This experiment is currently running.</strong></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout\n        status=\"info\"\n        mb=\"0\"\n        action={\n          editResult && (\n            <Link onClick={() => editResult()}>\n              Stop{\" \"}\n              {experiment.type === \"multi-armed-bandit\"\n                ? \"Bandit\"\n                : \"Experiment\"}\n            </Link>\n          )\n        }\n      >\n        <strong>This experiment is currently running.</strong>\n      </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L129 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/StatusBanner.tsx:129 · Callout</div>
               <Callout status="warning" mb="0" action={<ActionPlaceholder />}><strong>This is a draft experiment.</strong></Callout>
-              <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout\n        status=\"warning\"\n        mb=\"0\"\n        action={\n          editResult && (\n            <Button\n              color=\"link\"\n              className=\"p-0\"\n              onClick={async () => {\n                // Already has a phase, just update the status\n                await apiCall(`/experiment/${experiment?.id}/status`, {\n                  method: \"POST\",\n                  body: JSON.stringify({\n                    status: \"running\",\n                  }),\n                });\n                mutateExperiment();\n              }}\n            >\n              Start Experiment\n            </Button>\n          )\n        }\n      >\n        <strong>This is a draft experiment.</strong>\n      </Callout>"}</pre></details>
+              <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout\n        status=\"warning\"\n        mb=\"0\"\n        action={\n          editResult && (\n            <Button\n              variant=\"ghost\"\n              color=\"inherit\"\n              onClick={async () => {\n                // Already has a phase, just update the status\n                await apiCall(`/experiment/${experiment?.id}/status`, {\n                  method: \"POST\",\n                  body: JSON.stringify({\n                    status: \"running\",\n                  }),\n                });\n                mutateExperiment();\n              }}\n            >\n              Start Experiment\n            </Button>\n          )\n        }\n      >\n        <strong>This is a draft experiment.</strong>\n      </Callout>"}</pre></details>
             </Box>
           </Flex>
         </div>
@@ -870,13 +870,13 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Experiment/StopExperimentForm.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L301 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/StopExperimentForm.tsx:301 · Callout</div>
               <Callout status="warning" mb="3" mt="-2">Conclusion does not match the recommendation.
             </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\" mb=\"3\" mt=\"-2\">\n              Conclusion does not match the recommendation.\n            </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L338 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/StopExperimentForm.tsx:338 · Callout</div>
               <Callout status="warning" mb="2" mt="-2">Currently only{" "}<strong><Expr>{"percentFormatter.format(lastPhase.coverage)"}</Expr></strong>{" "}of traffic is directed at this experiment.
                 <br />Upon rollout, <strong>100%</strong>of traffic will be directed
                 towards the releeased variation.
@@ -884,13 +884,13 @@ export default function DebugAllCalloutsGenerated() {
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\" mb=\"2\" mt=\"-2\">\n                Currently only{\" \"}\n                <strong>{percentFormatter.format(lastPhase.coverage)}</strong>{\" \"}\n                of traffic is directed at this experiment.\n                <br />\n                Upon rollout, <strong>100%</strong> of traffic will be directed\n                towards the releeased variation.\n              </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L367 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/StopExperimentForm.tsx:367 · Callout</div>
               <Callout status="warning" mb="3" mt="-2">Variation selected does not match the recommendation.
                   </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\" mb=\"3\" mt=\"-2\">\n                    Variation selected does not match the recommendation.\n                  </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L373 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/StopExperimentForm.tsx:373 · Callout</div>
               <Callout status="info" mb="3" mt="-2">If you don&apos;t enable a Temporary Rollout, all experiment
                 traffic will immediately revert to the default control
                 experience when you submit this form.
@@ -903,13 +903,13 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Experiment/TabbedPage/AnalysisSettingsSummary.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L918 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/TabbedPage/AnalysisSettingsSummary.tsx:918 · Callout</div>
               <Callout status="warning" mt="2"><Text>Updates will rescan full experiment data.
           </Text>{" "}<Expr>{"incrementalPipelineUnsupportedReason"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\" mt=\"2\">\n          <Text weight=\"semibold\" size=\"medium\">\n            Updates will rescan full experiment data.\n          </Text>{\" \"}\n          {incrementalPipelineUnsupportedReason}\n        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L937 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/TabbedPage/AnalysisSettingsSummary.tsx:937 · Callout</div>
               <Callout status="error" mt="2"><strong>Error updating data: </strong><Expr>{"refreshError"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" mt=\"2\">\n            <strong>Error updating data: </strong> {refreshError}\n          </Callout>"}</pre></details>
             </Box>
@@ -919,33 +919,33 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Experiment/TabbedPage/BanditSummaryResultsTab.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L88 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/TabbedPage/BanditSummaryResultsTab.tsx:88 · Callout</div>
               <Callout status="warning" mx="3" mb="2">No metric was set for this Bandit.
       </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\" mx=\"3\" mb=\"2\">\n        No metric was set for this Bandit.\n      </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L101 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/TabbedPage/BanditSummaryResultsTab.tsx:101 · Callout</div>
               <Callout status="info" mx="3" mb="4">Your experiment is still in a <strong>draft</strong>state. You must
             start the experiment first before seeing results.
           </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" mx=\"3\" mb=\"4\">\n            Your experiment is still in a <strong>draft</strong> state. You must\n            start the experiment first before seeing results.\n          </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L110 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/TabbedPage/BanditSummaryResultsTab.tsx:110 · Callout</div>
               <Callout status="info" mx="3" mb="2">This Bandit is still in its <strong>Exploratory</strong>stage.
             Please wait a little while longer before variation weights update.
           </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" mx=\"3\" mb=\"2\">\n            This Bandit is still in its <strong>Exploratory</strong> stage.\n            Please wait a little while longer before variation weights update.\n          </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L118 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/TabbedPage/BanditSummaryResultsTab.tsx:118 · Callout</div>
               <Callout status="info" mx="3" mb="4">No data yet.
           </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" mx=\"3\" mb=\"4\">\n            No data yet.\n          </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L123 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/TabbedPage/BanditSummaryResultsTab.tsx:123 · Callout</div>
               <Callout status="info" mx="3" mb="4">No data available for this phase.
           </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" mx=\"3\" mb=\"4\">\n            No data available for this phase.\n          </Callout>"}</pre></details>
@@ -956,7 +956,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Experiment/TabbedPage/BanditUpdateStatus.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L213 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/TabbedPage/BanditUpdateStatus.tsx:213 · Callout</div>
               <Callout status="error" size="sm" mx="2"><Flex align="start" justify="between" gap="2"><div><Stub name="FaExclamationTriangle"></Stub><Expr>{"error"}</Expr></div><Expr>{"generatedSnapshot || latest ? ( <div> <ViewAsyncQueriesButton queries={ (generatedSnapshot…"}</Expr></Flex></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" size=\"sm\" mx=\"2\">\n              <Flex align=\"start\" justify=\"between\" gap=\"2\">\n                <div>\n                  <FaExclamationTriangle className=\"mr-1\" />\n                  {error}\n                </div>\n                {generatedSnapshot || latest ? (\n                  <div>\n                    <ViewAsyncQueriesButton\n                      queries={\n                        (generatedSnapshot || latest)?.queries?.map(\n                          (q) => q.query,\n                        ) ?? []\n                      }\n                      error={(generatedSnapshot || latest)?.error}\n                      status={status}\n                      display={null}\n                      color=\"link link-purple p-0 pb-1\"\n                      condensed={true}\n                      hideQueryCount={true}\n                    />\n                  </div>\n                ) : null}\n              </Flex>\n            </Callout>"}</pre></details>
             </Box>
@@ -966,7 +966,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Experiment/TabbedPage/EditExperimentInfoModal.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L111 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/TabbedPage/EditExperimentInfoModal.tsx:111 · Callout</div>
               <Callout status="warning">Moving to a different Project may prevent your linked Feature Flags,
           Visual Changes, and URL Redirects from being sent to users, and could
           restrict use of some Data Sources and Metrics.
@@ -979,7 +979,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Experiment/TabbedPage/EditHoldoutInfoModal.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L112 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/TabbedPage/EditHoldoutInfoModal.tsx:112 · Callout</div>
               <Callout status="warning">Changing projects could restrict use of some Data Sources and Metrics.
         </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\">\n          Changing projects could restrict use of some Data Sources and Metrics.\n        </Callout>"}</pre></details>
@@ -990,7 +990,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Experiment/TabbedPage/ExperimentHeader.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L556 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/TabbedPage/ExperimentHeader.tsx:556 · Callout</div>
               <Callout status="warning"><Stub name="Collapsible"><ul className="ml-0 pl-3 mt-3"><li>A <strong>single decision metric</strong>will be
                       automatically assigned. You may change this before running
                       the experiment.
@@ -1002,28 +1002,28 @@ export default function DebugAllCalloutsGenerated() {
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\">\n                <Collapsible\n                  trigger={\n                    <Flex justify=\"between\" gap=\"1\">\n                      Some of your experiment settings may be altered.{\" \"}\n                      <Box>\n                        <FaAngleRight className=\"chevron\" />\n                      </Box>\n                    </Flex>\n                  }\n                  transitionTime={100}\n                >\n                  <ul className=\"ml-0 pl-3 mt-3\">\n                    <li>\n                      A <strong>single decision metric</strong> will be\n                      automatically assigned. You may change this before running\n                      the experiment.\n                    </li>\n                    <li>\n                      Experiment variations will begin with{\" \"}\n                      <strong>equal weights</strong> (\n                      {(() => {\n                        const variations = getLatestPhaseVariations(experiment);\n                        return variations\n                          .map((_, i) =>\n                            i < 3\n                              ? formatPercent(1 / (variations.length ?? 2))\n                              : i === 3\n                                ? \"...\"\n                                : null,\n                          )\n                          .filter(Boolean)\n                          .join(\", \");\n                      })()}\n                      ).\n                    </li>\n                    <li>\n                      The stats engine will be locked to{\" \"}\n                      <strong>Bayesian</strong>.\n                    </li>\n                    <li>\n                      Any <strong>Activation Metric</strong>,{\" \"}\n                      <strong>Segments</strong>,{\" \"}\n                      <strong>Conversion Window overrides</strong>,{\" \"}\n                      <strong>Custom SQL Filters</strong>, or{\" \"}\n                      <strong>Metric Overrides</strong> will be removed.\n                    </li>\n                  </ul>\n                </Collapsible>\n              </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L650 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/TabbedPage/ExperimentHeader.tsx:650 · Callout</div>
               <Callout status="warning">This will immediately stop all linked Feature Flags, Visual
                 Editor Changes, and URL Redirects from running
               </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\">\n                This will immediately stop all linked Feature Flags, Visual\n                Editor Changes, and URL Redirects from running\n              </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L690 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/TabbedPage/ExperimentHeader.tsx:690 · Callout</div>
               <Callout status="warning">This will immediately stop all linked Feature Flags, Visual
                 Editor Changes, and URL Redirects from running
               </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\">\n                This will immediately stop all linked Feature Flags, Visual\n                Editor Changes, and URL Redirects from running\n              </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L744 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/TabbedPage/ExperimentHeader.tsx:744 · Callout</div>
               <Callout status="info" size="sm">This <Expr>{"isBandit ? \"Bandit\" : \"Experiment\""}</Expr>is only viewable
                 within your organization.
               </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" size=\"sm\">\n                This {isBandit ? \"Bandit\" : \"Experiment\"} is only viewable\n                within your organization.\n              </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L750 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/TabbedPage/ExperimentHeader.tsx:750 · Callout</div>
               <Callout status="warning" size="sm">Anyone with the link can view this{" "}<Expr>{"isBandit ? \"Bandit\" : \"Experiment\""}</Expr>, even those outside your
                   organization.
                 </Callout>
@@ -1035,22 +1035,22 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Experiment/TabbedPage/HealthTab.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L135 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/TabbedPage/HealthTab.tsx:135 · Callout</div>
               <Callout status="info" mt="3"><Expr>{"noExposureQueryMessage"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" mt=\"3\">\n          {noExposureQueryMessage}\n        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L141 · Callout</div>
-              <Callout status="info" mt="3"><Flex gap="4"><Expr>{"runHealthTrafficQuery === undefined ? \"Welcome to the new health tab! You can use this tab…"}</Expr><Expr>{"hasPermissionToConfigHealthTag ? ( <> click the button on the right. <Button className=\"ml…"}</Expr></Flex></Callout>
-              <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" mt=\"3\">\n        <Flex gap=\"4\">\n          {runHealthTrafficQuery === undefined\n            ? \"Welcome to the new health tab! You can use this tab to view experiment traffic over time, perform balance checks, and check for multiple exposures. To get started, \"\n            : \"Health queries are disabled in your Organization Settings. To enable them and set up the health tab, \"}\n          {hasPermissionToConfigHealthTag ? (\n            <>\n              click the button on the right.\n              <Button\n                className=\"ml-2\"\n                style={{ width: \"200px\" }}\n                onClick={async () => {\n                  track(\"Health Tab Onboarding Opened\", {\n                    source: \"health-tab\",\n                  });\n                  setSetupModalOpen(true);\n                }}\n              >\n                Set up Health Tab\n              </Button>\n              {setupModalOpen ? (\n                <HealthTabOnboardingModal\n                  open={setupModalOpen}\n                  close={() => setSetupModalOpen(false)}\n                  dataSource={datasource}\n                  exposureQuery={exposureQuery}\n                  healthTabOnboardingPurpose={\"setup\"}\n                  healthTabConfigParams={healthTabConfigParams}\n                />\n              ) : null}\n            </>\n          ) : (\n            \"ask an admin in your organization to navigate to any experiment health tab and follow the onboarding process.\"\n          )}\n        </Flex>\n      </Callout>"}</pre></details>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/TabbedPage/HealthTab.tsx:141 · Callout</div>
+              <Callout status="info" mt="3"><Flex gap="4"><Expr>{"runHealthTrafficQuery === undefined ? \"Welcome to the new health tab! You can use this tab…"}</Expr><Expr>{"hasPermissionToConfigHealthTag ? ( <> click the button on the right. <Button ml=\"2\" style=…"}</Expr></Flex></Callout>
+              <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" mt=\"3\">\n        <Flex gap=\"4\">\n          {runHealthTrafficQuery === undefined\n            ? \"Welcome to the new health tab! You can use this tab to view experiment traffic over time, perform balance checks, and check for multiple exposures. To get started, \"\n            : \"Health queries are disabled in your Organization Settings. To enable them and set up the health tab, \"}\n          {hasPermissionToConfigHealthTag ? (\n            <>\n              click the button on the right.\n              <Button\n                ml=\"2\"\n                style={{ width: \"200px\" }}\n                onClick={async () => {\n                  track(\"Health Tab Onboarding Opened\", {\n                    source: \"health-tab\",\n                  });\n                  setSetupModalOpen(true);\n                }}\n              >\n                Set up Health Tab\n              </Button>\n              {setupModalOpen ? (\n                <HealthTabOnboardingModal\n                  open={setupModalOpen}\n                  close={() => setSetupModalOpen(false)}\n                  dataSource={datasource}\n                  exposureQuery={exposureQuery}\n                  healthTabOnboardingPurpose={\"setup\"}\n                  healthTabConfigParams={healthTabConfigParams}\n                />\n              ) : null}\n            </>\n          ) : (\n            \"ask an admin in your organization to navigate to any experiment health tab and follow the onboarding process.\"\n          )}\n        </Flex>\n      </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L182 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/TabbedPage/HealthTab.tsx:182 · Callout</div>
               <Callout status="error" mt="3"><Expr>{"error.message"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" mt=\"3\">\n        {error.message}\n      </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L190 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/TabbedPage/HealthTab.tsx:190 · Callout</div>
               <Callout status="error" mt="3"><div className="mb-2">Please update your{" "}<Stub name="Link">Datasource Settings
           </Stub>{" "}to return fewer dimension slices per dimension or select fewer
           dimensions to use in traffic breakdowns.
@@ -1060,45 +1060,45 @@ export default function DebugAllCalloutsGenerated() {
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" mt=\"3\">\n        <div className=\"mb-2\">\n          Please update your{\" \"}\n          <Link href={`/datasources/${experiment.datasource}`}>\n            Datasource Settings\n          </Link>{\" \"}\n          to return fewer dimension slices per dimension or select fewer\n          dimensions to use in traffic breakdowns.\n        </div>\n\n        <div>\n          For more advice, see the documentation on the Health Tab{\" \"}\n          <a href=\"https://docs.growthbook.io/app/experiment-results#adding-dimensions-to-health-tab\">\n            here\n          </a>\n          .\n        </div>\n      </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L213 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/TabbedPage/HealthTab.tsx:213 · Callout</div>
               <Callout status="info" mt="3">No data found. It is likely there are no units in your experiment yet.
       </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" mt=\"3\">\n        No data found. It is likely there are no units in your experiment yet.\n      </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L221 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/TabbedPage/HealthTab.tsx:221 · Callout</div>
               <Callout status="info" mt="3">There was an error running the query for health tab:{" "}<Expr>{"snapshot?.health?.traffic.error"}</Expr>.
       </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" mt=\"3\">\n        There was an error running the query for health tab:{\" \"}\n        {snapshot?.health?.traffic.error}.\n      </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L231 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/TabbedPage/HealthTab.tsx:231 · Callout</div>
               <Callout status="info" mt="3" icon={<PlaceholderIcon />}>Snapshot refreshing, health data loading...
         </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" mt=\"3\" icon={<LoadingSpinner />}>\n          Snapshot refreshing, health data loading...\n        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L238 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/TabbedPage/HealthTab.tsx:238 · Callout</div>
               <Callout status="info" mt="3"><Expr>{"noExposureQueryMessage"}</Expr>Then, next time you update results, the
           health tab will be available.
         </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" mt=\"3\">\n          {noExposureQueryMessage} Then, next time you update results, the\n          health tab will be available.\n        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L247 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/TabbedPage/HealthTab.tsx:247 · Callout</div>
               <Callout status="info" mt="3">Start the Bandit to see health data.
           </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" mt=\"3\">\n            Start the Bandit to see health data.\n          </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L253 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/TabbedPage/HealthTab.tsx:253 · Callout</div>
               <Callout status="info" mt="3">No updates yet. Traffic and health results will appear after a
             successful refresh of the results.
           </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" mt=\"3\">\n            No updates yet. Traffic and health results will appear after a\n            successful refresh of the results.\n          </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L261 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/TabbedPage/HealthTab.tsx:261 · Callout</div>
               <Callout status="info" mt="3">Please return to the results page and run a query to see health data.
       </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" mt=\"3\">\n        Please return to the results page and run a query to see health data.\n      </Callout>"}</pre></details>
@@ -1109,7 +1109,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Experiment/TabbedPage/HealthTabOnboardingModal.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L186 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/TabbedPage/HealthTabOnboardingModal.tsx:186 · Callout</div>
               <Callout status="error"><Expr>{"error?.message"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">{error?.message}</Callout>"}</pre></details>
             </Box>
@@ -1119,7 +1119,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Experiment/TabbedPage/Implementation.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L266 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/TabbedPage/Implementation.tsx:266 · Callout</div>
               <Callout status="info" mb="4">This experiment has no linked GrowthBook implementation (linked
             feature flag, visual editor changes, or URL redirect).{" "}<Expr>{"experiment.status === \"stopped\" ? \"Either the implementation was deleted or the implementa…"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" mb=\"4\">\n            This experiment has no linked GrowthBook implementation (linked\n            feature flag, visual editor changes, or URL redirect).{\" \"}\n            {experiment.status === \"stopped\"\n              ? \"Either the implementation was deleted or the implementation, traffic, and targeting were managed by an external system.\"\n              : \"The implementation, traffic, and targeting may be managed by an external system.\"}\n          </Callout>"}</pre></details>
@@ -1130,14 +1130,14 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Experiment/TabbedPage/ResultsTab.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L203 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/TabbedPage/ResultsTab.tsx:203 · Callout</div>
               <Callout status="info" mb="5">Bandits are better than experiments at directing traffic to the best
           variation but they can produce biased results.
         </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" mb=\"5\">\n          Bandits are better than experiments at directing traffic to the best\n          variation but they can produce biased results.\n        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L390 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/TabbedPage/ResultsTab.tsx:390 · Callout</div>
               <Callout status="info" mx="3" my="4">Your experiment is still in a <strong>draft</strong>state. You
               must start the experiment first before seeing results.
             </Callout>
@@ -1149,7 +1149,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Experiment/TabbedPage/SetupTabOverview.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L284 · PremiumCallout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/TabbedPage/SetupTabOverview.tsx:284 · PremiumCallout</div>
               <MockUser><PremiumCallout mt="3" commercialFeature="custom-metadata" dismissible docSection="customMetadata" id="dbg-1"><strong>Custom Fields</strong>add structured metadata to
                     experiments and feature flags, like Jira links, categories
                     and more.
@@ -1157,25 +1157,25 @@ export default function DebugAllCalloutsGenerated() {
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<PremiumCallout\n                    mt=\"3\"\n                    commercialFeature=\"custom-metadata\"\n                    dismissible={true}\n                    id=\"exp-description-custom-metadata\"\n                    docSection=\"customMetadata\"\n                  >\n                    <strong>Custom Fields</strong> add structured metadata to\n                    experiments and feature flags, like Jira links, categories\n                    and more.\n                  </PremiumCallout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L341 · PremiumCallout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/TabbedPage/SetupTabOverview.tsx:341 · PremiumCallout</div>
               <MockUser><PremiumCallout commercialFeature="ai-suggestions" id="dbg-2"><span>Improve your hypothesis with AI. </span></PremiumCallout></MockUser>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<PremiumCallout\n                    id=\"ai-suggestions-hypothesis\"\n                    commercialFeature=\"ai-suggestions\"\n                  >\n                    <span>Improve your hypothesis with AI. </span>\n                  </PremiumCallout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L348 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/TabbedPage/SetupTabOverview.tsx:348 · Callout</div>
               <Callout status="wizard" dismissible id="dbg-3"><span>Set hypothesis formatting standards for the organization
                       in General Settings.{" "}<Stub name="Link">Edit Hypothesis
                       </Stub><Stub name="PiArrowSquareOut"></Stub></span></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout\n                    status=\"wizard\"\n                    dismissible\n                    id=\"hypothesis-formatting-standards\"\n                  >\n                    <span>\n                      Set hypothesis formatting standards for the organization\n                      in General Settings.{\" \"}\n                      <Link\n                        href=\"/settings/#ai\"\n                        className=\"underline\"\n                        target=\"_blank\"\n                        rel=\"noopener noreferrer\"\n                      >\n                        Edit Hypothesis\n                      </Link>\n                      <PiArrowSquareOut className=\"ml-1\" />\n                    </span>\n                  </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L368 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/TabbedPage/SetupTabOverview.tsx:368 · Callout</div>
               <Callout status="wizard"><span>Improve your hypothesis with AI.{" "}<Stub name="Link">Enable AI from General Settings
                       </Stub><Stub name="PiArrowSquareOut"></Stub></span></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"wizard\">\n                    <span>\n                      Improve your hypothesis with AI.{\" \"}\n                      <Link\n                        href=\"/settings/#ai\"\n                        className=\"underline\"\n                        target=\"_blank\"\n                        rel=\"noopener noreferrer\"\n                      >\n                        Enable AI from General Settings\n                      </Link>\n                      <PiArrowSquareOut className=\"ml-1\" />\n                    </span>\n                  </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L383 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/TabbedPage/SetupTabOverview.tsx:383 · Callout</div>
               <Callout status="wizard"><span>Improve your hypothesis with AI.{" "}<Stub name="Link">Enable AI
                       </Stub><Stub name="PiArrowSquareOut"></Stub></span></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"wizard\">\n                    <span>\n                      Improve your hypothesis with AI.{\" \"}\n                      <Link\n                        onClick={() => {\n                          setShowOptInModal(true);\n                        }}\n                        className=\"underline\"\n                      >\n                        Enable AI\n                      </Link>\n                      <PiArrowSquareOut className=\"ml-1\" />\n                    </span>\n                  </Callout>"}</pre></details>
@@ -1186,7 +1186,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Experiment/TabbedPage/StartExperimentModal.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L349 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/TabbedPage/StartExperimentModal.tsx:349 · Callout</div>
               <Callout status="warning" mb="3">The scheduled start date{" "}<Text><Expr>{"format(parsedScheduledDate, \"MMM d, yyyy 'at' h:mm a (z)\")"}</Expr></Text>{" "}has passed. Click <Text>Start Now</Text>to
               start the experiment immediately, or close this modal and update
               the schedule.
@@ -1194,14 +1194,14 @@ export default function DebugAllCalloutsGenerated() {
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\" mb=\"3\">\n              The scheduled start date{\" \"}\n              <Text weight=\"semibold\">\n                {format(parsedScheduledDate, \"MMM d, yyyy 'at' h:mm a (z)\")}\n              </Text>{\" \"}\n              has passed. Click <Text weight=\"semibold\">Start Now</Text> to\n              start the experiment immediately, or close this modal and update\n              the schedule.\n            </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L537 · PremiumCallout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/TabbedPage/StartExperimentModal.tsx:537 · PremiumCallout</div>
               <MockUser><PremiumCallout commercialFeature="visual-editor" mb="3" id="dbg-4">This experiment contains visual editor changes, which require a
               paid plan.
             </PremiumCallout></MockUser>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<PremiumCallout\n              commercialFeature=\"visual-editor\"\n              id=\"start-experiment-modal\"\n              mb=\"3\"\n            >\n              This experiment contains visual editor changes, which require a\n              paid plan.\n            </PremiumCallout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L546 · PremiumCallout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/TabbedPage/StartExperimentModal.tsx:546 · PremiumCallout</div>
               <MockUser><PremiumCallout commercialFeature="redirects" mb="3" id="dbg-5">This experiment contains URL redirects, which require a paid plan.
             </PremiumCallout></MockUser>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<PremiumCallout\n              commercialFeature=\"redirects\"\n              id=\"start-experiment-modal\"\n              mb=\"3\"\n            >\n              This experiment contains URL redirects, which require a paid plan.\n            </PremiumCallout>"}</pre></details>
@@ -1212,7 +1212,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Experiment/TabbedPage/StoppedExperimentBanner.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L111 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/TabbedPage/StoppedExperimentBanner.tsx:111 · Callout</div>
               <Callout status="warning" m="3"><div className="d-flex align-items-center"><div><Stub name="FaClock"></Stub><strong>Temporary Rollout Enabled</strong><div className="my-1">This experiment has been stopped, but changes are still being
                 applied to give you time to implement them in code.
               </div>When you no longer need this rollout, stop it to improve your site
@@ -1226,7 +1226,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Experiment/TabbedPage/TrafficAndTargeting.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L245 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/TabbedPage/TrafficAndTargeting.tsx:245 · Callout</div>
               <Callout status="warning" mb="4">No traffic allocation or targeting configured yet. Add a phase to this
           experiment.
         </Callout>
@@ -1238,12 +1238,12 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Experiment/TabbedPage/index.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L562 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/TabbedPage/index.tsx:562 · Callout</div>
               <Callout status="info"><Text><Expr>{"isHoldout ? \"You are viewing the results of the entire holdout period.\" : \"You are viewing…"}</Expr></Text><Stub name="Link"><Expr>{"isHoldout ? \"Switch to the analysis phase to view results with a lookback based on the ana…"}</Expr></Stub></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\">\n              <Text>\n                {isHoldout\n                  ? \"You are viewing the results of the entire holdout period.\"\n                  : \"You are viewing the results of a previous experiment phase.\"}\n              </Text>\n              <Link\n                ml=\"2\"\n                onClick={() => setPhase(experiment.phases.length - 1)}\n              >\n                {isHoldout\n                  ? \"Switch to the analysis phase to view results with a lookback based on the analysis phase start date.\"\n                  : \"Switch to the latest phase\"}\n              </Link>\n            </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L664 · PremiumCallout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/TabbedPage/index.tsx:664 · PremiumCallout</div>
               <MockUser><PremiumCallout commercialFeature="metric-groups" dismissible docSection="metricGroups" mb="2" id="dbg-6"><strong>Metric Groups</strong>help you organize and manage your
             metrics at scale.
           </PremiumCallout></MockUser>
@@ -1255,7 +1255,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Experiment/TargetingForm.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L43 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/TargetingForm.tsx:43 · Callout</div>
               <Callout status="info" mb="4">Changes made below are only metadata changes and will have no impact
             on actual experiment delivery unless you link a GrowthBook-managed
             Linked Feature or Visual Change to this experiment.
@@ -1268,12 +1268,12 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Experiment/Templates/TemplateForm.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L263 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/Templates/TemplateForm.tsx:263 · Callout</div>
               <Callout status="info"><Expr>{"msg"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\">{msg}</Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L266 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/Templates/TemplateForm.tsx:266 · Callout</div>
               <Callout status="warning">You are creating a template under the demo datasource project.
                 This template will be deleted when the demo datasource project
                 is deleted.
@@ -1286,7 +1286,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Experiment/Templates/TemplatesPage.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L186 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/Templates/TemplatesPage.tsx:186 · Callout</div>
               <Callout status="error"><Expr>{"error.message"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">{error.message}</Callout>"}</pre></details>
             </Box>
@@ -1296,7 +1296,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Experiment/UrlRedirectModal.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L185 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/UrlRedirectModal.tsx:185 · Callout</div>
               <Callout status="warning" mt="3"><Stub name="FaExclamationCircle"></Stub><Expr>{"errors.originUrl.message"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\" mt=\"3\">\n            <FaExclamationCircle /> {errors.originUrl.message}\n          </Callout>"}</pre></details>
             </Box>
@@ -1306,7 +1306,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Experiment/UsersTable.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L31 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/UsersTable.tsx:31 · Callout</div>
               <Callout status="error">One or more dimensions has a Sample Ratio Mismatch (SRM){" "}<Stub name="Tooltip"><Stub name="FaQuestionCircle"></Stub></Stub></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n          One or more dimensions has a Sample Ratio Mismatch (SRM){\" \"}\n          <Tooltip\n            body={`An SRM occurs when the observed traffic split is significantly different than expected. This indicates a likely bug.`}\n          >\n            <FaQuestionCircle />\n          </Tooltip>\n        </Callout>"}</pre></details>
             </Box>
@@ -1316,19 +1316,19 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Experiment/VariationIdWarning.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L92 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/VariationIdWarning.tsx:92 · Callout</div>
               <Callout status="info">Results are out of date. Update Data to refresh.
         </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\">\n          Results are out of date. Update Data to refresh.\n        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L112 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/VariationIdWarning.tsx:112 · Callout</div>
               <Callout status="warning"><strong>Warning:</strong>Expected <Expr>{"variations.length"}</Expr>variation ids (
           <Stub name="CommaList"></Stub>), but database returned{" "}<Expr>{"returnedVariations.length === definedVariations.length ? \"a different set\" : returnedVaria…"}</Expr>{" "}(<Stub name="CommaList"></Stub>).{" "}<Expr>{"setVariationIds && datasource && permissionsUtil.canRunExperimentQueries(datasource) && pe…"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\">\n          <strong>Warning:</strong> Expected {variations.length} variation ids (\n          <CommaList vals={definedVariations} />\n          ), but database returned{\" \"}\n          {returnedVariations.length === definedVariations.length\n            ? \"a different set\"\n            : returnedVariations.length}{\" \"}\n          (<CommaList vals={returnedVariations} />\n          ).{\" \"}\n          {setVariationIds &&\n            datasource &&\n            permissionsUtil.canRunExperimentQueries(datasource) &&\n            permissionsUtil.canViewExperimentModal(project) && (\n              <button\n                className=\"btn btn-info btn-sm ml-3\"\n                type=\"button\"\n                onClick={(e) => {\n                  e.preventDefault();\n                  setIdModal(true);\n                }}\n              >\n                Update Ids\n              </button>\n            )}\n        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L145 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/VariationIdWarning.tsx:145 · Callout</div>
               <Callout status="warning"><strong>Warning</strong>: Missing data from the following variation
           ids:{" "}<Stub name="CommaList"></Stub></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\">\n          <strong>Warning</strong>: Missing data from the following variation\n          ids:{\" \"}\n          <CommaList\n            vals={definedVariations.filter(\n              (v) => !returnedVariations.includes(v),\n            )}\n          />\n        </Callout>"}</pre></details>
@@ -1339,7 +1339,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Experiment/VisualChangesetModal.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L284 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/VisualChangesetModal.tsx:284 · Callout</div>
               <Callout status="warning">Your URL patterns do not match the target URL
         </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\">\n          Your URL patterns do not match the target URL\n        </Callout>"}</pre></details>
@@ -1350,7 +1350,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Experiment/holdout/AddToHoldoutModal.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L55 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/holdout/AddToHoldoutModal.tsx:55 · Callout</div>
               <Callout status="error"><Text>Holdouts cannot be added to experiments with linked features that
             are not already in the holdout. Please add the holdout to the
             feature first.
@@ -1358,7 +1358,7 @@ export default function DebugAllCalloutsGenerated() {
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n          <Text>\n            Holdouts cannot be added to experiments with linked features that\n            are not already in the holdout. Please add the holdout to the\n            feature first.\n          </Text>\n        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L65 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/holdout/AddToHoldoutModal.tsx:65 · Callout</div>
               <Callout status="error"><Text>Holdouts cannot be added to experiments with Visual Changesets or
             URL redirects.
           </Text></Callout>
@@ -1370,14 +1370,14 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Experiment/holdout/RemoveFromHoldoutModal.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L49 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/holdout/RemoveFromHoldoutModal.tsx:49 · Callout</div>
               <Callout status="error"><Text>Only draft experiments with no linked features can be removed from a
             holdout.
           </Text></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n          <Text>\n            Only draft experiments with no linked features can be removed from a\n            holdout.\n          </Text>\n        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L56 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Experiment/holdout/RemoveFromHoldoutModal.tsx:56 · Callout</div>
               <Callout status="warning"><Text>Removing this experiment from its holdout will stop holdout-based
             exclusion for when the experiment is running.
           </Text></Callout>
@@ -1389,7 +1389,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/FactTables/AggregatedFactTablesCard.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L270 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/FactTables/AggregatedFactTablesCard.tsx:270 · Callout</div>
               <Callout status="error" mt="3"><Expr>{"runError"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" mt=\"3\">\n              {runError}\n            </Callout>"}</pre></details>
             </Box>
@@ -1399,13 +1399,13 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/FactTables/ColumnList.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L117 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/FactTables/ColumnList.tsx:117 · Callout</div>
               <Callout status="error"><span><strong>Error <Expr>{"columns.length > 0 ? \"Refreshing\" : \"Detecting\""}</Expr>Columns
             </strong>: <Expr>{"factTable.columnsError"}</Expr></span></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n          <span>\n            <strong>\n              Error {columns.length > 0 ? \"Refreshing\" : \"Detecting\"} Columns\n            </strong>\n            : {factTable.columnsError}\n          </span>\n        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L165 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/FactTables/ColumnList.tsx:165 · Callout</div>
               <Callout status="warning" mt="2"><span>Could not detect the data type for some columns. You can manually
             specify data types below. Only numeric columns can be used to create
             Metrics.
@@ -1413,7 +1413,7 @@ export default function DebugAllCalloutsGenerated() {
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\" mt=\"2\">\n          <span>\n            Could not detect the data type for some columns. You can manually\n            specify data types below. Only numeric columns can be used to create\n            Metrics.\n          </span>\n        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L335 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/FactTables/ColumnList.tsx:335 · Callout</div>
               <Callout status="warning" mt="3"><span><strong>Unable to Auto-Detect Columns</strong>. Double check your
             SQL above to make sure it&apos;s correct and returning rows.
           </span></Callout>
@@ -1425,7 +1425,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/FactTables/ColumnModal.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L319 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/FactTables/ColumnModal.tsx:319 · Callout</div>
               <Callout status="warning">This should only be used if we did not auto-detect your Fact Table
           columns. Please double check your SQL first before using this form.
         </Callout>
@@ -1437,24 +1437,24 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/FactTables/CreateMetricFromTemplate.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L128 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/FactTables/CreateMetricFromTemplate.tsx:128 · Callout</div>
               <Callout status="warning" mb="3">A metric with the name &quot;<Expr>{"data.name"}</Expr>&quot; already exists.{" "}<a href="#">Create Anyway
                 </a></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\" mb=\"3\">\n                A metric with the name &quot;{data.name}&quot; already exists.{\" \"}\n                <a\n                  href=\"#\"\n                  onClick={(e) => {\n                    e.preventDefault();\n                    setMetricToCreate({ data });\n                  }}\n                >\n                  Create Anyway\n                </a>\n              </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L150 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/FactTables/CreateMetricFromTemplate.tsx:150 · Callout</div>
               <Callout status="error" mb="3">Failed to parse metric template: <Expr>{"e.message"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" mb=\"3\">\n              Failed to parse metric template: {e.message}\n            </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L173 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/FactTables/CreateMetricFromTemplate.tsx:173 · Callout</div>
               <Callout status="info" mb="3">You must connect a SQL data source first before adding a metric.
           </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" mb=\"3\">\n            You must connect a SQL data source first before adding a metric.\n          </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L177 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/FactTables/CreateMetricFromTemplate.tsx:177 · Callout</div>
               <Callout status="info" mb="3">You must create a fact table first before adding a metric.{" "}<Stub name="Link">Manage Fact Tables</Stub></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" mb=\"3\">\n            You must create a fact table first before adding a metric.{\" \"}\n            <Link href=\"/fact-tables\">Manage Fact Tables</Link>\n          </Callout>"}</pre></details>
             </Box>
@@ -1464,7 +1464,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/FactTables/FactFilterModal.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L177 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/FactTables/FactFilterModal.tsx:177 · Callout</div>
               <Callout status="info"><div className="mb-2">Here are some examples of Filter SQL:</div><table className="table gbtable"><tbody><tr><td><Stub name="InlineCode"></Stub></td></tr><tr><td><Stub name="InlineCode"></Stub></td></tr><tr><td><Stub name="InlineCode"></Stub></td></tr></tbody></table></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\">\n              <div className=\"mb-2\">Here are some examples of Filter SQL:</div>\n              <table className=\"table gbtable\">\n                <tbody>\n                  <tr>\n                    <td>\n                      <InlineCode code={`status = 'active'`} language=\"sql\" />\n                    </td>\n                  </tr>\n                  <tr>\n                    <td>\n                      <InlineCode\n                        code={`discount > 0 AND coupon IS NOT NULL`}\n                        language=\"sql\"\n                      />\n                    </td>\n                  </tr>\n                  <tr>\n                    <td>\n                      <InlineCode\n                        code={`country IN ('US','CA','UK')`}\n                        language=\"sql\"\n                      />\n                    </td>\n                  </tr>\n                </tbody>\n              </table>\n            </Callout>"}</pre></details>
             </Box>
@@ -1474,7 +1474,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/FactTables/FactMetricList.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L282 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/FactTables/FactMetricList.tsx:282 · Callout</div>
               <Callout status="info" mt="2" mb="4">There <Expr>{"recommendedMetrics.length === 1 ? \"is\" : \"are\""}</Expr>{" "}<strong><Expr>{"recommendedMetrics.length"}</Expr></strong>metric
           <Expr>{"recommendedMetrics.length === 1 ? \"\" : \"s\""}</Expr>we recommend creating for
           this fact table.{" "}<a href="#">View Recommendation<Expr>{"recommendedMetrics.length === 1 ? \"\" : \"s\""}</Expr></a></Callout>
@@ -1486,33 +1486,33 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/FactTables/FactMetricModal.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L1216 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/FactTables/FactMetricModal.tsx:1216 · Callout</div>
               <Callout status="error"><p>This fact table does not have any numeric columns. Please select
                 a different fact table.
               </p></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n              <p>\n                This fact table does not have any numeric columns. Please select\n                a different fact table.\n              </p>\n            </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L1224 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/FactTables/FactMetricModal.tsx:1224 · Callout</div>
               <Callout status="error"><p>This fact table does not have any string columns to filter on.
                 Please select a different fact table.
               </p></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n              <p>\n                This fact table does not have any string columns to filter on.\n                Please select a different fact table.\n              </p>\n            </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L1667 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/FactTables/FactMetricModal.tsx:1667 · Callout</div>
               <Callout status="info" mb="3">You are creating a Fact Table Metric.{" "}<a href="#">Switch to legacy SQL <Stub name="FaArrowRight"></Stub></a></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" mb=\"3\">\n              You are creating a Fact Table Metric.{\" \"}\n              <a\n                href=\"#\"\n                onClick={(e) => {\n                  e.preventDefault();\n                  switchToLegacy();\n                }}\n              >\n                Switch to legacy SQL <FaArrowRight />\n              </a>\n            </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L2589 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/FactTables/FactMetricModal.tsx:2589 · Callout</div>
               <Callout status="info">The final metric value will be the percent of all users in the
                 experiment who have at least 1 matching row.
               </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\">\n                The final metric value will be the percent of all users in the\n                experiment who have at least 1 matching row.\n              </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L2594 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/FactTables/FactMetricModal.tsx:2594 · Callout</div>
               <Callout status="info">The final metric value will be the average per-user value for
                 all users in the experiment. Any user without a matching row
                 will have a value of <code>0</code>and will still contribute to
@@ -1521,14 +1521,14 @@ export default function DebugAllCalloutsGenerated() {
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\">\n                The final metric value will be the average per-user value for\n                all users in the experiment. Any user without a matching row\n                will have a value of <code>0</code> and will still contribute to\n                this average.\n              </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L2601 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/FactTables/FactMetricModal.tsx:2601 · Callout</div>
               <Callout status="info">The final metric value will be the selected quantile
                 <Expr>{"quantileSettings.type === \"unit\" ? \" of all aggregated experiment user values\" : \" of all …"}</Expr><Expr>{"quantileSettings.ignoreZeros ? \", ignoring zeros\" : \"\""}</Expr>.
               </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\">\n                The final metric value will be the selected quantile\n                {quantileSettings.type === \"unit\"\n                  ? \" of all aggregated experiment user values\"\n                  : \" of all rows that are matched to experiment users\"}\n                {quantileSettings.ignoreZeros ? \", ignoring zeros\" : \"\"}.\n              </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L2609 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/FactTables/FactMetricModal.tsx:2609 · Callout</div>
               <Callout status="info">The final metric value will be the Numerator divided by the
                 Denominator. We use the Delta Method to provide an accurate
                 estimation of variance.
@@ -1541,7 +1541,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/FactTables/FactTableModal.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L271 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/FactTables/FactTableModal.tsx:271 · Callout</div>
               <Callout status="info">We auto-generated some starter SQL. Customize as needed.
               </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\">\n                We auto-generated some starter SQL. Customize as needed.\n              </Callout>"}</pre></details>
@@ -1552,7 +1552,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Features/AddToHoldoutModal.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L109 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/AddToHoldoutModal.tsx:109 · Callout</div>
               <Callout status="error"><Text>Holdouts cannot be added to features with safe rollout rules or
             experiments that are not in a draft state.
           </Text></Callout>
@@ -1564,7 +1564,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Features/AttributeModal.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L192 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/AttributeModal.tsx:192 · Callout</div>
               <Callout status="warning">Be careful changing the attribute name. Any existing targeting
           conditions that use this attribute will NOT be updated automatically
           and will still reference the old attribute name.
@@ -1572,7 +1572,7 @@ export default function DebugAllCalloutsGenerated() {
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\">\n          Be careful changing the attribute name. Any existing targeting\n          conditions that use this attribute will NOT be updated automatically\n          and will still reference the old attribute name.\n          {hasJsonManagedWarehouse ? (\n            <span style={{ display: \"block\", marginTop: \"var(--space-2)\" }}>\n              Renaming doesn&apos;t migrate historical data. Events already sent\n              under the old name keep that name in the Managed Warehouse and\n              will read as null for this attribute; only events your SDK sends\n              under the new name will populate it going forward.\n            </span>\n          ) : null}\n        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L313 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/AttributeModal.tsx:313 · Callout</div>
               <Callout status="info" mt="2" mb="2">Changing the data type won&apos;t break existing Managed Warehouse
           analyses, but historical events whose value doesn&apos;t match the new
           type are treated as null and dropped from results, so metrics may
@@ -1586,21 +1586,21 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Features/CodeSnippetModal.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L399 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/CodeSnippetModal.tsx:399 · Callout</div>
               <Callout status="info" mb="6">Flags SDK does not run in a browser context. For
                         front-end integrations, use our{" "}<strong>React SDK</strong>.
                       </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" mb=\"6\">\n                        Flags SDK does not run in a browser context. For\n                        front-end integrations, use our{\" \"}\n                        <strong>React SDK</strong>.\n                      </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L492 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/CodeSnippetModal.tsx:492 · Callout</div>
               <Callout status="info" mb="0"><Stub name="GBHashLock"></Stub>This connection has{" "}<strong>secure attribute hashing</strong>enabled. You
                         must manually hash all attributes with datatype{" "}<code>secureString</code>or <code>secureString[]</code>{" "}in your SDK implementation code.
                       </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" mb=\"0\">\n                        <GBHashLock className=\"text-blue\" /> This connection has{\" \"}\n                        <strong>secure attribute hashing</strong> enabled. You\n                        must manually hash all attributes with datatype{\" \"}\n                        <code>secureString</code> or <code>secureString[]</code>{\" \"}\n                        in your SDK implementation code.\n                      </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L540 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/CodeSnippetModal.tsx:540 · Callout</div>
               <Callout status="warning" mt="2" className="px-2 py-1"><Stub name="FaExclamationTriangle"></Stub>Your organization has an
                               empty salt string. Add a salt string in your{" "}<Stub name="Link">organization settings
                               </Stub>{" "}to improve the security of hashed targeting
@@ -1609,7 +1609,7 @@ export default function DebugAllCalloutsGenerated() {
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout\n                              status=\"warning\"\n                              mt=\"2\"\n                              className=\"px-2 py-1\"\n                            >\n                              <FaExclamationTriangle /> Your organization has an\n                              empty salt string. Add a salt string in your{\" \"}\n                              <Link href=\"/settings\">\n                                organization settings\n                              </Link>{\" \"}\n                              to improve the security of hashed targeting\n                              conditions.\n                            </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L566 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/CodeSnippetModal.tsx:566 · Callout</div>
               <Callout status="warning" mt="3" mb="0" icon={<PlaceholderIcon />}>When using an insecure environment (such as a
                           browser), do not rely exclusively on hashing as a
                           means of securing highly sensitive data. Hashing is an
@@ -1624,7 +1624,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Features/ConditionInput.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L659 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/ConditionInput.tsx:659 · Callout</div>
               <Callout status="warning" mt="4">Be careful not to include Personally Identifiable Information (PII) in
           your targeting conditions.
         </Callout>
@@ -1636,25 +1636,25 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Features/CustomHookModal.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L288 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/CustomHookModal.tsx:288 · Callout</div>
               <Callout status="info" mb="4"><Flex align="center" wrap="wrap" gapX="2"><Text as="span">Call</Text><Stub name="InlineCode"></Stub>{" "}<Text>to block the action, or</Text><Stub name="InlineCode"></Stub>{" "}<Text>for a soft warning the user can acknowledge and override.
               </Text></Flex></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" mb=\"4\">\n            <Flex align=\"center\" wrap={\"wrap\"} gapX={\"2\"}>\n              <Text as=\"span\">Call</Text>\n              <InlineCode\n                language=\"javascript\"\n                code=\"throw new Error('...')\"\n              />{\" \"}\n              <Text>to block the action, or</Text>\n              <InlineCode language=\"javascript\" code=\"addWarning('...')\" />{\" \"}\n              <Text>\n                for a soft warning the user can acknowledge and override.\n              </Text>\n            </Flex>\n          </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L350 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/CustomHookModal.tsx:350 · Callout</div>
               <Callout mt="3" status="success">Success!
             </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout mt=\"3\" status=\"success\">\n              Success!\n            </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L355 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/CustomHookModal.tsx:355 · Callout</div>
               <Callout mt="3" status="error">Error!
             </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout mt=\"3\" status=\"error\">\n              Error!\n            </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L363 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/CustomHookModal.tsx:363 · Callout</div>
               <Callout status="warning" mt="2"><Expr>{"w"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout key={i} status=\"warning\" mt=\"2\">\n                  {w}\n                </Callout>"}</pre></details>
             </Box>
@@ -1664,14 +1664,14 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Features/EditFeatureInfoModal.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L160 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/EditFeatureInfoModal.tsx:160 · Callout</div>
               <Callout status="warning">This feature has{" "}<Expr>{"dependents === 1 ? \"a dependent feature\" : \"dependent features\""}</Expr>.
               Projects cannot be changed until{" "}<Expr>{"dependents === 1 ? \"it has\" : \"they have\""}</Expr>been removed.
             </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\">\n              This feature has{\" \"}\n              {dependents === 1 ? \"a dependent feature\" : \"dependent features\"}.\n              Projects cannot be changed until{\" \"}\n              {dependents === 1 ? \"it has\" : \"they have\"} been removed.\n            </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L169 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/EditFeatureInfoModal.tsx:169 · Callout</div>
               <Callout status="warning">Changing the project may prevent this Feature and any linked
                   Experiments from being sent to users.{" "}<Stub name="Tooltip"></Stub></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\">\n                  Changing the project may prevent this Feature and any linked\n                  Experiments from being sent to users.{\" \"}\n                  <Tooltip body=\"SDK endpoints are linked to specific environments and (optionally) projects. Changing the project of this feature may result in this feature returning in a different payload.\" />\n                </Callout>"}</pre></details>
@@ -1682,36 +1682,36 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Features/ExperimentRefSummary.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L62 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/ExperimentRefSummary.tsx:62 · Callout</div>
               <Callout status="error">The experiment could not be found.</Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">The experiment could not be found.</Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L67 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/ExperimentRefSummary.tsx:67 · Callout</div>
               <Callout status="info">This <Expr>{"isBandit ? \"Bandit\" : \"Experiment\""}</Expr>is archived and will be
         skipped.{" "}<Stub name="Link">View <Expr>{"isBandit ? \"Bandit\" : \"Experiment\""}</Expr></Stub></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\">\n        This {isBandit ? \"Bandit\" : \"Experiment\"} is archived and will be\n        skipped.{\" \"}\n        <Link href={`/experiment/${experiment.id}`}>\n          View {isBandit ? \"Bandit\" : \"Experiment\"}\n        </Link>\n      </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L80 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/ExperimentRefSummary.tsx:80 · Callout</div>
               <Callout status="info">This <Expr>{"isBandit ? \"Bandit\" : \"Experiment\""}</Expr>is not running and rule will
         be skipped.{" "}<Stub name="Link">View <Expr>{"isBandit ? \"Bandit\" : \"Experiment\""}</Expr></Stub></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\">\n        This {isBandit ? \"Bandit\" : \"Experiment\"} is not running and rule will\n        be skipped.{\" \"}\n        <Link href={`/experiment/${experiment.id}`}>\n          View {isBandit ? \"Bandit\" : \"Experiment\"}\n        </Link>\n      </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L99 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/ExperimentRefSummary.tsx:99 · Callout</div>
               <Callout status="info">This <Expr>{"isBandit ? \"Bandit\" : \"Experiment\""}</Expr>is stopped and does not have a{" "}<strong>Temporary Rollout</strong>enabled. This rule will be skipped.{" "}<Stub name="Link">View Results</Stub></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\">\n        This {isBandit ? \"Bandit\" : \"Experiment\"} is stopped and does not have a{\" \"}\n        <strong>Temporary Rollout</strong> enabled. This rule will be skipped.{\" \"}\n        <Link href={`/experiment/${experiment.id}#results`}>View Results</Link>\n      </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L123 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/ExperimentRefSummary.tsx:123 · Callout</div>
               <Callout status="warning" mb="3">This <Expr>{"isBandit ? \"Bandit\" : \"Experiment\""}</Expr>is in a{" "}<strong>draft</strong>state and has not been started yet. This rule
           will be skipped.
         </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\" mb=\"3\">\n          This {isBandit ? \"Bandit\" : \"Experiment\"} is in a{\" \"}\n          <strong>draft</strong> state and has not been started yet. This rule\n          will be skipped.\n        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L130 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/ExperimentRefSummary.tsx:130 · Callout</div>
               <Callout status="info" mb="3">This <Expr>{"isBandit ? \"Bandit\" : \"Experiment\""}</Expr>is stopped and a{" "}<strong>Temporary Rollout</strong>is enabled. All users in the{" "}<Expr>{"isBandit ? \"Bandit\" : \"Experiment\""}</Expr>will receive the winning
           variation. If no longer needed, you can stop it from the{" "}<Expr>{"isBandit ? \"Bandit\" : \"Experiment\""}</Expr>page.
         </Callout>
@@ -1723,7 +1723,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Features/ExperimentSplitVisual.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L43 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/ExperimentSplitVisual.tsx:43 · Callout</div>
               <Callout status="error" size="sm" mb="3">Please adjust weights to sum to 100%.
         </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" size=\"sm\" mb=\"3\">\n          Please adjust weights to sum to 100%.\n        </Callout>"}</pre></details>
@@ -1734,7 +1734,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Features/FeatureArchiveModal.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L136 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/FeatureArchiveModal.tsx:136 · Callout</div>
               <Callout status="error" mb="4"><Text as="p" mb="2">Cannot <Expr>{"isArchived ? \"unarchive\" : \"archive\""}</Expr>feature
             </Text><Text as="p" mb="0">Before you can <Expr>{"isArchived ? \"unarchive\" : \"archive\""}</Expr>this
               feature, you will need to remove any references to it. Check the
@@ -1744,7 +1744,7 @@ export default function DebugAllCalloutsGenerated() {
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" mb=\"4\">\n            <Text as=\"p\" weight=\"semibold\" mb=\"2\">\n              Cannot {isArchived ? \"unarchive\" : \"archive\"} feature\n            </Text>\n            <Text as=\"p\" mb=\"0\">\n              Before you can {isArchived ? \"unarchive\" : \"archive\"} this\n              feature, you will need to remove any references to it. Check the\n              following item\n              {totalDependents > 1 && \"s\"} below:\n            </Text>\n          </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L158 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/FeatureArchiveModal.tsx:158 · Callout</div>
               <Callout status="warning" mb="4">This feature is still active in the following environments:{" "}<strong><Expr>{"enabledEnvs.join(\", \")"}</Expr></strong>.
           </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\" mb=\"4\">\n            This feature is still active in the following environments:{\" \"}\n            <strong>{enabledEnvs.join(\", \")}</strong>.\n          </Callout>"}</pre></details>
@@ -1755,7 +1755,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Features/FeatureDeleteModal.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L43 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/FeatureDeleteModal.tsx:43 · Callout</div>
               <Callout status="error" mb="4"><Text as="p" mb="2">Cannot delete feature
             </Text><Text as="p" mb="0">Before you can delete this feature, you will need to remove any
               references to it. Check the following item
@@ -1769,7 +1769,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Features/FeatureDiagnostics.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L271 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/FeatureDiagnostics.tsx:271 · Callout</div>
               <Callout status="info" mb="4">Feature Evaluation Diagnostics require setting up a feature usage
             query in your data source.
             <Stub name="Link">Setup a Feature Usage Query
@@ -1777,12 +1777,12 @@ export default function DebugAllCalloutsGenerated() {
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" mb=\"4\">\n            Feature Evaluation Diagnostics require setting up a feature usage\n            query in your data source.\n            <Link href={`/datasources/${datasource.id}`} ml=\"2\">\n              Setup a Feature Usage Query\n            </Link>\n          </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L315 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/FeatureDiagnostics.tsx:315 · Callout</div>
               <Callout status="error" my="3"><strong>Error:</strong><Expr>{"error"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" my=\"3\">\n              <strong>Error:</strong> {error}\n            </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L320 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/FeatureDiagnostics.tsx:320 · Callout</div>
               <Callout status="info" my="3">No feature evaluations found.
             </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" my=\"3\">\n              No feature evaluations found.\n            </Callout>"}</pre></details>
@@ -1793,12 +1793,12 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Features/FeatureModal/FeatureFromExperimentModal.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L466 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/FeatureModal/FeatureFromExperimentModal.tsx:466 · Callout</div>
               <Callout status="warning" mb="3"><Expr>{"holdoutWarning"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\" mb=\"3\">\n          {holdoutWarning}\n        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L472 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/FeatureModal/FeatureFromExperimentModal.tsx:472 · Callout</div>
               <Callout status="warning" mb="3"><Expr>{"disabledMessage"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\" mb=\"3\">\n          {disabledMessage}\n        </Callout>"}</pre></details>
             </Box>
@@ -1808,13 +1808,13 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Features/FeatureModal/index.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L308 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/FeatureModal/index.tsx:308 · Callout</div>
               <Callout status="warning" mb="3">You are creating a feature under the demo datasource project.
           </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\" mb=\"3\">\n            You are creating a feature under the demo datasource project.\n          </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L318 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/FeatureModal/index.tsx:318 · Callout</div>
               <Callout status="warning" mb="3">You are creating a feature under the demo datasource project.
               </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\" mb=\"3\">\n                You are creating a feature under the demo datasource project.\n              </Callout>"}</pre></details>
@@ -1825,7 +1825,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Features/FeatureValidationTab.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L178 · PremiumCallout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/FeatureValidationTab.tsx:178 · PremiumCallout</div>
               <MockUser><PremiumCallout commercialFeature="custom-hooks" id="dbg-7">Custom Hooks require an Enterprise plan.
         </PremiumCallout></MockUser>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<PremiumCallout\n          commercialFeature=\"custom-hooks\"\n          id=\"custom-hooks-validation-tab\"\n        >\n          Custom Hooks require an Enterprise plan.\n        </PremiumCallout>"}</pre></details>
@@ -1836,7 +1836,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Features/FeaturesHeader.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L518 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/FeaturesHeader.tsx:518 · Callout</div>
               <Callout status="info" mb="2"><strong>This feature is archived.</strong>It will not be included
               in SDK Endpoints or Webhook payloads.
             </Callout>
@@ -1848,28 +1848,28 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Features/FeaturesOverview.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L122 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/FeaturesOverview.tsx:122 · Callout</div>
               <Callout status="warning" size="sm" mt="2">You are viewing a{" "}<strong><Expr>{"kind === \"draft\" ? \"draft\" : \"inactive revision\""}</Expr></strong>; it
       may not reflect the actual state of the feature.
     </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\" size=\"sm\" mt=\"2\">\n      You are viewing a{\" \"}\n      <strong>{kind === \"draft\" ? \"draft\" : \"inactive revision\"}</strong>; it\n      may not reflect the actual state of the feature.\n    </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L1453 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/FeaturesOverview.tsx:1453 · Callout</div>
               <Callout status="warning"><strong>This feature has no associated environments.
                       </strong>{" "}Ensure that this feature&apos;s project is included in at
                       least one environment to use it.{" "}<Stub name="Link">Manage Environments</Stub></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\">\n                      <strong>\n                        This feature has no associated environments.\n                      </strong>{\" \"}\n                      Ensure that this feature&apos;s project is included in at\n                      least one environment to use it.{\" \"}\n                      <Link href=\"/environments\">Manage Environments</Link>\n                    </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L1725 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/FeaturesOverview.tsx:1725 · Callout</div>
               <Callout status="error" mb="3">Changing the project may prevent this Feature and any linked
                 Experiments from being sent to users.
               </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" mb=\"3\">\n                Changing the project may prevent this Feature and any linked\n                Experiments from being sent to users.\n              </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L1777 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/FeaturesOverview.tsx:1777 · Callout</div>
               <Callout status="warning" mb="2"><Flex direction="column" gap="2" align="start"><Text>This feature already has <Expr>{"activeDraftCount"}</Expr>active draft
                       <Expr>{"activeDraftCount === 1 ? \"\" : \"s\""}</Expr>— your organization
                       recommends keeping it to <Expr>{"maxDrafts"}</Expr>per feature.
@@ -1882,14 +1882,14 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Features/HoldoutRule.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L218 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/HoldoutRule.tsx:218 · Callout</div>
               <Callout status="error" size="sm">This feature has been removed from the holdout in the current
                 draft. Publish or discard the draft to resolve.
               </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" size=\"sm\">\n                This feature has been removed from the holdout in the current\n                draft. Publish or discard the draft to resolve.\n              </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L223 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/HoldoutRule.tsx:223 · Callout</div>
               <Callout status="info">This Holdout is stopped and this rule will be skipped.{" "}<Stub name="Link">View Results
                 </Stub></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\">\n                This Holdout is stopped and this rule will be skipped.{\" \"}\n                <Link href={`/holdout/${holdout.id}#results`}>\n                  View Results\n                </Link>\n              </Callout>"}</pre></details>
@@ -1900,7 +1900,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Features/HoldoutValueModal.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L135 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/HoldoutValueModal.tsx:135 · Callout</div>
               <Callout status="warning" mb="4"><Text>If this feature has been implemented, units may be exposed to
             different feature values upon changing the holdout value.
           </Text></Callout>
@@ -1912,7 +1912,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Features/LegacyScheduleInputs.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L180 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/LegacyScheduleInputs.tsx:180 · Callout</div>
               <Callout status="error" mb="4">End date must be greater than the previous rule date
           </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" mb=\"4\">\n            End date must be greater than the previous rule date\n          </Callout>"}</pre></details>
@@ -1923,7 +1923,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Features/PrerequisiteInput.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L1040 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/PrerequisiteInput.tsx:1040 · Callout</div>
               <Callout status="warning" mb="2" size="sm" dismissible id="dbg-8">Project mismatch. Prerequisite evaluation may fail for
                         SDK Connections with non-overlapping project scope.
                       </Callout>
@@ -1935,14 +1935,14 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Features/PrerequisiteModal.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L335 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/PrerequisiteModal.tsx:335 · Callout</div>
               <Callout status="warning" mb="5" dismissible id="dbg-9">Project mismatch. Prerequisite evaluation may fail for SDK
               Connections with non-overlapping project scope.
             </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout\n              status=\"warning\"\n              mb=\"5\"\n              dismissible={true}\n              id=\"prerequisite-project-mismatch--modal\"\n            >\n              Project mismatch. Prerequisite evaluation may fail for SDK\n              Connections with non-overlapping project scope.\n            </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L356 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/PrerequisiteModal.tsx:356 · Callout</div>
               <Callout status="error" mt="2"><code><Expr>{"cyclicFeatureId"}</Expr></code>creates a circular dependency. Select a
           different feature.
         </Callout>
@@ -1954,7 +1954,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Features/RemoveFromHoldoutModal.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L93 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/RemoveFromHoldoutModal.tsx:93 · Callout</div>
               <Callout status="warning">Removing this feature from its holdout will expose all previously
           held-out units to the feature on next publish.
         </Callout>
@@ -1966,53 +1966,53 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Features/Rule.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L1360 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/Rule.tsx:1360 · Callout</div>
               <Callout status="warning" mt="3" size="sm">This rule is <strong>enabled</strong>in the live feature but{" "}<strong>disabled</strong>in this draft. Publishing may revert a
               schedule-driven enable.
             </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\" mt=\"3\" size=\"sm\">\n              This rule is <strong>enabled</strong> in the live feature but{\" \"}\n              <strong>disabled</strong> in this draft. Publishing may revert a\n              schedule-driven enable.\n            </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L1370 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/Rule.tsx:1370 · Callout</div>
               <Callout status="info" mt="3" color="orange" size="sm" icon={<PlaceholderIcon />}><strong>Approval Notes:</strong>{" "}<Expr>{"rampSchedule.steps[rampSchedule.currentStepIndex] ?.approvalNotes"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout\n                status=\"info\"\n                mt=\"3\"\n                color=\"orange\"\n                size=\"sm\"\n                icon={<PiSpinnerGapBold />}\n              >\n                <strong>Approval Notes:</strong>{\" \"}\n                {\n                  rampSchedule.steps[rampSchedule.currentStepIndex]\n                    ?.approvalNotes\n                }\n              </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L1386 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/Rule.tsx:1386 · Callout</div>
               <Callout status="warning" mt="3"><Flex direction="column" gap="2"><Text>This rule uses string operators on version attributes, which
                     can have unintended effects. Edit this rule and change{" "}<strong><Expr>{"attributesWithVersionStringOperatorMismatches.join(\", \")"}</Expr></strong>{" "}to use version operators ($vgt, $vlt, etc.) instead.
                   </Text></Flex></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\" mt=\"3\">\n                <Flex direction=\"column\" gap=\"2\">\n                  <Text>\n                    This rule uses string operators on version attributes, which\n                    can have unintended effects. Edit this rule and change{\" \"}\n                    <strong>\n                      {attributesWithVersionStringOperatorMismatches.join(\", \")}\n                    </strong>{\" \"}\n                    to use version operators ($vgt, $vlt, etc.) instead.\n                  </Text>\n                </Flex>\n              </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L1476 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/Rule.tsx:1476 · Callout</div>
               <Callout status="info" mt="4">This Safe Rollout rule is in a draft state and will start
                       when this feature revision is published.
                     </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" mt=\"4\">\n                      This Safe Rollout rule is in a draft state and will start\n                      when this feature revision is published.\n                    </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L1558 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/Rule.tsx:1558 · Callout</div>
               <Callout status="error" mb="2" action={<ActionPlaceholder />}><Text><Expr>{"rampApproveError"}</Expr></Text></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout\n                    status=\"error\"\n                    mb=\"2\"\n                    action={\n                      <Button\n                        size=\"xs\"\n                        variant=\"ghost\"\n                        color=\"inherit\"\n                        onClick={() => setRampApproveError(\"\")}\n                      >\n                        Dismiss\n                      </Button>\n                    }\n                  >\n                    <Text>{rampApproveError}</Text>\n                  </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L1578 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/Rule.tsx:1578 · Callout</div>
               <Callout status="error" mb="2"><Text><Text>Rolled back:</Text>{" "}<Expr>{"formatRollbackReason(rampSchedule.lastRollbackReason)"}</Expr></Text></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" mb=\"2\">\n                      <Text>\n                        <Text weight=\"semibold\">Rolled back:</Text>{\" \"}\n                        {formatRollbackReason(rampSchedule.lastRollbackReason)}\n                      </Text>\n                    </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L1779 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/Rule.tsx:1779 · Callout</div>
               <Callout status="warning">Disabled by a schedule on{" "}<Expr>{"new Date(lastRule.timestamp).toLocaleDateString()"}</Expr>at{" "}<Expr>{"formatTimeZone(new Date(lastRule.timestamp), \"h:mm a z\")"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\">\n            Disabled by a schedule on{\" \"}\n            {new Date(lastRule.timestamp).toLocaleDateString()} at{\" \"}\n            {formatTimeZone(new Date(lastRule.timestamp), \"h:mm a z\")}\n          </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L1805 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/Rule.tsx:1805 · Callout</div>
               <Callout status="warning">Will be enabled on{" "}<Expr>{"new Date(upcomingScheduleRule.timestamp).toLocaleDateString()"}</Expr>at{" "}<Expr>{"formatTimeZone(new Date(upcomingScheduleRule.timestamp), \"h:mm a z\")"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\">\n          Will be enabled on{\" \"}\n          {new Date(upcomingScheduleRule.timestamp).toLocaleDateString()} at{\" \"}\n          {formatTimeZone(new Date(upcomingScheduleRule.timestamp), \"h:mm a z\")}\n        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L1866 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/Rule.tsx:1866 · Callout</div>
               <Callout status="info">Will be disabled on{" "}<Expr>{"new Date(upcomingScheduleRule.timestamp).toLocaleDateString()"}</Expr>at{" "}<Expr>{"formatTimeZone(new Date(upcomingScheduleRule.timestamp), \"h:mm a z\")"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout key=\"schedule\" status=\"info\">\n        Will be disabled on{\" \"}\n        {new Date(upcomingScheduleRule.timestamp).toLocaleDateString()} at{\" \"}\n        {formatTimeZone(new Date(upcomingScheduleRule.timestamp), \"h:mm a z\")}\n      </Callout>"}</pre></details>
             </Box>
@@ -2022,13 +2022,13 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Features/RuleModal/BanditRefFields.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L107 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/RuleModal/BanditRefFields.tsx:107 · Callout</div>
               <Callout status="warning" mb="4"><Expr>{"experiments.length > 0 ? `You don't have any eligible Bandits yet.` : `You don't have any …"}</Expr>{" "}<a role="button" className="link-purple" href="#">Create New Bandit
           </a></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\" mb=\"4\">\n          {experiments.length > 0\n            ? `You don't have any eligible Bandits yet.`\n            : `You don't have any existing Bandits yet.`}{\" \"}\n          <a\n            role=\"button\"\n            className=\"link-purple\"\n            onClick={(e) => {\n              e.preventDefault();\n              changeRuleType(\"experiment-ref-new\");\n              form.setValue(\"experimentType\", \"multi-armed-bandit\");\n            }}\n          >\n            Create New Bandit\n          </a>\n        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L124 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/RuleModal/BanditRefFields.tsx:124 · Callout</div>
               <Callout status="error" mb="4">Could not find this Bandit. Has it been deleted?
         </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" mb=\"4\">\n          Could not find this Bandit. Has it been deleted?\n        </Callout>"}</pre></details>
@@ -2039,7 +2039,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Features/RuleModal/BanditRefNewFields.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L272 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/RuleModal/BanditRefNewFields.tsx:272 · Callout</div>
               <Callout status="error" icon={<PlaceholderIcon />}>A prerequisite (<code><Expr>{"cyclicFeatureId"}</Expr></code>) creates a circular
               dependency. Remove this prerequisite to continue.
             </Callout>
@@ -2051,19 +2051,19 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Features/RuleModal/EnvironmentScopeField.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L47 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/RuleModal/EnvironmentScopeField.tsx:47 · Callout</div>
               <Callout status="warning" size="sm" mt="2">This feature is not enabled in any environment. This rule will have no
       effect until at least one environment is enabled.
     </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\" size=\"sm\" mt=\"2\">\n      This feature is not enabled in any environment. This rule will have no\n      effect until at least one environment is enabled.\n    </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L52 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/RuleModal/EnvironmentScopeField.tsx:52 · Callout</div>
               <Callout status="warning" size="sm" mt="2"><Expr>{"affectedEnvIds.length === 1 ? ( <> <strong>{affectedEnvIds[0]}</strong> is not enabled for…"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\" size=\"sm\" mt=\"2\">\n      {affectedEnvIds.length === 1 ? (\n        <>\n          <strong>{affectedEnvIds[0]}</strong> is not enabled for this feature.\n          This rule will have no effect there until the feature is enabled in\n          that environment.\n        </>\n      ) : (\n        <>\n          <strong>{affectedEnvIds.join(\", \")}</strong> are not enabled for this\n          feature. This rule will have no effect there until the feature is\n          enabled in those environments.\n        </>\n      )}\n    </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L100 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/RuleModal/EnvironmentScopeField.tsx:100 · Callout</div>
               <Callout status="warning" size="sm" mt="2">This rule will not apply in any environment until at least one is
               selected.
             </Callout>
@@ -2075,13 +2075,13 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Features/RuleModal/ExperimentRefFields.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L125 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/RuleModal/ExperimentRefFields.tsx:125 · Callout</div>
               <Callout status="warning" mb="4"><Expr>{"experiments.length > 0 ? `You don't have any eligible Experiments yet.` : `You don't have …"}</Expr>{" "}<a role="button" className="link-purple" href="#">Create New Experiment
           </a></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\" mb=\"4\">\n          {experiments.length > 0\n            ? `You don't have any eligible Experiments yet.`\n            : `You don't have any existing Experiments yet.`}{\" \"}\n          <a\n            role=\"button\"\n            className=\"link-purple\"\n            onClick={(e) => {\n              e.preventDefault();\n              changeRuleType(\"experiment-ref-new\");\n            }}\n          >\n            Create New Experiment\n          </a>\n        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L141 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/RuleModal/ExperimentRefFields.tsx:141 · Callout</div>
               <Callout status="error" mb="4">Could not find this Experiment. Has it been deleted?
         </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" mb=\"4\">\n          Could not find this Experiment. Has it been deleted?\n        </Callout>"}</pre></details>
@@ -2092,7 +2092,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Features/RuleModal/ExperimentRefNewFields.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L507 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/RuleModal/ExperimentRefNewFields.tsx:507 · Callout</div>
               <Callout status="error">A prerequisite (<code><Expr>{"cyclicFeatureId"}</Expr></code>) creates a circular
               dependency. Remove this prerequisite to continue.
             </Callout>
@@ -2104,7 +2104,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Features/RuleModal/RampScheduleSection.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L4011 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/RuleModal/RampScheduleSection.tsx:4011 · Callout</div>
               <Callout status="warning" mb="3">One or more steps are shorter than the minimum check interval (1
               min). Short steps may be applied together rather than at their
               exact scheduled times.
@@ -2117,7 +2117,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Features/RuleModal/SafeRolloutFields.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L121 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/RuleModal/SafeRolloutFields.tsx:121 · Callout</div>
               <Callout status="error"><Stub name="FaExclamationTriangle"></Stub>A prerequisite (
             <code><Expr>{"cyclicFeatureId"}</Expr></code>) creates a circular dependency.
             Remove this prerequisite to continue.
@@ -2125,7 +2125,7 @@ export default function DebugAllCalloutsGenerated() {
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n            <FaExclamationTriangle /> A prerequisite (\n            <code>{cyclicFeatureId}</code>) creates a circular dependency.\n            Remove this prerequisite to continue.\n          </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L245 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/RuleModal/SafeRolloutFields.tsx:245 · Callout</div>
               <Callout status="warning" mt="2"><small>No data sources configured. Please add a data source in the
                   settings.
                 </small></Callout>
@@ -2137,18 +2137,18 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Features/RuleModal/StandardRuleFields.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L388 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/RuleModal/StandardRuleFields.tsx:388 · Callout</div>
               <Callout status="info" mt="3" size="sm" action={<ActionPlaceholder />}><Text>This schedule has finished.</Text></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout\n                          status=\"info\"\n                          mt=\"3\"\n                          size=\"sm\"\n                          action={\n                            <Button\n                              size=\"xs\"\n                              variant=\"outline\"\n                              onClick={() =>\n                                setRampSectionState({\n                                  ...rampSectionState,\n                                  mode: \"off\",\n                                })\n                              }\n                            >\n                              Remove schedule\n                            </Button>\n                          }\n                        >\n                          <Text>This schedule has finished.</Text>\n                        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L411 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/RuleModal/StandardRuleFields.tsx:411 · Callout</div>
               <Callout status="info" mt="3" size="sm">Schedule will be removed on save.
                         </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" mt=\"3\" size=\"sm\">\n                          Schedule will be removed on save.\n                        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L424 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/RuleModal/StandardRuleFields.tsx:424 · Callout</div>
               <Callout status="warning" mt="4">This rule is currently enabled and will remain live until the
                   schedule starts. Disable the rule first if you don&apos;t want
                   it serving traffic before then.
@@ -2156,7 +2156,7 @@ export default function DebugAllCalloutsGenerated() {
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\" mt=\"4\">\n                  This rule is currently enabled and will remain live until the\n                  schedule starts. Disable the rule first if you don&apos;t want\n                  it serving traffic before then.\n                </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L509 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/RuleModal/StandardRuleFields.tsx:509 · Callout</div>
               <Callout status="error" icon={<PlaceholderIcon />}>A prerequisite (<code><Expr>{"cyclicFeatureId"}</Expr></code>) creates a circular
           dependency. Remove this prerequisite to continue.
         </Callout>
@@ -2168,7 +2168,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Features/RuleModal/index.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L1648 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/RuleModal/index.tsx:1648 · Callout</div>
               <Callout status="wizard" mt="6" size="sm"><Flex align="center" gap="2"><Box flexGrow="1"><Text as="div">Looking for <strong>Safe Rollouts</strong>?
                 </Text><Text as="div" mt="1">Guardrail monitoring can now be added to a Targeting
                   Rule&apos;s <strong>Ramp-up</strong>schedule
@@ -2181,7 +2181,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Features/SDKCapabilityWarning.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L189 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/SDKCapabilityWarning.tsx:189 · Callout</div>
               <Callout status="info" icon={<PlaceholderIcon />}><Expr>{"content"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status={status} size={size} icon={icon} {...marginProps}>\n      {content}\n    </Callout>"}</pre></details>
             </Box>
@@ -2191,12 +2191,12 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Features/SDKConnections/ConnectionStatus.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L49 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/SDKConnections/ConnectionStatus.tsx:49 · Callout</div>
               <Callout status="error" mt="2"><Expr>{"errorTxt"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" mt=\"2\">\n                          {errorTxt}\n                        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L53 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/SDKConnections/ConnectionStatus.tsx:53 · Callout</div>
               <Callout status="error"><em>Unknown error</em></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n                          <em>Unknown error</em>\n                        </Callout>"}</pre></details>
             </Box>
@@ -2206,7 +2206,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Features/SDKConnections/InitialSDKConnectionForm.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L44 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/SDKConnections/InitialSDKConnectionForm.tsx:44 · Callout</div>
               <Callout status="error"><Expr>{"error.message"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">{error.message}</Callout>"}</pre></details>
             </Box>
@@ -2216,12 +2216,12 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Features/SDKConnections/ProxyTestButton.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L66 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/SDKConnections/ProxyTestButton.tsx:66 · Callout</div>
               <Callout status="error">Error: <Expr>{"proxyTestResult.error"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">Error: {proxyTestResult.error}</Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L69 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/SDKConnections/ProxyTestButton.tsx:69 · Callout</div>
               <Callout status="success">Successfully Connected. Proxy Server running version{" "}<strong><Expr>{"proxyTestResult.version"}</Expr></strong>.
             </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"success\">\n              Successfully Connected. Proxy Server running version{\" \"}\n              <strong>{proxyTestResult.version}</strong>.\n            </Callout>"}</pre></details>
@@ -2232,12 +2232,12 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Features/SDKConnections/SDKConnectionForm.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L466 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/SDKConnections/SDKConnectionForm.tsx:466 · Callout</div>
               <Callout status="error" ml="3" mb="0" className="px-1 py-0"><Expr>{"languageError"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" ml=\"3\" mb=\"0\" className=\"px-1 py-0\">\n              {languageError}\n            </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L977 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/SDKConnections/SDKConnectionForm.tsx:977 · Callout</div>
               <Callout status="info" mb="0" mt="3" icon={<PlaceholderIcon />}>Cloud customers must self-host a remote evaluation
                         service such as{" "}<a target="_blank" href="https://github.com/growthbook/growthbook-proxy" rel="noreferrer">GrowthBook Proxy
                         </a>{" "}or a CDN edge worker.
@@ -2245,7 +2245,7 @@ export default function DebugAllCalloutsGenerated() {
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout\n                        status=\"info\"\n                        mb=\"0\"\n                        mt=\"3\"\n                        icon={<FaExclamationCircle />}\n                      >\n                        Cloud customers must self-host a remote evaluation\n                        service such as{\" \"}\n                        <a\n                          target=\"_blank\"\n                          href=\"https://github.com/growthbook/growthbook-proxy\"\n                          rel=\"noreferrer\"\n                        >\n                          GrowthBook Proxy\n                        </a>{\" \"}\n                        or a CDN edge worker.\n                      </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L1006 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/SDKConnections/SDKConnectionForm.tsx:1006 · Callout</div>
               <Callout status="warning" size="sm" mt="3"><strong><Expr>{"active.join(\", \")"}</Expr></strong>{" "}<Expr>{"active.length === 1 ? \"is\" : \"are\""}</Expr>not recommended
                           for most remote evaluation configurations and{" "}<Expr>{"active.length === 1 ? \"is\" : \"are\""}</Expr>a more advanced
                           use case.
@@ -2258,12 +2258,12 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Features/SDKConnections/SDKConnectionsList.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L47 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/SDKConnections/SDKConnectionsList.tsx:47 · Callout</div>
               <Callout status="error"><Expr>{"error.message"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">{error.message}</Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L243 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/SDKConnections/SDKConnectionsList.tsx:243 · Callout</div>
               <Callout status="error" my="4"><div><strong><Expr>{"webhook.name"}</Expr>:</strong></div><div><Expr>{"webhook.error"}</Expr></div></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout\n                                    key={webhook.id}\n                                    status=\"error\"\n                                    my=\"4\"\n                                  >\n                                    <div>\n                                      <strong>{webhook.name}:</strong>\n                                    </div>\n                                    <div style={{ wordBreak: \"break-all\" }}>\n                                      {webhook.error}\n                                    </div>\n                                  </Callout>"}</pre></details>
             </Box>
@@ -2273,14 +2273,14 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Features/SDKConnections/SdkWebhooks.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L130 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/SDKConnections/SdkWebhooks.tsx:130 · Callout</div>
               <Callout status="error"><div>Disabled after <Expr>{"webhook.consecutiveFailures"}</Expr>consecutive
                     failures.
                     <Expr>{"webhook.error ? ( <> <br /> Last error: {webhook.error} </> ) : null"}</Expr></div></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout key={webhook.id} status=\"error\">\n                  <div style={{ wordBreak: \"break-all\" }}>\n                    Disabled after {webhook.consecutiveFailures} consecutive\n                    failures.\n                    {webhook.error ? (\n                      <>\n                        <br />\n                        Last error: {webhook.error}\n                      </>\n                    ) : null}\n                  </div>\n                </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L155 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/SDKConnections/SdkWebhooks.tsx:155 · Callout</div>
               <Callout status="error"><div><Expr>{"webhook.error"}</Expr></div></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout key={webhook.id} status=\"error\">\n                    <div style={{ wordBreak: \"break-all\" }}>\n                      {webhook.error}\n                    </div>\n                  </Callout>"}</pre></details>
             </Box>
@@ -2290,7 +2290,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Features/SafeRollout/SafeRolloutStatusModal.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L200 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/SafeRollout/SafeRolloutStatusModal.tsx:200 · Callout</div>
               <Callout status="info" my="4"><Expr>{"reviewRequired ? \"A new draft will be created and the safe rollout will continue running u…"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" my=\"4\">\n        {reviewRequired\n          ? \"A new draft will be created and the safe rollout will continue running until the draft is reviewed and published.\"\n          : \"A new revision will be published and changes will take effect immediately.\"}\n      </Callout>"}</pre></details>
             </Box>
@@ -2300,7 +2300,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Features/SavedGroupTargetingField.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L210 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/SavedGroupTargetingField.tsx:210 · Callout</div>
               <Callout status="error" mb="3"><Text>Error:</Text>You have a conflict in your
             rules with the following groups:{" "}<Expr>{"conflicts.map((c) => ( <Badge key={c} label={getSavedGroupById(c)?.groupName || c} color=\"…"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" mb=\"3\">\n            <Text weight=\"semibold\">Error:</Text> You have a conflict in your\n            rules with the following groups:{\" \"}\n            {conflicts.map((c) => (\n              <Badge\n                key={c}\n                label={getSavedGroupById(c)?.groupName || c}\n                color=\"red\"\n                mr=\"1\"\n              />\n            ))}\n          </Callout>"}</pre></details>
@@ -2311,7 +2311,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Features/ValidateValue.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L45 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Features/ValidateValue.tsx:45 · Callout</div>
               <Callout status="error" mb="2" mt="3">Value fails validation with JSON schema.
       <ul className="mb-0 mt-1"><Expr>{"errors?.map((msg, i) => ( <li key={i}>{msg}</li> ))"}</Expr></ul></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" mb=\"2\" mt=\"3\">\n      Value fails validation with JSON schema.\n      <ul className=\"mb-0 mt-1\">\n        {errors?.map((msg, i) => (\n          <li key={i}>{msg}</li>\n        ))}\n      </ul>\n    </Callout>"}</pre></details>
@@ -2322,7 +2322,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Forms/InlineForm.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L105 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Forms/InlineForm.tsx:105 · Callout</div>
               <Callout status="error" mt="1"><Expr>{"error"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" mt=\"1\">\n            {error}\n          </Callout>"}</pre></details>
             </Box>
@@ -2332,13 +2332,13 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/GeneralSettings/AISettings.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L225 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/GeneralSettings/AISettings.tsx:225 · Callout</div>
               <Callout status="warning">This AI model requires an API key for <Expr>{"provider"}</Expr>that is not defined.
       </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\">\n        This AI model requires an API key for {provider} that is not defined.\n      </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L447 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/GeneralSettings/AISettings.tsx:447 · Callout</div>
               <Callout status="warning">You must set your Anthropic API key to use
                                   Claude models. Please define it in your
                                   environment variables as{" "}<code>ANTHROPIC_API_KEY</code>. See more in
@@ -2348,7 +2348,7 @@ export default function DebugAllCalloutsGenerated() {
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\">\n                                  You must set your Anthropic API key to use\n                                  Claude models. Please define it in your\n                                  environment variables as{\" \"}\n                                  <code>ANTHROPIC_API_KEY</code>. See more in\n                                  our{\" \"}\n                                  <a href=\"https://docs.growthbook.io/self-host/env\">\n                                    self-hosting docs\n                                  </a>\n                                  .\n                                </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L478 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/GeneralSettings/AISettings.tsx:478 · Callout</div>
               <Callout status="warning">You must set your xAI API key to use Grok
                                   models. Please define it in your environment
                                   variables as <code>XAI_API_KEY</code>. See
@@ -2358,7 +2358,7 @@ export default function DebugAllCalloutsGenerated() {
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\">\n                                  You must set your xAI API key to use Grok\n                                  models. Please define it in your environment\n                                  variables as <code>XAI_API_KEY</code>. See\n                                  more in our{\" \"}\n                                  <a href=\"https://docs.growthbook.io/self-host/env\">\n                                    self-hosting docs\n                                  </a>\n                                  .\n                                </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L509 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/GeneralSettings/AISettings.tsx:509 · Callout</div>
               <Callout status="warning">You must set your Mistral API key to use
                                   Mistral models. Please define it in your
                                   environment variables as{" "}<code>MISTRAL_API_KEY</code>. See more in our{" "}<a href="https://docs.growthbook.io/self-host/env">self-hosting docs
@@ -2367,7 +2367,7 @@ export default function DebugAllCalloutsGenerated() {
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\">\n                                  You must set your Mistral API key to use\n                                  Mistral models. Please define it in your\n                                  environment variables as{\" \"}\n                                  <code>MISTRAL_API_KEY</code>. See more in our{\" \"}\n                                  <a href=\"https://docs.growthbook.io/self-host/env\">\n                                    self-hosting docs\n                                  </a>\n                                  .\n                                </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L540 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/GeneralSettings/AISettings.tsx:540 · Callout</div>
               <Callout status="warning">You must set your Google API key to use Gemini
                                   models. Please define it in your environment
                                   variables as <code>GOOGLE_AI_API_KEY</code>.
@@ -2377,7 +2377,7 @@ export default function DebugAllCalloutsGenerated() {
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\">\n                                  You must set your Google API key to use Gemini\n                                  models. Please define it in your environment\n                                  variables as <code>GOOGLE_AI_API_KEY</code>.\n                                  See more in our{\" \"}\n                                  <a href=\"https://docs.growthbook.io/self-host/env\">\n                                    self-hosting docs\n                                  </a>\n                                  .\n                                </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L571 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/GeneralSettings/AISettings.tsx:571 · Callout</div>
               <Callout status="warning">You must set your OpenAI API key to use OpenAI
                                   models. Please define it in your environment
                                   variables as <code>OPENAI_API_KEY</code>. See
@@ -2387,14 +2387,14 @@ export default function DebugAllCalloutsGenerated() {
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\">\n                                  You must set your OpenAI API key to use OpenAI\n                                  models. Please define it in your environment\n                                  variables as <code>OPENAI_API_KEY</code>. See\n                                  more in our{\" \"}\n                                  <a href=\"https://docs.growthbook.io/self-host/env\">\n                                    self-hosting docs\n                                  </a>\n                                  .\n                                </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L888 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/GeneralSettings/AISettings.tsx:888 · Callout</div>
               <Callout status="warning"><Expr>{"providerNames[embeddingProvider]"}</Expr>API key is
                                   required for embeddings. Please set{" "}<code><Expr>{"providerEnvVars[embeddingProvider]"}</Expr></code>{" "}in your environment variables.
                                 </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\">\n                                  {providerNames[embeddingProvider]} API key is\n                                  required for embeddings. Please set{\" \"}\n                                  <code>\n                                    {providerEnvVars[embeddingProvider]}\n                                  </code>{\" \"}\n                                  in your environment variables.\n                                </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L903 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/GeneralSettings/AISettings.tsx:903 · Callout</div>
               <Callout status="error"><Expr>{"error"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">{error}</Callout>"}</pre></details>
             </Box>
@@ -2404,7 +2404,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/GeneralSettings/ExperimentSettings/StatsEngineSettings.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L167 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/GeneralSettings/ExperimentSettings/StatsEngineSettings.tsx:167 · Callout</div>
               <Callout status="warning" mt="2"><Expr>{"regressionAdjustmentDaysWarningMsg"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\" mt=\"2\">\n                  {regressionAdjustmentDaysWarningMsg}\n                </Callout>"}</pre></details>
             </Box>
@@ -2414,7 +2414,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/GeneralSettings/FeatureSettings.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L61 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/GeneralSettings/FeatureSettings.tsx:61 · Callout</div>
               <Callout status="info">Approval flow settings have moved to the{" "}<a href="#approval-flow">Approval Flows tab</a>.
             </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\">\n              Approval flow settings have moved to the{\" \"}\n              <a href=\"#approval-flow\">Approval Flows tab</a>.\n            </Callout>"}</pre></details>
@@ -2425,14 +2425,14 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/GeneralSettings/ImportSettings.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L23 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/GeneralSettings/ImportSettings.tsx:23 · Callout</div>
               <Callout status="info" my="3">The below settings are controlled through your <code>config.yml</code>{" "}file and cannot be changed through the web UI.{" "}<Stub name="DocLink">View Documentation
           </Stub>.
         </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" my=\"3\">\n          The below settings are controlled through your <code>config.yml</code>{\" \"}\n          file and cannot be changed through the web UI.{\" \"}\n          <DocLink\n            docSection=\"config_organization_settings\"\n            className=\"font-weight-bold\"\n          >\n            View Documentation\n          </DocLink>\n          .\n        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L37 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/GeneralSettings/ImportSettings.tsx:37 · Callout</div>
               <Callout status="info" my="3"><h3>Import/Export config.yml</h3><p><Expr>{"isCloud ? \"GrowthBook Cloud stores\" : \"You are currently storing\""}</Expr>{" "}all organization settings, data sources, metrics, and dimensions in
             a database.
           </p><p>You can import/export these settings to a <code>config.yml</code>{" "}file to more easily move between GrowthBook Cloud accounts and/or
@@ -2449,12 +2449,12 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/GeneralSettings/MetricsSettings.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L57 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/GeneralSettings/MetricsSettings.tsx:57 · Callout</div>
               <Callout status="warning" mt="2"><Expr>{"metricAnalysisDaysWarningMsg"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\" mt=\"2\">\n                {metricAnalysisDaysWarningMsg}\n              </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L268 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/GeneralSettings/MetricsSettings.tsx:268 · Callout</div>
               <Callout status="warning" mt="2"><Expr>{"maxMetricSliceLevelsWarningMsg"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\" mt=\"2\">\n                {maxMetricSliceLevelsWarningMsg}\n              </Callout>"}</pre></details>
             </Box>
@@ -2464,7 +2464,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/GeneralSettings/OrganizationAndLicenseSettings.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L65 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/GeneralSettings/OrganizationAndLicenseSettings.tsx:65 · Callout</div>
               <Callout status="error" mt="4">Owner email does not exist in the organization. Click to
                         edit.
                       </Callout>
@@ -2476,7 +2476,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/GetStarted/DocumentationSidebar.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L96 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/GetStarted/DocumentationSidebar.tsx:96 · Callout</div>
               <Callout status="info" icon={null}><Flex justify="start" mb="2"><Stub name="Badge"></Stub></Flex><Flex align="center" gap="3"><Box flexGrow="1"><Heading as="h6" mb="1">AI Visual Editor
             </Heading><Text as="div">Get early access June 22
             </Text></Box><Stub name="PiCaretRight"></Stub></Flex></Callout>
@@ -2488,14 +2488,14 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/GetStarted/index.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L335 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/GetStarted/index.tsx:335 · Callout</div>
               <Callout status="info" size="md" mb="4"><Text>Customize your account setup and learn how to get started
                     with GrowthBook.
                   </Text></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" size=\"md\" mb=\"4\">\n                  <Text size=\"2\">\n                    Customize your account setup and learn how to get started\n                    with GrowthBook.\n                  </Text>\n                </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L368 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/GetStarted/index.tsx:368 · Callout</div>
               <Callout status="wizard" size="md" mb="6">Connect to your SDK to get started.{" "}<Stub name="Link">Launch the setup flow
                       </Stub>{" "}<Stub name="PiArrowSquareOut"></Stub></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"wizard\" size=\"md\" mb=\"6\">\n                      Connect to your SDK to get started.{\" \"}\n                      <Link\n                        href=\"/setup\"\n                        className=\"font-weight-bold\"\n                        style={{ color: \"inherit\" }}\n                      >\n                        Launch the setup flow\n                      </Link>{\" \"}\n                      <PiArrowSquareOut />\n                    </Callout>"}</pre></details>
@@ -2506,7 +2506,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/GuidedGetStarted/CheckSDKConnectionResults.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L22 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/GuidedGetStarted/CheckSDKConnectionResults.tsx:22 · Callout</div>
               <Callout status="error">To test your connection, you&apos;ll first need to create an SDK
         Connection.
       </Callout>
@@ -2518,12 +2518,12 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/HealthTab/BanditSRMCard.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L74 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/HealthTab/BanditSRMCard.tsx:74 · Callout</div>
               <Callout status="error">Traffic data is missing</Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">Traffic data is missing</Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L131 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/HealthTab/BanditSRMCard.tsx:131 · Callout</div>
               <Callout status="info" className="font-weight-bold">More traffic is required to detect a Sample Ratio Mismatch
                 (SRM).
               </Callout>
@@ -2535,7 +2535,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/HealthTab/CovariateImbalanceCard.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L165 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/HealthTab/CovariateImbalanceCard.tsx:165 · Callout</div>
               <Callout status="success"><Text><Expr>{"goalAndGuardrailMetricsTested"}</Expr>goal or guardrail
               </Text>{" "}<Text as="span"><Expr>{"goalAndGuardrailMetricsTested > 1 ? \"results show\" : \"result shows\""}</Expr>{" "}no pre-exposure imbalance
               </Text>.{" "}<Text><Stub name="Link">Learn more
@@ -2543,7 +2543,7 @@ export default function DebugAllCalloutsGenerated() {
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"success\">\n              <Text weight=\"semibold\">\n                {goalAndGuardrailMetricsTested} goal or guardrail\n              </Text>{\" \"}\n              <Text as=\"span\" weight=\"semibold\">\n                {goalAndGuardrailMetricsTested > 1\n                  ? \"results show\"\n                  : \"result shows\"}{\" \"}\n                no pre-exposure imbalance\n              </Text>\n              .{\" \"}\n              <Text weight=\"semibold\">\n                <Link\n                  href=\"https://docs.growthbook.io/app/experiment-results#pre-exposure-mean-imbalance\"\n                  target=\"_blank\"\n                >\n                  Learn more\n                </Link>\n              </Text>\n              <Box display=\"inline-block\" ml=\"1\">\n                <PiArrowSquareOut size={15} />\n              </Box>\n            </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L189 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/HealthTab/CovariateImbalanceCard.tsx:189 · Callout</div>
               <Callout status="warning">Pre-exposure imbalance detected in{" "}<Text><Expr>{"goalAndGuardrailMetricsImbalanced"}</Expr>goal and guardrail metric
                 <Expr>{"goalAndGuardrailMetricsImbalanced !== 1 ? \"s\" : \"\""}</Expr></Text>{" "}(significance level{" "}<Expr>{"DEFAULT_P_VALUE_THRESHOLD_FOR_COVARIATE_IMBALANCE"}</Expr>,
               Bonferroni-corrected for <Expr>{"numBonferroniTests"}</Expr>test
@@ -2557,7 +2557,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/HealthTab/DimensionIssues.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L238 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/HealthTab/DimensionIssues.tsx:238 · Callout</div>
               <Callout status="info"><b>More traffic is required to detect a Sample Ratio
                               Mismatch (SRM).
                             </b></Callout>
@@ -2569,12 +2569,12 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/HealthTab/MultipleExposuresCard.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L71 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/HealthTab/MultipleExposuresCard.tsx:71 · Callout</div>
               <Callout status="success"><Expr>{"multipleExposures === 0 ? ( <b>Multiple exposures were not detected.</b> ) : ( `${numberFo…"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"success\">\n              {multipleExposures === 0 ? (\n                <b>Multiple exposures were not detected.</b>\n              ) : (\n                `${numberFormatter.format(\n                  multipleExposures,\n                )} multiple exposures detected, but that is below your threshold of ${percentFormatter.format(\n                  minPercentThreshold,\n                )}`\n              )}\n            </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L83 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/HealthTab/MultipleExposuresCard.tsx:83 · Callout</div>
               <Callout status="warning"><strong>Multiple Exposures Warning</strong>.{" "}<Expr>{"numberFormatter.format(multipleExposures)"}</Expr>users (
               <Expr>{"percentFormatter.format(health.rawDecimal)"}</Expr>) saw multiple
               variations and were automatically removed from results. Check for
@@ -2588,27 +2588,27 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/HealthTab/PowerCard.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L63 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/HealthTab/PowerCard.tsx:63 · Callout</div>
               <Callout status="info">Learn more about Power Analysis.{" "}<Stub name="Link">View docs
         <Box display="inline-block" ml="1"><Stub name="PiArrowSquareOut"></Stub></Box></Stub></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\">\n      Learn more about Power Analysis.{\" \"}\n      <Link target=\"_blank\" href=\"https://docs.growthbook.io/statistics/power\">\n        View docs\n        <Box display=\"inline-block\" ml=\"1\">\n          <PiArrowSquareOut />\n        </Box>\n      </Link>\n    </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L75 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/HealthTab/PowerCard.tsx:75 · Callout</div>
               <Callout status="info">We have not calculated power for this experiment yet. Refresh the Results
       to see the power data.
     </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\">\n      We have not calculated power for this experiment yet. Refresh the Results\n      to see the power data.\n    </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L82 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/HealthTab/PowerCard.tsx:82 · Callout</div>
               <Callout status="success">Your experiment is healthy. Conclusive results are likely before the
       anticipated experiment duration.
     </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"success\">\n      Your experiment is healthy. Conclusive results are likely before the\n      anticipated experiment duration.\n    </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L114 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/HealthTab/PowerCard.tsx:114 · Callout</div>
               <Callout status="warning" mb="2">Your experiment is low-powered. Conclusive results are unlikely by the
           anticipated experiment duration.
         </Callout>
@@ -2620,12 +2620,12 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/HealthTab/SRMCard.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L91 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/HealthTab/SRMCard.tsx:91 · Callout</div>
               <Callout status="error">Traffic data is missing</Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">Traffic data is missing</Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L153 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/HealthTab/SRMCard.tsx:153 · Callout</div>
               <Callout status="info"><b>More traffic is required to detect a Sample Ratio Mismatch
                       (SRM).
                     </b></Callout>
@@ -2637,7 +2637,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/HistoryTable.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L211 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/HistoryTable.tsx:211 · Callout</div>
               <Callout status="error"><Expr>{"error.message"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">{error.message}</Callout>"}</pre></details>
             </Box>
@@ -2647,7 +2647,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Holdout/EditEnvironmentsModal.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L71 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Holdout/EditEnvironmentsModal.tsx:71 · Callout</div>
               <Callout status="warning" mb="4"><Text>Proceed with caution. Holdout is running. Adding or removing
               environments could impact results.{" "}</Text></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\" mb=\"4\">\n            <Text>\n              Proceed with caution. Holdout is running. Adding or removing\n              environments could impact results.{\" \"}\n            </Text>\n          </Callout>"}</pre></details>
@@ -2658,14 +2658,14 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Holdout/HoldoutSelect.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L90 · PremiumCallout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Holdout/HoldoutSelect.tsx:90 · PremiumCallout</div>
               <MockUser><PremiumCallout commercialFeature="holdouts" dismissible mt="3" mb="3" id="dbg-10"><Flex direction="row" gap="3"><Text>Use Holdouts to isolate units and measure the cumulative impact of
             changes.
           </Text></Flex></PremiumCallout></MockUser>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<PremiumCallout\n        id=\"holdout-select-promo\"\n        commercialFeature=\"holdouts\"\n        dismissible={true}\n        mt=\"3\"\n        mb=\"3\"\n      >\n        <Flex direction=\"row\" gap=\"3\">\n          <Text>\n            Use Holdouts to isolate units and measure the cumulative impact of\n            changes.\n          </Text>\n        </Flex>\n      </PremiumCallout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L110 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Holdout/HoldoutSelect.tsx:110 · Callout</div>
               <Callout mt="3" mb="3" status="info" icon={<PlaceholderIcon />} dismissible id="dbg-11">Use <strong>Holdouts</strong>to isolate units and measure the
         cumulative impact of changes.{" "}<Stub name="Link">Show me how <Stub name="PiArrowSquareOut"></Stub></Stub></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout\n        mt=\"3\"\n        mb=\"3\"\n        status=\"info\"\n        icon={<PiLightbulb size={15} />}\n        dismissible\n        id=\"holdout-select-promo\"\n      >\n        Use <strong>Holdouts</strong> to isolate units and measure the\n        cumulative impact of changes.{\" \"}\n        <Link target=\"_blank\" href=\"https://docs.growthbook.io/app/holdouts\">\n          Show me how <PiArrowSquareOut size={15} />\n        </Link>\n      </Callout>"}</pre></details>
@@ -2676,19 +2676,19 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Holdout/NewHoldoutForm.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L370 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Holdout/NewHoldoutForm.tsx:370 · Callout</div>
               <Callout status="info" mb="4">When using a Remote Evaluated SDK Connection with Holdouts, you must use a
       compatible version of <strong>GrowthBook Proxy</strong>(1.2.8+) or the{" "}<strong>remote evaluation library</strong>(1.1.0+).
     </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" mb=\"4\">\n      When using a Remote Evaluated SDK Connection with Holdouts, you must use a\n      compatible version of <strong>GrowthBook Proxy</strong> (1.2.8+) or the{\" \"}\n      <strong>remote evaluation library</strong> (1.1.0+).\n    </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L404 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Holdout/NewHoldoutForm.tsx:404 · Callout</div>
               <Callout status="info"><Expr>{"msg"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\">{msg}</Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L407 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Holdout/NewHoldoutForm.tsx:407 · Callout</div>
               <Callout status="warning">You are creating a holdout under the demo datasource project.
                 This experiment will be deleted when the demo datasource project
                 is deleted.
@@ -2701,7 +2701,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Holdout/StopHoldoutModal.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L63 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Holdout/StopHoldoutModal.tsx:63 · Callout</div>
               <Callout status="error" mt="3"><Expr>{"startError"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" mt=\"3\">\n            {startError}\n          </Callout>"}</pre></details>
             </Box>
@@ -2711,7 +2711,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/HomePage/DiscussionFeed.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L31 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/HomePage/DiscussionFeed.tsx:31 · Callout</div>
               <Callout status="error"><Expr>{"error.message"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">{error.message}</Callout>"}</pre></details>
             </Box>
@@ -2721,12 +2721,12 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/HomePage/ExperimentImpact/ExperimentImpactTab.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L160 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/HomePage/ExperimentImpact/ExperimentImpactTab.tsx:160 · Callout</div>
               <Callout status="error" mb="1" ml="1" className="px-2 py-1"><Stub name="FaExclamationTriangle"></Stub><Expr>{"e.error"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" mb=\"1\" ml=\"1\" className=\"px-2 py-1\">\n              <FaExclamationTriangle className=\"mr-1\" />\n              {e.error}\n            </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L182 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/HomePage/ExperimentImpact/ExperimentImpactTab.tsx:182 · Callout</div>
               <Callout status="success" mt="2"><span><Expr>{"formatImpact( experimentImpactData.totalAdjustedImpact * 365, formatter, formatterOptions,…"}</Expr><Expr>{"` per year is the summed impact ${ experimentImpactType === \"winner\" ? \"of the winning var…"}</Expr></span></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout\n              status={experimentImpactType === \"winner\" ? \"success\" : \"info\"}\n              mt=\"2\"\n            >\n              <span style={{ fontSize: \"1.2em\" }}>\n                {formatImpact(\n                  experimentImpactData.totalAdjustedImpact * 365,\n                  formatter,\n                  formatterOptions,\n                )}\n                {` per year is the summed impact ${\n                  experimentImpactType === \"winner\"\n                    ? \"of the winning variations.\"\n                    : \"of not shipping the worst variation.\"\n                } `}\n              </span>\n            </Callout>"}</pre></details>
             </Box>
@@ -2736,14 +2736,14 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/HomePage/ExperimentImpact/index.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L31 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/HomePage/ExperimentImpact/index.tsx:31 · Callout</div>
               <Callout status="warning" mt="2"><span>0 experiments for which we could compute scaled impact match your
         filters.
       </span></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\" mt=\"2\">\n      <span style={{ fontSize: \"1.2em\" }}>\n        0 experiments for which we could compute scaled impact match your\n        filters.\n      </span>\n    </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L553 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/HomePage/ExperimentImpact/index.tsx:553 · Callout</div>
               <Callout status="warning" mt="2"><div className="row"><div className="col-auto"><span>Some experiments are missing scaled impact results.
                   </span></div><div className="flex-1" /><div className="col-auto"><button className="btn btn-sm btn-primary">Calculate Scaled Impact
                   </button></div></div></Callout>
@@ -2755,18 +2755,18 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/HomePage/ExperimentsGetStarted.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L138 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/HomePage/ExperimentsGetStarted.tsx:138 · Callout</div>
               <Callout status="info">It looks like you have a <code>config.yml</code>file. Use that
                 to define data sources and metrics.{" "}<Stub name="DocLink">View Documentation</Stub></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\">\n                It looks like you have a <code>config.yml</code> file. Use that\n                to define data sources and metrics.{\" \"}\n                <DocLink docSection=\"config_yml\">View Documentation</DocLink>\n              </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L268 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/HomePage/ExperimentsGetStarted.tsx:268 · Callout</div>
               <Callout status="info" className="text-center"><p>Not ready to connect to your data warehouse? Explore a sample
                 experiment first to get a feel for the GrowthBook platform.
               </p><Stub name="Button">View Sample Experiment
               </Stub></Callout>
-              <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" className=\"text-center\">\n              <p>\n                Not ready to connect to your data warehouse? Explore a sample\n                experiment first to get a feel for the GrowthBook platform.\n              </p>\n              <Button color=\"outline-primary\" onClick={openSampleExperiment}>\n                View Sample Experiment\n              </Button>\n            </Callout>"}</pre></details>
+              <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" className=\"text-center\">\n              <p>\n                Not ready to connect to your data warehouse? Explore a sample\n                experiment first to get a feel for the GrowthBook platform.\n              </p>\n              <Button variant=\"outline\" onClick={openSampleExperiment}>\n                View Sample Experiment\n              </Button>\n            </Callout>"}</pre></details>
             </Box>
           </Flex>
         </div>
@@ -2774,7 +2774,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/HomePage/GetStartedStep.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L70 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/HomePage/GetStartedStep.tsx:70 · Callout</div>
               <Callout status="info"><strong>Notice:</strong>You don&apos;t have the required
               permissions to complete this step.
             </Callout>
@@ -2786,7 +2786,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/HomePage/IdeasFeed.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L25 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/HomePage/IdeasFeed.tsx:25 · Callout</div>
               <Callout status="error"><Expr>{"error.message"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">{error.message}</Callout>"}</pre></details>
             </Box>
@@ -2796,18 +2796,18 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/HomePage/NorthStarMetricDisplay.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L62 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/HomePage/NorthStarMetricDisplay.tsx:62 · Callout</div>
               <Callout status="error"><Expr>{"error.message"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">{error.message}</Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L126 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/HomePage/NorthStarMetricDisplay.tsx:126 · Callout</div>
               <Callout status="error" my="3">Error running the analysis.
                 </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" my=\"3\">\n                  Error running the analysis.\n                </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L131 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/HomePage/NorthStarMetricDisplay.tsx:131 · Callout</div>
               <Callout status="info" my="3">Your analysis is currently running.
                 </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" my=\"3\">\n                  Your analysis is currently running.\n                </Callout>"}</pre></details>
@@ -2818,7 +2818,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/InitialSetup/SelectDataSourcePage.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L48 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/InitialSetup/SelectDataSourcePage.tsx:48 · Callout</div>
               <Callout status="info">To analyze experiment results, connect an event tracker and data
           source. If using GrowthBook to manage feature flags only, feel free to
           skip this step.
@@ -2831,19 +2831,19 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/InitialSetup/VerifyConnectionPage.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L156 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/InitialSetup/VerifyConnectionPage.tsx:156 · Callout</div>
               <Callout status="error"><Expr>{"error.message"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">{error.message}</Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L318 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/InitialSetup/VerifyConnectionPage.tsx:318 · Callout</div>
               <Callout status="info" mb="0"><Stub name="GBHashLock"></Stub>This connection has{" "}<strong>secure attribute hashing</strong>enabled. You
                         must manually hash all attributes with datatype{" "}<code>secureString</code>or <code>secureString[]</code>{" "}in your SDK implementation code.
                       </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" mb=\"0\">\n                        <GBHashLock className=\"text-blue\" /> This connection has{\" \"}\n                        <strong>secure attribute hashing</strong> enabled. You\n                        must manually hash all attributes with datatype{\" \"}\n                        <code>secureString</code> or <code>secureString[]</code>{\" \"}\n                        in your SDK implementation code.\n                      </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L366 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/InitialSetup/VerifyConnectionPage.tsx:366 · Callout</div>
               <Callout status="warning" mt="2" className="px-2 py-1"><Stub name="FaExclamationTriangle"></Stub>Your organization has an
                               empty salt string. Add a salt string in your{" "}<Stub name="Link">organization settings
                               </Stub>{" "}to improve the security of hashed targeting
@@ -2852,7 +2852,7 @@ export default function DebugAllCalloutsGenerated() {
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout\n                              status=\"warning\"\n                              mt=\"2\"\n                              className=\"px-2 py-1\"\n                            >\n                              <FaExclamationTriangle /> Your organization has an\n                              empty salt string. Add a salt string in your{\" \"}\n                              <Link href=\"/settings\">\n                                organization settings\n                              </Link>{\" \"}\n                              to improve the security of hashed targeting\n                              conditions.\n                            </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L392 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/InitialSetup/VerifyConnectionPage.tsx:392 · Callout</div>
               <Callout status="warning" mt="3" mb="0" icon={<PlaceholderIcon />}>When using an insecure environment (such as a
                           browser), do not rely exclusively on hashing as a
                           means of securing highly sensitive data. Hashing is an
@@ -2867,7 +2867,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/ManagedWarehouse/ManagedWarehouseNoEventsCallout.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L11 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/ManagedWarehouse/ManagedWarehouseNoEventsCallout.tsx:11 · Callout</div>
               <Callout status="info"><Text><Expr>{"MANAGED_WAREHOUSE_NO_EVENTS_MESSAGE"}</Expr>Read{" "}<Stub name="Link">our full docs
         </Stub>{" "}with instructions on how to send events from your app to GrowthBook.
       </Text></Callout>
@@ -2879,7 +2879,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Markdown/MarkdownInput.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L457 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Markdown/MarkdownInput.tsx:457 · Callout</div>
               <Callout status="error" mt="2"><Expr>{"error"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" mt=\"2\">\n                {error}\n              </Callout>"}</pre></details>
             </Box>
@@ -2889,30 +2889,30 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/MetricAnalysis/MetricAnalysis.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L328 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/MetricAnalysis/MetricAnalysis.tsx:328 · Callout</div>
               <Callout status="warning" mt="2" mb="2">Standalone metric analysis not available for quantile metrics.
           </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\" mt=\"2\" mb=\"2\">\n            Standalone metric analysis not available for quantile metrics.\n          </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L332 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/MetricAnalysis/MetricAnalysis.tsx:332 · Callout</div>
               <Callout status="warning" mt="2" mb="2">Standalone metric analysis not yet available for daily participation
             metrics.
           </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\" mt=\"2\" mb=\"2\">\n            Standalone metric analysis not yet available for daily participation\n            metrics.\n          </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L539 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/MetricAnalysis/MetricAnalysis.tsx:539 · Callout</div>
               <Callout status="info" mt="2" mb="2">{"Retention metrics analyzed here (outside the context of an experiment) have no clear baseline to use and will be treated as regular proportion metrics."}</Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" mt=\"2\" mb=\"2\">\n                {\n                  \"Retention metrics analyzed here (outside the context of an experiment) have no clear baseline to use and will be treated as regular proportion metrics.\"\n                }\n              </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L553 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/MetricAnalysis/MetricAnalysis.tsx:553 · Callout</div>
               <Callout status="error" mt="2" mb="2"><Expr>{"`Analysis error: ${error || metricAnalysis?.error}`"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" mt=\"2\" mb=\"2\">\n                  {`Analysis error: ${error || metricAnalysis?.error}`}\n                </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L561 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/MetricAnalysis/MetricAnalysis.tsx:561 · Callout</div>
               <Callout status="warning" mt="2" mb="2"><span>Analysis settings changed. Update results or{" "}<a role="button" className="btn-link" href="#">return to latest analysis
                       </a>.
                     </span></Callout>
@@ -2924,7 +2924,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/MetricExperiments/MetricExperiments.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L351 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/MetricExperiments/MetricExperiments.tsx:351 · Callout</div>
               <Callout status="info" mt="1" mb="2">0 <Expr>{"bandits ? \"bandits\" : \"experiments\""}</Expr>with this metric found.
     </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" mt=\"1\" mb=\"2\">\n      0 {bandits ? \"bandits\" : \"experiments\"} with this metric found.\n    </Callout>"}</pre></details>
@@ -2935,18 +2935,18 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Metrics/MetricForm/index.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L667 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Metrics/MetricForm/index.tsx:667 · Callout</div>
               <Callout status="warning">You are creating a metric under the demo datasource project.
             </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\">\n              You are creating a metric under the demo datasource project.\n            </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L671 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Metrics/MetricForm/index.tsx:671 · Callout</div>
               <Callout status="info" mb="3">You are creating a legacy SQL metric.{" "}<a href="#">Switch to use Fact Tables <Stub name="FaArrowRight"></Stub></a></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" mb=\"3\">\n              You are creating a legacy SQL metric.{\" \"}\n              <a\n                href=\"#\"\n                onClick={(e) => {\n                  e.preventDefault();\n                  switchToFact();\n                }}\n              >\n                Switch to use Fact Tables <FaArrowRight />\n              </a>\n            </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L684 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Metrics/MetricForm/index.tsx:684 · Callout</div>
               <Callout status="info" mb="3">Use Fact Tables for an easier and faster way to create metrics.{" "}<Stub name="Link">Learn More <Stub name="FaArrowRight"></Stub></Stub></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" mb=\"3\">\n              Use Fact Tables for an easier and faster way to create metrics.{\" \"}\n              <Link href=\"/fact-tables\">\n                Learn More <FaArrowRight />\n              </Link>\n            </Callout>"}</pre></details>
             </Box>
@@ -2956,7 +2956,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Metrics/MetricGroupsList.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L218 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Metrics/MetricGroupsList.tsx:218 · Callout</div>
               <Callout status="warning" mb="0"><Flex align="center" gap="2"><Stub name="FaExclamationTriangle"></Stub>Metric groups are used by reference, which means
                               if you delete this group, all experiments using it
                               will be affected.
@@ -2969,7 +2969,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Metrics/MetricsList.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L594 · PremiumCallout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Metrics/MetricsList.tsx:594 · PremiumCallout</div>
               <MockUser><PremiumCallout commercialFeature="metric-groups" dismissible docSection="metricGroups" mb="2" id="dbg-12"><strong>Metric Groups</strong>help you organize and manage your
           metrics at scale.
         </PremiumCallout></MockUser>
@@ -2981,7 +2981,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Modal.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L280 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Modal.tsx:280 · Callout</div>
               <Callout status="success"><Expr>{"successMessage"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"success\">{successMessage}</Callout>"}</pre></details>
             </Box>
@@ -2991,7 +2991,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/OAuthError.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L7 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/OAuthError.tsx:7 · Callout</div>
               <Callout status="error" mt="5"><strong>OAuth Error:</strong><Expr>{"error"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" mt=\"5\">\n      <strong>OAuth Error:</strong> {error}\n    </Callout>"}</pre></details>
             </Box>
@@ -3001,7 +3001,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/OfficialResourceModal.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L39 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/OfficialResourceModal.tsx:39 · Callout</div>
               <Callout status="info" icon={null} mt="4">Once converted to an <strong>Official <Expr>{"resourceType"}</Expr></strong>, it can
           only be modified in the UI by an Admin or by someone with the{" "}<code>ManageOfficialResources</code>policy.
         </Callout>
@@ -3013,7 +3013,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/OrgSuspendedBanner/OrgSuspendedBanner.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L13 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/OrgSuspendedBanner/OrgSuspendedBanner.tsx:13 · Callout</div>
               <Callout status="error"><strong>Account Suspended.</strong>Please contact your account manager
         or <a href="mailto:support@growthbook.io">support@growthbook.io</a>to
         regain access.
@@ -3026,7 +3026,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/OrganizationMessages/OrganizationMessages.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L39 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/OrganizationMessages/OrganizationMessages.tsx:39 · Callout</div>
               <Callout status="info"><Stub name="Markdown"><Expr>{"orgMessage.message"}</Expr></Stub></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout\n          key={md5(orgMessage.message)}\n          status={statusMap[orgMessage.level] || \"info\"}\n        >\n          <Markdown>{orgMessage.message}</Markdown>\n        </Callout>"}</pre></details>
             </Box>
@@ -3036,7 +3036,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/PersonalAccessTokens/PersonalAccessTokens.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L71 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/PersonalAccessTokens/PersonalAccessTokens.tsx:71 · Callout</div>
               <Callout status="info">Administrators can also create userless keys for an organization on
           the <Stub name="Link">API Keys</Stub>page.
         </Callout>
@@ -3048,12 +3048,12 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/PowerCalculation/PowerCalculationContent.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L163 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/PowerCalculation/PowerCalculationContent.tsx:163 · Callout</div>
               <Callout status="error">Computation failed: <Expr>{"results.description"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n              Computation failed: {results.description}\n            </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L268 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/PowerCalculation/PowerCalculationContent.tsx:268 · Callout</div>
               <Callout status="info" className="card"><h4><Expr>{"selectedName"}</Expr></h4><p>Reliably detecting a lift of{" "}<span className="font-weight-bold"><Expr>{"percentFormatter(selectedEffectSize, { digits: 1 })"}</Expr></span>{" "}requires running your experiment for{" "}<Expr>{"selectedTarget ? ( <> <span className=\"font-weight-bold\"> {formatWeeks({ weeks: selectedTa…"}</Expr></p></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" className=\"card\">\n            <h4>{selectedName}</h4>\n            <p>\n              Reliably detecting a lift of{\" \"}\n              <span className=\"font-weight-bold\">\n                {percentFormatter(selectedEffectSize, { digits: 1 })}\n              </span>{\" \"}\n              requires running your experiment for{\" \"}\n              {selectedTarget ? (\n                <>\n                  <span className=\"font-weight-bold\">\n                    {formatWeeks({\n                      weeks: selectedTarget.weeks,\n                      nWeeks: params.nWeeks,\n                    })}\n                  </span>{\" \"}\n                  (collecting roughly{\" \"}\n                  <span className=\"font-weight-bold\">\n                    {numberFormatter(selectedTarget.users)} users\n                  </span>\n                  )\n                </>\n              ) : (\n                <span className=\"font-weight-bold\">\n                  {formatWeeks({ nWeeks: params.nWeeks })}\n                </span>\n              )}\n            </p>\n          </Callout>"}</pre></details>
             </Box>
@@ -3063,21 +3063,21 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/PowerCalculation/PowerCalculationSettingsModal/SetParamsStep.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L310 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/PowerCalculation/PowerCalculationSettingsModal/SetParamsStep.tsx:310 · Callout</div>
               <Callout status="error" mt="2">Queries failed. Investigate the issue, pick a different population
               and/or metric, or enter values manually.
               <br /><Stub name="ViewAsyncQueriesButton"></Stub></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status={\"error\"} mt={\"2\"}>\n              Queries failed. Investigate the issue, pick a different population\n              and/or metric, or enter values manually.\n              <br />\n              <ViewAsyncQueriesButton\n                queries={populationData?.queries?.map((q) => q.query) ?? []}\n                error={populationData?.error}\n                icon={null}\n                hideQueryCount={true}\n                className=\"btn btn-link p-0 pt-1\"\n              />\n            </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L323 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/PowerCalculation/PowerCalculationSettingsModal/SetParamsStep.tsx:323 · Callout</div>
               <Callout status="error" mt="2">Error starting queries: Try a different population and/or metric
               or enter values manually.
               <br /><Expr>{"error"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status={\"error\"} mt={\"2\"}>\n              Error starting queries: Try a different population and/or metric\n              or enter values manually.\n              <br />\n              {error}\n            </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L383 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/PowerCalculation/PowerCalculationSettingsModal/SetParamsStep.tsx:383 · Callout</div>
               <Callout status="error" mt="2">Error populating data: Try a different population and/or metric or
           enter values manually.
           <br /><Expr>{"error"}</Expr></Callout>
@@ -3089,13 +3089,13 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/PreLaunchChecklist/PreLaunchChecklist.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L231 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/PreLaunchChecklist/PreLaunchChecklist.tsx:231 · Callout</div>
               <Callout status="error" mb="3">Please complete all required items before starting your experiment.
         </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" mb=\"3\">\n          Please complete all required items before starting your experiment.\n        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L235 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/PreLaunchChecklist/PreLaunchChecklist.tsx:235 · Callout</div>
               <Callout status="success" mb="3">All required items are complete. The experiment is ready to start.
         </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"success\" mb=\"3\">\n          All required items are complete. The experiment is ready to start.\n        </Callout>"}</pre></details>
@@ -3106,7 +3106,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Projects/ProjectRowMenu.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L115 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Projects/ProjectRowMenu.tsx:115 · Callout</div>
               <Callout status="warning" mt="3"><strong>Warning:</strong>You may end up with orphaned
                     resources that will need to be cleaned up manually.
                   </Callout>
@@ -3118,7 +3118,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/ProtectedPage.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L36 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/ProtectedPage.tsx:36 · Callout</div>
               <Callout status="error"><Expr>{"error"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">{error}</Callout>"}</pre></details>
             </Box>
@@ -3128,41 +3128,41 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Queries/AsyncQueriesModal.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L72 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Queries/AsyncQueriesModal.tsx:72 · Callout</div>
               <Callout status="error"><div><strong>Error Processing Query Results</strong></div><Expr>{"error"}</Expr><Expr>{"traceback ? ( <Code language=\"python\" filename=\"Python stack trace\" code={traceback.trim()…"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n          <div>\n            <strong>Error Processing Query Results</strong>\n          </div>\n          {error}\n          {traceback ? (\n            <Code\n              language=\"python\"\n              filename=\"Python stack trace\"\n              code={traceback.trim()}\n              showLineNumbers={false}\n              style={{ maxHeight: 500 }}\n            />\n          ) : null}\n        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L89 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Queries/AsyncQueriesModal.tsx:89 · Callout</div>
               <Callout status="error">Could not fetch information about one or more of these queries. Try
           running them again.
         </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n          Could not fetch information about one or more of these queries. Try\n          running them again.\n        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L97 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Queries/AsyncQueriesModal.tsx:97 · Callout</div>
               <Callout status="warning">One or more of these queries is waiting to run. Click{" "}<a href="#">here</a>to see the
             status of all your queries
           </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\">\n            One or more of these queries is waiting to run. Click{\" \"}\n            <a href={`/datasources/queries/${datasourceId}`}>here</a> to see the\n            status of all your queries\n          </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L170 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Queries/AsyncQueriesModal.tsx:170 · Callout</div>
               <Callout status="error"><Expr>{"apiError.message"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">{apiError.message}</Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L173 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Queries/AsyncQueriesModal.tsx:173 · Callout</div>
               <Callout status="error"><Expr>{"savedQueryError.message"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">{savedQueryError.message}</Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L195 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Queries/AsyncQueriesModal.tsx:195 · Callout</div>
               <Callout status="error"><Expr>{"apiError.message"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">{apiError.message}</Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L197 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Queries/AsyncQueriesModal.tsx:197 · Callout</div>
               <Callout status="error"><Expr>{"savedQueryError.message"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">{savedQueryError.message}</Callout>"}</pre></details>
             </Box>
@@ -3172,12 +3172,12 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Queries/ExpandableQuery.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L122 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Queries/ExpandableQuery.tsx:122 · Callout</div>
               <Callout status="error" my="3"><pre className="m-0 p-0"><Expr>{"query.error"}</Expr></pre></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" my=\"3\">\n          <pre className=\"m-0 p-0\" style={{ whiteSpace: \"pre-wrap\" }}>\n            {query.error}\n          </pre>\n        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L137 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Queries/ExpandableQuery.tsx:137 · Callout</div>
               <Callout status="warning" my="3">No rows returned
             </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\" my=\"3\">\n              No rows returned\n            </Callout>"}</pre></details>
@@ -3188,14 +3188,14 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/RampSchedule/RampScheduleModal.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L231 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/RampSchedule/RampScheduleModal.tsx:231 · Callout</div>
               <Callout status="warning" mb="3">This ramp has no implementations yet. Link it to a rollout rule from
           the rule editor to start applying it.
         </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\" mb=\"3\">\n          This ramp has no implementations yet. Link it to a rollout rule from\n          the rule editor to start applying it.\n        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L238 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/RampSchedule/RampScheduleModal.tsx:238 · Callout</div>
               <Callout status="info" mb="3">This ramp has <Expr>{"rs.targets.length"}</Expr>implementations. Saving will apply
           these step settings to all of them.
         </Callout>
@@ -3207,7 +3207,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/RampSchedule/SafeRolloutRuleDashboard/MetricSection.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L829 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/RampSchedule/SafeRolloutRuleDashboard/MetricSection.tsx:829 · Callout</div>
               <Callout status="info">There is not enough evidence to raise an issue. Any imbalances
                   in the percentages you see may be due to chance and
                   aren&apos;t cause for concern at this time.
@@ -3215,25 +3215,25 @@ export default function DebugAllCalloutsGenerated() {
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\">\n                  There is not enough evidence to raise an issue. Any imbalances\n                  in the percentages you see may be due to chance and\n                  aren&apos;t cause for concern at this time.\n                </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L835 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/RampSchedule/SafeRolloutRuleDashboard/MetricSection.tsx:835 · Callout</div>
               <Callout status="warning">The threshold for firing an SRM warning is{" "}<b><Expr>{"srmThreshold"}</Expr></b>and the p-value is{" "}<b><Expr>{"srmPValue !== undefined ? pValueFmt(srmPValue) : \"—\""}</Expr></b>.
                   This is a strong indicator that your traffic is imbalanced.
                 </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\">\n                  The threshold for firing an SRM warning is{\" \"}\n                  <b>{srmThreshold}</b> and the p-value is{\" \"}\n                  <b>{srmPValue !== undefined ? pValueFmt(srmPValue) : \"—\"}</b>.\n                  This is a strong indicator that your traffic is imbalanced.\n                </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L1033 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/RampSchedule/SafeRolloutRuleDashboard/MetricSection.tsx:1033 · Callout</div>
               <Callout status="warning" size="sm"><strong>Sample Ratio Mismatch (SRM) detected.</strong>{" "}P-value <Expr>{"pValueFmt(srmPValue!)"}</Expr>is below <Expr>{"srmThreshold"}</Expr>.{" "}<a className="a" role="button" href="#">Learn More {">"}</a></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\" size=\"sm\">\n                      <strong>Sample Ratio Mismatch (SRM) detected.</strong>{\" \"}\n                      P-value {pValueFmt(srmPValue!)} is below {srmThreshold}.{\" \"}\n                      <a\n                        className=\"a\"\n                        role=\"button\"\n                        onClick={() => setSrmModalOpen(true)}\n                      >\n                        Learn More {\">\"}\n                      </a>\n                    </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L1045 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/RampSchedule/SafeRolloutRuleDashboard/MetricSection.tsx:1045 · Callout</div>
               <Callout status="success" size="sm">No Sample Ratio Mismatch (SRM) detected.
                       <Expr>{"srmHealth === \"healthy\" && ( <> P-value above {srmThreshold}.</> )"}</Expr>{" "}<a className="a" role="button" href="#">Learn More {">"}</a></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"success\" size=\"sm\">\n                      No Sample Ratio Mismatch (SRM) detected.\n                      {srmHealth === \"healthy\" && (\n                        <> P-value above {srmThreshold}.</>\n                      )}{\" \"}\n                      <a\n                        className=\"a\"\n                        role=\"button\"\n                        onClick={() => setSrmModalOpen(true)}\n                      >\n                        Learn More {\">\"}\n                      </a>\n                    </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L1073 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/RampSchedule/SafeRolloutRuleDashboard/MetricSection.tsx:1073 · Callout</div>
               <Callout status="warning" size="sm"><strong>Multiple Exposures Warning.</strong>{" "}<Expr>{"numberFmt.format(meCount)"}</Expr>users saw multiple
                         variations. Check for bugs in your implementation, event
                         tracking, or data pipeline.
@@ -3241,7 +3241,7 @@ export default function DebugAllCalloutsGenerated() {
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\" size=\"sm\">\n                        <strong>Multiple Exposures Warning.</strong>{\" \"}\n                        {numberFmt.format(meCount)} users saw multiple\n                        variations. Check for bugs in your implementation, event\n                        tracking, or data pipeline.\n                      </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L1080 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/RampSchedule/SafeRolloutRuleDashboard/MetricSection.tsx:1080 · Callout</div>
               <Callout status="success" size="sm"><Expr>{"meCount === 0 ? \"No multiple exposures detected.\" : `${numberFmt.format(meCount)} multiple…"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"success\" size=\"sm\">\n                        {meCount === 0\n                          ? \"No multiple exposures detected.\"\n                          : `${numberFmt.format(meCount)} multiple exposures detected, below the ${pctFmt.format(meMinPercent)} threshold.`}\n                      </Callout>"}</pre></details>
             </Box>
@@ -3251,7 +3251,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/RampSchedule/SafeRolloutRuleDashboard/StatusBar.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L507 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/RampSchedule/SafeRolloutRuleDashboard/StatusBar.tsx:507 · Callout</div>
               <Callout status="error" mb="2"><strong>Error updating data: </strong><Expr>{"refreshError"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" mb=\"2\">\n          <strong>Error updating data: </strong> {refreshError}\n        </Callout>"}</pre></details>
             </Box>
@@ -3261,28 +3261,28 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Report/LegacyReportPage.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L140 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Report/LegacyReportPage.tsx:140 · Callout</div>
               <Callout status="error"><Expr>{"error.message"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">{error.message}</Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L449 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Report/LegacyReportPage.tsx:449 · Callout</div>
               <Callout status="error"><strong>Error generating the report: </strong>{" "}<Expr>{"report.error"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n                    <strong>Error generating the report: </strong>{\" \"}\n                    {report.error}\n                  </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L455 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Report/LegacyReportPage.tsx:455 · Callout</div>
               <Callout status="error"><strong>Error refreshing data: </strong><Expr>{"refreshError"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n                    <strong>Error refreshing data: </strong> {refreshError}\n                  </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L460 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Report/LegacyReportPage.tsx:460 · Callout</div>
               <Callout status="info">Add at least 1 metric to view results.
                   </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\">\n                    Add at least 1 metric to view results.\n                  </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L468 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Report/LegacyReportPage.tsx:468 · Callout</div>
               <Callout status="info">No data yet.{" "}<Expr>{"report.results && phaseAgeMinutes >= 120 && \"Make sure your experiment is tracking properl…"}</Expr><Expr>{"report.results && phaseAgeMinutes < 120 && \"It was just started \" + ago(report.args.startD…"}</Expr><Expr>{"!report.results && canUpdateReport && `Click the \"Refresh\" button.`"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\">\n                      No data yet.{\" \"}\n                      {report.results &&\n                        phaseAgeMinutes >= 120 &&\n                        \"Make sure your experiment is tracking properly.\"}\n                      {report.results &&\n                        phaseAgeMinutes < 120 &&\n                        \"It was just started \" +\n                          ago(report.args.startDate) +\n                          \". Give it a little longer and click the 'Refresh' button to check again.\"}\n                      {!report.results &&\n                        canUpdateReport &&\n                        `Click the \"Refresh\" button.`}\n                    </Callout>"}</pre></details>
             </Box>
@@ -3292,12 +3292,12 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Report/ReportAnalysisSettingsBar.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L271 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Report/ReportAnalysisSettingsBar.tsx:271 · Callout</div>
               <Callout status="error" size="sm" mb="4"><strong>Error refreshing data:</strong><Expr>{"refreshError"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" size=\"sm\" mb=\"4\">\n          <strong>Error refreshing data:</strong> {refreshError}\n        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L276 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Report/ReportAnalysisSettingsBar.tsx:276 · Callout</div>
               <Callout status="info" size="sm" mb="4">Add at least 1 metric to view results.
         </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" size=\"sm\" mb=\"4\">\n          Add at least 1 metric to view results.\n        </Callout>"}</pre></details>
@@ -3308,20 +3308,20 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Report/ReportMetaInfo.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L454 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Report/ReportMetaInfo.tsx:454 · Callout</div>
               <Callout status="info" size="sm">This report is discoverable within your organization.
               </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" size=\"sm\">\n                This report is discoverable within your organization.\n              </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L459 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Report/ReportMetaInfo.tsx:459 · Callout</div>
               <Callout status="warning" size="sm">Anyone with the link can view this report, even those outside
                   your organization.
                 </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\" size=\"sm\">\n                  Anyone with the link can view this report, even those outside\n                  your organization.\n                </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L465 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Report/ReportMetaInfo.tsx:465 · Callout</div>
               <Callout status="info" size="sm">This report is currently unlisted
                 <Expr>{"editLevel === \"private\" ? \" — only you can view or edit\" : \"\""}</Expr>.
               </Callout>
@@ -3333,19 +3333,19 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Report/ReportResults.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L153 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Report/ReportResults.tsx:153 · Callout</div>
               <Callout status="error">Report error
               <Expr>{"showDetails && ( <>: {snapshotError?.message ?? \"Unknown error\"}</> )"}</Expr><Expr>{"canEdit && ( <div className=\"mt-2 text-muted\"> Try refreshing this report, or click &quot;…"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n              Report error\n              {showDetails && (\n                <>: {snapshotError?.message ?? \"Unknown error\"}</>\n              )}\n              {canEdit && (\n                <div className=\"mt-2 text-muted\">\n                  Try refreshing this report, or click &quot;View Queries&quot;\n                  from the report menu to debug.\n                </div>\n              )}\n            </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L168 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Report/ReportResults.tsx:168 · Callout</div>
               <Callout status="error">Missing analysis
               <Expr>{"canEdit && ( <div className=\"mt-2 text-muted\"> Try refreshing this report to resolve. </di…"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n              Missing analysis\n              {canEdit && (\n                <div className=\"mt-2 text-muted\">\n                  Try refreshing this report to resolve.\n                </div>\n              )}\n            </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L317 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Report/ReportResults.tsx:317 · Callout</div>
               <Callout status="error">No analysis found for this report
                 </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n                  No analysis found for this report\n                </Callout>"}</pre></details>
@@ -3356,7 +3356,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Reviews/Feature/CompareRevisionsModal.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L1620 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Reviews/Feature/CompareRevisionsModal.tsx:1620 · Callout</div>
               <Callout status="warning" mt="3">Live has changed since this draft was created (based on
                       Revision <Expr>{"previewDraftRev.baseVersion"}</Expr>). Publishing uses
                       three-way merge — only fields the draft explicitly changed
@@ -3366,7 +3366,7 @@ export default function DebugAllCalloutsGenerated() {
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\" mt=\"3\">\n                      Live has changed since this draft was created (based on\n                      Revision {previewDraftRev.baseVersion}). Publishing uses\n                      three-way merge — only fields the draft explicitly changed\n                      from its base will take effect. Use{\" \"}\n                      <strong>Review &amp; Publish</strong> to see the exact\n                      changes that will go live.\n                    </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L1633 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Reviews/Feature/CompareRevisionsModal.tsx:1633 · Callout</div>
               <Callout status="error" mt="4"><Flex gap="4" align="start"><span>Could not load revision
                       <Expr>{"previewDisplayFailed.length > 1 ? \"s\" : \"\""}</Expr>{" "}<Expr>{"previewDisplayFailed.join(\", \")"}</Expr>.
                     </span><Stub name="Link">Reload revision
@@ -3374,7 +3374,7 @@ export default function DebugAllCalloutsGenerated() {
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" mt=\"4\">\n                  <Flex gap=\"4\" align=\"start\">\n                    <span>\n                      Could not load revision\n                      {previewDisplayFailed.length > 1 ? \"s\" : \"\"}{\" \"}\n                      {previewDisplayFailed.join(\", \")}.\n                    </span>\n                    <Link onClick={() => fetchRevisions(previewDisplayFailed)}>\n                      Reload revision\n                      {previewDisplayFailed.length > 1 ? \"s\" : \"\"}\n                    </Link>\n                  </Flex>\n                </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L1761 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Reviews/Feature/CompareRevisionsModal.tsx:1761 · Callout</div>
               <Callout status="error" mt="4"><Flex gap="4" align="start"><span>Could not load revision
                       <Expr>{"displayFailed.length > 1 ? \"s\" : \"\""}</Expr>{" "}<Expr>{"displayFailed.join(\", \")"}</Expr>.
                     </span><Stub name="Link">Reload revision<Expr>{"displayFailed.length > 1 ? \"s\" : \"\""}</Expr></Stub></Flex></Callout>
@@ -3386,18 +3386,18 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Reviews/Feature/ReviewAndPublish.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L1160 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Reviews/Feature/ReviewAndPublish.tsx:1160 · Callout</div>
               <Callout status="info">Select a revision from the dropdown above to review.
         <Expr>{"onClose && ( <Box mt=\"2\"> <Button variant=\"soft\" onClick={() => onClose()}> Back to Overvi…"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\">\n        Select a revision from the dropdown above to review.\n        {onClose && (\n          <Box mt=\"2\">\n            <Button variant=\"soft\" onClick={() => onClose()}>\n              Back to Overview\n            </Button>\n          </Box>\n        )}\n      </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L1677 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Reviews/Feature/ReviewAndPublish.tsx:1677 · Callout</div>
               <Callout status="info">Loading draft changes…</Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\">Loading draft changes…</Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L2166 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Reviews/Feature/ReviewAndPublish.tsx:2166 · Callout</div>
               <Callout status="info" icon={<PlaceholderIcon />}><Text as="p">Your draft is based on an older version, and the live version
                 has since been published with conflicting changes. Resolve each
                 conflict below, then click{" "}<Text as="span">Update Draft
@@ -3406,13 +3406,13 @@ export default function DebugAllCalloutsGenerated() {
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" icon={<PiGitMergeBold size={18} />}>\n              <Text as=\"p\">\n                Your draft is based on an older version, and the live version\n                has since been published with conflicting changes. Resolve each\n                conflict below, then click{\" \"}\n                <Text as=\"span\" weight=\"medium\">\n                  Update Draft\n                </Text>{\" \"}\n                to rebase your draft onto the current live version.\n              </Text>\n            </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L2397 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Reviews/Feature/ReviewAndPublish.tsx:2397 · Callout</div>
               <Callout status="info" mb="2"><strong><Expr>{"experiment.name"}</Expr></strong>will start on{" "}<strong><Expr>{"format(scheduledStartDate, \"MMM d, yyyy 'at' h:mm a\")"}</Expr></strong>.
               </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" mb=\"2\">\n                <strong>{experiment.name}</strong> will start on{\" \"}\n                <strong>\n                  {format(scheduledStartDate, \"MMM d, yyyy 'at' h:mm a\")}\n                </strong>\n                .\n              </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L2808 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Reviews/Feature/ReviewAndPublish.tsx:2808 · Callout</div>
               <Callout status="warning" mt="2">This draft would start{" "}<Expr>{"experiments.length === 1 ? \"a linked draft experiment\" : `${experiments.length} linked dra…"}</Expr>. A scheduled publish won&apos;t start{" "}<Expr>{"experiments.length === 1 ? \"it\" : \"them\""}</Expr>— it will
                             be held at the scheduled time until{" "}<Expr>{"experiments.length === 1 ? \"it is\" : \"they are\""}</Expr>{" "}started (or removed from this draft). Start{" "}<Expr>{"experiments.length === 1 ? \"it\" : \"them\""}</Expr>before
                             the scheduled time to avoid a stuck publish.
@@ -3420,26 +3420,26 @@ export default function DebugAllCalloutsGenerated() {
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\" mt=\"2\">\n                            This draft would start{\" \"}\n                            {experiments.length === 1\n                              ? \"a linked draft experiment\"\n                              : `${experiments.length} linked draft experiments`}\n                            . A scheduled publish won&apos;t start{\" \"}\n                            {experiments.length === 1 ? \"it\" : \"them\"} — it will\n                            be held at the scheduled time until{\" \"}\n                            {experiments.length === 1 ? \"it is\" : \"they are\"}{\" \"}\n                            started (or removed from this draft). Start{\" \"}\n                            {experiments.length === 1 ? \"it\" : \"them\"} before\n                            the scheduled time to avoid a stuck publish.\n                          </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L2831 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Reviews/Feature/ReviewAndPublish.tsx:2831 · Callout</div>
               <Callout status="error" mt="2"><Expr>{"scheduleError"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" mt=\"2\">\n                        {scheduleError}\n                      </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L2967 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Reviews/Feature/ReviewAndPublish.tsx:2967 · Callout</div>
               <Callout status="info" size="sm">Publishing this draft will activate ramp schedule{" "}<strong><Expr>{"ramp.name"}</Expr></strong>. The ramp will begin once
                           this revision is live.
                         </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout key={ramp.id} status=\"info\" size=\"sm\">\n                          Publishing this draft will activate ramp schedule{\" \"}\n                          <strong>{ramp.name}</strong>. The ramp will begin once\n                          this revision is live.\n                        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L2975 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Reviews/Feature/ReviewAndPublish.tsx:2975 · Callout</div>
               <Callout status="info" size="sm">No changes to publish. Discard the draft or add
                           changes first.
                         </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" size=\"sm\">\n                          No changes to publish. Discard the draft or add\n                          changes first.\n                        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L2982 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Reviews/Feature/ReviewAndPublish.tsx:2982 · Callout</div>
               <Callout status="warning" size="sm">Another draft
                           <Expr>{"lockingScheduledSibling?.version ? ` (revision ${lockingScheduledSibling.version})` : \"\""}</Expr>{" "}is scheduled to publish and has locked publishing of
                           other drafts. Cancel that schedule to publish this
@@ -3448,12 +3448,12 @@ export default function DebugAllCalloutsGenerated() {
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\" size=\"sm\">\n                          Another draft\n                          {lockingScheduledSibling?.version\n                            ? ` (revision ${lockingScheduledSibling.version})`\n                            : \"\"}{\" \"}\n                          is scheduled to publish and has locked publishing of\n                          other drafts. Cancel that schedule to publish this\n                          revision.\n                        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L3023 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Reviews/Feature/ReviewAndPublish.tsx:3023 · Callout</div>
               <Callout status="error" size="sm"><Expr>{"submitError"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" size=\"sm\">\n                        {submitError}\n                      </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L3028 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Reviews/Feature/ReviewAndPublish.tsx:3028 · Callout</div>
               <Callout status="error" size="sm"><Expr>{"secondaryError"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" size=\"sm\">\n                        {secondaryError}\n                      </Callout>"}</pre></details>
             </Box>
@@ -3463,7 +3463,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Reviews/Feature/RevisionDiffUtils.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L1781 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Reviews/Feature/RevisionDiffUtils.tsx:1781 · Callout</div>
               <Callout status="info" size="sm" mb="4">A draft in this comparison is based on an older version than
                 what is currently live. When you publish, it will be merged with
                 the live version, so the result may differ from the diff shown
@@ -3477,7 +3477,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Reviews/Feature/RevisionLog.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L689 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Reviews/Feature/RevisionLog.tsx:689 · Callout</div>
               <Callout status="error"><Expr>{"error.message"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">{error.message}</Callout>"}</pre></details>
             </Box>
@@ -3487,7 +3487,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Revision/FixRevisionConflictsModal.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L303 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Revision/FixRevisionConflictsModal.tsx:303 · Callout</div>
               <Callout status="info" icon={<PlaceholderIcon />}><Text as="p">Conflicting changes have been published since you created this
               revision. Resolve each conflict below, then click{" "}<Text as="span">Update Draft
               </Text>{" "}to rebase your draft onto the current live version.
@@ -3495,7 +3495,7 @@ export default function DebugAllCalloutsGenerated() {
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" icon={<PiGitMergeBold size={18} />}>\n            <Text as=\"p\">\n              Conflicting changes have been published since you created this\n              revision. Resolve each conflict below, then click{\" \"}\n              <Text as=\"span\" weight=\"medium\">\n                Update Draft\n              </Text>{\" \"}\n              to rebase your draft onto the current live version.\n            </Text>\n          </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L359 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Revision/FixRevisionConflictsModal.tsx:359 · Callout</div>
               <Callout status="info" icon={<PlaceholderIcon />}><Text as="p">Almost done — your revision has been successfully rebased onto the
               current live version. Review the changes below, then click{" "}<Text as="span">Update Draft
               </Text>{" "}to apply them.
@@ -3508,7 +3508,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Revision/RevisionBanner.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L132 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Revision/RevisionBanner.tsx:132 · Callout</div>
               <Callout status="info" mb="4" action={<ActionPlaceholder />}><span><Expr>{"config.text"}</Expr><Expr>{"error && ( <span style={{ color: \"var(--red-9)\", marginLeft: 8 }}> {error} </span> )"}</Expr></span></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout\n        status={config.status}\n        mb=\"4\"\n        action={\n          <Flex gap=\"2\" align=\"center\">\n            {canDiscard &&\n              revision.status !== \"discarded\" &&\n              revision.status !== \"merged\" && (\n                <Link onClick={() => setConfirmDiscard(true)}>\n                  Discard draft\n                </Link>\n              )}\n            {revision.status === \"approved\" && canPublish && (\n              <Button\n                variant=\"solid\"\n                color=\"violet\"\n                size=\"sm\"\n                onClick={() => setConfirmPublish(true)}\n              >\n                Publish Changes\n              </Button>\n            )}\n            {revision.status === \"discarded\" && canReopen && onReopen && (\n              <Button\n                variant=\"solid\"\n                color=\"violet\"\n                size=\"sm\"\n                onClick={() => setConfirmReopen(true)}\n              >\n                Reopen\n              </Button>\n            )}\n          </Flex>\n        }\n      >\n        <span>\n          {config.text}\n          {error && (\n            <span style={{ color: \"var(--red-9)\", marginLeft: 8 }}>\n              {error}\n            </span>\n          )}\n        </span>\n      </Callout>"}</pre></details>
             </Box>
@@ -3518,30 +3518,30 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Revision/RevisionDetail.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L448 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Revision/RevisionDetail.tsx:448 · Callout</div>
               <Callout status="error" mb="4" action={<ActionPlaceholder />}><Text>You have conflicts with the current state of the entity. Please
             resolve the conflicts before merging.
           </Text></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout\n          status=\"error\"\n          mb=\"4\"\n          action={\n            <Button\n              onClick={() => setShowFixConflicts(true)}\n              variant=\"outline\"\n              color=\"inherit\"\n              size=\"sm\"\n            >\n              Fix Conflicts\n            </Button>\n          }\n        >\n          <Text size=\"medium\">\n            You have conflicts with the current state of the entity. Please\n            resolve the conflicts before merging.\n          </Text>\n        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L469 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Revision/RevisionDetail.tsx:469 · Callout</div>
               <Callout status="error" mb="4"><Text><Expr>{"mergeError"}</Expr></Text></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" mb=\"4\">\n          <Text size=\"medium\">{mergeError}</Text>\n        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L474 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Revision/RevisionDetail.tsx:474 · Callout</div>
               <Callout status="success" mb="4"><Text>This revision has been merged and published.
           </Text></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"success\" mb=\"4\">\n          <Text size=\"medium\">\n            This revision has been merged and published.\n          </Text>\n        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L481 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Revision/RevisionDetail.tsx:481 · Callout</div>
               <Callout status="warning" mb="4" action={<ActionPlaceholder />}><Text>This revision has been discarded.</Text></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout\n          status=\"warning\"\n          mb=\"4\"\n          action={\n            onReopen && (\n              <Button\n                variant=\"solid\"\n                color=\"inherit\"\n                size=\"sm\"\n                onClick={() => setConfirmReopen(true)}\n              >\n                Reopen\n              </Button>\n            )\n          }\n        >\n          <Text size=\"medium\">This revision has been discarded.</Text>\n        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L557 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Revision/RevisionDetail.tsx:557 · Callout</div>
               <Callout status="error" mb="3"><Expr>{"reviewError"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" mb=\"3\">\n          {reviewError}\n        </Callout>"}</pre></details>
             </Box>
@@ -3551,7 +3551,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Revision/RevisionList.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L154 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Revision/RevisionList.tsx:154 · Callout</div>
               <Callout status="info">No revisions found for this entity</Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\">No revisions found for this entity</Callout>"}</pre></details>
             </Box>
@@ -3561,7 +3561,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/SafeRollout/AnalysisSettingsSummary.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L193 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/SafeRollout/AnalysisSettingsSummary.tsx:193 · Callout</div>
               <Callout status="error" mt="2"><strong>Error updating data: </strong><Expr>{"refreshError"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" mt=\"2\">\n          <strong>Error updating data: </strong> {refreshError}\n        </Callout>"}</pre></details>
             </Box>
@@ -3571,7 +3571,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/SafeRollout/Results/ResultsTable.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L432 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/SafeRollout/Results/ResultsTable.tsx:432 · Callout</div>
               <Callout status="error" mb="1" ml="1" className="px-2 py-1"><Stub name="FaExclamationTriangle"></Stub>Query error
                               </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout\n                                status=\"error\"\n                                mb=\"1\"\n                                ml=\"1\"\n                                className=\"px-2 py-1\"\n                              >\n                                <FaExclamationTriangle className=\"mr-1\" />\n                                Query error\n                              </Callout>"}</pre></details>
@@ -3582,23 +3582,23 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/SafeRollout/SafeRolloutResults.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L128 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/SafeRollout/SafeRolloutResults.tsx:128 · Callout</div>
               <Callout status="error" mx="3" my="4"><Expr>{"error.message"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" mx=\"3\" my=\"4\">\n        {error.message}\n      </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L161 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/SafeRollout/SafeRolloutResults.tsx:161 · Callout</div>
               <Callout status="info" mx="3" my="4">No data yet.{" "}<Expr>{"snapshot && phaseAgeMinutes >= 120 && \"Make sure your safe rollout is tracking properly.\""}</Expr><Expr>{"snapshot && phaseAgeMinutes < 120 && (phaseAgeMinutes < 0 ? \"This safe rollout will start …"}</Expr><Expr>{"!snapshot && datasource && permissionsUtil.canRunExperimentQueries(datasource) && `Click t…"}</Expr><Expr>{"snapshotLoading && <div> Snapshot loading...</div>"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" mx=\"3\" my=\"4\">\n                  No data yet.{\" \"}\n                  {snapshot &&\n                    phaseAgeMinutes >= 120 &&\n                    \"Make sure your safe rollout is tracking properly.\"}\n                  {snapshot &&\n                    phaseAgeMinutes < 120 &&\n                    (phaseAgeMinutes < 0\n                      ? \"This safe rollout will start \" +\n                        relativeDate(safeRollout.startedAt ?? \"\") +\n                        \". Wait until it's been running for a little while and click the 'Update' button above to check again.\"\n                      : \"It was just started \" +\n                        ago(safeRollout.startedAt ?? \"\") +\n                        \". Give it a little longer and click the 'Update' button above to check again.\")}\n                  {!snapshot &&\n                    datasource &&\n                    permissionsUtil.canRunExperimentQueries(datasource) &&\n                    `Click the \"Update\" button above.`}\n                  {snapshotLoading && <div> Snapshot loading...</div>}\n                </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L241 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/SafeRollout/SafeRolloutResults.tsx:241 · Callout</div>
               <Callout status="info" mt="3">No data yet.
                   </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" mt=\"3\">\n                    No data yet.\n                  </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L245 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/SafeRollout/SafeRolloutResults.tsx:245 · Callout</div>
               <Callout status="info" mt="3">Please run a query to see health data.
                   </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" mt=\"3\">\n                    Please run a query to see health data.\n                  </Callout>"}</pre></details>
@@ -3609,14 +3609,14 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/SavedGroups/LargeSavedGroupSupportWarning.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L55 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/SavedGroups/LargeSavedGroupSupportWarning.tsx:55 · Callout</div>
               <Callout status="info" mb="4" size="sm">Performance improvements for Saved Groups are available with an
         Enterprise plan.
         <Expr>{"openUpgradeModal && ( <> {\" \"} <a role=\"button\" onClick={openUpgradeModal}> Upgrade &gt; <…"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" mb=\"4\" size=\"sm\">\n        Performance improvements for Saved Groups are available with an\n        Enterprise plan.\n        {openUpgradeModal && (\n          <>\n            {\" \"}\n            <a role=\"button\" onClick={openUpgradeModal}>\n              Upgrade &gt;\n            </a>\n          </>\n        )}\n      </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L72 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/SavedGroups/LargeSavedGroupSupportWarning.tsx:72 · Callout</div>
               <Callout status="warning" mb="4" size="sm" dismissible id="dbg-13"><span>Enable &quot;Pass Saved Groups by reference&quot; on your SDK
         Connections to improve performance.
         <Stub name="IncompatibleSDKsPopover"></Stub></span></Callout>
@@ -3628,7 +3628,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/SavedGroups/SavedGroupArchiveModal.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L177 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/SavedGroups/SavedGroupArchiveModal.tsx:177 · Callout</div>
               <Callout status="error" mb="4"><Text as="p" mb="2">Cannot <Expr>{"isArchived ? \"unarchive\" : \"archive\""}</Expr>saved group
             </Text><Text as="p" mb="0">Before you can <Expr>{"isArchived ? \"unarchive\" : \"archive\""}</Expr>this saved
               group, you will need to remove any references to it. Check the
@@ -3643,7 +3643,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/SavedGroups/SavedGroupDeleteModal.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L63 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/SavedGroups/SavedGroupDeleteModal.tsx:63 · Callout</div>
               <Callout status="error" mb="4"><Text as="p" mb="2">Cannot delete saved group
             </Text><Text as="p" mb="0">Before you can delete this group, you will need to remove any
               references to it. Check the following item
@@ -3657,7 +3657,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/SavedGroups/SavedGroupForm.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L511 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/SavedGroups/SavedGroupForm.tsx:511 · Callout</div>
               <Callout status="warning" mb="4"><Text><Expr>{"`This revision is ${currentRevision.status} and cannot be edited. You can view it here in …"}</Expr></Text></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\" mb=\"4\">\n          <Text size=\"2\">\n            {`This revision is ${currentRevision.status} and cannot be edited. You can view it here in read-only mode.`}\n          </Text>\n        </Callout>"}</pre></details>
             </Box>
@@ -3667,7 +3667,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/SavedGroups/SavedGroupReviews.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L276 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/SavedGroups/SavedGroupReviews.tsx:276 · Callout</div>
               <Callout status="info">No drafts for saved groups.</Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\">No drafts for saved groups.</Callout>"}</pre></details>
             </Box>
@@ -3677,12 +3677,12 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/SavedQueries/ExpandableSavedQuery.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L38 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/SavedQueries/ExpandableSavedQuery.tsx:38 · Callout</div>
               <Callout status="error"><pre className="m-0 p-0"><Expr>{"savedQuery.results.error"}</Expr></pre></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n          <pre className=\"m-0 p-0\" style={{ whiteSpace: \"pre-wrap\" }}>\n            {savedQuery.results.error}\n          </pre>\n        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L81 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/SavedQueries/ExpandableSavedQuery.tsx:81 · Callout</div>
               <Callout status="warning" my="3">No rows returned
         </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\" my=\"3\">\n          No rows returned\n        </Callout>"}</pre></details>
@@ -3693,7 +3693,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/SavedQueries/SavedQueriesList.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L238 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/SavedQueries/SavedQueriesList.tsx:238 · Callout</div>
               <Callout status="warning" mb="2"><Expr>{"`This saved query is in use by ${ activeReferences.length } dashboard${ activeReferences.l…"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout\n                                      status=\"warning\"\n                                      mb=\"2\"\n                                    >{`This saved query is in use by ${\n                                      activeReferences.length\n                                    } dashboard${\n                                      activeReferences.length === 1 ? \"\" : \"s\"\n                                    }. If deleted, linked SQL Explorer blocks will lose their visualizations.`}</Callout>"}</pre></details>
             </Box>
@@ -3703,7 +3703,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/SchemaBrowser/BuildInformationSchemaCard.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L15 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/SchemaBrowser/BuildInformationSchemaCard.tsx:15 · Callout</div>
               <Callout status="info"><div><span>Need help building your query? Click the button below to get insight
             into what tables and columns are available in the datasource.
           </span></div><Stub name="Tooltip"><button className="mt-2 btn btn-primary">Generate Information Schema
@@ -3711,7 +3711,7 @@ export default function DebugAllCalloutsGenerated() {
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\">\n        <div>\n          <span>\n            Need help building your query? Click the button below to get insight\n            into what tables and columns are available in the datasource.\n          </span>\n        </div>\n        <Tooltip\n          body=\"You do not have permission to generate an information schema for this datasource.\"\n          shouldDisplay={!canRunQueries}\n        >\n          <button\n            disabled={!canRunQueries}\n            className=\"mt-2 btn btn-primary\"\n            onClick={async (e) => {\n              e.preventDefault();\n              refreshOrCreateInfoSchema(\"POST\");\n            }}\n          >\n            Generate Information Schema\n          </button>\n        </Tooltip>\n      </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L38 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/SchemaBrowser/BuildInformationSchemaCard.tsx:38 · Callout</div>
               <Callout status="error"><Expr>{"error"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">{error}</Callout>"}</pre></details>
             </Box>
@@ -3721,7 +3721,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/SchemaBrowser/DatasourceTableData.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L205 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/SchemaBrowser/DatasourceTableData.tsx:205 · Callout</div>
               <Callout status="warning" mt="2">You do not have permission to refresh this
                             information schema.
                           </Callout>
@@ -3733,14 +3733,14 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/SchemaBrowser/PendingInformationSchemaCard.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L36 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/SchemaBrowser/PendingInformationSchemaCard.tsx:36 · Callout</div>
               <Callout status="info" action={<ActionPlaceholder />}>We&apos;re generating the information schema for this datasource. This
           may take a minute, depending on the size of the datasource.
         </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout\n          status=\"info\"\n          action={\n            <Button variant=\"ghost\" disabled loading={fetching}>\n              Checking Status\n            </Button>\n          }\n        >\n          We&apos;re generating the information schema for this datasource. This\n          may take a minute, depending on the size of the datasource.\n        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L48 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/SchemaBrowser/PendingInformationSchemaCard.tsx:48 · Callout</div>
               <Callout status="error"><Expr>{"error"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">{error}</Callout>"}</pre></details>
             </Box>
@@ -3750,7 +3750,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/SchemaBrowser/RetryInformationSchemaCard.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L47 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/SchemaBrowser/RetryInformationSchemaCard.tsx:47 · Callout</div>
               <Callout status="warning"><Flex align="center" gap="2"><Expr>{"combinedError ? <span>{combinedError}</span> : null"}</Expr><Stub name="Tooltip"><button className="btn btn-link">Retry
               </button></Stub></Flex></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\">\n          <Flex align=\"center\" gap=\"2\">\n            {combinedError ? <span>{combinedError}</span> : null}\n            <Tooltip\n              body=\"You do not have permission to retry generating an information schema for this datasource.\"\n              shouldDisplay={!canRunQueries}\n            >\n              <button\n                disabled={!canRunQueries}\n                className=\"btn btn-link\"\n                onClick={async (e) => {\n                  e.preventDefault();\n                  refreshOrCreateInfoSchema(\"PUT\");\n                }}\n              >\n                Retry\n              </button>\n            </Tooltip>\n          </Flex>\n        </Callout>"}</pre></details>
@@ -3761,7 +3761,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/SchemaBrowser/SaveQueryModal.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L82 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/SchemaBrowser/SaveQueryModal.tsx:82 · Callout</div>
               <Callout status="error" mb="3"><Expr>{"error"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" mb=\"3\">\n            {error}\n          </Callout>"}</pre></details>
             </Box>
@@ -3771,7 +3771,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/SchemaBrowser/SchemaBrowser.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L464 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/SchemaBrowser/SchemaBrowser.tsx:464 · Callout</div>
               <Callout status="error" mt="2" mb="0"><Expr>{"error"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" mt=\"2\" mb=\"0\">\n          {error}\n        </Callout>"}</pre></details>
             </Box>
@@ -3781,7 +3781,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/SchemaBrowser/SchemaBrowserWrapper.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L58 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/SchemaBrowser/SchemaBrowserWrapper.tsx:58 · Callout</div>
               <Callout status="warning" mt="2">You do not have permission to refresh this
                             information schema.
                           </Callout>
@@ -3793,7 +3793,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Segments/SegmentForm.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L187 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Segments/SegmentForm.tsx:187 · Callout</div>
               <Callout status="info" color="purple"><Flex align="center" gap="2">Want to use Fact Tables to create your segments instead?{" "}<a href="#" className="ml-2 btn btn-primary btn-sm">Use Fact Tables <Stub name="FaArrowRight"></Stub></a></Flex></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" color=\"purple\">\n            <Flex align=\"center\" gap=\"2\">\n              Want to use Fact Tables to create your segments instead?{\" \"}\n              <a\n                href=\"#\"\n                className=\"ml-2 btn btn-primary btn-sm\"\n                onClick={(e) => {\n                  e.preventDefault();\n                  setCreateFactSegment(true);\n                }}\n              >\n                Use Fact Tables <FaArrowRight />\n              </a>\n            </Flex>\n          </Callout>"}</pre></details>
             </Box>
@@ -3803,12 +3803,12 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Settings/ApiKeys.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L13 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/ApiKeys.tsx:13 · Callout</div>
               <Callout status="error"><Expr>{"error.message"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">{error.message}</Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L23 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/ApiKeys.tsx:23 · Callout</div>
               <Callout status="info" mb="4">You can also create{" "}<Stub name="Link">Personal Access Tokens
         </Stub>{" "}for your user account
       </Callout>
@@ -3820,12 +3820,12 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Settings/BigQueryForm.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L164 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/BigQueryForm.tsx:164 · Callout</div>
               <Callout status="error"><Expr>{"testConnectionResults.message"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout\n                    status={\n                      testConnectionResults.status === \"danger\"\n                        ? \"error\"\n                        : testConnectionResults.status\n                    }\n                  >\n                    {testConnectionResults.message}\n                  </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L176 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/BigQueryForm.tsx:176 · Callout</div>
               <Callout status="info">Your connection info will appear here when you select a valid
                 JSON key file.
               </Callout>
@@ -3837,10 +3837,10 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Settings/DataSourceForm.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L202 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/DataSourceForm.tsx:202 · Callout</div>
               <Callout status="info" action={<ActionPlaceholder />}><div><strong>Not ready to connect to your data source?</strong></div>{" "}Try out GrowthBook first with a sample dataset.
         </Callout>
-              <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout\n          status=\"info\"\n          action={\n            <Button\n              color=\"info\"\n              className=\"btn-sm\"\n              onClick={async () => {\n                await importSampleData();\n              }}\n            >\n              Use Sample Data\n            </Button>\n          }\n        >\n          <div>\n            <strong>Not ready to connect to your data source?</strong>\n          </div>{\" \"}\n          Try out GrowthBook first with a sample dataset.\n        </Callout>"}</pre></details>
+              <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout\n          status=\"info\"\n          action={\n            <Button\n              onClick={async () => {\n                await importSampleData();\n              }}\n            >\n              Use Sample Data\n            </Button>\n          }\n        >\n          <div>\n            <strong>Not ready to connect to your data source?</strong>\n          </div>{\" \"}\n          Try out GrowthBook first with a sample dataset.\n        </Callout>"}</pre></details>
             </Box>
           </Flex>
         </div>
@@ -3848,7 +3848,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Settings/DataSourceSchemaChooser.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L25 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/DataSourceSchemaChooser.tsx:25 · Callout</div>
               <Callout status="success" mb="4"><strong>Connection successful!</strong></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"success\" mb=\"4\">\n        <strong>Connection successful!</strong>\n      </Callout>"}</pre></details>
             </Box>
@@ -3858,7 +3858,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Settings/DataSources.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L25 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/DataSources.tsx:25 · Callout</div>
               <Callout status="error"><Expr>{"error"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">{error}</Callout>"}</pre></details>
             </Box>
@@ -3868,17 +3868,17 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Settings/DisplayTestQueryResults.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L162 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/DisplayTestQueryResults.tsx:162 · Callout</div>
               <Callout status="error"><Expr>{"downloadError"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">{downloadError}</Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L316 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/DisplayTestQueryResults.tsx:316 · Callout</div>
               <Callout status="error" className="mr-auto"><Expr>{"error"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" className=\"mr-auto\">\n                  {error}\n                </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L323 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/DisplayTestQueryResults.tsx:323 · Callout</div>
               <Callout status="warning" className="mr-auto"><Stub name="FaExclamationTriangle"></Stub>No rows returned, could not verify
                   result
                 </Callout>
@@ -3890,7 +3890,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Settings/EditDataSource/ClickhouseManagedWarehouseIdentifiers.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L40 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/EditDataSource/ClickhouseManagedWarehouseIdentifiers.tsx:40 · Callout</div>
               <Callout status="info">Identifiers are managed through your organization&apos;s{" "}<Stub name="Link">attributes</Stub>(those marked as
         identifiers). Every other attribute your SDK sends is automatically
         queryable from the <code>attributes</code><span></span>JSON column on your fact tables&mdash;no setup required.
@@ -3903,7 +3903,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Settings/EditDataSource/ClickhouseMaterializedColumns/index.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L149 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/EditDataSource/ClickhouseMaterializedColumns/index.tsx:149 · Callout</div>
               <Callout status="info">No key attributes yet</Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\">No key attributes yet</Callout>"}</pre></details>
             </Box>
@@ -3913,7 +3913,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Settings/EditDataSource/DataSourceInlineEditIdentifierTypes/DataSourceInlineEditIdentifierTypes.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L202 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/EditDataSource/DataSourceInlineEditIdentifierTypes/DataSourceInlineEditIdentifierTypes.tsx:202 · Callout</div>
               <Callout status="info" mb="0">No user identifier types.
         </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" mb=\"0\">\n          No user identifier types.\n        </Callout>"}</pre></details>
@@ -3924,7 +3924,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Settings/EditDataSource/DataSourceMetrics.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L278 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/EditDataSource/DataSourceMetrics.tsx:278 · Callout</div>
               <Callout status="info">No metrics have been defined yet from this data source. Click the{" "}<strong><Expr>{"showCreateFactTableButton ? \"Create Fact Table\" : \"Add\""}</Expr></strong>{" "}button to create your first one.
             </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\">\n              No metrics have been defined yet from this data source. Click the{\" \"}\n              <strong>\n                {showCreateFactTableButton ? \"Create Fact Table\" : \"Add\"}\n              </strong>{\" \"}\n              button to create your first one.\n            </Callout>"}</pre></details>
@@ -3935,7 +3935,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Settings/EditDataSource/DataSourcePipeline/EditDataSourcePipeline.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L409 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/EditDataSource/DataSourcePipeline/EditDataSourcePipeline.tsx:409 · Callout</div>
               <Callout status="info" size="sm">Requires write, insert, and delete permissions on the destination
         schema.
       </Callout>
@@ -3947,12 +3947,12 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Settings/EditDataSource/DimensionMetadata/DimensionSlicesRunner.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L131 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/EditDataSource/DimensionMetadata/DimensionSlicesRunner.tsx:131 · Callout</div>
               <Callout status="error" mt="2"><Flex direction="column" gap="1"><Box><strong>Error updating data</strong><Expr>{"error ? `: ${error}` : null"}</Expr></Box><Box><Expr>{"lookbackField"}</Expr></Box><Box><Expr>{"asyncQueriesButton"}</Expr></Box></Flex></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" mt=\"2\">\n          <Flex direction=\"column\" gap=\"1\">\n            <Box>\n              <strong>Error updating data</strong>\n              {error ? `: ${error}` : null}\n            </Box>\n            <Box>{lookbackField}</Box>\n            <Box>{asyncQueriesButton}</Box>\n          </Flex>\n        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L143 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/EditDataSource/DimensionMetadata/DimensionSlicesRunner.tsx:143 · Callout</div>
               <Callout status="warning" mt="2"><p className="mb-0"><strong>No experiment assignment rows found in data source.
             </strong>{" "}</p>{" "}<p className="mb-0">Ensure that your Experiment Assignment Query is correctly specified
             or increase the lookback window.
@@ -3965,12 +3965,12 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Settings/EditDataSource/EventForwarder/EventForwarder.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L404 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/EditDataSource/EventForwarder/EventForwarder.tsx:404 · Callout</div>
               <Callout status="info" mb="0" mt="3" icon={null}><Stub name="Checkbox"></Stub></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" mb=\"0\" mt=\"3\" icon={null}>\n              <Checkbox\n                value={usEventForwarderFlowConsent}\n                setValue={setUsEventForwarderFlowConsent}\n                disabled={isEditingEventForwarder}\n                label=\"I understand that event data will flow through GrowthBook's US servers and confirm I'm authorized to enable this for my organization.\"\n                weight=\"regular\"\n              />\n            </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L592 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/EditDataSource/EventForwarder/EventForwarder.tsx:592 · Callout</div>
               <Callout status="info">Event Forwarder is available as an early access feature. Contact
             your account manager or reach out to{" "}<a href="mailto:sales@growthbook.io" target="_blank" rel="noreferrer">sales@growthbook.io
             </a>{" "}to learn more and get started.
@@ -3978,13 +3978,13 @@ export default function DebugAllCalloutsGenerated() {
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\">\n            Event Forwarder is available as an early access feature. Contact\n            your account manager or reach out to{\" \"}\n            <a\n              href=\"mailto:sales@growthbook.io\"\n              target=\"_blank\"\n              rel=\"noreferrer\"\n            >\n              sales@growthbook.io\n            </a>{\" \"}\n            to learn more and get started.\n          </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L605 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/EditDataSource/EventForwarder/EventForwarder.tsx:605 · Callout</div>
               <Callout status="info">Event Forwarder is not configured for this datasource.
             <Expr>{"canEdit ? ( <Box mt=\"3\"> <Button onClick={() => setShowEditModal(true)}> Set Up Event Forw…"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\">\n            Event Forwarder is not configured for this datasource.\n            {canEdit ? (\n              <Box mt=\"3\">\n                <Button onClick={() => setShowEditModal(true)}>\n                  Set Up Event Forwarder\n                </Button>\n              </Box>\n            ) : null}\n          </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L616 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/EditDataSource/EventForwarder/EventForwarder.tsx:616 · Callout</div>
               <Callout status="info">Event Forwarder is not available for your current plan. Contact your
             account manager or reach out to{" "}<a href="mailto:sales@growthbook.io" target="_blank" rel="noreferrer">sales@growthbook.io
             </a>{" "}to upgrade.
@@ -3992,26 +3992,26 @@ export default function DebugAllCalloutsGenerated() {
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\">\n            Event Forwarder is not available for your current plan. Contact your\n            account manager or reach out to{\" \"}\n            <a\n              href=\"mailto:sales@growthbook.io\"\n              target=\"_blank\"\n              rel=\"noreferrer\"\n            >\n              sales@growthbook.io\n            </a>{\" \"}\n            to upgrade.\n          </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L629 · PremiumCallout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/EditDataSource/EventForwarder/EventForwarder.tsx:629 · PremiumCallout</div>
               <MockUser><PremiumCallout commercialFeature="events-forwarder" id="dbg-14">Event Forwarder requires a Pro or Enterprise plan.
           </PremiumCallout></MockUser>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<PremiumCallout\n            commercialFeature=\"events-forwarder\"\n            id=\"event-forwarder-plan-gate\"\n          >\n            Event Forwarder requires a Pro or Enterprise plan.\n          </PremiumCallout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L637 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/EditDataSource/EventForwarder/EventForwarder.tsx:637 · Callout</div>
               <Callout status="info" mb="3">To remove the Event Forwarder, contact your account manager.
         </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" mb=\"3\">\n          To remove the Event Forwarder, contact your account manager.\n        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L696 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/EditDataSource/EventForwarder/EventForwarder.tsx:696 · Callout</div>
               <Callout status="info"><Text>This page will update automatically once provisioning
                   completes.
                 </Text></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\">\n                <Text color=\"text-mid\" size=\"medium\">\n                  This page will update automatically once provisioning\n                  completes.\n                </Text>\n              </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L705 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/EditDataSource/EventForwarder/EventForwarder.tsx:705 · Callout</div>
               <Callout status="error" mb="0"><Box><Expr>{"primaryConnectorErrorMessage"}</Expr></Box></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" mb=\"0\">\n                <Box style={{ whiteSpace: \"pre-wrap\" }}>\n                  {primaryConnectorErrorMessage}\n                </Box>\n              </Callout>"}</pre></details>
             </Box>
@@ -4021,7 +4021,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Settings/EditDataSource/ExperimentAssignmentQueries/AddEditExperimentAssignmentQueryModal.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L288 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/EditDataSource/ExperimentAssignmentQueries/AddEditExperimentAssignmentQueryModal.tsx:288 · Callout</div>
               <Callout status="info" icon={<PlaceholderIcon />}>The prefilled query below may require editing to fit your
                     data structure.
                   </Callout>
@@ -4033,14 +4033,14 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Settings/EditDataSource/ExperimentAssignmentQueries/ExperimentAssignmentQueries.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L149 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/EditDataSource/ExperimentAssignmentQueries/ExperimentAssignmentQueries.tsx:149 · Callout</div>
               <Callout status="info">No experiment assignment queries. Assignment queries are required for
           experiment analysis.
         </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\">\n          No experiment assignment queries. Assignment queries are required for\n          experiment analysis.\n        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L210 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/EditDataSource/ExperimentAssignmentQueries/ExperimentAssignmentQueries.tsx:210 · Callout</div>
               <Callout status="error" mt="3"><Box>This query had an error with it the last time it ran:{" "}<Box className="font-weight-bold" py="2"><Expr>{"query.error"}</Expr></Box><Box mt="3"><Stub name="Button">Check it again.
                         </Stub><Expr>{"canEdit && !isManaged && ( <Button onClick={handleActionClicked(idx, \"edit\")} style={{ mar…"}</Expr></Box></Box></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" mt=\"3\">\n                    <Box>\n                      This query had an error with it the last time it ran:{\" \"}\n                      <Box className=\"font-weight-bold\" py=\"2\">\n                        {query.error}\n                      </Box>\n                      <Box mt=\"3\">\n                        <Button\n                          onClick={handleValidate()}\n                          loading={validatingQuery}\n                        >\n                          Check it again.\n                        </Button>\n                        {canEdit && !isManaged && (\n                          <Button\n                            onClick={handleActionClicked(idx, \"edit\")}\n                            style={{ marginLeft: \"1rem\" }}\n                          >\n                            Edit it now.\n                          </Button>\n                        )}\n                      </Box>\n                    </Box>\n                  </Callout>"}</pre></details>
@@ -4051,14 +4051,14 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Settings/EditDataSource/FeatureEvaluationQueries/FeatureEvaluationQueries.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L163 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/EditDataSource/FeatureEvaluationQueries/FeatureEvaluationQueries.tsx:163 · Callout</div>
               <Callout status="info">A feature usage query has not been added. Feature usage queries are
           required for feature evaluation diagnostics.
         </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\">\n          A feature usage query has not been added. Feature usage queries are\n          required for feature evaluation diagnostics.\n        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L172 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/EditDataSource/FeatureEvaluationQueries/FeatureEvaluationQueries.tsx:172 · Callout</div>
               <Callout status="error" mb="3">This query had an error with it the last time it ran:{" "}<Box className="font-weight-bold" py="2"><Expr>{"featureUsageQuery.error"}</Expr></Box><Box mt="3"><Stub name="Button">Check it again.
                 </Stub></Box></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" mb=\"3\">\n              This query had an error with it the last time it ran:{\" \"}\n              <Box className=\"font-weight-bold\" py=\"2\">\n                {featureUsageQuery.error}\n              </Box>\n              <Box mt=\"3\">\n                <Button onClick={handleValidate()} loading={validatingQuery}>\n                  Check it again.\n                </Button>\n              </Box>\n            </Callout>"}</pre></details>
@@ -4069,7 +4069,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Settings/EditDataSource/FeatureEvaluationQueries/FeatureEvaluationQueryModal.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L118 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/EditDataSource/FeatureEvaluationQueries/FeatureEvaluationQueryModal.tsx:118 · Callout</div>
               <Callout status="info" icon={<PlaceholderIcon />}>The prefilled query below may require editing to fit your
                     data structure.
                   </Callout>
@@ -4081,12 +4081,12 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Settings/EditLicenseModal.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L90 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/EditLicenseModal.tsx:90 · Callout</div>
               <Callout status="success"><Expr>{"successMessage"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"success\">{successMessage}</Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L92 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/EditLicenseModal.tsx:92 · Callout</div>
               <Callout status="warning" icon={<PlaceholderIcon />}>You already have an active license. Click &quot;Change&quot; to
                 enter a new license key.
               </Callout>
@@ -4098,7 +4098,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Settings/EnvironmentModal.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L211 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/EnvironmentModal.tsx:211 · Callout</div>
               <Callout status="warning" icon={<PlaceholderIcon />}>You have made the projects filter more restrictive than before.{" "}<Expr>{"sdkConnections.length"}</Expr>SDK Connection
             <Expr>{"sdkConnections.length === 1 ? \"\" : \"s\""}</Expr>using this environment may
             be impacted.
@@ -4111,7 +4111,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Settings/GoogleAnalyticsForm.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L37 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/GoogleAnalyticsForm.tsx:37 · Callout</div>
               <Callout status="info">If you are using <strong>Google Analytics 4</strong>, you must use a{" "}<strong>BigQuery</strong>data source instead (
           <a href="https://support.google.com/analytics/answer/9823238" target="_blank" rel="noreferrer">instructions
           </a>). Universal Analytics properties can connect below.
@@ -4124,14 +4124,14 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Settings/HostWarning.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L18 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/HostWarning.tsx:18 · Callout</div>
               <Callout status="error">GrowthBook Cloud cannot access your local computer with that hostname.
           You must use a public ip address.
         </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n          GrowthBook Cloud cannot access your local computer with that hostname.\n          You must use a public ip address.\n        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L26 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/HostWarning.tsx:26 · Callout</div>
               <Callout status="error">GrowthBook runs inside Docker. To connect to localhost, you should use{" "}<a href="#">host.docker.internal
         </a>{" "}(on Mac) or{" "}<a href="#">172.17.0.1
         </a>{" "}(on Linux).
@@ -4139,7 +4139,7 @@ export default function DebugAllCalloutsGenerated() {
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n        GrowthBook runs inside Docker. To connect to localhost, you should use{\" \"}\n        <a\n          href=\"#\"\n          onClick={(e) => {\n            e.preventDefault();\n            setHost(\"host.docker.internal\");\n          }}\n        >\n          host.docker.internal\n        </a>{\" \"}\n        (on Mac) or{\" \"}\n        <a\n          href=\"#\"\n          onClick={(e) => {\n            e.preventDefault();\n            setHost(\"172.17.0.1\");\n          }}\n        >\n          172.17.0.1\n        </a>{\" \"}\n        (on Linux).\n      </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L54 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/HostWarning.tsx:54 · Callout</div>
               <Callout status="info">If your database is behind a firewall, add GrowthBook Cloud&apos;s ip (
         <code>52.70.79.40</code>) to your allowlist.
       </Callout>
@@ -4151,7 +4151,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Settings/MixpanelForm.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L14 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/MixpanelForm.tsx:14 · Callout</div>
               <Callout status="info">To connect to Mixpanel, first create a Service Account from your{" "}<a href="https://mixpanel.com/settings/project#serviceaccounts" target="_blank" rel="noreferrer noopener">Mixpanel Project Settings
         </a>.
       </Callout>
@@ -4163,7 +4163,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Settings/NewDataSourceForm.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L464 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/NewDataSourceForm.tsx:464 · Callout</div>
               <Callout status="info" mt="3" icon={null}><Stub name="Badge"></Stub><Text mr="3">GrowthBook Cloud now offers a fully managed data warehouse
                 option.
               </Text><a href="#">Try it now
@@ -4171,18 +4171,18 @@ export default function DebugAllCalloutsGenerated() {
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" mt=\"3\" icon={null}>\n              <Badge label=\"New!\" color=\"violet\" variant=\"solid\" mr=\"3\" />\n              <Text mr=\"3\">\n                GrowthBook Cloud now offers a fully managed data warehouse\n                option.\n              </Text>\n              <a\n                href=\"#\"\n                onClick={(e) => {\n                  e.preventDefault();\n                  setManagedWarehouseOpen(true);\n                }}\n              >\n                Try it now\n              </a>\n            </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L481 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/NewDataSourceForm.tsx:481 · Callout</div>
               <Callout status="info" mt="3">Don&apos;t have a data warehouse yet? We recommend using BigQuery
               with Google Analytics.{" "}<Stub name="DocLink">Learn more <Stub name="FaExternalLinkAlt"></Stub></Stub></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" mt=\"3\">\n              Don&apos;t have a data warehouse yet? We recommend using BigQuery\n              with Google Analytics.{\" \"}\n              <DocLink docSection=\"ga4BigQuery\">\n                Learn more <FaExternalLinkAlt />\n              </DocLink>\n            </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L571 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/NewDataSourceForm.tsx:571 · Callout</div>
               <Callout status="info" mb="3">View docs on connecting{" "}<Expr>{"selectedSchema.helpLink ? ( <> <a href={selectedSchema.helpLink} target=\"_blank\" rel=\"nore…"}</Expr><Stub name="DocLink"><Expr>{"datasourceInfo.display"}</Expr>to GrowthBook <Stub name="FaExternalLinkAlt"></Stub></Stub>{" "}</Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" mb=\"3\">\n            View docs on connecting{\" \"}\n            {selectedSchema.helpLink ? (\n              <>\n                <a\n                  href={selectedSchema.helpLink}\n                  target=\"_blank\"\n                  rel=\"noreferrer\"\n                >\n                  {selectedSchema.label} to {datasourceInfo.display}{\" \"}\n                  <FaExternalLinkAlt />\n                </a>{\" \"}\n                or{\" \"}\n              </>\n            ) : null}\n            <DocLink docSection={datasourceInfo.docs}>\n              {datasourceInfo.display} to GrowthBook <FaExternalLinkAlt />\n            </DocLink>{\" \"}\n          </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L692 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/NewDataSourceForm.tsx:692 · Callout</div>
               <Callout status="success" mb="3">Connection successful!
         </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"success\" mb=\"3\">\n          Connection successful!\n        </Callout>"}</pre></details>
@@ -4193,7 +4193,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Settings/SSOSettings.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L19 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/SSOSettings.tsx:19 · Callout</div>
               <Callout status="info"><div className="d-flex"><div><h3>Enterprise SSO Enabled</h3><Expr>{"isDefined(ssoConnection.emailDomains) && ssoConnection.emailDomains.length > 0 && ( <div> …"}</Expr><Expr>{"isCloud() && ( <div className=\"mt-2\"> Contact{\" \"} <a href=\"mailto:hello@growthbook.io\">he…"}</Expr></div><div className="ml-auto pl-3"><a href="#"><Expr>{"expanded ? \"hide\" : \"view\""}</Expr>details
           </a></div></div><Expr>{"expanded && ( <Code className=\"mt-2\" language=\"json\" code={JSON.stringify(ssoConnection, n…"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\">\n      <div className=\"d-flex\">\n        <div>\n          <h3>Enterprise SSO Enabled</h3>\n          {isDefined(ssoConnection.emailDomains) &&\n            ssoConnection.emailDomains.length > 0 && (\n              <div>\n                Users can auto-join your account when signing in through your\n                Identity Provider with an email matching{\" \"}\n                <strong>*@{ssoConnection.emailDomains[0]}</strong>\n                {ssoConnection.emailDomains.length > 1 && (\n                  <div className=\"small mt-1\">\n                    or any of the following email domains:{\" \"}\n                    {ssoConnection.emailDomains.slice(1).map((d, i) => (\n                      <>\n                        <strong key={i}>{d}</strong>\n                        {i < (ssoConnection.emailDomains?.length || 0) - 2 &&\n                          \", \"}\n                      </>\n                    ))}\n                  </div>\n                )}\n              </div>\n            )}\n          {isCloud() && (\n            <div className=\"mt-2\">\n              Contact{\" \"}\n              <a href=\"mailto:hello@growthbook.io\">hello@growthbook.io</a> to\n              make changes to your SSO configuration.\n            </div>\n          )}\n        </div>\n        <div className=\"ml-auto pl-3\">\n          <a\n            href=\"#\"\n            onClick={(e) => {\n              e.preventDefault();\n              setExpanded(!expanded);\n            }}\n          >\n            {expanded ? \"hide\" : \"view\"} details\n          </a>\n        </div>\n      </div>\n      {expanded && (\n        <Code\n          className=\"mt-2\"\n          language=\"json\"\n          code={JSON.stringify(ssoConnection, null, 2)}\n        />\n      )}\n    </Callout>"}</pre></details>
@@ -4204,7 +4204,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Settings/SubscriptionInfo.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L108 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/SubscriptionInfo.tsx:108 · Callout</div>
               <Callout status="warning">You account can still accrue CDN usage charges. If you&apos;d like
               to prevent that, you can remove Growthbook SDK from your code
               base.
@@ -4212,14 +4212,14 @@ export default function DebugAllCalloutsGenerated() {
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\">\n              You account can still accrue CDN usage charges. If you&apos;d like\n              to prevent that, you can remove Growthbook SDK from your code\n              base.\n            </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L144 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/SubscriptionInfo.tsx:144 · Callout</div>
               <Callout status="success" mt="3" icon={<PlaceholderIcon />}>You have a valid payment method on file. You will be billed
                 automatically on this date.
               </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout\n                status=\"success\"\n                style={{ maxWidth: 650 }}\n                mt=\"3\"\n                icon={<FaCheckCircle />}\n              >\n                You have a valid payment method on file. You will be billed\n                automatically on this date.\n              </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L154 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/SubscriptionInfo.tsx:154 · Callout</div>
               <Callout status="warning" mt="3" icon={<PlaceholderIcon />}><p>You do not have a valid payment method on file. Your
                   subscription will be cancelled on this date unless you add a
                   valid payment method.
@@ -4229,14 +4229,14 @@ export default function DebugAllCalloutsGenerated() {
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout\n                status=\"warning\"\n                style={{ maxWidth: 550 }}\n                mt=\"3\"\n                icon={<FaExclamationTriangle />}\n              >\n                <p>\n                  You do not have a valid payment method on file. Your\n                  subscription will be cancelled on this date unless you add a\n                  valid payment method.\n                </p>\n                <p className=\"mb-0\">\n                  Click <strong>View Plan Details</strong> below to add a\n                  payment method.\n                </p>\n              </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L174 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/SubscriptionInfo.tsx:174 · Callout</div>
               <Callout status="error" mb="3" className="col-md-12">Your plan will be canceled, but is still available until the end of
           your billing period on
           <Expr>{"` ${subscription?.dateToBeCanceled}.`"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" mb=\"3\" className=\"col-md-12\">\n          Your plan will be canceled, but is still available until the end of\n          your billing period on\n          {` ${subscription?.dateToBeCanceled}.`}\n        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L181 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/SubscriptionInfo.tsx:181 · Callout</div>
               <Callout status="error" mb="3" className="col-md-12">Your plan was canceled on <Expr>{"` ${subscription?.cancelationDate}.`"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" mb=\"3\" className=\"col-md-12\">\n          Your plan was canceled on {` ${subscription?.cancelationDate}.`}\n        </Callout>"}</pre></details>
             </Box>
@@ -4246,7 +4246,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Settings/Team/AutoApproveMembersToggle.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L84 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/Team/AutoApproveMembersToggle.tsx:84 · Callout</div>
               <Callout status="info" className="p-2">This organization&apos;s domain must be verified to enable
               automatic approvals <Stub name="FaQuestionCircle"></Stub></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" className=\"p-2\">\n              This organization&apos;s domain must be verified to enable\n              automatic approvals <FaQuestionCircle />\n            </Callout>"}</pre></details>
@@ -4257,19 +4257,19 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Settings/Team/InviteList.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L78 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/Team/InviteList.tsx:78 · Callout</div>
               <Callout status="error"><Expr>{"dismissButton"}</Expr><Expr>{"message || \"Error re-sending the invitation\""}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n            {dismissButton}\n            {message || \"Error re-sending the invitation\"}\n          </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L85 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/Team/InviteList.tsx:85 · Callout</div>
               <Callout status="info"><Expr>{"dismissButton"}</Expr><p>Failed to send email to <strong><Expr>{"email"}</Expr></strong>. You can manually
               send them the following invite link:
             </p><div><code><Expr>{"inviteUrl"}</Expr></code></div></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\">\n            {dismissButton}\n            <p>\n              Failed to send email to <strong>{email}</strong>. You can manually\n              send them the following invite link:\n            </p>\n            <div>\n              <code>{inviteUrl}</code>\n            </div>\n          </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L99 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/Team/InviteList.tsx:99 · Callout</div>
               <Callout status="error"><Expr>{"dismissButton"}</Expr><Expr>{"e.message"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n          {dismissButton}\n          {e.message}\n        </Callout>"}</pre></details>
             </Box>
@@ -4279,23 +4279,23 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Settings/Team/InviteModal.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L180 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/Team/InviteModal.tsx:180 · Callout</div>
               <Callout status="success" role="alert">Successfully invited <strong><Expr>{"successfulInvites[0].email"}</Expr></strong>!
             </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"success\" role=\"alert\">\n              Successfully invited <strong>{successfulInvites[0].email}</strong>\n              !\n            </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L186 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/Team/InviteModal.tsx:186 · Callout</div>
               <Callout status="success" role="alert"><strong>Successfully invited the following members:</strong><div className="pt-2"><ul><Expr>{"successfulInvites.map((successfulInvite) => { return ( <li key={successfulInvite.inviteUrl…"}</Expr></ul></div></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"success\" role=\"alert\">\n              <strong>Successfully invited the following members:</strong>\n              <div className=\"pt-2\">\n                <ul>\n                  {successfulInvites.map((successfulInvite) => {\n                    return (\n                      <li key={successfulInvite.inviteUrl}>\n                        {successfulInvite.email}\n                      </li>\n                    );\n                  })}\n                </ul>\n              </div>\n            </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L203 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/Team/InviteModal.tsx:203 · Callout</div>
               <Callout status="error">Failed to send invite email to{" "}<strong><Expr>{"failedInvites[0].email"}</Expr></strong></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n                Failed to send invite email to{\" \"}\n                <strong>{failedInvites[0].email}</strong>\n              </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L215 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/Team/InviteModal.tsx:215 · Callout</div>
               <Callout status="error" role="alert"><strong>Whoops! We weren&apos;t able to email the following members:
                 </strong><div className="pt-2"><ul><Expr>{"failedInvites.map((failedInvite) => { return ( <li key={failedInvite.inviteUrl}> {failedIn…"}</Expr></ul></div></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" role=\"alert\">\n                <strong>\n                  Whoops! We weren&apos;t able to email the following members:\n                </strong>\n                <div className=\"pt-2\">\n                  <ul>\n                    {failedInvites.map((failedInvite) => {\n                      return (\n                        <li key={failedInvite.inviteUrl}>\n                          {failedInvite.email}\n                        </li>\n                      );\n                    })}\n                  </ul>\n                </div>\n              </Callout>"}</pre></details>
@@ -4306,7 +4306,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Settings/Team/MemberList.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L296 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/Team/MemberList.tsx:296 · Callout</div>
               <Callout status="warning"><Flex direction="column" gap="2"><Text>This user is managed by an external
                                           identity provider.
                                         </Text><span>We suggest deprovisioning this user
@@ -4325,13 +4325,13 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Settings/Team/MembersTabView.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L74 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/Team/MembersTabView.tsx:74 · Callout</div>
               <Callout status="error">You do not have access to view this page.
         </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n          You do not have access to view this page.\n        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L147 · PremiumCallout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/Team/MembersTabView.tsx:147 · PremiumCallout</div>
               <MockUser><PremiumCallout commercialFeature="teams" docSection="team" dismissible mb="5" id="dbg-15"><strong>Teams and Custom Roles</strong>can make permission management
           easier at scale.
         </PremiumCallout></MockUser>
@@ -4343,7 +4343,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Settings/Team/OrphanedUsersList.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L32 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/Team/OrphanedUsersList.tsx:32 · Callout</div>
               <Callout status="error"><Expr>{"error.message"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">{error.message}</Callout>"}</pre></details>
             </Box>
@@ -4353,7 +4353,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Settings/UpdateOrbSubscriptionModal.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L210 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/UpdateOrbSubscriptionModal.tsx:210 · Callout</div>
               <Callout status="error"><Expr>{"customerDataError"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">{customerDataError}</Callout>"}</pre></details>
             </Box>
@@ -4363,7 +4363,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Settings/UpgradeModal/VerifyingEmailModal.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L94 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/UpgradeModal/VerifyingEmailModal.tsx:94 · Callout</div>
               <Callout status="error"><Expr>{"verifyEmailError"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">{verifyEmailError}</Callout>"}</pre></details>
             </Box>
@@ -4373,35 +4373,35 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Settings/UpgradeModal/index.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L411 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/UpgradeModal/index.tsx:411 · Callout</div>
               <Callout status="error"><Expr>{"notice"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">{notice}</Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L477 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/UpgradeModal/index.tsx:477 · Callout</div>
               <Callout status="error"><Expr>{"notice"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">{notice}</Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L611 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/UpgradeModal/index.tsx:611 · Callout</div>
               <Callout status="info">Interested in an Enterprise Plan with volume discounts?
               <a href="https://www.growthbook.io/demo" className="text-decoration-none pl-1" target="_blank" rel="noopener noreferrer"><strong className="a link-purple">Talk to Sales{" "}<Stub name="PiArrowSquareOut"></Stub>{" "}</strong></a></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\">\n              Interested in an Enterprise Plan with volume discounts?\n              <a\n                href=\"https://www.growthbook.io/demo\"\n                className=\"text-decoration-none pl-1\"\n                target=\"_blank\"\n                rel=\"noopener noreferrer\"\n                onClick={() => {\n                  track(\"Start Enterprise Checkout\", trackContext);\n                }}\n              >\n                <strong className=\"a link-purple\">\n                  Talk to Sales{\" \"}\n                  <PiArrowSquareOut\n                    style={{ position: \"relative\", top: \"-2px\" }}\n                  />{\" \"}\n                </strong>\n              </a>\n            </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L689 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/UpgradeModal/index.tsx:689 · Callout</div>
               <Callout status="info" mr="5" mb="2">Your organization is already on GrowthBook&apos;s highest plan.
         </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" mr=\"5\" mb=\"2\">\n          Your organization is already on GrowthBook&apos;s highest plan.\n        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L783 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/UpgradeModal/index.tsx:783 · Callout</div>
               <Callout status="info">You organization is currently managed by Vercel.
               <Expr>{"showEnterpriseTreatment ? ( <span className=\"pl-1\"> To upgrade to Enterprise, please email…"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\">\n              You organization is currently managed by Vercel.\n              {showEnterpriseTreatment ? (\n                <span className=\"pl-1\">\n                  To upgrade to Enterprise, please email{\" \"}\n                  <b>\n                    <a\n                      href=\"mailto:sales@growthbook.io\"\n                      target=\"_blank\"\n                      rel=\"noreferrer\"\n                      className=\"link-purple\"\n                    >\n                      sales@growthbook.io\n                    </a>\n                  </b>\n                  .\n                </span>\n              ) : (\n                <span className=\"pl-1\">\n                  Please go to your Vercel Integration Dashboard and locate the\n                  GrowthBook integration. From there, you can upgrade your\n                  GrowthBook subscription via the <b>Settings </b>tab.\n                </span>\n              )}\n            </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L845 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/UpgradeModal/index.tsx:845 · Callout</div>
               <Callout status="error"><Expr>{"error"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">{error}</Callout>"}</pre></details>
             </Box>
@@ -4411,18 +4411,18 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Settings/Usage/CloudUsage.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L56 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/Usage/CloudUsage.tsx:56 · Callout</div>
               <Callout status="warning">Usage data is only available on GrowthBook Cloud.
       </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\">\n        Usage data is only available on GrowthBook Cloud.\n      </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L64 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/Usage/CloudUsage.tsx:64 · Callout</div>
               <Callout status="error">Failed to get usage data: <Expr>{"error.message"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n        Failed to get usage data: {error.message}\n      </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L188 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/Usage/CloudUsage.tsx:188 · Callout</div>
               <Callout status="info" mb="5">Usage data not available prior to February 2025. Graphs may be delayed
         by up to 24 hours.
       </Callout>
@@ -4434,7 +4434,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Settings/Webhooks.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L24 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/Webhooks.tsx:24 · Callout</div>
               <Callout status="error"><Expr>{"error.message"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">{error.message}</Callout>"}</pre></details>
             </Box>
@@ -4444,7 +4444,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Settings/WebhooksModal.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L371 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/WebhooksModal.tsx:371 · Callout</div>
               <Callout status="error"><strong>Error: </strong>Localhost not supported directly. Try
                 using{" "}<a href="https://www.npmjs.com/package/ngrok" target="_blank" rel="noreferrer">ngrok
                 </a>{" "}instead.
@@ -4452,19 +4452,19 @@ export default function DebugAllCalloutsGenerated() {
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n                <strong>Error: </strong>Localhost not supported directly. Try\n                using{\" \"}\n                <a\n                  href=\"https://www.npmjs.com/package/ngrok\"\n                  target=\"_blank\"\n                  rel=\"noreferrer\"\n                >\n                  ngrok\n                </a>{\" \"}\n                instead.\n              </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L411 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/WebhooksModal.tsx:411 · Callout</div>
               <Callout status="error" className="mr-auto">Invalid JSON
                     </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" className=\"mr-auto\">\n                      Invalid JSON\n                    </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L584 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/WebhooksModal.tsx:584 · Callout</div>
               <Callout status="error" className="mr-auto">Invalid JSON
             </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" className=\"mr-auto\">\n              Invalid JSON\n            </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L628 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Settings/WebhooksModal.tsx:628 · Callout</div>
               <Callout status="error"><strong>Error: </strong>Localhost not supported directly. Try using{" "}<a href="https://www.npmjs.com/package/ngrok" target="_blank" rel="noreferrer">ngrok
           </a>{" "}instead.
         </Callout>
@@ -4476,12 +4476,12 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Share/Presentation.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L442 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Share/Presentation.tsx:442 · Callout</div>
               <Callout status="success"><strong><Expr>{"resultsText"}</Expr></strong><Expr>{"e.experiment.analysis && ( <div className=\"card text-dark mt-2\"> <div className=\"card-body…"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout\n                status={\n                  e.experiment.results === \"won\"\n                    ? \"success\"\n                    : e.experiment.results === \"lost\"\n                      ? \"error\"\n                      : e.experiment.results === \"dnf\"\n                        ? \"warning\"\n                        : \"info\"\n                }\n              >\n                <strong>{resultsText}</strong>\n                {e.experiment.analysis && (\n                  <div className=\"card text-dark mt-2\">\n                    <div className=\"card-body\">\n                      <Markdown className=\"card-text\">\n                        {e.experiment.analysis}\n                      </Markdown>\n                    </div>\n                  </div>\n                )}\n              </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L537 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Share/Presentation.tsx:537 · Callout</div>
               <Callout status="warning" mt="3"><strong>No data for this experiment</strong><Expr>{"resultsText && ( <> . <strong>{resultsText}</strong> </> )"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\" mt=\"3\">\n              <strong>No data for this experiment</strong>\n              {resultsText && (\n                <>\n                  . <strong>{resultsText}</strong>\n                </>\n              )}\n            </Callout>"}</pre></details>
             </Box>
@@ -4491,7 +4491,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Share/Preview.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L61 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Share/Preview.tsx:61 · Callout</div>
               <Callout status="error">Couldn&apos;t find the presentation. Are you sure it still exists?
       </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n        Couldn&apos;t find the presentation. Are you sure it still exists?\n      </Callout>"}</pre></details>
@@ -4502,19 +4502,19 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Share/ShareModal.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L429 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Share/ShareModal.tsx:429 · Callout</div>
               <Callout status="error">You need some experiments to share first.
       </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" style={{ marginTop: \"1rem\" }}>\n        You need some experiments to share first.\n      </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L896 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Share/ShareModal.tsx:896 · Callout</div>
               <Callout status="info">No <Expr>{"isFiltered ? \"matching\" : \"\""}</Expr><Expr>{"status"}</Expr>{" "}experiments
                                   </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\">\n                                    No {isFiltered ? \"matching\" : \"\"} {status}{\" \"}\n                                    experiments\n                                  </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L951 · PremiumCallout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Share/ShareModal.tsx:951 · PremiumCallout</div>
               <MockUser><PremiumCallout mt="3" commercialFeature="adv-presentations" id="dbg-16"><strong>Customize your presentations</strong>:
                                 Add logos, theme colors, and select advanced
                                 options.
@@ -4527,7 +4527,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/SlackIntegrations/SlackIntegrationsListView/SlackIntegrationsListView.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L100 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/SlackIntegrations/SlackIntegrationsListView/SlackIntegrationsListView.tsx:100 · Callout</div>
               <Callout status="error" my="3"><Expr>{"errorMessage"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" my=\"3\">\n          {errorMessage}\n        </Callout>"}</pre></details>
             </Box>
@@ -4537,7 +4537,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Teams/Roles/RoleForm.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L240 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Teams/Roles/RoleForm.tsx:240 · Callout</div>
               <Callout status="error"><strong>Error: <Expr>{"error"}</Expr></strong></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n                <strong>Error: {error}</strong>\n              </Callout>"}</pre></details>
             </Box>
@@ -4547,13 +4547,13 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/Teams/Roles/RoleFormWrapper.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L25 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Teams/Roles/RoleFormWrapper.tsx:25 · Callout</div>
               <Callout status="error">You do not have access to view this page.
         </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n          You do not have access to view this page.\n        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L35 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/Teams/Roles/RoleFormWrapper.tsx:35 · Callout</div>
               <Callout status="error">Custom Roles are only available on the Enterprise plan. Email
           sales@growthbook.io for more information and to set up a call.
         </Callout>
@@ -4565,7 +4565,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/TempMessage.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L52 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/TempMessage.tsx:52 · Callout</div>
               <Callout status="success"><Expr>{"showClose && ( <button className=\"close\" style={{ right: -10, top: -5 }} onClick={(e) => {…"}</Expr><Expr>{"children"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout\n      status=\"success\"\n      className={clsx(\"shadow sticky-top text-center\", className)}\n      style={{\n        top,\n        transition: \"200ms all\",\n        opacity: closing ? 0 : 1,\n        ...style,\n      }}\n    >\n      {showClose && (\n        <button\n          className=\"close\"\n          style={{ right: -10, top: -5 }}\n          onClick={(e) => {\n            e.preventDefault();\n            if (closing) return;\n            setClosing(true);\n          }}\n        >\n          <span aria-hidden=\"true\">&times;</span>\n        </button>\n      )}\n      {children}\n    </Callout>"}</pre></details>
             </Box>
@@ -4575,7 +4575,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/importing/ImportFromLaunchDarkly/ImportFromLaunchDarkly.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L818 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/importing/ImportFromLaunchDarkly/ImportFromLaunchDarkly.tsx:818 · Callout</div>
               <Callout status="error"><Expr>{"data.error || \"Error\""}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">{data.error || \"Error\"}</Callout>"}</pre></details>
             </Box>
@@ -4585,7 +4585,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>components/importing/ImportFromStatsig/ImportFromStatsig.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L1309 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>components/importing/ImportFromStatsig/ImportFromStatsig.tsx:1309 · Callout</div>
               <Callout status="error"><Expr>{"data.error || \"Error\""}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">{data.error || \"Error\"}</Callout>"}</pre></details>
             </Box>
@@ -4599,7 +4599,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>enterprise/components/AIChat/AIUsageWidget.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L74 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>enterprise/components/AIChat/AIUsageWidget.tsx:74 · Callout</div>
               <Callout status="error" size="sm"><Expr>{"error.message || \"Unable to load usage data\""}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" size=\"sm\">\n          {error.message || \"Unable to load usage data\"}\n        </Callout>"}</pre></details>
             </Box>
@@ -4609,7 +4609,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>enterprise/components/Billing/OrbPortal.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L16 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>enterprise/components/Billing/OrbPortal.tsx:16 · Callout</div>
               <Callout status="error"><Expr>{"error?.message || \"Unable to fetch customer portal.\""}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n        {error?.message || \"Unable to fetch customer portal.\"}\n      </Callout>"}</pre></details>
             </Box>
@@ -4619,7 +4619,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>enterprise/components/Billing/PaymentInfo.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L173 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>enterprise/components/Billing/PaymentInfo.tsx:173 · Callout</div>
               <Callout status="error"><Expr>{"error"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">{error}</Callout>"}</pre></details>
             </Box>
@@ -4629,12 +4629,12 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>enterprise/components/Billing/StripeProvider.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L114 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>enterprise/components/Billing/StripeProvider.tsx:114 · Callout</div>
               <Callout status="error">Missing Stripe Publishable Key</Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">Missing Stripe Publishable Key</Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L117 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>enterprise/components/Billing/StripeProvider.tsx:117 · Callout</div>
               <Callout status="error" action={<ActionPlaceholder />}><Expr>{"error"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout\n        status=\"error\"\n        action={\n          <Button variant=\"soft\" onClick={retrySetupStripe}>\n            Retry\n          </Button>\n        }\n      >\n        {error}\n      </Callout>"}</pre></details>
             </Box>
@@ -4644,33 +4644,33 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>enterprise/components/Dashboards/DashboardEditor/DashboardBlock/BlockErrorStates.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L16 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>enterprise/components/Dashboards/DashboardEditor/DashboardBlock/BlockErrorStates.tsx:16 · Callout</div>
               <Callout status="info">This <Expr>{"BLOCK_TYPE_INFO[block.type].name"}</Expr>block requires additional
       configuration to display results.
     </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\">\n      This {BLOCK_TYPE_INFO[block.type].name} block requires additional\n      configuration to display results.\n    </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L25 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>enterprise/components/Dashboards/DashboardEditor/DashboardBlock/BlockErrorStates.tsx:25 · Callout</div>
               <Callout status="error">Unable to find one or more references specified by this{" "}<Expr>{"BLOCK_TYPE_INFO[block.type].name"}</Expr>block. Check the settings for this
       block and ensure that everything is present.
     </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n      Unable to find one or more references specified by this{\" \"}\n      {BLOCK_TYPE_INFO[block.type].name} block. Check the settings for this\n      block and ensure that everything is present.\n    </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L35 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>enterprise/components/Dashboards/DashboardEditor/DashboardBlock/BlockErrorStates.tsx:35 · Callout</div>
               <Callout status="error">Failed to render this <Expr>{"BLOCK_TYPE_INFO[block.type].name"}</Expr>block. Check the
       settings for this block and ensure everything is present.
     </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n      Failed to render this {BLOCK_TYPE_INFO[block.type].name} block. Check the\n      settings for this block and ensure everything is present.\n    </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L53 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>enterprise/components/Dashboards/DashboardEditor/DashboardBlock/BlockErrorStates.tsx:53 · Callout</div>
               <Callout status="info">No data yet. Refresh to populate results.</Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\">No data yet. Refresh to populate results.</Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L59 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>enterprise/components/Dashboards/DashboardEditor/DashboardBlock/BlockErrorStates.tsx:59 · Callout</div>
               <Callout status="info">Unable to load the experiment health check results. Check the Health tab,
       or try refreshing the experiment results.
     </Callout>
@@ -4682,7 +4682,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>enterprise/components/Dashboards/DashboardEditor/DashboardBlock/ExperimentTrafficBlock.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L47 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>enterprise/components/Dashboards/DashboardEditor/DashboardBlock/ExperimentTrafficBlock.tsx:47 · Callout</div>
               <Callout status="info" mt="3">Health queries are disabled in your Organization Settings. To enable
           them, visit the Health tab and follow the onboarding steps
         </Callout>
@@ -4694,7 +4694,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>enterprise/components/Dashboards/DashboardEditor/DashboardBlock/MetricExplorerBlock.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L185 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>enterprise/components/Dashboards/DashboardEditor/DashboardBlock/MetricExplorerBlock.tsx:185 · Callout</div>
               <Callout status="error"><Expr>{"error.toString()"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">{error.toString()}</Callout>"}</pre></details>
             </Box>
@@ -4704,7 +4704,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>enterprise/components/Dashboards/DashboardEditor/DashboardBlock/ProductAnalyticsExplorerBlock.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L38 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>enterprise/components/Dashboards/DashboardEditor/DashboardBlock/ProductAnalyticsExplorerBlock.tsx:38 · Callout</div>
               <Callout status="info">Please click the <code>Update</code>button to generate the necessary
           data.
         </Callout>
@@ -4716,7 +4716,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>enterprise/components/Dashboards/DashboardEditor/DashboardEditorSidebar/EditSingleBlock.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L1604 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>enterprise/components/Dashboards/DashboardEditor/DashboardEditorSidebar/EditSingleBlock.tsx:1604 · Callout</div>
               <Callout status="error"><p>There is an error with your query. Click the pencil
                           icon to edit.
                         </p><strong>Error:</strong><Expr>{"savedQuery?.results.error"}</Expr></Callout>
@@ -4728,7 +4728,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>enterprise/components/Dashboards/DashboardEditor/DashboardEditorSidebar/ProductAnalyticsExplorerSettings.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L50 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>enterprise/components/Dashboards/DashboardEditor/DashboardEditorSidebar/ProductAnalyticsExplorerSettings.tsx:50 · Callout</div>
               <Callout status="error">Failed to load explorer analysis: <Expr>{"error.message"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n        Failed to load explorer analysis: {error.message}\n      </Callout>"}</pre></details>
             </Box>
@@ -4738,7 +4738,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>enterprise/components/Dashboards/DashboardEditor/index.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L956 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>enterprise/components/Dashboards/DashboardEditor/index.tsx:956 · Callout</div>
               <Callout status="error">Failed to load dashboard</Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">Failed to load dashboard</Callout>"}</pre></details>
             </Box>
@@ -4748,20 +4748,20 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>enterprise/components/Dashboards/DashboardShareModal.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L195 · PremiumCallout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>enterprise/components/Dashboards/DashboardShareModal.tsx:195 · PremiumCallout</div>
               <MockUser><PremiumCallout commercialFeature="share-product-analytics-dashboards" id="dbg-17">Creating shared dashboards requires an Enterprise plan, reach out
               to try a free Enterprise Trial.
             </PremiumCallout></MockUser>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<PremiumCallout\n              commercialFeature=\"share-product-analytics-dashboards\"\n              id=\"dashboard-share-modal\"\n            >\n              Creating shared dashboards requires an Enterprise plan, reach out\n              to try a free Enterprise Trial.\n            </PremiumCallout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L203 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>enterprise/components/Dashboards/DashboardShareModal.tsx:203 · Callout</div>
               <Callout status="info" size="sm">Currently only you can view or edit this dashboard.
             </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" size=\"sm\">\n              Currently only you can view or edit this dashboard.\n            </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L207 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>enterprise/components/Dashboards/DashboardShareModal.tsx:207 · Callout</div>
               <Callout status="warning" size="sm"><Expr>{"`This dashboard is discoverable within your organization. ${editLevel === \"private\" ? \"Onl…"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\" size=\"sm\">\n              {`This dashboard is discoverable within your organization. ${editLevel === \"private\" ? \"Only you can edit it.\" : \"Anybody in your organization with permissions can edit it.\"}`}\n            </Callout>"}</pre></details>
             </Box>
@@ -4771,7 +4771,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>enterprise/components/Dashboards/DashboardsTab.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L542 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>enterprise/components/Dashboards/DashboardsTab.tsx:542 · Callout</div>
               <Callout status="error">Failed to load dashboards</Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">Failed to load dashboards</Callout>"}</pre></details>
             </Box>
@@ -4781,7 +4781,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>enterprise/components/DataPipeline/PipelineValidationResults.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L24 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>enterprise/components/DataPipeline/PipelineValidationResults.tsx:24 · Callout</div>
               <Callout status="warning" mb="3"><Text>We were unable to validate the current settings using a temporary test
           table<Expr>{"tableName ? ` (${tableName})` : \"\""}</Expr>.
           <Expr>{"validationError ? ( <> <br /> <br /> {validationError} </> ) : null"}</Expr></Text></Callout>
@@ -4793,7 +4793,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>enterprise/components/ExecReports/ExecExperimentImpact.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L356 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>enterprise/components/ExecReports/ExecExperimentImpact.tsx:356 · Callout</div>
               <Callout status="warning" mt="2"><div className="row"><div className="col-auto"><span>Some experiments are missing scaled impact
                               results.
                             </span></div><div className="flex-1" /><div className="col-auto"><button className="btn btn-sm btn-primary">Calculate Scaled Impact
@@ -4801,14 +4801,14 @@ export default function DebugAllCalloutsGenerated() {
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\" mt=\"2\">\n                        <div className=\"row\">\n                          <div className=\"col-auto\">\n                            <span>\n                              Some experiments are missing scaled impact\n                              results.\n                            </span>\n                          </div>\n                          <div className=\"flex-1\" />\n                          <div className=\"col-auto\">\n                            <button\n                              className=\"btn btn-sm btn-primary\"\n                              onClick={() =>\n                                updateSnapshots(experimentsWithNoImpact).then(\n                                  () => {\n                                    fetchSnapshots(experiments);\n                                  },\n                                )\n                              }\n                            >\n                              Calculate Scaled Impact\n                            </button>\n                          </div>\n                        </div>\n                      </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L773 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>enterprise/components/ExecReports/ExecExperimentImpact.tsx:773 · Callout</div>
               <Callout status="info" mb="3" mt="3">There are no experiments for which we could compute scaled
                   impact for this metric and date range.
                 </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" mb=\"3\" mt=\"3\">\n                  There are no experiments for which we could compute scaled\n                  impact for this metric and date range.\n                </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L782 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>enterprise/components/ExecReports/ExecExperimentImpact.tsx:782 · Callout</div>
               <Callout status="info" mb="3"><Expr>{"Object.keys(metricExpCounts).length === 0 ? \"There are no experiments with metrics in the …"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" mb=\"3\">\n              {Object.keys(metricExpCounts).length === 0\n                ? \"There are no experiments with metrics in the selected project and date range.\"\n                : \"Select a metric to see the impact.\"}\n            </Callout>"}</pre></details>
             </Box>
@@ -4818,17 +4818,17 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>enterprise/components/Insights/MetricCorrelations.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L194 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>enterprise/components/Insights/MetricCorrelations.tsx:194 · Callout</div>
               <Callout status="error">An error occurred loading experiments: <Expr>{"experimentsError.message"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n        An error occurred loading experiments: {experimentsError.message}\n      </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L649 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>enterprise/components/Insights/MetricCorrelations.tsx:649 · Callout</div>
               <Callout status="error">Error loading experiment results: <Expr>{"snapshotsError.message"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n              Error loading experiment results: {snapshotsError.message}\n            </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L725 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>enterprise/components/Insights/MetricCorrelations.tsx:725 · Callout</div>
               <Callout status="info">No experiments found that match the current experiment filters and
               have both selected metrics.
             </Callout>
@@ -4840,17 +4840,17 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>enterprise/components/Insights/MetricEffects.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L213 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>enterprise/components/Insights/MetricEffects.tsx:213 · Callout</div>
               <Callout status="error">An error occurred loading experiments: <Expr>{"experimentsError.message"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n        An error occurred loading experiments: {experimentsError.message}\n      </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L542 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>enterprise/components/Insights/MetricEffects.tsx:542 · Callout</div>
               <Callout status="error">Error loading experiment results: <Expr>{"snapshotsError.message"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n              Error loading experiment results: {snapshotsError.message}\n            </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L620 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>enterprise/components/Insights/MetricEffects.tsx:620 · Callout</div>
               <Callout status="info">No experiments with results found for this metric and the current
               experiment filters.
             </Callout>
@@ -4862,7 +4862,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>enterprise/components/MetricGroupInlineForm.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L93 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>enterprise/components/MetricGroupInlineForm.tsx:93 · Callout</div>
               <Callout status="error"><Expr>{"error"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">{error}</Callout>"}</pre></details>
             </Box>
@@ -4872,7 +4872,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>enterprise/components/ProductAnalytics/MainSection/ExplorerChart.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L472 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>enterprise/components/ProductAnalytics/MainSection/ExplorerChart.tsx:472 · Callout</div>
               <Callout status="error"><Expr>{"error"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">{error}</Callout>"}</pre></details>
             </Box>
@@ -4882,7 +4882,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>enterprise/components/ProductAnalytics/MainSection/ExplorerMainSection.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L144 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>enterprise/components/ProductAnalytics/MainSection/ExplorerMainSection.tsx:144 · Callout</div>
               <Callout status="info" size="sm" icon={<PlaceholderIcon />} action={<ActionPlaceholder />}><Expr>{"loading ? ( \"Loading...\" ) : ( <Text title=\"Some configuration changes require running a n…"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout\n              status=\"info\"\n              size=\"sm\"\n              icon={\n                loading ? (\n                  <LoadingSpinner style={{ width: \"12px\", height: \"12px\" }} />\n                ) : (\n                  <PiInfo />\n                )\n              }\n              action={\n                loading ? undefined : (\n                  <Button\n                    size=\"sm\"\n                    variant=\"solid\"\n                    disabled={\n                      !draftExploreState?.dataset?.values?.length ||\n                      !isSubmittable\n                    }\n                    onClick={() => handleSubmit({ force: true })}\n                  >\n                    <Flex align=\"center\" gap=\"2\">\n                      <PiArrowsClockwise />\n                      Refresh\n                    </Flex>\n                  </Button>\n                )\n              }\n            >\n              {loading ? (\n                \"Loading...\"\n              ) : (\n                <Text title=\"Some configuration changes require running a new SQL query against your data source\">\n                  Latest changes not applied\n                </Text>\n              )}\n            </Callout>"}</pre></details>
             </Box>
@@ -4892,14 +4892,14 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>enterprise/components/ProductAnalytics/SideBar/BuildTablesCard.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L17 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>enterprise/components/ProductAnalytics/SideBar/BuildTablesCard.tsx:17 · Callout</div>
               <Callout status="info" mt="2" action={<ActionPlaceholder />}><Text as="p" m="0">Before we can build visualizations, we need to identify what tables
           are available on this Data Source.
         </Text></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout\n        status=\"info\"\n        mt=\"2\"\n        action={\n          <Tooltip\n            body=\"You do not have permission to generate an information schema for this datasource.\"\n            shouldDisplay={!canRunQueries}\n          >\n            <Button\n              disabled={!canRunQueries}\n              onClick={async (e: React.MouseEvent<HTMLButtonElement>) => {\n                e.preventDefault();\n                refreshOrCreateInfoSchema(\"POST\");\n              }}\n            >\n              <Tooltip\n                body=\"To identify tables, GrowthBook queries your Data Source to build an Information Schema, which tells us what databases, schemas, and tables are available to query.\"\n                shouldDisplay={canRunQueries}\n              >\n                Identify Tables\n              </Tooltip>\n            </Button>\n          </Tooltip>\n        }\n      >\n        <Text as=\"p\" size=\"medium\" m=\"0\">\n          Before we can build visualizations, we need to identify what tables\n          are available on this Data Source.\n        </Text>\n      </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L48 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>enterprise/components/ProductAnalytics/SideBar/BuildTablesCard.tsx:48 · Callout</div>
               <Callout status="error" mt="2"><Expr>{"error"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" mt=\"2\">\n          {error}\n        </Callout>"}</pre></details>
             </Box>
@@ -4909,20 +4909,20 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>enterprise/components/ProductAnalytics/SideBar/DatasourceConfigurator.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L213 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>enterprise/components/ProductAnalytics/SideBar/DatasourceConfigurator.tsx:213 · Callout</div>
               <Callout status="error" mt="2"><Flex direction="column" gap="2"><Text>We&apos;re unable to identify tables for this Data Source.
               </Text><Text>Reason: <Expr>{"informationSchema?.error?.message"}</Expr></Text><Stub name="Tooltip"><Stub name="Button">Retry
                 </Stub></Stub></Flex></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" mt=\"2\">\n            <Flex direction=\"column\" gap=\"2\">\n              <Text weight=\"medium\">\n                We&apos;re unable to identify tables for this Data Source.\n              </Text>\n              <Text>Reason: {informationSchema?.error?.message}</Text>\n              <Tooltip\n                body=\"You do not have permission to retry generating an information schema for this datasource.\"\n                shouldDisplay={!canRunQueries}\n              >\n                <Button\n                  disabled={!canRunQueries}\n                  variant=\"soft\"\n                  color=\"red\"\n                  onClick={() => refreshOrCreateInfoSchema(\"PUT\")}\n                >\n                  Retry\n                </Button>\n              </Tooltip>\n            </Flex>\n          </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L245 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>enterprise/components/ProductAnalytics/SideBar/DatasourceConfigurator.tsx:245 · Callout</div>
               <Callout status="error" mt="2"><Flex direction="column" gap="2"><span><Expr>{"error"}</Expr></span><Stub name="Tooltip"><button type="button" className="btn btn-link">Retry
               </button></Stub></Flex></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" mt=\"2\">\n          <Flex direction=\"column\" gap=\"2\">\n            <span>{error}</span>\n            <Tooltip\n              body=\"You do not have permission to retry generating an information schema for this datasource.\"\n              shouldDisplay={!canRunQueries}\n            >\n              <button\n                type=\"button\"\n                disabled={!canRunQueries}\n                className=\"btn btn-link\"\n                onClick={() => refreshOrCreateInfoSchema(\"PUT\")}\n              >\n                Retry\n              </button>\n            </Tooltip>\n          </Flex>\n        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L280 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>enterprise/components/ProductAnalytics/SideBar/DatasourceConfigurator.tsx:280 · Callout</div>
               <Callout status="warning" mt="2">You do not have permission to refresh this information
                         schema.
                       </Callout>
@@ -4934,7 +4934,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>enterprise/components/ProductAnalytics/SideBar/ExplorerSideBar.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L106 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>enterprise/components/ProductAnalytics/SideBar/ExplorerSideBar.tsx:106 · Callout</div>
               <Callout status="error"><Expr>{"error"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">{error}</Callout>"}</pre></details>
             </Box>
@@ -4944,14 +4944,14 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>enterprise/components/ProductAnalytics/SideBar/PendingTablesCard.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L33 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>enterprise/components/ProductAnalytics/SideBar/PendingTablesCard.tsx:33 · Callout</div>
               <Callout status="info" mt="2" icon={<PlaceholderIcon />}>We&apos;re identifying what tables are available on this Data Source.
           This may take a minute, depending on the size of the Data Source.
         </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" mt=\"2\" icon={<LoadingSpinner />}>\n          We&apos;re identifying what tables are available on this Data Source.\n          This may take a minute, depending on the size of the Data Source.\n        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L38 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>enterprise/components/ProductAnalytics/SideBar/PendingTablesCard.tsx:38 · Callout</div>
               <Callout status="warning" mt="2"><Expr>{"error"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\" mt=\"2\">\n          {error}\n        </Callout>"}</pre></details>
             </Box>
@@ -4965,7 +4965,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>pages/_app.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L255 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/_app.tsx:255 · Callout</div>
               <Callout status="error">Error Initializing GrowthBook:
                 <br /><br /><Expr>{"error"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n                Error Initializing GrowthBook:\n                <br />\n                <br />\n                {error}\n              </Callout>"}</pre></details>
@@ -4976,7 +4976,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>pages/activity.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L20 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/activity.tsx:20 · Callout</div>
               <Callout status="error"><Expr>{"error.message"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">{error.message}</Callout>"}</pre></details>
             </Box>
@@ -4986,23 +4986,23 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>pages/admin.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L655 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/admin.tsx:655 · Callout</div>
               <Callout status="error">Only super admins can view this page</Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">Only super admins can view this page</Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L660 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/admin.tsx:660 · Callout</div>
               <Callout status="error">You must be on an enterprise license to view this page
       </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n        You must be on an enterprise license to view this page\n      </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L738 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/admin.tsx:738 · Callout</div>
               <Callout status="error"><Expr>{"error"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">{error}</Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L848 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/admin.tsx:848 · Callout</div>
               <Callout status="error"><Expr>{"memberError"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">{memberError}</Callout>"}</pre></details>
             </Box>
@@ -5012,13 +5012,13 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>pages/approval-requests.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L504 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/approval-requests.tsx:504 · Callout</div>
               <Callout status="info">Approval flows require an Enterprise plan.
         </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\">\n          Approval flows require an Enterprise plan.\n        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L596 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/approval-requests.tsx:596 · Callout</div>
               <Callout status="info"><Expr>{"scope === \"needs-my-review\" ? ( <> No approval requests need a review right now.{\" \"} <a h…"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\">\n          {scope === \"needs-my-review\" ? (\n            <>\n              No approval requests need a review right now.{\" \"}\n              <a\n                href=\"#\"\n                onClick={(e) => {\n                  e.preventDefault();\n                  setScope(\"all\");\n                }}\n              >\n                Show all approval requests\n              </a>\n              .\n            </>\n          ) : scope === \"my-requests\" ? (\n            \"You haven't submitted any approval requests.\"\n          ) : (\n            \"No approval requests found.\"\n          )}\n        </Callout>"}</pre></details>
             </Box>
@@ -5028,13 +5028,13 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>pages/attributes/[property].tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L165 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/attributes/[property].tsx:165 · Callout</div>
               <Callout status="error">Attribute &quot;<Expr>{"property"}</Expr>&quot; not found. It may have been deleted
             or you may not have access.{" "}<Stub name="Link">Back to Attributes</Stub></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n            Attribute &quot;{property}&quot; not found. It may have been deleted\n            or you may not have access.{\" \"}\n            <Link href=\"/attributes\">Back to Attributes</Link>\n          </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L353 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/attributes/[property].tsx:353 · Callout</div>
               <Callout status="info" mb="4"><strong>This attribute is archived.</strong>It will not be
             available when creating or editing targeting rules.
           </Callout>
@@ -5046,7 +5046,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>pages/bandit/[bid].tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L225 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/bandit/[bid].tsx:225 · Callout</div>
               <Callout status="error">Changing the project may prevent your linked Feature Flags,
                 Visual Changes, and URL Redirects from being sent to users.
               </Callout>
@@ -5058,7 +5058,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>pages/bandits/index.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L112 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/bandits/index.tsx:112 · Callout</div>
               <Callout status="error" mb="3">An error occurred: <Expr>{"error.message"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" mb=\"3\">\n        An error occurred: {error.message}\n      </Callout>"}</pre></details>
             </Box>
@@ -5068,7 +5068,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>pages/dashboard.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L20 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/dashboard.tsx:20 · Callout</div>
               <Callout status="error">An error occurred: <Expr>{"experimentsError?.message || definitionsError"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n        An error occurred: {experimentsError?.message || definitionsError}\n      </Callout>"}</pre></details>
             </Box>
@@ -5078,30 +5078,30 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>pages/datasources/[did].tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L151 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/datasources/[did].tsx:151 · Callout</div>
               <Callout status="error"><Expr>{"error || currentDataSourceError?.message"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n          {error || currentDataSourceError?.message}\n        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L163 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/datasources/[did].tsx:163 · Callout</div>
               <Callout status="error">Datasource <code><Expr>{"did"}</Expr></code>does not exist.
         </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n          Datasource <code>{did}</code> does not exist.\n        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L184 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/datasources/[did].tsx:184 · Callout</div>
               <Callout status="error" mb="3"><Flex align="center" justify="between"><strong>Error Decrypting Data Source Credentials.</strong><Stub name="DocLink">View instructions for fixing
             </Stub></Flex></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" mb=\"3\">\n          <Flex align=\"center\" justify=\"between\">\n            <strong>Error Decrypting Data Source Credentials.</strong>\n            <DocLink docSection=\"env_prod\" className=\"btn btn-primary\">\n              View instructions for fixing\n            </DocLink>\n          </Flex>\n        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L368 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/datasources/[did].tsx:368 · Callout</div>
               <Callout status="info">This data source does not require any additional configuration.
           </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\">\n            This data source does not require any additional configuration.\n          </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L483 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/datasources/[did].tsx:483 · Callout</div>
               <Callout status="info" mt="4" mb="4">We have prefilled the identifiers and assignment queries
                       below. These queries may require editing to fit your data
                       structure.
@@ -5114,7 +5114,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>pages/datasources/index.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L271 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/datasources/index.tsx:271 · Callout</div>
               <Callout status="info" mt="5">Don&apos;t have a data warehouse yet? We recommend using
                 BigQuery with Google Analytics.{" "}<Stub name="DocLink">Learn more <Stub name="FaExternalLinkAlt"></Stub></Stub></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" mt=\"5\">\n                Don&apos;t have a data warehouse yet? We recommend using\n                BigQuery with Google Analytics.{\" \"}\n                <DocLink docSection=\"ga4BigQuery\">\n                  Learn more <FaExternalLinkAlt />\n                </DocLink>\n              </Callout>"}</pre></details>
@@ -5125,24 +5125,24 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>pages/datasources/queries/[did].tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L64 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/datasources/queries/[did].tsx:64 · Callout</div>
               <Callout status="error">You do not have access to view this page.
         </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n          You do not have access to view this page.\n        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L74 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/datasources/queries/[did].tsx:74 · Callout</div>
               <Callout status="error"><Expr>{"datasourceError ?? queriesError?.message"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n          {datasourceError ?? queriesError?.message}\n        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L87 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/datasources/queries/[did].tsx:87 · Callout</div>
               <Callout status="error">Datasource <code><Expr>{"did"}</Expr></code>does not exist.
         </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n          Datasource <code>{did}</code> does not exist.\n        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L150 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/datasources/queries/[did].tsx:150 · Callout</div>
               <Callout status="error" mb="3"><Expr>{"cancelError"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" mb=\"3\">\n          {cancelError}\n        </Callout>"}</pre></details>
             </Box>
@@ -5152,7 +5152,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>pages/dimensions/index.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L153 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/dimensions/index.tsx:153 · Callout</div>
               <Callout status="info">Dimensions are only available if you connect GrowthBook to a
           compatible data source (Snowflake, Redshift, BigQuery, ClickHouse,
           Athena, Postgres, MySQL, MS SQL, Presto, Databricks, or Mixpanel).
@@ -5161,18 +5161,18 @@ export default function DebugAllCalloutsGenerated() {
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\">\n          Dimensions are only available if you connect GrowthBook to a\n          compatible data source (Snowflake, Redshift, BigQuery, ClickHouse,\n          Athena, Postgres, MySQL, MS SQL, Presto, Databricks, or Mixpanel).\n          Support for other data sources like Google Analytics is coming soon.\n        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L165 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/dimensions/index.tsx:165 · Callout</div>
               <Callout status="error">There was an error loading the list of dimensions
       </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n        There was an error loading the list of dimensions\n      </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L393 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/dimensions/index.tsx:393 · Callout</div>
               <Callout status="info">You don&apos;t have any user dimensions defined yet.{" "}<Expr>{"hasCreateDimensionPermission && \"Click the button above to create your first one.\""}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\">\n          You don&apos;t have any user dimensions defined yet.{\" \"}\n          {hasCreateDimensionPermission &&\n            \"Click the button above to create your first one.\"}\n        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L400 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/dimensions/index.tsx:400 · Callout</div>
               <Callout status="info">It looks like you have a <code>config.yml</code>file. Dimensions
           defined there will show up on this page.{" "}<Stub name="DocLink">View Documentation</Stub></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\">\n          It looks like you have a <code>config.yml</code> file. Dimensions\n          defined there will show up on this page.{\" \"}\n          <DocLink docSection=\"config_yml\">View Documentation</DocLink>\n        </Callout>"}</pre></details>
@@ -5183,12 +5183,12 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>pages/experiments/index.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L135 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/experiments/index.tsx:135 · Callout</div>
               <Callout status="error">An error occurred: <Expr>{"error.message"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">An error occurred: {error.message}</Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L247 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/experiments/index.tsx:247 · Callout</div>
               <Callout status="info">Want to analyze results of an existing experiment that you ran
                 elsewhere?{" "}<Stub name="Link">Learn More
                 </Stub></Callout>
@@ -5200,12 +5200,12 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>pages/experiments/lookup.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L38 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/experiments/lookup.tsx:38 · Callout</div>
               <Callout status="error"><Expr>{"error"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">{error}</Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L47 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/experiments/lookup.tsx:47 · Callout</div>
               <Callout status="error">Experiment not found</Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">Experiment not found</Callout>"}</pre></details>
             </Box>
@@ -5215,19 +5215,19 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>pages/exposure-debugger.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L205 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/exposure-debugger.tsx:205 · Callout</div>
               <Callout status="error"><strong>Error:</strong><Expr>{"error"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n              <strong>Error:</strong> {error}\n            </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L222 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/exposure-debugger.tsx:222 · Callout</div>
               <Callout status="warning">Row limit reached. Only showing the most recent
                         exposures.
                       </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\">\n                        Row limit reached. Only showing the most recent\n                        exposures.\n                      </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L308 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/exposure-debugger.tsx:308 · Callout</div>
               <Callout status="info">No exposures found for the given parameters.
                 </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\">\n                  No exposures found for the given parameters.\n                </Callout>"}</pre></details>
@@ -5238,12 +5238,12 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>pages/fact-metrics/[fmid].tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L243 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/fact-metrics/[fmid].tsx:243 · Callout</div>
               <Callout status="error">Could not find the requested metric.{" "}<Stub name="Link">Back to all metrics</Stub></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n        Could not find the requested metric.{\" \"}\n        <Link href=\"/metrics\">Back to all metrics</Link>\n      </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L523 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/fact-metrics/[fmid].tsx:523 · Callout</div>
               <Callout status="info" mb="2"><strong>This metric is archived.</strong>Existing references will
           continue working, but you will be unable to add this metric to new
           experiments.
@@ -5256,12 +5256,12 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>pages/fact-tables/[ftid].tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L101 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/fact-tables/[ftid].tsx:101 · Callout</div>
               <Callout status="error">Could not find the requested fact table.{" "}<Stub name="Link">Back to all fact tables</Stub></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n        Could not find the requested fact table.{\" \"}\n        <Link href=\"/fact-tables\">Back to all fact tables</Link>\n      </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L242 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/fact-tables/[ftid].tsx:242 · Callout</div>
               <Callout status="info" mb="2"><strong>This Fact Table is archived.</strong>Existing references will
           continue working, but you will be unable to add metrics from this Fact
           Table to new experiments.
@@ -5274,7 +5274,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>pages/fact-tables/index.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L264 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/fact-tables/index.tsx:264 · Callout</div>
               <Callout status="error" mb="3"><Expr>{"autoGenerateError"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" mb=\"3\">\n              {autoGenerateError}\n            </Callout>"}</pre></details>
             </Box>
@@ -5284,7 +5284,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>pages/features/[fid].tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L150 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/features/[fid].tsx:150 · Callout</div>
               <Callout status="error">An error occurred: <Expr>{"error.message"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">An error occurred: {error.message}</Callout>"}</pre></details>
             </Box>
@@ -5294,12 +5294,12 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>pages/features/index.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L635 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/features/index.tsx:635 · Callout</div>
               <Callout status="error">An error occurred: <Expr>{"error.message"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">An error occurred: {error.message}</Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L773 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/features/index.tsx:773 · Callout</div>
               <Callout status="info" mt="5" mb="3">Test what values these features will return for your users from
                 the <Stub name="Link">Simulate</Stub>page.
               </Callout>
@@ -5311,7 +5311,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>pages/getstarted/data-source-guide.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L50 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/getstarted/data-source-guide.tsx:50 · Callout</div>
               <Callout status="error"><Expr>{"error"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">{error}</Callout>"}</pre></details>
             </Box>
@@ -5321,7 +5321,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>pages/getstarted/experiment-guide.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L74 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/getstarted/experiment-guide.tsx:74 · Callout</div>
               <Callout status="error"><Expr>{"error.message"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">{error.message}</Callout>"}</pre></details>
             </Box>
@@ -5331,7 +5331,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>pages/getstarted/feature-flag-guide.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L40 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/getstarted/feature-flag-guide.tsx:40 · Callout</div>
               <Callout status="error"><Expr>{"error.message"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">{error.message}</Callout>"}</pre></details>
             </Box>
@@ -5341,7 +5341,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>pages/getstarted/imported-experiment-guide.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L45 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/getstarted/imported-experiment-guide.tsx:45 · Callout</div>
               <Callout status="error"><Expr>{"error.message"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">{error.message}</Callout>"}</pre></details>
             </Box>
@@ -5351,7 +5351,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>pages/holdouts/index.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L175 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/holdouts/index.tsx:175 · Callout</div>
               <Callout status="error" mb="3">An error occurred: <Expr>{"error.message"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" mb=\"3\">\n        An error occurred: {error.message}\n      </Callout>"}</pre></details>
             </Box>
@@ -5361,7 +5361,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>pages/idea/[iid].tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L99 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/idea/[iid].tsx:99 · Callout</div>
               <Callout status="error">There was a problem loading this idea</Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">There was a problem loading this idea</Callout>"}</pre></details>
             </Box>
@@ -5371,7 +5371,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>pages/ideas.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L41 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/ideas.tsx:41 · Callout</div>
               <Callout status="error">An error occurred</Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">An error occurred</Callout>"}</pre></details>
             </Box>
@@ -5381,7 +5381,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>pages/index.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L63 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/index.tsx:63 · Callout</div>
               <Callout status="error"><Expr>{"error.message || \"An error occurred\""}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">{error.message || \"An error occurred\"}</Callout>"}</pre></details>
             </Box>
@@ -5391,7 +5391,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>pages/integrations/slack/index.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L13 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/integrations/slack/index.tsx:13 · Callout</div>
               <Callout status="error">You do not have access to view this page.
         </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n          You do not have access to view this page.\n        </Callout>"}</pre></details>
@@ -5402,7 +5402,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>pages/invitation.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L57 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/invitation.tsx:57 · Callout</div>
               <Callout status="error"><Expr>{"error"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">{error}</Callout>"}</pre></details>
             </Box>
@@ -5412,7 +5412,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>pages/learnings/index.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L87 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/learnings/index.tsx:87 · Callout</div>
               <Callout status="error">An error occurred: <Expr>{"error.message"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">An error occurred: {error.message}</Callout>"}</pre></details>
             </Box>
@@ -5422,18 +5422,18 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>pages/metric/[mid].tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L135 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/metric/[mid].tsx:135 · Callout</div>
               <Callout status="error"><Expr>{"error.message"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">{error.message}</Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L296 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/metric/[mid].tsx:296 · Callout</div>
               <Callout status="error">An error occurred getting the metric usage
           </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n            An error occurred getting the metric usage\n          </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L424 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/metric/[mid].tsx:424 · Callout</div>
               <Callout status="info" mb="2"><strong>This metric is archived.</strong>Existing references will
           continue working, but you will be unable to add this metric to new
           experiments.
@@ -5441,18 +5441,18 @@ export default function DebugAllCalloutsGenerated() {
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" mb=\"2\">\n          <strong>This metric is archived.</strong> Existing references will\n          continue working, but you will be unable to add this metric to new\n          experiments.\n        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L704 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/metric/[mid].tsx:704 · Callout</div>
               <Callout status="error" my="3">Error running the analysis.{" "}<Stub name="ViewAsyncQueriesButton"></Stub>{" "}for more info
                       </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" my=\"3\">\n                        Error running the analysis.{\" \"}\n                        <ViewAsyncQueriesButton\n                          queries={metric.queries.map((q) => q.query)}\n                          error={metric.analysisError}\n                          ctaComponent={(onClick) => (\n                            <Link onClick={onClick}>View Queries</Link>\n                          )}\n                        />{\" \"}\n                        for more info\n                      </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L717 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/metric/[mid].tsx:717 · Callout</div>
               <Callout status="info">Your analysis is currently running.{" "}<Expr>{"analysis && \"The data below is from the previous run.\""}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\">\n                        Your analysis is currently running.{\" \"}\n                        {analysis && \"The data below is from the previous run.\"}\n                      </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L726 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/metric/[mid].tsx:726 · Callout</div>
               <Callout status="info">The graphs below are using an old Segment. Update them
                           to see the latest numbers.
                         </Callout>
@@ -5464,7 +5464,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>pages/namespaces.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L48 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/namespaces.tsx:48 · Callout</div>
               <Callout status="error">An error occurred: <Expr>{"error.message"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">An error occurred: {error.message}</Callout>"}</pre></details>
             </Box>
@@ -5474,7 +5474,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>pages/oauth/google.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L26 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/oauth/google.tsx:26 · Callout</div>
               <Callout status="error"><Expr>{"error.message"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">{error.message}</Callout>"}</pre></details>
             </Box>
@@ -5484,7 +5484,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>pages/oauth/lookup.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L87 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/oauth/lookup.tsx:87 · Callout</div>
               <Callout status="error"><Expr>{"error"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">{error}</Callout>"}</pre></details>
             </Box>
@@ -5494,7 +5494,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>pages/present/[pid].tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L58 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/present/[pid].tsx:58 · Callout</div>
               <Callout status="error">An error occurred</Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">An error occurred</Callout>"}</pre></details>
             </Box>
@@ -5504,7 +5504,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>pages/presentations.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L53 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/presentations.tsx:53 · Callout</div>
               <Callout status="error">An error occurred fetching the lists of shares.
       </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n        An error occurred fetching the lists of shares.\n      </Callout>"}</pre></details>
@@ -5515,18 +5515,18 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>pages/product-analytics/dashboards/[did].tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L124 · PremiumCallout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/product-analytics/dashboards/[did].tsx:124 · PremiumCallout</div>
               <MockUser><PremiumCallout commercialFeature="product-analytics-dashboards" id="dbg-18">Use of Product Analytics Dashboards requires a paid plan
       </PremiumCallout></MockUser>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<PremiumCallout\n        id=\"product-analytics-single-dashboard\"\n        dismissible={false}\n        commercialFeature=\"product-analytics-dashboards\"\n      >\n        Use of Product Analytics Dashboards requires a paid plan\n      </PremiumCallout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L139 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/product-analytics/dashboards/[did].tsx:139 · Callout</div>
               <Callout status="error">An error occurred: <Expr>{"error.message"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">An error occurred: {error.message}</Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L216 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/product-analytics/dashboards/[did].tsx:216 · Callout</div>
               <Callout status="error">Failed to load dashboard</Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">Failed to load dashboard</Callout>"}</pre></details>
             </Box>
@@ -5536,7 +5536,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>pages/product-analytics/dashboards/index.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L303 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/product-analytics/dashboards/index.tsx:303 · Callout</div>
               <Callout status="error">There was an error loading the list of dashboards.
               </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n                There was an error loading the list of dashboards.\n              </Callout>"}</pre></details>
@@ -5547,7 +5547,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>pages/product-analytics/dashboards/new.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L122 · PremiumCallout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/product-analytics/dashboards/new.tsx:122 · PremiumCallout</div>
               <MockUser><PremiumCallout commercialFeature="product-analytics-dashboards" id="dbg-19">Use of Product Analytics Dashboards requires a paid plan
         </PremiumCallout></MockUser>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<PremiumCallout\n          id=\"product-analytics-new-dashboard\"\n          dismissible={false}\n          commercialFeature=\"product-analytics-dashboards\"\n        >\n          Use of Product Analytics Dashboards requires a paid plan\n        </PremiumCallout>"}</pre></details>
@@ -5558,18 +5558,18 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>pages/project/[pid].tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L124 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/project/[pid].tsx:124 · Callout</div>
               <Callout status="error">You do not have access to view this page.
         </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n          You do not have access to view this page.\n        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L133 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/project/[pid].tsx:133 · Callout</div>
               <Callout status="error"><Expr>{"error"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">{error}</Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L143 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/project/[pid].tsx:143 · Callout</div>
               <Callout status="error">Project <code><Expr>{"pid"}</Expr></code>does not exist.
         </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n          Project <code>{pid}</code> does not exist.\n        </Callout>"}</pre></details>
@@ -5580,7 +5580,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>pages/public/r/[r].tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L144 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/public/r/[r].tsx:144 · Callout</div>
               <Callout status="error">This report was not found.</Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">This report was not found.</Callout>"}</pre></details>
             </Box>
@@ -5590,7 +5590,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>pages/report/[rid].tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L67 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/report/[rid].tsx:67 · Callout</div>
               <Callout status="error"><Expr>{"error.message"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">{error.message}</Callout>"}</pre></details>
             </Box>
@@ -5600,7 +5600,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>pages/reports.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L88 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/reports.tsx:88 · Callout</div>
               <Callout status="error">An error occurred: <Expr>{"error.message"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">An error occurred: {error.message}</Callout>"}</pre></details>
             </Box>
@@ -5610,17 +5610,17 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>pages/reset-password.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L50 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/reset-password.tsx:50 · Callout</div>
               <Callout status="error">Invalid URL. <Stub name="Link">Go Back</Stub></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n          Invalid URL. <Link href=\"/\">Go Back</Link>\n        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L91 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/reset-password.tsx:91 · Callout</div>
               <Callout status="error"><Expr>{"error"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">{error}</Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L95 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/reset-password.tsx:95 · Callout</div>
               <Callout mb="3" status="success">Successfully reset password for <strong><Expr>{"email"}</Expr></strong></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout mb=\"3\" status=\"success\">\n            Successfully reset password for <strong>{email}</strong>\n          </Callout>"}</pre></details>
             </Box>
@@ -5630,17 +5630,17 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>pages/saved-groups/[sgid].tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L443 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/saved-groups/[sgid].tsx:443 · Callout</div>
               <Callout status="error" mt="4">An error occurred: <Expr>{"error.message"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" mt=\"4\">\n        An error occurred: {error.message}\n      </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L936 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/saved-groups/[sgid].tsx:936 · Callout</div>
               <Callout status="warning" mt="3"><Stub name="Checkbox"></Stub></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\" mt=\"3\">\n                  <Checkbox\n                    label={\n                      willUnarchive\n                        ? \"Also un-archive (currently archived)\"\n                        : \"Also archive (currently active)\"\n                    }\n                    value={revertIncludeArchive}\n                    setValue={setRevertIncludeArchive}\n                  />\n                </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L1314 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/saved-groups/[sgid].tsx:1314 · Callout</div>
               <Callout status="error" mt="3">The attribute for this saved group has an unsupported datatype. It
             cannot be edited and it may produce unexpected behavior when used in
             SDKs. Try using a{" "}<Stub name="Link">Condition Group</Stub>{" "}instead
@@ -5648,7 +5648,7 @@ export default function DebugAllCalloutsGenerated() {
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" mt=\"3\">\n            The attribute for this saved group has an unsupported datatype. It\n            cannot be edited and it may produce unexpected behavior when used in\n            SDKs. Try using a{\" \"}\n            <Link href=\"/saved-groups#conditionGroups\">Condition Group</Link>{\" \"}\n            instead\n          </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L2013 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/saved-groups/[sgid].tsx:2013 · Callout</div>
               <Callout status="info">This saved group has legacy behavior when empty and will be
                   completely ignored when used for targeting.{" "}<Stub name="DocLink">Learn More</Stub></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\">\n                  This saved group has legacy behavior when empty and will be\n                  completely ignored when used for targeting.{\" \"}\n                  <DocLink docSection=\"idLists\">Learn More</DocLink>\n                </Callout>"}</pre></details>
@@ -5659,7 +5659,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>pages/saved-groups/index.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L161 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/saved-groups/index.tsx:161 · Callout</div>
               <Callout status="error" mb="3">There was an error loading the list of groups.
         </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\" mb=\"3\">\n          There was an error loading the list of groups.\n        </Callout>"}</pre></details>
@@ -5670,12 +5670,12 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>pages/sdks/[sdkid].tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L53 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/sdks/[sdkid].tsx:53 · Callout</div>
               <Callout status="error"><Expr>{"error.message"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">{error.message}</Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L63 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/sdks/[sdkid].tsx:63 · Callout</div>
               <Callout status="error">Invalid SDK Connection id</Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">Invalid SDK Connection id</Callout>"}</pre></details>
             </Box>
@@ -5685,7 +5685,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>pages/sdks/index.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L56 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/sdks/index.tsx:56 · Callout</div>
               <Callout status="warning"><Heading as="h3" mb="3">Deprecated
             </Heading><Flex direction="column" gap="1"><Text mb="2">Legacy SDK Endpoints and Webhooks are deprecated. We recommend
                 migrating to <strong>SDK Connections</strong>, which solve the
@@ -5702,13 +5702,13 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>pages/segments/index.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L171 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/segments/index.tsx:171 · Callout</div>
               <Callout status="error">An error occurred getting the segment usage
           </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n            An error occurred getting the segment usage\n          </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L192 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/segments/index.tsx:192 · Callout</div>
               <Callout status="info">Segments are only available if you connect GrowthBook to a compatible
           data source (Snowflake, Redshift, BigQuery, ClickHouse, Athena,
           Postgres, MySQL, MS SQL, Presto, Databricks, or Mixpanel). Support for
@@ -5717,24 +5717,24 @@ export default function DebugAllCalloutsGenerated() {
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\">\n          Segments are only available if you connect GrowthBook to a compatible\n          data source (Snowflake, Redshift, BigQuery, ClickHouse, Athena,\n          Postgres, MySQL, MS SQL, Presto, Databricks, or Mixpanel). Support for\n          other data sources like Google Analytics is coming soon.\n        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L225 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/segments/index.tsx:225 · Callout</div>
               <Callout status="error">There was an error loading the list of segments
         </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n          There was an error loading the list of segments\n        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L364 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/segments/index.tsx:364 · Callout</div>
               <Callout status="info">You don&apos;t have any segments defined yet.{" "}<Expr>{"hasCreatePermission && \"Click the button above to create your first one.\""}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\">\n          You don&apos;t have any segments defined yet.{\" \"}\n          {hasCreatePermission &&\n            \"Click the button above to create your first one.\"}\n        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L371 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/segments/index.tsx:371 · Callout</div>
               <Callout status="info">You don&apos;t have any segments defined yet. You can add them to your{" "}<code>config.yml</code>file and remove the{" "}<code>STORE_SEGMENTS_IN_MONGO</code>environment variable
           <Expr>{"hasCreatePermission && \" or click the button above to create your first one\""}</Expr>. <Stub name="DocLink">View Documentation</Stub></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\">\n          You don&apos;t have any segments defined yet. You can add them to your{\" \"}\n          <code>config.yml</code> file and remove the{\" \"}\n          <code>STORE_SEGMENTS_IN_MONGO</code> environment variable\n          {hasCreatePermission &&\n            \" or click the button above to create your first one\"}\n          . <DocLink docSection=\"config_yml\">View Documentation</DocLink>\n        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L381 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/segments/index.tsx:381 · Callout</div>
               <Callout status="info">It looks like you have a <code>config.yml</code>file. Segments
           defined there will show up on this page. If you would like to store
           and access segments in MongoDB instead, please add the{" "}<code>STORE_SEGMENTS_IN_MONGO</code>environment variable.{" "}<Stub name="DocLink">View Documentation</Stub></Callout>
@@ -5746,20 +5746,20 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>pages/settings/billing.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L61 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/settings/billing.tsx:61 · Callout</div>
               <Callout status="info">This page is not available for enterprise customers. Please contact
           your account rep for any billing questions or changes.
         </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\">\n          This page is not available for enterprise customers. Please contact\n          your account rep for any billing questions or changes.\n        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L72 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/settings/billing.tsx:72 · Callout</div>
               <Callout status="error">You do not have access to view this page.
         </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n          You do not have access to view this page.\n        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L82 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/settings/billing.tsx:82 · Callout</div>
               <Callout status="info">This page is not available for organizations whose plan is managed by
           Vercel. Please go to your Vercel Integration Dashboard for any billing
           information. If you&apos;d like to cancel your subscription, you can
@@ -5768,7 +5768,7 @@ export default function DebugAllCalloutsGenerated() {
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\">\n          This page is not available for organizations whose plan is managed by\n          Vercel. Please go to your Vercel Integration Dashboard for any billing\n          information. If you&apos;d like to cancel your subscription, you can\n          do so in the GrowthBook Integration Dashboard in Vercel.\n        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L107 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/settings/billing.tsx:107 · Callout</div>
               <Callout status="info" mb="0" action={<ActionPlaceholder />}><span>You are currently on the <strong>Starter Plan</strong>.
               </span></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout\n              status=\"info\"\n              mb=\"0\"\n              action={\n                <Button\n                  onClick={() => {\n                    setUpgradeModal(true);\n                  }}\n                >\n                  Upgrade Now\n                </Button>\n              }\n            >\n              <span>\n                You are currently on the <strong>Starter Plan</strong>.\n              </span>\n            </Callout>"}</pre></details>
@@ -5779,18 +5779,18 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>pages/settings/custom-hooks.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L64 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/settings/custom-hooks.tsx:64 · Callout</div>
               <Callout status="error">Custom Hooks are not available on GrowthBook Cloud.
       </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n        Custom Hooks are not available on GrowthBook Cloud.\n      </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L71 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/settings/custom-hooks.tsx:71 · Callout</div>
               <Callout status="error">Error: <Expr>{"error.message"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">Error: {error.message}</Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L132 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/settings/custom-hooks.tsx:132 · Callout</div>
               <Callout status="info">No global or project-scoped hooks yet.
               </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\">\n                No global or project-scoped hooks yet.\n              </Callout>"}</pre></details>
@@ -5801,7 +5801,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>pages/settings/custom-markdown.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L79 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/settings/custom-markdown.tsx:79 · Callout</div>
               <Callout status="error">You do not have access to view this page.
         </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n          You do not have access to view this page.\n        </Callout>"}</pre></details>
@@ -5812,7 +5812,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>pages/settings/keys.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L14 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/settings/keys.tsx:14 · Callout</div>
               <Callout status="error">You do not have access to view this page.
         </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n          You do not have access to view this page.\n        </Callout>"}</pre></details>
@@ -5823,7 +5823,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>pages/settings/organizations.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L19 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/settings/organizations.tsx:19 · Callout</div>
               <Callout status="error">This page is only available for self-hosted multi-org customers with
           either SHOW_MULTI_ORG_SELF_SELECTOR or ALLOW_SELF_ORG_CREATION
           environment variables enabled.
@@ -5836,7 +5836,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>pages/settings/tags.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L42 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/settings/tags.tsx:42 · Callout</div>
               <Callout status="error">You do not have access to view this page.
         </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n          You do not have access to view this page.\n        </Callout>"}</pre></details>
@@ -5847,7 +5847,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>pages/settings/team.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L26 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/settings/team.tsx:26 · Callout</div>
               <Callout status="error">You do not have access to view this page.
         </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n          You do not have access to view this page.\n        </Callout>"}</pre></details>
@@ -5858,13 +5858,13 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>pages/settings/team/[tid].tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L45 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/settings/team/[tid].tsx:45 · Callout</div>
               <Callout status="error">Team <code><Expr>{"tid"}</Expr></code>does not exist.
         </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n          Team <code>{tid}</code> does not exist.\n        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L81 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/settings/team/[tid].tsx:81 · Callout</div>
               <Callout status="info" mb="3">This team is managed by an idP. To make changes to the{" "}<b>team name</b>or <b>team membership</b>please access your idP
             and edit the corresponding group. Team permissions must be edited
             via the <b>Edit Permissions</b>button below.
@@ -5877,13 +5877,13 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>pages/settings/usage.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L14 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/settings/usage.tsx:14 · Callout</div>
               <Callout status="error">You do not have access to view this page.
         </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n          You do not have access to view this page.\n        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L24 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/settings/usage.tsx:24 · Callout</div>
               <Callout status="info">This page is not available for organizations whose plan is managed by
           Vercel. Please go to your Vercel Integration Dashboard to view your
           usage and billing information.
@@ -5896,7 +5896,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>pages/settings/webhooks/event/[eventwebhookid].tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L25 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/settings/webhooks/event/[eventwebhookid].tsx:25 · Callout</div>
               <Callout status="error">Unable to fetch event web hook <Expr>{"eventWebHookId"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n        Unable to fetch event web hook {eventWebHookId}\n      </Callout>"}</pre></details>
             </Box>
@@ -5906,7 +5906,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>pages/settings/webhooks/index.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L36 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/settings/webhooks/index.tsx:36 · Callout</div>
               <Callout status="error">You do not have access to view this page.
         </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n          You do not have access to view this page.\n        </Callout>"}</pre></details>
@@ -5917,7 +5917,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>pages/setup/index.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L102 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/setup/index.tsx:102 · Callout</div>
               <Callout status="warning" mt="5">You do not have permission to use this setup flow.
       </Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"warning\" mt=\"5\">\n        You do not have permission to use this setup flow.\n      </Callout>"}</pre></details>
@@ -5928,7 +5928,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>pages/sql-explorer/[id].tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L46 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/sql-explorer/[id].tsx:46 · Callout</div>
               <Callout status="error">Failed to load saved query: <Expr>{"error.message"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n          Failed to load saved query: {error.message}\n        </Callout>"}</pre></details>
             </Box>
@@ -5938,12 +5938,12 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>pages/sql-explorer/index.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L40 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/sql-explorer/index.tsx:40 · Callout</div>
               <Callout status="error">Failed to load saved queries: <Expr>{"error.message"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n          Failed to load saved queries: {error.message}\n        </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L61 · PremiumCallout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/sql-explorer/index.tsx:61 · PremiumCallout</div>
               <MockUser><PremiumCallout commercialFeature="saveSqlExplorerQueries" id="dbg-20"><span>Save your commonly run queries and build visualizations from the
             results.
           </span></PremiumCallout></MockUser>
@@ -5955,7 +5955,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>pages/timeline.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L75 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/timeline.tsx:75 · Callout</div>
               <Callout status="error">An error occurred: <Expr>{"error.message"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">An error occurred: {error.message}</Callout>"}</pre></details>
             </Box>
@@ -5965,7 +5965,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>pages/visual-editor/connect.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L222 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/visual-editor/connect.tsx:222 · Callout</div>
               <Callout status="info" mt="2">Didn&rsquo;t see the extension update? Make sure the GrowthBook
               Visual Editor extension is installed and its side panel is open,
               then reload this page.
@@ -5973,7 +5973,7 @@ export default function DebugAllCalloutsGenerated() {
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"info\" mt=\"2\">\n              Didn&rsquo;t see the extension update? Make sure the GrowthBook\n              Visual Editor extension is installed and its side panel is open,\n              then reload this page.\n            </Callout>"}</pre></details>
             </Box>
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L235 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>pages/visual-editor/connect.tsx:235 · Callout</div>
               <Callout status="error"><Expr>{"errorMsg || \"Something went wrong while creating your Visual Editor key.\""}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">\n              {errorMsg ||\n                \"Something went wrong while creating your Visual Editor key.\"}\n            </Callout>"}</pre></details>
             </Box>
@@ -5987,7 +5987,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>services/auth.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L609 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>services/auth.tsx:609 · Callout</div>
               <Callout status="error"><Expr>{"getDetailedError(initError)"}</Expr></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status=\"error\">{getDetailedError(initError)}</Callout>"}</pre></details>
             </Box>
@@ -5997,7 +5997,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>services/rule-conflicts.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L1548 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>services/rule-conflicts.tsx:1548 · Callout</div>
               <Callout status="info" size="sm"><Flex direction="column" gap="1"><Flex align="center" gap="2" wrap="wrap"><Expr>{"headline"}</Expr><Expr>{"hasDetails && ( <Link role=\"button\" onClick={() => setOpen((o) => !o)}> {open ? \"Hide deta…"}</Expr></Flex><Expr>{"open && hasDetails && ( <Flex mt=\"1\" direction=\"column\" gap=\"1\"> {conflicts.hard.map((c, i…"}</Expr></Flex></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout status={status} color={color} size=\"sm\">\n      <Flex direction=\"column\" gap=\"1\">\n        <Flex align=\"center\" gap=\"2\" wrap=\"wrap\">\n          {headline}\n          {hasDetails && (\n            <Link role=\"button\" onClick={() => setOpen((o) => !o)}>\n              {open ? \"Hide details\" : \"See details\"}\n            </Link>\n          )}\n        </Flex>\n        {open && hasDetails && (\n          <Flex mt=\"1\" direction=\"column\" gap=\"1\">\n            {conflicts.hard.map((c, i) => (\n              <Text as=\"div\" size=\"small\" key={`h${i}`}>\n                - {hardSentence(c)}\n              </Text>\n            ))}\n            {conflicts.soft.map((c, i) => (\n              <Text as=\"div\" size=\"small\" key={`s${i}`}>\n                - {softSentence(c)}\n              </Text>\n            ))}\n          </Flex>\n        )}\n      </Flex>\n    </Callout>"}</pre></details>
             </Box>
@@ -6011,7 +6011,7 @@ export default function DebugAllCalloutsGenerated() {
           <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--gray-12)", borderTop: "1px solid var(--gray-5)", paddingTop: 10, marginBottom: 10 }}>ui/AnalysisResultSummary.tsx</div>
           <Flex direction="column" gap="3">
             <Box>
-              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4 }}>L122 · Callout</div>
+              <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--gray-10)", marginBottom: 4, userSelect: "all" }}>ui/AnalysisResultSummary.tsx:122 · Callout</div>
               <Callout size="sm" status="info" icon={null}><Expr>{"priorUsed && cupedUsed ? ( <>CUPED and Bayesian Priors affect results</> ) : priorUsed ? (…"}</Expr>{" "}<Stub name="Tooltip"><span><Stub name="PiInfo"></Stub></span></Stub></Callout>
               <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", fontSize: 11, color: "var(--gray-9)" }}>source</summary><pre style={{ fontSize: 11, background: "var(--gray-2)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre-wrap" }}>{"<Callout size=\"sm\" status=\"info\" icon={null}>\n        {priorUsed && cupedUsed ? (\n          <>CUPED and Bayesian Priors affect results</>\n        ) : priorUsed ? (\n          <>Bayesian Priors affect results</>\n        ) : (\n          <>CUPED affects results</>\n        )}{\" \"}\n        <Tooltip\n          content={\n            <Flex direction=\"column\" gap=\"1\">\n              {priorUsed ? (\n                <span>\n                  {`This metric was analyzed with a prior that is normally distributed with mean ${\n                    data.metricSnapshotSettings?.properPriorMean ?? 0\n                  } and standard deviation ${\n                    data.metricSnapshotSettings?.properPriorStdDev ??\n                    DEFAULT_PROPER_PRIOR_STDDEV\n                  }.`}\n                </span>\n              ) : null}\n              {cupedUsed ? (\n                <span>\n                  {`This metric was analyzed with CUPED, which adjusts for covariates.`}\n                </span>\n              ) : null}\n              <span>\n                {`This affects metrics results (e.g., lift, ${\n                  data.statsEngine === \"bayesian\"\n                    ? \"chance to win, credible intervals\"\n                    : \"p-values, confidence intervals\"\n                }), and estimated lift will often differ from the raw difference between variation and baseline.`}\n              </span>\n            </Flex>\n          }\n        >\n          <span>\n            <PiInfo size={16} />\n          </span>\n        </Tooltip>\n      </Callout>"}</pre></details>
             </Box>
