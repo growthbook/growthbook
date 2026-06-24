@@ -14,6 +14,7 @@ import {
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
 import { dispatchConstantRevisionEvent } from "back-end/src/services/constantRevisionEvents";
+import { assertConstantArchivable } from "back-end/src/services/constants";
 
 async function buildResponse(
   context: ApiReqContext,
@@ -29,12 +30,12 @@ async function buildResponse(
 
 async function setArchivedState(
   context: ApiReqContext,
-  id: string,
+  key: string,
   archived: boolean,
 ) {
-  const constant = await context.models.constants.getById(id);
+  const constant = await context.models.constants.getByKey(key);
   if (!constant) {
-    throw new NotFoundError(`Unable to locate the constant: ${id}`);
+    throw new NotFoundError(`Unable to locate the constant: ${key}`);
   }
 
   if (!context.permissions.canUpdateConstant(constant, constant)) {
@@ -44,6 +45,12 @@ async function setArchivedState(
   // Idempotent: skip the write if already in the desired state.
   if (!!constant.archived === archived) {
     return buildResponse(context, constant);
+  }
+
+  // Block archiving a still-referenced constant (parity with saved groups and
+  // the internal/UI archive flow). Unarchiving is always allowed.
+  if (archived) {
+    await assertConstantArchivable(context, constant.id);
   }
 
   // Archiving/unarchiving is a metadata-only change to the constant. Respect the
@@ -69,7 +76,7 @@ async function setArchivedState(
     if (!canBypass) {
       throw new BadRequestError(
         "This organization requires approvals for this constant. " +
-          `Use \`POST /constants-revisions/${constant.id}\` to ${
+          `Use \`POST /constants-revisions/${constant.key}\` to ${
             archived ? "archive" : "unarchive"
           } it through a draft, or use a role/token with the bypass permission.`,
       );
@@ -105,8 +112,8 @@ async function setArchivedState(
 
 export const archiveConstant = createApiRequestHandler(
   archiveConstantValidator,
-)(async (req) => setArchivedState(req.context, req.params.id, true));
+)(async (req) => setArchivedState(req.context, req.params.key, true));
 
 export const unarchiveConstant = createApiRequestHandler(
   unarchiveConstantValidator,
-)(async (req) => setArchivedState(req.context, req.params.id, false));
+)(async (req) => setArchivedState(req.context, req.params.key, false));

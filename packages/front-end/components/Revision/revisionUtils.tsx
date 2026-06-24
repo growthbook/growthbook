@@ -86,11 +86,12 @@ export function buildSavedGroupRevisionUrl(
 }
 
 // Builds the constant revision deep-link using `?v=<n>` (mirrors saved groups).
+// The detail page is addressed by the constant's `key`, not its internal id.
 export function buildConstantRevisionUrl(
-  constantId: string,
+  constantKey: string,
   revision?: Pick<Revision, "version"> | null,
 ): string {
-  const base = `/constants/${constantId}`;
+  const base = `/constants/${constantKey}`;
   if (revision?.version != null) return `${base}?v=${revision.version}`;
   return base;
 }

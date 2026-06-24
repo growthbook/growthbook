@@ -881,11 +881,12 @@ const buildSlackMessageForSavedGroupRevisionEvent = (
 
 // region Event-specific messages -> Constant
 
-export const getConstantUrlFormatted = (constantId: string): string =>
-  `\n• <${APP_ORIGIN}/constants/${constantId}|View Constant>`;
+// The detail page is addressed by the constant's `key`, not its internal id.
+export const getConstantUrlFormatted = (constantKey: string): string =>
+  `\n• <${APP_ORIGIN}/constants/${constantKey}|View Constant>`;
 
 const buildSlackMessageForConstantCreatedEvent = async (
-  constant: { id: string; name: string },
+  constant: { id: string; name: string; key: string },
   eventId: string,
 ): Promise<SlackMessage> => {
   const eventUser = await getEventUserFormatted(eventId);
@@ -899,7 +900,7 @@ const buildSlackMessageForConstantCreatedEvent = async (
           type: "mrkdwn",
           text:
             `The constant *${constant.name}* has been created by ${eventUser}.` +
-            getConstantUrlFormatted(constant.id) +
+            getConstantUrlFormatted(constant.key) +
             getEventUrlFormatted(eventId),
         },
       },
@@ -908,7 +909,7 @@ const buildSlackMessageForConstantCreatedEvent = async (
 };
 
 const buildSlackMessageForConstantUpdatedEvent = async (
-  constant: { id: string; name: string },
+  constant: { id: string; name: string; key: string },
   eventId: string,
 ): Promise<SlackMessage> => {
   const eventUser = await getEventUserFormatted(eventId);
@@ -953,7 +954,7 @@ const buildSlackMessageForConstantUpdatedEvent = async (
           type: "mrkdwn",
           text:
             `The constant *${constant.name}* has been updated ${isUnknownUser ? "automatically" : `by ${eventUser}`}.` +
-            getConstantUrlFormatted(constant.id) +
+            getConstantUrlFormatted(constant.key) +
             getEventUrlFormatted(eventId),
         },
       },
@@ -986,7 +987,7 @@ const buildSlackMessageForConstantDeletedEvent = async (
 
 type ConstantRevisionSlackData = {
   version?: number;
-  baseConstant: { id: string; name: string };
+  baseConstant: { id: string; name: string; key: string };
   change?: string;
   reviewComment?: string | null;
   reviewer?: { id?: string; name?: string; email?: string };
@@ -1051,7 +1052,7 @@ const buildSlackMessageForConstantRevisionEvent = (
           type: "mrkdwn",
           text:
             text +
-            getConstantUrlFormatted(data.baseConstant.id) +
+            getConstantUrlFormatted(data.baseConstant.key) +
             getEventUrlFormatted(eventId),
         },
       },

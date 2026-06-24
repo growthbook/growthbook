@@ -44,9 +44,28 @@ export const listConstantRevisions = createApiRequestHandler(
   const authorId = mine ? req.context.userId : req.query.author;
   const status = buildRevisionStatusFilter(req.query.status);
 
+  // The `key` filter is the constant's key; resolve it to the internal id the
+  // revision store indexes on. An unknown key matches no constant → no results.
+  let entityId: string | undefined;
+  if (req.query.key) {
+    const constant = await req.context.models.constants.getByKey(req.query.key);
+    if (!constant) {
+      return {
+        revisions: [],
+        limit: skipPagination ? 0 : limit,
+        offset: skipPagination ? 0 : offset,
+        count: 0,
+        total: 0,
+        hasMore: false,
+        nextOffset: null,
+      };
+    }
+    entityId = constant.id;
+  }
+
   const { revisions, total } =
     await req.context.models.revisions.getByTargetTypePaginated("constant", {
-      entityId: req.query.constantId,
+      entityId,
       authorId,
       status,
       limit: skipPagination ? undefined : limit,

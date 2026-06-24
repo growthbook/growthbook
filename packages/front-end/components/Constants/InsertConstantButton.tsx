@@ -56,7 +56,7 @@ function ConstantValuePreview({
 }) {
   const [hovered, setHovered] = useState(false);
   const { data } = useApi<{ constant: ConstantInterface }>(
-    `/constants/${constant.id}`,
+    `/constants/${constant.key}`,
     { shouldRun: () => hovered },
   );
   const value = data?.constant?.value;
@@ -210,7 +210,7 @@ export function UsedConstantTags({
       {used.map((c) => (
         <ConstantValuePreview key={c.id} constant={c}>
           <Link
-            href={`/constants/${c.id}`}
+            href={`/constants/${c.key}`}
             target="_blank"
             rel="noreferrer"
             underline="hover"
@@ -311,21 +311,9 @@ export default function InsertConstantButton({
       }
     >
       {eligible.length ? (
-        <>
-          {eligible.map((c) => (
-            <ConstantOption key={c.id} constant={c} onInsert={handleInsert} />
-          ))}
-          <Box
-            px="3"
-            pt="2"
-            mt="1"
-            style={{ borderTop: "1px solid var(--gray-a4)" }}
-          >
-            <Text size="small" color="text-low">
-              Wrap a reference in backticks to keep it literal.
-            </Text>
-          </Box>
-        </>
+        eligible.map((c) => (
+          <ConstantOption key={c.id} constant={c} onInsert={handleInsert} />
+        ))
       ) : (
         <DropdownMenuItem disabled onClick={() => undefined}>
           <Text size="small" color="text-low">

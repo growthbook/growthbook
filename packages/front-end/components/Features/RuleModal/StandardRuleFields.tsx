@@ -251,7 +251,7 @@ export default function StandardRuleFields({
 
       <RuleEnvironmentScopeField {...envScope} my="5" />
 
-      <Box mb="4">
+      <Box mb="5">
         <FeatureValueField
           label={`Value to ${ruleType === "rollout" ? "roll out" : "force"}`}
           id="value"

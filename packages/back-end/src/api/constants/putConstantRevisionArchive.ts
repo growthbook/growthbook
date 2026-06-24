@@ -7,6 +7,7 @@ import {
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
 import { dispatchConstantRevisionEvent } from "back-end/src/services/constantRevisionEvents";
+import { assertConstantArchivable } from "back-end/src/services/constants";
 import {
   discardIfJustCreated,
   isDraftStatus,
@@ -18,9 +19,7 @@ import { toApiConstantRevision } from "./toApiConstantRevision";
 export const putConstantRevisionArchive = createApiRequestHandler(
   putConstantRevisionArchiveValidator,
 )(async (req) => {
-  const constant = await req.context.models.constants.getById(
-    req.params.constantId,
-  );
+  const constant = await req.context.models.constants.getByKey(req.params.key);
   if (!constant) {
     throw new NotFoundError("Could not find constant");
   }
@@ -30,6 +29,12 @@ export const putConstantRevisionArchive = createApiRequestHandler(
   }
 
   const { archived } = req.body;
+
+  // Block staging an archive while the constant is still referenced (parity with
+  // the direct archive endpoint and saved groups). Unarchiving is always allowed.
+  if (archived && !constant.archived) {
+    await assertConstantArchivable(req.context, constant.id);
+  }
 
   await ensureLiveRevisionExists(
     req.context,

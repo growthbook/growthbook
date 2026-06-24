@@ -208,6 +208,52 @@ describe("getConstantReferenceKeys", () => {
       getConstantReferenceKeys("`{{ @const:escaped }}` {{ @const:real }}", {}),
     ).toEqual(["real"]);
   });
+
+  it("collects refs from $extends arrays (incl. nested objects)", () => {
+    expect(
+      getConstantReferenceKeys(
+        '{ "$extends": ["@const:a", "@const:b"], "nested": { "$extends": ["@const:c"] } }',
+        undefined,
+      ).sort(),
+    ).toEqual(["a", "b", "c"]);
+  });
+
+  it("collects {{ }} interpolations inside JSON string values", () => {
+    expect(
+      getConstantReferenceKeys(
+        '{ "greeting": "hi {{ @const:name }}" }',
+        undefined,
+      ),
+    ).toEqual(["name"]);
+  });
+
+  it("does NOT count the legacy `@const:key`: true object-key notation", () => {
+    expect(
+      getConstantReferenceKeys(
+        '{ "@const:dead": true, "@const:gone": true }',
+        undefined,
+      ),
+    ).toEqual([]);
+  });
+
+  it("does NOT count a bare @const:key outside an interpolation or $extends", () => {
+    expect(getConstantReferenceKeys("see @const:foo for details", {})).toEqual(
+      [],
+    );
+    // bare ref as a plain JSON string value (not in $extends, not {{ }})
+    expect(
+      getConstantReferenceKeys('{ "note": "@const:foo" }', undefined),
+    ).toEqual([]);
+  });
+
+  it("ignores non-string entries in an $extends array", () => {
+    expect(
+      getConstantReferenceKeys(
+        '{ "$extends": ["@const:ok", 5, true, "garbage"] }',
+        undefined,
+      ),
+    ).toEqual(["ok"]);
+  });
 });
 
 describe("getCyclicConstantRefs", () => {

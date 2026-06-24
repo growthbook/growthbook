@@ -106,8 +106,11 @@ function featureConstantKeys(feature: FeatureInterface): Set<string> {
 
 // Features and other constants that reference a given constant via `@const:key`.
 // Scope mirrors resolution: feature values (flags + feature-experiment variation
-// values) and constant-to-constant references. Returns null if the constant
-// doesn't exist.
+// values) and constant-to-constant references. Includes one level of constant
+// chaining (parity with saved groups): a feature that reaches the target only
+// through an intermediate constant (feature → `@const:mid` → `@const:target`) is
+// still affected when the target is archived, so those features are surfaced
+// too. Returns null if the constant doesn't exist.
 export async function loadConstantReferences(
   context: ReqContext | ApiReqContext,
   constantId: string,
@@ -116,31 +119,69 @@ export async function loadConstantReferences(
   const target = allConstants.find((c) => c.id === constantId);
   if (!target) return null;
 
+  // Other constants that directly embed the target (via `$extends` or `{{ }}`).
+  const constantsReferencingTarget = allConstants.filter(
+    (c) =>
+      c.id !== constantId &&
+      getConstantReferenceKeys(c.value, c.environmentValues).includes(
+        target.key,
+      ),
+  );
+
+  // Features are affected if they reference the target directly OR any constant
+  // that embeds it (one level of chaining, matching loadSavedGroupReferences).
+  const affectedKeys = new Set<string>([
+    target.key,
+    ...constantsReferencingTarget.map((c) => c.key),
+  ]);
+
   const allFeatures = await getAllFeatures(context, {});
   const features = allFeatures
-    .filter((f) => featureConstantKeys(f).has(target.key))
+    .filter((f) => {
+      const keys = featureConstantKeys(f);
+      for (const k of affectedKeys) {
+        if (keys.has(k)) return true;
+      }
+      return false;
+    })
     // Features have no display name distinct from their id; surface it as
     // `name` for parity with the saved-group references shape.
     .map((f) => ({ id: f.id, name: f.id, project: f.project || undefined }));
 
-  const constants = allConstants
-    .filter(
-      (c) =>
-        c.id !== constantId &&
-        getConstantReferenceKeys(c.value, c.environmentValues).includes(
-          target.key,
-        ),
-    )
-    .map((c) => ({
-      id: c.id,
-      key: c.key,
-      name: c.name,
-      project: c.project || undefined,
-    }));
+  const constants = constantsReferencingTarget.map((c) => ({
+    id: c.id,
+    key: c.key,
+    name: c.name,
+    project: c.project || undefined,
+  }));
 
   return { features, constants };
 }
 
 export function totalConstantReferences(refs: ConstantReferences): number {
   return refs.features.length + refs.constants.length;
+}
+
+// Block archiving a constant that's still referenced (parity with saved groups).
+// Keeps the invariant that archived constants have no live references, so a
+// referenced constant can't silently drop config from feature payloads. The
+// resolver still scrubs archived refs as a backend safety net (e.g. for
+// cross-project references the archiver can't see). Only the archive transition
+// is gated — unarchiving is always allowed. `constantId` is the internal id.
+export async function assertConstantArchivable(
+  context: ReqContext | ApiReqContext,
+  constantId: string,
+): Promise<void> {
+  const refs = await loadConstantReferences(context, constantId);
+  if (!refs || totalConstantReferences(refs) === 0) return;
+  const parts: string[] = [];
+  if (refs.features.length) parts.push(`${refs.features.length} feature(s)`);
+  if (refs.constants.length) {
+    parts.push(`${refs.constants.length} other constant(s)`);
+  }
+  throw new BadRequestError(
+    `Cannot archive constant: it is still referenced by ${parts.join(
+      ", ",
+    )}. Remove these references first.`,
+  );
 }

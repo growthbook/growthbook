@@ -26,7 +26,7 @@ const ConstantReferencesList: FC<ConstantReferences> = ({
       items: constants.map((c) => ({
         id: c.id,
         label: c.name || c.key,
-        href: `/constants/${c.id}`,
+        href: `/constants/${c.key}`,
         projectIds: c.project ? [c.project] : undefined,
       })),
     },

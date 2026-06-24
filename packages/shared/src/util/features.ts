@@ -37,7 +37,9 @@ import { getValidDate } from "../dates";
 import {
   conditionHasSavedGroupErrors,
   expandNestedSavedGroups,
+  EXTENDS_KEY,
 } from "../sdk-versioning";
+import { formatJsonMultilineObjects } from "./format-json";
 import { stemRuleId } from "./ruleId";
 import {
   getMatchingRules,
@@ -383,12 +385,36 @@ export function resolveSparseJSONValue(
   return { ...defaultObj, ...sparse };
 }
 
+// Reads the `$extends` constant-reference list off a parsed JSON object,
+// ignoring non-string entries. Returns [] when absent or not an array.
+function getExtendsRefs(obj: Record<string, unknown>): string[] {
+  const list = obj[EXTENDS_KEY];
+  return Array.isArray(list)
+    ? list.filter((r): r is string => typeof r === "string")
+    : [];
+}
+
+// Rebuilds a JSON object string with `$extends` first (when non-empty) followed
+// by the given own keys, one key per line.
+function serializeExtendsObject(
+  extendsRefs: string[],
+  ownKeys: Record<string, unknown>,
+): string {
+  return formatJsonMultilineObjects(
+    extendsRefs.length ? { [EXTENDS_KEY]: extendsRefs, ...ownKeys } : ownKeys,
+  );
+}
+
 // Strips top-level keys from a full JSON value that are deep-equal to the
 // feature default's value for that key, leaving the minimal sparse patch. Used
 // when switching a JSON rule INTO sparse mode so the editor starts from a clean
 // diff (often `{}`) instead of the full, default-laden object the rule was
 // seeded with. Returns the input unchanged when either side isn't a plain
 // object (no meaningful patch can be computed).
+//
+// `$extends` is a merge directive, not data: the patch keeps only the refs not
+// already pulled in by the default's `$extends` (set difference), so the layered
+// resolution doesn't double-apply them.
 export function stripDefaultsForSparse(
   valueStr: string,
   defaultValueStr: string,
@@ -396,19 +422,31 @@ export function stripDefaultsForSparse(
   const value = parsePlainJSONObject(valueStr);
   const defaultObj = parsePlainJSONObject(defaultValueStr);
   if (!value || !defaultObj) return valueStr;
+
+  const defaultRefs = new Set(getExtendsRefs(defaultObj));
+  const patchRefs = getExtendsRefs(value).filter((r) => !defaultRefs.has(r));
+
   const patch: Record<string, unknown> = {};
   for (const [key, v] of Object.entries(value)) {
+    if (key === EXTENDS_KEY) continue;
     if (!(key in defaultObj) || !isEqual(v, defaultObj[key])) {
       patch[key] = v;
     }
   }
-  return stringify(patch);
+  return serializeExtendsObject(patchRefs, patch);
 }
 
 // Expands a sparse patch back into the full value by merging it onto the feature
 // default (the inverse of stripDefaultsForSparse). Used when switching a JSON
 // rule OUT of sparse mode so the editor shows the whole object again. Returns
 // the input unchanged when either side isn't a plain object.
+//
+// `$extends` arrays from the default and the patch are unioned (default's refs
+// first) rather than letting the patch's array clobber the default's. Note: the
+// flattened form can't perfectly reproduce the layered precedence when a
+// patch-extended constant overrides one of the default's own keys (the resolver
+// applies patch-`$extends` above default keys; the flattened object applies all
+// `$extends` below them) — an accepted edge case for this editor convenience.
 export function expandSparseToFull(
   valueStr: string,
   defaultValueStr: string,
@@ -416,7 +454,20 @@ export function expandSparseToFull(
   const patch = parsePlainJSONObject(valueStr);
   const defaultObj = parsePlainJSONObject(defaultValueStr);
   if (!patch || !defaultObj) return valueStr;
-  return stringify({ ...defaultObj, ...patch });
+
+  const mergedRefs = [...getExtendsRefs(defaultObj)];
+  for (const ref of getExtendsRefs(patch)) {
+    if (!mergedRefs.includes(ref)) mergedRefs.push(ref);
+  }
+
+  const ownKeys: Record<string, unknown> = {};
+  for (const [key, v] of Object.entries(defaultObj)) {
+    if (key !== EXTENDS_KEY) ownKeys[key] = v;
+  }
+  for (const [key, v] of Object.entries(patch)) {
+    if (key !== EXTENDS_KEY) ownKeys[key] = v;
+  }
+  return serializeExtendsObject(mergedRefs, ownKeys);
 }
 
 // Validate the values a revert restores against the value type / JSON schema

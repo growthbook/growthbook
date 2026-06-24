@@ -6,9 +6,15 @@ import { NotFoundError } from "back-end/src/util/errors";
 export const getConstantReferences = createApiRequestHandler(
   getConstantReferencesValidator,
 )(async (req) => {
-  const refs = await loadConstantReferences(req.context, req.params.id);
+  // Public API addresses constants by key; resolve to the internal id the
+  // references lookup uses.
+  const constant = await req.context.models.constants.getByKey(req.params.key);
+  if (!constant) {
+    throw new NotFoundError("Could not find constant with that key");
+  }
+  const refs = await loadConstantReferences(req.context, constant.id);
   if (!refs) {
-    throw new NotFoundError("Could not find constant with that id");
+    throw new NotFoundError("Could not find constant with that key");
   }
   return { features: refs.features, constants: refs.constants };
 });

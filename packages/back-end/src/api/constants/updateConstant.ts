@@ -17,14 +17,14 @@ import { dispatchConstantRevisionEvent } from "back-end/src/services/constantRev
 
 export const updateConstant = createApiRequestHandler(updateConstantValidator)(
   async (req) => {
-    const { id } = req.params;
+    const { key } = req.params;
     const { name, value, environmentValues, description, project, owner } =
       req.body;
     const bypassApproval = req.body.bypassApproval === true;
 
-    const constant = await req.context.models.constants.getById(id);
+    const constant = await req.context.models.constants.getByKey(key);
     if (!constant) {
-      throw new NotFoundError(`Unable to locate the constant: ${id}`);
+      throw new NotFoundError(`Unable to locate the constant: ${key}`);
     }
 
     if (
@@ -102,7 +102,7 @@ export const updateConstant = createApiRequestHandler(updateConstantValidator)(
       if (!bypassApproval) {
         throw new BadRequestError(
           "This organization requires approvals for this constant. " +
-            `Use \`POST /constants-revisions/${constant.id}\` to open a draft, ` +
+            `Use \`POST /constants-revisions/${constant.key}\` to open a draft, ` +
             'or pass `{ "bypassApproval": true }` if you have the bypass permission.',
         );
       }

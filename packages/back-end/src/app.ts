@@ -121,7 +121,10 @@ import { savedGroupRouter } from "./routers/saved-group/saved-group.router";
 import { ArchetypeRouter } from "./routers/archetype/archetype.router";
 import { AttributeRouter } from "./routers/attributes/attributes.router";
 import { customFieldsRouter } from "./routers/custom-fields/custom-fields.router";
-import { constantsRouter } from "./routers/constant/constant.router";
+import {
+  constantsRouter,
+  constantDraftStatesRouter,
+} from "./routers/constant/constant.router";
 import { segmentRouter } from "./routers/segment/segment.router";
 import { dimensionRouter } from "./routers/dimension/dimension.router";
 import { sdkConnectionRouter } from "./routers/sdk-connection/sdk-connection.router";
@@ -624,6 +627,7 @@ app.use("/attribute", AttributeRouter);
 app.use("/custom-fields", customFieldsRouter);
 
 app.use("/constants", constantsRouter);
+app.use("/constants-draft-states", constantDraftStatesRouter);
 
 // Ideas
 app.get("/ideas", ideasController.getIdeas);

@@ -11,15 +11,15 @@ export function useConstantLinkify(): LinkifyConfig {
   const { constants } = useDefinitions();
 
   return useMemo(() => {
-    const idByKey = new Map(
-      constants.filter((c) => !c.archived).map((c) => [c.key, c.id]),
+    const liveKeys = new Set(
+      constants.filter((c) => !c.archived).map((c) => c.key),
     );
     return {
       pattern: new RegExp(CONSTANT_REF_PATTERN),
-      getHref: (key: string) => {
-        const id = idByKey.get(key);
-        return id ? `/constants/${id}` : undefined;
-      },
+      // The detail page is addressed by key; only link keys that resolve to a
+      // known (non-archived) constant.
+      getHref: (key: string) =>
+        liveKeys.has(key) ? `/constants/${key}` : undefined,
     };
   }, [constants]);
 }

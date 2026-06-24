@@ -65,6 +65,15 @@ function linkifyNodes(nodes: RNode[], linkify: LinkifyConfig): RNode[] {
       return linkifyText(node.value, linkify);
     }
     if (node.children) {
+      // Prism tags JSON object keys as `property` tokens. A key isn't a
+      // resolvable reference position (the resolver only acts on `$extends`
+      // array elements and `{{ @const:key }}` interpolations), so skip
+      // linkifying inside them — otherwise the legacy `"@const:key": true`
+      // notation renders as a live link to a reference that no longer resolves.
+      const className = node.properties?.className;
+      if (Array.isArray(className) && className.includes("property")) {
+        return [node];
+      }
       return [{ ...node, children: linkifyNodes(node.children, linkify) }];
     }
     return [node];

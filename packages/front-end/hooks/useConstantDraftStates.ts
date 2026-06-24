@@ -7,7 +7,7 @@ export type UseConstantDraftStatesReturn = UseEntityDraftStatesReturn;
 
 export function useConstantDraftStates(): UseConstantDraftStatesReturn {
   return useEntityDraftStates({
-    path: "/constants/draft-states",
+    path: "/constants-draft-states",
     responseKey: "constants",
   });
 }

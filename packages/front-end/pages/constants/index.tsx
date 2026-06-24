@@ -302,7 +302,7 @@ export default function ConstantsPage(): React.ReactElement {
                                 display: "block",
                                 padding: "var(--space-3)",
                               }}
-                              href={`/constants/${c.id}`}
+                              href={`/constants/${c.key}`}
                             >
                               {c.name}
                             </Link>

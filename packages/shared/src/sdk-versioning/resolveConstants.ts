@@ -1,4 +1,5 @@
 import { ConstantInterface } from "shared/types/constant";
+import { CONSTANT_EXTENDS_KEY } from "../constants";
 
 // A constant's value resolved for a single target environment. `archived`
 // entries carry no usable value — references to them are scrubbed from the
@@ -21,7 +22,7 @@ export type ConstantValueMap = Map<string, ConstantValueMapEntry>;
 // object's own keys override.
 const KEY = "[a-z0-9][a-z0-9_-]*";
 // The property name that carries the list of JSON constant references to merge.
-const EXTENDS_KEY = "$extends";
+export const EXTENDS_KEY = CONSTANT_EXTENDS_KEY;
 // A backtick-wrapped interpolation (escaped → literal) OR a bare interpolation.
 const INTERP = new RegExp(
   "`(\\{\\{\\s*@const:" +

@@ -61,7 +61,7 @@ type ReviewRow = {
 function revisionToRow(revision: Revision): ReviewRow {
   const snapshot =
     revision.target.type === "constant"
-      ? (revision.target.snapshot as { name?: string })
+      ? (revision.target.snapshot as { name?: string; key?: string })
       : null;
   const constantName = snapshot?.name || revision.target.id;
   return {
@@ -76,7 +76,12 @@ function revisionToRow(revision: Revision): ReviewRow {
     status: revision.status,
     dateCreated: new Date(revision.dateCreated),
     dateUpdated: new Date(revision.dateUpdated),
-    url: buildConstantRevisionUrl(revision.target.id, revision),
+    // Deep-link by key (the detail-page route); fall back to id only if a
+    // snapshot somehow lacks its key.
+    url: buildConstantRevisionUrl(
+      snapshot?.key || revision.target.id,
+      revision,
+    ),
   };
 }
 

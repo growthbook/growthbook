@@ -5,10 +5,12 @@ import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypa
 
 export const deleteConstant = createApiRequestHandler(deleteConstantValidator)(
   async (req) => {
-    const constant = await req.context.models.constants.getById(req.params.id);
+    const constant = await req.context.models.constants.getByKey(
+      req.params.key,
+    );
     if (!constant) {
       throw new NotFoundError(
-        `Unable to delete - could not find constant ID ${req.params.id}`,
+        `Unable to delete - could not find constant with key ${req.params.key}`,
       );
     }
 
@@ -29,6 +31,6 @@ export const deleteConstant = createApiRequestHandler(deleteConstantValidator)(
 
     await req.context.models.constants.delete(constant);
 
-    return { deletedId: req.params.id };
+    return { deletedId: constant.id };
   },
 );

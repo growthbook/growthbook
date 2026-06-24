@@ -11,9 +11,7 @@ import { toApiConstantRevision } from "./toApiConstantRevision";
 export const postConstantRevision = createApiRequestHandler(
   postConstantRevisionValidator,
 )(async (req) => {
-  const constant = await req.context.models.constants.getById(
-    req.params.constantId,
-  );
+  const constant = await req.context.models.constants.getByKey(req.params.key);
   if (!constant) {
     throw new NotFoundError("Could not find constant");
   }

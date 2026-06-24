@@ -17512,7 +17512,18 @@ paths:
         - $ref: '#/components/parameters/limit'
         - $ref: '#/components/parameters/offset'
         - $ref: '#/components/parameters/skipPagination'
-        - $ref: '#/components/parameters/constantId'
+        - name: key
+          in: query
+          description: >-
+            Restrict results to revisions for a single constant (by its key).
+            When omitted, returns revisions across every constant the caller can
+            read.
+          schema:
+            description: >-
+              Restrict results to revisions for a single constant (by its key).
+              When omitted, returns revisions across every constant the caller
+              can read.
+            type: string
         - name: status
           in: query
           description: >-
@@ -17583,14 +17594,20 @@ paths:
           source: |-
             curl -X GET 'https://api.growthbook.io/api/v1/constants-revisions' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-  /v1/constants/{id}/references:
+  /v1/constants/{key}/references:
     get:
       operationId: getConstantReferences
       summary: Get features and constants that reference this constant
       tags:
         - constants
       parameters:
-        - $ref: '#/components/parameters/id'
+        - name: key
+          in: path
+          required: true
+          description: The key of the constant
+          schema:
+            description: The key of the constant
+            type: string
       responses:
         '200':
           description: Successful response
@@ -17626,17 +17643,23 @@ paths:
         - lang: cURL
           source: >-
             curl -X GET
-            'https://api.growthbook.io/api/v1/constants/const_abc123/references'
+            'https://api.growthbook.io/api/v1/constants/config-snippet/references'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-  /v1/constants/{id}:
+  /v1/constants/{key}:
     get:
       operationId: getConstant
       summary: Get a single constant
       tags:
         - constants
       parameters:
-        - $ref: '#/components/parameters/id'
+        - name: key
+          in: path
+          required: true
+          description: The key of the constant
+          schema:
+            description: The key of the constant
+            type: string
       responses:
         '200':
           description: Successful response
@@ -17654,7 +17677,7 @@ paths:
         - lang: cURL
           source: >-
             curl -X GET
-            'https://api.growthbook.io/api/v1/constants/const_abc123' \
+            'https://api.growthbook.io/api/v1/constants/config-snippet' \
               -H 'Authorization: Bearer YOUR_API_KEY'
     post:
       operationId: updateConstant
@@ -17662,7 +17685,13 @@ paths:
       tags:
         - constants
       parameters:
-        - $ref: '#/components/parameters/id'
+        - name: key
+          in: path
+          required: true
+          description: The key of the constant
+          schema:
+            description: The key of the constant
+            type: string
       requestBody:
         required: true
         content:
@@ -17723,7 +17752,7 @@ paths:
         - lang: cURL
           source: >-
             curl -X POST
-            'https://api.growthbook.io/api/v1/constants/const_abc123' \
+            'https://api.growthbook.io/api/v1/constants/config-snippet' \
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"value":"{\"timeout\":60}"}'
@@ -17733,7 +17762,13 @@ paths:
       tags:
         - constants
       parameters:
-        - $ref: '#/components/parameters/id'
+        - name: key
+          in: path
+          required: true
+          description: The key of the constant
+          schema:
+            description: The key of the constant
+            type: string
       responses:
         '200':
           description: Resource deleted
@@ -17751,16 +17786,22 @@ paths:
         - lang: cURL
           source: >-
             curl -X DELETE
-            'https://api.growthbook.io/api/v1/constants/const_abc123' \
+            'https://api.growthbook.io/api/v1/constants/config-snippet' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-  /v1/constants/{id}/archive:
+  /v1/constants/{key}/archive:
     post:
       operationId: archiveConstant
       summary: Archive a single constant
       tags:
         - constants
       parameters:
-        - $ref: '#/components/parameters/id'
+        - name: key
+          in: path
+          required: true
+          description: The key of the constant
+          schema:
+            description: The key of the constant
+            type: string
       responses:
         '200':
           description: Resource created
@@ -17778,16 +17819,23 @@ paths:
         - lang: cURL
           source: >-
             curl -X POST
-            'https://api.growthbook.io/api/v1/constants/const_abc123/archive' \
+            'https://api.growthbook.io/api/v1/constants/config-snippet/archive'
+            \
               -H 'Authorization: Bearer YOUR_API_KEY'
-  /v1/constants/{id}/unarchive:
+  /v1/constants/{key}/unarchive:
     post:
       operationId: unarchiveConstant
       summary: Unarchive a single constant
       tags:
         - constants
       parameters:
-        - $ref: '#/components/parameters/id'
+        - name: key
+          in: path
+          required: true
+          description: The key of the constant
+          schema:
+            description: The key of the constant
+            type: string
       responses:
         '200':
           description: Resource created
@@ -17805,10 +17853,10 @@ paths:
         - lang: cURL
           source: >-
             curl -X POST
-            'https://api.growthbook.io/api/v1/constants/const_abc123/unarchive'
+            'https://api.growthbook.io/api/v1/constants/config-snippet/unarchive'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-  /v1/constants-revisions/{constantId}:
+  /v1/constants-revisions/{key}:
     get:
       operationId: getConstantRevisions
       summary: List revisions for a constant
@@ -17819,7 +17867,7 @@ paths:
       tags:
         - constant-revisions
       parameters:
-        - name: constantId
+        - name: key
           in: path
           required: true
           description: ''
@@ -17897,7 +17945,7 @@ paths:
         - lang: cURL
           source: >-
             curl -X GET
-            'https://api.growthbook.io/api/v1/constants-revisions/const_abc123'
+            'https://api.growthbook.io/api/v1/constants-revisions/config-snippet'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
     post:
@@ -17910,7 +17958,7 @@ paths:
       tags:
         - constant-revisions
       parameters:
-        - name: constantId
+        - name: key
           in: path
           required: true
           description: ''
@@ -17945,10 +17993,9 @@ paths:
         - lang: cURL
           source: >-
             curl -X POST
-            'https://api.growthbook.io/api/v1/constants-revisions/{constantId}'
-            \
+            'https://api.growthbook.io/api/v1/constants-revisions/{key}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-  /v1/constants-revisions/{constantId}/latest:
+  /v1/constants-revisions/{key}/latest:
     get:
       operationId: getConstantRevisionLatest
       summary: Get the most recent active draft revision
@@ -17960,7 +18007,7 @@ paths:
       tags:
         - constant-revisions
       parameters:
-        - name: constantId
+        - name: key
           in: path
           required: true
           description: ''
@@ -18002,21 +18049,21 @@ paths:
         - lang: cURL
           source: >-
             curl -X GET
-            'https://api.growthbook.io/api/v1/constants-revisions/const_abc123/latest'
+            'https://api.growthbook.io/api/v1/constants-revisions/config-snippet/latest'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-  /v1/constants-revisions/{constantId}/{version}:
+  /v1/constants-revisions/{key}/{version}:
     get:
       operationId: getConstantRevision
       summary: Get a single constant revision
       description: >-
         Returns the revision at the specified version for this constant. Use
-        `GET /constants-revisions/{constantId}/latest` for the most recent
-        active draft.
+        `GET /constants-revisions/{key}/latest` for the most recent active
+        draft.
       tags:
         - constant-revisions
       parameters:
-        - name: constantId
+        - name: key
           in: path
           required: true
           description: ''
@@ -18040,10 +18087,10 @@ paths:
         - lang: cURL
           source: >-
             curl -X GET
-            'https://api.growthbook.io/api/v1/constants-revisions/const_abc123/3'
+            'https://api.growthbook.io/api/v1/constants-revisions/config-snippet/3'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-  /v1/constants-revisions/{constantId}/{version}/metadata:
+  /v1/constants-revisions/{key}/{version}/metadata:
     put:
       operationId: putConstantRevisionMetadata
       summary: Update constant metadata in a draft revision
@@ -18054,7 +18101,7 @@ paths:
       tags:
         - constant-revisions
       parameters:
-        - name: constantId
+        - name: key
           in: path
           required: true
           description: ''
@@ -18111,10 +18158,10 @@ paths:
         - lang: cURL
           source: >-
             curl -X PUT
-            'https://api.growthbook.io/api/v1/constants-revisions/{constantId}/{version}/metadata'
+            'https://api.growthbook.io/api/v1/constants-revisions/{key}/{version}/metadata'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-  /v1/constants-revisions/{constantId}/{version}/value:
+  /v1/constants-revisions/{key}/{version}/value:
     put:
       operationId: putConstantRevisionValue
       summary: Update the value of a constant draft revision
@@ -18126,7 +18173,7 @@ paths:
       tags:
         - constant-revisions
       parameters:
-        - name: constantId
+        - name: key
           in: path
           required: true
           description: ''
@@ -18182,21 +18229,21 @@ paths:
         - lang: cURL
           source: >-
             curl -X PUT
-            'https://api.growthbook.io/api/v1/constants-revisions/{constantId}/{version}/value'
+            'https://api.growthbook.io/api/v1/constants-revisions/{key}/{version}/value'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-  /v1/constants-revisions/{constantId}/{version}/archive:
+  /v1/constants-revisions/{key}/{version}/archive:
     put:
       operationId: putConstantRevisionArchive
       summary: Stage an archive/unarchive in a draft revision
       description: >-
         Stages an archive or unarchive on the draft. Pass `version: "new"` to
         auto-create a draft. Archived constants can be permanently deleted via
-        `DELETE /constants/{id}` once the archive is published.
+        `DELETE /constants/{key}` once the archive is published.
       tags:
         - constant-revisions
       parameters:
-        - name: constantId
+        - name: key
           in: path
           required: true
           description: ''
@@ -18244,10 +18291,10 @@ paths:
         - lang: cURL
           source: >-
             curl -X PUT
-            'https://api.growthbook.io/api/v1/constants-revisions/{constantId}/{version}/archive'
+            'https://api.growthbook.io/api/v1/constants-revisions/{key}/{version}/archive'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-  /v1/constants-revisions/{constantId}/{version}/request-review:
+  /v1/constants-revisions/{key}/{version}/request-review:
     post:
       operationId: postConstantRevisionRequestReview
       summary: Request review for a draft revision
@@ -18263,7 +18310,7 @@ paths:
       tags:
         - constant-revisions
       parameters:
-        - name: constantId
+        - name: key
           in: path
           required: true
           description: ''
@@ -18297,10 +18344,10 @@ paths:
         - lang: cURL
           source: >-
             curl -X POST
-            'https://api.growthbook.io/api/v1/constants-revisions/{constantId}/{version}/request-review'
+            'https://api.growthbook.io/api/v1/constants-revisions/{key}/{version}/request-review'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-  /v1/constants-revisions/{constantId}/{version}/submit-review:
+  /v1/constants-revisions/{key}/{version}/submit-review:
     post:
       operationId: postConstantRevisionSubmitReview
       summary: Submit a review on a draft revision
@@ -18318,7 +18365,7 @@ paths:
       tags:
         - constant-revisions
       parameters:
-        - name: constantId
+        - name: key
           in: path
           required: true
           description: ''
@@ -18364,10 +18411,10 @@ paths:
         - lang: cURL
           source: >-
             curl -X POST
-            'https://api.growthbook.io/api/v1/constants-revisions/{constantId}/{version}/submit-review'
+            'https://api.growthbook.io/api/v1/constants-revisions/{key}/{version}/submit-review'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-  /v1/constants-revisions/{constantId}/{version}/merge-status:
+  /v1/constants-revisions/{key}/{version}/merge-status:
     get:
       operationId: getConstantRevisionMergeStatus
       summary: Get merge status for a draft revision
@@ -18378,7 +18425,7 @@ paths:
       tags:
         - constant-revisions
       parameters:
-        - name: constantId
+        - name: key
           in: path
           required: true
           description: ''
@@ -18425,10 +18472,10 @@ paths:
         - lang: cURL
           source: >-
             curl -X GET
-            'https://api.growthbook.io/api/v1/constants-revisions/{constantId}/{version}/merge-status'
+            'https://api.growthbook.io/api/v1/constants-revisions/{key}/{version}/merge-status'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-  /v1/constants-revisions/{constantId}/{version}/rebase:
+  /v1/constants-revisions/{key}/{version}/rebase:
     post:
       operationId: postConstantRevisionRebase
       summary: Rebase a draft revision onto the current live constant
@@ -18440,7 +18487,7 @@ paths:
       tags:
         - constant-revisions
       parameters:
-        - name: constantId
+        - name: key
           in: path
           required: true
           description: ''
@@ -18481,10 +18528,10 @@ paths:
         - lang: cURL
           source: >-
             curl -X POST
-            'https://api.growthbook.io/api/v1/constants-revisions/{constantId}/{version}/rebase'
+            'https://api.growthbook.io/api/v1/constants-revisions/{key}/{version}/rebase'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-  /v1/constants-revisions/{constantId}/{version}/publish:
+  /v1/constants-revisions/{key}/{version}/publish:
     post:
       operationId: postConstantRevisionPublish
       summary: Publish a draft revision
@@ -18495,7 +18542,7 @@ paths:
       tags:
         - constant-revisions
       parameters:
-        - name: constantId
+        - name: key
           in: path
           required: true
           description: ''
@@ -18536,10 +18583,10 @@ paths:
         - lang: cURL
           source: >-
             curl -X POST
-            'https://api.growthbook.io/api/v1/constants-revisions/{constantId}/{version}/publish'
+            'https://api.growthbook.io/api/v1/constants-revisions/{key}/{version}/publish'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-  /v1/constants-revisions/{constantId}/{version}/discard:
+  /v1/constants-revisions/{key}/{version}/discard:
     post:
       operationId: postConstantRevisionDiscard
       summary: Discard a draft revision
@@ -18549,7 +18596,7 @@ paths:
       tags:
         - constant-revisions
       parameters:
-        - name: constantId
+        - name: key
           in: path
           required: true
           description: ''
@@ -18583,10 +18630,10 @@ paths:
         - lang: cURL
           source: >-
             curl -X POST
-            'https://api.growthbook.io/api/v1/constants-revisions/{constantId}/{version}/discard'
+            'https://api.growthbook.io/api/v1/constants-revisions/{key}/{version}/discard'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-  /v1/constants-revisions/{constantId}/{version}/revert:
+  /v1/constants-revisions/{key}/{version}/revert:
     post:
       operationId: postConstantRevisionRevert
       summary: Revert the constant to a prior revision
@@ -18598,7 +18645,7 @@ paths:
       tags:
         - constant-revisions
       parameters:
-        - name: constantId
+        - name: key
           in: path
           required: true
           description: ''
@@ -18639,7 +18686,7 @@ paths:
         - lang: cURL
           source: >-
             curl -X POST
-            'https://api.growthbook.io/api/v1/constants-revisions/{constantId}/{version}/revert'
+            'https://api.growthbook.io/api/v1/constants-revisions/{key}/{version}/revert'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/organizations:
@@ -34207,17 +34254,6 @@ components:
         description: >-
           Restrict results to revisions for a single saved group. When omitted,
           returns revisions across every saved group the caller can read.
-        type: string
-    constantId:
-      name: constantId
-      in: query
-      description: >-
-        Restrict results to revisions for a single constant. When omitted,
-        returns revisions across every constant the caller can read.
-      schema:
-        description: >-
-          Restrict results to revisions for a single constant. When omitted,
-          returns revisions across every constant the caller can read.
         type: string
     search:
       name: search

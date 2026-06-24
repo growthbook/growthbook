@@ -4150,6 +4150,28 @@ describe("sparse JSON rule helpers", () => {
       expect(stripDefaultsForSparse("[1,2]", def)).toBe("[1,2]");
       expect(stripDefaultsForSparse('{"a":"x"}', "not json")).toBe('{"a":"x"}');
     });
+
+    it("keeps only $extends refs not already in the default", () => {
+      expect(
+        JSON.parse(
+          stripDefaultsForSparse(
+            JSON.stringify({ $extends: ["@const:foo", "@const:bar"], b: 2 }),
+            JSON.stringify({ $extends: ["@const:foo"], a: 1 }),
+          ),
+        ),
+      ).toEqual({ $extends: ["@const:bar"], b: 2 });
+    });
+
+    it("drops $extends entirely when identical to the default's", () => {
+      expect(
+        JSON.parse(
+          stripDefaultsForSparse(
+            JSON.stringify({ $extends: ["@const:foo"], a: 1 }),
+            JSON.stringify({ $extends: ["@const:foo"], a: 1 }),
+          ),
+        ),
+      ).toEqual({});
+    });
   });
 
   describe("expandSparseToFull", () => {
@@ -4173,6 +4195,33 @@ describe("sparse JSON rule helpers", () => {
 
     it("returns the input unchanged when either side isn't a plain object", () => {
       expect(expandSparseToFull("[1,2]", def)).toBe("[1,2]");
+    });
+
+    it("unions $extends refs instead of clobbering the default's", () => {
+      expect(
+        JSON.parse(
+          expandSparseToFull(
+            JSON.stringify({ $extends: ["@const:bar"], b: 2 }),
+            JSON.stringify({ $extends: ["@const:foo"], a: 1 }),
+          ),
+        ),
+      ).toEqual({ $extends: ["@const:foo", "@const:bar"], a: 1, b: 2 });
+    });
+
+    it("round-trips $extends with stripDefaultsForSparse", () => {
+      const def2 = JSON.stringify({ $extends: ["@const:foo"], a: 1 });
+      const full = JSON.stringify({
+        $extends: ["@const:foo", "@const:bar"],
+        a: 1,
+        b: 2,
+      });
+      const patch = stripDefaultsForSparse(full, def2);
+      expect(JSON.parse(patch)).toEqual({ $extends: ["@const:bar"], b: 2 });
+      expect(JSON.parse(expandSparseToFull(patch, def2))).toEqual({
+        $extends: ["@const:foo", "@const:bar"],
+        a: 1,
+        b: 2,
+      });
     });
   });
 });

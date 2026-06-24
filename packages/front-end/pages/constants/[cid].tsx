@@ -98,7 +98,9 @@ function ConstantValueDisplay({
 export default function ConstantDetailPage(): React.ReactElement {
   const router = useRouter();
   const { cid } = router.query;
-  const constantId = typeof cid === "string" ? cid : "";
+  // The detail-page route is addressed by the constant's `key` (immutable,
+  // org-unique). Sub-resource calls below use the resolved `constant.id`.
+  const constantKey = typeof cid === "string" ? cid : "";
 
   const { apiCall } = useAuth();
   const { projects, mutateDefinitions } = useDefinitions();
@@ -119,7 +121,7 @@ export default function ConstantDetailPage(): React.ReactElement {
   const { data, error, mutate } = useApi<{
     status: number;
     constant: ConstantInterface;
-  }>(`/constants/${constantId}`, { shouldRun: () => !!constantId });
+  }>(`/constants/${constantKey}`, { shouldRun: () => !!constantKey });
   const constant = data?.constant;
 
   const {

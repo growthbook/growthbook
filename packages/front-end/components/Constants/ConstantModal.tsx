@@ -140,7 +140,7 @@ export default function ConstantModal({
           }
         } else {
           validateConstantValue(values.type, values.value, "Value");
-          const res = await apiCall<{ constant: { id: string } }>(
+          const res = await apiCall<{ constant: { key: string } }>(
             `/constants`,
             {
               method: "POST",
@@ -160,8 +160,8 @@ export default function ConstantModal({
             },
           );
           await mutateDefinitions();
-          if (res?.constant?.id) {
-            await router.push(`/constants/${res.constant.id}`);
+          if (res?.constant?.key) {
+            await router.push(`/constants/${res.constant.key}`);
           }
         }
       })}

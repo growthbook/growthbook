@@ -17,7 +17,8 @@ import { namedSchema } from "./openapi-helpers";
 
 // ---- Shared param schemas ----
 
-const constantIdParams = z.object({ constantId: z.string() });
+// Constants are addressed by their immutable, org-unique `key`.
+const constantKeyParams = z.object({ key: z.string() });
 
 /** Version param that also accepts the literal string "new" to auto-create a draft. */
 export const constantRevisionVersionParam = z.union([
@@ -25,11 +26,11 @@ export const constantRevisionVersionParam = z.union([
   z.literal("new"),
 ]);
 
-const revisionParams = constantIdParams.extend({
+const revisionParams = constantKeyParams.extend({
   version: constantRevisionVersionParam,
 });
 
-const revisionParamsStrict = constantIdParams.extend({
+const revisionParamsStrict = constantKeyParams.extend({
   version: z.coerce.number().int(),
 });
 
@@ -157,11 +158,11 @@ export const listConstantRevisionsValidator = {
     .object({
       ...paginationQueryFields,
       ...skipPaginationQueryField,
-      constantId: z
+      key: z
         .string()
         .optional()
         .describe(
-          "Restrict results to revisions for a single constant. When omitted, returns revisions across every constant the caller can read.",
+          "Restrict results to revisions for a single constant (by its key). When omitted, returns revisions across every constant the caller can read.",
         ),
       status: revisionStatusQuery
         .optional()
@@ -181,13 +182,13 @@ export const listConstantRevisionsValidator = {
 
 export const getConstantRevisionsValidator = {
   method: "get" as const,
-  path: "/constants-revisions/:constantId",
+  path: "/constants-revisions/:key",
   operationId: "getConstantRevisions",
   summary: "List revisions for a constant",
   description:
     "Returns a paginated list of revisions for this constant, sorted newest-first. Optionally filtered by status, author, or the calling user's involvement.",
   tags: ["constant-revisions"],
-  paramsSchema: constantIdParams,
+  paramsSchema: constantKeyParams,
   bodySchema: z.never(),
   querySchema: z
     .object({
@@ -207,18 +208,18 @@ export const getConstantRevisionsValidator = {
   responseSchema: z
     .object({ revisions: z.array(apiConstantRevisionValidator) })
     .extend(apiPaginationFieldsValidator.shape),
-  exampleRequest: { params: { constantId: "const_abc123" } },
+  exampleRequest: { params: { key: "config-snippet" } },
 };
 
 export const getConstantRevisionLatestValidator = {
   method: "get" as const,
-  path: "/constants-revisions/:constantId/latest",
+  path: "/constants-revisions/:key/latest",
   operationId: "getConstantRevisionLatest",
   summary: "Get the most recent active draft revision",
   description:
     "Returns the most recently updated open (non-merged, non-discarded) revision for the constant. Returns 404 if there is no active draft. Pass `mine=true` to restrict to drafts authored by the calling user (requires a user-scoped API key).",
   tags: ["constant-revisions"],
-  paramsSchema: constantIdParams,
+  paramsSchema: constantKeyParams,
   bodySchema: z.never(),
   querySchema: z
     .object({
@@ -228,27 +229,27 @@ export const getConstantRevisionLatestValidator = {
     })
     .strict(),
   responseSchema: revisionResponse,
-  exampleRequest: { params: { constantId: "const_abc123" } },
+  exampleRequest: { params: { key: "config-snippet" } },
 };
 
 export const getConstantRevisionValidator = {
   method: "get" as const,
-  path: "/constants-revisions/:constantId/:version",
+  path: "/constants-revisions/:key/:version",
   operationId: "getConstantRevision",
   summary: "Get a single constant revision",
   description:
-    "Returns the revision at the specified version for this constant. Use `GET /constants-revisions/{constantId}/latest` for the most recent active draft.",
+    "Returns the revision at the specified version for this constant. Use `GET /constants-revisions/{key}/latest` for the most recent active draft.",
   tags: ["constant-revisions"],
   paramsSchema: revisionParamsStrict,
   bodySchema: z.never(),
   querySchema: z.never(),
   responseSchema: revisionResponse,
-  exampleRequest: { params: { constantId: "const_abc123", version: 3 } },
+  exampleRequest: { params: { key: "config-snippet", version: 3 } },
 };
 
 export const getConstantRevisionMergeStatusValidator = {
   method: "get" as const,
-  path: "/constants-revisions/:constantId/:version/merge-status",
+  path: "/constants-revisions/:key/:version/merge-status",
   operationId: "getConstantRevisionMergeStatus",
   summary: "Get merge status for a draft revision",
   description:
@@ -271,13 +272,13 @@ export const getConstantRevisionMergeStatusValidator = {
 
 export const postConstantRevisionValidator = {
   method: "post" as const,
-  path: "/constants-revisions/:constantId",
+  path: "/constants-revisions/:key",
   operationId: "postConstantRevision",
   summary: "Create a draft revision",
   description:
     "Creates a new draft revision branched from the current live constant. A constant can have multiple concurrent drafts; use this to start an isolated line of edits.",
   tags: ["constant-revisions"],
-  paramsSchema: constantIdParams,
+  paramsSchema: constantKeyParams,
   bodySchema: z
     .object({ title: z.string().optional(), comment: z.string().optional() })
     .strict(),
@@ -287,7 +288,7 @@ export const postConstantRevisionValidator = {
 
 export const postConstantRevisionDiscardValidator = {
   method: "post" as const,
-  path: "/constants-revisions/:constantId/:version/discard",
+  path: "/constants-revisions/:key/:version/discard",
   operationId: "postConstantRevisionDiscard",
   summary: "Discard a draft revision",
   description:
@@ -301,7 +302,7 @@ export const postConstantRevisionDiscardValidator = {
 
 export const postConstantRevisionPublishValidator = {
   method: "post" as const,
-  path: "/constants-revisions/:constantId/:version/publish",
+  path: "/constants-revisions/:key/:version/publish",
   operationId: "postConstantRevisionPublish",
   summary: "Publish a draft revision",
   description:
@@ -324,7 +325,7 @@ export const postConstantRevisionPublishValidator = {
 
 export const postConstantRevisionRevertValidator = {
   method: "post" as const,
-  path: "/constants-revisions/:constantId/:version/revert",
+  path: "/constants-revisions/:key/:version/revert",
   operationId: "postConstantRevisionRevert",
   summary: "Revert the constant to a prior revision",
   description:
@@ -344,7 +345,7 @@ export const postConstantRevisionRevertValidator = {
 
 export const postConstantRevisionRebaseValidator = {
   method: "post" as const,
-  path: "/constants-revisions/:constantId/:version/rebase",
+  path: "/constants-revisions/:key/:version/rebase",
   operationId: "postConstantRevisionRebase",
   summary: "Rebase a draft revision onto the current live constant",
   description:
@@ -368,7 +369,7 @@ export const postConstantRevisionRebaseValidator = {
 
 export const postConstantRevisionRequestReviewValidator = {
   method: "post" as const,
-  path: "/constants-revisions/:constantId/:version/request-review",
+  path: "/constants-revisions/:key/:version/request-review",
   operationId: "postConstantRevisionRequestReview",
   summary: "Request review for a draft revision",
   description:
@@ -384,7 +385,7 @@ export const postConstantRevisionRequestReviewValidator = {
 
 export const postConstantRevisionSubmitReviewValidator = {
   method: "post" as const,
-  path: "/constants-revisions/:constantId/:version/submit-review",
+  path: "/constants-revisions/:key/:version/submit-review",
   operationId: "postConstantRevisionSubmitReview",
   summary: "Submit a review on a draft revision",
   description:
@@ -408,7 +409,7 @@ export const postConstantRevisionSubmitReviewValidator = {
 
 export const putConstantRevisionMetadataValidator = {
   method: "put" as const,
-  path: "/constants-revisions/:constantId/:version/metadata",
+  path: "/constants-revisions/:key/:version/metadata",
   operationId: "putConstantRevisionMetadata",
   summary: "Update constant metadata in a draft revision",
   description:
@@ -430,7 +431,7 @@ export const putConstantRevisionMetadataValidator = {
 
 export const putConstantRevisionValueValidator = {
   method: "put" as const,
-  path: "/constants-revisions/:constantId/:version/value",
+  path: "/constants-revisions/:key/:version/value",
   operationId: "putConstantRevisionValue",
   summary: "Update the value of a constant draft revision",
   description:
@@ -458,11 +459,11 @@ export const putConstantRevisionValueValidator = {
 
 export const putConstantRevisionArchiveValidator = {
   method: "put" as const,
-  path: "/constants-revisions/:constantId/:version/archive",
+  path: "/constants-revisions/:key/:version/archive",
   operationId: "putConstantRevisionArchive",
   summary: "Stage an archive/unarchive in a draft revision",
   description:
-    'Stages an archive or unarchive on the draft. Pass `version: "new"` to auto-create a draft. Archived constants can be permanently deleted via `DELETE /constants/{id}` once the archive is published.',
+    'Stages an archive or unarchive on the draft. Pass `version: "new"` to auto-create a draft. Archived constants can be permanently deleted via `DELETE /constants/{key}` once the archive is published.',
   tags: ["constant-revisions"],
   paramsSchema: revisionParams,
   bodySchema: z

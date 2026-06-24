@@ -6,9 +6,9 @@ import { NotFoundError } from "back-end/src/util/errors";
 export const getConstant = createApiRequestHandler(getConstantValidator)(async (
   req,
 ) => {
-  const constant = await req.context.models.constants.getById(req.params.id);
+  const constant = await req.context.models.constants.getByKey(req.params.key);
   if (!constant) {
-    throw new NotFoundError("Could not find constant with that id");
+    throw new NotFoundError("Could not find constant with that key");
   }
 
   return {

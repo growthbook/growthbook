@@ -28,6 +28,7 @@ import { getAdapter } from "back-end/src/revisions";
 import {
   ConstantReferences,
   loadConstantReferences,
+  assertConstantArchivable,
 } from "back-end/src/services/constants";
 import { dispatchConstantRevisionEvent } from "back-end/src/services/constantRevisionEvents";
 
@@ -69,13 +70,16 @@ export const getConstantDraftStates = async (
   return res.status(200).json({ status: 200, constants });
 };
 
-// GET /constants/:id — full constant (includes values).
-export const getConstantById = async (
-  req: AuthRequest<null, { id: string }>,
+// GET /constants/:key — full constant (includes values), looked up by its
+// human-readable `key` (the immutable, org-unique reference handle that powers
+// the detail-page URL). Mutations and sub-resource endpoints below still take
+// the internal `id` the client already holds after this fetch.
+export const getConstantByKey = async (
+  req: AuthRequest<null, { key: string }>,
   res: Response<{ status: 200; constant: ConstantInterface }>,
 ) => {
   const context = getContextFromReq(req);
-  const constant = await context.models.constants.getById(req.params.id);
+  const constant = await context.models.constants.getByKey(req.params.key);
   if (!constant) {
     return context.throwNotFoundError("Constant not found");
   }
@@ -282,6 +286,13 @@ export const putConstant = async (
   }
   if (hasChanged(archived, comparisonBase.archived)) {
     fieldsToUpdate.archived = archived;
+  }
+
+  // Block the archive transition when the constant is still referenced (same
+  // gate as the REST archive endpoints and the front-end ConstantArchiveModal).
+  // Mirrors saved groups; only archiving is blocked, never unarchiving.
+  if (fieldsToUpdate.archived === true && !comparisonBase.archived) {
+    await assertConstantArchivable(context, existing.id);
   }
 
   const forceCreateRevision = req.query.forceCreateRevision === "1";

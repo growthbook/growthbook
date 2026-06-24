@@ -2,6 +2,11 @@ import { FactMetricType } from "shared/types/fact-table";
 import { EntityEvents } from "shared/types/audit";
 import { ApprovalFlowConfigurations } from "shared/types/organization";
 
+// The object property that carries a JSON constant's `$extends` reference list.
+// Single source of truth shared by the resolver (sdk-versioning/resolveConstants)
+// and the reference detector (validators/constant) so they can't drift.
+export const CONSTANT_EXTENDS_KEY = "$extends";
+
 export const DEFAULT_STATS_ENGINE = "bayesian" as const;
 export const DEFAULT_METRIC_HISTOGRAM_BINS = 25;
 export const DEFAULT_CONFIDENCE_LEVEL = 0.95;

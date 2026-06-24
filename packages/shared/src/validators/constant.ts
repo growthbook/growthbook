@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
+import { MAX_DESCRIPTION_LENGTH, CONSTANT_EXTENDS_KEY } from "shared/constants";
 import {
   ownerEmailField,
   ownerField,
@@ -16,8 +16,6 @@ export const constantTypeValidator = z.enum(["string", "json"]);
 // references when displaying a value) without duplicating the pattern.
 export const CONSTANT_REF_PATTERN = "@const:([a-z0-9][a-z0-9_-]*)";
 
-const CONST_REF_RE = new RegExp(CONSTANT_REF_PATTERN, "g");
-
 // A backtick-wrapped string interpolation — the resolver emits these literally
 // (without substituting), so the key inside is NOT a real reference. Stripped
 // before reference detection so escaped literals aren't over-counted.
@@ -25,11 +23,64 @@ const ESCAPED_INTERP_RE = new RegExp(
   "`\\{\\{\\s*@const:[a-z0-9][a-z0-9_-]*\\s*\\}\\}`",
   "g",
 );
+// A `{{ @const:key }}` interpolation — the only string position the resolver
+// substitutes. Bare `@const:key` text elsewhere in a string is NOT resolved.
+const INTERP_REF_RE = new RegExp(
+  "\\{\\{\\s*" + CONSTANT_REF_PATTERN + "\\s*\\}\\}",
+  "g",
+);
+// A bare `@const:key` placeholder string, as it appears as an element of an
+// `$extends` array. Anchored — the whole string must be the reference.
+const PLACEHOLDER_KEY_RE = new RegExp("^" + CONSTANT_REF_PATTERN + "$");
+
+// Collect the `{{ @const:key }}` interpolation keys from a raw string value,
+// ignoring backtick-escaped ones (rendered verbatim, never resolved).
+function collectStringInterpRefs(s: string, into: Set<string>): void {
+  const cleaned = s.replace(ESCAPED_INTERP_RE, "");
+  const re = new RegExp(INTERP_REF_RE.source, "g");
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(cleaned)) !== null) into.add(m[1]);
+}
+
+// Walk a parsed JSON value, collecting references the resolver would actually
+// act on: `@const:key` elements of an `$extends` array (object merge) and
+// `{{ @const:key }}` interpolations inside any string node. Bare `@const:`
+// substrings, object keys, and array entries outside `$extends` are NOT
+// references (the old `key: true` notation lands here and is correctly ignored).
+function collectJsonRefs(value: unknown, into: Set<string>): void {
+  if (typeof value === "string") {
+    collectStringInterpRefs(value, into);
+    return;
+  }
+  if (Array.isArray(value)) {
+    for (const v of value) collectJsonRefs(v, into);
+    return;
+  }
+  if (value !== null && typeof value === "object") {
+    const obj = value as Record<string, unknown>;
+    const extendsList = obj[CONSTANT_EXTENDS_KEY];
+    if (Array.isArray(extendsList)) {
+      for (const ref of extendsList) {
+        const m =
+          typeof ref === "string" ? ref.match(PLACEHOLDER_KEY_RE) : null;
+        if (m) into.add(m[1]);
+      }
+    }
+    for (const [k, v] of Object.entries(obj)) {
+      // `$extends` (when an array) is a merge directive, not a nested value.
+      if (k === CONSTANT_EXTENDS_KEY && Array.isArray(extendsList)) continue;
+      collectJsonRefs(v, into);
+    }
+  }
+}
 
 // Extract the unique `@const:` keys referenced by a constant's value and every
-// environment override (the conservative union across environments). Used to
-// build the cross-constant reference graph for cycle detection. Backtick-escaped
-// interpolations are excluded — they render verbatim and never resolve.
+// environment override (the conservative union across environments). Detection
+// mirrors the resolver: only `$extends` array elements (JSON values) and
+// `{{ @const:key }}` interpolations (string values) count — so dead references
+// (e.g. the legacy `"@const:key": true` object-key notation, or a bare
+// `@const:key` in prose) are not reported as live. Used for the reference graph
+// (cycle detection) and the "what references this constant" lookups.
 export function getConstantReferenceKeys(
   value: string | undefined,
   environmentValues: Record<string, string> | undefined,
@@ -37,10 +88,16 @@ export function getConstantReferenceKeys(
   const keys = new Set<string>();
   const scan = (s: string | undefined) => {
     if (!s) return;
-    const cleaned = s.replace(ESCAPED_INTERP_RE, "");
-    const re = new RegExp(CONST_REF_RE.source, "g");
-    let m: RegExpExecArray | null;
-    while ((m = re.exec(cleaned)) !== null) keys.add(m[1]);
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(s);
+    } catch {
+      // Not JSON: a raw `string`-type value — only `{{ }}` interpolations count.
+      collectStringInterpRefs(s, keys);
+      return;
+    }
+    // JSON-encoded value: walk for `$extends` refs and string interpolations.
+    collectJsonRefs(parsed, keys);
   };
   scan(value);
   for (const v of Object.values(environmentValues ?? {})) scan(v);
@@ -295,8 +352,10 @@ const updateConstantApiBody = z
   })
   .strict();
 
-const constantIdParams = z
-  .object({ id: z.string().describe("The id of the requested resource") })
+// Constants are addressed by their immutable, org-unique `key` (the same handle
+// used in `@const:key` references), not their internal id.
+const constantKeyParams = z
+  .object({ key: z.string().describe("The key of the constant") })
   .strict();
 
 const apiConstantResponse = z
@@ -348,14 +407,14 @@ export const listConstantsValidator = {
 export const getConstantValidator = {
   bodySchema: z.never(),
   querySchema: z.never(),
-  paramsSchema: constantIdParams,
+  paramsSchema: constantKeyParams,
   responseSchema: apiConstantResponse,
   summary: "Get a single constant",
   operationId: "getConstant",
   tags: ["constants"],
   method: "get" as const,
-  path: "/constants/:id",
-  exampleRequest: { params: { id: "const_abc123" } },
+  path: "/constants/:key",
+  exampleRequest: { params: { key: "config-snippet" } },
 };
 
 export const postConstantValidator = {
@@ -381,15 +440,15 @@ export const postConstantValidator = {
 export const updateConstantValidator = {
   bodySchema: updateConstantApiBody,
   querySchema: z.never(),
-  paramsSchema: constantIdParams,
+  paramsSchema: constantKeyParams,
   responseSchema: apiConstantResponse,
   summary: "Partially update a single constant",
   operationId: "updateConstant",
   tags: ["constants"],
   method: "post" as const,
-  path: "/constants/:id",
+  path: "/constants/:key",
   exampleRequest: {
-    params: { id: "const_abc123" },
+    params: { key: "config-snippet" },
     body: { value: '{"timeout":60}' },
   },
 };
@@ -397,51 +456,51 @@ export const updateConstantValidator = {
 export const archiveConstantValidator = {
   bodySchema: z.never(),
   querySchema: z.never(),
-  paramsSchema: constantIdParams,
+  paramsSchema: constantKeyParams,
   responseSchema: apiConstantResponse,
   summary: "Archive a single constant",
   operationId: "archiveConstant",
   tags: ["constants"],
   method: "post" as const,
-  path: "/constants/:id/archive",
-  exampleRequest: { params: { id: "const_abc123" } },
+  path: "/constants/:key/archive",
+  exampleRequest: { params: { key: "config-snippet" } },
 };
 
 export const unarchiveConstantValidator = {
   bodySchema: z.never(),
   querySchema: z.never(),
-  paramsSchema: constantIdParams,
+  paramsSchema: constantKeyParams,
   responseSchema: apiConstantResponse,
   summary: "Unarchive a single constant",
   operationId: "unarchiveConstant",
   tags: ["constants"],
   method: "post" as const,
-  path: "/constants/:id/unarchive",
-  exampleRequest: { params: { id: "const_abc123" } },
+  path: "/constants/:key/unarchive",
+  exampleRequest: { params: { key: "config-snippet" } },
 };
 
 export const deleteConstantValidator = {
   bodySchema: z.never(),
   querySchema: z.never(),
-  paramsSchema: constantIdParams,
+  paramsSchema: constantKeyParams,
   responseSchema: z.object({ deletedId: z.string() }).strict(),
   summary: "Delete a single constant",
   operationId: "deleteConstant",
   tags: ["constants"],
   method: "delete" as const,
-  path: "/constants/:id",
-  exampleRequest: { params: { id: "const_abc123" } },
+  path: "/constants/:key",
+  exampleRequest: { params: { key: "config-snippet" } },
 };
 
 export const getConstantReferencesValidator = {
   bodySchema: z.never(),
   querySchema: z.never(),
-  paramsSchema: constantIdParams,
+  paramsSchema: constantKeyParams,
   responseSchema: apiConstantReferencesValidator,
   summary: "Get features and constants that reference this constant",
   operationId: "getConstantReferences",
   tags: ["constants"],
   method: "get" as const,
-  path: "/constants/:id/references",
-  exampleRequest: { params: { id: "const_abc123" } },
+  path: "/constants/:key/references",
+  exampleRequest: { params: { key: "config-snippet" } },
 };
