@@ -52,9 +52,12 @@ import {
   REVIEW_SUBTAB_EVENT,
 } from "@/components/Reviews/diffCommentRefs";
 import { DiffCommentsProps } from "@/components/Reviews/Feature/RevisionDiffUtils";
+import RevisionTimeline, {
+  REVIEW_ACTIVITY_ACTIONS,
+} from "@/components/Reviews/RevisionTimeline";
 import { useRevisionDiff, RevisionDiffConfig } from "./useRevisionDiff";
 import { RevisionDiff } from "./RevisionDiff";
-import RevisionTimeline from "./RevisionTimeline";
+import { revisionTimelineLogs } from "./revisionTimelineLogs";
 import FixRevisionConflictsModal from "./FixRevisionConflictsModal";
 import ScheduledPublishControl from "./ScheduledPublishControl";
 
@@ -171,7 +174,21 @@ function ReviewAndPublishRevision<T>({
   mutate,
 }: ReviewAndPublishTabProps<T> & { revision: Revision }) {
   const { apiCall } = useAuth();
-  const { users, userId, organization, hasCommercialFeature } = useUser();
+  const { users, userId, getUserDisplay, organization, hasCommercialFeature } =
+    useUser();
+  // Adapt the generic revision's baked reviews[] + activityLog[] into the
+  // shared timeline's RevisionLog shape.
+  const timelineLogs = useMemo(
+    () =>
+      revisionTimelineLogs(revision, (id) => {
+        const u = users.get(id);
+        return {
+          name: u?.name || getUserDisplay(id) || "",
+          email: u?.email || "",
+        };
+      }),
+    [revision, users, getUserDisplay],
+  );
 
   const isActiveDraft = (ACTIVE_STATUSES as readonly string[]).includes(
     revision.status,
@@ -772,31 +789,30 @@ function ReviewAndPublishRevision<T>({
       </Box>
 
       <Box mb="4">
-        <RevisionTimeline<T>
-          revision={revision}
-          collapseEdits={subTab === "overview"}
-          diffConfig={diffConfig}
+        <RevisionTimeline
+          logs={timelineLogs}
+          collapseFilter={
+            subTab === "overview"
+              ? (l) => REVIEW_ACTIVITY_ACTIONS.has(l.action)
+              : undefined
+          }
           onEditComment={
             isActiveDraft && canEditEntity
-              ? async (reviewId, comment) => {
-                  await apiCall(
-                    `/revision/${revision.id}/comment/${reviewId}`,
-                    {
-                      method: "PUT",
-                      body: JSON.stringify({ comment }),
-                    },
-                  );
+              ? async (logId, comment) => {
+                  await apiCall(`/revision/${revision.id}/comment/${logId}`, {
+                    method: "PUT",
+                    body: JSON.stringify({ comment }),
+                  });
                   await mutate();
                 }
               : undefined
           }
           onDeleteComment={
             isActiveDraft && canEditEntity
-              ? async (reviewId) => {
-                  await apiCall(
-                    `/revision/${revision.id}/comment/${reviewId}`,
-                    { method: "DELETE" },
-                  );
+              ? async (logId) => {
+                  await apiCall(`/revision/${revision.id}/comment/${logId}`, {
+                    method: "DELETE",
+                  });
                   await mutate();
                 }
               : undefined
