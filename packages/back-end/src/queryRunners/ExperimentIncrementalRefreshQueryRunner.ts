@@ -27,9 +27,9 @@ import {
 import {
   ExperimentQueryMetadata,
   Queries,
-  QueryMetadata,
   QueryPointer,
   QueryStatus,
+  RunQueryMetadata,
 } from "shared/types/query";
 import { FactMetricInterface } from "shared/types/fact-table";
 import { ApiReqContext } from "back-end/types/api";
@@ -304,13 +304,13 @@ const startExperimentIncrementalRefreshQueries = async (
       run: (
         query: string,
         setExternalId: ExternalIdCallback,
-        queryMetadata?: QueryMetadata,
+        queryMetadata: RunQueryMetadata,
       ) => Promise<R>,
     ) =>
     async (
       query: string,
       setExternalId: ExternalIdCallback,
-      queryMetadata?: QueryMetadata,
+      queryMetadata: RunQueryMetadata,
     ): Promise<R> => {
       const current =
         await context.models.incrementalRefresh.getCurrentExecutionSnapshotId(
@@ -790,7 +790,7 @@ const startExperimentIncrementalRefreshQueries = async (
         run: (
           query: string,
           setExternalId: ExternalIdCallback,
-          queryMetadata?: QueryMetadata,
+          queryMetadata: RunQueryMetadata,
         ) =>
           integration.runIncrementalWithNoOutputQuery(
             query,
