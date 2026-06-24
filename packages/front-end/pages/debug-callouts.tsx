@@ -13,6 +13,9 @@ import { DocLink } from "@/components/DocLink";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { UserContext } from "@/services/UserContext";
+import DebugAllCalloutsGenerated, {
+  generatedNavItems,
+} from "@/components/DebugAllCalloutsGenerated";
 
 function Example({
   label,
@@ -300,6 +303,49 @@ const sections: Section[] = [
     ),
   },
   {
+    id: "action-color-inherit",
+    title: "Action color (inherit escape hatch)",
+    description: (
+      <>
+        <code>@/ui/Button</code> defaults to{" "}
+        <code>color=&quot;violet&quot;</code> and always forces it, so an action
+        button does not match a non-info callout. Pass{" "}
+        <code>color=&quot;inherit&quot;</code> to drop the forced color so the
+        button inherits the callout&apos;s accent. In each pair the first button
+        is the default and the second is <code>color=&quot;inherit&quot;</code>.
+      </>
+    ),
+    render: () => (
+      <Flex direction="column" gap="3">
+        {STATUSES.map((s) => (
+          <Example
+            key={s}
+            label={`status="${s}": default (violet) vs color="inherit"`}
+          >
+            <Flex direction="column" gap="2">
+              <Callout
+                status={s}
+                action={<Button variant="soft">Action</Button>}
+              >
+                Default action button.
+              </Callout>
+              <Callout
+                status={s}
+                action={
+                  <Button variant="soft" color="inherit">
+                    Action
+                  </Button>
+                }
+              >
+                Action button with color=&quot;inherit&quot;.
+              </Callout>
+            </Flex>
+          </Example>
+        ))}
+      </Flex>
+    ),
+  },
+  {
     id: "archetype-b",
     title: "Archetype B — stacked CTA (migration candidates)",
     description: (
@@ -430,7 +476,7 @@ const sections: Section[] = [
                 <Callout
                   status="error"
                   mb="3"
-                  action={<Button color="red">Check it again.</Button>}
+                  action={<Button color="inherit">Check it again.</Button>}
                 >
                   This query had an error with it the last time it ran:{" "}
                   <Box className="font-weight-bold" py="2">
@@ -568,7 +614,6 @@ const sections: Section[] = [
             <PremiumCallout
               commercialFeature="multi-armed-bandits"
               id="debug-premium-dismissible"
-              docSection="bandits"
               dismissible
               renderWhenDismissed={(undismiss) => (
                 <Link
@@ -584,6 +629,7 @@ const sections: Section[] = [
             >
               You already have access to this premium feature. This callout is
               dismissible.
+              <DocLink docSection="bandits">View docs</DocLink>
             </PremiumCallout>
           </Example>
         </Flex>
@@ -635,6 +681,14 @@ export default function DebugCalloutsPage() {
                 <Link href={`#${id}`}>{title}</Link>
               </li>
             ))}
+            <li style={{ margin: "12px 0 8px" }}>
+              <UIText weight="semibold">All call sites</UIText>
+            </li>
+            {generatedNavItems.map(({ title, id }) => (
+              <li key={id} style={{ marginBottom: 8 }}>
+                <Link href={`#${id}`}>{title}</Link>
+              </li>
+            ))}
           </ul>
         </nav>
 
@@ -656,6 +710,22 @@ export default function DebugCalloutsPage() {
                 </Frame>
               ))}
             </Flex>
+
+            <Box mt="6">
+              <h2 className="mb-1">All call sites</h2>
+              <p style={{ color: "var(--gray-11)", marginBottom: 16 }}>
+                Every <code>&lt;Callout&gt;</code> and{" "}
+                <code>&lt;PremiumCallout&gt;</code> in the front-end, generated
+                from source by <code>.context/generate_debug_callouts.cjs</code>
+                . Best-effort static render. Dynamic expressions show as amber{" "}
+                <code>chips</code>, non-layout components are passed through as
+                neutral stubs, custom icons and actions are placeholders, and
+                conditional <code>status</code> is resolved to one branch.
+                Expand <em>source</em> under any entry for the exact
+                configuration.
+              </p>
+              <DebugAllCalloutsGenerated />
+            </Box>
           </div>
         </div>
       </Flex>
