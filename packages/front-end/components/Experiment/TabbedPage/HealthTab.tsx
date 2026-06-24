@@ -9,7 +9,7 @@ import CovariateImbalanceCard from "@/components/HealthTab/CovariateImbalanceCar
 import MultipleExposuresCard from "@/components/HealthTab/MultipleExposuresCard";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import Button from "@/components/Button";
+import Button from "@/ui/Button";
 import TrafficCard from "@/components/HealthTab/TrafficCard";
 import { IssueTags, IssueValue } from "@/components/HealthTab/IssueTags";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -147,7 +147,7 @@ export default function HealthTab({
             <>
               click the button on the right.
               <Button
-                className="ml-2"
+                ml="2"
                 style={{ width: "200px" }}
                 onClick={async () => {
                   track("Health Tab Onboarding Opened", {

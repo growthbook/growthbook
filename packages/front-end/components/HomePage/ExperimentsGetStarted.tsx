@@ -16,7 +16,7 @@ import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
 import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
-import Button from "@/components/Button";
+import Button from "@/ui/Button";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/ui/Callout";
 
@@ -270,7 +270,7 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                 Not ready to connect to your data warehouse? Explore a sample
                 experiment first to get a feel for the GrowthBook platform.
               </p>
-              <Button color="outline-primary" onClick={openSampleExperiment}>
+              <Button variant="outline" onClick={openSampleExperiment}>
                 View Sample Experiment
               </Button>
             </Callout>

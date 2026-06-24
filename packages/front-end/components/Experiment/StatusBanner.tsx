@@ -1,8 +1,8 @@
 import { FaPencilAlt } from "react-icons/fa";
 import { getAllVariations } from "shared/experiments";
 import { useAuth } from "@/services/auth";
-import Button from "@/components/Button";
 import Markdown from "@/components/Markdown/Markdown";
+import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import { useSnapshot } from "./SnapshotProvider";
@@ -132,8 +132,8 @@ export default function StatusBanner({ mutateExperiment, editResult }: Props) {
         action={
           editResult && (
             <Button
-              color="link"
-              className="p-0"
+              variant="ghost"
+              color="inherit"
               onClick={async () => {
                 // Already has a phase, just update the status
                 await apiCall(`/experiment/${experiment?.id}/status`, {

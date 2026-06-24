@@ -9,7 +9,7 @@ import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { dataSourceConnections } from "@/services/eventSchema";
-import Button from "@/components/Button";
+import Button from "@/ui/Button";
 import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { getInitialSettings } from "@/services/datasources";
@@ -203,8 +203,6 @@ const DataSourceForm: FC<{
           status="info"
           action={
             <Button
-              color="info"
-              className="btn-sm"
               onClick={async () => {
                 await importSampleData();
               }}
