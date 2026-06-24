@@ -1169,7 +1169,7 @@ describe("SDK Payloads", () => {
         description: "",
         enabled: true,
         // A whole-value JSON constant used as the (sparse) rule value.
-        value: JSON.stringify({ "@const:cfg": true }),
+        value: JSON.stringify({ $extends: ["@const:cfg"] }),
         sparse: true,
       },
     ];
@@ -1197,7 +1197,7 @@ describe("SDK Payloads", () => {
     const feature = cloneDeep(baseFeature);
     feature.valueType = "json";
     // Default value is itself a whole-value JSON constant.
-    feature.defaultValue = JSON.stringify({ "@const:base": true });
+    feature.defaultValue = JSON.stringify({ $extends: ["@const:base"] });
     feature.environmentSettings["production"].rules = [
       {
         type: "force",
@@ -1238,7 +1238,7 @@ describe("SDK Payloads", () => {
     feature.defaultValue = JSON.stringify({
       versions: [1, 2],
       ref: 0.1,
-      "@const:config-snippet": true,
+      $extends: ["@const:config-snippet"],
     });
     feature.environmentSettings["production"].rules = [
       {
@@ -1247,7 +1247,7 @@ describe("SDK Payloads", () => {
         description: "",
         enabled: true,
         // Sparse patch also mixes an explicit key with a spread constant.
-        value: JSON.stringify({ ref: 3, "@const:my-json": true }),
+        value: JSON.stringify({ ref: 3, $extends: ["@const:my-json"] }),
         sparse: true,
       },
     ];
@@ -1292,7 +1292,9 @@ describe("SDK Payloads", () => {
 
   it("resolves a JSON constant in a non-sparse force value (full payload)", () => {
     const payload = generateFeaturesPayload({
-      features: [jsonForceFeature(JSON.stringify({ "@const:cfg": true }))],
+      features: [
+        jsonForceFeature(JSON.stringify({ $extends: ["@const:cfg"] })),
+      ],
       environment: "production",
       groupMap: new Map(),
       experimentMap: new Map(),
@@ -1311,7 +1313,9 @@ describe("SDK Payloads", () => {
   it("spreads a constant among other keys in a non-sparse force value", () => {
     const payload = generateFeaturesPayload({
       features: [
-        jsonForceFeature(JSON.stringify({ "@const:cfg": true, extra: 1 })),
+        jsonForceFeature(
+          JSON.stringify({ $extends: ["@const:cfg"], extra: 1 }),
+        ),
       ],
       environment: "production",
       groupMap: new Map(),
@@ -1331,7 +1335,7 @@ describe("SDK Payloads", () => {
   it("resolves a constant in the feature default value", () => {
     const feature = cloneDeep(baseFeature);
     feature.valueType = "json";
-    feature.defaultValue = JSON.stringify({ "@const:cfg": true });
+    feature.defaultValue = JSON.stringify({ $extends: ["@const:cfg"] });
     const payload = generateFeaturesPayload({
       features: [feature],
       environment: "production",
@@ -1370,7 +1374,10 @@ describe("SDK Payloads", () => {
     const feature = cloneDeep(baseFeature);
     feature.valueType = "json";
     // A spread reference among other keys + a string interpolation elsewhere.
-    feature.defaultValue = JSON.stringify({ "@const:cfg": true, keep: 1 });
+    feature.defaultValue = JSON.stringify({
+      $extends: ["@const:cfg"],
+      keep: 1,
+    });
     const payload = generateFeaturesPayload({
       features: [feature],
       environment: "production",
@@ -1394,7 +1401,7 @@ describe("SDK Payloads", () => {
   it("resolves constants per environment", () => {
     const feature = cloneDeep(baseFeature);
     feature.valueType = "json";
-    feature.defaultValue = JSON.stringify({ "@const:host": true });
+    feature.defaultValue = JSON.stringify({ $extends: ["@const:host"] });
     const constants = [
       makeConstant({
         key: "host",
@@ -1423,9 +1430,11 @@ describe("SDK Payloads", () => {
     expect(dev.feature.defaultValue).toEqual({ url: "default" });
   });
 
-  it("leaves a cyclic constant reference unresolved in the payload", () => {
+  it("drops a cyclic $extends reference in the payload", () => {
     const payload = generateFeaturesPayload({
-      features: [jsonForceFeature(JSON.stringify({ "@const:loop": true }))],
+      features: [
+        jsonForceFeature(JSON.stringify({ $extends: ["@const:loop"] })),
+      ],
       environment: "production",
       groupMap: new Map(),
       experimentMap: new Map(),
@@ -1434,13 +1443,12 @@ describe("SDK Payloads", () => {
         makeConstant({
           key: "loop",
           type: "json",
-          value: JSON.stringify({ "@const:loop": true }),
+          value: JSON.stringify({ $extends: ["@const:loop"] }),
         }),
       ],
     });
-    expect(payload.feature.rules?.[0]).toEqual({
-      force: { "@const:loop": true },
-    });
+    // Self-referential $extends is dropped (no infinite recursion, no leftover).
+    expect(payload.feature.rules?.[0]).toEqual({ force: {} });
   });
 
   it("resolves constants in experiment-ref variation values", () => {
@@ -1455,8 +1463,14 @@ describe("SDK Payloads", () => {
         description: "",
         enabled: true,
         variations: [
-          { variationId: "v0", value: JSON.stringify({ "@const:cfg": true }) },
-          { variationId: "v1", value: JSON.stringify({ "@const:more": true }) },
+          {
+            variationId: "v0",
+            value: JSON.stringify({ $extends: ["@const:cfg"] }),
+          },
+          {
+            variationId: "v1",
+            value: JSON.stringify({ $extends: ["@const:more"] }),
+          },
         ],
       },
     ];
@@ -1560,7 +1574,7 @@ describe("SDK Payloads", () => {
         description: "",
         enabled: true,
         sparse: true,
-        value: JSON.stringify({ "@const:cfg": true, x: 1 }),
+        value: JSON.stringify({ $extends: ["@const:cfg"], x: 1 }),
       },
     ];
     const def = getFeatureDefinition({

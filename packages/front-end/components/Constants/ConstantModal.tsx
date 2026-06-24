@@ -189,7 +189,7 @@ export default function ConstantModal({
             Referenced as{" "}
             <code>
               {type === "json"
-                ? `{ "@const:${form.watch("key") || "key"}": true }`
+                ? `"$extends": ["@const:${form.watch("key") || "key"}"]`
                 : `{{ @const:${form.watch("key") || "key"} }}`}
             </code>
           </>

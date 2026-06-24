@@ -43,7 +43,7 @@ import InsertConstantButton, {
   UsedConstantTags,
 } from "@/components/Constants/InsertConstantButton";
 import {
-  buildJsonConstantInsertion,
+  addJsonConstantExtends,
   buildStringRefInsertion,
 } from "@/components/Constants/jsonConstantInsert";
 
@@ -163,13 +163,21 @@ export default function FeatureValueField({
     if (!editor) return false;
     try {
       const text = editor.getValue();
+      // JSON constants are objects composed via `$extends`, so add the ref to
+      // the value's `$extends` array (rebuilding the whole value, which also
+      // normalizes it to one key/element per line). String constants are
+      // interpolated into the string literal at the cursor.
+      if (constant.type === "json") {
+        const next = addJsonConstantExtends(text, constant.key);
+        if (next === null) return false;
+        editor.setValue(next, -1);
+        editor.focus();
+        return true;
+      }
       const offset = editor.session.doc.positionToIndex(
         editor.getCursorPosition(),
       );
-      const insertion =
-        constant.type === "json"
-          ? buildJsonConstantInsertion(text, offset, constant.key)
-          : buildStringRefInsertion(text, offset, constant.key);
+      const insertion = buildStringRefInsertion(text, offset, constant.key);
       if (!insertion) return false;
       editor.session.insert(
         editor.session.doc.indexToPosition(insertion.index, 0),

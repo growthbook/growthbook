@@ -1,6 +1,6 @@
 import {
   getJsonInsertContext,
-  buildJsonConstantInsertion,
+  addJsonConstantExtends,
   buildStringRefInsertion,
 } from "@/components/Constants/jsonConstantInsert";
 
@@ -46,66 +46,42 @@ describe("getJsonInsertContext", () => {
   });
 });
 
-describe("buildJsonConstantInsertion", () => {
-  const run = (s: string, key: string) => {
-    const [text, offset] = caret(s);
-    const ins = buildJsonConstantInsertion(text, offset, key);
-    if (!ins) return null;
-    return text.slice(0, ins.index) + ins.text + text.slice(ins.index);
-  };
-
-  it("appends an entry to an empty object (no comma, indented)", () => {
-    expect(run("{|}", "cfg")).toBe('{\n  "@const:cfg": true\n}');
-  });
-
-  it("attaches a comma to the previous value and matches its indentation", () => {
-    expect(run('{\n  "a": 1\n|}', "cfg")).toBe(
-      '{\n  "a": 1,\n  "@const:cfg": true\n}',
+describe("addJsonConstantExtends", () => {
+  // Objects expand one key per line; the (short, primitive) $extends array
+  // stays inline.
+  it("creates a $extends array on an empty value", () => {
+    expect(addJsonConstantExtends("", "cfg")).toBe(
+      '{\n  "$extends": ["@const:cfg"]\n}',
     );
   });
 
-  it("appends to the object the cursor is in even when not at the end", () => {
-    // cursor right after the opening brace, existing entry follows
-    expect(run('{|\n  "a": 1\n}', "cfg")).toBe(
-      '{\n  "a": 1,\n  "@const:cfg": true\n}',
+  it("adds $extends (first) to an object with existing keys", () => {
+    expect(addJsonConstantExtends('{ "a": 1 }', "cfg")).toBe(
+      '{\n  "$extends": ["@const:cfg"],\n  "a": 1\n}',
     );
   });
 
-  it("doesn't double up a comma when one is already present", () => {
-    expect(run('{\n  "a": 1,\n|}', "cfg")).toBe(
-      '{\n  "a": 1,\n  "@const:cfg": true\n}',
+  it("appends to an existing $extends array", () => {
+    const input = '{ "$extends": ["@const:base"], "a": 1 }';
+    expect(addJsonConstantExtends(input, "cfg")).toBe(
+      '{\n  "$extends": ["@const:base", "@const:cfg"],\n  "a": 1\n}',
     );
   });
 
-  it("snaps to the object and appends when the caret is just past its close", () => {
-    expect(run('{\n  "foo": "bar"\n}|', "cfg")).toBe(
-      '{\n  "foo": "bar",\n  "@const:cfg": true\n}',
+  it("de-dupes a reference already present", () => {
+    const input = '{ "$extends": ["@const:cfg"] }';
+    expect(addJsonConstantExtends(input, "cfg")).toBe(
+      '{\n  "$extends": ["@const:cfg"]\n}',
     );
   });
 
-  it("snaps to the object and prepends a row when the caret is just before its open", () => {
-    expect(run('|{\n  "foo": "bar"\n}', "cfg")).toBe(
-      '{\n  "@const:cfg": true,\n  "foo": "bar"\n}',
-    );
+  it("returns null for invalid JSON", () => {
+    expect(addJsonConstantExtends('{ "a": ', "cfg")).toBe(null);
   });
 
-  it("inserts the whole-value object into an empty document", () => {
-    expect(run("|", "cfg")).toBe('{ "@const:cfg": true }');
-  });
-
-  it("inserts the whole-value object as an element of an empty array", () => {
-    expect(run("[|]", "cfg")).toBe('[\n  { "@const:cfg": true }\n]');
-  });
-
-  it("appends the whole-value object as a new array element", () => {
-    expect(run("[\n  1\n|]", "cfg")).toBe(
-      '[\n  1,\n  { "@const:cfg": true }\n]',
-    );
-  });
-
-  it("returns null when nothing is in reach", () => {
-    expect(run('{ "a": "|" }', "cfg")).toBe(null);
-    expect(run("12345|", "cfg")).toBe(null);
+  it("returns null for a non-object root (array / primitive)", () => {
+    expect(addJsonConstantExtends("[1, 2]", "cfg")).toBe(null);
+    expect(addJsonConstantExtends('"a string"', "cfg")).toBe(null);
   });
 });
 

@@ -126,8 +126,8 @@ export default function ConstantArchiveModal({
             Archived constants are stripped from any feature values in the SDK
             payload — references to this constant (
             <code>{`{{ @const:${constant.key} }}`}</code> and{" "}
-            <code>{`{ "@const:${constant.key}": true }`}</code>) will be removed
-            rather than resolved.
+            <code>{`"$extends": ["@const:${constant.key}"]`}</code>) will be
+            removed rather than resolved.
           </Callout>
         </>
       )}

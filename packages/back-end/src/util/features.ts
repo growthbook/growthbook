@@ -582,9 +582,8 @@ export function getFeatureDefinition({
   // can merge their partial object onto it. Null when the default isn't a plain
   // key/val object (array, null, primitive) — sparse is then a no-op and rules
   // emit their value as-is. When a constant map is supplied, resolve the
-  // default's `@const:` references first so they form the sparse merge base
-  // (otherwise an unresolved `{ "@const:x": true }` placeholder would block
-  // substitution once rule keys are merged in).
+  // default's `$extends` references first so they form the sparse merge base
+  // (the resolved default + its keys), which the patch then overrides.
   const jsonDefaultObj = (() => {
     if (feature.valueType !== "json") return null;
     const base = parsePlainJSONObject(defaultValue);

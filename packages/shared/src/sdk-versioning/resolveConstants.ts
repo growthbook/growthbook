@@ -15,9 +15,13 @@ export type ConstantValueMap = Map<string, ConstantValueMapEntry>;
 
 // Reference syntax (matches the `key` slug charset): `@const:<key>`.
 // String constants are interpolated via `{{ @const:key }}` inside string
-// values; JSON constants substitute a whole value that is exactly
-// `{ "@const:key": true }`.
+// values. JSON (object) constants are composed via an `$extends` array of
+// references — `{ "$extends": ["@const:base", "@const:more"], "own": 1 }` — which
+// merges each referenced object (later refs override earlier) and then lets the
+// object's own keys override.
 const KEY = "[a-z0-9][a-z0-9_-]*";
+// The property name that carries the list of JSON constant references to merge.
+const EXTENDS_KEY = "$extends";
 // A backtick-wrapped interpolation (escaped → literal) OR a bare interpolation.
 const INTERP = new RegExp(
   "`(\\{\\{\\s*@const:" +
@@ -121,11 +125,10 @@ function resolveStringRefs(
   });
 }
 
-// If `k` is a `@const:<key>` property whose value is `true`, return the
-// referenced constant key; else null.
-function placeholderEntryKey(k: string, v: unknown): string | null {
-  if (v !== true) return null;
-  const match = k.match(PLACEHOLDER_KEY);
+// If `ref` is a `@const:<key>` reference string, return the key; else null.
+function extendsRefKey(ref: unknown): string | null {
+  if (typeof ref !== "string") return null;
+  const match = ref.match(PLACEHOLDER_KEY);
   return match ? match[1] : null;
 }
 
@@ -146,20 +149,23 @@ function resolveValue(
   }
   if (value !== null && typeof value === "object") {
     const obj = value as Record<string, unknown>;
-    const entries = Object.entries(obj);
 
-    // Resolve a `@const:<key>: true` entry to the referenced JSON constant's
-    // parsed value (with its own references resolved). Returns null when the key
-    // is unknown, the constant isn't JSON, it's part of a cycle, or it doesn't
-    // parse — the reference is then left verbatim. Memoized per pass.
-    const resolveEntry = (key: string): { value: unknown } | null => {
+    // Resolve a referenced JSON (object) constant to its parsed, recursively
+    // resolved value. Returns null when unknown, not JSON, scrubbed
+    // (archived/out-of-scope), part of a cycle, non-parseable, or not an object.
+    // Memoized per pass.
+    const resolveExtendsRef = (key: string): Record<string, unknown> | null => {
       const entry = ctx.map.get(key);
-      if (!entry || entry.type !== "json") return null;
+      if (!entry || entry.type !== "json" || isScrubbed(entry, ctx))
+        return null;
       if (visited.has(key)) {
         ctx.onCycle?.(key);
         return null;
       }
-      if (ctx.cache.has(key)) return { value: ctx.cache.get(key) };
+      if (ctx.cache.has(key)) {
+        const cached = ctx.cache.get(key);
+        return isPlainObject(cached) ? cached : null;
+      }
       let parsed: unknown;
       try {
         parsed = JSON.parse(entry.value);
@@ -168,43 +174,28 @@ function resolveValue(
       }
       const resolved = resolveValue(parsed, new Set([...visited, key]), ctx);
       ctx.cache.set(key, resolved);
-      return { value: resolved };
+      return isPlainObject(resolved) ? resolved : null;
     };
 
-    // Whole-value substitution: an object that is exactly `{ "@const:key": true }`
-    // is replaced by the constant's value (object, array, or primitive).
-    if (entries.length === 1) {
-      const key = placeholderEntryKey(entries[0][0], entries[0][1]);
-      if (key !== null) {
-        // Scrubbed (archived / out-of-scope): the reference was the entire
-        // value, so collapse to an empty object rather than resolving or
-        // leaving the placeholder.
-        const entry = ctx.map.get(key);
-        if (entry && isScrubbed(entry, ctx)) return {};
-        const resolved = resolveEntry(key);
-        return resolved ? resolved.value : value;
+    const out: Record<string, unknown> = {};
+
+    // `$extends`: merge each referenced object in array order (later refs
+    // override earlier) as the base. Own keys (below) override the merged base,
+    // regardless of where `$extends` appears in the object.
+    const extendsList = obj[EXTENDS_KEY];
+    if (Array.isArray(extendsList)) {
+      for (const ref of extendsList) {
+        const key = extendsRefKey(ref);
+        if (key === null) continue;
+        const resolved = resolveExtendsRef(key);
+        if (resolved) Object.assign(out, resolved);
       }
     }
 
-    // Otherwise resolve each entry in order. A `@const:key: true` entry whose
-    // constant resolves to a plain object is SPREAD in place, so entries listed
-    // later (including other constants) override its keys. Non-object or
-    // unresolved references are left as literal `@const:` keys.
-    const out: Record<string, unknown> = {};
-    for (const [k, v] of entries) {
-      const key = placeholderEntryKey(k, v);
-      if (key !== null) {
-        // Scrubbed (archived / out-of-scope): drop the spread reference key.
-        const entry = ctx.map.get(key);
-        if (entry && isScrubbed(entry, ctx)) continue;
-        const resolved = resolveEntry(key);
-        if (resolved && isPlainObject(resolved.value)) {
-          Object.assign(out, resolved.value);
-          continue;
-        }
-        out[k] = v; // verbatim (unknown, cycle, or non-object constant)
-        continue;
-      }
+    // Own keys override the merged base. Skip `$extends` itself when it was used
+    // as a merge directive (an array); otherwise treat it as a normal key.
+    for (const [k, v] of Object.entries(obj)) {
+      if (k === EXTENDS_KEY && Array.isArray(extendsList)) continue;
       out[k] = resolveValue(v, visited, ctx);
     }
     return out;

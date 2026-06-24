@@ -121,21 +121,29 @@ export function validateConstantValue(
 ): void {
   if (type !== "json") return;
   if (value === "") return; // empty permitted
+  const prefix = label ? `${label}: ` : "";
+  let parsed: unknown;
   try {
-    JSON.parse(value);
+    parsed = JSON.parse(value);
   } catch (e) {
-    const prefix = label ? `${label}: ` : "";
     throw new Error(
       `${prefix}Invalid JSON — ${e instanceof Error ? e.message : String(e)}`,
+    );
+  }
+  // JSON constants are key/value object templates merged via `$extends`, so the
+  // value must be a plain object — arrays and primitives aren't allowed.
+  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error(
+      `${prefix}JSON constants must be a JSON object (key/value map), not an array or primitive.`,
     );
   }
 }
 
 // A reusable named value referenced from feature flag values. `key` is the
 // stable reference handle (slugified from `name`, unique per org): string
-// constants are interpolated as `{{ @const:key }}`, JSON constants substituted
-// as `{ "@const:key": true }`. Resolution happens at SDK-payload build time;
-// literal references are backtick-escaped.
+// constants are interpolated as `{{ @const:key }}`, JSON (object) constants are
+// merged via an `$extends: ["@const:key"]` array. Resolution happens at
+// SDK-payload build time; literal string references are backtick-escaped.
 export const constantValidator = z
   .object({
     id: z.string(),

@@ -20,7 +20,7 @@ Common uses:
 Each constant has one type:
 
 - **String** — a plain string value (URLs, keys, identifiers, etc.).
-- **JSON** — a JSON value (object, array, etc.).
+- **JSON** — a JSON **object** (key/value map), used as a reusable config template merged via `$extends`.
 
 ## Per-environment values
 
@@ -52,35 +52,31 @@ Connect to {{ @const:api-server }} on port {{ @const:api-port }}.
 }
 ```
 
-### JSON constants — `{ "@const:key": true }`
+### JSON constants — `$extends`
 
-Reference a JSON constant as a whole value. Anywhere a JSON value is expected, an object whose only key is the constant reference is replaced by that constant's value:
-
-```json
-{
-  "@const:default-config": true
-}
-```
-
-This also works for a nested value:
+JSON constants are objects (key/value templates). Compose them with an `$extends` array that lists one or more constant references. Each referenced object is merged in, in order, and the object's own keys override the merged result:
 
 ```json
 {
-  "limits": { "@const:default-limits": true }
+  "$extends": ["@const:default-config"],
+  "timeout": 30
 }
 ```
 
-The `true` is just a required placeholder — its value is ignored.
-
-If the constant resolves to an object, you can also list the reference **alongside other keys** to spread it in. Keys are applied in order, so later ones win:
+`$extends` works for a nested value too:
 
 ```json
 {
-  "timeout": 30,
-  "@const:default-config": true,
-  "retries": 5
+  "limits": { "$extends": ["@const:default-limits"] }
 }
 ```
+
+Merge precedence, lowest to highest:
+
+1. `$extends` references, in array order (later references override earlier)
+2. the object's own keys
+
+So the position of `$extends` in the object doesn't matter — own keys always win — but the order of references _within_ the array does.
 
 A constant's value can itself reference other constants; they're resolved recursively.
 

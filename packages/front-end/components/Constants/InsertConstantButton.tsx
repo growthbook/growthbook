@@ -155,9 +155,9 @@ function ConstantOption({
         </ConstantValuePreview>
         {failed && (
           <HelperText status="error" size="md" mt="2">
-            Couldn&rsquo;t insert here — place your cursor inside a{" "}
-            {constant.type === "json" ? "JSON object or string" : "string"}{" "}
-            value.
+            {constant.type === "json"
+              ? "Couldn’t add this — the value must be a valid JSON object."
+              : "Couldn’t insert here — place your cursor inside a string value."}
           </HelperText>
         )}
       </Box>

@@ -32,11 +32,18 @@ describe("validateConstantValue", () => {
     expect(() => validateConstantValue("json", "")).not.toThrow();
   });
 
-  it("accepts valid JSON for JSON constants", () => {
+  it("accepts a JSON object for JSON constants", () => {
     expect(() => validateConstantValue("json", '{"a":1}')).not.toThrow();
-    expect(() => validateConstantValue("json", "[1,2,3]")).not.toThrow();
-    expect(() => validateConstantValue("json", '"str"')).not.toThrow();
-    expect(() => validateConstantValue("json", "true")).not.toThrow();
+    expect(() =>
+      validateConstantValue("json", '{"a":{"b":1},"c":[1,2]}'),
+    ).not.toThrow();
+  });
+
+  it("rejects arrays and primitives for JSON constants (objects only)", () => {
+    expect(() => validateConstantValue("json", "[1,2,3]")).toThrow(/object/);
+    expect(() => validateConstantValue("json", '"str"')).toThrow(/object/);
+    expect(() => validateConstantValue("json", "true")).toThrow(/object/);
+    expect(() => validateConstantValue("json", "null")).toThrow(/object/);
   });
 
   it("rejects invalid JSON for JSON constants", () => {
@@ -185,7 +192,7 @@ describe("getConstantReferenceKeys", () => {
   it("collects @const refs from the value and all env overrides (union)", () => {
     expect(
       getConstantReferenceKeys("hi {{ @const:a }} {{ @const:b }}", {
-        dev: '{ "@const:c": true }',
+        dev: '{ "$extends": ["@const:c"] }',
         prod: "{{ @const:a }}",
       }).sort(),
     ).toEqual(["a", "b", "c"]);

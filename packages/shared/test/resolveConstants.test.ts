@@ -89,43 +89,44 @@ describe("resolveConstantRefs — string interpolation", () => {
   });
 });
 
-describe("resolveConstantRefs — JSON whole-value substitution", () => {
+describe("resolveConstantRefs — $extends (JSON object merge)", () => {
   const map = mapOf({
     cfg: { type: "json", value: '{"a":1,"b":[2,3]}' },
     name: { type: "string", value: "world" },
   });
 
-  it("replaces a { @const:key: true } placeholder with the JSON value", () => {
-    expect(resolveConstantRefs({ "@const:cfg": true }, map)).toEqual({
+  it("replaces a value that only $extends one constant with that object", () => {
+    expect(resolveConstantRefs({ $extends: ["@const:cfg"] }, map)).toEqual({
       a: 1,
       b: [2, 3],
     });
   });
 
-  it("replaces placeholders nested in objects and arrays", () => {
+  it("merges $extends in nested objects and array elements", () => {
     expect(
       resolveConstantRefs(
-        { wrapper: { "@const:cfg": true }, list: [{ "@const:cfg": true }] },
+        {
+          wrapper: { $extends: ["@const:cfg"] },
+          list: [{ $extends: ["@const:cfg"] }],
+        },
         map,
       ),
     ).toEqual({ wrapper: { a: 1, b: [2, 3] }, list: [{ a: 1, b: [2, 3] }] });
   });
 
-  it("leaves a string constant referenced as a JSON placeholder verbatim", () => {
-    expect(resolveConstantRefs({ "@const:name": true }, map)).toEqual({
-      "@const:name": true,
-    });
+  it("skips a $extends ref to a string constant (object merge only)", () => {
+    expect(resolveConstantRefs({ $extends: ["@const:name"] }, map)).toEqual({});
   });
 
-  it("leaves an unknown placeholder verbatim", () => {
-    expect(resolveConstantRefs({ "@const:missing": true }, map)).toEqual({
-      "@const:missing": true,
-    });
+  it("skips an unknown $extends ref", () => {
+    expect(resolveConstantRefs({ $extends: ["@const:missing"] }, map)).toEqual(
+      {},
+    );
   });
 
-  it("does not treat a { key: false } entry as a placeholder", () => {
-    expect(resolveConstantRefs({ "@const:cfg": false }, map)).toEqual({
-      "@const:cfg": false,
+  it("treats a non-array $extends as a normal key", () => {
+    expect(resolveConstantRefs({ $extends: "nope" }, map)).toEqual({
+      $extends: "nope",
     });
   });
 
@@ -136,79 +137,54 @@ describe("resolveConstantRefs — JSON whole-value substitution", () => {
   });
 });
 
-describe("resolveConstantRefs — JSON spread among other keys", () => {
+describe("resolveConstantRefs — $extends merge precedence", () => {
   const map = mapOf({
     cfg: { type: "json", value: '{"a":1,"b":2}' },
     more: { type: "json", value: '{"b":99,"c":3}' },
-    name: { type: "string", value: "world" },
-    list: { type: "json", value: "[1,2,3]" },
   });
 
-  it("spreads a JSON constant into an object alongside other keys", () => {
+  it("lets own keys override the merged base", () => {
     expect(
-      resolveConstantRefs({ "@const:cfg": true, other: "bar" }, map),
+      resolveConstantRefs({ $extends: ["@const:cfg"], other: "bar" }, map),
     ).toEqual({ a: 1, b: 2, other: "bar" });
   });
 
-  it("spreads multiple constants in order, later keys/constants winning", () => {
-    // cfg → {a:1,b:2}, then more → {b:99,c:3} overrides cfg.b.
+  it("merges multiple refs in array order (later overrides earlier)", () => {
     expect(
       resolveConstantRefs(
-        { ref: 3, "@const:cfg": true, "@const:more": true },
+        { $extends: ["@const:cfg", "@const:more"], ref: 3 },
         map,
       ),
-    ).toEqual({ ref: 3, a: 1, b: 99, c: 3 });
+    ).toEqual({ a: 1, b: 99, c: 3, ref: 3 });
   });
 
-  it("lets an explicit key listed after a spread win", () => {
+  it("lets own keys win regardless of where $extends appears", () => {
     expect(
-      resolveConstantRefs({ "@const:cfg": true, b: "override" }, map),
+      resolveConstantRefs({ b: "override", $extends: ["@const:cfg"] }, map),
+    ).toEqual({ a: 1, b: "override" });
+    expect(
+      resolveConstantRefs({ $extends: ["@const:cfg"], b: "override" }, map),
     ).toEqual({ a: 1, b: "override" });
   });
 
-  it("lets a spread listed after an explicit key override it", () => {
-    expect(
-      resolveConstantRefs({ b: "first", "@const:cfg": true }, map),
-    ).toEqual({ a: 1, b: 2 });
-  });
-
-  it("spreads inside nested objects", () => {
+  it("merges inside nested objects with own keys overriding", () => {
     expect(
       resolveConstantRefs(
-        { wrapper: { "@const:cfg": true, extra: true } },
+        { wrapper: { $extends: ["@const:cfg"], extra: true } },
         map,
       ),
     ).toEqual({ wrapper: { a: 1, b: 2, extra: true } });
   });
 
-  it("leaves a non-object constant (array) verbatim when among other keys", () => {
-    expect(resolveConstantRefs({ "@const:list": true, other: 1 }, map)).toEqual(
-      { "@const:list": true, other: 1 },
-    );
-  });
-
-  it("leaves a type-mismatched (string) constant verbatim when among other keys", () => {
-    expect(resolveConstantRefs({ "@const:name": true, other: 1 }, map)).toEqual(
-      { "@const:name": true, other: 1 },
-    );
-  });
-
-  it("spreads inside an object nested in an array element", () => {
-    expect(
-      resolveConstantRefs({ list: [{ "@const:cfg": true, x: 1 }] }, map),
-    ).toEqual({ list: [{ a: 1, b: 2, x: 1 }] });
-  });
-
-  it("resolves deeply nested placeholders through objects and arrays", () => {
-    expect(
-      resolveConstantRefs({ outer: [{ inner: { "@const:cfg": true } }] }, map),
-    ).toEqual({ outer: [{ inner: { a: 1, b: 2 } }] });
-  });
-
-  it("spreads multiple constants across separate array elements", () => {
+  it("merges across separate array elements", () => {
     expect(
       resolveConstantRefs(
-        { rows: [{ "@const:cfg": true }, { "@const:more": true, id: 9 }] },
+        {
+          rows: [
+            { $extends: ["@const:cfg"] },
+            { $extends: ["@const:more"], id: 9 },
+          ],
+        },
         map,
       ),
     ).toEqual({
@@ -221,12 +197,15 @@ describe("resolveConstantRefs — JSON spread among other keys", () => {
 });
 
 describe("resolveConstantRefs — nested constants and cycles", () => {
-  it("resolves a JSON constant that references another constant", () => {
+  it("resolves a JSON constant that $extends another constant", () => {
     const map = mapOf({
       inner: { type: "json", value: '{"x":1}' },
-      outer: { type: "json", value: '{"nested":{"@const:inner":true}}' },
+      outer: {
+        type: "json",
+        value: '{"nested":{"$extends":["@const:inner"]}}',
+      },
     });
-    expect(resolveConstantRefs({ "@const:outer": true }, map)).toEqual({
+    expect(resolveConstantRefs({ $extends: ["@const:outer"] }, map)).toEqual({
       nested: { x: 1 },
     });
   });
@@ -239,12 +218,12 @@ describe("resolveConstantRefs — nested constants and cycles", () => {
     expect(resolveConstantRefs("{{ @const:full }}", map)).toBe("Jane Doe");
   });
 
-  it("resolves a constant that spreads another constant among its keys", () => {
+  it("resolves a constant that $extends another among its own keys", () => {
     const map = mapOf({
       inner: { type: "json", value: '{"b":2}' },
-      outer: { type: "json", value: '{"a":1,"@const:inner":true}' },
+      outer: { type: "json", value: '{"a":1,"$extends":["@const:inner"]}' },
     });
-    expect(resolveConstantRefs({ "@const:outer": true }, map)).toEqual({
+    expect(resolveConstantRefs({ $extends: ["@const:outer"] }, map)).toEqual({
       a: 1,
       b: 2,
     });
@@ -255,7 +234,7 @@ describe("resolveConstantRefs — nested constants and cycles", () => {
       name: { type: "string", value: "world" },
       cfg: { type: "json", value: '{"greeting":"hi {{@const:name}}"}' },
     });
-    expect(resolveConstantRefs({ "@const:cfg": true }, map)).toEqual({
+    expect(resolveConstantRefs({ $extends: ["@const:cfg"] }, map)).toEqual({
       greeting: "hi world",
     });
   });
@@ -263,21 +242,19 @@ describe("resolveConstantRefs — nested constants and cycles", () => {
   it("resolves a three-level JSON constant chain", () => {
     const map = mapOf({
       c: { type: "json", value: '{"z":1}' },
-      b: { type: "json", value: '{"wrap":{"@const:c":true}}' },
-      a: { type: "json", value: '{"top":{"@const:b":true}}' },
+      b: { type: "json", value: '{"wrap":{"$extends":["@const:c"]}}' },
+      a: { type: "json", value: '{"top":{"$extends":["@const:b"]}}' },
     });
-    expect(resolveConstantRefs({ "@const:a": true }, map)).toEqual({
+    expect(resolveConstantRefs({ $extends: ["@const:a"] }, map)).toEqual({
       top: { wrap: { z: 1 } },
     });
   });
 
-  it("renders a self-referential constant verbatim (cycle guard)", () => {
+  it("drops a self-referential $extends without infinite recursion", () => {
     const map = mapOf({
-      loop: { type: "json", value: '{"@const:loop":true}' },
+      loop: { type: "json", value: '{"$extends":["@const:loop"]}' },
     });
-    expect(resolveConstantRefs({ "@const:loop": true }, map)).toEqual({
-      "@const:loop": true,
-    });
+    expect(resolveConstantRefs({ $extends: ["@const:loop"] }, map)).toEqual({});
   });
 
   it("breaks a two-constant cycle without infinite recursion", () => {
@@ -291,10 +268,10 @@ describe("resolveConstantRefs — nested constants and cycles", () => {
 
   it("invokes onCycle with the key of a cyclic reference", () => {
     const map = mapOf({
-      loop: { type: "json", value: '{"@const:loop":true}' },
+      loop: { type: "json", value: '{"$extends":["@const:loop"]}' },
     });
     const cycles: string[] = [];
-    resolveConstantRefs({ "@const:loop": true }, map, new Set(), (key) =>
+    resolveConstantRefs({ $extends: ["@const:loop"] }, map, new Set(), (key) =>
       cycles.push(key),
     );
     expect(cycles).toEqual(["loop"]);
@@ -337,13 +314,15 @@ describe("resolveConstantRefs — archived scrubbing", () => {
     ).toBe("here/");
   });
 
-  it("scrubs an archived whole-value JSON reference to an empty object", () => {
-    expect(resolveConstantRefs({ "@const:gone-json": true }, map)).toEqual({});
+  it("drops an archived $extends ref (whole value)", () => {
+    expect(
+      resolveConstantRefs({ $extends: ["@const:gone-json"] }, map),
+    ).toEqual({});
   });
 
-  it("drops an archived spread reference but keeps sibling keys", () => {
+  it("drops an archived $extends ref but keeps sibling keys", () => {
     expect(
-      resolveConstantRefs({ "@const:gone-json": true, keep: "yes" }, map),
+      resolveConstantRefs({ $extends: ["@const:gone-json"], keep: "yes" }, map),
     ).toEqual({ keep: "yes" });
   });
 
@@ -362,13 +341,15 @@ describe("resolveConstantRefs — archived scrubbing", () => {
         "live-json",
         {
           type: "json",
-          value: '{"nested":{"@const:gone-json":true},"keep":1}',
+          value: '{"nested":{"$extends":["@const:gone-json"]},"keep":1}',
         },
       ],
       ["live-str", { type: "string", value: "x={{ @const:gone }}!" }],
     ]);
-    // Spread ref to the archived constant inside the live constant's body is dropped.
-    expect(resolveConstantRefs({ "@const:live-json": true }, nested)).toEqual({
+    // $extends ref to the archived constant inside the live constant's body is dropped.
+    expect(
+      resolveConstantRefs({ $extends: ["@const:live-json"] }, nested),
+    ).toEqual({
       nested: {},
       keep: 1,
     });
@@ -420,10 +401,10 @@ describe("resolveConstantRefs — project scoping", () => {
     ).toBe("x=");
   });
 
-  it("scrubs an out-of-scope JSON whole-value reference to an empty object", () => {
+  it("drops an out-of-scope $extends ref (whole value)", () => {
     expect(
       resolveConstantRefs(
-        { "@const:proj-a-json": true },
+        { $extends: ["@const:proj-a-json"] },
         map,
         undefined,
         undefined,
@@ -432,10 +413,10 @@ describe("resolveConstantRefs — project scoping", () => {
     ).toEqual({});
   });
 
-  it("drops an out-of-scope JSON spread reference but keeps siblings", () => {
+  it("drops an out-of-scope $extends ref but keeps siblings", () => {
     expect(
       resolveConstantRefs(
-        { "@const:proj-a-json": true, keep: 1 },
+        { $extends: ["@const:proj-a-json"], keep: 1 },
         map,
         undefined,
         undefined,
