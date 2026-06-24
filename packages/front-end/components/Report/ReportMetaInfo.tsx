@@ -12,6 +12,7 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Button from "@/ui/Button";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useAuth } from "@/services/auth";
 import LinkButton from "@/ui/LinkButton";
 import SplitButton from "@/ui/SplitButton";
@@ -42,6 +43,7 @@ export default function ReportMetaInfo({
   experiment,
   datasource,
   mutate,
+  mutateExperiment,
   isOwner,
   isAdmin,
   canEdit,
@@ -55,6 +57,8 @@ export default function ReportMetaInfo({
   experiment?: Partial<ExperimentInterfaceStringDates>;
   datasource?: DataSourceInterfaceWithParams;
   mutate?: () => Promise<unknown> | unknown;
+  // lets the Pin / Unpin button refresh the underlying experiment
+  mutateExperiment?: () => Promise<unknown> | unknown;
   isOwner?: boolean;
   isAdmin?: boolean;
   canEdit?: boolean;
@@ -76,6 +80,18 @@ export default function ReportMetaInfo({
 
   const [generalModalOpen, setGeneralModalOpen] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
+
+  // track pin-as-official in-flight state
+  const [pinning, setPinning] = useState(false);
+  // the Pin button mutates the experiment, so gate it on canUpdateExperiment
+  // (not report-level canEdit). Server enforces this too; UI match prevents a 403 click.
+  const permissionsUtil = usePermissionsUtil();
+  const canPin = experiment?.id
+    ? permissionsUtil.canUpdateExperiment(
+        experiment as ExperimentInterfaceStringDates,
+        {},
+      )
+    : false;
 
   const [shareLevel, setShareLevel] = useState<ShareLevel>(
     report.shareLevel || "organization",
@@ -346,6 +362,53 @@ export default function ReportMetaInfo({
                   Edit Report
                 </LinkButton>
               )}
+              {/* Pin-as-official-readout button. Shown when the report
+                  is attached to an experiment the current user can edit. */}
+              {showEditControls && experiment?.id && canEdit && canPin
+                ? (() => {
+                    const isPinned = experiment?.pinnedReportId === report.id;
+                    const tooltipBody = isPinned
+                      ? "Removes this report as the experiment's official results. The experiment results view will revert to the live snapshot."
+                      : "Marks this report as the experiment's official results. Anyone viewing the experiment will see this report's results by default. Refreshes or edits to this report will update the official view.";
+                    return (
+                      <Tooltip body={tooltipBody}>
+                        <Button
+                          variant="outline"
+                          mr="2"
+                          loading={pinning}
+                          onClick={async () => {
+                            if (!experiment?.id) return;
+                            setPinning(true);
+                            try {
+                              await apiCall(`/experiment/${experiment.id}`, {
+                                method: "POST",
+                                body: JSON.stringify({
+                                  pinnedReportId: isPinned ? "" : report.id,
+                                }),
+                              });
+                              track(
+                                isPinned
+                                  ? "Experiment Official Readout: Unpin"
+                                  : "Experiment Official Readout: Pin",
+                                { source: "report page" },
+                              );
+                              await Promise.all([
+                                mutate?.(),
+                                mutateExperiment?.(),
+                              ]);
+                            } finally {
+                              setPinning(false);
+                            }
+                          }}
+                        >
+                          {isPinned
+                            ? "Remove official results"
+                            : "📌 Set as official results"}
+                        </Button>
+                      </Tooltip>
+                    );
+                  })()
+                : null}
               {showEditControls ? (
                 <div className="d-flex flex-column align-items-end">
                   {shareLevel === "public" ? (

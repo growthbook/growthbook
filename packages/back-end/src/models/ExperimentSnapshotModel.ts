@@ -14,6 +14,7 @@ import {
   LegacyExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
   SnapshotStatusSummary,
+  SnapshotHistoryEntry,
 } from "shared/types/experiment-snapshot";
 import {
   AnalysisKeyType,
@@ -1129,6 +1130,66 @@ export async function getLatestSnapshotStatus({
     return toSnapshotStatusSummary(mostRecent);
   }
   return null;
+}
+
+// Projection for the snapshot-history picker (pin a past snapshot).
+// Reads only the window dates + status fields — never the analysis blobs.
+const snapshotHistoryProjection = {
+  id: 1,
+  dateCreated: 1,
+  status: 1,
+  triggeredBy: 1,
+  type: 1,
+  dimension: 1,
+  "settings.startDate": 1,
+  "settings.endDate": 1,
+} as const;
+
+// Lists past successful snapshots for an experiment+phase+dimension, newest
+// first, for the "pin a past snapshot as official results" picker. Mirrors
+// getLatestSnapshotStatus's lean read but returns the full list (sans
+// report-type clones) instead of just the most recent row.
+export async function findSnapshotHistory({
+  context,
+  experiment,
+  phase,
+  dimension,
+  // ~daily refresh cadence, so 100 covers >3 months of snapshots — longer than
+  // any real experiment. Lean rows (dates + status, no analysis blobs) anyway.
+  limit = 100,
+}: {
+  context: Context;
+  experiment: string;
+  phase: number;
+  dimension?: string;
+  limit?: number;
+}): Promise<SnapshotHistoryEntry[]> {
+  const docs = await ExperimentSnapshotModel.find(
+    {
+      organization: context.org.id,
+      experiment,
+      phase,
+      dimension: dimension || null,
+      status: "success",
+      // never surface report-type snapshots (prior pinned-report clones)
+      type: { $ne: "report" },
+    },
+    snapshotHistoryProjection,
+    { sort: { dateCreated: -1 }, limit },
+  )
+    .lean<Partial<ExperimentSnapshotInterface>[]>()
+    .exec();
+
+  return docs.map((raw) => ({
+    id: raw.id ?? "",
+    dateCreated: raw.dateCreated ?? new Date(0),
+    status: raw.status ?? "success",
+    triggeredBy: raw.triggeredBy,
+    type: raw.type,
+    dimension: raw.dimension ?? null,
+    windowStartDate: raw.settings?.startDate ?? raw.dateCreated ?? new Date(0),
+    windowEndDate: raw.settings?.endDate ?? raw.dateCreated ?? new Date(0),
+  }));
 }
 
 // Gets latest snapshots per experiment-phase pair

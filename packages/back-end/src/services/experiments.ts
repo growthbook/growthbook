@@ -2887,6 +2887,11 @@ export async function toExperimentApiInterface(
         : experiment.nextScheduledStatusUpdate === undefined
           ? undefined
           : null,
+    // expose official-results pin state to external API consumers
+    pinnedReportId: experiment.pinnedReportId || undefined,
+    pinnedSnapshotId: experiment.pinnedSnapshotId || undefined,
+    pinnedReportBy: experiment.pinnedReportBy || undefined,
+    pinnedReportAt: experiment.pinnedReportAt?.toISOString(),
   };
   return apiExperiment;
 }

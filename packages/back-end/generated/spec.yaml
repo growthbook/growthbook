@@ -36721,6 +36721,19 @@ components:
                 - date
               additionalProperties: false
             - type: 'null'
+        pinnedReportId:
+          description: ID of the report pinned as this experiment's official results, if any.
+          type: string
+        pinnedSnapshotId:
+          description: ID of the snapshot frozen at pin time. Independent of the report's current snapshot so the official view stays stable. Server-derived.
+          type: string
+        pinnedReportBy:
+          description: User ID of whoever pinned the current official results. Server-derived.
+          type: string
+        pinnedReportAt:
+          description: Timestamp when the current official results were pinned. Server-derived.
+          format: date-time
+          type: string
       required:
         - id
         - trackingKey
@@ -37434,6 +37447,19 @@ components:
                     - date
                   additionalProperties: false
                 - type: 'null'
+            pinnedReportId:
+              description: ID of the report pinned as this experiment's official results, if any.
+              type: string
+            pinnedSnapshotId:
+              description: ID of the snapshot frozen at pin time. Independent of the report's current snapshot so the official view stays stable. Server-derived.
+              type: string
+            pinnedReportBy:
+              description: User ID of whoever pinned the current official results. Server-derived.
+              type: string
+            pinnedReportAt:
+              description: Timestamp when the current official results were pinned. Server-derived.
+              format: date-time
+              type: string
           required:
             - id
             - trackingKey

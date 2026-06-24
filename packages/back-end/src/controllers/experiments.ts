@@ -42,6 +42,8 @@ import { EventUserForResponseLocals } from "shared/types/events/event-types";
 import { CreateURLRedirectProps } from "shared/types/url-redirect";
 import isEqual from "lodash/isEqual";
 import { getMetricMap } from "back-end/src/models/MetricModel";
+// Used to derive the pinned snapshot id when pinning a report
+import { getReportById } from "back-end/src/models/ReportModel";
 import {
   AuthRequest,
   ResponseWithStatusAndError,
@@ -96,6 +98,7 @@ import {
 import {
   deleteSnapshotById,
   findSnapshotById,
+  findSnapshotHistory,
   getLatestSuccessfulSnapshot,
   getLatestSnapshotStatus,
   updateSnapshot,
@@ -1021,6 +1024,41 @@ export async function getSnapshotSummary(
   });
 }
 
+// Lists past successful snapshots for an experiment+phase so the UI can offer
+// "view a past snapshot" as an official-results source. Returns the lean
+// SnapshotHistoryEntry rows (window dates + status), never analysis blobs.
+// Mirrors getSnapshotSummary's access pattern.
+export async function getSnapshotHistory(
+  req: AuthRequest<null, { id: string; phase: string }, { dimension?: string }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const { id, phase } = req.params;
+  const dimension = req.query?.dimension || undefined;
+
+  const experimentObj = await getExperimentById(context, id);
+  if (!experimentObj) {
+    throw new Error("Experiment not found");
+  }
+  if (experimentObj.organization !== context.org.id) {
+    throw new Error("You do not have access to view this experiment");
+  }
+
+  const phaseNum = phase ? parseInt(phase) : experimentObj.phases.length - 1;
+
+  const snapshots = await findSnapshotHistory({
+    context,
+    experiment: experimentObj.id,
+    phase: phaseNum,
+    dimension,
+  });
+
+  res.status(200).json({
+    status: 200,
+    snapshots,
+  });
+}
+
 export async function getSnapshotById(
   req: AuthRequest<null, { id: string }>,
   res: Response,
@@ -1775,6 +1813,8 @@ export async function postExperiment(
     "defaultDashboardId",
     "customMetricSlices",
     "precomputedUnitDimensionIds",
+    // pinned "official results" report id
+    "pinnedReportId",
   ];
   let changes: Changeset = {};
 
@@ -1808,6 +1848,19 @@ export async function postExperiment(
   });
 
   normalizeStatusUpdateScheduleChanges(experiment, changes);
+
+  // Server-derive pinnedReportBy/pinnedReportAt/pinnedSnapshotId when
+  // pinnedReportId is set. Client can't supply these directly, and they stick to
+  // the pin event so the official view stays frozen even if the report is later
+  // edited or refreshed.
+  if ("pinnedReportId" in changes && changes.pinnedReportId) {
+    changes.pinnedReportBy = userId;
+    changes.pinnedReportAt = new Date();
+    const pinnedReport = await getReportById(org.id, changes.pinnedReportId);
+    if (pinnedReport?.type === "experiment-snapshot" && pinnedReport.snapshot) {
+      changes.pinnedSnapshotId = pinnedReport.snapshot;
+    }
+  }
 
   // Coerce lookbackOverride date value when type is "date"
   if (changes.lookbackOverride?.type === "date") {

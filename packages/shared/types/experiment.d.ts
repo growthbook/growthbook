@@ -196,12 +196,15 @@ export type ExperimentInterfaceStringDates = Omit<
   | "phases"
   | "nextScheduledStatusUpdate"
   | "statusUpdateSchedule"
+  | "pinnedReportAt"
 > & {
   dateCreated: string;
   dateUpdated: string;
   phases: ExperimentPhaseStringDates[];
   nextScheduledStatusUpdate?: NextScheduledStatusUpdateStringDates | null;
   statusUpdateSchedule?: StatusUpdateScheduleStringDates | null;
+  // pinnedReportAt is z.date() on the back-end but an ISO string on the wire
+  pinnedReportAt?: string;
 };
 
 export type HoldoutExperimentInterface = ExperimentInterfaceStringDates &

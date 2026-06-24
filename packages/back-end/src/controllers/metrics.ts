@@ -546,6 +546,8 @@ export const getMetricExperimentResults = async (
     ...e,
     dateCreated: e.dateCreated.toISOString(),
     dateUpdated: e.dateUpdated.toISOString(),
+    // stringify pinnedReportAt (official-results field) like other dates
+    pinnedReportAt: e.pinnedReportAt?.toISOString(),
     phases: e.phases.map((p) => ({
       ...p,
       dateStarted: p.dateStarted.toISOString(),
@@ -663,6 +665,8 @@ export const getMetricNorthstarData = async (
     ...e,
     dateCreated: e.dateCreated.toISOString(),
     dateUpdated: e.dateUpdated.toISOString(),
+    // stringify pinnedReportAt (official-results field) like other dates
+    pinnedReportAt: e.pinnedReportAt?.toISOString(),
     phases: e.phases.map((p) => ({
       ...p,
       dateStarted: p.dateStarted.toISOString(),
