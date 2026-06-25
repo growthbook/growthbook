@@ -463,6 +463,9 @@ export const getContextualBanditResultsValidator = {
           responses: z.array(z.unknown()),
           leaf_map: z.array(z.unknown()).optional(),
           leaf_stats: z.array(z.unknown()).optional(),
+          // Total within-tree SSE at each stage of greedy tree growth (root,
+          // after the first split, after the second, ...): [{ numSplits, totalSse }].
+          sse_trajectory: z.array(z.unknown()).optional(),
         })
         .nullable(),
       overallWeights: z
@@ -480,6 +483,14 @@ export const getContextualBanditResultsValidator = {
       results: z
         .object({
           attributes: z.array(z.string()),
+          // Total within-tree SSE at each stage of greedy tree growth, ordered
+          // root-first (numSplits 0 = before the first split).
+          sseTrajectory: z.array(
+            z.object({
+              numSplits: z.number().int().nonnegative(),
+              totalSse: z.number(),
+            }),
+          ),
           overall: z.object({
             variations: z.array(
               z.object({

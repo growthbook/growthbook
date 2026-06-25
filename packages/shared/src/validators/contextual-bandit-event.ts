@@ -19,6 +19,15 @@ export type ContextualLeafStatsEntryInterface = z.infer<
   typeof contextualLeafStatsEntryValidator
 >;
 
+/** Total within-tree SSE at each stage of greedy tree growth (root, after 1st split, ...). */
+export const contextualSseTrajectoryEntryValidator = z.object({
+  numSplits: z.number().int().nonnegative(),
+  totalSse: z.number(),
+});
+export type ContextualSseTrajectoryEntryInterface = z.infer<
+  typeof contextualSseTrajectoryEntryValidator
+>;
+
 /** Mirrors gbstats `ContextualBanditResponse`. */
 export const contextualBanditResponseValidator = z.object({
   context: z.record(z.string(), z.unknown()),
@@ -46,6 +55,7 @@ export const contextualBanditEventValidator = baseSchema
     responses: z.array(contextualBanditResponseValidator),
     leaf_map: z.array(contextualLeafMapEntryValidator).optional(),
     leaf_stats: z.array(contextualLeafStatsEntryValidator).optional(),
+    sse_trajectory: z.array(contextualSseTrajectoryEntryValidator).optional(),
     weightsWereUpdated: z.boolean(),
     /**
      * Degrees of freedom of the contextual SRM test for the snapshot run that

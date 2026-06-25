@@ -13429,6 +13429,9 @@ paths:
                           leaf_stats:
                             type: array
                             items: {}
+                          sse_trajectory:
+                            type: array
+                            items: {}
                         required:
                           - attributes
                           - responses
@@ -13459,6 +13462,20 @@ paths:
                             type: array
                             items:
                               type: string
+                          sseTrajectory:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                numSplits:
+                                  type: integer
+                                  minimum: 0
+                                totalSse:
+                                  type: number
+                              required:
+                                - numSplits
+                                - totalSse
+                              additionalProperties: false
                           overall:
                             type: object
                             properties:
@@ -13590,6 +13607,7 @@ paths:
                               additionalProperties: false
                         required:
                           - attributes
+                          - sseTrajectory
                           - overall
                           - leaves
                         additionalProperties: false

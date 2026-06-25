@@ -203,12 +203,25 @@ export type ContextualLeafStatsEntry = {
   sampleVariances?: number[] | null;
 };
 
+/**
+ * Total within-tree SSE captured at each stage of greedy regression-tree
+ * growth: index 0 is the root (before the first split), the next entry is the
+ * total SSE after the first split, then after the second split, etc.
+ */
+export type ContextualSseTrajectoryEntry = {
+  /** Number of splits applied so far. 0 = root, before the first split. */
+  numSplits: number;
+  /** Total SSE summed across every leaf of the tree at this stage. */
+  totalSse: number;
+};
+
 /** Full contextual bandit output for a decision-metric run (mirrors gbstats `ContextualBanditResult`). */
 export type ContextualBanditSnapshot = {
   attributes: string[];
   responses: ContextualBanditResponseSnapshot[];
   leaf_map?: ContextualLeafMapEntry[];
   leaf_stats?: ContextualLeafStatsEntry[];
+  sse_trajectory?: ContextualSseTrajectoryEntry[];
 };
 
 export type MultipleExperimentMetricAnalysis = {

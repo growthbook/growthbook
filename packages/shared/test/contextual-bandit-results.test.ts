@@ -60,6 +60,10 @@ const snapshot: ContextualBanditSnapshot = {
       sampleVariances: [0.05, 0.06],
     },
   ],
+  sse_trajectory: [
+    { numSplits: 0, totalSse: 200 },
+    { numSplits: 1, totalSse: 150 },
+  ],
 };
 
 describe("buildContextualBanditResultsView", () => {
@@ -94,6 +98,33 @@ describe("buildContextualBanditResultsView", () => {
     // Leaf-aggregated (pooled) stats come from leaf_stats.
     expect(leaf.variations.map((v) => v.users)).toEqual([800, 760]);
     expect(leaf.variations.map((v) => v.mean)).toEqual([0.121, 0.149]);
+  });
+
+  it("exposes the total-SSE trajectory root-first", () => {
+    expect(view.sseTrajectory).toEqual([
+      { numSplits: 0, totalSse: 200 },
+      { numSplits: 1, totalSse: 150 },
+    ]);
+  });
+
+  it("defaults sseTrajectory to an empty array when absent", () => {
+    const noSse = buildContextualBanditResultsView(
+      {
+        attributes: ["country"],
+        responses: [
+          {
+            context: { country: "US" },
+            sampleSizePerVariation: [10, 10],
+            updatedWeights: [0.5, 0.5],
+            updateMessage: "Successfully updated",
+            error: null,
+          },
+        ],
+        leaf_map: [{ context: { country: "US" }, leafId: 0 }],
+      },
+      variations,
+    );
+    expect(noSse.sseTrajectory).toEqual([]);
   });
 
   it("keeps per-context means distinct within a leaf", () => {

@@ -83,6 +83,7 @@ export async function getContextualBanditResultsForUi(
         responses: latestEvent.responses,
         leaf_map: latestEvent.leaf_map,
         leaf_stats: latestEvent.leaf_stats,
+        sse_trajectory: latestEvent.sse_trajectory,
       }
     : null;
 
@@ -309,6 +310,7 @@ export async function persistContextualBanditEvent(
     responses: result.responses,
     leaf_map: result.leaf_map,
     leaf_stats: result.leaf_stats,
+    sse_trajectory: result.sse_trajectory,
     weightsWereUpdated,
     ...(result.srm ? { degreesOfFreedom: result.srm.degreesOfFreedom } : {}),
   });
