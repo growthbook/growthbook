@@ -1114,6 +1114,26 @@ describe("getEffectiveRolesForProject", () => {
     ]);
   });
 
+  it("drops the member's global role when only a team has an explicit project role", () => {
+    const result = getEffectiveRolesForProject(
+      { role: "admin", teams: ["team_1"] },
+      "prj_1",
+      [
+        team("team_1", "Restricted", "readonly", [
+          {
+            project: "prj_1",
+            role: "noaccess",
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        ]),
+      ],
+    );
+    expect(result).toEqual([
+      { role: "noaccess", sourceType: "team", sourceName: "Restricted" },
+    ]);
+  });
+
   it("resolves global roles (user + teams) when project is null", () => {
     const result = getEffectiveRolesForProject(
       {
