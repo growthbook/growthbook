@@ -490,10 +490,12 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
   // "stop" = model produced invalid/prose output), the underlying Zod cause,
   // and a bounded sample of the raw text the model actually returned.
   const noObjectDiag = (e: NoObjectGeneratedError) => ({
+    // Spread caller context FIRST so the authoritative error fields below
+    // always win — a colliding logContext key can't mask the real signal.
+    ...(logContext ?? {}),
     finishReason: e.finishReason,
     cause: e.cause instanceof Error ? e.cause.message : String(e.cause ?? ""),
     textSample: (e.text ?? "").slice(0, 2000),
-    ...(logContext ?? {}),
   });
 
   let retriedTokens = 0;
