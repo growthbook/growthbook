@@ -7,6 +7,7 @@ import {
   ReactNode,
   ReactElement,
 } from "react";
+import { PiCaretLeft, PiCaretRight } from "react-icons/pi";
 import clsx from "clsx";
 
 const Carousel: FC<{
@@ -59,10 +60,9 @@ const Carousel: FC<{
             setActive((current + num - 1) % num);
           }}
         >
-          <span
-            className="carousel-control-prev-icon"
-            aria-hidden="true"
-          ></span>
+          <span className="carousel-control-prev-icon" aria-hidden="true">
+            <PiCaretLeft />
+          </span>
           <span className="sr-only">Previous</span>
         </a>
       ) : (
@@ -77,10 +77,9 @@ const Carousel: FC<{
             setActive((current + 1) % num);
           }}
         >
-          <span
-            className="carousel-control-next-icon"
-            aria-hidden="true"
-          ></span>
+          <span className="carousel-control-next-icon" aria-hidden="true">
+            <PiCaretRight />
+          </span>
           <span className="sr-only">Next</span>
         </a>
       ) : (
