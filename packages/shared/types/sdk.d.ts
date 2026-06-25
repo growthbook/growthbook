@@ -15,7 +15,7 @@ export type ExperimentMetadata = {
 // FeatureRule extended with optional metadata for experiment-ref rules
 export type FeatureDefinitionRule = FeatureRule & {
   metadata?: ExperimentMetadata;
-  isContextualBandit?: boolean;
+  type?: "standard" | "multi-armed-bandit" | "contextual-bandit";
   attributesRequired?: string[];
   contexts?: {
     leafId: number;

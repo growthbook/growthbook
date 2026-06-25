@@ -953,7 +953,9 @@ export function getFeatureDefinition({
             capabilities === undefined ||
             capabilities.includes("contextualBandits");
           if (cbCapable) {
-            rule.isContextualBandit = true;
+            // Experiment subtype discriminator on the wire. The SDK keys CB
+            // behavior off `type === "contextual-bandit"`.
+            rule.type = "contextual-bandit";
             rule.attributesRequired = cb.contextualAttributes;
             rule.contexts = (cb.currentLeafWeights ?? []).map((lw) => ({
               leafId: lw.leafId,

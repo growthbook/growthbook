@@ -22,7 +22,7 @@ function cbFeatures(overrides: Record<string, unknown> = {}) {
           // variation 1 proves the catch-all leaf weights were used instead.
           weights: [1, 0],
           meta: [{ key: "0" }, { key: "1" }],
-          isContextualBandit: true,
+          type: "contextual-bandit" as const,
           banditVersion: 7,
           attributesRequired: ["plan"],
           contexts: [

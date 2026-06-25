@@ -48,7 +48,12 @@ export type FeatureRule<T = any> = {
     experiment: Experiment<T>;
     result: Result<T>;
   }>;
-  isContextualBandit?: boolean;
+  // Experiment subtype discriminator, flattened onto the wire. Only
+  // "contextual-bandit" is currently emitted (and only for SDKs that advertise
+  // the contextualBandits capability); standard / multi-armed-bandit rules omit
+  // it. The SDK treats anything other than "contextual-bandit" as a normal
+  // weighted experiment.
+  type?: "standard" | "multi-armed-bandit" | "contextual-bandit";
   attributesRequired?: string[];
   contexts?: {
     leafId: number;
