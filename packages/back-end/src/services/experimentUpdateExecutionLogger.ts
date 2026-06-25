@@ -27,9 +27,11 @@ export type ExperimentUpdateLogPlan = {
 export type ExperimentUpdateCovariateSourceLog = {
   groupId: string;
   factTableId: string | null;
-  path: "aggregated" | "legacy";
+  path: "aggregated" | "legacy" | "mixed";
   aggregatedTableFullName: string | null;
   reason: CovariateInsertPathReason;
+  // For path === "mixed": how many RA metrics fell back to the legacy raw scan.
+  uncoveredMetricCount?: number;
 };
 
 type ExperimentUpdateExecutionLog = {

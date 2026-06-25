@@ -14,6 +14,7 @@ import {
   foldAggregatedFactTableCoverage,
 } from "back-end/src/queryRunners/AggregatedFactTableQueryRunner";
 import { getAggregatedFactTableMetrics } from "back-end/src/services/aggregatedFactTables";
+import { partitionMetricsByRegistryCoverage } from "back-end/src/integrations/sql/fact-metrics/resolve-covariate-insert-path";
 import { bigQueryDialect } from "back-end/src/integrations/dialects/bigquery";
 import { factMetricFactory } from "./factories/FactMetric.factory";
 import { factTableFactory } from "./factories/FactTable.factory";
@@ -565,6 +566,95 @@ describe("buildAggregatedFactTableSchemaState", () => {
       const entry = metricState.find((m) => m.metricId === metric.id);
       expect(entry?.slices).toEqual([]);
     }
+  });
+});
+
+describe("partitionMetricsByRegistryCoverage", () => {
+  const factTable = factTableFactory.build({
+    id: FT_ID,
+    sql: "SELECT * FROM events",
+    eventName: "purchase",
+    columns: [
+      {
+        column: "country",
+        name: "Country",
+        description: "",
+        datatype: "string",
+        numberFormat: "",
+        deleted: false,
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        isAutoSliceColumn: true,
+        autoSlices: ["US", "UK"],
+      },
+    ],
+  });
+  const baseMetric = factMetricFactory.build({
+    id: "m1",
+    metricType: "mean",
+    numerator: { factTableId: FT_ID, column: "value", aggregation: "sum" },
+    metricAutoSlices: ["country"],
+  });
+  const singleDimSlices = getAutoSliceMetrics({
+    metric: baseMetric,
+    factTable,
+  });
+  // Registry materializes base + single-dim auto-slices only.
+  const { metricState } = buildAggregatedFactTableSchemaState({
+    factTable,
+    metrics: [baseMetric, ...singleDimSlices],
+  });
+
+  it("classifies a compound customMetricSlice as uncovered-slice without forcing legacy for the rest", () => {
+    // Compound slice (two dims) — never in baseState.slices since the agg
+    // builder only materializes single-dim metricAutoSlices.
+    const compoundSlice = {
+      ...baseMetric,
+      id: `${baseMetric.id}?dim:country=US&dim:platform=ios`,
+    };
+
+    const result = partitionMetricsByRegistryCoverage(
+      [baseMetric, ...singleDimSlices, compoundSlice],
+      FT_ID,
+      metricState,
+    );
+
+    expect(result.coveredMetricIds).toEqual(
+      expect.arrayContaining([
+        baseMetric.id,
+        ...singleDimSlices.map((m) => m.id),
+      ]),
+    );
+    expect(result.uncoveredMetricIds).toEqual([compoundSlice.id]);
+    expect(result.uncoveredSliceMetricIds).toEqual([compoundSlice.id]);
+  });
+
+  it("classifies a metric whose base is absent from the registry as uncovered-base", () => {
+    const otherBase = factMetricFactory.build({
+      id: "m2",
+      metricType: "mean",
+      numerator: { factTableId: FT_ID, column: "count", aggregation: "sum" },
+    });
+
+    const result = partitionMetricsByRegistryCoverage(
+      [baseMetric, otherBase],
+      FT_ID,
+      metricState,
+    );
+
+    expect(result.coveredMetricIds).toEqual([baseMetric.id]);
+    expect(result.uncoveredMetricIds).toEqual([otherBase.id]);
+    expect(result.uncoveredSliceMetricIds).toEqual([]);
+  });
+
+  it("returns all-covered when every metric is in the registry", () => {
+    const result = partitionMetricsByRegistryCoverage(
+      [baseMetric, ...singleDimSlices],
+      FT_ID,
+      metricState,
+    );
+    expect(result.uncoveredMetricIds).toEqual([]);
+    expect(result.coveredMetricIds.length).toBe(1 + singleDimSlices.length);
   });
 });
 
