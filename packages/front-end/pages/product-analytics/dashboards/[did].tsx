@@ -205,11 +205,11 @@ function SingleDashboardPage() {
             filters={dashboard.filters}
             enableAutoUpdates={dashboard.enableAutoUpdates}
             setBlock={canEdit ? memoizedSetBlock : undefined}
-            onFiltersChange={async (filters) => {
+            onFiltersChange={async (filters, blocks) => {
               await submitDashboard({
                 method: "PUT",
                 dashboardId: dashboard.id,
-                data: { filters },
+                data: { filters, blocks },
               });
             }}
             projects={dashboard.projects ? dashboard.projects : []}

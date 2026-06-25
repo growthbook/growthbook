@@ -67,7 +67,7 @@ export default function DashboardSnapshotProvider({
 }: {
   experiment?: ExperimentInterfaceStringDates;
   dashboard?: DashboardInterface;
-  mutateDefinitions: () => void;
+  mutateDefinitions: () => Promise<unknown> | void;
   children: ReactNode;
 }) {
   const { apiCall } = useAuth();
@@ -231,10 +231,10 @@ export default function DashboardSnapshotProvider({
     } catch (e) {
       setRefreshError(e.message);
     } finally {
-      mutateDefinitions();
-      mutateDefaultSnapshot();
-      mutateAllSnapshots();
-      mutateSavedQueries();
+      await mutateDefinitions();
+      await mutateDefaultSnapshot();
+      await mutateAllSnapshots();
+      await mutateSavedQueries();
     }
   };
 

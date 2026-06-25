@@ -197,7 +197,7 @@ export default function DashboardUpdateDisplay({
               refreshing ||
               !dashboardId ||
               dashboardId === "new" ||
-              (!allQueries.length && savedQueriesMap.size === 0)
+              (!needsUpdate && !allQueries.length && savedQueriesMap.size === 0)
             }
             icon={refreshing ? <LoadingSpinner /> : <PiArrowClockwise />}
             iconPosition="left"

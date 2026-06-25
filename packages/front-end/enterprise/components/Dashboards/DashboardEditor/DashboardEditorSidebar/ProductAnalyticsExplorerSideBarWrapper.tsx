@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import {
   DashboardBlockInterfaceOrData,
+  DashboardInterface,
   MetricExplorationBlockInterface,
   FactTableExplorationBlockInterface,
   DataSourceExplorationBlockInterface,
@@ -12,6 +13,7 @@ import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/Exp
 export default function ProductAnalyticsExplorerSideBarWrapper({
   block,
   setBlock,
+  dashboardFilters,
   saveAndCloseTrigger,
   onSaveAndClose,
 }: {
@@ -27,6 +29,7 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
       | DataSourceExplorationBlockInterface
     >
   >;
+  dashboardFilters?: DashboardInterface["filters"];
   saveAndCloseTrigger?: number;
   onSaveAndClose?: () => void;
 }) {
@@ -40,10 +43,15 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
     "explorerAnalysisId" in block ? block.explorerAnalysisId : undefined;
 
   useEffect(() => {
-    if (needsUpdate && !isEqual(block.config, draftExploreState)) {
+    const nextConfig =
+      block.useDashboardFilters === true && dashboardFilters?.dateRange
+        ? { ...draftExploreState, dateRange: block.config.dateRange }
+        : draftExploreState;
+
+    if (needsUpdate && !isEqual(block.config, nextConfig)) {
       setBlock({
         ...block,
-        config: draftExploreState,
+        config: nextConfig,
         // Only invalidate the cached analysis when the change requires new data
         explorerAnalysisId: needsFetch ? "" : block.explorerAnalysisId,
       } as
@@ -51,7 +59,14 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
         | FactTableExplorationBlockInterface
         | DataSourceExplorationBlockInterface);
     }
-  }, [needsFetch, needsUpdate, setBlock, block, draftExploreState]);
+  }, [
+    needsFetch,
+    needsUpdate,
+    setBlock,
+    block,
+    draftExploreState,
+    dashboardFilters,
+  ]);
 
   // When Save & Close is requested and the block is stale, run the analysis first.
   useEffect(() => {
@@ -68,5 +83,20 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
     }
   }, [explorerAnalysisId]);
 
-  return <ExplorerSideBar renderingInDashboardSidebar />;
+  return (
+    <ExplorerSideBar
+      renderingInDashboardSidebar
+      dashboardDateRange={dashboardFilters?.dateRange}
+      useDashboardFilters={block.useDashboardFilters === true}
+      onUseDashboardFiltersChange={(useDashboardFilters) => {
+        setBlock({
+          ...block,
+          useDashboardFilters,
+        } as
+          | MetricExplorationBlockInterface
+          | FactTableExplorationBlockInterface
+          | DataSourceExplorationBlockInterface);
+      }}
+    />
+  );
 }

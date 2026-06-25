@@ -15,7 +15,6 @@ import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/Exp
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import GraphTypeSelector from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/GraphTypeSelector";
-import { ExplorerDateRangePicker } from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/DateRangePicker";
 import GranularitySelector from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/GranularitySelector";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Callout from "@/ui/Callout";
@@ -27,6 +26,11 @@ import {
 import SaveToDashboardModal from "@/enterprise/components/ProductAnalytics/SaveToDashboardModal";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import track from "@/services/track";
+import Switch from "@/ui/Switch";
+import {
+  DateRangePicker,
+  ExplorerDateRangePicker,
+} from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/DateRangePicker";
 import MetricTabContent from "./MetricTabContent";
 import FactTableTabContent from "./FactTableTabContent";
 import DatasourceTabContent from "./DatasourceTabContent";
@@ -36,10 +40,16 @@ import DatasourceConfigurator from "./DatasourceConfigurator";
 
 interface Props {
   renderingInDashboardSidebar?: boolean;
+  dashboardDateRange?: ExplorationConfig["dateRange"];
+  useDashboardFilters?: boolean;
+  onUseDashboardFiltersChange?: (useDashboardFilters: boolean) => void;
 }
 
 export default function ExplorerSideBar({
   renderingInDashboardSidebar = false,
+  dashboardDateRange,
+  useDashboardFilters = false,
+  onUseDashboardFiltersChange,
 }: Props) {
   const [showSaveToDashboardModal, setShowSaveToDashboardModal] =
     useState(false);
@@ -219,7 +229,31 @@ export default function ExplorerSideBar({
           <Flex gap="2" wrap="wrap">
             <Flex direction="column" gap="2" style={{ minWidth: 0 }}>
               <Text weight="medium">Date Range</Text>
-              <ExplorerDateRangePicker shouldWrap />
+              {dashboardDateRange ? (
+                <Switch
+                  size="1"
+                  value={useDashboardFilters}
+                  onChange={(checked) => {
+                    onUseDashboardFiltersChange?.(checked);
+                  }}
+                  label="Use dashboard filters"
+                  description={
+                    useDashboardFilters
+                      ? "This block uses the dashboard date range."
+                      : "This block uses its own date range."
+                  }
+                />
+              ) : null}
+              {dashboardDateRange && useDashboardFilters ? (
+                <DateRangePicker
+                  value={dashboardDateRange}
+                  onChange={() => {}}
+                  shouldWrap
+                  disabled
+                />
+              ) : (
+                <ExplorerDateRangePicker shouldWrap />
+              )}
             </Flex>
             {["line", "area", "timeseries-table"].includes(
               draftExploreState.chartType,

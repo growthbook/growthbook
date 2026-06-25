@@ -1,4 +1,4 @@
-import { useContext, useMemo, useState } from "react";
+import { useContext, useMemo, useRef, useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import {
   canAutoRefreshDashboard,
@@ -6,6 +6,7 @@ import {
   DashboardBlockInterfaceOrData,
   DashboardInterface,
   getDashboardFilterApplicability,
+  isDashboardFilterSupportedBlock,
 } from "shared/enterprise";
 import Button from "@/ui/Button";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -22,12 +23,27 @@ const DEFAULT_DASHBOARD_DATE_RANGE: NonNullable<
   endDate: null,
 };
 
+function hasCompleteDateRange(
+  dateRange: NonNullable<DashboardInterface["filters"]>["dateRange"],
+): boolean {
+  if (dateRange.predefined === "customDateRange") {
+    return Boolean(dateRange.startDate && dateRange.endDate);
+  }
+  if (dateRange.predefined === "customLookback") {
+    return Boolean(dateRange.lookbackValue && dateRange.lookbackUnit);
+  }
+  return true;
+}
+
 interface Props {
   blocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
   filters: DashboardInterface["filters"];
   canEdit: boolean;
   isEditing: boolean;
-  onFiltersChange: (filters: DashboardInterface["filters"]) => Promise<void>;
+  onFiltersChange: (
+    filters: DashboardInterface["filters"],
+    blocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[],
+  ) => Promise<void>;
   setNeedsUpdate: (needsUpdate: boolean) => void;
 }
 
@@ -40,6 +56,10 @@ export default function DashboardFilterBar({
   setNeedsUpdate,
 }: Props) {
   const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
+  const queuedFiltersRef = useRef<{
+    filters: DashboardInterface["filters"];
+  } | null>(null);
   const { datasources } = useDefinitions();
   const { updateAllSnapshots } = useContext(DashboardSnapshotContext);
 
@@ -54,22 +74,68 @@ export default function DashboardFilterBar({
   const hasDateFilter = Boolean(filters?.dateRange);
   const canModifyFilters = canEdit && isEditing;
 
-  const persistFilters = async (nextFilters: DashboardInterface["filters"]) => {
-    if (saving) return;
-
+  const persistFiltersNow = async (
+    nextFilters: DashboardInterface["filters"],
+  ) => {
     setSaving(true);
-    await onFiltersChange(nextFilters);
+    savingRef.current = true;
+    try {
+      const shouldOptInSupportedBlocks = Boolean(
+        !filters?.dateRange && nextFilters?.dateRange,
+      );
+      const nextBlocks = shouldOptInSupportedBlocks
+        ? blocks.map((block) =>
+            isDashboardFilterSupportedBlock(block)
+              ? {
+                  ...block,
+                  useDashboardFilters: true,
+                }
+              : block,
+          )
+        : blocks;
+      await onFiltersChange(
+        nextFilters,
+        shouldOptInSupportedBlocks ? nextBlocks : undefined,
+      );
 
-    if (applicability.optedInBlocks.length === 0) {
-      setNeedsUpdate(false);
-    } else if (canAutoRefreshDashboard({ blocks }, datasourceMap)) {
-      setNeedsUpdate(false);
-      await updateAllSnapshots();
-    } else {
-      setNeedsUpdate(true);
+      const nextApplicability = shouldOptInSupportedBlocks
+        ? getDashboardFilterApplicability({ blocks: nextBlocks })
+        : applicability;
+      const nextDatasourceMap = datasourceMap;
+
+      if (
+        !nextFilters?.dateRange ||
+        !hasCompleteDateRange(nextFilters.dateRange) ||
+        nextApplicability.optedInBlocks.length === 0
+      ) {
+        setNeedsUpdate(false);
+      } else if (
+        canAutoRefreshDashboard({ blocks: nextBlocks }, nextDatasourceMap)
+      ) {
+        setNeedsUpdate(false);
+        await updateAllSnapshots();
+      } else {
+        setNeedsUpdate(true);
+      }
+    } finally {
+      setSaving(false);
+      savingRef.current = false;
+    }
+  };
+
+  const persistFilters = async (nextFilters: DashboardInterface["filters"]) => {
+    if (savingRef.current) {
+      queuedFiltersRef.current = { filters: nextFilters };
+      return;
     }
 
-    setSaving(false);
+    await persistFiltersNow(nextFilters);
+
+    while (queuedFiltersRef.current) {
+      const { filters: queuedFilters } = queuedFiltersRef.current;
+      queuedFiltersRef.current = null;
+      await persistFiltersNow(queuedFilters);
+    }
   };
 
   return (

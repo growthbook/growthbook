@@ -3,6 +3,7 @@ import {
   MetricExplorationBlockInterface,
   FactTableExplorationBlockInterface,
   DataSourceExplorationBlockInterface,
+  getEffectiveExplorationConfig,
 } from "shared/enterprise";
 import { ProductAnalyticsExploration } from "shared/validators";
 import { QueryInterface } from "shared/types/query";
@@ -15,6 +16,7 @@ import { BlockProps } from ".";
 
 export default function ProductAnalyticsExplorerBlock({
   block,
+  dashboardFilters,
 }: BlockProps<
   | MetricExplorationBlockInterface
   | FactTableExplorationBlockInterface
@@ -43,8 +45,11 @@ export default function ProductAnalyticsExplorerBlock({
     );
   }
 
+  const submittedExploreState =
+    data.exploration.config ??
+    getEffectiveExplorationConfig(block, { filters: dashboardFilters });
   const shouldShowTable = ["table", "timeseries-table"].includes(
-    block.config?.chartType ?? "",
+    submittedExploreState.chartType,
   );
 
   return (
@@ -53,7 +58,7 @@ export default function ProductAnalyticsExplorerBlock({
         <ExplorerDataTable
           exploration={data.exploration}
           error={data.exploration.error ?? error?.message ?? null}
-          submittedExploreState={block.config ?? data.exploration.config}
+          submittedExploreState={submittedExploreState}
           loading={isLoading}
           hasChart={false}
           query={data?.query ?? null}
@@ -63,7 +68,7 @@ export default function ProductAnalyticsExplorerBlock({
           exploration={data?.exploration}
           error={data?.exploration.error || error?.message || null}
           loading={isLoading}
-          submittedExploreState={block.config ?? data?.exploration.config}
+          submittedExploreState={submittedExploreState}
         />
       )}
     </Flex>

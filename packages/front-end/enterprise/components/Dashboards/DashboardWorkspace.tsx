@@ -452,15 +452,21 @@ export default function DashboardWorkspace({
                   : dashboard.nextUpdate
               }
               dashboardLastUpdated={dashboard.lastUpdated}
-              onFiltersChange={async (filters) => {
+              onFiltersChange={async (filters, updatedBlocks) => {
                 setSaving(true);
                 setSaveError(undefined);
                 try {
                   await submitDashboard({
                     method: "PUT",
                     dashboardId: dashboard.id,
-                    data: { filters },
+                    data: { filters, blocks: updatedBlocks },
                   });
+                  if (updatedBlocks) {
+                    setBlocks(updatedBlocks);
+                    updateTemporaryDashboard?.({
+                      blocks: updatedBlocks,
+                    });
+                  }
                 } catch (e) {
                   setSaveError(e.message);
                   throw e;
@@ -571,6 +577,7 @@ export default function DashboardWorkspace({
               experiment={experiment}
               projects={dashboard.projects || []}
               isGeneralDashboard={isGeneralDashboard}
+              dashboardFilters={dashboard.filters}
               open={editSidebarExpanded}
               cancel={clearEditingState}
               submit={() => {

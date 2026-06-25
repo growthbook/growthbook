@@ -4,6 +4,9 @@ import {
   DashboardBlockInterface,
   DashboardBlockInterfaceOrData,
   blockHasFieldOfType,
+  blockUsesDashboardFilters,
+  DashboardInterface,
+  isDashboardFilterSupportedBlock,
 } from "shared/enterprise";
 import { Flex, IconButton, Text } from "@radix-ui/themes";
 import { PiDotsSixVertical, PiPencilSimpleFill } from "react-icons/pi";
@@ -37,6 +40,7 @@ import {
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useApi from "@/hooks/useApi";
 import Field from "@/components/Forms/Field";
+import Badge from "@/ui/Badge";
 import { BLOCK_TYPE_INFO } from "@/enterprise/components/Dashboards/DashboardEditor";
 import { isSubmittableConfig } from "@/enterprise/components/ProductAnalytics/util";
 import MarkdownBlock from "./MarkdownBlock";
@@ -79,6 +83,7 @@ type ObjectProps<Block> = {
 export type BlockProps<T extends DashboardBlockInterface> = {
   isTabActive: boolean;
   block: DashboardBlockInterfaceOrData<T>;
+  dashboardFilters?: DashboardInterface["filters"];
   setBlock: undefined | React.Dispatch<DashboardBlockInterfaceOrData<T>>;
   snapshot: ExperimentSnapshotInterface;
   analysis: ExperimentSnapshotAnalysis;
@@ -90,6 +95,7 @@ export type BlockProps<T extends DashboardBlockInterface> = {
 interface Props<DashboardBlock extends DashboardBlockInterface> {
   isTabActive: boolean;
   block: DashboardBlockInterfaceOrData<DashboardBlock>;
+  dashboardFilters?: DashboardInterface["filters"];
   blockIndex?: number;
   isFocused: boolean;
   isEditing: boolean;
@@ -127,6 +133,7 @@ const BLOCK_COMPONENTS: {
 export default function DashboardBlock<T extends DashboardBlockInterface>({
   isTabActive,
   block,
+  dashboardFilters,
   blockIndex,
   isEditing,
   isFocused,
@@ -167,6 +174,11 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
   );
 
   const [editTitle, setEditTitle] = useState(false);
+  const hasDashboardDateFilter = Boolean(dashboardFilters?.dateRange);
+  const shouldShowUnsupportedDashboardFilterBadge =
+    hasDashboardDateFilter &&
+    !isDashboardFilterSupportedBlock(block) &&
+    block.type !== "markdown";
 
   // Type guards for sql-explorer blocks
   const isSqlExplorerWithDataVizIndex = (
@@ -498,6 +510,34 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
                 <PiPencilSimpleFill />
               </a>
             )}
+            {hasDashboardDateFilter &&
+            isDashboardFilterSupportedBlock(block) ? (
+              blockUsesDashboardFilters(block) ? (
+                <Badge
+                  label="Dashboard filters"
+                  color="violet"
+                  variant="soft"
+                  size="xs"
+                  ml="2"
+                />
+              ) : (
+                <Badge
+                  label="Uses block filters"
+                  color="gray"
+                  variant="soft"
+                  size="xs"
+                  ml="2"
+                />
+              )
+            ) : shouldShowUnsupportedDashboardFilterBadge ? (
+              <Badge
+                label="Not affected by dashboard date filter"
+                color="gray"
+                variant="outline"
+                size="xs"
+                ml="2"
+              />
+            ) : null}
 
             <div style={{ flexGrow: 1, marginRight: 30 }} />
           </>
@@ -618,6 +658,7 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
           <BlockComponent
             isTabActive={isTabActive}
             block={block}
+            dashboardFilters={dashboardFilters}
             setBlock={setBlock}
             isEditing={isEditing}
             snapshot={

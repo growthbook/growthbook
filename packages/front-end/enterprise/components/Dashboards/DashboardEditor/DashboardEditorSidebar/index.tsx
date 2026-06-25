@@ -3,6 +3,7 @@ import {
   DashboardBlockInterfaceOrData,
   DashboardBlockInterface,
   DashboardBlockType,
+  DashboardInterface,
   dashboardBlockHasIds,
 } from "shared/enterprise";
 import React, { useMemo, useState } from "react";
@@ -56,6 +57,7 @@ interface Props {
   projects: string[];
   experiment: ExperimentInterfaceStringDates | null;
   isGeneralDashboard?: boolean;
+  dashboardFilters?: DashboardInterface["filters"];
   open: boolean;
   cancel: () => void;
   submit: () => void;
@@ -81,6 +83,7 @@ export default function DashboardEditorSidebar({
   dashboardId,
   experiment,
   isGeneralDashboard = false,
+  dashboardFilters,
   open,
   cancel,
   submit,
@@ -247,6 +250,7 @@ export default function DashboardEditorSidebar({
               dashboardId={dashboardId}
               experiment={experiment}
               projects={projects}
+              dashboardFilters={dashboardFilters}
               cancel={cancel}
               submit={submit}
               block={stagedBlock}

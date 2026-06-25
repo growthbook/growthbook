@@ -343,7 +343,10 @@ interface Props {
         index: number,
         block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
       ) => void);
-  onFiltersChange?: (filters: DashboardInterface["filters"]) => Promise<void>;
+  onFiltersChange?: (
+    filters: DashboardInterface["filters"],
+    blocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[],
+  ) => Promise<void>;
   mutate: () => void;
   switchToExperimentView?: () => void;
   isGeneralDashboard: boolean;
@@ -453,6 +456,7 @@ function DashboardEditor({
       <DashboardBlock
         isTabActive={isTabActive}
         block={block}
+        dashboardFilters={filters}
         blockIndex={i}
         isEditing={isEditing}
         isFocused={isFocused}

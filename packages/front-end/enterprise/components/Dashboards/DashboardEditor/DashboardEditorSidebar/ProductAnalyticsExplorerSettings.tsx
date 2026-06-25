@@ -1,5 +1,6 @@
 import {
   DashboardBlockInterfaceOrData,
+  DashboardInterface,
   MetricExplorationBlockInterface,
   FactTableExplorationBlockInterface,
   DataSourceExplorationBlockInterface,
@@ -24,6 +25,7 @@ interface Props {
       | DataSourceExplorationBlockInterface
     >
   >;
+  dashboardFilters?: DashboardInterface["filters"];
   saveAndCloseTrigger?: number;
   onSaveAndClose?: () => void;
 }
@@ -31,6 +33,7 @@ interface Props {
 export default function ProductAnalyticsExplorerSettings({
   block,
   setBlock,
+  dashboardFilters,
   saveAndCloseTrigger,
   onSaveAndClose,
 }: Props) {
@@ -53,22 +56,31 @@ export default function ProductAnalyticsExplorerSettings({
     );
   }
 
-  const initialConfig =
+  const blockConfig =
     data?.exploration?.config && block.config
       ? { ...data.exploration.config, ...block.config }
       : data?.exploration?.config || block.config;
+  const initialConfig =
+    block.useDashboardFilters === true && dashboardFilters?.dateRange
+      ? { ...blockConfig, dateRange: dashboardFilters.dateRange }
+      : blockConfig;
 
   return (
     <ExplorerProvider
+      key={JSON.stringify(initialConfig)}
       initialConfig={initialConfig}
       hasExistingResults={!!block.explorerAnalysisId}
       trackingSource="dashboard-editor"
       onRunComplete={(exploration) => {
+        const nextConfig =
+          block.useDashboardFilters === true && dashboardFilters?.dateRange
+            ? { ...exploration.config, dateRange: block.config.dateRange }
+            : exploration.config;
         setBlock({
           ...block,
           explorerAnalysisId: exploration.id,
           config: {
-            ...exploration.config,
+            ...nextConfig,
             chartType: block.config?.chartType || exploration.config?.chartType,
           },
         } as
@@ -80,6 +92,7 @@ export default function ProductAnalyticsExplorerSettings({
       <ProductAnalyticsExplorerSideBarWrapper
         block={block}
         setBlock={setBlock}
+        dashboardFilters={dashboardFilters}
         saveAndCloseTrigger={saveAndCloseTrigger}
         onSaveAndClose={onSaveAndClose}
       />
