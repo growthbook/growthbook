@@ -31,7 +31,7 @@ import {
 } from "@/components/Reviews/RevisionStatusBadge";
 import { useConfigDraftStates } from "@/hooks/useConstantDraftStates";
 import { useRevisionsEntityType } from "@/hooks/useRevisions";
-import ConfigModal from "@/components/Constants/ConfigModal";
+import ConfigModal from "@/components/Configs/ConfigModal";
 import ConfigReviews from "@/components/Constants/ConfigReviews";
 import ConfigSearchFilters from "@/components/Search/ConfigSearchFilters";
 
@@ -50,12 +50,10 @@ export default function ConfigsPage(): React.ReactElement {
 
   // Rows navigate to the detail page; the modal is create-only.
   const [modalOpen, setModalOpen] = useState(false);
-  // Archived configs are hidden by default; surfaced via the `is:archived`
-  // search facet (mirrors the constants list).
+  // Archived configs are hidden by default; surfaced via the `is:archived` facet.
   const [showArchived, setShowArchived] = useState(false);
 
-  // Tabs (All Configs | Drafts) persist via the URL hash, mirroring the
-  // constants list page.
+  // Tabs (All Configs | Drafts) persist via the URL hash.
   const getInitialTab = (): ConfigsTab => {
     if (typeof window !== "undefined") {
       const hash = window.location.hash.slice(1);

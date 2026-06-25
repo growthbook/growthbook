@@ -82,16 +82,10 @@ export const activityLogEntryValidator = z.object({
   ]),
   description: z.string().nullish(),
   dateCreated: z.date(),
-  // Snapshot of `target.proposedChanges` as of immediately AFTER this entry
-  // was recorded. Only persisted for content-changing actions ("created",
-  // "updated"). The UI uses this (combined with the previous content
-  // entry's snapshot) to reconstruct a per-entry before/after diff without
-  // needing additional per-edit history. Optional for backward
-  // compatibility with entries created before this field existed.
+  // `target.proposedChanges` after this entry; only for content-changing actions.
+  // The UI pairs it with the previous entry's snapshot to build a per-entry diff.
   proposedChangesSnapshot: z.array(jsonPatchOperationValidator).optional(),
-  // Snapshot of `target.snapshot` (the revision baseline) AFTER this entry,
-  // only persisted when the action changes the baseline itself (i.e. a
-  // rebase). Otherwise the revision's current `target.snapshot` is used.
+  // `target.snapshot` after this entry; only persisted on a rebase.
   targetSnapshot: z.unknown().optional(),
 });
 export type ActivityLogEntry = z.infer<typeof activityLogEntryValidator>;
@@ -146,15 +140,11 @@ export const revisionValidator = z.object({
   target: revisionTargetValidator,
   status: z.enum(revisionStatus),
   reviews: z.array(reviewValidator),
-  // Users who have edited this revision's content beyond the original author.
-  // Always includes the author. Used by the `blockSelfApproval` setting to
-  // prevent contributors from approving their own work.
-  // Optional for backward compatibility with revisions created before this field existed.
+  // Everyone who edited this revision (always includes the author); drives
+  // `blockSelfApproval`. Optional for backward compatibility.
   contributors: z.array(z.string()).optional(),
   autoPublishOnApproval: z.boolean().optional(),
-  // User ID of whoever most recently armed `autoPublishOnApproval` — the
-  // auto-publish executes with this user's authority. Falls back to
-  // `authorId` when absent.
+  // Who armed `autoPublishOnApproval`; auto-publish runs with their authority.
   autoPublishEnabledBy: z.string().optional(),
   activityLog: z.array(activityLogEntryValidator),
   resolution: z

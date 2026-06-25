@@ -12,15 +12,12 @@ import {
 import type { DiffBadge } from "@/components/AuditHistoryExplorer/types";
 import { RevisionDiffConfig } from "@/components/Revision/useRevisionDiff";
 
-// Render/badge helpers are shared by both the constant and config diff configs.
-// Constants carry `type`; configs carry `schema` — the combined shape exposes
-// every diff-relevant field so a single set of helpers serves both entities.
+// Combined shape so the render/badge helpers serve both constants and configs.
 type DiffShape = ConstantInterface & ConfigInterface;
 type Pre = Partial<DiffShape> | null;
 type Post = Partial<DiffShape>;
 
-// One value chunk. Short, single-line values render inline (Δ → ); multi-line /
-// JSON values render as before/after boxes.
+// Short values render inline; multi-line/JSON as before/after boxes.
 function ValueRow({
   label,
   pre,
@@ -52,16 +49,13 @@ function ValueRow({
   );
 }
 
-// normalizeSnapshot parses JSON-typed values into objects (so the raw diff
-// expands them), so a value may arrive here already parsed. Re-stringify
-// non-strings for display, matching how saved groups handle `condition`.
+// Values may arrive already parsed (see normalizeSnapshot); re-stringify.
 function toStr(v: unknown): string | undefined {
   if ((v ?? null) === null) return undefined;
   return typeof v === "string" ? v : JSON.stringify(v, null, 2);
 }
 
-// Value + per-environment overrides, chunked one block per value (Value, then
-// each environment) rather than a single JSON blob.
+// Value + per-environment overrides, one block per value.
 export function renderConstantValues(pre: Pre, post: Post): ReactNode | null {
   const rows: ReactNode[] = [
     <ValueRow key="__value" pre={toStr(pre?.value)} post={toStr(post.value)} />,
@@ -159,8 +153,7 @@ export function renderConstantSettings(pre: Pre, post: Post): ReactNode | null {
   return rows.length ? <Box mt="1">{rows}</Box> : null;
 }
 
-// Config field definitions (the `schema` field). One before/after chunk per
-// changed field key, so adds, removes, and edits are all visible.
+// Config field definitions (the `schema` field), one chunk per changed key.
 export function renderConstantSchema(pre: Pre, post: Post): ReactNode | null {
   const preFields = pre?.schema?.fields ?? [];
   const postFields = post.schema?.fields ?? [];
@@ -263,18 +256,14 @@ export function getConstantValuesBadges(pre: Pre, post: Post): DiffBadge[] {
   return badges;
 }
 
-// Parse a JSON-typed value (and per-env overrides) into objects so the raw diff
-// expands them as nested JSON rather than escaped strings. Mirrors the
-// saved-group `condition` and feature value handling.
+// Parse values to objects so the raw diff expands them as nested JSON.
 function parseJsonValues<T extends Partial<DiffShape>>(snapshot: T): T {
   const parse = (v: string): string => {
     if (v === "") return v;
     try {
-      // JSON.parse returns `any`; the parsed object flows through the diff's
-      // stringify step, which re-serializes it as pretty JSON.
       return JSON.parse(v);
     } catch {
-      return v; // leave invalid/legacy JSON as-is
+      return v;
     }
   };
   const result = { ...snapshot };

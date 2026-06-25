@@ -19,8 +19,9 @@ import {
   buildConstantValueMap,
   resolveConstantRefs,
 } from "shared/sdk-versioning";
-import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
+import { PiPlusBold } from "react-icons/pi";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -42,6 +43,7 @@ import Callout from "@/ui/Callout";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 import Code from "@/components/SyntaxHighlighting/Code";
 import SplitButton from "@/ui/SplitButton";
+import Switch from "@/ui/Switch";
 import {
   DropdownMenu,
   DropdownMenuGroup,
@@ -69,37 +71,35 @@ import {
 } from "@/components/Constants/useConstantConflictModal";
 import { useConstantRevision } from "@/hooks/useConstantRevision";
 import { useConstantReferences } from "@/hooks/useConstantReferences";
-import ConstantModal from "@/components/Constants/ConstantModal";
 import ConstantArchiveModal from "@/components/Constants/ConstantArchiveModal";
 import ConstantReferencesList from "@/components/Constants/ConstantReferencesList";
 import ReferencesLink from "@/components/References/ReferencesLink";
 import { ConstantRevisionContext } from "@/components/Constants/useConstantDraftTarget";
-import ConfigModal from "@/components/Constants/ConfigModal";
+import ConfigModal from "@/components/Configs/ConfigModal";
 import LineageTree from "@/components/Configs/LineageTree";
 import FieldDefForm from "@/components/Configs/FieldDefForm";
 import ConfigFieldRow from "@/components/Configs/ConfigFieldRow";
 import {
-  FIELD_COLS,
+  FIELD_GRID_TEMPLATE,
   ResolvedField,
   LineageNode,
   blankField,
   isJsonField,
+  fieldValueType,
   typeDefault,
 } from "@/components/Configs/fieldSchema";
 
 type ResolvedResponse = {
   status: number;
   config: ConfigInterface;
-  // The full lineage chain (base → leaf) with each config's own value + appended
-  // schema. The editor re-resolves this client-side (via `resolveConfigChain`)
-  // so a selected draft's proposed value is reflected in the field table.
+  // Lineage chain (base → leaf); re-resolved client-side so a selected draft's
+  // proposed value shows in the field table.
   chain: ConfigChainNode[];
   effectiveSchema: SchemaField[];
   fields: ResolvedField[];
   lineage: LineageNode[];
-  // Project-scoped constant value-map inputs, so the field table can squash
-  // `@const:` references client-side (default values; same scrubbing as the
-  // payload). The editor and JSON view keep references raw.
+  // Project-scoped value-map inputs so the field table can squash `@const:`
+  // refs client-side. The editor and JSON view keep references raw.
   constants: Pick<
     ConstantInterface,
     "key" | "type" | "value" | "project" | "archived"
@@ -125,6 +125,7 @@ export default function ConfigDetailPage(): React.ReactElement {
   const [compareOpen, setCompareOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [showOverrides, setShowOverrides] = useState(false);
   const [showCreateChild, setShowCreateChild] = useState(false);
 
   // Field currently being overridden (inline value edit), and the draft text.
@@ -132,17 +133,16 @@ export default function ConfigDetailPage(): React.ReactElement {
   const [editKey, setEditKey] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const [editError, setEditError] = useState<string | null>(null);
-  // The value's "state" is separate from its text so an explicit null and a
-  // concrete value are distinct choices — never conflated. (Not overriding a key
-  // at all is a separate axis, handled by the inherit / Reset action.)
+  // Separate from the text so an explicit null and a concrete value stay
+  // distinct. (Not overriding at all is a third axis: the inherit / Reset action.)
   const [editKind, setEditKind] = useState<"value" | "null">("value");
 
   // Inline schema authoring: "add" shows a blank field form; a key string edits
   // that field's definition.
   const [schemaEdit, setSchemaEdit] = useState<"add" | string | null>(null);
 
-  // The detail page is addressed by the config's `key`; the resolved endpoint
-  // returns the underlying constant (`config`) plus its lineage chain + tree.
+  // Addressed by `key`; the resolved endpoint returns the config plus its
+  // lineage chain + tree.
   const { data, error, mutate } = useApi<ResolvedResponse>(
     `/configs/${configKey}/resolved`,
     { shouldRun: () => !!configKey },
@@ -166,8 +166,8 @@ export default function ConfigDetailPage(): React.ReactElement {
   const totalReferences =
     (references?.features.length ?? 0) + (references?.constants.length ?? 0);
 
-  // Constant-picker scope for value editing: cycle-creating keys + this config
-  // itself are scrubbed so a value can't reference back into a cycle.
+  // Constant-picker scope: cycle-creating keys + this config's own key are
+  // scrubbed so a value can't reference back into a cycle.
   const { data: cyclicData } = useApi<{ cyclicKeys: string[] }>(
     config?.id ? `/configs/${config.id}/cyclic-keys` : "",
     { shouldRun: () => !!config?.id },
@@ -183,9 +183,8 @@ export default function ConfigDetailPage(): React.ReactElement {
     [config?.project, config?.key, cyclicData?.cyclicKeys],
   );
 
-  // Squash `@const:` references in field values for the table display, recursively
-  // resolving to default values (cross-project refs scrubbed like the payload).
-  // The editor and JSON view keep references raw.
+  // Squash `@const:` refs to default values for the table display (cross-project
+  // refs scrubbed like the payload). The editor and JSON view keep refs raw.
   const squashConstants = useMemo(() => {
     const map = buildConstantValueMap(data?.constants ?? [], "");
     const project = config?.project || "";
@@ -196,10 +195,8 @@ export default function ConfigDetailPage(): React.ReactElement {
   const settings = organization.settings || {};
   const hasApprovalsFeature = hasCommercialFeature("require-approvals");
 
-  // Configs inherit the feature `requireReviews` settings (same adapter as
-  // constants). Resolve the rule matching this config's project for the coarse
-  // "is approval configured" gate; the precise per-revision decision uses
-  // `constantRequiresReview` below (mirroring the back-end adapter).
+  // Configs inherit the feature `requireReviews` settings. This rule drives the
+  // coarse "is approval configured" gate; per-revision uses constantRequiresReview.
   const requireReviews = settings.requireReviews;
   const reviewRule =
     hasApprovalsFeature && Array.isArray(requireReviews)
@@ -244,8 +241,7 @@ export default function ConfigDetailPage(): React.ReactElement {
     ) as ConfigInterface;
   }, [selectedRevision, config]);
 
-  // Always-expanded JSON readout: every key/value on its own line (2-space
-  // indent), never compacted onto one line — even for small objects.
+  // Raw stored value (this config's own fields only; lineage lives on `parent`).
   const jsonReadout = useMemo(() => {
     const raw = displayedConfig?.value || "{}";
     try {
@@ -255,8 +251,8 @@ export default function ConfigDetailPage(): React.ReactElement {
     }
   }, [displayedConfig?.value]);
 
-  // Re-resolve the lineage chain with the displayed (possibly draft) value of
-  // this node substituted in, so the field table reflects the revision in view.
+  // Re-resolve the chain with this node's displayed (possibly draft) value
+  // substituted in, so the field table reflects the revision in view.
   const resolved = useMemo(() => {
     if (!data || !displayedConfig)
       return {
@@ -283,6 +279,28 @@ export default function ConfigDetailPage(): React.ReactElement {
     return self?.parentKey ?? null;
   }, [data?.lineage, config?.key]);
 
+  // Per-field value as resolved by the parent chain (this config excluded), so
+  // an override row can show the inherited value it replaces.
+  const parentFieldValues = useMemo(() => {
+    const map = new Map<string, unknown>();
+    if (!data || !displayedConfig || !parentKey) return map;
+    const parentChain = data.chain
+      .map((n) =>
+        n.key === displayedConfig.key
+          ? {
+              ...n,
+              value: displayedConfig.value,
+              schema: displayedConfig.schema,
+            }
+          : n,
+      )
+      .filter((n) => n.key !== displayedConfig.key);
+    for (const f of resolveConfigChain(parentChain).fields) {
+      map.set(f.key, f.value);
+    }
+    return map;
+  }, [data, displayedConfig, parentKey]);
+
   if (error) {
     return (
       <div className="container-fluid pagecontents">
@@ -294,8 +312,7 @@ export default function ConfigDetailPage(): React.ReactElement {
     return <LoadingOverlay />;
   }
 
-  // Explicitly start an empty draft to work in (forceCreateRevision creates one
-  // regardless of approval settings).
+  // Start an empty draft regardless of approval settings.
   const handleNewDraft = async () => {
     const res = await apiCall<{ revision?: Revision }>(
       `/configs/${config.id}?forceCreateRevision=1`,
@@ -309,9 +326,8 @@ export default function ConfigDetailPage(): React.ReactElement {
     permissionsUtil.canDeleteConfig(config) && !!config.archived;
   // Editing is only meaningful on the live state or a draft.
   const canEditNow = canUpdate && (!selectedRevision || isDraft);
-  // Inline field/value editing is draft-only: changes must land in an active
-  // draft (not silently auto-publish from the live view). On a non-draft view
-  // the form shows an "Edit" button (handleEdit) that drops into a draft.
+  // Inline editing is draft-only; the non-draft view shows an "Edit" button
+  // (handleEdit) that drops into a draft.
   const canEditInline = canUpdate && isDraft;
   const canBypassApproval = permissionsUtil.canBypassApprovalChecks({
     project: config.project || "",
@@ -331,13 +347,12 @@ export default function ConfigDetailPage(): React.ReactElement {
       displayedConfig.project)
     : "";
 
-  // Own-value object of the currently-displayed config (keeps `$extends`).
+  // Own-value object of the currently-displayed config (own fields only).
   const ownValue = (): Record<string, unknown> =>
     parsePlainJSONObject(displayedConfig.value ?? "") ?? {};
 
-  // Inline edits are gated to an active draft (see canEditInline), so they
-  // always target the selected draft rather than silently publishing. The
-  // forceCreateRevision fallback is defensive — it should not be reached.
+  // Inline edits target the selected draft; the forceCreateRevision fallback is
+  // defensive and should not be reached (gated by canEditInline).
   const writeQuery = (): string =>
     selectedRevision && isDraft
       ? `?revisionId=${selectedRevision.id}`
@@ -352,9 +367,8 @@ export default function ConfigDetailPage(): React.ReactElement {
     if (res?.revision) await onRevisionCreated(res.revision);
   };
 
-  // Only one thing is edited at a time: a value override (editKey) and a schema
-  // add/edit (schemaEdit) are mutually exclusive, and both are cancelled on tab
-  // switch so an open editor can't linger invisibly on another tab.
+  // Value override (editKey) and schema add/edit (schemaEdit) are mutually
+  // exclusive; both cancelled on tab switch so no editor lingers off-tab.
   const cancelEdits = () => {
     setEditKey(null);
     setEditError(null);
@@ -364,18 +378,16 @@ export default function ConfigDetailPage(): React.ReactElement {
   const startOverride = (f: ResolvedField) => {
     setSchemaEdit(null);
     setEditError(null);
-    // Seed from the resolved value: explicit null, or a concrete value. A field
-    // with nothing set seeds from its type default (never "unset").
-    if (f.value === null) {
+    // Seed from the resolved value (explicit null, concrete value, or type default).
+    // JSON editors accept `null` as literal text, so they never use the null kind.
+    const isJson = isJsonField(f.field);
+    if (f.value === null && !isJson) {
       setEditKind("null");
       setEditText("");
     } else {
       setEditKind("value");
       const v = f.value !== undefined ? f.value : typeDefault(f.field);
-      // JSON fields edit as raw JSON; simple types edit as their literal text.
-      setEditText(
-        isJsonField(f.field) ? JSON.stringify(v, null, 2) : String(v),
-      );
+      setEditText(isJson ? JSON.stringify(v, null, 2) : String(v));
     }
     setEditKey(f.key);
   };
@@ -388,19 +400,20 @@ export default function ConfigDetailPage(): React.ReactElement {
       return;
     }
     const field = resolved.fields.find((f) => f.key === editKey)?.field ?? null;
+    const vt = fieldValueType(field);
     let parsed: unknown;
-    if (isJsonField(field)) {
+    if (vt === "json") {
       try {
         parsed = JSON.parse(editText);
       } catch (e) {
         setEditError(e instanceof Error ? e.message : "Invalid JSON");
         return;
       }
-    } else if (field && field.type === "boolean") {
+    } else if (vt === "boolean") {
       parsed = editText === "true";
-    } else if (field && (field.type === "integer" || field.type === "float")) {
+    } else if (vt === "number") {
       const n =
-        field.type === "integer"
+        field?.type === "integer"
           ? parseInt(editText, 10)
           : parseFloat(editText);
       if (Number.isNaN(n)) {
@@ -409,21 +422,18 @@ export default function ConfigDetailPage(): React.ReactElement {
       }
       parsed = n;
     } else {
-      // string — any text is valid, including an empty string.
       parsed = editText;
     }
     await saveValue({ ...ownValue(), [editKey]: parsed });
     setEditKey(null);
   };
 
-  // The fields this config *appends* (its own schema). Inherited fields are
-  // owned by ancestors and can't be edited or removed here.
+  // The fields this config appends (its own schema); inherited fields aren't editable here.
   const ownSchema = (): SimpleSchema =>
     displayedConfig.schema ?? { type: "object", fields: [] };
   const ownSchemaKeys = ownSchema().fields.map((sf) => sf.key);
 
-  // Persist a new appended-schema (optionally clearing a value override in the
-  // same write) through the revision system.
+  // Persist the appended schema (optionally with a value override in the same write).
   const saveSchema = async (
     fields: SchemaField[],
     valueOverride?: Record<string, unknown>,
@@ -450,15 +460,14 @@ export default function ConfigDetailPage(): React.ReactElement {
       idx >= 0
         ? fields.map((f, i) => (i === idx ? field : f))
         : [...fields, field];
-    // When a value was supplied (insert flow), set it on this config in the
-    // same write as the schema change.
     const valueOverride =
       value !== undefined ? { ...ownValue(), [field.key]: value } : undefined;
     await saveSchema(next, valueOverride);
     setSchemaEdit(null);
   };
 
-  const deleteFieldDef = async (key: string) => {
+  // Remove an own field entirely: drop it from the schema and clear its value.
+  const removeField = async (key: string) => {
     const v = ownValue();
     const hadOverride = key in v;
     delete v[key];
@@ -468,8 +477,15 @@ export default function ConfigDetailPage(): React.ReactElement {
     );
   };
 
-  // The add-field affordance: compact create row when adding (key + value +
-  // type), a button otherwise.
+  // Remove just this config's override of an inherited field (reverts to the
+  // inherited value); the field definition is the parent's, so it's untouched.
+  const removeOverride = async (key: string) => {
+    const v = ownValue();
+    delete v[key];
+    await saveValue(v);
+  };
+
+  // Compact create row when adding, a button otherwise.
   const renderAddField = () =>
     schemaEdit === "add" ? (
       <FieldDefForm
@@ -478,25 +494,65 @@ export default function ConfigDetailPage(): React.ReactElement {
         isNew
         initial={blankField()}
         existingKeys={resolved.fields.map((f) => f.key)}
+        constantContext={constantContext}
         onCancel={() => setSchemaEdit(null)}
         onSave={saveField}
       />
     ) : (
       canEditInline &&
       schemaEdit === null && (
-        <Box mt="2">
-          <Button
-            variant="soft"
+        <Box mt="2" py="1">
+          <Link
+            size="2"
             onClick={() => {
               setEditKey(null);
               setSchemaEdit("add");
             }}
           >
-            + Add field
-          </Button>
+            <PiPlusBold style={{ marginRight: 3, verticalAlign: "middle" }} />
+            Add field
+          </Link>
         </Box>
       )
     );
+
+  // Lineage status line: a parent config reports what it defines and how many
+  // configs extend it; a child reports what it inherits and overrides. A hybrid
+  // (both) shows all parts.
+  const totalFields = resolved.effectiveSchema.length;
+  // An override = an inherited field re-valued by this config (not one of its
+  // own schema fields).
+  const isOverrideField = (f: ResolvedField) =>
+    f.source === config.key && !ownSchemaKeys.includes(f.key);
+  const overrideCount = resolved.fields.filter(isOverrideField).length;
+  const overriddenHere = resolved.fields.filter(
+    (f) => f.source === config.key,
+  ).length;
+  const inheritedFields = totalFields - overriddenHere;
+  const childConfigCount = data.lineage.filter(
+    (n) => n.parentKey === config.key,
+  ).length;
+  const parentName = parentKey
+    ? (data.lineage.find((n) => n.key === parentKey)?.name ?? parentKey)
+    : null;
+  const fieldLabel = (n: number) => `${n} field${n === 1 ? "" : "s"}`;
+  const statusParts: string[] = [];
+  if (parentKey) {
+    statusParts.push(
+      `Inherits ${fieldLabel(inheritedFields)} from ${parentName}`,
+    );
+    statusParts.push(`${overriddenHere} overridden`);
+  } else {
+    statusParts.push(`${fieldLabel(totalFields)} defined`);
+  }
+  if (childConfigCount > 0) {
+    statusParts.push(
+      childConfigCount === 1
+        ? "1 config extends this"
+        : `${childConfigCount} configs extend this`,
+    );
+  }
+  const statusText = statusParts.join(" · ");
 
   return (
     <>
@@ -507,21 +563,27 @@ export default function ConfigDetailPage(): React.ReactElement {
         ]}
       />
       <Box className="contents container-fluid pagecontents" mt="2">
-        <Flex gap="5" align="start">
+        <Flex gap="6" align="start">
           {/* Lineage sidebar — always shows the full base → child family. */}
-          <Box style={{ width: 170, flexShrink: 0 }}>
+          <Box
+            style={{
+              width: 200,
+              flexShrink: 0,
+              position: "sticky",
+              top: "1rem",
+              alignSelf: "flex-start",
+              maxHeight: "calc(100vh - 2rem)",
+              overflowY: "auto",
+            }}
+          >
             <Text size="small" weight="semibold" color="text-low">
               CONFIGS
             </Text>
             <Box mt="2">
-              <LineageTree
-                nodes={data.lineage}
-                parentKey={null}
-                currentKey={config.key}
-              />
+              <LineageTree nodes={data.lineage} currentKey={config.key} />
             </Box>
             {canUpdate && (
-              <Box mt="3">
+              <Box mt="3" pl="1">
                 <Link onClick={() => setShowCreateChild(true)}>
                   + Add override config
                 </Link>
@@ -679,124 +741,148 @@ export default function ConfigDetailPage(): React.ReactElement {
               promptDraftWhenLive
             />
 
-            <Text as="p" color="text-mid" mb="3">
-              {resolved.effectiveSchema.length} fields ·{" "}
-              {resolved.fields.filter((f) => f.source === config.key).length}{" "}
-              overridden here · resolved at request time
-            </Text>
-
             <Box mb="4" py="5" px="6" className="appbox">
-              <SplitButton variant="outline" mb="4">
-                {(["form", "json"] as const).map((tab) => (
-                  <Button
-                    key={tab}
-                    size="sm"
-                    variant={activeTab === tab ? "solid" : "outline"}
-                    onClick={() => {
-                      cancelEdits();
-                      setActiveTab(tab);
-                    }}
-                  >
-                    {tab === "json" ? "JSON" : "Form"}
-                  </Button>
-                ))}
-              </SplitButton>
+              <Flex justify="between" align="center" gap="3" mb="4">
+                <Text color="text-mid">{statusText}</Text>
+                <Flex align="center" gap="6">
+                  {overrideCount > 0 && activeTab === "form" && (
+                    <Switch
+                      value={showOverrides}
+                      onChange={setShowOverrides}
+                      label="Show overrides"
+                    />
+                  )}
+                  <SplitButton variant="outline">
+                    {(["form", "json"] as const).map((tab) => (
+                      <Button
+                        key={tab}
+                        size="sm"
+                        variant={activeTab === tab ? "solid" : "outline"}
+                        onClick={() => {
+                          cancelEdits();
+                          setActiveTab(tab);
+                        }}
+                      >
+                        {tab === "json" ? "JSON" : "Form"}
+                      </Button>
+                    ))}
+                  </SplitButton>
+                </Flex>
+              </Flex>
 
               {/* Form — per-field resolved values (override / reset). */}
               {activeTab === "form" && (
-                <>
-                  {/* Column header — always shown, aligns with the insert row
-                      (FIELD_COLS). Source carries the inheritance/lineage
-                      provenance. */}
-                  <Flex
-                    gap="2"
-                    align="center"
-                    mt="3"
-                    pb="1"
-                    px="3"
-                    style={{ borderBottom: "1px solid var(--slate-a4)" }}
-                  >
-                    {[
-                      ["Key", FIELD_COLS.key],
-                      ["Value", FIELD_COLS.value],
-                      ["Type", FIELD_COLS.type],
-                      ["Source", undefined],
-                    ].map(([label, w]) => (
-                      <Box
-                        key={label}
-                        style={
-                          w === undefined
-                            ? { flex: 1, minWidth: 80 }
-                            : { width: w as number, flexShrink: 0 }
-                        }
-                      >
-                        <Text
-                          size="small"
-                          weight="medium"
-                          color="text-low"
-                          textTransform="uppercase"
-                        >
-                          {label}
-                        </Text>
-                      </Box>
-                    ))}
-                  </Flex>
+                <Box style={{ overflowX: "auto" }}>
+                  <Box style={{ minWidth: 800 }}>
+                    {/* Column header — same grid template as the rows so it aligns.
+                      The 5th (actions) column is intentionally left empty. */}
+                    <Grid
+                      columns={FIELD_GRID_TEMPLATE}
+                      gapX="5"
+                      align="start"
+                      mt="3"
+                      pb="1"
+                      px="3"
+                      style={{ borderBottom: "1px solid var(--slate-a4)" }}
+                    >
+                      {["Key", "Value", "Type", "Source"].map((label) => (
+                        <Box key={label} style={{ minWidth: 0 }}>
+                          <Flex align="center" style={{ minHeight: 24 }}>
+                            <Text
+                              size="small"
+                              weight="medium"
+                              color="text-low"
+                              textTransform="uppercase"
+                            >
+                              {label}
+                            </Text>
+                          </Flex>
+                        </Box>
+                      ))}
+                    </Grid>
 
-                  {resolved.fields.map((f) => {
-                    // Editing this field's definition replaces the row with the
-                    // decoupled schema-only editor.
-                    if (schemaEdit === f.key) {
+                    {resolved.fields.map((f) => {
+                      // Editing an own field replaces the row with the full editor
+                      // (definition + value); the value is seeded from the resolved
+                      // value, mirroring the inherited-field value editor.
+                      if (schemaEdit === f.key) {
+                        const isJson = isJsonField(f.field);
+                        // JSON editors accept `null` as literal text, so only
+                        // non-JSON fields use the null flag/checkbox.
+                        const seedNull = f.value === null && !isJson;
+                        const seedVal =
+                          f.value !== undefined && f.value !== null
+                            ? f.value
+                            : typeDefault(f.field);
+                        return (
+                          <FieldDefForm
+                            key={f.key}
+                            withValue
+                            initial={
+                              ownSchema().fields.find(
+                                (sf) => sf.key === f.key,
+                              ) ?? blankField()
+                            }
+                            initialValue={
+                              seedNull
+                                ? ""
+                                : isJson
+                                  ? JSON.stringify(
+                                      f.value !== undefined ? f.value : seedVal,
+                                      null,
+                                      2,
+                                    )
+                                  : String(seedVal)
+                            }
+                            initialNull={seedNull}
+                            existingKeys={resolved.fields.map((rf) => rf.key)}
+                            constantContext={constantContext}
+                            onCancel={() => setSchemaEdit(null)}
+                            onSave={saveField}
+                          />
+                        );
+                      }
                       return (
-                        <FieldDefForm
+                        <ConfigFieldRow
                           key={f.key}
-                          schemaOnly
-                          initial={
-                            ownSchema().fields.find((sf) => sf.key === f.key) ??
-                            blankField()
-                          }
-                          existingKeys={resolved.fields.map((rf) => rf.key)}
-                          onCancel={() => setSchemaEdit(null)}
-                          onSave={saveField}
+                          field={f}
+                          configKey={config.key}
+                          isOwnField={ownSchemaKeys.includes(f.key)}
+                          canEditInline={canEditInline}
+                          constantContext={constantContext}
+                          squashConstants={squashConstants}
+                          editing={editKey === f.key}
+                          editText={editText}
+                          editKind={editKind}
+                          editError={editError}
+                          setEditText={setEditText}
+                          setEditKind={setEditKind}
+                          onStartEdit={() => startOverride(f)}
+                          onSubmit={submitOverride}
+                          onCancelEdit={() => setEditKey(null)}
+                          onEditDefinition={() => {
+                            setEditKey(null);
+                            setSchemaEdit(f.key);
+                          }}
+                          onRemoveField={() => removeField(f.key)}
+                          onRemoveOverride={() => removeOverride(f.key)}
+                          showParentValue={showOverrides && isOverrideField(f)}
+                          parentValue={parentFieldValues.get(f.key)}
                         />
                       );
-                    }
-                    return (
-                      <ConfigFieldRow
-                        key={f.key}
-                        field={f}
-                        configKey={config.key}
-                        isOwnField={ownSchemaKeys.includes(f.key)}
-                        canEditInline={canEditInline}
-                        constantContext={constantContext}
-                        squashConstants={squashConstants}
-                        editing={editKey === f.key}
-                        editText={editText}
-                        editKind={editKind}
-                        editError={editError}
-                        setEditText={setEditText}
-                        setEditKind={setEditKind}
-                        onStartEdit={() => startOverride(f)}
-                        onSubmit={submitOverride}
-                        onCancelEdit={() => setEditKey(null)}
-                        onEditDefinition={() => {
-                          setEditKey(null);
-                          setSchemaEdit(f.key);
-                        }}
-                        onDeleteDefinition={() => deleteFieldDef(f.key)}
-                      />
-                    );
-                  })}
+                    })}
 
-                  {resolved.fields.length === 0 && schemaEdit !== "add" && (
-                    <Text as="p" size="small" color="text-low" mt="3" mb="1">
-                      No fields yet.
-                    </Text>
-                  )}
-                  {renderAddField()}
-                </>
+                    {resolved.fields.length === 0 && schemaEdit !== "add" && (
+                      <Text as="p" size="small" color="text-low" mt="3" mb="1">
+                        No fields yet.
+                      </Text>
+                    )}
+                    {renderAddField()}
+                  </Box>
+                </Box>
               )}
 
-              {/* JSON — raw value (read-only; paste-to-import is future work). */}
+              {/* JSON — raw stored value (read-only; paste-to-import is future work). */}
               {activeTab === "json" && (
                 <Box mt="3">
                   <Code language="json" code={jsonReadout} expandable={false} />
@@ -862,9 +948,8 @@ export default function ConfigDetailPage(): React.ReactElement {
       )}
 
       {editInfoOpen && (
-        <ConstantModal
+        <ConfigModal
           existing={displayedConfig}
-          entity="configs"
           revisionCtx={revisionCtx}
           onSaved={async (revision) => {
             await onRevisionCreated(revision);

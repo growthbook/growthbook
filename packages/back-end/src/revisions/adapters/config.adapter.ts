@@ -13,9 +13,7 @@ import {
 import type { Context } from "back-end/src/models/BaseModel";
 import { EntityRevisionAdapter } from "back-end/src/revisions/EntityRevisionAdapter";
 
-// Configs borrow the constant approval model (feature `requireReviews`) — only
-// the model and permissions differ. See constant.adapter.ts for the rationale
-// behind each method.
+// Mirrors constant.adapter.ts (see it for rationale); only model + permissions differ.
 const SNAPSHOT_ALLOWED_KEYS = Object.keys(configValidator.shape) as Array<
   keyof ConfigInterface
 >;

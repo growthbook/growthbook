@@ -1,8 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { useForm } from "react-hook-form";
-import { ConstantWithoutValue } from "shared/types/constant";
-import { validateConstantValue } from "shared/validators";
+import { ConfigWithoutValue } from "shared/types/config";
 import { Revision } from "shared/enterprise";
 import { generateTrackingKey } from "shared/experiments";
 import { Box, Flex } from "@radix-ui/themes";
@@ -10,9 +9,9 @@ import { PiPlus } from "react-icons/pi";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
-import FeatureValueField from "@/components/Features/FeatureValueField";
 import SelectOwner from "@/components/Owner/SelectOwner";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
+import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import { useAuth } from "@/services/auth";
@@ -36,37 +35,43 @@ const EMPTY_REVISION_CTX: ConstantRevisionContext = {
 type FormValues = {
   key: string;
   name: string;
-  type: "string" | "json";
+  parent: string;
   owner: string;
   description: string;
   project: string;
-  value: string;
 };
 
-// Create a constant or edit its info; the value is edited via ConstantValueModal.
-export default function ConstantModal({
+// Create a config or edit its info. Configs are JSON objects referenced via
+// `$extends`; inheritance is recorded on `parent` (no `$extends` in the value).
+export default function ConfigModal({
   existing,
-  close,
+  parentKey,
   revisionCtx,
   onSaved,
+  close,
 }: {
-  existing: ConstantWithoutValue | null;
-  close: () => void;
+  // Present → edit info; absent → create.
+  existing?: ConfigWithoutValue | null;
+  // Pre-selected parent when creating a child config from a parent's editor.
+  parentKey?: string;
   // Required when editing (info changes route through the revision system).
   revisionCtx?: ConstantRevisionContext;
   onSaved?: (revision: Revision) => void | Promise<void>;
+  close: () => void;
 }) {
-  const { apiCall } = useAuth();
   const router = useRouter();
+  const { apiCall } = useAuth();
   const {
-    mutateDefinitions,
-    getConstantByKey,
-    getConfigByKey,
+    configs,
     projects,
     project,
+    mutateDefinitions,
+    getConfigByKey,
+    getConstantByKey,
   } = useDefinitions();
 
   const editing = !!existing;
+  const [error, setError] = useState<string | null>(null);
 
   // Description is opt-in behind a "+ Add a description" link, expanded by
   // default when one already exists.
@@ -81,15 +86,17 @@ export default function ConstantModal({
     defaultValues: {
       key: existing?.key ?? "",
       name: existing?.name ?? "",
-      type:
-        existing && "type" in existing ? (existing.type ?? "string") : "string",
-      // Owner is stored as a userId; backend defaults it to the creator when blank.
+      parent: parentKey ?? "",
       owner: existing?.owner ?? "",
       description: existing?.description ?? "",
       project: existing?.project ?? project ?? "",
-      value: "",
     },
   });
+
+  const parentOptions = configs
+    .filter((c) => !c.archived && c.key !== existing?.key)
+    .map((c) => ({ label: c.name, value: c.key }));
+  const projectOptions = projects.map((p) => ({ label: p.name, value: p.id }));
 
   // Auto-derive the slug key from the name until the user edits the key.
   const keyTouched = useRef(editing);
@@ -97,10 +104,10 @@ export default function ConstantModal({
   useEffect(() => {
     if (editing || keyTouched.current || !name) return;
     let active = true;
-    // Keys are unique across constants and configs, so check both.
+    // Keys are unique across configs and constants, so check both.
     generateTrackingKey(
       { name },
-      async (k) => getConstantByKey(k) ?? getConfigByKey(k),
+      async (k) => getConfigByKey(k) ?? getConstantByKey(k),
     ).then((k) => {
       if (active) form.setValue("key", k);
     });
@@ -110,66 +117,61 @@ export default function ConstantModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [name, editing]);
 
-  const type = form.watch("type");
-
-  const projectOptions = useMemo(
-    () => projects.map((p) => ({ label: p.name, value: p.id })),
-    [projects],
-  );
-
   return (
     <ModalStandard
       open={true}
-      trackingEventModalType="constant-modal"
-      header={editing ? "Edit info" : "Add Constant"}
+      trackingEventModalType="config-modal"
+      header={editing ? "Edit info" : "New config"}
       size="lg"
       close={close}
       cta={editing ? "Save" : "Create"}
       submit={form.handleSubmit(async (values) => {
-        if (editing && existing) {
-          const res = await apiCall<{ revision?: Revision }>(
-            `/constants/${existing.id}${draft.buildQueryString()}`,
-            {
-              method: "PUT",
-              body: JSON.stringify({
-                name: values.name,
-                owner: values.owner,
-                description: values.description || undefined,
-                project: values.project,
-              }),
-            },
-          );
-          await mutateDefinitions();
-          if (onSaved && res?.revision) {
-            await onSaved(res.revision);
-          }
-        } else {
-          validateConstantValue(values.type, values.value, "Value");
-          const res = await apiCall<{ constant: { key: string } }>(
-            `/constants`,
-            {
+        setError(null);
+        try {
+          if (editing && existing) {
+            const res = await apiCall<{ revision?: Revision }>(
+              `/configs/${existing.id}${draft.buildQueryString()}`,
+              {
+                method: "PUT",
+                body: JSON.stringify({
+                  name: values.name,
+                  owner: values.owner,
+                  description: values.description || undefined,
+                  project: values.project,
+                }),
+              },
+            );
+            await mutateDefinitions();
+            if (onSaved && res?.revision) {
+              await onSaved(res.revision);
+            }
+          } else {
+            await apiCall(`/configs`, {
               method: "POST",
               body: JSON.stringify({
                 key: values.key,
                 name: values.name,
-                owner: values.owner || undefined,
-                type: values.type,
-                // Empty JSON omits value entirely (treated as "no value").
-                ...(values.type === "json" && !values.value
-                  ? {}
-                  : { value: values.value }),
+                parent: values.parent || undefined,
                 description: values.description || undefined,
                 project: values.project || undefined,
               }),
-            },
-          );
-          await mutateDefinitions();
-          if (res?.constant?.key) {
-            await router.push(`/constants/${res.constant.key}`);
+            });
+            await mutateDefinitions();
+            await router.push(`/configs/${values.key}`);
           }
+        } catch (e) {
+          setError(e instanceof Error ? e.message : "Failed to save config");
         }
       })}
     >
+      {!editing && (
+        <Callout status="info" mb="3">
+          Configs are referenced from a feature flag — define the fields and
+          values here, then reference the config from a flag to deliver it to
+          your SDKs.
+        </Callout>
+      )}
+
       {editing && existing && revisionCtx && (
         <ConstantDraftSelectorForChanges
           constantId={existing.id}
@@ -184,6 +186,7 @@ export default function ConstantModal({
           metadataOnly={draft.metadataOnly}
         />
       )}
+
       <Field label="Name" required {...form.register("name")} />
       <Field
         label="Key"
@@ -191,11 +194,7 @@ export default function ConstantModal({
         helpText={
           <>
             Referenced as{" "}
-            <code>
-              {type === "json"
-                ? `"$extends": ["@const:${form.watch("key") || "key"}"]`
-                : `{{ @const:${form.watch("key") || "key"} }}`}
-            </code>
+            <code>{`"$extends": ["@const:${form.watch("key") || "key"}"]`}</code>
           </>
         }
         disabled={editing}
@@ -216,7 +215,7 @@ export default function ConstantModal({
           <MarkdownInput
             value={form.watch("description")}
             setValue={(v) => form.setValue("description", v)}
-            placeholder="Add notes about this constant (markdown supported)"
+            placeholder="Add notes about this config (markdown supported)"
             showButtons={false}
             hidePreview={false}
           />
@@ -238,13 +237,25 @@ export default function ConstantModal({
 
       {!editing && (
         <SelectField
-          label="Type"
-          value={type}
-          options={[
-            { label: "String", value: "string" },
-            { label: "JSON", value: "json" },
-          ]}
-          onChange={(v) => form.setValue("type", v as "string" | "json")}
+          label="Parent config (optional)"
+          value={form.watch("parent")}
+          onChange={(v) => form.setValue("parent", v)}
+          options={parentOptions}
+          initialOption="None (base config)"
+          formatOptionLabel={({ value, label }) => (
+            <span>
+              {label}
+              {value && (
+                <code
+                  className="float-right position-relative"
+                  style={{ top: 1, color: "var(--slate-12)" }}
+                >
+                  {value}
+                </code>
+              )}
+            </span>
+          )}
+          helpText="A child inherits its parent's fields and overrides a subset."
         />
       )}
 
@@ -258,29 +269,18 @@ export default function ConstantModal({
         />
       )}
 
-      {!editing && (
-        <FeatureValueField
-          label="Value"
-          id="constant-value"
-          value={form.watch("value")}
-          setValue={(v) => form.setValue("value", v)}
-          valueType={type}
-          useCodeInput={type === "json"}
-          showFullscreenButton={type === "json"}
-          // No cycles possible yet; just scrub a self-reference.
-          constantContext={{
-            project: form.watch("project") || undefined,
-            excludeKeys: [form.watch("key")],
-          }}
-        />
-      )}
-
       {editing && (
         <SelectOwner
           placeholder="Optional"
           value={form.watch("owner")}
           onChange={(v) => form.setValue("owner", v)}
         />
+      )}
+
+      {error && (
+        <Callout status="error" mt="2">
+          {error}
+        </Callout>
       )}
     </ModalStandard>
   );

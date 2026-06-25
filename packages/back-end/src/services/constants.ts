@@ -12,22 +12,15 @@ import { getResolvableConstants } from "./resolvableConstants";
 import { queueSDKPayloadRefresh } from "./features";
 import { getContextForAgendaJobByOrgObject } from "./organizations";
 
-// Constants are resolved into SDK payloads at build time (`@const:` references).
-// Changing a value therefore changes the generated payload, so we refresh the
-// SDK payload cache (which also fires SDK webhooks for affected connections).
-//
-// Constants can be referenced cross-project and across environments, so — like
-// saved groups — we conservatively refresh every cache entry across all
-// environments/projects rather than trying to scope to the constant.
+// A value change alters the generated SDK payload, so refresh the payload cache
+// (and fire SDK webhooks). Constants reference cross-project/env, so — like saved
+// groups — we conservatively refresh everything rather than scope to the constant.
 // TODO: scope to the constant's actual references once reference tracking lands.
 export async function constantUpdated(
   baseContext: ReqContext | ApiReqContext,
   event: "updated" | "deleted" = "updated",
-  // Audit label for the refresh job. Configs trigger the same payload refresh
-  // (their values resolve into the payload too) but are tagged "config".
   model: "constant" | "config" = "constant",
 ) {
-  // Background job: use a context with full read permissions.
   const context = getContextForAgendaJobByOrgObject(baseContext.org);
 
   queueSDKPayloadRefresh({
@@ -41,10 +34,8 @@ export async function constantUpdated(
   });
 }
 
-// Reject a constant value (create or update) that would close a reference cycle.
-// The runtime resolver leaves cyclic refs verbatim rather than crashing, but a
-// stored cycle leaks raw `@const:` placeholders into the SDK payload, so we
-// block it at write time (mirrors the picker's cyclic-key scrubbing).
+// A stored cycle leaks raw `@const:` placeholders into the payload (the resolver
+// degrades gracefully but doesn't fix it), so reject cyclic values at write time.
 export async function assertNoConstantCycle(
   context: ReqContext | ApiReqContext,
   key: string,
@@ -62,12 +53,8 @@ export async function assertNoConstantCycle(
   }
 }
 
-// Constants and configs share the `@const:<key>` reference namespace but live in
-// separate collections, so each collection's unique index only guards its own
-// keys. Resolution (`buildConstantValueMap`), cycle detection, and reference
-// lookups all key by `key` across the merged universe, so a key shared between a
-// constant and a config would resolve ambiguously. Enforce global uniqueness at
-// every create path. Returns the conflicting entity kind, or null when free.
+// Constants and configs share the `@const:` namespace across separate
+// collections, so check both for a key collision. Returns the owner, or null.
 export async function findKeyOwnerAcrossNamespace(
   context: ReqContext | ApiReqContext,
   key: string,
@@ -81,8 +68,7 @@ export async function findKeyOwnerAcrossNamespace(
   return null;
 }
 
-// Throw a friendly duplicate-key error if `key` is taken by a constant or config
-// (rather than surfacing a raw Mongo duplicate-key index failure).
+// Throw a friendly duplicate-key error if `key` is taken by a constant or config.
 export async function assertKeyAvailableAcrossNamespace(
   context: ReqContext | ApiReqContext,
   key: string,
@@ -97,8 +83,7 @@ export async function assertKeyAvailableAcrossNamespace(
 
 export type ConstantReferences = {
   features: { id: string; name: string; project?: string }[];
-  // `isConfig` distinguishes a referencing config from a constant so the UI can
-  // link to the right detail page (`/configs/:key` vs `/constants/:key`).
+  // `isConfig` lets the UI link to the right detail page.
   constants: {
     id: string;
     key: string;
@@ -108,16 +93,13 @@ export type ConstantReferences = {
   }[];
 };
 
-// A rule member that may carry a feature value (force/rollout `value`, or
-// experiment `variations[].value`). Other rule fields don't hold values.
 type ValueBearingRule = {
   value?: unknown;
   variations?: Array<{ value?: unknown }>;
 };
 
-// Every value string a feature can hold: the default plus each rule's force/
-// rollout value and each experiment variation value, from both the v2 `rules`
-// array and the legacy per-environment `environmentSettings[env].rules`.
+// Every value string a feature can hold, from both the v2 `rules` array and the
+// legacy per-environment `environmentSettings[env].rules`.
 function featureValueStrings(feature: FeatureInterface): string[] {
   const out: string[] = [];
   if (typeof feature.defaultValue === "string") out.push(feature.defaultValue);
@@ -149,28 +131,21 @@ function featureConstantKeys(feature: FeatureInterface): Set<string> {
   return keys;
 }
 
-// Features and other constants that reference a given constant via `@const:key`.
-// Scope mirrors resolution: feature values (flags + feature-experiment variation
-// values) and constant-to-constant references. Includes one level of constant
-// chaining (parity with saved groups): a feature that reaches the target only
-// through an intermediate constant (feature → `@const:mid` → `@const:target`) is
-// still affected when the target is archived, so those features are surfaced
-// too. Returns null if the constant doesn't exist.
+// Features and constants/configs that reference a constant. Includes one level
+// of constant chaining (feature → @const:mid → @const:target), matching saved
+// groups. Returns null if the constant doesn't exist.
 export async function loadConstantReferences(
   context: ReqContext | ApiReqContext,
   constantId: string,
 ): Promise<ConstantReferences | null> {
-  // Span both collections: a config can reference a constant (and vice versa)
-  // via `$extends` / `{{ }}`, so the "what references this?" graph and the
-  // archivability gate must see configs too.
+  // Span both collections — references cross the config/constant boundary.
   const configs = await context.models.configs.getAll();
   const configIds = new Set(configs.map((c) => c.id));
   const allConstants = await getResolvableConstants(context);
   const target = allConstants.find((c) => c.id === constantId);
   if (!target) return null;
 
-  // Other constants/configs that directly embed the target (via `$extends` or
-  // `{{ }}`).
+  // Constants/configs that directly embed the target.
   const constantsReferencingTarget = allConstants.filter(
     (c) =>
       c.id !== constantId &&
@@ -179,8 +154,7 @@ export async function loadConstantReferences(
       ),
   );
 
-  // Features are affected if they reference the target directly OR any constant
-  // that embeds it (one level of chaining, matching loadSavedGroupReferences).
+  // Affected = references the target directly or via one embedding constant.
   const affectedKeys = new Set<string>([
     target.key,
     ...constantsReferencingTarget.map((c) => c.key),
@@ -195,8 +169,7 @@ export async function loadConstantReferences(
       }
       return false;
     })
-    // Features have no display name distinct from their id; surface it as
-    // `name` for parity with the saved-group references shape.
+    // Features have no name distinct from id; surface id as `name`.
     .map((f) => ({ id: f.id, name: f.id, project: f.project || undefined }));
 
   const constants = constantsReferencingTarget.map((c) => ({
@@ -214,17 +187,10 @@ export function totalConstantReferences(refs: ConstantReferences): number {
   return refs.features.length + refs.constants.length;
 }
 
-// Block archiving a constant that's still referenced (parity with saved groups).
-// Keeps the invariant that archived constants have no live references, so a
-// referenced constant can't silently drop config from feature payloads. The
-// resolver still scrubs archived refs as a backend safety net (e.g. for
-// cross-project references the archiver can't see). Only the archive transition
-// is gated — unarchiving is always allowed. `constantId` is the internal id.
+// Block archiving a still-referenced constant; unarchiving is always allowed.
 export async function assertConstantArchivable(
   context: ReqContext | ApiReqContext,
   constantId: string,
-  // The entity being archived — only affects the error wording. References span
-  // both collections, so the "referenced by" detail stays entity-neutral.
   noun: "constant" | "config" = "constant",
 ): Promise<void> {
   const refs = await loadConstantReferences(context, constantId);

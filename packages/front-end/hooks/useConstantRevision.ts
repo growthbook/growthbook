@@ -7,10 +7,8 @@ import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 
-// Revision/approval state for a single constant or config. Mirrors
-// useSavedGroupRevision — the revision endpoints are generic by entity type, so
-// this only differs in the entity type string and snapshot interface. Configs
-// reuse it by passing entityType "config".
+// Revision/approval state for a single constant or config. The revision
+// endpoints are generic by entity type; pass entityType "config" for configs.
 export function useConstantRevision(
   constantId: string | undefined,
   constantMutate: () => void,

@@ -60,19 +60,10 @@ export class ConstantModel extends BaseClass {
     return this.context.permissions.canDeleteConstant(doc);
   }
 
-  // Reject a value that would close a reference cycle. Enforced at the model
-  // layer so EVERY write is covered — including the publish path
-  // (adapter.applyChanges → update), which closes the TOCTOU where two
-  // concurrently-created drafts (each cycle-free vs. live at creation time)
-  // could otherwise store a cycle. Resolution degrades gracefully on a cycle,
-  // but the memo relies on acyclicity, so we keep stored data acyclic.
-  //
-  // The graph is read via the permission-filtered `getAll()`. A cycle crossing a
-  // project boundary the writer can't fully read could slip through, but that's
-  // harmless by design: cross-project reference edges are scrubbed at resolution
-  // (so they can't form a resolvable cycle), and the one narrow resolvable case
-  // degrades gracefully via the memo (leftover placeholders — no DoS, no wrong
-  // value). Not worth an unfiltered read.
+  // Reject cyclic values at the model layer so every write is covered, including
+  // the publish path (closing the TOCTOU between two concurrently-created drafts).
+  // Reads via the permission-filtered getAll(); a cross-project cycle the writer
+  // can't see degrades gracefully at resolution, so an unfiltered read isn't worth it.
   private async assertNoCycle(
     key: string,
     value: string | undefined,
@@ -119,9 +110,7 @@ export class ConstantModel extends BaseClass {
     await logConstantCreatedEvent(this.context, this.toApiInterface(doc));
   }
 
-  // Refresh SDK payloads (and fire SDK webhooks) when a published change alters
-  // the resolved value. Runs on the live update — for the approval flow that's
-  // at merge time (the adapter calls `update`), for direct edits it's immediate.
+  // Refresh SDK payloads when a change alters the resolved value.
   protected async afterUpdate(
     existing: ConstantInterface,
     updates: UpdateProps<ConstantInterface>,
@@ -141,8 +130,7 @@ export class ConstantModel extends BaseClass {
       });
     }
 
-    // Skip the webhook event when nothing meaningful changed (e.g. only
-    // `dateUpdated` was bumped) — mirrors the saved-group/feature behavior.
+    // Skip the webhook event when only `dateUpdated` changed.
     const previous = this.toApiInterface(existing);
     const current = this.toApiInterface(newDoc);
     if (
@@ -152,8 +140,7 @@ export class ConstantModel extends BaseClass {
     }
   }
 
-  // A deleted constant leaves its `@const:` references unresolved, which changes
-  // the generated payload, so refresh on delete too.
+  // A delete leaves references unresolved, changing the payload.
   protected async afterDelete(doc: ConstantInterface) {
     constantUpdated(this.context, "deleted").catch((e) => {
       this.context.logger.error(
@@ -168,8 +155,7 @@ export class ConstantModel extends BaseClass {
     return this._findOne({ key });
   }
 
-  // Value-omitted projection for the definitions context (see
-  // ConstantWithoutValue). Full values are fetched per-constant on demand.
+  // Value-omitted projection for the definitions context.
   public async getAllWithoutValues(): Promise<ConstantWithoutValue[]> {
     const constants = await this._find(
       {},
@@ -178,8 +164,7 @@ export class ConstantModel extends BaseClass {
     return constants as ConstantWithoutValue[];
   }
 
-  // External REST API shape. Owner email is resolved separately by the handler
-  // (via resolveOwnerEmail) since it requires an async user lookup.
+  // Owner email is resolved separately by the handler (async user lookup).
   public toApiInterface(constant: ConstantInterface): ApiConstant {
     return {
       id: constant.id,
@@ -198,11 +183,8 @@ export class ConstantModel extends BaseClass {
     };
   }
 
-  // When a project is deleted, unset it on any constant scoped to it (becomes
-  // global), mirroring how features clear a deleted project. Update each through
-  // the model (bypassing only the per-constant update permission, since this is
-  // a system cascade) so afterUpdate still fires — audit log, webhooks, SDK
-  // payload refresh, and dateUpdated. A raw updateMany would skip all of those.
+  // On project delete, unset it on scoped constants (becomes global). Goes through
+  // the model (bypassing only the update permission) so afterUpdate hooks fire.
   public async removeProjectIdFromAll(projectId: string) {
     const affected = await this._find({ project: projectId });
     for (const constant of affected) {

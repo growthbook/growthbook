@@ -1,26 +1,34 @@
 import { ConstantInterface } from "shared/types/constant";
 import { ConfigInterface } from "shared/types/config";
+import { getConfigParentKey, withParentExtends } from "shared/util";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 
-// Configs live in their own collection but resolve identically to `json`
-// constants (`@const:` + `$extends`) and freely cross-reference constants. So
-// every resolution / cycle / reference site must consider BOTH collections.
-// This surfaces a config as a `json` constant (its `schema` is irrelevant to
-// resolution) — the single choke point that keeps the constant/config boundary
-// invisible to the resolver.
+// Configs resolve like `json` constants. Kept in its own module (types/context
+// only) to avoid an import cycle with the features/payload pipeline.
 //
-// Lives in its own module (depending only on the context + types) so both the
-// constants service and the features/payload pipeline can use it without an
-// import cycle.
+// Inheritance lives on `parent`, not in the stored value — synthesize the
+// `$extends` directive here (into the default + each env value) so resolution,
+// cycle detection, and the reference graph all see the lineage.
 export function configAsConstant(config: ConfigInterface): ConstantInterface {
-  return { ...config, type: "json" };
+  const parentKey = getConfigParentKey(config);
+  const environmentValues = config.environmentValues
+    ? Object.fromEntries(
+        Object.entries(config.environmentValues).map(([env, v]) => [
+          env,
+          withParentExtends(v, parentKey) ?? v,
+        ]),
+      )
+    : config.environmentValues;
+  return {
+    ...config,
+    type: "json",
+    value: withParentExtends(config.value, parentKey),
+    environmentValues,
+  };
 }
 
-// The full set of resolvable values an `@const:` reference can target:
-// constants + configs (coerced to `json`). Permission-filtered via each model's
-// `getAll()`, matching the prior single-collection behavior. Use this anywhere
-// a constant value-map, cycle graph, or reference graph is built.
+// Everything an `@const:` reference can target: constants + configs (as `json`).
 export async function getResolvableConstants(
   context: ReqContext | ApiReqContext,
 ): Promise<ConstantInterface[]> {

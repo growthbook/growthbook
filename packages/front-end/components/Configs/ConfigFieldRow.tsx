@@ -1,31 +1,35 @@
 import React from "react";
-import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import { PiPencilSimpleFill } from "react-icons/pi";
+import {
+  PiPencilSimpleFill,
+  PiInfo,
+  PiDotOutline,
+  PiArrowBendLeftUp,
+  PiPencil,
+  PiPlusBold,
+} from "react-icons/pi";
 import Text from "@/ui/Text";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
+import Link from "@/ui/Link";
 import Checkbox from "@/ui/Checkbox";
-import {
-  DropdownMenu,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-} from "@/ui/DropdownMenu";
+import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import SelectField from "@/components/Forms/SelectField";
+import { FIVE_LINES_HEIGHT } from "@/components/Forms/CodeTextArea";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 import {
-  FIELD_COLS,
+  FIELD_GRID_TEMPLATE,
   ResolvedField,
   fieldTypeLabel,
   fieldValueType,
   typeDefault,
   valueToDisplayString,
 } from "@/components/Configs/fieldSchema";
+import styles from "./ConfigFieldRow.module.scss";
 
-// A single resolved field row in the Form tab: key + value (read or inline
-// edit) + type + source provenance + per-row actions. Owned fields also expose
-// schema edit/delete in the overflow menu.
 export default function ConfigFieldRow({
   field: f,
   configKey,
@@ -43,14 +47,16 @@ export default function ConfigFieldRow({
   onSubmit,
   onCancelEdit,
   onEditDefinition,
-  onDeleteDefinition,
+  onRemoveField,
+  onRemoveOverride,
+  showParentValue = false,
+  parentValue,
 }: {
   field: ResolvedField;
   configKey: string;
   isOwnField: boolean;
   canEditInline: boolean;
   constantContext: { project?: string; excludeKeys?: string[] };
-  // Recursively resolves `@const:` references for the read-only display only.
   squashConstants: (value: unknown) => unknown;
   editing: boolean;
   editText: string;
@@ -62,44 +68,45 @@ export default function ConfigFieldRow({
   onSubmit: () => void;
   onCancelEdit: () => void;
   onEditDefinition: () => void;
-  onDeleteDefinition: () => void;
+  onRemoveField: () => void;
+  onRemoveOverride: () => void;
+  // Render the inherited value struck-through beneath the current value.
+  showParentValue?: boolean;
+  parentValue?: unknown;
 }): React.ReactElement {
   const here = f.source === configKey;
 
   return (
-    <Flex
-      gap="2"
+    <Grid
+      columns={FIELD_GRID_TEMPLATE}
+      gapX="5"
       align="start"
       py="2"
       px="3"
       style={{ borderBottom: "1px solid var(--slate-a3)" }}
     >
-      <Box
-        style={{
-          width: FIELD_COLS.key,
-          flexShrink: 0,
-          minWidth: 0,
-          overflowWrap: "anywhere",
-        }}
-      >
-        <Flex align="center" style={{ minHeight: 32 }}>
-          <Box>
-            {f.key}
-            {f.field?.description && (
-              <Text as="div" size="small" color="text-low">
-                {f.field.description}
-              </Text>
-            )}
+      <Box style={{ minWidth: 0 }}>
+        <Flex align="center" gap="1" style={{ minHeight: 32 }}>
+          <Box style={{ minWidth: 0, overflowWrap: "anywhere" }}>
+            <code style={{ color: "var(--slate-12)" }}>{f.key}</code>
           </Box>
+          {f.field?.description && (
+            <Tooltip
+              body={f.field.description}
+              style={{
+                display: "inline-flex",
+                flexShrink: 0,
+                color: "var(--slate-9)",
+              }}
+            >
+              <PiInfo />
+            </Tooltip>
+          )}
         </Flex>
       </Box>
       <Box
-        style={{
-          width: FIELD_COLS.value,
-          flexShrink: 0,
-          minWidth: 0,
-          overflowWrap: "anywhere",
-        }}
+        className={styles.valueCell}
+        style={{ minWidth: 0, overflowWrap: "anywhere" }}
       >
         <Flex align="center" style={{ minHeight: 32 }}>
           <Box style={{ width: "100%", minWidth: 0 }}>
@@ -109,6 +116,8 @@ export default function ConfigFieldRow({
                   const nullable = f.field?.nullable === true;
                   const isNull = editKind === "null";
                   const vt = fieldValueType(f.field);
+                  const enumValues =
+                    vt !== "json" && vt !== "boolean" ? f.field?.enum ?? [] : [];
                   return (
                     <>
                       {vt === "boolean" ? (
@@ -123,6 +132,18 @@ export default function ConfigFieldRow({
                           sort={false}
                           disabled={isNull}
                         />
+                      ) : enumValues.length > 0 ? (
+                        <SelectField
+                          value={editText}
+                          onChange={setEditText}
+                          options={enumValues.map((v) => ({
+                            value: v,
+                            label: v,
+                          }))}
+                          initialOption="value…"
+                          sort={false}
+                          disabled={isNull}
+                        />
                       ) : (
                         <FeatureValueField
                           id={`config-value-${f.key}`}
@@ -131,11 +152,13 @@ export default function ConfigFieldRow({
                           valueType={vt}
                           useCodeInput={vt === "json"}
                           showFullscreenButton={vt === "json"}
+                          codeInputDefaultHeight={FIVE_LINES_HEIGHT}
                           constantContext={constantContext}
+                          inlineConstantButton
                           disabled={isNull}
                         />
                       )}
-                      {nullable && (
+                      {nullable && vt !== "json" && (
                         <Box mt="1">
                           <Checkbox
                             size="sm"
@@ -157,48 +180,127 @@ export default function ConfigFieldRow({
                   </Text>
                 )}
               </>
-            ) : f.value === undefined ? (
-              <Text color="text-low">
-                <code>{JSON.stringify(typeDefault(f.field))}</code> (default)
-              </Text>
-            ) : f.value === null ? (
-              <ValueDisplay value="null" type="json" />
             ) : (
-              (() => {
-                const vt = fieldValueType(f.field);
-                return (
+              <>
+                {f.value === undefined ? (
+                  <Text color="text-low">
+                    <code>{JSON.stringify(typeDefault(f.field))}</code> (default)
+                  </Text>
+                ) : f.value === null ? (
                   <ValueDisplay
-                    value={valueToDisplayString(squashConstants(f.value), vt)}
-                    type={vt}
-                    showFullscreenButton={vt === "json"}
+                    value="null"
+                    type="json"
+                    copyButtonClassName={styles.copyButton}
                   />
-                );
-              })()
+                ) : (
+                  (() => {
+                    const vt = fieldValueType(f.field);
+                    return (
+                      <ValueDisplay
+                        value={valueToDisplayString(squashConstants(f.value), vt)}
+                        type={vt}
+                        showFullscreenButton={vt === "json"}
+                        copyButtonClassName={styles.copyButton}
+                      />
+                    );
+                  })()
+                )}
+                {showParentValue && (
+                  <Box
+                    mt="1"
+                    style={{ textDecoration: "line-through", opacity: 0.5 }}
+                  >
+                    {parentValue === undefined ? (
+                      <Text color="text-low">
+                        <code>{JSON.stringify(typeDefault(f.field))}</code>{" "}
+                        (default)
+                      </Text>
+                    ) : parentValue === null ? (
+                      <ValueDisplay
+                        value="null"
+                        type="json"
+                        copyButtonClassName={styles.copyButton}
+                      />
+                    ) : (
+                      (() => {
+                        const vt = fieldValueType(f.field);
+                        return (
+                          <ValueDisplay
+                            value={valueToDisplayString(
+                              squashConstants(parentValue),
+                              vt,
+                            )}
+                            type={vt}
+                            copyButtonClassName={styles.copyButton}
+                          />
+                        );
+                      })()
+                    )}
+                  </Box>
+                )}
+              </>
             )}
           </Box>
         </Flex>
       </Box>
-      <Box style={{ width: FIELD_COLS.type, flexShrink: 0 }}>
+      <Box style={{ minWidth: 0 }}>
         <Flex align="center" style={{ minHeight: 32 }}>
-          <Text size="small" color="text-mid">
-            <code>{fieldTypeLabel(f.field)}</code>
-          </Text>
+          <code style={{ color: "var(--slate-9)" }}>
+            {fieldTypeLabel(f.field)}
+          </code>
         </Flex>
       </Box>
-      <Box style={{ flex: 1, minWidth: 80 }}>
+      <Box style={{ minWidth: 0 }}>
         <Flex align="center" style={{ minHeight: 32 }}>
-          {here ? (
-            <Badge label="defined here" color="violet" variant="soft" />
+          {isOwnField ? (
+            <Badge
+              color="gray"
+              variant="soft"
+              label={
+                <>
+                  <PiDotOutline /> defined here
+                </>
+              }
+            />
+          ) : here ? (
+            <Badge
+              color="violet"
+              variant="soft"
+              label={
+                <>
+                  <PiPencil /> override
+                </>
+              }
+            />
           ) : (
-            <Badge label={f.source ?? "default"} color="gray" variant="soft" />
+            <Badge
+              color="gray"
+              variant="soft"
+              title={f.source ?? "default"}
+              style={{ maxWidth: "100%" }}
+              label={
+                <Flex align="center" gap="1" style={{ minWidth: 0 }}>
+                  <PiArrowBendLeftUp style={{ flexShrink: 0 }} />
+                  <span
+                    style={{
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {f.source ?? "default"}
+                  </span>
+                </Flex>
+              }
+            />
           )}
         </Flex>
       </Box>
       <Flex
-        gap="3"
+        gap="2"
         align="center"
         justify="end"
-        style={{ flexShrink: 0, width: 120, minHeight: 32 }}
+        style={{ minWidth: 0, minHeight: 32 }}
       >
         {editing ? (
           <>
@@ -212,17 +314,27 @@ export default function ConfigFieldRow({
         ) : (
           canEditInline && (
             <>
-              <Button
-                variant="ghost"
-                size="sm"
-                title="Edit value"
-                icon={<PiPencilSimpleFill />}
-                onClick={onStartEdit}
-              >
-                Edit
-              </Button>
-              {isOwnField && (
+              {isOwnField || here ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  title={isOwnField ? "Edit field" : "Edit override"}
+                  icon={<PiPencilSimpleFill />}
+                  onClick={isOwnField ? onEditDefinition : onStartEdit}
+                >
+                  Edit
+                </Button>
+              ) : (
+                <Link size="2" onClick={onStartEdit}>
+                  <PiPlusBold
+                    style={{ marginRight: 3, verticalAlign: "middle" }}
+                  />
+                  Override
+                </Link>
+              )}
+              {(isOwnField || here) && (
                 <DropdownMenu
+                  variant="soft"
                   trigger={
                     <IconButton
                       variant="ghost"
@@ -237,19 +349,21 @@ export default function ConfigFieldRow({
                   triggerStyle={{ marginRight: 0, marginLeft: 0 }}
                   menuPlacement="end"
                 >
-                  <DropdownMenuItem onClick={onEditDefinition}>
-                    Edit field definition
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem color="red" onClick={onDeleteDefinition}>
-                    Delete field from schema
-                  </DropdownMenuItem>
+                  {isOwnField ? (
+                    <DropdownMenuItem color="red" onClick={onRemoveField}>
+                      Remove field
+                    </DropdownMenuItem>
+                  ) : (
+                    <DropdownMenuItem color="red" onClick={onRemoveOverride}>
+                      Remove override
+                    </DropdownMenuItem>
+                  )}
                 </DropdownMenu>
               )}
             </>
           )
         )}
       </Flex>
-    </Flex>
+    </Grid>
   );
 }

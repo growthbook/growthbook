@@ -70,6 +70,10 @@ export interface Props {
   showFullscreenButton?: boolean;
   codeInputDefaultHeight?: number;
   hideCopyButton?: boolean;
+  // Renders the "Insert constant" picker as a compact square IconButton beside
+  // the field (top-aligned) instead of on a label row above it, and hides the
+  // copy button. Used by the inline config field editor.
+  inlineConstantButton?: boolean;
   // JSON features only. Whether this rule value is a sparse patch (merged onto
   // the feature default). When `setSparse` is provided and the feature default
   // is a plain object, a "Sparse patch" toggle renders on the label row.
@@ -96,10 +100,13 @@ export default function FeatureValueField({
   showFullscreenButton = false,
   codeInputDefaultHeight,
   hideCopyButton = false,
+  inlineConstantButton = false,
   sparse,
   setSparse,
   condensed = false,
 }: Props) {
+  // Inline mode also suppresses the copy button.
+  const copyHidden = hideCopyButton || inlineConstantButton;
   const { hasCommercialFeature } = useUser();
   const hasJsonValidator = hasCommercialFeature("json-validation");
   const { simpleSchema, validationEnabled } = feature
@@ -286,6 +293,7 @@ export default function FeatureValueField({
           excludeKeys={pickerExcludeKeys}
           onInsert={insertJsonConstant}
           disabled={disabled}
+          iconOnly={inlineConstantButton}
         />
       ) : null;
 
@@ -347,9 +355,11 @@ export default function FeatureValueField({
     // nested inside the editor's <label> element. Otherwise let the editor
     // render its own label.
     const editorLabel =
-      showSparseToggle || insertConstantButton ? undefined : label;
+      showSparseToggle || (insertConstantButton && !inlineConstantButton)
+        ? undefined
+        : label;
     const jsonLabelRow =
-      !showSparseToggle && insertConstantButton ? (
+      !showSparseToggle && insertConstantButton && !inlineConstantButton ? (
         <Flex align="center" justify="between" gap="3" width="100%" mb="1">
           {label !== undefined ? (
             <Text as="label" weight="semibold" mb="0">
@@ -361,6 +371,17 @@ export default function FeatureValueField({
           {insertConstantButton}
         </Flex>
       ) : null;
+
+    // Inline layout: the picker rides to the right of the editor, top-aligned.
+    const withInlineButton = (editor: ReactNode): ReactNode =>
+      inlineConstantButton && insertConstantButton ? (
+        <Flex align="start" gap="2" width="100%">
+          <Box style={{ flex: 1, minWidth: 0 }}>{editor}</Box>
+          <Box style={{ flexShrink: 0 }}>{insertConstantButton}</Box>
+        </Flex>
+      ) : (
+        editor
+      );
     const formatted = formatJSON(value);
 
     const codeEditorToggleButton = useCodeInput ? (
@@ -415,20 +436,22 @@ export default function FeatureValueField({
         <Box mb="3">
           {sparseHeader}
           {jsonLabelRow}
-          <CodeTextArea
-            label={editorLabel}
-            language="json"
-            value={value}
-            setValue={setValue}
-            helpText={combinedHelpText}
-            placeholder={placeholder}
-            disabled={disabled}
-            resizable={true}
-            defaultHeight={codeInputDefaultHeight}
-            showCopyButton={true}
-            showFullscreenButton={showFullscreenButton}
-            onEditorLoad={(e) => (jsonEditorRef.current = e)}
-          />
+          {withInlineButton(
+            <CodeTextArea
+              label={editorLabel}
+              language="json"
+              value={value}
+              setValue={setValue}
+              helpText={combinedHelpText}
+              placeholder={placeholder}
+              disabled={disabled}
+              resizable={true}
+              defaultHeight={codeInputDefaultHeight}
+              showCopyButton={!copyHidden}
+              showFullscreenButton={showFullscreenButton}
+              onEditorLoad={(e) => (jsonEditorRef.current = e)}
+            />,
+          )}
         </Box>
       );
     }
@@ -436,17 +459,19 @@ export default function FeatureValueField({
     return (
       <Box mb="3">
         {sparseHeader}
-        <JSONTextEditor
-          label={editorLabel}
-          value={value}
-          setValue={setValue}
-          helpText={combinedHelpText}
-          placeholder={placeholder}
-          disabled={disabled}
-          showCopyButton={true}
-          performCopy={performCopy}
-          copySuccess={copySuccess}
-        />
+        {withInlineButton(
+          <JSONTextEditor
+            label={editorLabel}
+            value={value}
+            setValue={setValue}
+            helpText={combinedHelpText}
+            placeholder={placeholder}
+            disabled={disabled}
+            showCopyButton={!copyHidden}
+            performCopy={performCopy}
+            copySuccess={copySuccess}
+          />,
+        )}
       </Box>
     );
   }
@@ -511,7 +536,7 @@ export default function FeatureValueField({
           {helpText}
           {usedConstantTags}
         </Box>
-        {!hideCopyButton && <Box flexShrink="0">{copyButton}</Box>}
+        {!copyHidden && <Box flexShrink="0">{copyButton}</Box>}
       </Flex>
     ) : (
       helpText
@@ -521,59 +546,78 @@ export default function FeatureValueField({
   // the field (only in a feature context) — rendered beside the label text, not
   // nested inside the field's <label> element.
   const showStringPicker = valueType === "string" && showConstantPicker;
-  const stringLabelRow = showStringPicker ? (
-    <Flex align="center" justify="between" gap="3" width="100%" mb="1">
-      {label !== undefined ? (
-        <Text as="label" weight="semibold" mb="0">
-          {label}
-        </Text>
-      ) : (
-        <Box />
-      )}
-      <InsertConstantButton
-        valueType="string"
-        project={pickerProject}
-        excludeKeys={pickerExcludeKeys}
-        onInsert={insertStringConstant}
-        disabled={disabled}
-      />
-    </Flex>
+  const stringInsertButton = showStringPicker ? (
+    <InsertConstantButton
+      valueType="string"
+      project={pickerProject}
+      excludeKeys={pickerExcludeKeys}
+      onInsert={insertStringConstant}
+      disabled={disabled}
+      iconOnly={inlineConstantButton}
+    />
   ) : null;
+  const stringLabelRow =
+    showStringPicker && !inlineConstantButton ? (
+      <Flex align="center" justify="between" gap="3" width="100%" mb="1">
+        {label !== undefined ? (
+          <Text as="label" weight="semibold" mb="0">
+            {label}
+          </Text>
+        ) : (
+          <Box />
+        )}
+        {stringInsertButton}
+      </Flex>
+    ) : null;
+
+  const field = (
+    <Field
+      ref={stringInputRef}
+      label={stringLabelRow ? undefined : label}
+      value={value}
+      placeholder={placeholder}
+      onChange={(e) => {
+        setValue(e.target.value);
+      }}
+      {...(valueType === "number"
+        ? {
+            type: "number",
+            step: "any",
+            min: "any",
+            max: "any",
+          }
+        : valueType === "string"
+          ? {
+              textarea: true,
+              minRows: 1,
+            }
+          : {})}
+      helpText={combinedHelpTextForString}
+      style={
+        valueType === undefined
+          ? { width: 80 }
+          : valueType === "number"
+            ? { width: 120 }
+            : undefined
+      }
+      disabled={disabled}
+    />
+  );
+
+  // Inline layout: the picker rides to the right of the field, top-aligned.
+  if (inlineConstantButton && stringInsertButton) {
+    return (
+      <Flex align="start" gap="2" width="100%">
+        <Box style={{ flex: 1, minWidth: 0 }}>{field}</Box>
+        <Box style={{ flexShrink: 0 }}>{stringInsertButton}</Box>
+      </Flex>
+    );
+  }
 
   return (
     <>
       {stringLabelRow}
-      <Field
-        ref={stringInputRef}
-        label={stringLabelRow ? undefined : label}
-        value={value}
-        placeholder={placeholder}
-        onChange={(e) => {
-          setValue(e.target.value);
-        }}
-        {...(valueType === "number"
-          ? {
-              type: "number",
-              step: "any",
-              min: "any",
-              max: "any",
-            }
-          : valueType === "string"
-            ? {
-                textarea: true,
-                minRows: 1,
-              }
-            : {})}
-        helpText={combinedHelpTextForString}
-        style={
-          valueType === undefined
-            ? { width: 80 }
-            : valueType === "number"
-              ? { width: 120 }
-              : undefined
-        }
-        disabled={disabled}
-      />
+      {field}
     </>
   );
 }

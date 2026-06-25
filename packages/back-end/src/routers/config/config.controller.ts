@@ -19,6 +19,8 @@ import {
   parsePlainJSONObject,
   resolveConfigChain,
   ConfigChainNode,
+  getConfigParentKey,
+  stripExtends,
 } from "shared/util";
 import { CONSTANT_EXTENDS_KEY } from "shared/constants";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
@@ -49,8 +51,6 @@ type RevisionEntityArg = Record<string, unknown> & {
   dateCreated?: Date;
 };
 
-// GET /configs — value-omitted projection (values can be large; the full value
-// is fetched per-config via GET /configs/:key/resolved).
 export const getConfigs = async (
   req: AuthRequest,
   res: Response<{ status: 200; configs: ConfigWithoutValue[] }>,
@@ -60,7 +60,6 @@ export const getConfigs = async (
   return res.status(200).json({ status: 200, configs });
 };
 
-// GET /configs-draft-states — active draft status counts per config id.
 export const getConfigDraftStates = async (
   req: AuthRequest<null, Record<string, never>, { ids?: string }>,
   res: Response,
@@ -76,9 +75,7 @@ export const getConfigDraftStates = async (
   return res.status(200).json({ status: 200, configs });
 };
 
-// GET /configs/:id/cyclic-keys — keys that already (transitively) reference this
-// config; referencing any of them would close a cycle. The graph spans both
-// collections (a config can reference constants and vice versa).
+// Keys that would close a cycle if this config referenced them (both collections).
 export const getConfigCyclicKeys = async (
   req: AuthRequest<null, { id: string }>,
   res: Response<{ status: 200; cyclicKeys: string[] }>,
@@ -101,8 +98,6 @@ export const getConfigCyclicKeys = async (
   return res.status(200).json({ status: 200, cyclicKeys });
 };
 
-// GET /configs/:id/references — features, constants, and configs that reference
-// this config via `@const:key`.
 export const getConfigReferences = async (
   req: AuthRequest<null, { id: string }>,
   res: Response<{ status: 200 } & ConstantReferences>,
@@ -115,20 +110,14 @@ export const getConfigReferences = async (
   return res.status(200).json({ status: 200, ...references });
 };
 
-// The single `@const:<key>` parent a config extends (its lineage parent), or
-// null for a base config. Configs use exactly one `$extends` ref.
-function configParentKey(value: string | undefined): string | null {
+// Number of fields a config defines in its own value (excluding `$extends`).
+function configOwnFieldCount(value: string | undefined): number {
   const obj = parsePlainJSONObject(value ?? "");
-  const list = obj?.[CONSTANT_EXTENDS_KEY];
-  if (!Array.isArray(list)) return null;
-  const first = list.find((r): r is string => typeof r === "string");
-  const m = first?.match(/^@const:([a-z0-9][a-z0-9_-]*)$/);
-  return m ? m[1] : null;
+  if (!obj) return 0;
+  return Object.keys(obj).filter((k) => k !== CONSTANT_EXTENDS_KEY).length;
 }
 
-// GET /configs/:key/resolved — the Configuration editor view: the config, its
-// effective schema and per-field resolved values (walking base→leaf lineage),
-// and the full lineage tree it belongs to.
+// The config plus its effective schema, resolved per-field values, and lineage.
 export const getConfigResolved = async (
   req: AuthRequest<null, { key: string }>,
   res: Response,
@@ -151,16 +140,13 @@ export const getConfigResolved = async (
       value: cur.value,
       schema: cur.schema,
     });
-    const parentKey = configParentKey(cur.value);
+    const parentKey = getConfigParentKey(cur);
     cur = parentKey ? await context.models.configs.getByKey(parentKey) : null;
   }
 
   const { effectiveSchema, fields } = resolveConfigChain(chain);
 
-  // Value-map inputs for the client to squash `@const:` references in the field
-  // table (default values; same scrubbing as payload generation). Spans both
-  // collections and is scoped to this config's project + globals so cross-project
-  // values are never sent to the client.
+  // Scoped to this config's project + globals so cross-project values never leak.
   const configProject = config.project || "";
   const constants = (await getResolvableConstants(context))
     .filter((c) => !c.project || c.project === configProject)
@@ -172,11 +158,15 @@ export const getConfigResolved = async (
       archived: c.archived,
     }));
 
-  // Lineage tree: every config descending from this chain's base, so the editor
-  // sidebar can render the whole family and browse between them.
+  // Every config descending from this chain's base, for the sidebar tree.
   const allConfigs = await context.models.configs.getAll();
   const rootKey = chain[0]?.key ?? config.key;
-  const lineage: { key: string; name: string; parentKey: string | null }[] = [];
+  const lineage: {
+    key: string;
+    name: string;
+    parentKey: string | null;
+    fieldCount: number;
+  }[] = [];
   const seen = new Set<string>();
   const queue = [rootKey];
   while (queue.length) {
@@ -188,10 +178,11 @@ export const getConfigResolved = async (
     lineage.push({
       key: node.key,
       name: node.name,
-      parentKey: configParentKey(node.value),
+      parentKey: getConfigParentKey(node),
+      fieldCount: configOwnFieldCount(node.value),
     });
     for (const child of allConfigs) {
-      if (configParentKey(child.value) === k) queue.push(child.key);
+      if (getConfigParentKey(child) === k) queue.push(child.key);
     }
   }
 
@@ -225,16 +216,19 @@ export const postConfig = async (
 
   // Cycle rejection is enforced in ConfigModel (covers every write path).
 
-  // Keys must be unique across both constants and configs (shared `@const:`
-  // namespace); pre-check for a friendly error.
+  // Keys are unique across both constants and configs (shared `@const:` namespace).
   await assertKeyAvailableAcrossNamespace(context, body.key);
+
+  // Inheritance lives on `parent`; never persist `$extends` in the value.
+  const parent = body.parent || getConfigParentKey({ value: body.value }) || "";
 
   // Permission is enforced by the model's canCreate.
   const config = await context.models.configs.create({
     key: body.key,
     name: body.name,
     owner: body.owner || context.userId,
-    value: body.value,
+    parent: parent || undefined,
+    value: stripExtends(body.value),
     environmentValues: body.environmentValues,
     description: body.description,
     project: body.project,
@@ -268,9 +262,8 @@ type PutConfigResponse =
   | { status: 200; requiresApproval?: false; revision?: Revision }
   | { status: 202; requiresApproval: boolean; revision: Revision };
 
-// PUT /configs/:id — all edits flow through the revision system (same approval
-// model as constants). When approval isn't required the change is merged
-// immediately; otherwise it's stored as a draft for review.
+// All edits flow through the revision system (same approval model as constants):
+// merged immediately when approval isn't required, else stored as a draft.
 export const putConfig = async (
   req: PutConfigRequest,
   res: Response<PutConfigResponse | ApiErrorResponse>,
@@ -280,6 +273,7 @@ export const putConfig = async (
   const {
     name,
     owner,
+    parent,
     value,
     environmentValues,
     description,
@@ -288,6 +282,17 @@ export const putConfig = async (
     schema,
   } = req.body;
   const { id } = req.params;
+
+  // Inheritance lives on `parent`; strip any `$extends` from the value and
+  // migrate a legacy in-value ref into `parent` when the caller didn't set one.
+  const normalizedValue =
+    typeof value !== "undefined" ? stripExtends(value) : undefined;
+  const incomingParent =
+    parent !== undefined
+      ? parent
+      : typeof value !== "undefined"
+        ? (getConfigParentKey({ value }) ?? undefined)
+        : undefined;
 
   const existing = await context.models.configs.getById(id);
   if (!existing) {
@@ -341,8 +346,14 @@ export const putConfig = async (
   if (typeof owner !== "undefined" && hasChanged(owner, comparisonBase.owner)) {
     fieldsToUpdate.owner = owner;
   }
-  if (hasChanged(value, comparisonBase.value)) {
-    fieldsToUpdate.value = value;
+  if (
+    incomingParent !== undefined &&
+    (incomingParent || "") !== (comparisonBase.parent || "")
+  ) {
+    fieldsToUpdate.parent = incomingParent;
+  }
+  if (hasChanged(normalizedValue, comparisonBase.value)) {
+    fieldsToUpdate.value = normalizedValue;
   }
   if (hasChanged(environmentValues, comparisonBase.environmentValues)) {
     fieldsToUpdate.environmentValues = environmentValues;

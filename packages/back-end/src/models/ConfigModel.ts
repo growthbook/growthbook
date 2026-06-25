@@ -1,5 +1,6 @@
 import { ConfigInterface, ConfigWithoutValue } from "shared/types/config";
 import { configValidator, getCyclicConstantRefs } from "shared/validators";
+import { getConfigParentKey, withParentExtends } from "shared/util";
 import { UpdateProps } from "shared/types/base-model";
 import { BadRequestError } from "back-end/src/util/errors";
 import { constantUpdated } from "back-end/src/services/constants";
@@ -17,7 +18,7 @@ const BaseClass = MakeModelClass({
     deleteEvent: "config.deleted",
   },
   globallyUniquePrimaryKeys: true,
-  // `key` is the reference handle (`@const:<key>`); unique per org.
+  // `key` is the `@const:<key>` reference handle; unique per org.
   additionalIndexes: [
     {
       fields: {
@@ -50,23 +51,19 @@ export class ConfigModel extends BaseClass {
     return this.context.permissions.canDeleteConfig(doc);
   }
 
-  // Reject a value that would close a reference cycle (same guard as constants).
-  // The graph spans both collections — a config can extend another config and
-  // reference constants — so it's built from the full resolvable universe.
-  private async assertNoCycle(
-    key: string,
-    value: string | undefined,
-    environmentValues: Record<string, string> | undefined,
-  ): Promise<void> {
+  // Reject cyclic lineage/values; the graph spans both collections. The parent's
+  // `$extends` is synthesized in so a parent→…→self cycle is caught at write time.
+  private async assertNoCycle(doc: ConfigInterface): Promise<void> {
+    const effectiveValue = withParentExtends(doc.value, getConfigParentKey(doc));
     const cyclic = getCyclicConstantRefs(
-      key,
-      value,
-      environmentValues,
+      doc.key,
+      effectiveValue,
+      doc.environmentValues,
       await getResolvableConstants(this.context),
     );
     if (cyclic.length) {
       throw new BadRequestError(
-        `This value references ${cyclic
+        `This config references ${cyclic
           .map((k) => `@const:${k}`)
           .join(", ")}, which would create a reference cycle.`,
       );
@@ -74,7 +71,7 @@ export class ConfigModel extends BaseClass {
   }
 
   protected async beforeCreate(doc: ConfigInterface) {
-    await this.assertNoCycle(doc.key, doc.value, doc.environmentValues);
+    await this.assertNoCycle(doc);
   }
 
   protected async beforeUpdate(
@@ -83,25 +80,21 @@ export class ConfigModel extends BaseClass {
     newDoc: ConfigInterface,
   ) {
     if (
+      updates.parent !== undefined ||
       updates.value !== undefined ||
       updates.environmentValues !== undefined
     ) {
-      await this.assertNoCycle(
-        newDoc.key,
-        newDoc.value,
-        newDoc.environmentValues,
-      );
+      await this.assertNoCycle(newDoc);
     }
   }
 
-  // Config values resolve into SDK payloads exactly like json constants, so any
-  // change to the resolved value (value / env overrides / project / archived)
-  // refreshes the payload cache and fires SDK webhooks for affected connections.
+  // Refresh SDK payloads when a change alters the resolved value.
   protected async afterUpdate(
     _existing: ConfigInterface,
     updates: UpdateProps<ConfigInterface>,
   ) {
     if (
+      updates.parent !== undefined ||
       updates.value !== undefined ||
       updates.environmentValues !== undefined ||
       updates.project !== undefined ||
@@ -116,8 +109,7 @@ export class ConfigModel extends BaseClass {
     }
   }
 
-  // A deleted config leaves its `@const:` references unresolved, changing the
-  // generated payload, so refresh on delete too.
+  // A delete changes the generated payload too, so refresh on delete.
   protected async afterDelete() {
     constantUpdated(this.context, "deleted", "config").catch((e) => {
       this.context.logger.error(
@@ -140,10 +132,8 @@ export class ConfigModel extends BaseClass {
     return configs as ConfigWithoutValue[];
   }
 
-  // When a project is deleted, unset it on any config scoped to it (becomes
-  // global), mirroring features/constants. Routed through the model (bypassing
-  // only the per-config update permission, a system cascade) so afterUpdate
-  // still fires.
+  // On project delete, unset it on scoped configs (becomes global). Bypasses the
+  // per-config update permission (system cascade) but still fires afterUpdate.
   public async removeProjectIdFromAll(projectId: string) {
     const affected = await this._find({ project: projectId });
     for (const config of affected) {

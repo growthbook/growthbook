@@ -1,10 +1,55 @@
 import { SimpleSchema, SchemaField } from "shared/types/feature";
+import { CONSTANT_EXTENDS_KEY } from "../constants";
 import { parsePlainJSONObject } from "./features";
 
+// Inheritance is modeled by a `parent` key on the config, not stored in its
+// editable value. The `$extends` directive that drives resolution is synthesized
+// from `parent` on demand (see configAsConstant). These helpers bridge the two.
+
+// The lineage parent of a config: its explicit `parent`, falling back to a
+// legacy `$extends` ref embedded in the value (for data written before `parent`).
+export function getConfigParentKey(config: {
+  parent?: string;
+  value?: string;
+}): string | null {
+  if (config.parent) return config.parent;
+  const list = parsePlainJSONObject(config.value ?? "")?.[CONSTANT_EXTENDS_KEY];
+  if (!Array.isArray(list)) return null;
+  const first = list.find((r): r is string => typeof r === "string");
+  const m = first?.match(/^@const:([a-z0-9][a-z0-9_-]*)$/);
+  return m ? m[1] : null;
+}
+
+// Drop any `$extends` directive from a JSON-encoded config value (returns
+// non-object values unchanged).
+export function stripExtends(value: string | undefined): string | undefined {
+  if (value === undefined) return value;
+  const obj = parsePlainJSONObject(value);
+  if (!obj || !(CONSTANT_EXTENDS_KEY in obj)) return value;
+  const rest = { ...obj };
+  delete rest[CONSTANT_EXTENDS_KEY];
+  return JSON.stringify(rest);
+}
+
+// Synthesize the resolution value for a config: inject `$extends: ["@const:parent"]`
+// so it merges its parent as the base (own keys still win). With no parent, just
+// strip any stray `$extends`.
+export function withParentExtends(
+  value: string | undefined,
+  parentKey: string | null,
+): string | undefined {
+  if (!parentKey) return stripExtends(value);
+  const rest = parsePlainJSONObject(value ?? "") ?? {};
+  delete rest[CONSTANT_EXTENDS_KEY];
+  return JSON.stringify({
+    [CONSTANT_EXTENDS_KEY]: [`@const:${parentKey}`],
+    ...rest,
+  });
+}
+
 // A single config in a lineage chain (base → … → leaf). `value` is the config's
-// JSON-encoded object (own field values, possibly with an `$extends` parent
-// ref); `schema` is the fields this config *appends* (the base owns inherited
-// fields).
+// JSON-encoded object of its own field values; `schema` is the fields this
+// config *appends* (the base owns inherited fields).
 export type ConfigChainNode = {
   key: string;
   name?: string;

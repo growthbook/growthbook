@@ -14,9 +14,8 @@ import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
 import LoadingSpinner from "@/components/LoadingSpinner";
 
-// Archive/unarchive a constant. Mirrors SavedGroupArchiveModal: the change
-// flows through the revision system (so it shows up in history) via the draft
-// selector — create a new draft, add to an existing one, or publish now.
+// Archive/unarchive flows through the revision system (mirrors
+// SavedGroupArchiveModal) via the draft selector.
 export default function ConstantArchiveModal({
   constant,
   revisionCtx,
@@ -44,9 +43,7 @@ export default function ConstantArchiveModal({
 
   const isArchived = !!constant.archived;
 
-  // A still-referenced constant can't be archived (parity with saved groups):
-  // archiving it would silently drop its config from every referencing feature.
-  // Unarchiving is always allowed.
+  // A still-referenced constant can't be archived; unarchiving is always allowed.
   const { references, loading: referencesLoading } = useConstantReferences(
     isArchived ? null : constant.id,
     entity,

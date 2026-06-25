@@ -21,11 +21,9 @@ export function ConstantConflictModal({
   close,
   mutate,
 }: ConstantConflictModalProps) {
-  // Refresh constant + revisions on open so the client computes its conflict
-  // preview against the latest live state.
+  // Refresh on open so the conflict preview uses the latest live state.
   useEffect(() => {
     void mutate();
-    // Intentionally run once on mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

@@ -9,8 +9,7 @@ import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRe
 import * as rawConfigController from "./config.controller";
 
 const router = express.Router();
-// `draft-states` is mounted at its own sibling path (`/configs-draft-states`)
-// rather than under `/configs/...` so it can never collide with `/configs/:key`.
+// Sibling path (`/configs-draft-states`) so it can't collide with `/configs/:key`.
 const draftStatesRouter = express.Router();
 
 const configController = wrapController(rawConfigController);
@@ -22,8 +21,6 @@ router.get("/", configController.getConfigs);
 
 draftStatesRouter.get("/", configController.getConfigDraftStates);
 
-// Resolved Configuration editor view (lineage chain + effective schema +
-// per-field provenance). By key, since configs are key-addressed.
 router.get(
   "/:key/resolved",
   validateRequestMiddleware({ params: keyParams }),

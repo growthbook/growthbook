@@ -79,8 +79,7 @@ function revisionToRow(revision: Revision): ReviewRow {
     status: revision.status,
     dateCreated: new Date(revision.dateCreated),
     dateUpdated: new Date(revision.dateUpdated),
-    // Deep-link by key (the detail-page route); fall back to id only if a
-    // snapshot somehow lacks its key.
+    // Deep-link by key; fall back to id if a snapshot lacks its key.
     url: buildConfigRevisionUrl(snapshot?.key || revision.target.id, revision),
   };
 }

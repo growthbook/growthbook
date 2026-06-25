@@ -1,7 +1,6 @@
 import { FeatureValueType, SchemaField } from "shared/types/feature";
 
-// A single resolved field in a config: its effective value plus the source
-// config (in the inheritance chain) that set it.
+// `source` is the lineage config that set the value.
 export type ResolvedField = {
   key: string;
   field: SchemaField | null;
@@ -13,10 +12,10 @@ export type LineageNode = {
   key: string;
   name: string;
   parentKey: string | null;
+  fieldCount: number;
 };
 
-// A blank field: a clean typedef, no prebaked bounds. Always `required` —
-// children are value-patches, not optional fields.
+// Always `required`: children are value-patches, not optional fields.
 export const blankField = (): SchemaField => ({
   key: "",
   type: "string",
@@ -32,18 +31,15 @@ export const FIELD_TYPE_OPTIONS = [
   { value: "float", label: "Float" },
   { value: "boolean", label: "Boolean" },
   { value: "json", label: "JSON" },
-  { value: "array-primitives", label: "Array of primitives" },
+  { value: "array", label: "Array" },
   { value: "any", label: "Any" },
 ];
 
-// Shared fixed column widths so the Form-tab header, value rows, and the insert
-// row all line up on key / value / type.
-export const FIELD_COLS = { key: 200, value: 300, type: 150 };
+// key | value | type | source | actions. Right-hand columns are fixed-width so
+// they line up across rows (each row is its own grid); value (1fr) absorbs slack.
+export const FIELD_GRID_TEMPLATE =
+  "minmax(110px, 200px) minmax(120px, 1fr) 110px 150px 150px";
 
-// If a raw JSON Schema is just an unambiguous primitive (e.g. `{"type":"string"}`)
-// return the equivalent simple type, so we don't surface it as "advanced". Returns
-// null the moment there's any extra constraint (enum, format, properties, unions…),
-// which is what actually warrants the advanced treatment.
 const JSON_SCHEMA_SIMPLE_TYPES: Record<string, SchemaField["type"]> = {
   string: "string",
   integer: "integer",
@@ -68,27 +64,21 @@ function simpleTypeFromJsonSchema(
   return typeof t === "string" ? (JSON_SCHEMA_SIMPLE_TYPES[t] ?? null) : null;
 }
 
-// Non-primitive picks offered alongside the simple types. Each is backed by a
-// canonical raw JSON Schema (so it round-trips through `jsonSchema`), but we
-// surface them as first-class options with friendly labels rather than burying
-// them behind "advanced".
+// Non-primitive type picks, each backed by a canonical raw JSON Schema.
 export const JSON_SCHEMA_PRESETS = {
   json: { type: "object" },
-  "array-primitives": {
-    type: "array",
-    items: { type: ["string", "number", "boolean", "null"] },
-  },
+  array: { type: "array" },
   any: {},
 } as const;
 export type PresetKey = keyof typeof JSON_SCHEMA_PRESETS;
 
 const PRESET_LABELS: Record<PresetKey, string> = {
   json: "JSON",
-  "array-primitives": "array",
+  array: "array",
   any: "any",
 };
 
-// Stable stringify (sorted object keys) so preset detection ignores key order.
+// Sorted-key stringify so preset detection ignores key order.
 function canonicalJSON(v: unknown): string {
   return JSON.stringify(v, (_k, val) =>
     val && typeof val === "object" && !Array.isArray(val)
@@ -121,9 +111,50 @@ export function presetSchemaString(key: PresetKey): string {
   return JSON.stringify(JSON_SCHEMA_PRESETS[key], null, 2);
 }
 
-// Collapse a field whose raw JSON Schema is really just a simple type back into
-// simple form (drops `jsonSchema`, sets `type`). No-op for genuinely advanced
-// schemas and for simple fields.
+// Read-only dropdown option for a schema no standard type can represent.
+export const OTHER_TYPE_VALUE = "other";
+
+// Best-fit dropdown option for a field, tolerating extra constraints and
+// `| null`; "other" when no single option fits (unions, oneOf, etc.).
+export function fieldTypeSelectValue(field: SchemaField): string {
+  if (field.jsonSchema === undefined) return field.type;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(field.jsonSchema);
+  } catch {
+    return OTHER_TYPE_VALUE;
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return OTHER_TYPE_VALUE;
+  }
+  const obj = parsed as Record<string, unknown>;
+  if (obj.type === undefined) {
+    // Empty schema is "any"; untyped-but-non-empty is custom.
+    return Object.keys(obj).length === 0 ? "any" : OTHER_TYPE_VALUE;
+  }
+  const types = (Array.isArray(obj.type) ? obj.type : [obj.type]).filter(
+    (t) => t !== "null",
+  );
+  if (types.length !== 1) return OTHER_TYPE_VALUE;
+  switch (types[0]) {
+    case "string":
+      return "string";
+    case "integer":
+      return "integer";
+    case "number":
+      return "float";
+    case "boolean":
+      return "boolean";
+    case "object":
+      return "json";
+    case "array":
+      return "array";
+    default:
+      return OTHER_TYPE_VALUE;
+  }
+}
+
+// Collapse a raw schema that's really a simple type back to that type.
 export function normalizeField(f: SchemaField): SchemaField {
   if (f.jsonSchema === undefined) return f;
   const simple = simpleTypeFromJsonSchema(f.jsonSchema);
@@ -131,10 +162,7 @@ export function normalizeField(f: SchemaField): SchemaField {
   return { ...f, type: simple, jsonSchema: undefined };
 }
 
-// tsc-style label for a field's type, including the nullable (`| null`) modifier;
-// "advanced" only when a raw JSON Schema is set that can't be reduced to a simple
-// type. Config fields are always required (present in the resolved object), so
-// there's no `| undefined`.
+// "advanced" for an irreducible raw JSON Schema.
 export function fieldTypeLabel(f: SchemaField | null): string {
   if (!f) return "—";
   const reduced = normalizeField(f);
@@ -147,14 +175,11 @@ export function fieldTypeLabel(f: SchemaField | null): string {
   return label;
 }
 
-// Every field resolves to a concrete value — there is no "unset". A field that
-// no config in the chain sets falls back to its type's default: string "",
-// boolean false, number 0, JSON {}, array [], any null.
 export function typeDefault(field: SchemaField | null): unknown {
   if (!field) return {};
   const preset = presetKeyFromField(field);
   if (preset === "json") return {};
-  if (preset === "array-primitives") return [];
+  if (preset === "array") return [];
   if (preset === "any") return null;
   if (field.jsonSchema !== undefined) return {};
   switch (field.type) {
@@ -168,12 +193,44 @@ export function typeDefault(field: SchemaField | null): unknown {
   }
 }
 
-// Map a field to the FeatureValueField editor surface. Anything jsonSchema-backed
-// (JSON/array/any presets + raw schemas) edits as JSON.
+// Value-editor surface from a schema's top-level type; only structured shapes
+// (object/array, multi-type unions, "any") use the JSON editor.
+function jsonSchemaValueType(
+  jsonSchema: string,
+): "string" | "number" | "boolean" | "json" {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(jsonSchema);
+  } catch {
+    return "json";
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return "json";
+  }
+  const rawType = (parsed as { type?: unknown }).type;
+  const types = (Array.isArray(rawType) ? rawType : [rawType]).filter(
+    (t) => t !== "null",
+  );
+  if (types.length !== 1) return "json";
+  switch (types[0]) {
+    case "string":
+      return "string";
+    case "integer":
+    case "number":
+      return "number";
+    case "boolean":
+      return "boolean";
+    default:
+      return "json";
+  }
+}
+
 export function fieldValueType(
   field: SchemaField | null,
 ): "string" | "number" | "boolean" | "json" {
-  if (!field || field.jsonSchema !== undefined) return "json";
+  if (!field) return "json";
+  if (field.jsonSchema !== undefined)
+    return jsonSchemaValueType(field.jsonSchema);
   switch (field.type) {
     case "boolean":
       return "boolean";
@@ -185,15 +242,10 @@ export function fieldValueType(
   }
 }
 
-// A field is edited as raw JSON only when it has no simple type (a raw per-field
-// JSON Schema, or no schema at all). Simple types get a plain input.
 export function isJsonField(field: SchemaField | null): boolean {
-  return !field || field.jsonSchema !== undefined;
+  return fieldValueType(field) === "json";
 }
 
-// Resolved values are parsed (unknown); ValueDisplay wants the string form for
-// the given surface: raw text for string, JSON text for json, "true"/"false"
-// for boolean, the numeric literal for number.
 export function valueToDisplayString(
   value: unknown,
   valueType: FeatureValueType,

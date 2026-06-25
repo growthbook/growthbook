@@ -7,12 +7,8 @@ import {
 } from "./owner-field";
 import { simpleSchemaValidator } from "./features";
 
-// A Config is a JSON-object value with a field schema and inheritance support
-// (`$extends`). It resolves and composes exactly like a `json` constant for
-// `@const:` references — the schema only drives typing/validation/UX. Configs
-// live in their own collection but share the reference/resolution machinery
-// (see getConstantReferenceKeys / buildConstantValueMap), so the resolver treats
-// a config as a `json` constant.
+// A JSON-object value with a field schema and `$extends` inheritance; resolves
+// like a `json` constant. The schema only drives typing/validation/UX.
 export const configValidator = z
   .object({
     id: z.string(),
@@ -20,25 +16,27 @@ export const configValidator = z
     key: z.string(),
     name: z.string(),
     owner: ownerField,
-    // Resolved per environment as `environmentValues[env] ?? value`; each is the
-    // JSON-encoded object value (a config is always a JSON object).
+    // Lineage parent (another config's `key`). `$extends` is synthesized from
+    // this at resolution time, never stored in `value`.
+    parent: z.string().optional(),
+    // JSON-encoded object; resolved per env as `environmentValues[env] ?? value`.
     value: z.string().optional(),
     environmentValues: z.record(z.string(), z.string()).optional(),
     description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
     project: z.string().optional(),
     archived: z.boolean().optional(),
-    // Field schema: defines each field and its type for the Configuration UI.
+    // Defines each field and its type for the Configuration UI.
     schema: simpleSchemaValidator.optional(),
     dateCreated: z.date(),
     dateUpdated: z.date(),
   })
   .strict();
 
-// Fields revision-aware code paths (revert, applyChanges) may mutate. `key`,
-// `id`, `organization`, and dates are immutable.
+// Fields revision-aware paths (revert, applyChanges) may mutate.
 export const configUpdatableFieldsSchema = configValidator.pick({
   name: true,
   owner: true,
+  parent: true,
   value: true,
   environmentValues: true,
   description: true,
@@ -59,6 +57,7 @@ export const postConfigBodyValidator = z.object({
   name: z.string(),
   // Optional — the controller defaults the owner to the requesting user.
   owner: optionalOwnerInputField,
+  parent: z.string().optional(),
   value: z.string().optional(),
   environmentValues: z.record(z.string(), z.string()).optional(),
   description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
@@ -69,6 +68,7 @@ export const postConfigBodyValidator = z.object({
 export const putConfigBodyValidator = z.object({
   name: z.string().optional(),
   owner: ownerInputField.optional(),
+  parent: z.string().optional(),
   value: z.string().optional(),
   environmentValues: z.record(z.string(), z.string()).optional(),
   description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),

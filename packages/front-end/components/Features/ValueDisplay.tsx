@@ -73,6 +73,7 @@ export default function ValueDisplay({
   fullClassName = "",
   showFullscreenButton: _showFullscreenButton = false,
   showCopyButton = true,
+  copyButtonClassName,
   isFullscreen = false,
   sparse = false,
   defaultValue,
@@ -87,6 +88,9 @@ export default function ValueDisplay({
   fullClassName?: string;
   showFullscreenButton?: boolean;
   showCopyButton?: boolean;
+  // Optional class on the copy button — lets a caller fade/reveal it (e.g. on
+  // row hover) without affecting other ValueDisplay usages.
+  copyButtonClassName?: string;
   isFullscreen?: boolean;
   // Header for the fullscreen modal (e.g. "Constant Value" when reused outside features).
   fullscreenHeader?: string;
@@ -231,6 +235,7 @@ export default function ValueDisplay({
                   type="button"
                   radius="full"
                   variant="ghost"
+                  className={copyButtonClassName}
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();

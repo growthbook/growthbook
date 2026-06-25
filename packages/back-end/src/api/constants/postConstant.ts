@@ -38,8 +38,7 @@ export const postConstant = createApiRequestHandler(postConstantValidator)(
       await req.context.models.projects.ensureProjectsExist([project]);
     }
 
-    // Keys must be unique across both constants and configs (shared `@const:`
-    // namespace).
+    // Keys are unique across both constants and configs (shared `@const:` namespace).
     await assertKeyAvailableAcrossNamespace(req.context, key);
 
     // Validate value shape against the declared type (empty is allowed).

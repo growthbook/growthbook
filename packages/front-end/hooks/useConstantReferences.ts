@@ -20,10 +20,8 @@ export type ConstantReferences = {
   constants: ConstantConstantRef[];
 };
 
-// Features, constants, and configs that reference a given constant/config via
-// `@const:key`. Cached for 5 minutes to avoid duplicate fetches when the
-// references modal mounts shortly after the detail page. `entity` selects the
-// API base path ("constants" or "configs").
+// Features/constants/configs that reference a given constant/config via
+// `@const:key`. Cached for 5 minutes; `entity` selects the API base path.
 export function useConstantReferences(
   constantId: string | null | undefined,
   entity: "constants" | "configs" = "constants",

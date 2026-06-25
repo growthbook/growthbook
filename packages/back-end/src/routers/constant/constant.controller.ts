@@ -148,9 +148,7 @@ export const postConstant = async (
 
   // Cycle rejection is enforced in ConstantModel (covers every write path).
 
-  // Keys must be unique across both constants and configs (shared `@const:`
-  // namespace); pre-check for a friendly error rather than a raw duplicate-key
-  // failure from the unique index.
+  // Keys are unique across both constants and configs (shared `@const:` namespace).
   await assertKeyAvailableAcrossNamespace(context, body.key);
 
   // Permission is enforced by the model's canCreate.

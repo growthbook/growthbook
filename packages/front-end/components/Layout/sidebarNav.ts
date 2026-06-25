@@ -35,6 +35,7 @@ export const navlinks: SidebarLinkProps[] = [
         name: "Configs",
         href: "/configs",
         path: /^configs/,
+        beta: true,
       },
       {
         name: "Constants",
