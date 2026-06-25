@@ -3,7 +3,6 @@ import { useForm } from "react-hook-form";
 import { FeatureInterface } from "shared/types/feature";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { validateFeatureValue, getReviewSetting } from "shared/util";
-import { Box } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { getFeatureDefaultValue } from "@/services/features";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -92,7 +91,7 @@ export default function EditDefaultValueModal({
       })}
       close={close}
       open={true}
-      size={feature.valueType === "json" ? "lg" : "md"}
+      size="lg"
     >
       <DraftSelectorForChanges
         feature={feature}
@@ -104,19 +103,17 @@ export default function EditDefaultValueModal({
         canAutoPublish={false}
         gatedEnvSet={gatedEnvSet}
       />
-      <Box>
-        <FeatureValueField
-          label="Value When Enabled"
-          id="defaultValue"
-          value={form.watch("defaultValue")}
-          setValue={(v) => form.setValue("defaultValue", v)}
-          valueType={feature.valueType}
-          feature={feature}
-          renderJSONInline={true}
-          useCodeInput={true}
-          showFullscreenButton={true}
-        />
-      </Box>
+      <FeatureValueField
+        label="Value When Enabled"
+        id="defaultValue"
+        value={form.watch("defaultValue")}
+        setValue={(v) => form.setValue("defaultValue", v)}
+        valueType={feature.valueType}
+        feature={feature}
+        renderJSONInline={true}
+        useCodeInput={true}
+        showFullscreenButton={true}
+      />
     </ModalStandard>
   );
 }
