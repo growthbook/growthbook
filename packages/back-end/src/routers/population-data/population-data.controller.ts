@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { Response } from "express";
+import md5 from "md5";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 import { PopulationDataInterface } from "shared/types/population-data";
@@ -54,11 +55,28 @@ export const postPopulationData = async (
     });
   }
 
+  // Resolve the definitions we're about to query against, so the cache key
+  // covers *what* was queried, not just *which IDs* were named.
+  const metricMap = await getMetricMap(context);
+  const factTableMap = await getFactTableMap(context);
+  const requestedMetrics = data.metricIds
+    .map((id) => metricMap.get(id))
+    .filter((m): m is NonNullable<typeof m> => !!m);
+  const settingsHash = md5(
+    JSON.stringify({
+      datasource: integration.datasource.dateUpdated?.toISOString() ?? "",
+      metrics: requestedMetrics
+        .map((m) => `${m.id}:${m.dateUpdated?.toISOString() ?? ""}`)
+        .sort(),
+    }),
+  );
+
   // see if one exists from the last 7 days
   const populationData =
     await context.models.populationData.getRecentUsingSettings(
       data.sourceId,
       data.userIdType,
+      settingsHash,
     );
 
   const snapshotSettings: ExperimentSnapshotSettings = {
@@ -87,8 +105,6 @@ export const postPopulationData = async (
     variations: [],
   };
 
-  // TODO hash metric and datasource to validate cache and let force refresh override
-  // TODO incrementally update metrics
   if (
     !data.force &&
     populationData &&
@@ -119,6 +135,7 @@ export const postPopulationData = async (
   const model = await context.models.populationData.create({
     ...populationSettings,
 
+    settingsHash,
     datasourceId: data.datasourceId,
     queries: [],
     runStarted: null,
@@ -133,9 +150,6 @@ export const postPopulationData = async (
     integration,
     true,
   );
-
-  const metricMap = await getMetricMap(context);
-  const factTableMap = await getFactTableMap(context);
 
   await queryRunner
     .startAnalysis({

@@ -18,13 +18,15 @@ import {
   ExperimentSnapshotSettings,
   MetricForSnapshot,
 } from "shared/types/experiment-snapshot";
-import { OrganizationInterface } from "shared/types/organization";
 import { ExperimentInterface } from "shared/types/experiment";
 import {
   FactMetricInterface,
   FactTableInterface,
 } from "shared/types/fact-table";
+import { SegmentInterface } from "shared/types/segment";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
+import { ApiReqContext } from "back-end/types/api";
+import { ReqContext } from "back-end/types/request";
 import { ExperimentIncrementalPipelineRequiresFullRefreshError } from "back-end/src/util/errors";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { getFiltersForHash } from "back-end/src/services/experimentTimeSeries";
@@ -40,7 +42,7 @@ import type { MetricFanOut } from "back-end/src/services/experimentQueries/planM
  * Does not validate metric-source cache drift. See getFactTablesNeedingRebuild.
  */
 export async function assertIncrementalRefreshPrerequisites({
-  org,
+  context,
   integration,
   snapshotSettings,
   metricMap,
@@ -48,7 +50,7 @@ export async function assertIncrementalRefreshPrerequisites({
   incrementalRefreshModel,
   analysisType,
 }: {
-  org: OrganizationInterface;
+  context: ReqContext | ApiReqContext;
   integration: SourceIntegrationInterface;
   snapshotSettings: ExperimentSnapshotSettings;
   metricMap: Map<string, ExperimentMetricInterface>;
@@ -56,6 +58,7 @@ export async function assertIncrementalRefreshPrerequisites({
   incrementalRefreshModel: IncrementalRefreshInterface | null;
   analysisType: "main-update" | "main-fullRefresh" | "exploratory";
 }): Promise<void> {
+  const org = context.org;
   const selectedMetrics = snapshotSettings.metricSettings
     .map((m) => metricMap.get(m.id))
     .filter((m) => m !== undefined);
@@ -90,8 +93,15 @@ export async function assertIncrementalRefreshPrerequisites({
   // rebuilds only that metric's fact-table cache, leaving the units table and
   // every unaffected metric cache on the incremental path.
   if (analysisType === "main-update" && incrementalRefreshModel) {
-    const currentSettingsHash =
-      getExperimentSettingsHashForIncrementalRefresh(snapshotSettings);
+    const refs = await resolveSettingsRefsForIncrementalRefresh(
+      context,
+      integration,
+      snapshotSettings,
+    );
+    const currentSettingsHash = getExperimentSettingsHashForIncrementalRefresh(
+      snapshotSettings,
+      refs,
+    );
     const storedSettingsHash = incrementalRefreshModel.experimentSettingsHash;
     if (!storedSettingsHash || currentSettingsHash !== storedSettingsHash) {
       throw new ExperimentIncrementalPipelineRequiresFullRefreshError(
@@ -103,14 +113,68 @@ export async function assertIncrementalRefreshPrerequisites({
 
 const hashObject = (obj: object) => md5(JSON.stringify(obj));
 
+// Segment and exposureQuery are referenced by ID in snapshot settings, but
+// both have user-editable definitions. Hashing the ID alone means editing the
+// definition leaves the hash unchanged and the cached units table is reused as
+// if still valid. Callers resolve the definitions and pass them here so the
+// hash covers content, not just identity. For segments this means both the SQL
+// (type=SQL) and the factTableId+filters pair (type=FACT).
+export interface ResolvedSettingsRefs {
+  segment: Pick<
+    SegmentInterface,
+    "sql" | "factTableId" | "filters" | "userIdType"
+  > | null;
+  exposureQuerySql: string | undefined;
+}
+
+export async function resolveSettingsRefsForIncrementalRefresh(
+  context: ReqContext | ApiReqContext,
+  integration: SourceIntegrationInterface,
+  snapshotSettings: ExperimentSnapshotSettings,
+): Promise<ResolvedSettingsRefs> {
+  const segmentObj = snapshotSettings.segment
+    ? await context.models.segments.getById(snapshotSettings.segment)
+    : null;
+  const exposureQuery = (
+    integration.datasource.settings.queries?.exposure || []
+  ).find((q) => q.id === snapshotSettings.exposureQueryId);
+  return {
+    segment: pickSegmentFieldsForHash(segmentObj),
+    exposureQuerySql: exposureQuery?.query,
+  };
+}
+
+export function pickSegmentFieldsForHash(
+  segment: SegmentInterface | null,
+): ResolvedSettingsRefs["segment"] {
+  if (!segment) return null;
+  return {
+    sql: segment.sql,
+    factTableId: segment.factTableId,
+    filters: segment.filters,
+    userIdType: segment.userIdType,
+  };
+}
+
 export function getExperimentSettingsHashForIncrementalRefresh(
   snapshotSettings: ExperimentSnapshotSettings,
+  refs: ResolvedSettingsRefs,
 ): string {
-  const settingsForHash: Record<string, unknown> = {};
+  // `v` bumps whenever this hash's inputs change so the change is explicit and
+  // every existing units table is invalidated exactly once.
+  const settingsForHash: Record<string, unknown> = { v: 2 };
 
   for (const field of INCREMENTAL_FULL_REFRESH_SETTINGS_FIELDS) {
     settingsForHash[field] = snapshotSettings[field];
   }
+  settingsForHash.segment = {
+    id: snapshotSettings.segment,
+    ...refs.segment,
+  };
+  settingsForHash.exposureQueryId = {
+    id: snapshotSettings.exposureQueryId,
+    sql: refs.exposureQuerySql,
+  };
 
   return hashObject(settingsForHash);
 }
@@ -477,15 +541,19 @@ export function getAggregatedFactTableRestateReason({
 // experiment-level settings.
 export function exploratoryOverallRequiresFullRefresh({
   snapshotSettings,
+  refs,
   incrementalRefreshModel,
   latestOverallSnapshotId,
 }: {
   snapshotSettings: ExperimentSnapshotSettings;
+  refs: ResolvedSettingsRefs;
   incrementalRefreshModel: IncrementalRefreshInterface;
   latestOverallSnapshotId: string | null;
 }): boolean {
-  const currentSettingsHash =
-    getExperimentSettingsHashForIncrementalRefresh(snapshotSettings);
+  const currentSettingsHash = getExperimentSettingsHashForIncrementalRefresh(
+    snapshotSettings,
+    refs,
+  );
   const storedSettingsHash = incrementalRefreshModel.experimentSettingsHash;
   if (!storedSettingsHash || currentSettingsHash !== storedSettingsHash) {
     return true;

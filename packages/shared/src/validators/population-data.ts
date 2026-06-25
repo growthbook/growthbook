@@ -64,6 +64,7 @@ export const populationDataInterfaceValidator = z
     sourceType: populationDataSourceTypeValidator,
     sourceId: z.string(),
     userIdType: z.string(),
+    settingsHash: z.string().optional(),
 
     // data
     units: z.array(

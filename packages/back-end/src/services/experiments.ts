@@ -202,6 +202,7 @@ import {
 import {
   assertIncrementalRefreshPrerequisites,
   exploratoryOverallRequiresFullRefresh,
+  resolveSettingsRefsForIncrementalRefresh,
 } from "back-end/src/enterprise/services/data-pipeline";
 import {
   ExperimentUpdateLogPlan,
@@ -1332,7 +1333,7 @@ function resolveFullRefresh(
 }
 
 type IncrementalRefreshPrerequisiteArgs = {
-  org: OrganizationInterface;
+  context: ReqContext | ApiReqContext;
   integration: SourceIntegrationInterface;
   experiment: ExperimentInterface;
   metricMap: Map<string, ExperimentMetricInterface>;
@@ -1436,7 +1437,7 @@ async function resolveIncrementalPrerequisiteFailure({
 }
 
 async function planSnapshotQueryRunner({
-  organization,
+  context,
   datasource,
   integration,
   snapshotSettings,
@@ -1450,7 +1451,7 @@ async function planSnapshotQueryRunner({
   triggeredBy,
   throwOnErrorInsteadOfFallback,
 }: {
-  organization: OrganizationInterface;
+  context: ReqContext | ApiReqContext;
   datasource: DataSourceInterface;
   integration: SourceIntegrationInterface;
   snapshotSettings: ExperimentSnapshotSettings;
@@ -1488,6 +1489,11 @@ async function planSnapshotQueryRunner({
     incrementalRefreshModel &&
     exploratoryOverallRequiresFullRefresh({
       snapshotSettings,
+      refs: await resolveSettingsRefsForIncrementalRefresh(
+        context,
+        integration,
+        snapshotSettings,
+      ),
       incrementalRefreshModel,
       latestOverallSnapshotId,
     })
@@ -1508,7 +1514,7 @@ async function planSnapshotQueryRunner({
   }
 
   const prerequisites: IncrementalRefreshPrerequisiteArgs = {
-    org: organization,
+    context,
     integration,
     experiment,
     metricMap,
@@ -1709,7 +1715,7 @@ export async function planSnapshot({
   }
 
   const runnerPlan = await planSnapshotQueryRunner({
-    organization,
+    context,
     datasource,
     integration,
     snapshotSettings: data.settings,

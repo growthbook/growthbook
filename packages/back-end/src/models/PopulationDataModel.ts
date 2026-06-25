@@ -46,6 +46,7 @@ export class PopulationDataModel extends BaseClass {
   public async getRecentUsingSettings(
     sourceId: string,
     userIdType: string,
+    settingsHash: string,
     onlySuccess = true,
     lookbackDays = 7,
   ) {
@@ -57,6 +58,11 @@ export class PopulationDataModel extends BaseClass {
       {
         sourceId,
         userIdType,
+        // Only reuse a cached doc if it was computed against the same metric +
+        // datasource definitions. A doc with no hash (pre-change data) will
+        // never match, forcing a fresh query once — safer than serving a doc
+        // we can't prove is current.
+        settingsHash,
         endDate: { $gte: lastWeek },
         ...(onlySuccess ? { status: "success" } : {}),
       },
