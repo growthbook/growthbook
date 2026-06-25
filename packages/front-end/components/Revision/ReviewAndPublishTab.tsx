@@ -440,7 +440,7 @@ function ReviewAndPublishRevision<T>({
     !!userId &&
     hasCommercialFeature("require-approvals") &&
     isUserBlockedFromApproving({
-      approvalFlows: organization?.settings?.approvalFlows,
+      settings: organization?.settings,
       entityType: revision.target.type,
       revision,
       userId,
@@ -448,7 +448,7 @@ function ReviewAndPublishRevision<T>({
 
   const autopublishOnApproval =
     isAutopublishOnApprovalEnabled(
-      organization?.settings?.approvalFlows,
+      organization?.settings,
       revision.target.type,
     ) && hasCommercialFeature("require-approvals");
   const revisionAutoPublishArmed = !!revision.autoPublishOnApproval;
