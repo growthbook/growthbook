@@ -118,14 +118,15 @@ function EditTrafficForm({
       ];
       data.variationWeights = distributeWeights(newWeights, true);
     } else {
+      const latestVariationWeights = latestPhase?.variationWeights ?? [];
       if (
         data.variations.length !== data.variationWeights.length ||
-        data.variations.length !== latestPhase.variationWeights.length
+        data.variations.length !== latestVariationWeights.length
       ) {
         // only recompute weights if original weights are the wrong size
         data.variationWeights = getEqualWeights(data.variations.length || 2, 4);
       } else {
-        data.variationWeights = [...latestPhase.variationWeights];
+        data.variationWeights = [...latestVariationWeights];
       }
     }
 
