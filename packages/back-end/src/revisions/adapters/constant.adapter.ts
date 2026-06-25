@@ -131,6 +131,23 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
     return canBypassApprovalForConstant(context, snapshot);
   },
 
+  // Publish authority for constants == edit permission (no environment
+  // dimension). Gates publishing and canceling a pending schedule.
+  canPublishRevision(context: Context, snapshot: ConstantInterface): boolean {
+    return canEditConstant(context, snapshot);
+  },
+
+  // Arming a date-based schedule needs the premium feature on top of publish
+  // authority. Mirrors the saved-group / feature flow's `scheduled-revisions`
+  // gate. Without this the controller's `canSchedulePublish` default of `false`
+  // rejects every arm attempt — even an admin's — with a permission error.
+  canSchedulePublish(context: Context, snapshot: ConstantInterface): boolean {
+    return (
+      context.hasPremiumFeature("scheduled-revisions") &&
+      canEditConstant(context, snapshot)
+    );
+  },
+
   // Constants borrow the feature `requireReviews` model (not `approvalFlows`),
   // so reset-on-change and autopublish-on-approval are derived from the matched
   // review rule rather than the default approval-flow toggles.
