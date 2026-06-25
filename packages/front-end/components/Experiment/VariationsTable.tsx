@@ -210,7 +210,6 @@ export function VariationBox({
   i,
   v,
   experiment,
-  showDescription,
   showIds,
   showNoImage = true,
   height = 200,
@@ -230,7 +229,6 @@ export function VariationBox({
   i: number;
   v: Variation;
   experiment: ExperimentInterfaceStringDates;
-  showDescription?: boolean;
   showIds?: boolean;
   showNoImage?: boolean;
   height?: number;
@@ -335,11 +333,7 @@ export function VariationBox({
           </Box>
         )}
         <Box mt="2">
-          {showDescription ? (
-            <Box mb="2">
-              {v.description || <Text color="text-mid">--</Text>}
-            </Box>
-          ) : null}
+          {v.description ? <Box mb="2">{v.description}</Box> : null}
           {showIds ? <code className="small">ID: {v.key}</code> : null}
           <Flex align="center" justify="between">
             <Box>
@@ -410,7 +404,6 @@ const VariationsTable: FC<Props> = ({
     index: number;
   } | null>(null);
 
-  const hasDescriptions = variations.some((v) => !!v.description?.trim());
   const hasUniqueIDs = variations.some((v, i) => v.key !== i + "");
 
   const cols = centered
@@ -448,7 +441,6 @@ const VariationsTable: FC<Props> = ({
               i={v.index}
               v={v}
               experiment={experiment}
-              showDescription={hasDescriptions}
               showIds={hasUniqueIDs}
               height={MAX_IMAGE_HEIGHT}
               canEdit={canEditExperiment}
