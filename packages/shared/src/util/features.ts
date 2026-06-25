@@ -3259,11 +3259,16 @@ export function getDisallowedProjects(
   );
 }
 
-export function simpleToJSONSchema(simple: SimpleSchema): string {
-  const getValue = (
-    value: string,
-    field: SchemaField,
-  ): string | number | boolean => {
+// Codify a single SimpleSchema field into its JSON Schema subschema (type +
+// description + default + enum + min/max constraints). This is the per-field
+// half of `simpleToJSONSchema`, exported so editors can faithfully seed a raw
+// JSON Schema from simple-mode preferences. Note: `required`/`nullable` are
+// composition concerns (presence in the parent object / `| null` unions) and
+// are NOT part of a property's own subschema — callers handle those separately.
+export function simpleSchemaFieldToJSONSchema(
+  field: SchemaField,
+): Record<string, unknown> {
+  const getValue = (value: string): string | number | boolean => {
     const type = field.type;
     // Validation
     if (field.type !== "boolean") {
@@ -3271,23 +3276,23 @@ export function simpleToJSONSchema(simple: SimpleSchema): string {
         throw new Error(`Value '${value}' not in enum for field ${field.key}`);
       }
       if (field.type === "string" && !field.enum.length) {
-        if (value.length < field.min) {
+        if (field.min !== undefined && value.length < field.min) {
           throw new Error(
             `Value '${value}' is shorter than min length for field ${field.key}`,
           );
         }
-        if (value.length > field.max) {
+        if (field.max !== undefined && value.length > field.max) {
           throw new Error(
             `Value '${value}' is longer than max length for field ${field.key}`,
           );
         }
       } else if (!field.enum.length) {
-        if (parseFloat(value) < field.min) {
+        if (field.min !== undefined && parseFloat(value) < field.min) {
           throw new Error(
             `Value '${value}' is less than min value for field ${field.key}`,
           );
         }
-        if (parseFloat(value) > field.max) {
+        if (field.max !== undefined && parseFloat(value) > field.max) {
           throw new Error(
             `Value '${value}' is greater than max value for field ${field.key}`,
           );
@@ -3307,41 +3312,56 @@ export function simpleToJSONSchema(simple: SimpleSchema): string {
     else return value !== "false";
   };
 
-  const fields = simple.fields.map((f) => {
-    const schema: Record<string, unknown> = {
-      type: ["float", "integer"].includes(f.type) ? "number" : f.type,
-    };
+  const baseType = ["float", "integer"].includes(field.type)
+    ? "number"
+    : field.type;
+  const schema: Record<string, unknown> = {
+    // A nullable field widens the type to a `T | null` union.
+    type: field.nullable ? [baseType, "null"] : baseType,
+  };
 
-    if (f.description) schema.description = f.description;
+  if (field.description) schema.description = field.description;
 
-    if (f.default) schema.default = getValue(f.default, f);
+  if (field.default) schema.default = getValue(field.default);
 
-    if (f.type !== "boolean" && f.enum.length) {
-      schema.enum = f.enum.map((v) => getValue(v, f));
-    }
-    if (!schema.enum) {
-      if (f.type === "string") {
-        schema.minLength = f.min;
-        schema.maxLength = f.max;
-        if (f.max < f.min || f.min < 0) {
-          throw new Error(`Invalid min or max for field ${f.key}`);
-        }
-      } else if (f.type === "float" || f.type === "integer") {
-        schema.minimum = f.min;
-        schema.maximum = f.max;
+  if (field.type !== "boolean" && field.enum.length) {
+    schema.enum = field.enum.map((v) => getValue(v));
+  }
+  if (!schema.enum) {
+    // Bounds are optional — emit only when set.
+    const { min, max } = field;
+    if (field.type === "string") {
+      if (min !== undefined) schema.minLength = min;
+      if (max !== undefined) schema.maxLength = max;
+      if (
+        (min !== undefined && min < 0) ||
+        (min !== undefined && max !== undefined && max < min)
+      ) {
+        throw new Error(`Invalid min or max for field ${field.key}`);
+      }
+    } else if (field.type === "float" || field.type === "integer") {
+      if (min !== undefined) schema.minimum = min;
+      if (max !== undefined) schema.maximum = max;
 
-        if (f.type === "integer") {
-          schema.multipleOf = 1;
-          schema.format = "number";
-        }
+      if (field.type === "integer") {
+        schema.multipleOf = 1;
+        schema.format = "number";
+      }
 
-        if (f.max < f.min) {
-          throw new Error(`Invalid min or max for field ${f.key}`);
-        }
+      if (min !== undefined && max !== undefined && max < min) {
+        throw new Error(`Invalid min or max for field ${field.key}`);
       }
     }
-    return { key: f.key, required: f.required, schema };
-  });
+  }
+  return schema;
+}
+
+export function simpleToJSONSchema(simple: SimpleSchema): string {
+  const fields = simple.fields.map((f) => ({
+    key: f.key,
+    required: f.required,
+    schema: simpleSchemaFieldToJSONSchema(f),
+  }));
   if (fields.length === 0) {
     throw new Error("Schema must have at least 1 field");
   }

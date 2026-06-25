@@ -16,15 +16,29 @@ export default function EditSchemaField({
   inObject,
   onChange,
   valueType,
+  hideKey = false,
+  hideType = false,
+  hideRequired = false,
+  allowNullable = false,
 }: {
   i: number;
   value: SchemaField;
   inObject: boolean;
   onChange: (value: SchemaField) => void;
   valueType?: FeatureValueType;
+  // The config editor keeps key + type on its own aligned row, so it can hide
+  // those inputs here and reuse the rest (description, required, enum, min/max).
+  hideKey?: boolean;
+  hideType?: boolean;
+  // Config fields are always required (present in the resolved object), so the
+  // Required toggle is hidden there.
+  hideRequired?: boolean;
+  // Configs support nullable fields (value may be null); features don't, so the
+  // Nullable toggle is opt-in.
+  allowNullable?: boolean;
 }) {
   // String features only have 1 type option, so hide the selector
-  const hideTypeSelector = valueType === "string";
+  const hideTypeSelector = valueType === "string" || hideType;
   const allTypeOptions = [
     { value: "string", label: "Text String" },
     { value: "integer", label: "Integer" },
@@ -35,11 +49,12 @@ export default function EditSchemaField({
     valueType === "number"
       ? allTypeOptions.filter((o) => ["integer", "float"].includes(o.value))
       : allTypeOptions;
+  const showKey = inObject && !hideKey;
   return (
     <div>
-      {!hideTypeSelector && (
+      {(showKey || !hideTypeSelector) && (
         <div className="row">
-          {inObject && (
+          {showKey && (
             <div className="col">
               <Field
                 label="Property Key"
@@ -50,18 +65,20 @@ export default function EditSchemaField({
               />
             </div>
           )}
-          <div className="col">
-            <SelectField
-              label="Type"
-              value={value.type}
-              onChange={(type) =>
-                onChange({ ...value, type: type as SchemaField["type"] })
-              }
-              sort={false}
-              options={typeOptions}
-              required
-            />
-          </div>
+          {!hideTypeSelector && (
+            <div className="col">
+              <SelectField
+                label="Type"
+                value={value.type}
+                onChange={(type) =>
+                  onChange({ ...value, type: type as SchemaField["type"] })
+                }
+                sort={false}
+                options={typeOptions}
+                required
+              />
+            </div>
+          )}
         </div>
       )}
       <Field
@@ -70,15 +87,26 @@ export default function EditSchemaField({
         onChange={(e) => onChange({ ...value, description: e.target.value })}
         maxLength={256}
       />
-      {inObject && (
+      {inObject && (!hideRequired || allowNullable) && (
         <div className="form-group">
-          <Checkbox
-            id={`schema_required_${i}`}
-            value={value.required}
-            setValue={(v) => onChange({ ...value, required: v })}
-            description="Check if this property is required"
-            label="Required"
-          />
+          {!hideRequired && (
+            <Checkbox
+              id={`schema_required_${i}`}
+              value={value.required}
+              setValue={(v) => onChange({ ...value, required: v })}
+              description="Check if this property is required"
+              label="Required"
+            />
+          )}
+          {allowNullable && (
+            <Checkbox
+              id={`schema_nullable_${i}`}
+              value={value.nullable === true}
+              setValue={(v) => onChange({ ...value, nullable: v })}
+              description="Allow the value to be null"
+              label="Nullable"
+            />
+          )}
         </div>
       )}
       {value.type !== "boolean" && (

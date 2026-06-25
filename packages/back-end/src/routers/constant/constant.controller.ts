@@ -175,11 +175,26 @@ export const getConstantConfigResolved = async (
 
   const { effectiveSchema, fields } = resolveConfigChain(chain);
 
+  const allConstants = await context.models.constants.getAll();
+
+  // Constant value-map inputs for the client to squash `@const:` references in
+  // the field table (default values; same scrubbing as payload generation).
+  // Scoped to this config's project + globals so cross-project values are never
+  // sent to the client.
+  const configProject = config.project || "";
+  const constants = allConstants
+    .filter((c) => !c.project || c.project === configProject)
+    .map((c) => ({
+      key: c.key,
+      type: c.type,
+      value: c.value,
+      project: c.project,
+      archived: c.archived,
+    }));
+
   // Lineage tree: every config descending from this chain's base, so the editor
   // sidebar can render the whole family and let you browse between them.
-  const allConfigs = (await context.models.constants.getAll()).filter(
-    (c) => c.type === "config",
-  );
+  const allConfigs = allConstants.filter((c) => c.type === "config");
   const rootKey = chain[0]?.key ?? config.key;
   const lineage: { key: string; name: string; parentKey: string | null }[] = [];
   const seen = new Set<string>();
@@ -200,9 +215,15 @@ export const getConstantConfigResolved = async (
     }
   }
 
-  return res
-    .status(200)
-    .json({ status: 200, config, chain, effectiveSchema, fields, lineage });
+  return res.status(200).json({
+    status: 200,
+    config,
+    chain,
+    effectiveSchema,
+    fields,
+    lineage,
+    constants,
+  });
 };
 
 export const postConstant = async (

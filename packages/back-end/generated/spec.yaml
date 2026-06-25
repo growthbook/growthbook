@@ -2944,8 +2944,6 @@ paths:
                               - default
                               - description
                               - enum
-                              - min
-                              - max
                             additionalProperties: false
                       required:
                         - type
@@ -7843,8 +7841,6 @@ paths:
                               - default
                               - description
                               - enum
-                              - min
-                              - max
                             additionalProperties: false
                       required:
                         - type

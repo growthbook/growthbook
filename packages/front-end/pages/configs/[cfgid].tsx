@@ -14,6 +14,10 @@ import {
   resolveConfigChain,
   ConfigChainNode,
 } from "shared/util";
+import {
+  buildConstantValueMap,
+  resolveConstantRefs,
+} from "shared/sdk-versioning";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import useApi from "@/hooks/useApi";
@@ -27,7 +31,6 @@ import Owner from "@/components/Avatar/Owner";
 import Markdown from "@/components/Markdown/Markdown";
 // eslint-disable-next-line no-restricted-imports
 import Modal from "@/components/Modal";
-import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Badge from "@/ui/Badge";
@@ -36,18 +39,8 @@ import Link from "@/ui/Link";
 import Metadata from "@/ui/Metadata";
 import Callout from "@/ui/Callout";
 import ConfirmDialog from "@/ui/ConfirmDialog";
-import Field from "@/components/Forms/Field";
-import SelectField from "@/components/Forms/SelectField";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Code from "@/components/SyntaxHighlighting/Code";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
-import Table, {
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableColumnHeader,
-  TableCell,
-} from "@/ui/Table";
+import SplitButton from "@/ui/SplitButton";
 import {
   DropdownMenu,
   DropdownMenuGroup,
@@ -81,14 +74,18 @@ import ConstantReferencesList from "@/components/Constants/ConstantReferencesLis
 import ReferencesLink from "@/components/References/ReferencesLink";
 import { ConstantRevisionContext } from "@/components/Constants/useConstantDraftTarget";
 import ConfigModal from "@/components/Constants/ConfigModal";
+import LineageTree from "@/components/Configs/LineageTree";
+import FieldDefForm from "@/components/Configs/FieldDefForm";
+import ConfigFieldRow from "@/components/Configs/ConfigFieldRow";
+import {
+  FIELD_COLS,
+  ResolvedField,
+  LineageNode,
+  blankField,
+  isJsonField,
+  typeDefault,
+} from "@/components/Configs/fieldSchema";
 
-type ResolvedField = {
-  key: string;
-  field: SchemaField | null;
-  value: unknown;
-  source: string | null;
-};
-type LineageNode = { key: string; name: string; parentKey: string | null };
 type ResolvedResponse = {
   status: number;
   config: ConstantInterface;
@@ -99,386 +96,14 @@ type ResolvedResponse = {
   effectiveSchema: SchemaField[];
   fields: ResolvedField[];
   lineage: LineageNode[];
+  // Project-scoped constant value-map inputs, so the field table can squash
+  // `@const:` references client-side (default values; same scrubbing as the
+  // payload). The editor and JSON view keep references raw.
+  constants: Pick<
+    ConstantInterface,
+    "key" | "type" | "value" | "project" | "archived"
+  >[];
 };
-
-// Renders the lineage tree (base → children) recursively, highlighting the
-// current config.
-function LineageTree({
-  nodes,
-  parentKey,
-  currentKey,
-  depth = 0,
-}: {
-  nodes: LineageNode[];
-  parentKey: string | null;
-  currentKey: string;
-  depth?: number;
-}): React.ReactElement {
-  const children = nodes.filter((n) => n.parentKey === parentKey);
-  return (
-    <>
-      {children.map((n) => (
-        <Box key={n.key}>
-          <Box style={{ paddingLeft: depth * 16 }} py="1">
-            <Link
-              href={`/configs/${n.key}`}
-              color={n.key === currentKey ? "violet" : "dark"}
-              weight={n.key === currentKey ? "bold" : "regular"}
-            >
-              {n.name}
-            </Link>
-          </Box>
-          <LineageTree
-            nodes={nodes}
-            parentKey={n.key}
-            currentKey={currentKey}
-            depth={depth + 1}
-          />
-        </Box>
-      ))}
-    </>
-  );
-}
-
-// A blank field definition, with the same defaults the feature schema editor
-// uses. `required` is always true — configs define their full field set on the
-// base; children are partial value-patches, so there are no optional fields.
-const blankField = (): SchemaField => ({
-  key: "",
-  type: "string",
-  required: true,
-  default: "",
-  description: "",
-  enum: [],
-  min: 0,
-  max: 256,
-});
-
-const FIELD_TYPE_OPTIONS = [
-  { value: "string", label: "String" },
-  { value: "integer", label: "Integer" },
-  { value: "float", label: "Float" },
-  { value: "boolean", label: "Boolean" },
-];
-
-// Shared fixed column widths so the Form-tab header, value rows, and the insert
-// row all line up on key / value / type.
-const FIELD_COLS = { key: 200, value: 300, type: 150 };
-
-// tsc-style label for a field's type, including nullable (`| null`) and optional
-// (`| undefined`) modifiers; "advanced" when a raw JSON Schema is set.
-function fieldTypeLabel(f: SchemaField | null): string {
-  if (!f) return "—";
-  if (f.jsonSchema !== undefined) return "advanced";
-  let label: string = f.type;
-  if (f.nullable) label += " | null";
-  if (!f.required) label += " | undefined";
-  return label;
-}
-
-// Inline editor for a single field's schema definition (add or edit). Compact by
-// default — key + type (+ value when inserting) on one line — with progressive
-// "+ description" / "+ validation" rows. Selecting "Advanced…" as the type
-// switches the field to a raw JSON Schema escape hatch (stored as `jsonSchema`,
-// which supersedes the simple type). Kept on the page (no modal).
-//
-// `nullable`/`optional` are intentionally NOT simple-mode toggles: when you also
-// set a value here there's no clean way to express them, so that nuance lives in
-// the Advanced (raw JSON Schema) mode instead.
-function FieldDefForm({
-  initial,
-  existingKeys,
-  withValue = false,
-  onCancel,
-  onSave,
-}: {
-  initial: SchemaField;
-  // Other field keys in scope (effective schema), to block duplicates.
-  existingKeys: string[];
-  // When true (inserting a new field), also offer a value input so the field can
-  // be created with its value in one step.
-  withValue?: boolean;
-  onCancel: () => void;
-  onSave: (field: SchemaField, value?: unknown) => void | Promise<void>;
-}): React.ReactElement {
-  const [field, setField] = useState<SchemaField>(initial);
-  const [valueText, setValueText] = useState("");
-  // Expand the optional sections up front when the field already uses them.
-  const [showDescription, setShowDescription] = useState(!!initial.description);
-  const [showValidation, setShowValidation] = useState(
-    initial.enum.length > 0 || initial.min !== 0 || initial.max !== 256,
-  );
-  const [saving, setSaving] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-
-  // Advanced mode is driven by the presence of a raw per-field JSON Schema.
-  const advanced = field.jsonSchema !== undefined;
-  // The value input is always rendered (when inserting) to avoid layout shift,
-  // but is disabled when a value can't apply (Advanced/raw-schema mode).
-  const valueEnabled = withValue && !advanced;
-
-  const trimmedKey = field.key.trim();
-  const duplicate =
-    trimmedKey !== initial.key && existingKeys.includes(trimmedKey);
-
-  // Once the user picks a type explicitly, stop auto-detecting from the value.
-  const [typeTouched, setTypeTouched] = useState(false);
-
-  const intOr0 = (v: string): number => {
-    const n = parseInt(v);
-    return Number.isNaN(n) ? 0 : n;
-  };
-
-  // Guess a field type from a literal value the user typed.
-  const detectType = (v: string): SchemaField["type"] => {
-    const t = v.trim();
-    if (t === "true" || t === "false") return "boolean";
-    if (/^-?\d+$/.test(t)) return "integer";
-    if (/^-?\d*\.\d+$/.test(t) || /^-?\d+\.\d*$/.test(t)) return "float";
-    return "string";
-  };
-
-  const onValueChange = (v: string) => {
-    setValueText(v);
-    if (!typeTouched && !advanced && v.trim() !== "") {
-      setField((f) => ({ ...f, type: detectType(v) }));
-    }
-  };
-
-  const onTypeChange = (v: string) => {
-    setTypeTouched(true);
-    if (v === "advanced") {
-      // Seed the editor with the JSON Schema equivalent of the current type.
-      const base =
-        field.type === "integer" || field.type === "float"
-          ? "number"
-          : field.type;
-      setField({ ...field, jsonSchema: `{\n  "type": "${base}"\n}` });
-    } else {
-      setField({
-        ...field,
-        type: v as SchemaField["type"],
-        jsonSchema: undefined,
-      });
-    }
-  };
-
-  const save = async () => {
-    if (!trimmedKey) {
-      setErr("A field key is required");
-      return;
-    }
-    if (duplicate) {
-      setErr(`A field named "${trimmedKey}" already exists`);
-      return;
-    }
-    if (advanced) {
-      try {
-        JSON.parse(field.jsonSchema || "");
-      } catch (e) {
-        setErr(
-          `Invalid JSON Schema — ${
-            e instanceof Error ? e.message : "could not parse"
-          }`,
-        );
-        return;
-      }
-    }
-    // Coerce the (optional) value to the field's type. Blank = leave unset.
-    let value: unknown = undefined;
-    if (valueEnabled && valueText.trim() !== "") {
-      const t = valueText.trim();
-      if (field.type === "boolean") {
-        value = t === "true";
-      } else if (field.type === "integer" || field.type === "float") {
-        const n = field.type === "integer" ? parseInt(t, 10) : parseFloat(t);
-        if (Number.isNaN(n)) {
-          setErr("Value must be a number");
-          return;
-        }
-        value = n;
-      } else {
-        value = valueText;
-      }
-    }
-    setErr(null);
-    setSaving(true);
-    try {
-      await onSave({ ...field, key: trimmedKey }, value);
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : "Failed to save field");
-      setSaving(false);
-    }
-  };
-
-  return (
-    <Box mt="2" pt="3" style={{ borderTop: "1px solid var(--slate-a5)" }}>
-      {/* Line 1: key + value + type + save/cancel. Fixed-width columns (shared
-          with the Form-tab header/rows) so the row lines up and doesn't shift as
-          you type or the type auto-detects. */}
-      <Flex gap="2" align="center" wrap="wrap">
-        <Box style={{ width: FIELD_COLS.key, flexShrink: 0 }}>
-          <Field
-            autoFocus
-            placeholder="field key"
-            value={field.key}
-            onChange={(e) => setField({ ...field, key: e.target.value })}
-            containerStyle={{ marginBottom: 0 }}
-          />
-        </Box>
-        {withValue && (
-          <Box style={{ width: FIELD_COLS.value, flexShrink: 0 }}>
-            {field.type === "boolean" ? (
-              <SelectField
-                value={valueText}
-                onChange={setValueText}
-                options={[
-                  { value: "true", label: "true" },
-                  { value: "false", label: "false" },
-                ]}
-                initialOption="value…"
-                sort={false}
-                disabled={!valueEnabled}
-              />
-            ) : (
-              <Field
-                placeholder="value"
-                value={valueText}
-                onChange={(e) => onValueChange(e.target.value)}
-                containerStyle={{ marginBottom: 0 }}
-                disabled={!valueEnabled}
-              />
-            )}
-          </Box>
-        )}
-        <Box style={{ width: FIELD_COLS.type, flexShrink: 0 }}>
-          <SelectField
-            value={advanced ? "advanced" : field.type}
-            onChange={onTypeChange}
-            options={[
-              ...FIELD_TYPE_OPTIONS,
-              { value: "advanced", label: "Advanced…" },
-            ]}
-            sort={false}
-          />
-        </Box>
-        <Flex gap="2" ml="auto">
-          <Button size="sm" onClick={save} disabled={saving}>
-            Save
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={onCancel}
-            disabled={saving}
-          >
-            Cancel
-          </Button>
-        </Flex>
-      </Flex>
-
-      {advanced ? (
-        /* Advanced — raw JSON Schema escape hatch for this field. */
-        <Box mt="2">
-          <Field
-            label="JSON Schema"
-            textarea
-            minRows={5}
-            value={field.jsonSchema ?? ""}
-            onChange={(e) => setField({ ...field, jsonSchema: e.target.value })}
-            containerStyle={{ marginBottom: 0 }}
-          />
-          <Text size="small" color="text-low">
-            Raw JSON Schema for this field — supersedes the simple type. Use
-            this for nullable/optional unions and nested shapes.
-          </Text>
-        </Box>
-      ) : (
-        <>
-          {/* description (progressive) */}
-          {showDescription && (
-            <Box mt="2">
-              <Field
-                placeholder="description (optional)"
-                value={field.description}
-                onChange={(e) =>
-                  setField({ ...field, description: e.target.value })
-                }
-                containerStyle={{ marginBottom: 0 }}
-              />
-            </Box>
-          )}
-
-          {/* validation (progressive; not applicable to booleans) */}
-          {showValidation && field.type !== "boolean" && (
-            <Box mt="2">
-              <MultiSelectField
-                label="Allowed values"
-                placeholder="(any)"
-                value={field.enum}
-                onChange={(e) =>
-                  setField({
-                    ...field,
-                    enum: e
-                      .filter((v) => v !== "" && v.length <= 256)
-                      .slice(0, 256),
-                  })
-                }
-                options={field.enum.map((v) => ({ value: v, label: v }))}
-                creatable
-                noMenu
-              />
-              {field.enum.length === 0 && (
-                <Flex gap="2" mt="2">
-                  <Box style={{ flex: 1 }}>
-                    <Field
-                      label={field.type === "string" ? "Min length" : "Min"}
-                      type="number"
-                      value={field.min}
-                      onChange={(e) =>
-                        setField({ ...field, min: intOr0(e.target.value) })
-                      }
-                      containerStyle={{ marginBottom: 0 }}
-                    />
-                  </Box>
-                  <Box style={{ flex: 1 }}>
-                    <Field
-                      label={field.type === "string" ? "Max length" : "Max"}
-                      type="number"
-                      value={field.max}
-                      onChange={(e) =>
-                        setField({ ...field, max: intOr0(e.target.value) })
-                      }
-                      containerStyle={{ marginBottom: 0 }}
-                    />
-                  </Box>
-                </Flex>
-              )}
-            </Box>
-          )}
-
-          {/* Progressive-disclosure toggles */}
-          <Flex gap="3" mt="2" align="center">
-            {!showDescription && (
-              <Link onClick={() => setShowDescription(true)}>
-                + description
-              </Link>
-            )}
-            {!showValidation && field.type !== "boolean" && (
-              <Link onClick={() => setShowValidation(true)}>+ validation</Link>
-            )}
-          </Flex>
-        </>
-      )}
-
-      {err && (
-        <Callout status="error" mt="2" size="sm">
-          {err}
-        </Callout>
-      )}
-    </Box>
-  );
-}
 
 export default function ConfigDetailPage(): React.ReactElement {
   const router = useRouter();
@@ -502,9 +127,14 @@ export default function ConfigDetailPage(): React.ReactElement {
   const [showCreateChild, setShowCreateChild] = useState(false);
 
   // Field currently being overridden (inline value edit), and the draft text.
+  const [activeTab, setActiveTab] = useState<"form" | "json">("form");
   const [editKey, setEditKey] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const [editError, setEditError] = useState<string | null>(null);
+  // The value's "state" is separate from its text so an explicit null and a
+  // concrete value are distinct choices — never conflated. (Not overriding a key
+  // at all is a separate axis, handled by the inherit / Reset action.)
+  const [editKind, setEditKind] = useState<"value" | "null">("value");
 
   // Inline schema authoring: "add" shows a blank field form; a key string edits
   // that field's definition.
@@ -534,6 +164,33 @@ export default function ConfigDetailPage(): React.ReactElement {
   const { references } = useConstantReferences(config?.id);
   const totalReferences =
     (references?.features.length ?? 0) + (references?.constants.length ?? 0);
+
+  // Constant-picker scope for value editing: cycle-creating keys + this config
+  // itself are scrubbed so a value can't reference back into a cycle.
+  const { data: cyclicData } = useApi<{ cyclicKeys: string[] }>(
+    config?.id ? `/constants/${config.id}/cyclic-keys` : "",
+    { shouldRun: () => !!config?.id },
+  );
+  const constantContext = useMemo(
+    () => ({
+      project: config?.project || undefined,
+      excludeKeys: [
+        ...(cyclicData?.cyclicKeys ?? []),
+        ...(config?.key ? [config.key] : []),
+      ],
+    }),
+    [config?.project, config?.key, cyclicData?.cyclicKeys],
+  );
+
+  // Squash `@const:` references in field values for the table display, recursively
+  // resolving to default values (cross-project refs scrubbed like the payload).
+  // The editor and JSON view keep references raw.
+  const squashConstants = useMemo(() => {
+    const map = buildConstantValueMap(data?.constants ?? [], "");
+    const project = config?.project || "";
+    return (value: unknown): unknown =>
+      resolveConstantRefs(value, map, new Set(), undefined, project);
+  }, [data?.constants, config?.project]);
 
   const settings = organization.settings || {};
   const hasApprovalsFeature = hasCommercialFeature("require-approvals");
@@ -586,6 +243,17 @@ export default function ConfigDetailPage(): React.ReactElement {
       selectedRevision.target.proposedChanges,
     ) as ConstantInterface;
   }, [selectedRevision, config]);
+
+  // Always-expanded JSON readout: every key/value on its own line (2-space
+  // indent), never compacted onto one line — even for small objects.
+  const jsonReadout = useMemo(() => {
+    const raw = displayedConfig?.value || "{}";
+    try {
+      return JSON.stringify(JSON.parse(raw), null, 2);
+    } catch {
+      return raw;
+    }
+  }, [displayedConfig?.value]);
 
   // Re-resolve the lineage chain with the displayed (possibly draft) value of
   // this node substituted in, so the field table reflects the revision in view.
@@ -679,26 +347,65 @@ export default function ConfigDetailPage(): React.ReactElement {
     if (res?.revision) await onRevisionCreated(res.revision);
   };
 
-  const startOverride = (f: ResolvedField) => {
+  // Only one thing is edited at a time: a value override (editKey) and a schema
+  // add/edit (schemaEdit) are mutually exclusive, and both are cancelled on tab
+  // switch so an open editor can't linger invisibly on another tab.
+  const cancelEdits = () => {
+    setEditKey(null);
     setEditError(null);
-    setEditText(JSON.stringify(f.value ?? null, null, 2));
-    setEditKey(f.key);
+    setSchemaEdit(null);
   };
 
-  const resetField = async (key: string) => {
-    const v = ownValue();
-    delete v[key];
-    await saveValue(v);
+  const startOverride = (f: ResolvedField) => {
+    setSchemaEdit(null);
+    setEditError(null);
+    // Seed from the resolved value: explicit null, or a concrete value. A field
+    // with nothing set seeds from its type default (never "unset").
+    if (f.value === null) {
+      setEditKind("null");
+      setEditText("");
+    } else {
+      setEditKind("value");
+      const v = f.value !== undefined ? f.value : typeDefault(f.field);
+      // JSON fields edit as raw JSON; simple types edit as their literal text.
+      setEditText(
+        isJsonField(f.field) ? JSON.stringify(v, null, 2) : String(v),
+      );
+    }
+    setEditKey(f.key);
   };
 
   const submitOverride = async () => {
     if (!editKey) return;
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(editText);
-    } catch (e) {
-      setEditError(e instanceof Error ? e.message : "Invalid JSON");
+    if (editKind === "null") {
+      await saveValue({ ...ownValue(), [editKey]: null });
+      setEditKey(null);
       return;
+    }
+    const field = resolved.fields.find((f) => f.key === editKey)?.field ?? null;
+    let parsed: unknown;
+    if (isJsonField(field)) {
+      try {
+        parsed = JSON.parse(editText);
+      } catch (e) {
+        setEditError(e instanceof Error ? e.message : "Invalid JSON");
+        return;
+      }
+    } else if (field && field.type === "boolean") {
+      parsed = editText === "true";
+    } else if (field && (field.type === "integer" || field.type === "float")) {
+      const n =
+        field.type === "integer"
+          ? parseInt(editText, 10)
+          : parseFloat(editText);
+      if (Number.isNaN(n)) {
+        setEditError("Value must be a number");
+        return;
+      }
+      parsed = n;
+    } else {
+      // string — any text is valid, including an empty string.
+      parsed = editText;
     }
     await saveValue({ ...ownValue(), [editKey]: parsed });
     setEditKey(null);
@@ -756,14 +463,14 @@ export default function ConfigDetailPage(): React.ReactElement {
     );
   };
 
-  // The add-field affordance (compact form when adding, button otherwise).
-  // Shared so a field can be added from either the Form or Schema tab without
-  // jumping tabs. Only the active tab is mounted, so it renders once.
-  const addFieldControls =
+  // The add-field affordance: compact create row when adding (key + value +
+  // type), a button otherwise.
+  const renderAddField = () =>
     schemaEdit === "add" ? (
       <FieldDefForm
         key="add"
         withValue
+        isNew
         initial={blankField()}
         existingKeys={resolved.fields.map((f) => f.key)}
         onCancel={() => setSchemaEdit(null)}
@@ -773,7 +480,13 @@ export default function ConfigDetailPage(): React.ReactElement {
       canEditInline &&
       schemaEdit === null && (
         <Box mt="2">
-          <Button variant="soft" onClick={() => setSchemaEdit("add")}>
+          <Button
+            variant="soft"
+            onClick={() => {
+              setEditKey(null);
+              setSchemaEdit("add");
+            }}
+          >
             + Add field
           </Button>
         </Box>
@@ -967,23 +680,35 @@ export default function ConfigDetailPage(): React.ReactElement {
               overridden here · resolved at request time
             </Text>
 
-            <Frame>
-              <Tabs defaultValue="form">
-                <TabsList>
-                  <TabsTrigger value="form">Form</TabsTrigger>
-                  <TabsTrigger value="schema">Schema</TabsTrigger>
-                  <TabsTrigger value="json">JSON</TabsTrigger>
-                </TabsList>
+            <Box mb="4" py="5" px="6" className="appbox">
+              <SplitButton variant="outline" mb="4">
+                {(["form", "json"] as const).map((tab) => (
+                  <Button
+                    key={tab}
+                    size="sm"
+                    variant={activeTab === tab ? "solid" : "outline"}
+                    onClick={() => {
+                      cancelEdits();
+                      setActiveTab(tab);
+                    }}
+                  >
+                    {tab === "json" ? "JSON" : "Form"}
+                  </Button>
+                ))}
+              </SplitButton>
 
-                {/* Form — per-field resolved values (override / reset). */}
-                <TabsContent value="form">
+              {/* Form — per-field resolved values (override / reset). */}
+              {activeTab === "form" && (
+                <>
                   {/* Column header — always shown, aligns with the insert row
                       (FIELD_COLS). Source carries the inheritance/lineage
                       provenance. */}
                   <Flex
                     gap="2"
                     align="center"
+                    mt="3"
                     pb="1"
+                    px="3"
                     style={{ borderBottom: "1px solid var(--slate-a4)" }}
                   >
                     {[
@@ -1013,101 +738,47 @@ export default function ConfigDetailPage(): React.ReactElement {
                   </Flex>
 
                   {resolved.fields.map((f) => {
-                    const here = f.source === config.key;
+                    // Editing this field's definition replaces the row with the
+                    // decoupled schema-only editor.
+                    if (schemaEdit === f.key) {
+                      return (
+                        <FieldDefForm
+                          key={f.key}
+                          schemaOnly
+                          initial={
+                            ownSchema().fields.find((sf) => sf.key === f.key) ??
+                            blankField()
+                          }
+                          existingKeys={resolved.fields.map((rf) => rf.key)}
+                          onCancel={() => setSchemaEdit(null)}
+                          onSave={saveField}
+                        />
+                      );
+                    }
                     return (
-                      <Flex
+                      <ConfigFieldRow
                         key={f.key}
-                        gap="2"
-                        align="center"
-                        py="2"
-                        style={{ borderBottom: "1px solid var(--slate-a3)" }}
-                      >
-                        <Box style={{ width: FIELD_COLS.key, flexShrink: 0 }}>
-                          {f.key}
-                        </Box>
-                        <Box
-                          style={{
-                            width: FIELD_COLS.value,
-                            flexShrink: 0,
-                            minWidth: 0,
-                            overflowWrap: "anywhere",
-                          }}
-                        >
-                          {editKey === f.key ? (
-                            <>
-                              <Field
-                                textarea
-                                minRows={2}
-                                value={editText}
-                                onChange={(e) => setEditText(e.target.value)}
-                                containerStyle={{ marginBottom: 0 }}
-                              />
-                              {editError && (
-                                <Text size="small" color="text-mid">
-                                  {editError}
-                                </Text>
-                              )}
-                            </>
-                          ) : f.value !== undefined ? (
-                            <code>{JSON.stringify(f.value)}</code>
-                          ) : f.field?.default ? (
-                            <Text color="text-low">
-                              <code>{f.field.default}</code> (default)
-                            </Text>
-                          ) : (
-                            <Text color="text-low">—</Text>
-                          )}
-                        </Box>
-                        <Box style={{ width: FIELD_COLS.type, flexShrink: 0 }}>
-                          <Text color="text-mid">
-                            {fieldTypeLabel(f.field)}
-                          </Text>
-                        </Box>
-                        <Box style={{ flex: 1, minWidth: 80 }}>
-                          {here ? (
-                            <Badge
-                              label="defined here"
-                              color="violet"
-                              variant="soft"
-                            />
-                          ) : (
-                            <Badge
-                              label={f.source ?? "default"}
-                              color="gray"
-                              variant="soft"
-                            />
-                          )}
-                        </Box>
-                        <Flex gap="2" align="center" style={{ flexShrink: 0 }}>
-                          {editKey === f.key ? (
-                            <>
-                              <Button size="xs" onClick={submitOverride}>
-                                Save
-                              </Button>
-                              <Button
-                                size="xs"
-                                variant="ghost"
-                                onClick={() => setEditKey(null)}
-                              >
-                                Cancel
-                              </Button>
-                            </>
-                          ) : (
-                            canEditInline && (
-                              <>
-                                <Link onClick={() => startOverride(f)}>
-                                  override
-                                </Link>
-                                {here && (
-                                  <Link onClick={() => resetField(f.key)}>
-                                    reset
-                                  </Link>
-                                )}
-                              </>
-                            )
-                          )}
-                        </Flex>
-                      </Flex>
+                        field={f}
+                        configKey={config.key}
+                        isOwnField={ownSchemaKeys.includes(f.key)}
+                        canEditInline={canEditInline}
+                        constantContext={constantContext}
+                        squashConstants={squashConstants}
+                        editing={editKey === f.key}
+                        editText={editText}
+                        editKind={editKind}
+                        editError={editError}
+                        setEditText={setEditText}
+                        setEditKind={setEditKind}
+                        onStartEdit={() => startOverride(f)}
+                        onSubmit={submitOverride}
+                        onCancelEdit={() => setEditKey(null)}
+                        onEditDefinition={() => {
+                          setEditKey(null);
+                          setSchemaEdit(f.key);
+                        }}
+                        onDeleteDefinition={() => deleteFieldDef(f.key)}
+                      />
                     );
                   })}
 
@@ -1116,118 +787,17 @@ export default function ConfigDetailPage(): React.ReactElement {
                       No fields yet.
                     </Text>
                   )}
-                  {addFieldControls}
-                </TabsContent>
+                  {renderAddField()}
+                </>
+              )}
 
-                {/* Schema — field definitions (add / edit / delete). */}
-                <TabsContent value="schema">
-                  {resolved.fields.length > 0 && (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableColumnHeader>Key</TableColumnHeader>
-                          <TableColumnHeader>Type</TableColumnHeader>
-                          <TableColumnHeader>Description</TableColumnHeader>
-                          <TableColumnHeader>Defined in</TableColumnHeader>
-                          <TableColumnHeader>{""}</TableColumnHeader>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {resolved.fields.map((f) => {
-                          const ownField = ownSchemaKeys.includes(f.key);
-                          return (
-                            <TableRow key={f.key}>
-                              <TableCell>{f.key}</TableCell>
-                              <TableCell>
-                                <Text color="text-mid">
-                                  {fieldTypeLabel(f.field)}
-                                </Text>
-                              </TableCell>
-                              <TableCell>
-                                <Text
-                                  color={
-                                    f.field?.description
-                                      ? "text-mid"
-                                      : "text-low"
-                                  }
-                                >
-                                  {f.field?.description || "—"}
-                                </Text>
-                              </TableCell>
-                              <TableCell>
-                                {ownField ? (
-                                  <Badge
-                                    label="this config"
-                                    color="violet"
-                                    variant="soft"
-                                  />
-                                ) : (
-                                  <Badge
-                                    label="inherited"
-                                    color="gray"
-                                    variant="soft"
-                                  />
-                                )}
-                              </TableCell>
-                              <TableCell>
-                                <Flex gap="2" justify="end">
-                                  {canEditInline &&
-                                    schemaEdit === null &&
-                                    ownField && (
-                                      <>
-                                        <Link
-                                          onClick={() => setSchemaEdit(f.key)}
-                                        >
-                                          edit
-                                        </Link>
-                                        <Link
-                                          color="red"
-                                          onClick={() => deleteFieldDef(f.key)}
-                                        >
-                                          delete
-                                        </Link>
-                                      </>
-                                    )}
-                                </Flex>
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
-                  )}
-
-                  {schemaEdit !== null && schemaEdit !== "add" && (
-                    <FieldDefForm
-                      key={schemaEdit}
-                      initial={
-                        ownSchema().fields.find((f) => f.key === schemaEdit) ??
-                        blankField()
-                      }
-                      existingKeys={resolved.fields.map((f) => f.key)}
-                      onCancel={() => setSchemaEdit(null)}
-                      onSave={saveField}
-                    />
-                  )}
-
-                  {resolved.fields.length === 0 && schemaEdit === null && (
-                    <Text as="p" color="text-low" mb="2">
-                      No fields yet.
-                    </Text>
-                  )}
-                  {addFieldControls}
-                </TabsContent>
-
-                {/* JSON — raw value (read-only; paste-to-import is future work). */}
-                <TabsContent value="json">
-                  <Code
-                    language="json"
-                    code={displayedConfig.value || "{}"}
-                    expandable={false}
-                  />
-                </TabsContent>
-              </Tabs>
-            </Frame>
+              {/* JSON — raw value (read-only; paste-to-import is future work). */}
+              {activeTab === "json" && (
+                <Box mt="3">
+                  <Code language="json" code={jsonReadout} expandable={false} />
+                </Box>
+              )}
+            </Box>
           </Box>
         </Flex>
       </Box>

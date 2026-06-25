@@ -34,12 +34,11 @@ export const simpleSchemaFieldValidator = z.object({
   default: z.string().max(256),
   description: z.string().max(MAX_DESCRIPTION_LENGTH),
   enum: z.array(z.string().max(256)).max(256),
-  min: z.number(),
-  max: z.number(),
-  // Optional, additive (features ignore these; used by the config field editor):
-  // `nullable` allows the value to be null (T | null). `jsonSchema`, when set, is
-  // the field's raw JSON Schema — the "Advanced" escape hatch — and supersedes
-  // the simple type/enum/min/max.
+  // Optional bounds — absent means no validation. Compiled only when present.
+  min: z.number().optional(),
+  max: z.number().optional(),
+  // Config-only, additive: `nullable` widens to `T | null`; `jsonSchema` is a
+  // raw per-field schema that supersedes the simple type.
   nullable: z.boolean().optional(),
   jsonSchema: z.string().optional(),
 });

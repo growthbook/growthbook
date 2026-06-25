@@ -32,14 +32,14 @@ export const navlinks: SidebarLinkProps[] = [
         path: /^features/,
       },
       {
-        name: "Constants",
-        href: "/constants",
-        path: /^constants/,
-      },
-      {
         name: "Configs",
         href: "/configs",
         path: /^configs/,
+      },
+      {
+        name: "Constants",
+        href: "/constants",
+        path: /^constants/,
       },
     ],
   },
