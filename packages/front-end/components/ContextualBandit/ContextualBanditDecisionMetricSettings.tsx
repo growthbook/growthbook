@@ -279,6 +279,7 @@ export default function ContextualBanditDecisionMetricSettings({
         noQuantileGoalMetrics={true}
         noLegacyMetrics={true}
         requireDatasource={true}
+        experimentType={undefined} //@teresayung check this
         goalMetricsDescription={
           !datasourceId
             ? "Select a data source above to choose a decision metric."

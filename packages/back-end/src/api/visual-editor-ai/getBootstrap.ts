@@ -15,6 +15,9 @@ const validation = {
   method: "get" as const,
   path: "/visual-editor/bootstrap",
   operationId: "getVisualEditorBootstrap",
+  // Internal Visual Editor extension endpoint — not part of the
+  // public OpenAPI spec.
+  excludeFromSpec: true,
 };
 
 // One row per changeset (a multi-changeset experiment contributes

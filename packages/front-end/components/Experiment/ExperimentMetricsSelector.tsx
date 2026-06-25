@@ -8,6 +8,7 @@ import {
   getUserIdTypes,
 } from "shared/experiments";
 import { FactTableMap } from "shared/types/fact-table";
+import { ExperimentType } from "shared/validators";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
 import { getExposureQuery } from "@/services/datasources";
@@ -37,6 +38,7 @@ export interface Props {
   excludeQuantiles?: boolean;
   experimentId?: string;
   requireDatasource?: boolean;
+  experimentType: ExperimentType | undefined;
 }
 
 export default function ExperimentMetricsSelector({
@@ -62,6 +64,7 @@ export default function ExperimentMetricsSelector({
   excludeQuantiles = false,
   experimentId,
   requireDatasource = false,
+  experimentType,
 }: Props) {
   const {
     getExperimentMetricById,
@@ -77,6 +80,7 @@ export default function ExperimentMetricsSelector({
         getIsExperimentIncludedInIncrementalRefresh(
           datasourceObj ?? undefined,
           experimentId,
+          experimentType,
         );
 
       if (!isExperimentIncludedInIncrementalRefresh) {
@@ -153,6 +157,7 @@ export default function ExperimentMetricsSelector({
     [
       datasource,
       experimentId,
+      experimentType,
       getExperimentMetricById,
       getDatasourceById,
       metricGroups,

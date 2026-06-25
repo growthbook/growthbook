@@ -1,9 +1,11 @@
 import type { OrganizationInterface } from "shared/types/organization";
 import {
   RevisionRampUpdateAction,
+  RampStartState,
   putFeatureRevisionRuleRampScheduleValidator,
 } from "shared/validators";
 import { resetReviewOnChange } from "shared/util";
+import { resolveRampStartState } from "back-end/src/services/rampSchedule";
 import type { ApiReqContext } from "back-end/types/api";
 import { toApiRevision } from "back-end/src/services/features";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
@@ -101,11 +103,45 @@ export async function setRuleRampSchedule(
       canonicalRuleId,
       environment ?? undefined,
     );
+    const existingLiveSchedule = liveSchedules[0];
+
+    // Resolve the rollback anchor. An explicit `startState` is converted to
+    // startActions (merged onto the rule's current state); when omitted, the
+    // anchor is derived at publish from the rule's coverage — and we warn if
+    // that isn't 0% on create.
+    const startStateProvided = scheduleInput.startState !== undefined;
+    const { startActions: resolvedStartActions, warning: startStateWarning } =
+      resolveRampStartState({
+        rule: match,
+        ruleId: canonicalRuleId,
+        startState: scheduleInput.startState as RampStartState | undefined,
+        isCreate: !existingLiveSchedule,
+      });
+    if (resolvedStartActions) {
+      scheduleInput.startActions = resolvedStartActions;
+    }
+    delete scheduleInput.startState;
+
+    const warnings: string[] = [];
+    if (startStateWarning) warnings.push(startStateWarning);
+    // The rollback anchor is only persisted while a schedule is pending/ready
+    // (see FeatureModel). Updating an already-active schedule's startState is a
+    // no-op, so tell the caller rather than returning a misleading success.
+    if (
+      startStateProvided &&
+      existingLiveSchedule &&
+      existingLiveSchedule.status !== "pending" &&
+      existingLiveSchedule.status !== "ready"
+    ) {
+      warnings.push(
+        `startState was ignored: ramp schedule "${existingLiveSchedule.id}" is "${existingLiveSchedule.status}", and the rollback anchor can only be changed while a schedule is pending or ready.`,
+      );
+    }
+
     const action = normalizeInlineRampSchedule(
       scheduleInput as Parameters<typeof normalizeInlineRampSchedule>[0],
       canonicalRuleId,
     );
-    const existingLiveSchedule = liveSchedules[0];
 
     // Replace any existing pending ramp action for this rule. Filter tolerant
     // to both the canonical id AND the caller-provided id, so stale entries
@@ -173,7 +209,11 @@ export async function setRuleRampSchedule(
       },
     );
 
-    return { feature, revision: finalRevision };
+    return {
+      feature,
+      revision: finalRevision,
+      warnings: warnings.length ? warnings : undefined,
+    };
   } catch (err) {
     await discardIfJustCreated(context, revision, created);
     throw err;

@@ -23,7 +23,7 @@ import {
   createFactTable,
   getFactTable,
   deleteFactTable,
-  updateEventForwarderFactTableMetadata,
+  updateFactTable,
 } from "back-end/src/models/FactTableModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
@@ -36,6 +36,7 @@ import {
   queueFactTableColumnsRefresh,
   queueFactTableColumnsRefreshAt,
 } from "back-end/src/jobs/refreshFactTableColumns";
+import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
 import { ReqContext } from "back-end/types/request";
 
@@ -232,7 +233,8 @@ export async function syncEventForwarderEventsFactTableMetadataAfterAttributeSch
           now,
         );
       });
-      await updateEventForwarderFactTableMetadata(
+      await updateFactTable(
+        getContextForAgendaJobByOrgObject(context.org),
         factTable,
         {
           ...(hasMetadataChanges && {
@@ -243,7 +245,6 @@ export async function syncEventForwarderEventsFactTableMetadataAfterAttributeSch
             columnRefreshPending: true,
           }),
         },
-        context,
       );
     }
 

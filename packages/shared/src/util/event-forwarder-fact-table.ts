@@ -4,7 +4,10 @@ import type {
   SDKAttributeSchema,
   SDKAttributeType,
 } from "shared/types/organization";
-import { attributeMatchesDatasourceProjects } from "./event-forwarder-datasource";
+import {
+  attributeMatchesDatasourceProjects,
+  getEventForwarderManagedIdentifierSourceAttribute,
+} from "./event-forwarder-datasource";
 import {
   resolveBigQueryEventForwarderTableNames,
   resolveSnowflakeEventForwarderTableNames,
@@ -182,17 +185,18 @@ function buildSnowflakeFlatMapAttributeValueSql(
   const attributesCol = EVENT_FORWARDER_AVRO_ATTRIBUTES_FIELD.toUpperCase();
   const quotedField = quoteSnowflakeVariantFieldName(fieldName);
   const raw = `${attributesCol}:${quotedField}`;
+  const rawString = `${raw}::STRING`;
 
   switch (valueDatatype) {
     case "number":
-      return `TRY_TO_DOUBLE(${raw})`;
+      return `TRY_TO_DOUBLE(${rawString})`;
     case "boolean":
-      return `TRY_TO_BOOLEAN(${raw})`;
+      return `TRY_TO_BOOLEAN(${rawString})`;
     case "json":
-      return `TRY_PARSE_JSON(${raw})`;
+      return `TRY_PARSE_JSON(${rawString})`;
     default:
       // Map values are strings in Avro; cast so Snowflake reports VARCHAR not VARIANT.
-      return `${raw}::STRING`;
+      return rawString;
   }
 }
 
@@ -336,19 +340,24 @@ function buildEventForwarderEventsFactTableSelect({
   const attributeColumns: string[] = [];
 
   for (const userIdType of userIdTypes) {
+    // The projected column (alias / join key) keeps the managed identifier id
+    // (e.g. "ef_user_id"), but the value is extracted from the real source
+    // attribute ("user_id"). Non-managed identifier types resolve to themselves.
     const fieldName = sanitizeEventForwarderAvroFieldName(userIdType);
     const key = fieldName.toLowerCase();
     if (projectedFieldKeys.has(key)) {
       continue;
     }
     projectedFieldKeys.add(key);
+    const sourceAttribute =
+      getEventForwarderManagedIdentifierSourceAttribute(userIdType);
     const matchingAttribute = findEventForwarderEventsFactTableAttribute(
       attributes,
-      userIdType,
+      sourceAttribute,
     );
     const valueSql = buildEventForwarderNestedAttributeValueSql({
       sinkType,
-      attributeName: matchingAttribute?.property ?? userIdType,
+      attributeName: matchingAttribute?.property ?? sourceAttribute,
       valueDatatype: matchingAttribute
         ? getEventForwarderFactTableColumnDatatype(matchingAttribute)
         : "string",
@@ -449,11 +458,12 @@ export function buildEventForwarderEventsFactTableColumns(
 
   const seen = new Set<string>();
   const jsonFields: CreateColumnProps["jsonFields"] = {};
-
-  for (const attribute of getEventForwarderEventsFactTableAttributes(
+  const attributes = getEventForwarderEventsFactTableAttributes(
     attributeSchema,
     datasourceProjects,
-  )) {
+  );
+
+  for (const attribute of attributes) {
     const fieldName = sanitizeEventForwarderAvroFieldName(attribute.property);
     const key = fieldName.toLowerCase();
     if (seen.has(key)) {
@@ -472,7 +482,19 @@ export function buildEventForwarderEventsFactTableColumns(
       continue;
     }
     seen.add(key);
-    jsonFields[fieldName] = { datatype: "string" };
+    // Keep the column datatype aligned with the SELECT: a managed identifier id
+    // (e.g. "ef_user_id") inherits the datatype of its source attribute.
+    const sourceAttribute =
+      getEventForwarderManagedIdentifierSourceAttribute(userIdType);
+    const matchingAttribute = findEventForwarderEventsFactTableAttribute(
+      attributes,
+      sourceAttribute,
+    );
+    jsonFields[fieldName] = {
+      datatype: matchingAttribute
+        ? getEventForwarderFactTableColumnDatatype(matchingAttribute)
+        : "string",
+    };
   }
 
   return [

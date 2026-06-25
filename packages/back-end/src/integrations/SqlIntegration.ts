@@ -21,6 +21,7 @@ import {
   format,
   isMultiStatementSQL,
   SQL_ROW_LIMIT,
+  usesBackslashStringEscapes,
 } from "shared/sql";
 import { TemplateVariables, SqlDialect } from "shared/types/sql";
 import {
@@ -114,8 +115,8 @@ import {
 import { ExplorationConfig } from "shared/validators";
 import {
   AdditionalQueryMetadata,
-  QueryMetadata,
   QueryType,
+  RunQueryMetadata,
 } from "shared/types/query";
 import { MissingDatasourceParamsError } from "back-end/src/util/errors";
 import { ReqContext } from "back-end/types/request";
@@ -200,8 +201,8 @@ export default abstract class SqlIntegration
   abstract setParams(encryptedParams: string): void;
   abstract runQuery(
     sql: string,
-    setExternalId?: ExternalIdCallback,
-    metadata?: QueryMetadata,
+    setExternalId: ExternalIdCallback | undefined,
+    metadata: RunQueryMetadata,
   ): Promise<QueryResponse>;
   async cancelQuery(externalId: string): Promise<void> {
     // No-op default; warehouses with remote job control override.
@@ -228,10 +229,15 @@ export default abstract class SqlIntegration
     const originalRunQuery = this.runQuery;
     this.runQuery = async (
       sql: string,
-      setExternalId?: ExternalIdCallback,
-      metadata?: QueryMetadata,
+      setExternalId: ExternalIdCallback | undefined,
+      metadata: RunQueryMetadata,
     ) => {
-      if (isMultiStatementSQL(sql)) {
+      if (
+        isMultiStatementSQL(
+          sql,
+          usesBackslashStringEscapes(this.getSqlDialect()),
+        )
+      ) {
         throw new Error("Multi-statement queries are not supported");
       }
       metadata = {
@@ -283,7 +289,9 @@ export default abstract class SqlIntegration
   }
 
   async testConnection(): Promise<boolean> {
-    await this.runQuery(TEST_QUERY_SQL);
+    await this.runQuery(TEST_QUERY_SQL, undefined, {
+      queryType: "connectionTest",
+    });
     return true;
   }
 
@@ -363,7 +371,7 @@ export default abstract class SqlIntegration
   async runPastExperimentQuery(
     query: string,
     setExternalId: ExternalIdCallback,
-    queryMetadata?: QueryMetadata,
+    queryMetadata: RunQueryMetadata,
   ): Promise<PastExperimentQueryResponse> {
     const { rows, statistics } = await this.runQuery(
       query,
@@ -412,7 +420,7 @@ export default abstract class SqlIntegration
   async runMetricAnalysisQuery(
     query: string,
     setExternalId: ExternalIdCallback,
-    queryMetadata?: QueryMetadata,
+    queryMetadata: RunQueryMetadata,
   ): Promise<MetricAnalysisQueryResponse> {
     const { rows, statistics } = await this.runQuery(
       query,
@@ -481,7 +489,7 @@ export default abstract class SqlIntegration
   async runPopulationFactMetricsQuery(
     query: string,
     setExternalId: ExternalIdCallback,
-    queryMetadata?: QueryMetadata,
+    queryMetadata: RunQueryMetadata,
   ): Promise<ExperimentFactMetricsQueryResponse> {
     return this.runExperimentFactMetricsQuery(
       query,
@@ -500,7 +508,7 @@ export default abstract class SqlIntegration
   async runExperimentFactMetricsQuery(
     query: string,
     setExternalId: ExternalIdCallback,
-    queryMetadata?: QueryMetadata,
+    queryMetadata: RunQueryMetadata,
   ): Promise<ExperimentFactMetricsQueryResponse> {
     const { rows, statistics } = await this.runQuery(
       query,
@@ -516,7 +524,7 @@ export default abstract class SqlIntegration
   async runPopulationMetricQuery(
     query: string,
     setExternalId: ExternalIdCallback,
-    queryMetadata?: QueryMetadata,
+    queryMetadata: RunQueryMetadata,
   ): Promise<ExperimentMetricQueryResponse> {
     return this.runSnapshotMetricQuery(query, setExternalId, queryMetadata);
   }
@@ -524,7 +532,7 @@ export default abstract class SqlIntegration
   async runSnapshotMetricQuery(
     query: string,
     setExternalId: ExternalIdCallback,
-    queryMetadata?: QueryMetadata,
+    queryMetadata: RunQueryMetadata,
   ): Promise<ExperimentMetricQueryResponse> {
     const { rows, statistics } = await this.runQuery(
       query,
@@ -633,7 +641,7 @@ export default abstract class SqlIntegration
   async runExperimentAggregateUnitsQuery(
     query: string,
     setExternalId: ExternalIdCallback,
-    queryMetadata?: QueryMetadata,
+    queryMetadata: RunQueryMetadata,
   ): Promise<ExperimentAggregateUnitsQueryResponse> {
     const { rows, statistics } = await this.runQuery(
       query,
@@ -656,7 +664,7 @@ export default abstract class SqlIntegration
   async runContextualBanditSrmQuery(
     query: string,
     setExternalId: ExternalIdCallback,
-    queryMetadata?: QueryMetadata,
+    queryMetadata: RunQueryMetadata,
   ): Promise<ContextualBanditSrmQueryResponse> {
     const { rows, statistics } = await this.runQuery(
       query,
@@ -675,7 +683,7 @@ export default abstract class SqlIntegration
   async runExperimentUnitsQuery(
     query: string,
     setExternalId: ExternalIdCallback,
-    queryMetadata?: QueryMetadata,
+    queryMetadata: RunQueryMetadata,
   ): Promise<ExperimentUnitsQueryResponse> {
     return await this.runQuery(query, setExternalId, queryMetadata);
   }
@@ -683,7 +691,7 @@ export default abstract class SqlIntegration
   async runMetricValueQuery(
     query: string,
     setExternalId: ExternalIdCallback,
-    queryMetadata?: QueryMetadata,
+    queryMetadata: RunQueryMetadata,
   ): Promise<MetricValueQueryResponse> {
     const { rows, statistics } = await this.runQuery(
       query,
@@ -762,24 +770,22 @@ export default abstract class SqlIntegration
 
   async runTestQuery(
     sql: string,
-    timestampCols?: string[],
-    queryType?: QueryType,
+    timestampCols: string[] | undefined,
+    queryType: QueryType,
   ): Promise<TestQueryResult> {
     const queryStartTime = Date.now();
-    const results = await this.runQuery(
-      sql,
-      undefined,
-      queryType ? { queryType } : undefined,
-    ).catch((e) => {
-      // If the user forgets to include a timestamp column in their SQL
-      // The error message from the db will be confusing, so make it more clear.
-      for (const col of timestampCols ?? []) {
-        if (e.message.includes(col)) {
-          throw new Error(`The column '${col}' is required. ${e.message}`);
+    const results = await this.runQuery(sql, undefined, { queryType }).catch(
+      (e) => {
+        // If the user forgets to include a timestamp column in their SQL
+        // The error message from the db will be confusing, so make it more clear.
+        for (const col of timestampCols ?? []) {
+          if (e.message.includes(col)) {
+            throw new Error(`The column '${col}' is required. ${e.message}`);
+          }
         }
-      }
-      throw e;
-    });
+        throw e;
+      },
+    );
     const queryEndTime = Date.now();
     const duration = queryEndTime - queryStartTime;
 
@@ -803,7 +809,7 @@ export default abstract class SqlIntegration
   async runDropTableQuery(
     sql: string,
     setExternalId: ExternalIdCallback,
-    queryMetadata?: QueryMetadata,
+    queryMetadata: RunQueryMetadata,
   ): Promise<DropTableQueryResponse> {
     const results = await this.runQuery(sql, setExternalId, queryMetadata);
     return results;
@@ -925,7 +931,7 @@ export default abstract class SqlIntegration
   async runDimensionSlicesQuery(
     query: string,
     setExternalId: ExternalIdCallback,
-    queryMetadata?: QueryMetadata,
+    queryMetadata: RunQueryMetadata,
   ): Promise<DimensionSlicesQueryResponse> {
     const { rows, statistics } = await this.runQuery(
       query,
@@ -1089,11 +1095,11 @@ export default abstract class SqlIntegration
   }
   async getInformationSchema(): Promise<InformationSchema[]> {
     const sql = `
-  SELECT 
+  SELECT
     table_name as table_name,
     table_catalog as table_catalog,
     table_schema as table_schema,
-    count(column_name) as column_count 
+    count(column_name) as column_count
   FROM
     ${this.getInformationSchemaTable()}
     WHERE ${this.getInformationSchemaWhereClause()}
@@ -1101,6 +1107,8 @@ export default abstract class SqlIntegration
 
     const results = await this.runQuery(
       format(sql, this.getSqlDialect().formatDialect),
+      undefined,
+      { queryType: "informationSchema" },
     );
 
     if (!results.rows.length) {
@@ -1115,18 +1123,20 @@ export default abstract class SqlIntegration
     tableName: string,
   ): Promise<{ tableData: null | unknown[] }> {
     const sql = `
-  SELECT 
+  SELECT
     data_type as data_type,
-    column_name as column_name 
+    column_name as column_name
   FROM
     ${this.getInformationSchemaTable(tableSchema, databaseName)}
-  WHERE 
+  WHERE
     table_name = '${tableName}'
     AND table_schema = '${tableSchema}'
     AND table_catalog = '${databaseName}'`;
 
     const results = await this.runQuery(
       format(sql, this.getSqlDialect().formatDialect),
+      undefined,
+      { queryType: "tableColumns" },
     );
 
     return { tableData: results.rows };
@@ -1436,6 +1446,8 @@ export default abstract class SqlIntegration
 
     const { rows: resultRows } = await this.runQuery(
       format(sql, this.getSqlDialect().formatDialect),
+      undefined,
+      { queryType: "trackedEvents" },
     );
 
     const additionalEvents = getAdditionalEvents();
@@ -1455,6 +1467,8 @@ export default abstract class SqlIntegration
       try {
         const { rows: additionalEventResults } = await this.runQuery(
           format(sql, this.getSqlDialect().formatDialect),
+          undefined,
+          { queryType: "trackedEvents" },
         );
 
         additionalEventResults.forEach((result) => {
@@ -1512,7 +1526,9 @@ export default abstract class SqlIntegration
   public async runColumnsTopValuesQuery(
     sql: string,
   ): Promise<ColumnTopValuesResponse> {
-    const { rows, statistics } = await this.runQuery(sql);
+    const { rows, statistics } = await this.runQuery(sql, undefined, {
+      queryType: "columnTopValues",
+    });
 
     return {
       statistics,
@@ -1795,7 +1811,7 @@ export default abstract class SqlIntegration
   async runMaxTimestampQuery(
     sql: string,
     setExternalId: ExternalIdCallback,
-    queryMetadata?: QueryMetadata,
+    queryMetadata: RunQueryMetadata,
   ): Promise<MaxTimestampQueryResponse> {
     const { rows, statistics } = await this.runQuery(
       sql,
@@ -1821,7 +1837,7 @@ export default abstract class SqlIntegration
   async runIncrementalWithNoOutputQuery(
     sql: string,
     setExternalId: ExternalIdCallback,
-    queryMetadata?: QueryMetadata,
+    queryMetadata: RunQueryMetadata,
   ): Promise<IncrementalWithNoOutputQueryResponse> {
     const results = await this.runQuery(sql, setExternalId, queryMetadata);
     return results;
@@ -2831,7 +2847,7 @@ export default abstract class SqlIntegration
   async runIncrementalRefreshStatisticsQuery(
     sql: string,
     setExternalId: ExternalIdCallback,
-    queryMetadata?: QueryMetadata,
+    queryMetadata: RunQueryMetadata,
   ): Promise<ExperimentFactMetricsQueryResponse> {
     const { rows, statistics } = await this.runQuery(
       sql,
@@ -2916,7 +2932,7 @@ export default abstract class SqlIntegration
   async runProductAnalyticsQuery(
     query: string,
     setExternalId: ExternalIdCallback,
-    queryMetadata?: QueryMetadata,
+    queryMetadata: RunQueryMetadata,
   ) {
     return this.runQuery(query, setExternalId, queryMetadata);
   }

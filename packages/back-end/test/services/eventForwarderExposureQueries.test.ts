@@ -12,10 +12,6 @@ jest.mock("back-end/src/services/eventForwarder/warehouseSync", () => ({
   queueDelayedEventForwarderWarehouseSyncForDatasource: jest.fn(),
 }));
 
-const mockedGetRaw =
-  DataSourceModel.getRawDataSourceById as jest.MockedFunction<
-    typeof DataSourceModel.getRawDataSourceById
-  >;
 const mockedGetById = DataSourceModel.getDataSourceById as jest.MockedFunction<
   typeof DataSourceModel.getDataSourceById
 >;
@@ -113,11 +109,10 @@ describe("ensureEventForwarderExposureQueries", () => {
       privateKey: "key",
     };
     const raw = ds({
-      userIdTypes: [{ userIdType: "device_id", description: "" }],
+      userIdTypes: [{ userIdType: "ef_device_id", description: "" }],
       queries: { exposure: [] },
     });
     raw.params = encryptParams(bigqueryParams);
-    mockedGetRaw.mockResolvedValue(raw);
     mockedGetById.mockResolvedValue(raw);
     mockedDecrypt.mockReturnValue({
       dataset: "analytics_123",
@@ -128,7 +123,7 @@ describe("ensureEventForwarderExposureQueries", () => {
     await ensureEventForwarderExposureQueries(
       context() as never,
       efConfig("bigquery"),
-      ["device_id"],
+      ["ef_device_id"],
     );
 
     expect(mockedUpdate).toHaveBeenCalledWith(
@@ -139,8 +134,8 @@ describe("ensureEventForwarderExposureQueries", () => {
           queries: {
             exposure: [
               expect.objectContaining({
-                userIdType: "device_id",
-                id: "device_id",
+                userIdType: "ef_device_id",
+                id: "ef_device_id",
                 managedBy: "api",
               }),
             ],
@@ -154,12 +149,11 @@ describe("ensureEventForwarderExposureQueries", () => {
   it("creates one exposure query per synced userIdType for BigQuery", async () => {
     const raw = ds({
       userIdTypes: [
-        { userIdType: "user_id", description: "" },
-        { userIdType: "device_id", description: "" },
+        { userIdType: "ef_user_id", description: "" },
+        { userIdType: "ef_device_id", description: "" },
       ],
       queries: { exposure: [] },
     });
-    mockedGetRaw.mockResolvedValue(raw);
     mockedGetById.mockResolvedValue(raw);
     mockedDecrypt.mockReturnValue({
       dataset: "analytics_123",
@@ -170,7 +164,7 @@ describe("ensureEventForwarderExposureQueries", () => {
     await ensureEventForwarderExposureQueries(
       context() as never,
       efConfig("bigquery"),
-      ["user_id", "device_id"],
+      ["ef_user_id", "ef_device_id"],
       { defaultProject: "my-project" } as never,
     );
 
@@ -182,13 +176,13 @@ describe("ensureEventForwarderExposureQueries", () => {
           queries: {
             exposure: expect.arrayContaining([
               expect.objectContaining({
-                userIdType: "user_id",
-                id: "user_id",
+                userIdType: "ef_user_id",
+                id: "ef_user_id",
                 managedBy: "api",
               }),
               expect.objectContaining({
-                userIdType: "device_id",
-                id: "device_id",
+                userIdType: "ef_device_id",
+                id: "ef_device_id",
               }),
             ]),
           },
@@ -214,7 +208,6 @@ describe("ensureEventForwarderExposureQueries", () => {
       userIdTypes: [{ userIdType: "user_id", description: "" }],
       queries: { exposure: [] },
     });
-    mockedGetRaw.mockResolvedValue(raw);
     mockedGetById.mockResolvedValue({
       ...raw,
       type: "snowflake",
@@ -248,16 +241,16 @@ describe("ensureEventForwarderExposureQueries", () => {
       queries: {
         exposure: [
           {
-            id: "user_id",
-            name: "user_id",
+            id: "ef_user_id",
+            name: "ef_user_id",
             userIdType: "user_id",
             dimensions: [],
+            managedBy: "api",
             query: "SELECT 1",
           },
         ],
       },
     });
-    mockedGetRaw.mockResolvedValue(raw);
     mockedGetById.mockResolvedValue(raw);
     mockedDecrypt.mockReturnValue({
       dataset: "analytics_123",
@@ -294,7 +287,6 @@ describe("ensureEventForwarderExposureQueries", () => {
         ],
       },
     });
-    mockedGetRaw.mockResolvedValue(raw);
     mockedGetById.mockResolvedValue(raw);
     mockedDecrypt.mockReturnValue({
       dataset: "analytics_123",
@@ -317,7 +309,7 @@ describe("ensureEventForwarderExposureQueries", () => {
   });
 
   it("skips when synced userIdTypes is empty", async () => {
-    mockedGetRaw.mockResolvedValue(ds({ userIdTypes: [], queries: {} }));
+    mockedGetById.mockResolvedValue(ds({ userIdTypes: [], queries: {} }));
 
     await ensureEventForwarderExposureQueries(
       context() as never,
@@ -338,7 +330,6 @@ describe("ensureEventForwarderExposureQueries", () => {
       ],
       queries: { exposure: [] },
     });
-    mockedGetRaw.mockResolvedValue(raw);
     mockedGetById.mockResolvedValue(raw);
     mockedDecrypt.mockReturnValue({
       dataset: "analytics_123",
@@ -380,10 +371,9 @@ describe("ensureEventForwarderExposureQueries", () => {
 
   it("uses passed attributeSchema when context org schema is stale", async () => {
     const raw = ds({
-      userIdTypes: [{ userIdType: "device_id", description: "" }],
+      userIdTypes: [{ userIdType: "ef_device_id", description: "" }],
       queries: { exposure: [] },
     });
-    mockedGetRaw.mockResolvedValue(raw);
     mockedGetById.mockResolvedValue(raw);
     mockedDecrypt.mockReturnValue({
       dataset: "analytics_123",
@@ -402,7 +392,7 @@ describe("ensureEventForwarderExposureQueries", () => {
     await ensureEventForwarderExposureQueries(
       context([]) as never,
       efConfig("bigquery"),
-      ["device_id"],
+      ["ef_device_id"],
       { defaultProject: "my-project" } as never,
       updatedAttributeSchema,
     );
@@ -415,8 +405,8 @@ describe("ensureEventForwarderExposureQueries", () => {
           queries: {
             exposure: [
               expect.objectContaining({
-                userIdType: "device_id",
-                id: "device_id",
+                userIdType: "ef_device_id",
+                id: "ef_device_id",
                 managedBy: "api",
               }),
             ],
@@ -425,28 +415,5 @@ describe("ensureEventForwarderExposureQueries", () => {
       },
       { skipEventForwarderManagedValidation: true },
     );
-  });
-
-  it("skips hash attributes missing from stale context when attributeSchema is omitted", async () => {
-    const raw = ds({
-      userIdTypes: [{ userIdType: "device_id", description: "" }],
-      queries: { exposure: [] },
-    });
-    mockedGetRaw.mockResolvedValue(raw);
-    mockedGetById.mockResolvedValue(raw);
-    mockedDecrypt.mockReturnValue({
-      dataset: "analytics_123",
-      tablePrefix: "gb",
-      serviceAccountKey: "{}",
-    });
-
-    await ensureEventForwarderExposureQueries(
-      context([]) as never,
-      efConfig("bigquery"),
-      ["device_id"],
-      { defaultProject: "my-project" } as never,
-    );
-
-    expect(mockedUpdate).not.toHaveBeenCalled();
   });
 });

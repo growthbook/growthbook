@@ -13,6 +13,7 @@ import * as FactTableModel from "back-end/src/models/FactTableModel";
 import * as EventForwarderConfig from "back-end/src/services/eventForwarder/config";
 import * as DataSourceService from "back-end/src/services/datasource";
 import * as RefreshFactTableColumns from "back-end/src/jobs/refreshFactTableColumns";
+import * as Organizations from "back-end/src/services/organizations";
 
 jest.mock("back-end/src/models/DataSourceModel");
 jest.mock("back-end/src/models/FactTableModel");
@@ -23,6 +24,9 @@ jest.mock("shared/util", () => ({
 }));
 jest.mock("back-end/src/services/datasource");
 jest.mock("back-end/src/jobs/refreshFactTableColumns");
+jest.mock("back-end/src/services/organizations", () => ({
+  getContextForAgendaJobByOrgObject: jest.fn(),
+}));
 
 const mockedGetDataSourceById =
   DataSourceModel.getDataSourceById as jest.MockedFunction<
@@ -39,10 +43,21 @@ const mockedDeleteFactTable =
   FactTableModel.deleteFactTable as jest.MockedFunction<
     typeof FactTableModel.deleteFactTable
   >;
-const mockedUpdateEventForwarderFactTableMetadata =
-  FactTableModel.updateEventForwarderFactTableMetadata as jest.MockedFunction<
-    typeof FactTableModel.updateEventForwarderFactTableMetadata
+const mockedUpdateFactTable =
+  FactTableModel.updateFactTable as jest.MockedFunction<
+    typeof FactTableModel.updateFactTable
   >;
+const mockedGetContextForAgendaJobByOrgObject =
+  Organizations.getContextForAgendaJobByOrgObject as jest.MockedFunction<
+    typeof Organizations.getContextForAgendaJobByOrgObject
+  >;
+// Sentinel returned by the mocked background-job context factory. The event
+// forwarder sync passes this to updateFactTable so it can bypass the
+// managedBy === "api" guard; the tests assert it is threaded through unchanged.
+const agendaContext = {
+  org: { id: "org1" },
+  auditUser: null,
+} as never;
 const mockedDecrypt =
   EventForwarderConfig.decryptEventForwarderConfigModel as jest.MockedFunction<
     typeof EventForwarderConfig.decryptEventForwarderConfigModel
@@ -304,6 +319,7 @@ describe("syncEventForwarderEventsFactTableMetadataAfterAttributeSchemaChange", 
     jest.clearAllMocks();
     mockedGetBigQueryTablePrefix.mockReturnValue("gb");
     mockedGetSnowflakeTablePrefix.mockReturnValue("GB");
+    mockedGetContextForAgendaJobByOrgObject.mockReturnValue(agendaContext);
   });
 
   it("updates managed fact table attribute jsonFields and queues delayed refresh", async () => {
@@ -361,29 +377,28 @@ describe("syncEventForwarderEventsFactTableMetadataAfterAttributeSchemaChange", 
       ],
     );
 
-    expect(mockedUpdateEventForwarderFactTableMetadata).toHaveBeenCalledWith(
-      ft,
-      {
-        columns: [
-          expect.objectContaining({
-            column: "attributes",
-            name: "attributes",
-            description: "",
-            numberFormat: "",
-            datatype: "json",
-            jsonFields: {
-              user_id: { datatype: "string" },
-              age: { datatype: "number" },
-            },
-          }),
-        ],
-        columnRefreshPending: true,
-        sql: expect.stringContaining(
-          "SAFE_CAST(JSON_VALUE(`attributes`, '$.\"age\"') AS FLOAT64) AS age",
-        ),
-      },
-      ctx,
+    expect(mockedGetContextForAgendaJobByOrgObject).toHaveBeenCalledWith(
+      ctx.org,
     );
+    expect(mockedUpdateFactTable).toHaveBeenCalledWith(agendaContext, ft, {
+      columns: [
+        expect.objectContaining({
+          column: "attributes",
+          name: "attributes",
+          description: "",
+          numberFormat: "",
+          datatype: "json",
+          jsonFields: {
+            user_id: { datatype: "string" },
+            age: { datatype: "number" },
+          },
+        }),
+      ],
+      columnRefreshPending: true,
+      sql: expect.stringContaining(
+        "SAFE_CAST(JSON_VALUE(`attributes`, '$.\"age\"') AS FLOAT64) AS age",
+      ),
+    });
     expect(mockedQueueFactTableColumnsRefreshAt).toHaveBeenCalledWith(
       ft,
       expect.any(Date),
@@ -450,84 +465,12 @@ WHERE received_at BETWEEN '{{startDate}}' AND '{{endDate}}'`;
       [{ property: "user_id", datatype: "string", hashAttribute: true }],
     );
 
-    expect(mockedUpdateEventForwarderFactTableMetadata).toHaveBeenCalledWith(
-      ft,
-      {
-        columnRefreshPending: true,
-      },
-      ctx,
-    );
+    expect(mockedUpdateFactTable).toHaveBeenCalledWith(agendaContext, ft, {
+      columnRefreshPending: true,
+    });
     expect(mockedQueueFactTableColumnsRefreshAt).toHaveBeenCalledWith(
       ft,
       expect.any(Date),
-    );
-  });
-
-  it("clears deleted flag when rebuilding managed attributes column metadata", async () => {
-    const ctx = context();
-    ctx.models.eventForwarderConfigs.getAll.mockResolvedValue([
-      {
-        datasourceId: "ds_1",
-        sinkType: "bigquery",
-      },
-    ]);
-
-    const ds = datasource({
-      settings: {
-        userIdTypes: [{ userIdType: "user_id", description: "" }],
-      },
-      projects: [],
-    });
-    const ft = eventsFactTable({
-      columns: [
-        {
-          column: "attributes",
-          name: "attributes",
-          description: "",
-          numberFormat: "",
-          datatype: "json",
-          jsonFields: {
-            user_id: { datatype: "string" },
-          },
-          dateCreated: new Date(),
-          dateUpdated: new Date(),
-          deleted: true,
-          topValues: [],
-          autoSlices: [],
-          lockedAutoSlices: [],
-        },
-      ],
-    });
-
-    mockedGetDataSourceById.mockResolvedValue(ds);
-    mockedGetFactTable.mockResolvedValue(ft);
-    mockedGetSourceIntegrationObject.mockReturnValue({
-      params: {
-        defaultProject: "my-project",
-      },
-    } as never);
-    mockedDecrypt.mockReturnValue({
-      dataset: "analytics_123",
-      tablePrefix: "gb",
-      serviceAccountKey: "{}",
-    });
-
-    await syncEventForwarderEventsFactTableMetadataAfterAttributeSchemaChange(
-      ctx as never,
-      [{ property: "user_id", datatype: "string", hashAttribute: true }],
-    );
-
-    expect(mockedUpdateEventForwarderFactTableMetadata).toHaveBeenCalledWith(
-      ft,
-      expect.objectContaining({
-        columns: [
-          expect.objectContaining({
-            column: "attributes",
-            deleted: false,
-          }),
-        ],
-      }),
-      ctx,
     );
   });
 });

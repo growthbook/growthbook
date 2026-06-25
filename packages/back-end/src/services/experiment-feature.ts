@@ -60,6 +60,10 @@ export type ExperimentFeatureValueRevisionOptions = {
 
 export type ExperimentLinkedFeatureValueUpdate = {
   variations: ExperimentRefVariation[];
+  // JSON features only. When provided, sets the matching experiment-ref rule's
+  // sparse flag (the variation values are partial objects merged onto the
+  // feature default). Omitted = leave the rule's existing sparse flag untouched.
+  sparse?: boolean;
   revisionOptions: ExperimentFeatureValueRevisionOptions;
 };
 
@@ -146,6 +150,7 @@ export async function updateExperimentRefVariations({
   revision,
   matchingRules,
   updatedVariationValues,
+  sparse,
   user,
   orgSettings,
 }: {
@@ -154,6 +159,7 @@ export async function updateExperimentRefVariations({
   revision: FeatureRevisionInterface;
   matchingRules: MatchingRule[];
   updatedVariationValues: ExperimentRefVariation[];
+  sparse?: boolean;
   user: EventUser;
   orgSettings?: OrganizationSettings;
 }): Promise<FeatureRevisionInterface> {
@@ -175,7 +181,10 @@ export async function updateExperimentRefVariations({
       ruleId: m.rule.id,
       environmentId: m.environmentId,
     })),
-    { variations: updatedVariationValues },
+    {
+      variations: updatedVariationValues,
+      ...(sparse !== undefined && { sparse }),
+    },
     user,
     resetReview,
   );

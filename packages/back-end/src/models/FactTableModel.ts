@@ -88,6 +88,7 @@ const factTableSchema = new mongoose.Schema({
         },
       },
       lookbackWindow: Number,
+      restateChunkDays: Number,
     },
     default: undefined,
   },
@@ -205,6 +206,16 @@ export async function getFactTableMap(
   return new Map(factTables.map((f) => [f.id, f]));
 }
 
+// WARNING: bypasses project-read permission. Use only for system-driven
+// managed-warehouse sync (see dangerouslyGetGrowthbookDatasourceBypassPermission).
+export async function dangerouslyGetFactTableByIdBypassPermission(
+  organization: string,
+  id: string,
+): Promise<FactTableInterface | null> {
+  const doc = await FactTableModel.findOne({ organization, id });
+  return doc ? toInterface(doc) : null;
+}
+
 export async function getFactTable(
   context: ReqContext | ApiReqContext,
   id: string,
@@ -301,10 +312,13 @@ export async function updateFactTable(
   factTable: FactTableInterface,
   changes: UpdateFactTableProps,
 ) {
-  // Allow changing columns even for API-managed fact tables
+  // Allow changing columns even for API-managed fact tables. Also allow
+  // system/background contexts (which have no audit user) through, e.g. the
+  // event forwarder sync.
   if (
     factTable.managedBy === "api" &&
     context.auditUser?.type !== "api_key" &&
+    context.auditUser !== null &&
     Object.keys(changes).some((k) => k !== "columns")
   ) {
     throw new Error(
@@ -355,12 +369,6 @@ const ALLOWED_COLUMN_UPDATE_FIELDS = [
   "userIdTypes",
 ] as const;
 
-const ALLOWED_EVENT_FORWARDER_METADATA_UPDATE_FIELDS = [
-  "columns",
-  "sql",
-  "columnRefreshPending",
-] as const;
-
 // This is called from a background cronjob to re-sync all of the columns
 // It doesn't need to check for 'managedBy' and doesn't need to set 'dateUpdated'
 export async function updateFactTableColumns(
@@ -405,23 +413,28 @@ export async function updateFactTableColumns(
   }
 }
 
-export async function updateEventForwarderFactTableMetadata(
-  factTable: FactTableInterface,
-  changes: Partial<
-    Pick<
-      FactTableInterface,
-      (typeof ALLOWED_EVENT_FORWARDER_METADATA_UPDATE_FIELDS)[number]
-    >
-  >,
+// System-driven update of the managed-warehouse events fact table (managedBy "api").
+// Unlike updateFactTable, this is allowed from internal (non-API) requests because
+// GrowthBook itself owns this table's sql/columns/userIdTypes. Used when the org's
+// identifiers (hashAttribute attributes) change.
+export async function dangerouslySyncManagedWarehouseFactTable(
   context: ReqContext | ApiReqContext,
+  factTable: FactTableInterface,
+  changes: Pick<UpdateFactTableProps, "sql" | "columns" | "userIdTypes">,
 ) {
-  const safeChanges = Object.fromEntries(
-    Object.entries(changes).filter(([key]) =>
-      ALLOWED_EVENT_FORWARDER_METADATA_UPDATE_FIELDS.includes(
-        key as (typeof ALLOWED_EVENT_FORWARDER_METADATA_UPDATE_FIELDS)[number],
-      ),
-    ),
-  );
+  if (changes.columns) {
+    const removedColumns = detectRemovedColumns(
+      factTable.columns || [],
+      changes.columns,
+    );
+    if (removedColumns.length > 0) {
+      await cleanupMetricAutoSlices({
+        context,
+        factTableId: factTable.id,
+        removedColumns,
+      });
+    }
+  }
 
   await FactTableModel.updateOne(
     {
@@ -430,13 +443,11 @@ export async function updateEventForwarderFactTableMetadata(
     },
     {
       $set: {
-        ...safeChanges,
+        ...changes,
         dateUpdated: new Date(),
       },
     },
   );
-
-  await audit.logUpdate(context, factTable, { ...factTable, ...safeChanges });
 }
 
 // Detect columns that were removed or had auto slice disabled

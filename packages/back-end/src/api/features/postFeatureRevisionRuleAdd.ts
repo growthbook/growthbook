@@ -78,6 +78,7 @@ export function buildRuleFromInput(
         variationId: v.variationId ?? "",
         value: v.value,
       })),
+      ...(input.sparse !== undefined && { sparse: input.sparse }),
     };
     return rule;
   }
@@ -119,6 +120,7 @@ export function buildRuleFromInput(
       hashAttribute: input.hashAttribute,
       ...(input.seed !== undefined && { seed: input.seed }),
       hashVersion: (input.hashVersion as 1 | 2 | undefined) ?? 2,
+      ...(input.sparse !== undefined && { sparse: input.sparse }),
     };
     return rule;
   }
@@ -127,6 +129,7 @@ export function buildRuleFromInput(
     ...base,
     type: "force",
     value: input.value,
+    ...(input.sparse !== undefined && { sparse: input.sparse }),
   };
   return rule;
 }

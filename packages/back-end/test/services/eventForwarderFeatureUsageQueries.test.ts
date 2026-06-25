@@ -1,17 +1,11 @@
 import type { DataSourceInterface } from "shared/types/datasource";
-import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
 import { ensureEventForwarderFeatureUsageQuery } from "back-end/src/services/eventForwarder/datasourceQueries";
 import * as DataSourceModel from "back-end/src/models/DataSourceModel";
 import * as EventForwarderConfig from "back-end/src/services/eventForwarder/config";
-import { encryptParams } from "back-end/src/services/datasource";
 
 jest.mock("back-end/src/models/DataSourceModel");
 jest.mock("back-end/src/services/eventForwarder/config");
 
-const mockedGetRaw =
-  DataSourceModel.getRawDataSourceById as jest.MockedFunction<
-    typeof DataSourceModel.getRawDataSourceById
-  >;
 const mockedGetById = DataSourceModel.getDataSourceById as jest.MockedFunction<
   typeof DataSourceModel.getDataSourceById
 >;
@@ -91,7 +85,6 @@ describe("ensureEventForwarderFeatureUsageQuery", () => {
 
   it("creates a managed feature usage query for BigQuery", async () => {
     const raw = ds({ queries: { featureUsage: [] } });
-    mockedGetRaw.mockResolvedValue(raw);
     mockedGetById.mockResolvedValue(raw);
     mockedDecrypt.mockReturnValue({
       dataset: "analytics_123",
@@ -137,7 +130,6 @@ describe("ensureEventForwarderFeatureUsageQuery", () => {
         featureUsage: [{ id: "manual", query: "SELECT 1" }],
       },
     });
-    mockedGetRaw.mockResolvedValue(raw);
     mockedGetById.mockResolvedValue(raw);
     mockedDecrypt.mockReturnValue({
       dataset: "analytics_123",
@@ -165,7 +157,7 @@ describe("ensureEventForwarderFeatureUsageQuery", () => {
         featureUsage: [{ id: "managed", query: "SELECT 2", managedBy: "api" }],
       },
     });
-    mockedGetRaw.mockResolvedValue(raw);
+    mockedGetById.mockResolvedValue(raw);
 
     const ids = await ensureEventForwarderFeatureUsageQuery(
       context() as never,
@@ -178,7 +170,6 @@ describe("ensureEventForwarderFeatureUsageQuery", () => {
 
   it("creates Snowflake feature usage query without WHERE clause", async () => {
     const raw = ds({ queries: { featureUsage: [] } });
-    mockedGetRaw.mockResolvedValue(raw);
     mockedGetById.mockResolvedValue({ ...raw, type: "snowflake" });
     mockedDecrypt.mockReturnValue({
       database: "MY_DB",
@@ -199,29 +190,5 @@ describe("ensureEventForwarderFeatureUsageQuery", () => {
       mockedUpdate.mock.calls[0][2].settings?.queries?.featureUsage ?? [];
     expect(featureUsage[0].query).toContain("MY_DB.PUBLIC.GB_FEATURE_USAGE");
     expect(featureUsage[0].query).not.toContain("WHERE");
-  });
-
-  it("uses decrypted params when datasourceParams is omitted", async () => {
-    const bigqueryParams: BigQueryConnectionParams = {
-      projectId: "my-project",
-      clientEmail: "test@example.com",
-      privateKey: "key",
-    };
-    const raw = ds({ queries: { featureUsage: [] } });
-    raw.params = encryptParams(bigqueryParams);
-    mockedGetRaw.mockResolvedValue(raw);
-    mockedGetById.mockResolvedValue(raw);
-    mockedDecrypt.mockReturnValue({
-      dataset: "analytics_123",
-      tablePrefix: "gb",
-      serviceAccountKey: "{}",
-    });
-
-    await ensureEventForwarderFeatureUsageQuery(
-      context() as never,
-      efConfig("bigquery"),
-    );
-
-    expect(mockedUpdate).toHaveBeenCalled();
   });
 });

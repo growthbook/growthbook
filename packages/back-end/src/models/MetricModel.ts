@@ -8,6 +8,7 @@ import {
 } from "shared/types/metric";
 import { getConfigMetrics, usingFileConfig } from "back-end/src/init/config";
 import { upgradeMetricDoc } from "back-end/src/util/migrations";
+import { validatePriorSettings } from "back-end/src/util/priors";
 import { ALLOW_CREATE_METRICS } from "back-end/src/util/secrets";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
@@ -190,6 +191,8 @@ export async function insertMetric(
   if (!context.permissions.canCreateMetric(metricWithOrganization)) {
     context.permissions.throwPermissionError();
   }
+
+  validatePriorSettings(metricWithOrganization.priorSettings);
 
   const created = toInterface(await MetricModel.create(metricWithOrganization));
   await audit.logCreate(context, created);
@@ -583,6 +586,8 @@ export async function updateMetric(
       context.permissions.throwPermissionError();
     }
   }
+
+  validatePriorSettings(updates.priorSettings);
 
   // If using config.yml, need to do an `upsert` since it might not exist in mongo yet
   if (metric.managedBy === "config") {

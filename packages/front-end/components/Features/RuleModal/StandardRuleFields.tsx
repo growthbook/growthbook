@@ -261,6 +261,8 @@ export default function StandardRuleFields({
         renderJSONInline={true}
         useCodeInput={true}
         showFullscreenButton={true}
+        sparse={!!form.watch("sparse")}
+        setSparse={(v) => form.setValue("sparse", v)}
       />
 
       <div className="mb-3">

@@ -200,6 +200,9 @@ export type Props = CodeTextAreaFieldProps & {
   defaultHeight?: number;
   showCopyButton?: boolean;
   showFullscreenButton?: boolean;
+  // When set, the in-editor fullscreen button calls this instead of toggling
+  // CodeTextArea's own fullscreen — lets a parent own a custom fullscreen view.
+  onRequestFullscreen?: () => void;
 };
 
 const LIGHT_THEME = "textmate";
@@ -221,6 +224,7 @@ export default function CodeTextArea({
   defaultHeight = TEN_LINES_HEIGHT, // for resizable
   showCopyButton = false,
   showFullscreenButton = false,
+  onRequestFullscreen,
   ...otherProps
 }: Props) {
   const fieldProps = otherProps as CodeTextAreaFieldProps;
@@ -489,7 +493,11 @@ export default function CodeTextArea({
                           onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
-                            setIsFullscreen(!isFullscreen);
+                            if (onRequestFullscreen) {
+                              onRequestFullscreen();
+                            } else {
+                              setIsFullscreen(!isFullscreen);
+                            }
                           }}
                           style={{ position: "relative", zIndex: 1000 }}
                         >

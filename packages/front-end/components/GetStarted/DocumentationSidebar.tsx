@@ -1,7 +1,10 @@
-import { PiSealQuestion } from "react-icons/pi";
-import { Card, Flex, Heading, Separator, Text } from "@radix-ui/themes";
+import { PiCaretRight, PiSealQuestion } from "react-icons/pi";
+import { Box, Card, Flex, Heading, Separator, Text } from "@radix-ui/themes";
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { useUser } from "@/services/UserContext";
+import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import PaidFeatureBadge from "./PaidFeatureBadge";
@@ -27,6 +30,7 @@ const DocumentationSidebar = ({
     <Card style={{ padding: "var(--space-5)" }}>
       <SidebarHeading>WHAT&apos;S NEW</SidebarHeading>
       <Flex direction="column" gapY="3">
+        <AIVisualEditorCallout />
         <LinkItem href="https://www.growthbook.io/blog/growthbook-version-4-4">
           GrowthBook 4.4
         </LinkItem>
@@ -73,6 +77,59 @@ const DocumentationSidebar = ({
     </Card>
   );
 };
+
+function AIVisualEditorCallout(): React.ReactElement | null {
+  const enabled = useFeatureIsOn("ai-visual-editor-callout");
+
+  if (!enabled) {
+    return null;
+  }
+
+  return (
+    <Link
+      href="https://www.growthbook.io/events/visual-editor-early-access?utm_source=users&utm_medium=platform&utm_campaign=enablement-session-visual-editor"
+      target="_blank"
+      rel="noreferrer"
+      underline="none"
+      style={{ display: "block" }}
+    >
+      <Callout status="info" icon={null} contentsAs="div">
+        <Flex justify="start" mb="2">
+          <Badge
+            label="Early access"
+            color="violet"
+            variant="soft"
+            radius="full"
+            size="sm"
+          />
+        </Flex>
+        <Flex align="center" gap="3">
+          <Box flexGrow="1" style={{ minWidth: 0, lineHeight: 1.45 }}>
+            <Heading
+              as="h6"
+              size="2"
+              mb="1"
+              style={{ color: "var(--gray-12)", whiteSpace: "nowrap" }}
+            >
+              AI Visual Editor
+            </Heading>
+            <Text
+              as="div"
+              size="1"
+              style={{ color: "var(--gray-11)", whiteSpace: "nowrap" }}
+            >
+              Get early access June 22
+            </Text>
+          </Box>
+          <PiCaretRight
+            size={16}
+            style={{ color: "var(--gray-9)", flexShrink: 0 }}
+          />
+        </Flex>
+      </Callout>
+    </Link>
+  );
+}
 
 function SidebarHeading({ children }: { children: string }) {
   return (

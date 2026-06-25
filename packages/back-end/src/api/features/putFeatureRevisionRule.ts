@@ -82,6 +82,7 @@ export function applyPatch(
         experimentId: patch.experimentId,
       }),
       ...(patch.variations !== undefined && { variations: patch.variations }),
+      ...(patch.sparse !== undefined && { sparse: patch.sparse }),
     };
     return updated;
   }
@@ -156,6 +157,7 @@ export function applyPatch(
         ...(patch.hashVersion !== undefined && {
           hashVersion: patch.hashVersion,
         }),
+        ...(patch.sparse !== undefined && { sparse: patch.sparse }),
       };
       return updated;
     } else {
@@ -171,6 +173,7 @@ export function applyPatch(
           hashAttribute: effectiveHashAttr,
         }),
         ...(patch.seed !== undefined && { seed: patch.seed }),
+        ...(patch.sparse !== undefined && { sparse: patch.sparse }),
       };
       return updated;
     }

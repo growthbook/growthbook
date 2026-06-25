@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { Popover } from "@/ui/Popover";
 import Button from "@/ui/Button";
@@ -11,6 +11,43 @@ import { useAuth } from "@/services/auth";
 
 type ReviewDecision = "Comment" | "Requested Changes" | "Approved";
 
+const REVIEW_DECISIONS: ReviewDecision[] = [
+  "Comment",
+  "Requested Changes",
+  "Approved",
+];
+
+type PersistedReviewDraft = { comment: string; decision: ReviewDecision };
+
+// In-progress review drafts persist in sessionStorage (keyed by feature +
+// revision) so closing the popover doesn't lose work. Cleared on submit/cancel.
+function readReviewDraft(key: string): PersistedReviewDraft | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.sessionStorage.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<PersistedReviewDraft>;
+    return {
+      comment: typeof parsed.comment === "string" ? parsed.comment : "",
+      decision:
+        parsed.decision && REVIEW_DECISIONS.includes(parsed.decision)
+          ? parsed.decision
+          : "Comment",
+    };
+  } catch {
+    return null;
+  }
+}
+
+function clearReviewDraft(key: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.removeItem(key);
+  } catch {
+    // ignore storage failures (private mode, quota, etc.)
+  }
+}
+
 interface Props {
   submitUrl: string;
   // When true, a "Submit and Publish" option appears when "Approve" is
@@ -19,6 +56,9 @@ interface Props {
   allowPublishOnApprove?: boolean;
   // Whether the auto-publish checkbox is checked on the revision.
   autoPublishArmed?: boolean;
+  // Armed publish is deferred to a date, so approving doesn't publish now — the
+  // CTA stays "Submit" instead of "Submit and Publish".
+  autoPublishScheduled?: boolean;
   // Whether the current reviewer can publish under their own authority. Gates
   // the non-armed "Submit and Publish" option, which publishes as the reviewer.
   // Irrelevant to armed drafts (those publish under the arming user's authority).
@@ -33,6 +73,9 @@ interface Props {
   trigger: React.ReactNode | ((state: { open: boolean }) => React.ReactNode);
   /** Prevents self-approval when blockSelfApproval is set. */
   isBlockedContributor?: boolean;
+  // sessionStorage key for persisting the in-progress draft (comment +
+  // decision). When omitted, the draft isn't persisted across popover closes.
+  storageKey?: string;
   // Called after a successful submit-review. `publish` is true when the user
   // chose "Submit and Publish" so the parent can proceed with its publish flow.
   onSuccess: (opts?: { publish?: boolean }) => void;
@@ -44,6 +87,7 @@ export default function ReviewCommentPopover({
   submitUrl,
   allowPublishOnApprove = false,
   autoPublishArmed = false,
+  autoPublishScheduled = false,
   canReviewerPublish = false,
   publishBlocked = false,
   publishHasMoreSteps = false,
@@ -52,18 +96,45 @@ export default function ReviewCommentPopover({
   onSuccess,
   side = "bottom",
   align = "end",
+  storageKey,
 }: Props) {
   const { apiCall } = useAuth();
   const [open, setOpen] = useState(false);
-  const [comment, setComment] = useState("");
-  const [decision, setDecision] = useState<ReviewDecision>("Comment");
+  const [comment, setComment] = useState<string>(
+    () => (storageKey ? readReviewDraft(storageKey)?.comment : "") ?? "",
+  );
+  const [decision, setDecision] = useState<ReviewDecision>(
+    () =>
+      (storageKey ? readReviewDraft(storageKey)?.decision : "Comment") ??
+      "Comment",
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const reset = () => {
+  // Persist the in-progress draft as it changes. An empty/default draft is
+  // removed so we don't leave stale keys around.
+  useEffect(() => {
+    if (!storageKey || typeof window === "undefined") return;
+    try {
+      if (comment.trim().length === 0 && decision === "Comment") {
+        window.sessionStorage.removeItem(storageKey);
+      } else {
+        window.sessionStorage.setItem(
+          storageKey,
+          JSON.stringify({ comment, decision }),
+        );
+      }
+    } catch {
+      // ignore storage failures (private mode, quota, etc.)
+    }
+  }, [comment, decision, storageKey]);
+
+  // Reset everything and drop the persisted draft (submit / cancel).
+  const clearDraft = () => {
     setComment("");
     setDecision("Comment");
     setError(null);
+    if (storageKey) clearReviewDraft(storageKey);
   };
 
   // Verdicts (Approve / Request changes) may stand alone, but a plain
@@ -71,8 +142,13 @@ export default function ReviewCommentPopover({
   const canSubmit = decision !== "Comment" || comment.trim().length > 0;
 
   const isApproval = decision === "Approved";
+  // A future-dated schedule fires later, so approving it isn't an immediate publish.
   const willPublish =
-    isApproval && autoPublishArmed && allowPublishOnApprove && !publishBlocked;
+    isApproval &&
+    autoPublishArmed &&
+    !autoPublishScheduled &&
+    allowPublishOnApprove &&
+    !publishBlocked;
   // Non-armed publish-on-approve runs under the reviewer's own authority, so
   // only offer it when they can actually publish — otherwise the approval lands
   // but the follow-on publish is rejected by the backend. Also suppressed when
@@ -96,7 +172,7 @@ export default function ReviewCommentPopover({
         method: "POST",
         body: JSON.stringify({ comment, review: decision }),
       });
-      reset();
+      clearDraft();
       setOpen(false);
       onSuccess({ publish });
     } catch (e) {
@@ -156,7 +232,7 @@ export default function ReviewCommentPopover({
         <LinkButton
           color="link"
           onClick={() => {
-            reset();
+            clearDraft();
             setOpen(false);
           }}
         >
@@ -190,7 +266,9 @@ export default function ReviewCommentPopover({
     <Popover
       open={open}
       onOpenChange={(o) => {
-        if (!o) reset();
+        // Closing the popover keeps the in-progress draft (persisted in
+        // sessionStorage); only clear the transient error.
+        if (!o) setError(null);
         setOpen(o);
       }}
       trigger={resolvedTrigger}

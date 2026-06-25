@@ -91,6 +91,11 @@ export const aggregatedFactTableSettingsValidator = z
       })
       .strict(),
     lookbackWindow: z.number().int().positive(),
+    // How many days each sequential INSERT covers when fullRestate rebuilds
+    // the table. Smaller chunks keep each query's output inside the engine's
+    // per-stage write budget on wide fact tables. Unset = no chunking (a single
+    // full-window INSERT).
+    restateChunkDays: z.number().int().min(1).max(7).optional(),
   })
   .strict();
 
@@ -242,7 +247,7 @@ export const priorSettingsValidator = z.object({
   override: z.boolean(),
   proper: z.boolean(),
   mean: z.number(),
-  stddev: z.number(),
+  stddev: z.number().gt(0),
 });
 
 export const metricTypeValidator = z.enum([

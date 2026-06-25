@@ -4,14 +4,13 @@ import {
   DataSourceInterfaceWithParams,
   UserIdType,
 } from "shared/types/datasource";
-import { isHashAttributeUserIdType } from "shared/util";
+import { isEventForwarderManagedIdentifierId } from "shared/util";
 import { FaPlus } from "react-icons/fa";
 import { Box, Card, Flex } from "@radix-ui/themes";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 import { EditIdentifierType } from "@/components/Settings/EditDataSource/DataSourceInlineEditIdentifierTypes/EditIdentifierType";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import useOrgSettings from "@/hooks/useOrgSettings";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import Metadata from "@/ui/Metadata";
@@ -28,7 +27,6 @@ export const DataSourceInlineEditIdentifierTypes: FC<
   const [editingIndex, setEditingIndex] = useState<number>(-1);
 
   const permissionsUtil = usePermissionsUtil();
-  const { attributeSchema } = useOrgSettings();
   canEdit = canEdit && permissionsUtil.canUpdateDataSourceSettings(dataSource);
 
   const eventForwarderActive = Boolean(dataSource.eventForwarderConfig);
@@ -38,15 +36,13 @@ export const DataSourceInlineEditIdentifierTypes: FC<
     [dataSource.settings?.userIdTypes],
   );
 
-  const isLockedHashAttributeType = useCallback(
+  // Only Event Forwarder managed identifier types (prefixed with `ef_`) are
+  // locked. User-created identifier types that happen to use the same hash
+  // attribute remain editable / deletable.
+  const isEventForwarderManagedType = useCallback(
     (userIdType: string) =>
-      eventForwarderActive &&
-      isHashAttributeUserIdType(
-        userIdType,
-        attributeSchema ?? [],
-        dataSource.projects,
-      ),
-    [attributeSchema, dataSource.projects, eventForwarderActive],
+      eventForwarderActive && isEventForwarderManagedIdentifierId(userIdType),
+    [eventForwarderActive],
   );
 
   const recordEditing = useMemo((): null | UserIdType => {
@@ -56,9 +52,9 @@ export const DataSourceInlineEditIdentifierTypes: FC<
   const isEditingEventForwarderManagedType = useMemo(
     () =>
       recordEditing
-        ? isLockedHashAttributeType(recordEditing.userIdType)
+        ? isEventForwarderManagedType(recordEditing.userIdType)
         : false,
-    [isLockedHashAttributeType, recordEditing],
+    [isEventForwarderManagedType, recordEditing],
   );
 
   const handleCancel = useCallback(() => {
@@ -91,8 +87,8 @@ export const DataSourceInlineEditIdentifierTypes: FC<
       async (userIdType: string, description: string, attributes: string[]) => {
         const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
         const types = copy.settings?.userIdTypes ?? [];
-        const isEventForwarderManagedType =
-          uiMode === "edit" && isLockedHashAttributeType(userIdType);
+        const editingManagedType =
+          uiMode === "edit" && isEventForwarderManagedType(userIdType);
 
         if (idx >= types.length) {
           types.push({ userIdType, description, attributes });
@@ -101,7 +97,7 @@ export const DataSourceInlineEditIdentifierTypes: FC<
           if (!existing) {
             return;
           }
-          types[idx] = isEventForwarderManagedType
+          types[idx] = editingManagedType
             ? { ...existing, description }
             : {
                 userIdType,
@@ -117,7 +113,7 @@ export const DataSourceInlineEditIdentifierTypes: FC<
 
         await onSave(copy);
       },
-    [dataSource, isLockedHashAttributeType, onSave, uiMode],
+    [dataSource, isEventForwarderManagedType, onSave, uiMode],
   );
 
   const handleAdd = useCallback(() => {
@@ -148,7 +144,7 @@ export const DataSourceInlineEditIdentifierTypes: FC<
       <p>The different units you use to split traffic in an experiment.</p>
 
       {userIdTypes.map(({ userIdType, description, attributes }, idx) => {
-        const deleteDisabled = isLockedHashAttributeType(userIdType);
+        const deleteDisabled = isEventForwarderManagedType(userIdType);
 
         return (
           <Card key={userIdType} mt="3">

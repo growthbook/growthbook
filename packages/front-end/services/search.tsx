@@ -85,6 +85,36 @@ export function tagFilterOnClick(
   };
 }
 
+// Whitespace separates distinct words; punctuation (incl. _ and -) separates
+// sub-tokens within a word.
+const wordBoundary = /[\n\r\p{Z}]+/u;
+const tokenSeparators = /\p{P}+/u;
+
+// Suffix expansion is O(parts²) in string data, so it's only safe for
+// identifier-like words (a handful of underscore/hyphen-separated parts).
+// Above this threshold a "word" is almost certainly free text or JSON without
+// whitespace (e.g. a saved-group condition), where joining suffixes is both
+// meaningless and can produce hundreds of MB of strings — index the individual
+// parts instead.
+const maxPartsForSuffixExpansion = 16;
+
+// Split a string into normalized words. MiniSearch can only match terms by
+// prefix/fuzzy (no substring search), so for indexing we emit every
+// "boundary suffix" of each word — e.g. "search_test_key" -> ["search_test_key",
+// "test_key", "key"] — which turns a prefix query into a substring-at-word-
+// boundary match. For queries we keep each word whole (one normalized term), so
+// "test_key" / "test-key" both prefix-match the "test_key" suffix of
+// "search_test_key" but never match "test-my-key".
+function tokenizeFields(text: string, expandSuffixes: boolean): string[] {
+  return text.split(wordBoundary).flatMap((word) => {
+    const parts = word.split(tokenSeparators).filter(Boolean);
+    if (!expandSuffixes) return parts.length ? [parts.join("_")] : [];
+    return parts.length > maxPartsForSuffixExpansion
+      ? parts
+      : parts.map((_, i) => parts.slice(i).join("_"));
+  });
+}
+
 const searchTermOperators = [">", "<", "^", "=", "~", ""] as const;
 
 export type SyntaxFilter = {
@@ -134,6 +164,11 @@ export interface SearchProps<T extends { id: string }> {
   // hook doesn't latch onto the outer hook's filter string.
   disableUrlSearchTerm?: boolean;
   pageSize?: number;
+  // Extra values that `searchTermFilters` closes over but that change
+  // asynchronously (e.g. lazily-fetched indexes). Including them here lets the
+  // filtered-results memo recompute when that data arrives instead of going
+  // stale. Must be a fixed-length array across renders.
+  searchTermFilterDeps?: unknown[];
 }
 
 export interface SearchReturn<T> {
@@ -181,6 +216,7 @@ export function useSearch<T extends { id: string }>({
   updateSearchQueryOnChange,
   disableUrlSearchTerm,
   pageSize,
+  searchTermFilterDeps = [],
 }: SearchProps<T>): SearchReturn<T> {
   const defaultSort = { field: defaultSortField, dir: defaultSortDir || 1 };
   const persistedSort = useLocalStorage(
@@ -232,10 +268,12 @@ export function useSearch<T extends { id: string }>({
     const miniSearchInstance = new MiniSearch({
       idField: internalSearchIdField,
       fields,
+      tokenize: (text) => tokenizeFields(text, true),
       searchOptions: {
         boost: keys,
         fuzzy: true,
         prefix: true,
+        tokenize: (text) => tokenizeFields(text, false),
       },
     });
 
@@ -320,6 +358,8 @@ export function useSearch<T extends { id: string }>({
     filterResults,
     syntaxFilterPassthrough,
     transformQuery,
+    // Recompute when async filter data (e.g. the dependents index) loads.
+    ...searchTermFilterDeps,
   ]);
 
   const previousSearchTerm = useRef(searchTerm);

@@ -17,6 +17,10 @@ import {
   NamespaceValue,
   buildReverseDependencyIndex,
   ReverseDependencyIndex,
+  buildExperimentDependencyIndex,
+  ExperimentDependencyIndex,
+  parsePlainJSONObject,
+  resolveSparseJSONValue,
 } from "shared/util";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { GroupMap, SavedGroupInterface } from "shared/types/saved-group";
@@ -73,6 +77,7 @@ export interface FeatureLookups {
   reverseDependencyIndex: ReverseDependencyIndex;
   experiments: ExperimentInterfaceStringDates[];
   experimentMap: Map<string, ExperimentInterfaceStringDates>;
+  experimentDependencyIndex: ExperimentDependencyIndex;
 }
 
 /** Builds the shared lookup structures used by stale detection and dependents. */
@@ -85,7 +90,14 @@ export function buildFeatureLookups(
   const experiments =
     (allExperiments as unknown as ExperimentInterfaceStringDates[]) ?? [];
   const experimentMap = new Map(experiments.map((e) => [e.id, e]));
-  return { featuresMap, reverseDependencyIndex, experiments, experimentMap };
+  const experimentDependencyIndex = buildExperimentDependencyIndex(experiments);
+  return {
+    featuresMap,
+    reverseDependencyIndex,
+    experiments,
+    experimentMap,
+    experimentDependencyIndex,
+  };
 }
 
 export type MetadataOptions = {
@@ -575,6 +587,18 @@ export function getFeatureDefinition({
     ? (revision.defaultValue ?? feature.defaultValue)
     : feature.defaultValue;
 
+  // For `json` features, parse the default value once so rules flagged `sparse`
+  // can merge their partial object onto it. Null when the default isn't a plain
+  // key/val object (array, null, primitive) — sparse is then a no-op and rules
+  // emit their value as-is.
+  const jsonDefaultObj =
+    feature.valueType === "json" ? parsePlainJSONObject(defaultValue) : null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const valueForSDK = (valueStr: string, sparse?: boolean): any =>
+    sparse && jsonDefaultObj
+      ? resolveSparseJSONValue(valueStr, jsonDefaultObj)
+      : getJSONValue(feature.valueType, valueStr);
+
   // Rule source: revision's unified array (draft/published) > feature's (live).
   // Legacy `settings.rules` is test-only — production reads flow through
   // `migrateRawFeatureToV2`.
@@ -778,7 +802,7 @@ export function getFeatureDefinition({
             if (!variation) return null;
 
             // If a variation has been rolled out to 100%
-            rule.force = getJSONValue(feature.valueType, variation.value);
+            rule.force = valueForSDK(variation.value, r.sparse);
           }
           // Running experiment
           else {
@@ -786,9 +810,7 @@ export function getFeatureDefinition({
               const variation = r.variations?.find(
                 (ruleVariation) => v.id === ruleVariation.variationId,
               );
-              return variation
-                ? getJSONValue(feature.valueType, variation.value)
-                : null;
+              return variation ? valueForSDK(variation.value, r.sparse) : null;
             });
             rule.weights = phase.variationWeights;
 
@@ -959,7 +981,7 @@ export function getFeatureDefinition({
         }
 
         if (r.type === "force") {
-          rule.force = getJSONValue(feature.valueType, r.value);
+          rule.force = valueForSDK(r.value, r.sparse);
         } else if (r.type === "experiment") {
           rule.variations = r.values.map((v) =>
             getJSONValue(feature.valueType, v.value),
@@ -1017,7 +1039,7 @@ export function getFeatureDefinition({
               : feature.defaultValue;
 
             rule.variations = [
-              getJSONValue(feature.valueType, r.value),
+              valueForSDK(r.value, r.sparse),
               getJSONValue(feature.valueType, defaultValue),
             ];
             rule.weights = [0.5, 0.5];
@@ -1068,7 +1090,7 @@ export function getFeatureDefinition({
                 "Monitored ramp rule missing hashAttribute — falling back to force rollout payload",
               );
             }
-            rule.force = getJSONValue(feature.valueType, r.value);
+            rule.force = valueForSDK(r.value, r.sparse);
             const clampedCoverage =
               r.coverage > 1 ? 1 : r.coverage < 0 ? 0 : r.coverage;
             if (clampedCoverage < 1) {

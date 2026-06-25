@@ -266,6 +266,12 @@ export interface LinkedFeatureInfo {
   feature: FeatureInterface;
   state: LinkedFeatureState;
   values: ExperimentRefVariation[];
+  /**
+   * True when the matching experiment-ref rule stores its variation values as
+   * sparse JSON patches (merged onto the feature default). Editors should render
+   * the values in sparse mode so they aren't mistaken for full objects.
+   */
+  sparse?: boolean;
   valuesFrom: string;
   inconsistentValues: boolean;
   rulesAbove: boolean;

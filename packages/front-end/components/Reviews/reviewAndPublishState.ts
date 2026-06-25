@@ -51,7 +51,11 @@ export interface RnPStateInput {
   onlyScheduledSelected: boolean;
   // Currently on the pre-launch checklist step.
   experimentsStep: boolean;
+  // Publishing is frozen by an active ramp-schedule lockdown on this feature.
   featureLockedByRamp: boolean;
+  // Publishing is frozen by a sibling draft's scheduled publish that locks other
+  // drafts. Treated identically to the ramp lock.
+  featureLockedBySchedule: boolean;
   // A selected experiment's required checklist is incomplete/loading.
   checklistBlocked: boolean;
   // Governance allows publishing (false when a stale draft must be rebased).
@@ -62,7 +66,7 @@ export interface RnPState {
   mode: RnPMode;
   ctaLabel: string;
   ctaEnabled: boolean;
-  // Show a lock glyph on the CTA (publishing through a ramp lockdown).
+  // Show a lock glyph on the CTA (frozen by a ramp or scheduled-publish lock).
   ctaLocked: boolean;
   submitAction: RnPSubmitAction;
   // Whether the main modal wires up a submit handler at all.
@@ -76,10 +80,10 @@ export interface RnPState {
 }
 
 function publishLabel(
-  featureLockedByRamp: boolean,
+  publishLocked: boolean,
   onlyScheduledSelected: boolean,
 ): string {
-  if (featureLockedByRamp) return "Publish";
+  if (publishLocked) return "Publish";
   if (onlyScheduledSelected) return "Schedule to Start";
   return "Publish";
 }
@@ -100,9 +104,14 @@ export function getReviewAndPublishState(input: RnPStateInput): RnPState {
     onlyScheduledSelected,
     experimentsStep,
     featureLockedByRamp,
+    featureLockedBySchedule,
     checklistBlocked,
     governanceCanPublish,
   } = input;
+
+  // Ramp and scheduled-publish locks freeze publishing identically (lock glyph,
+  // admin-bypassable), so collapse them into one concept below.
+  const publishLocked = featureLockedByRamp || featureLockedBySchedule;
 
   // recall-review ("Return to draft"): the requester or anyone with skin in
   // the draft (author/contributor) can pull it back, provided they have
@@ -145,15 +154,15 @@ export function getReviewAndPublishState(input: RnPStateInput): RnPState {
     const ctaEnabled =
       mergeSuccess &&
       hasChanges &&
-      (!featureLockedByRamp || adminPublish) &&
+      (!publishLocked || adminPublish) &&
       (governanceCanPublish || adminPublish);
     return {
       mode,
       ctaLabel: hasNextStep
         ? "Next"
-        : publishLabel(featureLockedByRamp, onlyScheduledSelected),
+        : publishLabel(publishLocked, onlyScheduledSelected),
       ctaEnabled,
-      ctaLocked: !hasNextStep && featureLockedByRamp,
+      ctaLocked: !hasNextStep && publishLocked,
       submitAction: hasNextStep ? "next-experiments" : "publish",
       hasSubmit: true,
       canRecallReview,
@@ -168,8 +177,8 @@ export function getReviewAndPublishState(input: RnPStateInput): RnPState {
   let ctaLabel = "Request Review";
   let ctaLocked = false;
   if (approved && !hasNextStep) {
-    ctaLabel = publishLabel(featureLockedByRamp, onlyScheduledSelected);
-    ctaLocked = featureLockedByRamp;
+    ctaLabel = publishLabel(publishLocked, onlyScheduledSelected);
+    ctaLocked = publishLocked;
   } else if (hasNextStep) {
     ctaLabel = "Next";
   }
@@ -191,7 +200,7 @@ export function getReviewAndPublishState(input: RnPStateInput): RnPState {
 
   const ctaEnabled =
     !(experimentsStep && checklistBlocked && !adminPublish) &&
-    (!featureLockedByRamp || adminPublish) &&
+    (!publishLocked || adminPublish) &&
     !(approved && !governanceCanPublish && !adminPublish) &&
     // Publishing is the only action a conflict blocks — request-review
     // remains enabled so the review cycle can start regardless.
