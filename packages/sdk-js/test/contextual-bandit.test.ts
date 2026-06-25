@@ -23,6 +23,7 @@ function cbFeatures(overrides: Record<string, unknown> = {}) {
           weights: [1, 0],
           meta: [{ key: "0" }, { key: "1" }],
           isContextualBandit: true,
+          banditVersion: 7,
           attributesRequired: ["plan"],
           contexts: [
             { leafId: 1, condition: { plan: "enterprise" }, weights: [1, 0] },
@@ -48,6 +49,9 @@ describe("contextual bandit feature rules", () => {
     expect(res.experimentResult?.inExperiment).toEqual(true);
     expect(res.experimentResult?.variationId).toEqual(0);
     expect(res.experimentResult?.leafId).toEqual(1);
+    // The exact weights used to bucket the user (leaf 1) + the training period.
+    expect(res.experimentResult?.variationWeights).toEqual([1, 0]);
+    expect(res.experimentResult?.banditVersion).toEqual(7);
 
     gb.destroy();
   });
@@ -65,6 +69,7 @@ describe("contextual bandit feature rules", () => {
     expect(res.value).toEqual("treatment");
     expect(res.experimentResult?.variationId).toEqual(1);
     expect(res.experimentResult?.leafId).toEqual(2);
+    expect(res.experimentResult?.variationWeights).toEqual([0, 1]);
 
     gb.destroy();
   });
@@ -107,6 +112,9 @@ describe("contextual bandit feature rules", () => {
     expect(experiment.key).toEqual("promo_bandit");
     expect(result.leafId).toEqual(1);
     expect(result.variationId).toEqual(0);
+    // Luke's ask: the events table needs the weights used + the training period.
+    expect(result.variationWeights).toEqual([1, 0]);
+    expect(result.banditVersion).toEqual(7);
     expect(attributes).toEqual({ id: "u1", plan: "enterprise" });
 
     gb.destroy();
@@ -158,6 +166,9 @@ describe("contextual bandit feature rules", () => {
     expect(res.value).toEqual("control");
     expect(res.experimentResult?.variationId).toEqual(0);
     expect(res.experimentResult?.leafId).toBeUndefined();
+    // No leaf was selected, so no per-leaf weights / period are recorded.
+    expect(res.experimentResult?.variationWeights).toBeUndefined();
+    expect(res.experimentResult?.banditVersion).toBeUndefined();
 
     gb.destroy();
   });
