@@ -33,7 +33,6 @@ function buildSettings(
     endDate: null,
     reweight: true,
     banditWeightsSeed: 0,
-    regressionAdjustmentEnabled: false,
 
     ...overrides,
   };

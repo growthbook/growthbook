@@ -16,7 +16,6 @@ import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
-import { getSettingsForSnapshotMetrics } from "back-end/src/services/experiments";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { getPayloadKeysForContextualBandit } from "back-end/src/services/contextualBanditChanges";
@@ -131,16 +130,7 @@ export async function runContextualBanditSnapshot(
     );
   }
 
-  const { regressionAdjustmentEnabled } = await getSettingsForSnapshotMetrics(
-    context,
-    { ...cb, goalMetrics: cb.decisionMetric ? [cb.decisionMetric] : [] },
-  );
-
-  const snapshotSettings = buildContextualBanditSnapshotSettings(
-    cb,
-    cbQuery,
-    regressionAdjustmentEnabled,
-  );
+  const snapshotSettings = buildContextualBanditSnapshotSettings(cb, cbQuery);
 
   const cbs = await context.models.contextualBanditSnapshots.create({
     contextualBandit: cb.id,
@@ -345,7 +335,6 @@ export async function persistContextualBanditEvent(
 export function buildContextualBanditSnapshotSettings(
   cb: ContextualBanditInterface,
   cbQuery: ContextualBanditQueryInterface,
-  regressionAdjustmentEnabled: boolean,
 ): ContextualBanditSnapshotSettings {
   const numVariations = cb.variations?.length || 1;
 
@@ -362,9 +351,7 @@ export function buildContextualBanditSnapshotSettings(
       cbQuery.targetingAttributeColumns ?? cb.contextualAttributes,
 
     decisionMetric: cb.decisionMetric ?? "",
-    metricSettings: Object.fromEntries(
-      (cb.metricOverrides ?? []).map((m) => [m.id, m]),
-    ),
+    metricSettings: {},
 
     variations: (cb.variations ?? []).map((v) => ({
       id: v.id,
@@ -376,8 +363,6 @@ export function buildContextualBanditSnapshotSettings(
     minUsersPerLeaf: cb.minUsersPerLeaf,
     maxLeaves: cb.maxLeaves,
     canonicalFormVersion: cb.canonicalFormVersion,
-
-    regressionAdjustmentEnabled,
 
     startDate: cb.dateStarted ?? new Date(),
     endDate: cb.dateStopped ?? null,
@@ -413,7 +398,8 @@ export function buildSnapshotSettingsForCb(
     segment: "",
     skipPartialData: false,
     attributionModel: "firstExposure",
-    regressionAdjustmentEnabled: cbSnapshotSettings.regressionAdjustmentEnabled,
+    // Contextual bandits never use regression adjustment.
+    regressionAdjustmentEnabled: false,
     defaultMetricPriorSettings: {
       override: false,
       proper: false,

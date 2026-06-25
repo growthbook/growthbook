@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { apiBaseSchema, baseSchema } from "./base-model";
-import { banditStageType, metricOverride, variation } from "./experiments";
-import { priorSettingsValidator } from "./fact-table";
+import { banditStageType, variation } from "./experiments";
 import { namedSchema } from "./openapi-helpers";
 import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
 
@@ -42,12 +41,6 @@ export const contextualBanditValidator = baseSchema
 
     datasource: z.string(),
     contextualBanditQueryId: z.string(),
-    queryFilter: z.string().optional(),
-    activationMetric: z.string().optional(),
-    metricOverrides: z.array(metricOverride).optional(),
-    defaultMetricPriorSettings: priorSettingsValidator,
-    skipPartialData: z.boolean().optional(),
-    regressionAdjustmentEnabled: z.boolean().optional(),
 
     coverage: z.number().min(0).max(1).optional(),
     condition: z.string().optional(),
@@ -141,10 +134,6 @@ export const apiContextualBanditValidator = namedSchema(
 
     datasource: z.string(),
     contextualBanditQueryId: z.string(),
-    queryFilter: z.string().optional(),
-    activationMetric: z.string().optional(),
-    skipPartialData: z.boolean().optional(),
-    regressionAdjustmentEnabled: z.boolean().optional(),
 
     coverage: z.number().min(0).max(1).optional(),
     condition: z.string().optional(),
@@ -206,11 +195,6 @@ export const apiCreateContextualBanditBody = z.strictObject({
   datasource: z.string(),
   contextualBanditQueryId: z.string(),
 
-  skipPartialData: z.boolean().optional(),
-  activationMetric: z.string().optional(),
-  queryFilter: z.string().optional(),
-  regressionAdjustmentEnabled: z.boolean().optional(),
-
   contextualAttributes: z.array(z.string()),
   minUsersPerLeaf: z.number().int().positive().optional(),
   maxLeaves: z.number().int().positive().optional(),
@@ -239,11 +223,6 @@ export const apiUpdateContextualBanditBody = z.object({
 
   datasource: z.string().optional(),
   contextualBanditQueryId: z.string().optional(),
-  queryFilter: z.string().optional(),
-  activationMetric: z.string().optional(),
-  metricOverrides: z.array(metricOverride).optional(),
-  skipPartialData: z.boolean().optional(),
-  regressionAdjustmentEnabled: z.boolean().optional(),
 
   contextualAttributes: z.array(z.string()).optional(),
   decisionMetric: z.string().optional(),
@@ -279,11 +258,6 @@ export const CONTEXTUAL_BANDIT_API_UPDATE_FIELDS = [
   "variations",
   "datasource",
   "contextualBanditQueryId",
-  "queryFilter",
-  "activationMetric",
-  "metricOverrides",
-  "skipPartialData",
-  "regressionAdjustmentEnabled",
   "contextualAttributes",
   "decisionMetric",
   "minUsersPerLeaf",

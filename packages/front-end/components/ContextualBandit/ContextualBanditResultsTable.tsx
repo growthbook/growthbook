@@ -275,9 +275,8 @@ export default function ContextualBanditResultsTable({
 
   const allExpandedMetrics = useMemo(() => {
     const ids = cb.decisionMetric ? [cb.decisionMetric] : [];
-    if (cb.activationMetric) ids.push(cb.activationMetric);
     return Array.from(new Set(expandMetricGroups(ids, metricGroups)));
-  }, [cb.decisionMetric, cb.activationMetric, metricGroups]);
+  }, [cb.decisionMetric, metricGroups]);
 
   const canRunQueries =
     !!datasource &&

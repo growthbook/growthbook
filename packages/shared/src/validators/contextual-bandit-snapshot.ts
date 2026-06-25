@@ -32,8 +32,6 @@ export const contextualBanditSnapshotSettingsValidator = z
     maxLeaves: z.number().int().positive(),
     canonicalFormVersion: z.number().int().nonnegative(),
 
-    regressionAdjustmentEnabled: z.boolean(),
-
     startDate: z.date(),
     endDate: z.date().nullable().optional(),
     reweight: z.boolean(),

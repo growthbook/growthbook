@@ -218,8 +218,6 @@ const ContextualBanditPage = (): ReactElement => {
             datasource: cb.datasource,
             exposureQueryId: cb.contextualBanditQueryId,
             decisionMetric: cb.decisionMetric,
-            activationMetric: cb.activationMetric,
-            regressionAdjustmentEnabled: cb.regressionAdjustmentEnabled,
             coverage: cb.coverage,
             condition: cb.condition,
             variationWeights: cb.variations.map(
