@@ -3,7 +3,11 @@ import type Stripe from "stripe";
 import pino from "pino";
 import { pick, sortBy } from "lodash";
 import AsyncLock from "async-lock";
-import { parseProcessLogBase, stringToBoolean } from "shared/util";
+import {
+  EventForwarderCloud,
+  parseProcessLogBase,
+  stringToBoolean,
+} from "shared/util";
 import { ProxyAgent } from "proxy-agent";
 import cloneDeep from "lodash/cloneDeep";
 import {
@@ -1091,7 +1095,7 @@ function shouldLimitAccessDueToExpiredLicense(
  * license server. Optional — absent selects the license server's default cluster.
  */
 export type EventForwarderClusterSelectorParams = {
-  cloud?: "aws" | "gcp" | "azure";
+  cloud?: EventForwarderCloud;
   region?: string;
 };
 

@@ -5,7 +5,7 @@ import {
   EventForwarderStatus,
   SnowflakeEventForwarderStoredConfig,
 } from "shared/types/event-forwarder";
-import { EventForwarderCloudRegion } from "shared/util";
+import { EventForwarderCloud, EventForwarderCloudRegion } from "shared/util";
 import {
   EventForwarderConfigInterface,
   EventForwarderConnectorPhase,
@@ -649,7 +649,7 @@ export async function teardownEventForwarderInfrastructureRemote(snapshot: {
   topic?: string;
   connectorName?: string;
   connectorId?: string;
-  cloud?: "aws" | "gcp" | "azure";
+  cloud?: EventForwarderCloud;
   region?: string;
 }): Promise<void> {
   await postTeardownEventForwarderToLicenseServer({

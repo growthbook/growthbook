@@ -79,10 +79,18 @@ describe("normalizeBigQueryLocationToCloudRegion", () => {
       cloud: "gcp",
       region: "us-central1",
     });
-    expect(normalizeBigQueryLocationToCloudRegion("EU")).toEqual({
+    expect(normalizeBigQueryLocationToCloudRegion("europe-west4")).toEqual({
       cloud: "gcp",
-      region: "eu",
+      region: "europe-west4",
     });
+  });
+
+  it("returns null for multi-region locations (no single Confluent region)", () => {
+    expect(normalizeBigQueryLocationToCloudRegion("US")).toBeNull();
+    expect(normalizeBigQueryLocationToCloudRegion("EU")).toBeNull();
+    expect(
+      normalizeBigQueryLocationToCloudRegion("US-MULTI-REGION"),
+    ).toBeNull();
   });
 
   it("returns null for empty input", () => {

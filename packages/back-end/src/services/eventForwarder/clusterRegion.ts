@@ -83,8 +83,15 @@ async function deriveSnowflakeCloudRegionViaQuery(
   const integration = getSourceIntegrationObject(context, datasource, true);
   if (!(integration instanceof SqlIntegration)) return null;
 
+  // runTestQuery is the integration's helper for ad-hoc, untracked queries (it
+  // wraps runQuery with the same timeout/limit handling but doesn't persist a
+  // query doc) — the right fit for this one-row, best-effort lookup. Tagged
+  // "connectionTest" since it's a lightweight metadata probe. Caller swallows
+  // failures.
   const result = await integration.runTestQuery(
     "SELECT CURRENT_REGION() AS region",
+    undefined,
+    "connectionTest",
   );
   const row = result.results?.[0] as
     | { region?: unknown; REGION?: unknown }

@@ -94,16 +94,24 @@ export function normalizeSnowflakeCurrentRegion(
   return { cloud, region };
 }
 
+// BigQuery multi-region locations have no single co-located Confluent region.
+const BIGQUERY_MULTI_REGION_LOCATIONS = new Set([
+  "us",
+  "eu",
+  "us-multi-region",
+  "eu-multi-region",
+]);
+
 /**
  * BigQuery is always GCP; the region is the dataset location (e.g.
- * `us-central1`, `europe-west4`, or a multi-region like `US`/`EU`). Multi-region
- * locations have no single Confluent region and will route to the default
- * cluster on the license server.
+ * `us-central1`, `europe-west4`). Multi-region locations (`US`, `EU`) have no
+ * single co-located Confluent region, so we return null here to fall back to the
+ * license server's default cluster rather than forwarding an unroutable region.
  */
 export function normalizeBigQueryLocationToCloudRegion(
   location: string | undefined,
 ): EventForwarderCloudRegion | null {
   const region = location?.trim().toLowerCase();
-  if (!region) return null;
+  if (!region || BIGQUERY_MULTI_REGION_LOCATIONS.has(region)) return null;
   return { cloud: "gcp", region };
 }
