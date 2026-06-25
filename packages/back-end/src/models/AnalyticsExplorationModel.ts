@@ -15,6 +15,10 @@ import {
   getQueryById,
   toQueryApiInterface,
 } from "back-end/src/models/QueryModel";
+import {
+  getFactTable,
+  getFactTablesByIds,
+} from "back-end/src/models/FactTableModel";
 import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
 import {
   getProductAnalyticsExplorationUrl,
@@ -230,11 +234,61 @@ export class AnalyticsExplorationModel extends BaseClass {
 
     // 3. Return if it's a good enough match
     // This is a balance between accurate results and cache hit rates (i.e. query costs)
-    if (bestMatch.score >= 0.9) {
-      return bestMatch.analysis;
+    if (bestMatch.score < 0.9 || !bestMatch.analysis) {
+      return null;
     }
 
-    return null;
+    // 4. The configHash keys on fact-table / metric IDs, not their definitions.
+    // If a referenced definition was edited after this doc was created, the
+    // cached result was computed against stale SQL — treat as a miss so the
+    // caller runs a fresh query.
+    if (
+      await this.referencedDefinitionChangedSince(
+        config,
+        bestMatch.analysis.dateCreated,
+      )
+    ) {
+      return null;
+    }
+
+    return bestMatch.analysis;
+  }
+
+  private async referencedDefinitionChangedSince(
+    config: ExplorationConfig,
+    since: Date,
+  ): Promise<boolean> {
+    const dataset = config.dataset;
+    if (!dataset) return false;
+
+    const updatedSince = (d: Date | null | undefined) => !!d && d > since;
+
+    if (dataset.type === "fact_table") {
+      if (!dataset.factTableId) return false;
+      const factTable = await getFactTable(this.context, dataset.factTableId);
+      return updatedSince(factTable?.dateUpdated);
+    }
+
+    if (dataset.type === "metric") {
+      const metricIds = dataset.values.map((v) => v.metricId);
+      const factMetrics =
+        await this.context.models.factMetrics.getByIds(metricIds);
+      if (factMetrics.some((m) => updatedSince(m.dateUpdated))) return true;
+
+      const factTableIds = new Set<string>();
+      factMetrics.forEach((m) => {
+        if (m.numerator.factTableId) factTableIds.add(m.numerator.factTableId);
+        if (m.metricType === "ratio" && m.denominator?.factTableId) {
+          factTableIds.add(m.denominator.factTableId);
+        }
+      });
+      const factTables = await getFactTablesByIds(this.context, [
+        ...factTableIds,
+      ]);
+      return factTables.some((ft) => updatedSince(ft.dateUpdated));
+    }
+
+    return false;
   }
 
   protected async beforeCreate(
