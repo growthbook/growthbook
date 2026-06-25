@@ -1684,6 +1684,14 @@ export async function putOrganization(
 
     validatePriorSettings(updates.settings?.metricDefaults?.priorSettings);
 
+    const topValuesLookbackValue = settings?.topValuesLookbackValue;
+    if (
+      typeof topValuesLookbackValue === "number" &&
+      (topValuesLookbackValue <= 0 || topValuesLookbackValue > 365)
+    ) {
+      throw new Error("Top values lookback value must be between 1 and 365");
+    }
+
     await updateOrganization(org.id, updates);
 
     await req.audit({

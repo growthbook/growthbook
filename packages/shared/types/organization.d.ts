@@ -321,6 +321,8 @@ export interface OrganizationSettings {
   metricPageMarkdown?: string;
   preferredEnvironment?: string | null; // null (or undefined) means "remember previous environment"
   maxMetricSliceLevels?: number;
+  topValuesLookbackValue?: number;
+  topValuesLookbackUnit?: "days";
   banditScheduleValue?: number;
   banditScheduleUnit?: "hours" | "days";
   banditBurnInValue?: number;

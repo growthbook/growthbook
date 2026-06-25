@@ -1,7 +1,10 @@
 import Agenda, { Job } from "agenda";
 import chunk from "lodash/chunk";
 import { canInlineFilterColumn } from "shared/experiments";
-import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/constants";
+import {
+  DEFAULT_MAX_METRIC_SLICE_LEVELS,
+  DEFAULT_TOP_VALUES_LOOKBACK_VALUE,
+} from "shared/constants";
 import {
   ColumnInterface,
   FactTableColumnType,
@@ -144,6 +147,9 @@ export async function runColumnsTopValuesQuery(
       context.org.settings?.maxMetricSliceLevels ??
         DEFAULT_MAX_METRIC_SLICE_LEVELS,
     ),
+    lookbackDays:
+      context.org.settings?.topValuesLookbackValue ??
+      DEFAULT_TOP_VALUES_LOOKBACK_VALUE,
     maxValueLength: MAX_TOP_VALUE_LENGTH,
   });
   const result = await integration.runColumnsTopValuesQuery(sql);

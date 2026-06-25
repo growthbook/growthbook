@@ -40117,6 +40117,12 @@ components:
             - type: 'null'
         maxMetricSliceLevels:
           type: number
+        topValuesLookbackValue:
+          type: number
+        topValuesLookbackUnit:
+          type: string
+          enum:
+            - days
       required:
         - confidenceLevel
         - northStar
