@@ -158,7 +158,7 @@ interface Props {
   shareType?: "experiment" | "report";
   onEditMetadata?: (variationIndex: number) => void;
   onAddVariation?: () => void;
-  onEditTraffic?: () => void;
+  onEditTraffic?: (variationIndex?: number) => void;
   // When true (used by the Traffic Allocation funnel), the grid is centered and
   // capped at 3 columns. Otherwise the pre-PR grid layout is used.
   centered?: boolean;
@@ -242,7 +242,7 @@ export function VariationBox({
   shareUid?: string;
   shareType?: "experiment" | "report";
   onEditMetadata?: (variationIndex: number) => void;
-  onEditTraffic?: () => void;
+  onEditTraffic?: (variationIndex?: number) => void;
   capWidth?: boolean;
 }) {
   const { blockFileUploads } = useOrgSettings();
@@ -290,7 +290,7 @@ export function VariationBox({
                 onClick={() => {
                   experiment.status === "running"
                     ? onEditMetadata(i)
-                    : onEditTraffic();
+                    : onEditTraffic(i);
                 }}
                 aria-label="Edit variation"
               >

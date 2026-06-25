@@ -46,6 +46,9 @@ const BanditExperimentPage = (): ReactElement => {
   const [editPhaseId, setEditPhaseId] = useState<number | null>(null);
   const [targetingModalOpen, setTargetingModalOpen] = useState(false);
   const [trafficModalOpen, setTrafficModalOpen] = useState(false);
+  const [trafficFocusVariation, setTrafficFocusVariation] = useState<
+    number | null
+  >(null);
 
   const { data, error, mutate } = useApi<{
     experiment: ExperimentInterfaceStringDates;
@@ -120,7 +123,16 @@ const BanditExperimentPage = (): ReactElement => {
   const editTargeting = canRunExperiment
     ? () => setTargetingModalOpen(true)
     : null;
-  const editTraffic = canRunExperiment ? () => setTrafficModalOpen(true) : null;
+  const editTraffic = canRunExperiment
+    ? (variationIndex?: number) => {
+        // Some callers (e.g. button onClick handlers) invoke this with a DOM
+        // event, so only treat numeric values as a variation to focus.
+        setTrafficFocusVariation(
+          typeof variationIndex === "number" ? variationIndex : null,
+        );
+        setTrafficModalOpen(true);
+      }
+    : null;
 
   const safeToEdit =
     experiment.status !== "running" ||
@@ -268,10 +280,14 @@ const BanditExperimentPage = (): ReactElement => {
       )}
       {trafficModalOpen && (
         <EditTrafficModal
-          close={() => setTrafficModalOpen(false)}
+          close={() => {
+            setTrafficModalOpen(false);
+            setTrafficFocusVariation(null);
+          }}
           mutate={mutate}
           experiment={experiment}
           safeToEdit={safeToEdit}
+          focusVariationIndex={trafficFocusVariation}
         />
       )}
 

@@ -83,7 +83,7 @@ export interface Props {
   editPhase?: ((i: number | null) => void) | null;
   editPhases?: (() => void) | null;
   editTargeting?: (() => void) | null;
-  editTraffic?: (() => void) | null;
+  editTraffic?: ((variationIndex?: number) => void) | null;
   editNamespace?: (() => void) | null;
   editMetrics?: (() => void) | null;
   editResult?: (() => void) | null;

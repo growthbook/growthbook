@@ -47,6 +47,9 @@ interface SortableProps {
   dragging?: boolean;
   className?: string;
   onlySafeToEditVariationMetadata?: boolean;
+  // When true, the variation Name field is auto-focused on mount. Used to jump
+  // straight to a specific variation when opening the Edit Traffic modal.
+  autoFocusName?: boolean;
   // JSON features only. Renders the value as a sparse patch (merged onto the
   // feature default) in the value editor.
   sparse?: boolean;
@@ -77,6 +80,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
       showDescription,
       dragging,
       className = "",
+      autoFocusName,
       sparse,
       ...props
     },
@@ -163,6 +167,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
         <td key={`${variation.id}__${i}__2`}>
           {setVariations ? (
             <Field
+              autoFocus={autoFocusName}
               placeholder={`${getVariationDefaultName(
                 variation,
                 valueType ?? "string",

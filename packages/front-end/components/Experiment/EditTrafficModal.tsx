@@ -31,6 +31,9 @@ export interface Props {
   experiment: ExperimentInterfaceStringDates;
   mutate: () => void;
   safeToEdit: boolean;
+  // When set (via clicking edit on a specific variation card), the matching
+  // variation's Name field is auto-focused when the modal opens.
+  focusVariationIndex?: number | null;
 }
 
 export default function EditTrafficModal({
@@ -38,6 +41,7 @@ export default function EditTrafficModal({
   experiment,
   mutate,
   safeToEdit,
+  focusVariationIndex,
 }: Props) {
   const simpleExperimentFlow = useFeatureIsOn("simple-experiment-flow");
 
@@ -47,7 +51,12 @@ export default function EditTrafficModal({
     // Edit Traffic modal, which also hosts the Namespace selector (otherwise
     // unreachable since the new EditNamespaceModal only lives in the funnel).
     return simpleExperimentFlow ? (
-      <EditTrafficForm close={close} experiment={experiment} mutate={mutate} />
+      <EditTrafficForm
+        close={close}
+        experiment={experiment}
+        mutate={mutate}
+        focusVariationIndex={focusVariationIndex}
+      />
     ) : (
       <LegacyEditTrafficForm
         close={close}
@@ -64,10 +73,12 @@ function EditTrafficForm({
   close,
   experiment,
   mutate,
+  focusVariationIndex,
 }: {
   close: () => void;
   experiment: ExperimentInterfaceStringDates;
   mutate: () => void;
+  focusVariationIndex?: number | null;
 }) {
   const { apiCall } = useAuth();
   const isBandit = experiment.type === "multi-armed-bandit";
@@ -182,6 +193,7 @@ function EditTrafficForm({
           }}
           showPreview
           showDescriptions
+          autoFocusVariationIndex={focusVariationIndex}
         />
       </div>
     </ModalStandard>

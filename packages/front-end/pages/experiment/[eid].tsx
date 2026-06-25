@@ -47,6 +47,9 @@ const ExperimentPage = (): ReactElement => {
   const [editPhaseId, setEditPhaseId] = useState<number | null>(null);
   const [targetingModalOpen, setTargetingModalOpen] = useState(false);
   const [trafficModalOpen, setTrafficModalOpen] = useState(false);
+  const [trafficFocusVariation, setTrafficFocusVariation] = useState<
+    number | null
+  >(null);
   const [namespaceModalOpen, setNamespaceModalOpen] = useState(false);
   const [editScheduleModalOpen, setEditScheduleModalOpen] = useState(false);
 
@@ -136,7 +139,16 @@ const ExperimentPage = (): ReactElement => {
   const editTargeting = canRunExperiment
     ? () => setTargetingModalOpen(true)
     : null;
-  const editTraffic = canRunExperiment ? () => setTrafficModalOpen(true) : null;
+  const editTraffic = canRunExperiment
+    ? (variationIndex?: number) => {
+        // Some callers (e.g. button onClick handlers) invoke this with a DOM
+        // event, so only treat numeric values as a variation to focus.
+        setTrafficFocusVariation(
+          typeof variationIndex === "number" ? variationIndex : null,
+        );
+        setTrafficModalOpen(true);
+      }
+    : null;
   const editNamespace = canRunExperiment
     ? () => setNamespaceModalOpen(true)
     : null;
@@ -244,10 +256,14 @@ const ExperimentPage = (): ReactElement => {
       )}
       {trafficModalOpen && (
         <EditTrafficModal
-          close={() => setTrafficModalOpen(false)}
+          close={() => {
+            setTrafficModalOpen(false);
+            setTrafficFocusVariation(null);
+          }}
           mutate={mutate}
           experiment={experiment}
           safeToEdit={safeToEdit}
+          focusVariationIndex={trafficFocusVariation}
         />
       )}
       {namespaceModalOpen && (
