@@ -19,6 +19,9 @@ type props = {
   variation: number;
   onSuccess: (variation: number, screenshot: Screenshot) => void;
   children?: ReactNode;
+  // When true, the drop area stretches to fill its container so wrapped content
+  // (e.g. the "no image" placeholder) can grow to the available height.
+  fillHeight?: boolean;
 };
 
 const ScreenshotUpload = ({
@@ -26,6 +29,7 @@ const ScreenshotUpload = ({
   variation,
   onSuccess,
   children,
+  fillHeight = false,
 }: props): ReactElement => {
   const { apiCall } = useAuth();
   const [loading, setLoading] = useState(0);
@@ -85,6 +89,17 @@ const ScreenshotUpload = ({
         className={clsx(styles.droparea, {
           [styles.dragging]: isDragActive,
         })}
+        style={
+          fillHeight
+            ? {
+                ...typedRootProps.style,
+                flexGrow: 1,
+                display: "flex",
+                flexDirection: "column",
+                height: "100%",
+              }
+            : typedRootProps.style
+        }
       >
         {loading > 0 ? <LoadingOverlay /> : ""}
         <input {...getInputProps()} />
