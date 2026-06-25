@@ -84,6 +84,21 @@ function toBadgeStatus(
   return status === "merged" ? "published" : status;
 }
 
+// Drop top-level null/undefined keys. The backend stores revision snapshots via
+// each entity's `buildSnapshot`, which strips nullish optional fields — so a
+// stored snapshot has no key for e.g. an unset `project`, while the live entity
+// still carries it as `null`. Normalizing both sides the same way keeps the
+// divergence comparison symmetric (see the drift diff below).
+function stripNullish<T>(obj: T): T {
+  if (!obj || typeof obj !== "object") return obj;
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
+    if (v === null || v === undefined) continue;
+    out[k] = v;
+  }
+  return out as T;
+}
+
 // The 40px header band shared by the actions column and the revision-description
 // card — one source of truth for the px/border/min-height styling.
 function CardHeader({
@@ -317,10 +332,18 @@ function ReviewAndPublishRevision<T>({
   // (distinct from a hard merge conflict). Diff the original base snapshot vs
   // live; a non-empty result means the draft is based on an older version. With
   // `requireRebaseBeforePublish` (or a now-stale approval) this gates publishing
-  // and surfaces a "Rebase with live" affordance — mirrors the feature flow. ──
+  // and surfaces a "Rebase with live" affordance — mirrors the feature flow.
+  // Both sides are nullish-stripped so the comparison matches how the backend
+  // stores snapshots; otherwise an unset optional field (snapshot omits it, live
+  // carries it as `null`) reads as drift the rebase can never clear. ──
+  const driftSnapshot = useMemo(
+    () => stripNullish(revision.target.snapshot as T),
+    [revision.target.snapshot],
+  );
+  const driftLive = useMemo(() => stripNullish(currentState), [currentState]);
   const { diffs: driftDiffs } = useRevisionDiff<T>(
-    revision.target.snapshot as T,
-    currentState,
+    driftSnapshot,
+    driftLive,
     diffConfig,
   );
   const diverged = isActiveDraft && driftDiffs.length > 0;
