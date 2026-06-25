@@ -22,6 +22,18 @@ import ExperimentCarouselModal from "@/components/Experiment/ExperimentCarouselM
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Metadata from "@/ui/Metadata";
 
+export const MAX_VARIATION_WIDTH = 336;
+
+// Responsive `grid-template-columns` for variation columns. Shared so the
+// traffic-allocation funnel fork can align its arrows with these same columns.
+// `cols` is the number of variations, capped at 3 by the caller.
+export const getVariationGridColumns = (cols: number) => ({
+  initial: `minmax(0, ${MAX_VARIATION_WIDTH}px)`,
+  xs: `repeat(${Math.min(cols, 2)}, minmax(0, ${MAX_VARIATION_WIDTH}px))`,
+  sm: `repeat(${cols}, minmax(0, ${MAX_VARIATION_WIDTH}px))`,
+  md: `repeat(${cols}, minmax(0, ${MAX_VARIATION_WIDTH}px))`,
+});
+
 const imageCache = {};
 
 const ScreenshotCarousel: FC<{
@@ -198,7 +210,7 @@ export function VariationBox({
       className={`appbox mb-0 position-relative variation variation${i} with-variation-label`}
       style={{
         minWidth,
-        maxWidth: "336px",
+        maxWidth: MAX_VARIATION_WIDTH + "px",
       }}
     >
       <Box
@@ -355,16 +367,7 @@ const VariationsTable: FC<Props> = ({
 
   return (
     <Box mx={noMargin ? "0" : "4"}>
-      <Grid
-        gap={gap}
-        justify="center"
-        columns={{
-          initial: "minmax(0, 336px)",
-          xs: `repeat(${Math.min(cols, 2)}, minmax(0, 336px))`,
-          sm: `repeat(${cols}, minmax(0, 336px))`,
-          md: `repeat(${cols}, minmax(0, 336px))`,
-        }}
-      >
+      <Grid gap={gap} justify="center" columns={getVariationGridColumns(cols)}>
         {variations.map((v, i) =>
           variationsList && !variationsList.includes(v.id) ? null : (
             <VariationBox

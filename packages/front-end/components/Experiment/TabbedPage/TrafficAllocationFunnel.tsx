@@ -1,20 +1,24 @@
 import { ReactNode } from "react";
+import clsx from "clsx";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { calculateNamespaceCoverage } from "shared/util";
 import { getLatestPhaseVariations } from "shared/experiments";
-import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
 import { PiCaretDownBold, PiPencilSimple, PiPlus } from "react-icons/pi";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import { AttributeBadge } from "@/components/Features/AttributeBadge";
 import { getHoldoutTrafficBreakdown } from "@/services/utils";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
-import VariationsTable from "@/components/Experiment/VariationsTable";
+import VariationsTable, {
+  getVariationGridColumns,
+} from "@/components/Experiment/VariationsTable";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
 import Button from "@/ui/Button";
+import styles from "./TrafficAllocationFunnel.module.scss";
 
 export interface Props {
   phaseIndex?: number | null;
@@ -32,11 +36,6 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
   maximumFractionDigits: 2,
 });
 
-const CONNECTOR_COLOR = "var(--slate-a7)";
-
-// A single card in the traffic-allocation funnel. `inlineSummary` renders to
-// the right of the title (e.g. "Targeting  Everyone"); `children` render below
-// the title for richer content (e.g. the traffic coverage bar).
 function FunnelCard({
   title,
   titleColor = "text-high",
@@ -89,18 +88,12 @@ function FunnelCard({
   );
 }
 
-// Vertical connector between funnel cards, with a centered label showing how
-// much traffic is carried into the next stage.
 function FunnelConnector({ label }: { label?: ReactNode }) {
   return (
     <Flex direction="column" align="center" justify="center" pb="2">
-      <Box
-        width="1px"
-        height="15px"
-        style={{ backgroundColor: CONNECTOR_COLOR }}
-      />
-      <Box mt="-3">
-        <PiCaretDownBold color={CONNECTOR_COLOR} size="11" />
+      <Box className={styles.connectorLine} height="15px" />
+      <Box mt="-3" className={styles.caret}>
+        <PiCaretDownBold size="11" />
       </Box>
       {label ? (
         <Text size="small" color="text-low" my="1">
@@ -111,24 +104,34 @@ function FunnelConnector({ label }: { label?: ReactNode }) {
   );
 }
 
-// Width of a single variation column and the gap between columns, kept in sync
-// with the centered variations grid in VariationsTable so the fork arrows land
-// on the center of each variation box.
-const VARIATION_COL_WIDTH = 336;
-const VARIATION_COL_GAP = 16; // Radix gap="4"
-
-// Branching connector that forks from the Traffic card into one arrow per
-// variation column, aligning each arrow above the center of its variation box.
-// Capped at 3 columns to match the variations grid layout.
 function VariationFork({ count, label }: { count: number; label?: ReactNode }) {
   const cols = Math.min(count, 3);
+
+  // Same column template as the variations grid in VariationsTable so the
+  // arrows stay aligned with the (responsive, shrinkable) variation columns.
+  const columns = getVariationGridColumns(cols);
+
+  // Cell visibility per breakpoint, matching the grid's column count so the
+  // fork never wraps: cell 0 always, cell 1 from xs, cell 2 from sm.
+  const cellDisplay = (i: number) =>
+    i === 0
+      ? undefined
+      : i === 1
+        ? ({ initial: "none", xs: "flex" } as const)
+        : ({ initial: "none", sm: "flex" } as const);
+
+  // Right-hand bus segment is only drawn when this cell's right neighbor is
+  // also visible at the same breakpoint (cell 1 appears at xs, cell 2 at sm).
+  const rightSegDisplay = (i: number) =>
+    i === 0
+      ? ({ initial: "none", xs: "block" } as const)
+      : ({ initial: "none", sm: "block" } as const);
+
   return (
     <Box pb="2">
       {label ? (
         <Flex direction="column" align="center" justify="center" mb="1">
-          <Box
-            style={{ width: 1, height: 12, backgroundColor: CONNECTOR_COLOR }}
-          />
+          <Box className={styles.connectorLine} height="12px" />
           <Text size="small" color="text-low">
             {label}
           </Text>
@@ -136,47 +139,38 @@ function VariationFork({ count, label }: { count: number; label?: ReactNode }) {
       ) : null}
       {/* Stem down from the Traffic card to the horizontal bus */}
       <Flex direction="column" align="center">
-        <Box
-          style={{ width: 1, height: 12, backgroundColor: CONNECTOR_COLOR }}
-        />
+        <Box className={styles.connectorLine} height="12px" />
       </Flex>
-      {/* Centered group mirroring the variations grid */}
-      <Flex justify="center">
-        <Box style={{ position: "relative", maxWidth: "100%" }}>
-          {/* Horizontal bus connecting the centers of the outer columns */}
-          {cols > 1 ? (
-            <Box
-              style={{
-                position: "absolute",
-                top: 0,
-                left: VARIATION_COL_WIDTH / 2,
-                width: (cols - 1) * (VARIATION_COL_WIDTH + VARIATION_COL_GAP),
-                height: 1,
-                backgroundColor: CONNECTOR_COLOR,
-              }}
-            />
-          ) : null}
-          <Flex gap="4">
-            {Array.from({ length: cols }).map((_, i) => (
-              <Flex
-                key={i}
-                direction="column"
-                align="center"
-                style={{ width: VARIATION_COL_WIDTH, maxWidth: "100%" }}
-              >
-                <Box
-                  width="1px"
-                  height="22px"
-                  style={{ backgroundColor: CONNECTOR_COLOR }}
-                />
-                <Box mt="-3">
-                  <PiCaretDownBold color={CONNECTOR_COLOR} size="11" />
-                </Box>
-              </Flex>
-            ))}
+      {/* Fork mirroring the variations grid so arrows align with the columns */}
+      <Grid columns={columns} gap="4" justify="center">
+        {Array.from({ length: cols }).map((_, i) => (
+          <Flex
+            key={i}
+            direction="column"
+            align="center"
+            display={cellDisplay(i)}
+            className={styles.cell}
+          >
+            {/* Left half of the horizontal bus, from the gap midpoint to the
+                center of this column. */}
+            {i > 0 ? (
+              <Box className={clsx(styles.busSegment, styles.busSegmentLeft)} />
+            ) : null}
+            {/* Right half of the horizontal bus, from the center of this column
+                to the gap midpoint. */}
+            {i < cols - 1 ? (
+              <Box
+                display={rightSegDisplay(i)}
+                className={clsx(styles.busSegment, styles.busSegmentRight)}
+              />
+            ) : null}
+            <Box className={styles.connectorLine} height="22px" />
+            <Box mt="-3" className={styles.caret}>
+              <PiCaretDownBold size="11" />
+            </Box>
           </Flex>
-        </Box>
-      </Flex>
+        ))}
+      </Grid>
     </Box>
   );
 }
