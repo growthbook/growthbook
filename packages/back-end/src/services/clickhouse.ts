@@ -14,6 +14,11 @@ import {
   MaterializedColumn,
 } from "shared/types/datasource";
 import { SDKAttributeSchema } from "shared/types/organization";
+import type {
+  ExperimentEvalItem,
+  FeatureEvalItem,
+  SessionEventItem,
+} from "shared/validators";
 import { ColumnInterface } from "shared/types/fact-table";
 import { isEqual } from "lodash";
 import type { ReqContext } from "back-end/types/request";
@@ -191,10 +196,15 @@ export type SessionReplayRow = {
   viewport_height: number;
   attributes: Record<string, string>;
   // Flat key arrays aggregated across all chunks by the sessions view.
-  // Use these for filtering and list display. For full structured eval history
-  // (with timestamps) query session_replay_metadata directly.
+  // Use these for filtering and list display.
   feature_keys: string[];
   experiment_keys: string[];
+  // Per-chunk structured eval/event history. Present on raw table rows,
+  // absent from the sessions view. Merged across chunks in application
+  // code for the detail view.
+  feature_evals?: { items: FeatureEvalItem[] };
+  experiment_evals?: { items: ExperimentEvalItem[] };
+  session_events?: { items: SessionEventItem[] };
   country: string;
   user_agent: string;
   device: string;
@@ -286,14 +296,18 @@ export async function listSessionReplays(
   const allConditions = ["deleted_at IS NULL", ...conditions];
   const where = `WHERE ${allConditions.join(" AND ")}`;
 
-  const { rows } = await integration.runQuery(`
+  const { rows } = await integration.runQuery(
+    `
     SELECT *, ingested_at AS created_at
-    FROM session_replay_metadata
+    FROM session_replay_sessions
     ${where}
     ORDER BY started_at DESC
     LIMIT ${limit}
     OFFSET ${offset}
-  `);
+  `,
+    undefined,
+    { queryType: "sessionReplayList" },
+  );
 
   return rows as unknown as SessionReplayRow[];
 }
@@ -306,12 +320,12 @@ function toClickhouseStringLiteral(value: string): string {
   return `'${escapeClickhouseString(value)}'`;
 }
 
-export async function getSessionReplayBySessionId(
+export async function getSessionReplayChunksBySessionId(
   context: ReqContext,
   sessionId: string,
-): Promise<SessionReplayRow | null> {
+): Promise<SessionReplayRow[]> {
   const datasource = await getGrowthbookDatasource(context);
-  if (!datasource) return null;
+  if (!datasource) return [];
 
   const integration = getSourceIntegrationObject(
     context,
@@ -319,15 +333,17 @@ export async function getSessionReplayBySessionId(
   ) as SqlIntegration;
   const sanitizedSessionId = sessionId.replace(/[^a-zA-Z0-9_-]/g, "");
 
-  const { rows } = await integration.runQuery(`
+  const { rows } = await integration.runQuery(
+    `
     SELECT *, ingested_at AS created_at
     FROM session_replay_metadata
     WHERE session_replay_id = '${sanitizedSessionId}' AND deleted_at IS NULL
-    LIMIT 1
-  `);
+  `,
+    undefined,
+    { queryType: "sessionReplayDetail" },
+  );
 
-  const row = rows[0];
-  return row ? (row as unknown as SessionReplayRow) : null;
+  return rows as unknown as SessionReplayRow[];
 }
 
 // Re-sync a JSON-column managed warehouse after the org's identifiers change:

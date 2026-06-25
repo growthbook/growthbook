@@ -5,7 +5,7 @@ import {
 import type { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
 import {
-  getSessionReplayBySessionId,
+  getSessionReplayChunksBySessionId,
   listSessionReplays,
   SessionReplayRow,
 } from "back-end/src/services/clickhouse";
@@ -73,9 +73,12 @@ export class SessionReplayModel {
   public async getBySessionId(
     sessionId: string,
   ): Promise<SessionReplayInterface | null> {
-    const row = await getSessionReplayBySessionId(this.context, sessionId);
-    if (!row) return null;
-    const doc = this.toInterface(row);
+    const chunks = await getSessionReplayChunksBySessionId(
+      this.context,
+      sessionId,
+    );
+    if (!chunks.length) return null;
+    const doc = this.mergeChunks(chunks);
     if (!this.canRead(doc)) return null;
     return doc;
   }
@@ -92,7 +95,48 @@ export class SessionReplayModel {
     return events;
   }
 
-  // ---------- Translation: ClickHouse row → domain interface ----------
+  // ---------- Translation: ClickHouse rows → domain interface ----------
+
+  /**
+   * Aggregate all chunk rows for a session into a single interface object.
+   * Scalars use first-row / max / sum as appropriate; arrays are
+   * union-deduped; JSON eval items are concatenated across chunks.
+   */
+  private mergeChunks(chunks: SessionReplayRow[]): SessionReplayInterface {
+    const base = this.toInterface(chunks[0]);
+    if (chunks.length === 1) return base;
+
+    for (let i = 1; i < chunks.length; i++) {
+      const row = chunks[i];
+      const endedAt = parseClickHouseDate(row.ended_at);
+      const lastEventAt = parseClickHouseDate(row.last_event_at);
+
+      if (endedAt > base.endedAt) base.endedAt = endedAt;
+      if (lastEventAt > base.lastEventAt) {
+        base.lastEventAt = lastEventAt;
+        base.dateUpdated = lastEventAt;
+      }
+      if (row.duration_ms > base.durationMs) base.durationMs = row.duration_ms;
+      base.eventCount += row.event_count;
+      base.errorCount += row.error_count;
+
+      for (const url of row.urls_visited ?? []) {
+        if (!base.urlsVisited.includes(url)) base.urlsVisited.push(url);
+      }
+      for (const k of row.feature_keys ?? []) {
+        if (!base.featureKeys.includes(k)) base.featureKeys.push(k);
+      }
+      for (const k of row.experiment_keys ?? []) {
+        if (!base.experimentKeys.includes(k)) base.experimentKeys.push(k);
+      }
+
+      base.featureEvals?.items.push(...(row.feature_evals?.items ?? []));
+      base.experimentEvals?.items.push(...(row.experiment_evals?.items ?? []));
+      base.sessionEvents?.items.push(...(row.session_events?.items ?? []));
+    }
+
+    return base;
+  }
 
   /**
    * The ClickHouse table uses snake_case column names. The
@@ -122,13 +166,16 @@ export class SessionReplayModel {
       eventCount: row.event_count,
       errorCount: row.error_count,
       urlFirst: row.url_first,
-      urlsVisited: row.urls_visited,
+      urlsVisited: row.urls_visited ?? [],
       pageTitle: row.page_title ?? "",
       viewportWidth: row.viewport_width ?? 0,
       viewportHeight: row.viewport_height ?? 0,
       attributes: row.attributes ?? {},
       featureKeys: row.feature_keys ?? [],
       experimentKeys: row.experiment_keys ?? [],
+      featureEvals: { items: row.feature_evals?.items ?? [] },
+      experimentEvals: { items: row.experiment_evals?.items ?? [] },
+      sessionEvents: { items: row.session_events?.items ?? [] },
       userAgent: row.user_agent,
       country: row.country ?? "",
       device: row.device ?? "",

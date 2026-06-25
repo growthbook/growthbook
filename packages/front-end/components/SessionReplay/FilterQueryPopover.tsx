@@ -17,6 +17,7 @@ import {
 } from "@/ui/Select";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
+import Field from "@/components/Forms/Field";
 
 // ---- Types ------------------------------------------------------------------
 
@@ -144,6 +145,7 @@ export default function FilterQueryPopover({
   const [operator, setOperator] = useState<FilterOperator | "">("");
   const [value, setValue] = useState("");
   const valueInputRef = useRef<HTMLInputElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
 
   // Snapshot the session-derived options at safe points only (when the popover
   // opens, or after handleAdd resets the form). This prevents allProperties from
@@ -270,7 +272,7 @@ export default function FilterQueryPopover({
   };
 
   const content = (
-    <div style={{ width: 420 }}>
+    <div ref={contentRef} style={{ width: 420 }}>
       <Text size="medium" weight="semibold" color="text-mid" as="div" mb="3">
         Add Filter Condition
       </Text>
@@ -283,6 +285,7 @@ export default function FilterQueryPopover({
           setValue={setProperty}
           placeholder="Choose property..."
           size="2"
+          container={contentRef.current}
           style={{ width: 185, flexShrink: 0 }}
         >
           <SelectGroup>
@@ -343,6 +346,7 @@ export default function FilterQueryPopover({
           placeholder="Operator..."
           size="2"
           disabled={!property}
+          container={contentRef.current}
           style={{ width: 140, flexShrink: 0 }}
         >
           {(selectedDef?.operators ?? []).map((op) => (
@@ -362,6 +366,7 @@ export default function FilterQueryPopover({
                 setValue={setValue}
                 placeholder="Choose value..."
                 size="2"
+                container={contentRef.current}
                 style={{ width: 140, flexShrink: 0 }}
               >
                 {(selectedDef.enumOptions ?? []).map((opt) => (
@@ -371,7 +376,7 @@ export default function FilterQueryPopover({
                 ))}
               </Select>
             ) : (
-              <input
+              <Field
                 ref={valueInputRef}
                 type={selectedDef?.type === "number" ? "number" : "text"}
                 value={value}
@@ -386,18 +391,7 @@ export default function FilterQueryPopover({
                   selectedDef?.type === "number" ? "0" : "Enter value..."
                 }
                 min={selectedDef?.type === "number" ? "0" : undefined}
-                style={{
-                  height: 32,
-                  padding: "0 8px",
-                  borderRadius: 4,
-                  border: "1px solid var(--slate-a7)",
-                  background: "var(--color-panel-solid)",
-                  color: "var(--color-text-high)",
-                  fontSize: 14,
-                  outline: "none",
-                  width: 130,
-                  flexShrink: 0,
-                }}
+                containerStyle={{ marginBottom: 0, width: 130, flexShrink: 0 }}
               />
             )}
           </>
@@ -475,11 +469,9 @@ export default function FilterQueryPopover({
       side="bottom"
       showArrow={false}
       contentStyle={{ padding: 16 }}
-      // Prevent the Popover from dismissing when a Select portal captures focus.
-      // Without this, opening any Select dropdown inside the popover causes the
-      // popover to close immediately via Radix's DismissableLayer focus tracking.
+      // Keeps popover open when Select portals steal focus/pointer events.
+      disableDismiss
       onFocusOutside={(e) => e.preventDefault()}
-      onInteractOutside={(e) => e.preventDefault()}
     />
   );
 }

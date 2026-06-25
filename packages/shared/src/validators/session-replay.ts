@@ -89,10 +89,8 @@ export const sessionReplayValidator = baseSchema.safeExtend({
   // directly — the SDK drains these per chunk so they cannot be roll-up aggregated.
   featureKeys: z.array(z.string()),
   experimentKeys: z.array(z.string()),
-  // Optional: populated only when fetching from the per-chunk metadata table.
-  // The sessions view omits these because per-chunk deltas cannot be correctly
-  // aggregated to session granularity. The replay player falls back to rrweb
-  // type-5 custom events when these are absent.
+  // Per-chunk structured eval/event history, merged across chunks in
+  // application code. Optional because the list endpoint omits them.
   featureEvals: featureEvalsColumnSchema.optional(),
   experimentEvals: experimentEvalsColumnSchema.optional(),
   sessionEvents: sessionEventsColumnSchema.optional(),

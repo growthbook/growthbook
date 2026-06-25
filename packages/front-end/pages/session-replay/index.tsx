@@ -12,6 +12,7 @@ import {
   PiPlus,
   PiX,
 } from "react-icons/pi";
+import Avatar from "@/ui/Avatar";
 import Badge from "@/ui/Badge";
 import { AppFeatures } from "@/types/app-features";
 import Callout from "@/ui/Callout";
@@ -20,7 +21,9 @@ import Text from "@/ui/Text";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
-import Field from "@/components/Forms/Field";
+import FilterQueryPopover, {
+  FilterCondition,
+} from "@/components/SessionReplay/FilterQueryPopover";
 import type { RrwebPlayerHandle } from "@/components/SessionReplay/player";
 import Custom404 from "@/pages/404";
 
@@ -55,6 +58,11 @@ type SessionReplayRow = {
   browser: string;
 };
 
+type EvalItem = {
+  timestamp: number;
+  [key: string]: unknown;
+};
+
 type SessionMetadata = {
   id: string;
   organization: string;
@@ -78,6 +86,18 @@ type SessionMetadata = {
   attributes: Record<string, string>;
   featureKeys: string[];
   experimentKeys: string[];
+  featureEvals?: {
+    items: (EvalItem & { featureKey: string; result: { value: unknown } })[];
+  };
+  experimentEvals?: {
+    items: (EvalItem & { key: string; result: { variationId: number } })[];
+  };
+  sessionEvents?: {
+    items: (EvalItem & {
+      eventName: string;
+      properties?: Record<string, unknown>;
+    })[];
+  };
   userAgent: string;
   country: string;
   device: string;
@@ -91,7 +111,7 @@ type SessionResponse = {
 
 type EvaluationEntry = {
   timestamp: number;
-  kind: "flag" | "exp";
+  kind: "flag" | "exp" | "event";
   label: string;
   formattedMessage: string;
 };
@@ -158,29 +178,62 @@ function getReplayBlockReason(events: eventWithTime[]): string | null {
   return null;
 }
 
-function formatCustomEvent(data: {
-  tag: string;
-  payload: Record<string, unknown>;
-}): { kind: "flag" | "exp"; label: string; formattedMessage: string } | null {
-  if (data.tag === "feature-flag") {
-    const id = String(data.payload.id ?? "");
-    const value = JSON.stringify(data.payload.value);
-    return {
+function buildEvaluationsFromMetadata(
+  metadata: SessionMetadata,
+): EvaluationEntry[] {
+  const entries: EvaluationEntry[] = [];
+
+  const toMs = (v: unknown): number => {
+    const n = typeof v === "string" ? Number(v) : (v as number);
+    return Number.isFinite(n) ? n : 0;
+  };
+
+  for (const item of metadata.featureEvals?.items ?? []) {
+    const value = item.result?.value;
+    entries.push({
+      timestamp: toMs(item.timestamp),
       kind: "flag",
-      label: id,
-      formattedMessage: `${id} → ${value}`,
-    };
-  } else if (data.tag === "experiment") {
-    const id = String(data.payload.id ?? "");
-    const variation = String(data.payload.variation ?? "");
-    return {
-      kind: "exp",
-      label: id,
-      formattedMessage: `${id} → variation ${variation}`,
-    };
+      label: item.featureKey,
+      formattedMessage: `${item.featureKey} → ${JSON.stringify(value ?? null)}`,
+    });
   }
-  return null;
+
+  for (const item of metadata.experimentEvals?.items ?? []) {
+    const variationId = item.result?.variationId;
+    entries.push({
+      timestamp: toMs(item.timestamp),
+      kind: "exp",
+      label: item.key,
+      formattedMessage: `${item.key} → variation ${variationId ?? "?"}`,
+    });
+  }
+
+  for (const item of metadata.sessionEvents?.items ?? []) {
+    entries.push({
+      timestamp: toMs(item.timestamp),
+      kind: "event",
+      label: item.eventName,
+      formattedMessage: item.eventName,
+    });
+  }
+
+  entries.sort((a, b) => a.timestamp - b.timestamp);
+  return entries;
 }
+
+const FILTER_LABELS: Record<string, string> = {
+  userId: "user",
+  clientKey: "client",
+  url: "url",
+  country: "country",
+  device: "device",
+  durationMinSecs: "duration ≥",
+  durationMaxSecs: "duration ≤",
+  eventCountMin: "events ≥",
+  eventCountMax: "events ≤",
+  featureKey: "flag",
+  experimentKey: "experiment",
+};
 
 export default function SessionReplayPage() {
   const gb = useGrowthBook<AppFeatures>();
@@ -189,15 +242,10 @@ export default function SessionReplayPage() {
   const router = useRouter();
   const { apiCall } = useAuth();
 
-  // ---- list / filter state -------------------------------------------------
-  const [userIdFilter, setUserIdFilter] = useState("");
-  const [clientKeyFilter, setClientKeyFilter] = useState("");
-  const [urlFilter, setUrlFilter] = useState("");
-
   // ---- UI panel state ------------------------------------------------------
   const [leftCollapsed, setLeftCollapsed] = useState(false);
   const [evalOpen, setEvalOpen] = useState(false);
-  const [showFilters, setShowFilters] = useState(false);
+  const [filterPopoverOpen, setFilterPopoverOpen] = useState(false);
 
   const page = useMemo(() => {
     const raw = router.query.page;
@@ -208,17 +256,6 @@ export default function SessionReplayPage() {
   const selectedSessionId =
     typeof router.query.sessionId === "string" ? router.query.sessionId : "";
 
-  useEffect(() => {
-    if (!router.isReady) return;
-    setUserIdFilter(
-      typeof router.query.userId === "string" ? router.query.userId : "",
-    );
-    setClientKeyFilter(
-      typeof router.query.clientKey === "string" ? router.query.clientKey : "",
-    );
-    setUrlFilter(typeof router.query.url === "string" ? router.query.url : "");
-  }, [router.isReady, router.query]);
-
   // Close evaluations panel when no session is selected
   useEffect(() => {
     if (!selectedSessionId) {
@@ -226,163 +263,123 @@ export default function SessionReplayPage() {
     }
   }, [selectedSessionId]);
 
+  const FILTER_KEYS = [
+    "userId",
+    "clientKey",
+    "url",
+    "country",
+    "device",
+    "durationMinSecs",
+    "durationMaxSecs",
+    "eventCountMin",
+    "eventCountMax",
+    "featureKey",
+    "experimentKey",
+  ] as const;
+
   const queryString = useMemo(() => {
     const params = new URLSearchParams();
     params.set("page", String(page));
-    if (typeof router.query.userId === "string" && router.query.userId) {
-      params.set("userId", router.query.userId);
-    }
-    if (typeof router.query.clientKey === "string" && router.query.clientKey) {
-      params.set("clientKey", router.query.clientKey);
-    }
-    if (typeof router.query.url === "string" && router.query.url) {
-      params.set("url", router.query.url);
+    for (const key of FILTER_KEYS) {
+      const val = router.query[key];
+      if (typeof val === "string" && val) {
+        params.set(key, val);
+      }
     }
     return params.toString();
-  }, [page, router.query.clientKey, router.query.url, router.query.userId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, ...FILTER_KEYS.map((k) => router.query[k])]);
 
   const { data: sessionsData, error: sessionsError } = useApi<{
     sessions: SessionReplayRow[];
   }>(`/session-replay?${queryString}`);
 
-  // Back-end may return duplicate rows for the same session because the
-  // ClickHouse table is a plain MergeTree without FINAL dedupe (see comment
-  // in services/clickhouse.ts). Keep the most-recent row per id so the list
-  // shows each session once and the "selected" highlight only applies to a
-  // single card.
-  const rawSessions = useMemo(
-    () => sessionsData?.sessions ?? [],
-    [sessionsData],
-  );
-  const hasNextPage = rawSessions.length === 100;
-  const sessions = useMemo(() => {
-    const byId = new Map<string, SessionReplayRow>();
-    for (const s of rawSessions) {
-      if (!s.id) continue;
-      const existing = byId.get(s.id);
-      if (
-        !existing ||
-        new Date(s.startedAt).getTime() > new Date(existing.startedAt).getTime()
-      ) {
-        byId.set(s.id, s);
-      }
+  const sessions = useMemo(() => sessionsData?.sessions ?? [], [sessionsData]);
+  const hasNextPage = sessions.length === 100;
+
+  /** Read all current filter values from the URL. */
+  const currentFilters = useMemo(() => {
+    const result: Record<string, string> = {};
+    for (const key of FILTER_KEYS) {
+      const val = router.query[key];
+      if (typeof val === "string" && val) result[key] = val;
     }
-    return Array.from(byId.values()).sort(
-      (a, b) =>
-        new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime(),
-    );
-  }, [rawSessions]);
+    return result;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [...FILTER_KEYS.map((k) => router.query[k])]);
 
-  const updateRouteQuery = (next: {
-    userId?: string;
-    clientKey?: string;
-    url?: string;
-    page: number;
-    sessionId?: string;
-  }) => {
-    const query: Record<string, string> = {
-      page: String(next.page),
-    };
-    if (next.userId) query.userId = next.userId;
-    if (next.clientKey) query.clientKey = next.clientKey;
-    if (next.url) query.url = next.url;
-    if (next.sessionId) query.sessionId = next.sessionId;
-    void router.push(
-      {
-        pathname: "/session-replay",
-        query,
-      },
-      undefined,
-      { shallow: true },
-    );
-  };
-
-  const applyFilters = () => {
-    updateRouteQuery({
-      userId: userIdFilter.trim(),
-      clientKey: clientKeyFilter.trim(),
-      url: urlFilter.trim(),
-      page: 1,
-      sessionId: selectedSessionId,
+  const updateRouteQuery = (
+    filters: Record<string, string>,
+    opts: { page: number; sessionId?: string },
+  ) => {
+    const query: Record<string, string> = { page: String(opts.page) };
+    for (const [k, v] of Object.entries(filters)) {
+      if (v) query[k] = v;
+    }
+    if (opts.sessionId) query.sessionId = opts.sessionId;
+    void router.push({ pathname: "/session-replay", query }, undefined, {
+      shallow: true,
     });
   };
 
+  /** Map a FilterCondition from the popover to route query params. */
+  const conditionToParams = (c: FilterCondition): Record<string, string> => {
+    if (c.property === "durationMs") {
+      if (c.operator === "gte") return { durationMinSecs: c.value };
+      if (c.operator === "lte") return { durationMaxSecs: c.value };
+      return { durationMinSecs: c.value, durationMaxSecs: c.value };
+    }
+    if (c.property === "eventCount") {
+      if (c.operator === "gte") return { eventCountMin: c.value };
+      if (c.operator === "lte") return { eventCountMax: c.value };
+      return { eventCountMin: c.value, eventCountMax: c.value };
+    }
+    if (c.property.startsWith("featureKey:")) {
+      return { featureKey: c.property.split(":")[1] };
+    }
+    if (c.property.startsWith("experimentKey:")) {
+      return { experimentKey: c.property.split(":")[1] };
+    }
+    return { [c.property]: c.value };
+  };
+
+  const onAddFilter = (condition: FilterCondition) => {
+    const newParams = conditionToParams(condition);
+    updateRouteQuery(
+      { ...currentFilters, ...newParams },
+      { page: 1, sessionId: selectedSessionId },
+    );
+  };
+
   const clearFilters = () => {
-    setUserIdFilter("");
-    setClientKeyFilter("");
-    setUrlFilter("");
-    updateRouteQuery({ page: 1, sessionId: selectedSessionId });
+    updateRouteQuery({}, { page: 1, sessionId: selectedSessionId });
   };
 
   const goToPage = (nextPage: number) => {
-    updateRouteQuery({
-      userId:
-        typeof router.query.userId === "string" ? router.query.userId : "",
-      clientKey:
-        typeof router.query.clientKey === "string"
-          ? router.query.clientKey
-          : "",
-      url: typeof router.query.url === "string" ? router.query.url : "",
+    updateRouteQuery(currentFilters, {
       page: nextPage,
       sessionId: selectedSessionId,
     });
   };
 
   const selectSession = (sessionId: string) => {
-    updateRouteQuery({
-      userId:
-        typeof router.query.userId === "string" ? router.query.userId : "",
-      clientKey:
-        typeof router.query.clientKey === "string"
-          ? router.query.clientKey
-          : "",
-      url: typeof router.query.url === "string" ? router.query.url : "",
-      page,
-      sessionId,
-    });
+    updateRouteQuery(currentFilters, { page, sessionId });
   };
 
   // ---- active filter chips -------------------------------------------------
   const activeFilters = useMemo(() => {
     const chips: { key: string; label: string }[] = [];
-    if (typeof router.query.userId === "string" && router.query.userId) {
-      chips.push({ key: "userId", label: `user: ${router.query.userId}` });
-    }
-    if (typeof router.query.clientKey === "string" && router.query.clientKey) {
-      chips.push({
-        key: "clientKey",
-        label: `client: ${router.query.clientKey}`,
-      });
-    }
-    if (typeof router.query.url === "string" && router.query.url) {
-      chips.push({ key: "url", label: `url: ${router.query.url}` });
+    for (const [key, val] of Object.entries(currentFilters)) {
+      const prefix = FILTER_LABELS[key] ?? key;
+      chips.push({ key, label: `${prefix}: ${val}` });
     }
     return chips;
-  }, [router.query.userId, router.query.clientKey, router.query.url]);
+  }, [currentFilters]);
 
   const removeFilter = (key: string) => {
-    const next = {
-      userId:
-        typeof router.query.userId === "string" ? router.query.userId : "",
-      clientKey:
-        typeof router.query.clientKey === "string"
-          ? router.query.clientKey
-          : "",
-      url: typeof router.query.url === "string" ? router.query.url : "",
-    };
-    if (key === "userId") {
-      next.userId = "";
-      setUserIdFilter("");
-    }
-    if (key === "clientKey") {
-      next.clientKey = "";
-      setClientKeyFilter("");
-    }
-    if (key === "url") {
-      next.url = "";
-      setUrlFilter("");
-    }
-    updateRouteQuery({ ...next, page: 1, sessionId: selectedSessionId });
+    const next = { ...currentFilters };
+    delete next[key];
+    updateRouteQuery(next, { page: 1, sessionId: selectedSessionId });
   };
 
   // ---- player / chunk loading ----------------------------------------------
@@ -392,7 +389,9 @@ export default function SessionReplayPage() {
   const [metadata, setMetadata] = useState<SessionMetadata | null>(null);
   const [firstEvent, setFirstEvent] = useState<null | eventWithTime>(null);
   const [evaluations, setEvaluations] = useState<EvaluationEntry[]>([]);
-  const [evalTab, setEvalTab] = useState<"all" | "flags" | "exp">("all");
+  const [evalTab, setEvalTab] = useState<"all" | "flags" | "exp" | "events">(
+    "all",
+  );
 
   const playerHandle = useRef<RrwebPlayerHandle>(null);
 
@@ -480,22 +479,10 @@ export default function SessionReplayPage() {
     setPlayerError(null);
     setFirstEvent(events[0]);
 
-    const evals: EvaluationEntry[] = events
-      .filter((e) => e.type === 5)
-      .map((e) => {
-        const formatted = formatCustomEvent(
-          e.data as { tag: string; payload: Record<string, unknown> },
-        );
-        if (!formatted) return null;
-        return {
-          timestamp: e.timestamp,
-          ...formatted,
-        } as EvaluationEntry;
-      })
-      .filter((x): x is EvaluationEntry => x !== null);
-
-    setEvaluations(evals);
-  }, [events]);
+    if (metadata) {
+      setEvaluations(buildEvaluationsFromMetadata(metadata));
+    }
+  }, [events, metadata]);
 
   const jumpToEvent = (timestamp: number) => {
     const offset = firstEvent?.timestamp || 0;
@@ -506,6 +493,8 @@ export default function SessionReplayPage() {
     if (evalTab === "all") return evaluations;
     if (evalTab === "flags")
       return evaluations.filter((e) => e.kind === "flag");
+    if (evalTab === "events")
+      return evaluations.filter((e) => e.kind === "event");
     return evaluations.filter((e) => e.kind === "exp");
   }, [evaluations, evalTab]);
 
@@ -515,6 +504,10 @@ export default function SessionReplayPage() {
   );
   const expCount = useMemo(
     () => evaluations.filter((e) => e.kind === "exp").length,
+    [evaluations],
+  );
+  const eventCount = useMemo(
+    () => evaluations.filter((e) => e.kind === "event").length,
     [evaluations],
   );
 
@@ -599,94 +592,55 @@ export default function SessionReplayPage() {
             </Button>
           </Flex>
 
-          {/* Add filter toggle */}
+          {/* Filter popover + chips */}
           <Box mt="2">
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              style={{
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-                padding: 0,
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 4,
-                color: "var(--accent-9)",
-                fontSize: 13,
-              }}
-            >
-              <PiPlus style={{ fontSize: 14 }} />
-              {showFilters ? "Hide filters" : "Add filter"}
-            </button>
-          </Box>
-
-          {/* Expandable filters */}
-          {showFilters && (
-            <Box mt="2">
-              <Field
-                label="User ID"
-                placeholder="exact user id"
-                value={userIdFilter}
-                onChange={(e) => setUserIdFilter(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") applyFilters();
-                }}
-                containerStyle={{ marginBottom: 8 }}
+            <Flex align="center" gap="2" wrap="wrap">
+              <FilterQueryPopover
+                open={filterPopoverOpen}
+                onOpenChange={setFilterPopoverOpen}
+                onAdd={onAddFilter}
+                sessions={sessions}
+                trigger={
+                  <Button
+                    variant="ghost"
+                    size="xs"
+                    icon={<PiPlus />}
+                    onClick={() => setFilterPopoverOpen(true)}
+                  >
+                    Add filter
+                  </Button>
+                }
               />
-              <Field
-                label="URL contains"
-                placeholder="substring of first URL"
-                value={urlFilter}
-                onChange={(e) => setUrlFilter(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") applyFilters();
-                }}
-                containerStyle={{ marginBottom: 8 }}
-              />
-              <Field
-                label="Client key"
-                placeholder="exact client key"
-                value={clientKeyFilter}
-                onChange={(e) => setClientKeyFilter(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") applyFilters();
-                }}
-                containerStyle={{ marginBottom: 8 }}
-              />
-              <Flex gap="2">
-                <Button size="xs" onClick={applyFilters}>
-                  Apply
-                </Button>
+              {activeFilters.length > 0 && (
                 <Button size="xs" variant="ghost" onClick={clearFilters}>
                   Clear
                 </Button>
-              </Flex>
-              {activeFilters.length > 0 && (
-                <Flex gap="1" wrap="wrap" mt="2">
-                  {activeFilters.map((chip) => (
-                    <Box
-                      key={chip.key}
-                      onClick={() => removeFilter(chip.key)}
-                      style={{
-                        cursor: "pointer",
-                        padding: "2px 8px",
-                        borderRadius: 999,
-                        background: "var(--accent-3)",
-                        color: "var(--accent-11)",
-                        fontSize: 12,
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 4,
-                      }}
-                      title="Click to remove filter"
-                    >
-                      {chip.label} <span style={{ opacity: 0.7 }}>×</span>
-                    </Box>
-                  ))}
-                </Flex>
               )}
-            </Box>
-          )}
+            </Flex>
+            {activeFilters.length > 0 && (
+              <Flex gap="1" wrap="wrap" mt="2">
+                {activeFilters.map((chip) => (
+                  <Badge
+                    key={chip.key}
+                    label={
+                      <Flex
+                        align="center"
+                        gap="1"
+                        style={{ cursor: "pointer" }}
+                        onClick={() => removeFilter(chip.key)}
+                      >
+                        {chip.label}
+                        <PiX style={{ fontSize: 10, opacity: 0.7 }} />
+                      </Flex>
+                    }
+                    size="xs"
+                    variant="soft"
+                    radius="full"
+                  />
+                ))}
+              </Flex>
+            )}
+          </Box>
 
           {/* Session list */}
           <Box
@@ -737,23 +691,9 @@ export default function SessionReplayPage() {
                         align="center"
                         style={{ minWidth: 0, flex: 1 }}
                       >
-                        <Box
-                          style={{
-                            width: 22,
-                            height: 22,
-                            borderRadius: 999,
-                            background: "var(--accent-4)",
-                            color: "var(--accent-11)",
-                            fontSize: 11,
-                            fontWeight: 600,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            flexShrink: 0,
-                          }}
-                        >
+                        <Avatar size="sm" variant="soft">
                           {avatarInitial(session.userId)}
-                        </Box>
+                        </Avatar>
                         <Text weight="medium" color="text-high" truncate={true}>
                           {session.userId || "anonymous"}
                         </Text>
@@ -856,21 +796,16 @@ export default function SessionReplayPage() {
                     {(metadata?.id ?? selectedSessionId).slice(0, 16)}…
                   </span>
                 </Text>
-                <button
+                <Button
+                  variant="ghost"
+                  size="xs"
+                  icon={<PiCopy />}
                   onClick={copySessionId}
+                  aria-label="Copy session ID"
                   title="Copy session ID"
-                  style={{
-                    background: "none",
-                    border: "none",
-                    cursor: "pointer",
-                    padding: 2,
-                    display: "flex",
-                    alignItems: "center",
-                    color: "var(--slate-a9)",
-                  }}
                 >
-                  <PiCopy style={{ fontSize: 14 }} />
-                </button>
+                  {""}
+                </Button>
               </Flex>
               <Flex gap="1" align="center">
                 <Text weight="medium" color="text-high">
@@ -913,24 +848,14 @@ export default function SessionReplayPage() {
                   <>
                     Evaluations
                     {evaluations.length > 0 && (
-                      <Box
-                        as="span"
-                        style={{
-                          marginLeft: 6,
-                          background: "var(--violet-a3)",
-                          color: "var(--violet-a11)",
-                          fontSize: 10,
-                          fontWeight: 500,
-                          lineHeight: "15px",
-                          padding: "0 4px",
-                          borderRadius: 2,
-                          minWidth: 16,
-                          textAlign: "center",
-                          display: "inline-block",
-                        }}
-                      >
-                        {evaluations.length}
-                      </Box>
+                      <Badge
+                        label={String(evaluations.length)}
+                        size="xs"
+                        variant="soft"
+                        color="violet"
+                        radius="full"
+                        style={{ marginLeft: 6 }}
+                      />
                     )}
                   </>
                 </Button>
@@ -1011,21 +936,16 @@ export default function SessionReplayPage() {
               <Text size="large" weight="semibold" color="text-high">
                 Evaluations
               </Text>
-              <button
+              <Button
+                variant="ghost"
+                size="xs"
+                icon={<PiX />}
                 onClick={() => setEvalOpen(false)}
+                aria-label="Close evaluations"
                 title="Close evaluations"
-                style={{
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  color: "var(--slate-a9)",
-                  padding: 4,
-                }}
               >
-                <PiX style={{ fontSize: 15 }} />
-              </button>
+                {""}
+              </Button>
             </Flex>
 
             {/* Tabs with counts — active: text-high/medium, inactive: text-low/medium */}
@@ -1033,13 +953,13 @@ export default function SessionReplayPage() {
               <Tabs
                 value={evalTab}
                 onValueChange={(v) =>
-                  setEvalTab((v as "all" | "flags" | "exp") || "all")
+                  setEvalTab((v as "all" | "flags" | "exp" | "events") || "all")
                 }
               >
-                <TabsList size="2">
+                <TabsList size="1">
                   <TabsTrigger value="all">
                     <Text
-                      size="medium"
+                      size="small"
                       weight="medium"
                       color={evalTab === "all" ? "text-high" : "text-low"}
                     >
@@ -1048,7 +968,7 @@ export default function SessionReplayPage() {
                   </TabsTrigger>
                   <TabsTrigger value="flags">
                     <Text
-                      size="medium"
+                      size="small"
                       weight="medium"
                       color={evalTab === "flags" ? "text-high" : "text-low"}
                     >
@@ -1057,11 +977,20 @@ export default function SessionReplayPage() {
                   </TabsTrigger>
                   <TabsTrigger value="exp">
                     <Text
-                      size="medium"
+                      size="small"
                       weight="medium"
                       color={evalTab === "exp" ? "text-high" : "text-low"}
                     >
-                      Experiments ({expCount})
+                      Exp ({expCount})
+                    </Text>
+                  </TabsTrigger>
+                  <TabsTrigger value="events">
+                    <Text
+                      size="small"
+                      weight="medium"
+                      color={evalTab === "events" ? "text-high" : "text-low"}
+                    >
+                      Events ({eventCount})
                     </Text>
                   </TabsTrigger>
                 </TabsList>
@@ -1102,8 +1031,8 @@ export default function SessionReplayPage() {
                   }}
                 >
                   <Box style={{ flex: 1, minWidth: 0 }}>
-                    {/* 14px semibold text-high — body/medium/semibold */}
                     <Text
+                      as="div"
                       size="medium"
                       weight="semibold"
                       color="text-high"
@@ -1111,16 +1040,35 @@ export default function SessionReplayPage() {
                     >
                       {evt.formattedMessage}
                     </Text>
-                    {/* 12px regular text-low — body/small/regular */}
-                    <Text size="small" weight="regular" color="text-low">
-                      {new Date(evt.timestamp).toLocaleString()}
+                    <Text
+                      as="div"
+                      size="small"
+                      weight="regular"
+                      color="text-low"
+                    >
+                      {(() => {
+                        const d = new Date(evt.timestamp);
+                        return isNaN(d.getTime()) ? "" : d.toLocaleString();
+                      })()}
                     </Text>
                   </Box>
                   <Badge
-                    label={evt.kind === "flag" ? "Flag" : "Exp"}
+                    label={
+                      evt.kind === "flag"
+                        ? "Flag"
+                        : evt.kind === "exp"
+                          ? "Exp"
+                          : "Event"
+                    }
                     size="xs"
                     variant="soft"
-                    color={evt.kind === "flag" ? "indigo" : "violet"}
+                    color={
+                      evt.kind === "flag"
+                        ? "indigo"
+                        : evt.kind === "exp"
+                          ? "violet"
+                          : "amber"
+                    }
                     radius="full"
                     style={{ flexShrink: 0 }}
                   />

@@ -3,7 +3,7 @@ import type { ReqContext } from "back-end/types/request";
 import { SessionReplayModel } from "back-end/src/models/SessionReplayModel";
 import {
   listSessionReplays,
-  getSessionReplayBySessionId,
+  getSessionReplayChunksBySessionId,
   SessionReplayRow,
 } from "back-end/src/services/clickhouse";
 import { getSessionReplayEventsByStoragePrefix } from "back-end/src/services/session-replay";
@@ -11,7 +11,7 @@ import { logger } from "back-end/src/util/logger";
 
 jest.mock("back-end/src/services/clickhouse", () => ({
   listSessionReplays: jest.fn(),
-  getSessionReplayBySessionId: jest.fn(),
+  getSessionReplayChunksBySessionId: jest.fn(),
 }));
 
 jest.mock("back-end/src/services/session-replay", () => ({
@@ -23,8 +23,8 @@ jest.mock("back-end/src/util/logger", () => ({
 }));
 
 const mockListSessionReplays = jest.mocked(listSessionReplays);
-const mockGetSessionReplayBySessionId = jest.mocked(
-  getSessionReplayBySessionId,
+const mockGetSessionReplayChunksBySessionId = jest.mocked(
+  getSessionReplayChunksBySessionId,
 );
 const mockGetEvents = jest.mocked(getSessionReplayEventsByStoragePrefix);
 const mockLoggerWarn = jest.mocked(logger.warn);
@@ -91,6 +91,9 @@ function makeRow(overrides: Partial<SessionReplayRow> = {}): SessionReplayRow {
     attributes: { plan: "pro" },
     feature_keys: ["feat_1"],
     experiment_keys: ["exp_1"],
+    feature_evals: { items: [] },
+    experiment_evals: { items: [] },
+    session_events: { items: [] },
     country: "US",
     user_agent: "Mozilla/5.0",
     device: "desktop",
@@ -385,24 +388,24 @@ describe("SessionReplayModel — getBySessionId()", () => {
     jest.clearAllMocks();
   });
 
-  it("returns null when ClickHouse finds no row", async () => {
-    mockGetSessionReplayBySessionId.mockResolvedValue(null);
+  it("returns null when ClickHouse finds no rows", async () => {
+    mockGetSessionReplayChunksBySessionId.mockResolvedValue([]);
 
     const model = new SessionReplayModel(makeContext());
     await expect(model.getBySessionId("sess_missing")).resolves.toBeNull();
   });
 
   it("returns null when the row belongs to a different org", async () => {
-    mockGetSessionReplayBySessionId.mockResolvedValue(
+    mockGetSessionReplayChunksBySessionId.mockResolvedValue([
       makeRow({ organization: "org_other" }),
-    );
+    ]);
 
     const model = new SessionReplayModel(makeContext("org_1"));
     await expect(model.getBySessionId("sess_abc123")).resolves.toBeNull();
   });
 
   it("returns null when view permission is denied", async () => {
-    mockGetSessionReplayBySessionId.mockResolvedValue(makeRow());
+    mockGetSessionReplayChunksBySessionId.mockResolvedValue([makeRow()]);
 
     const model = new SessionReplayModel(
       makeContext("org_1", { canView: false }),
@@ -411,7 +414,7 @@ describe("SessionReplayModel — getBySessionId()", () => {
   });
 
   it("returns the mapped interface when the row is found and permitted", async () => {
-    mockGetSessionReplayBySessionId.mockResolvedValue(makeRow());
+    mockGetSessionReplayChunksBySessionId.mockResolvedValue([makeRow()]);
 
     const model = new SessionReplayModel(
       makeContext("org_1", { canView: true }),
@@ -421,6 +424,70 @@ describe("SessionReplayModel — getBySessionId()", () => {
     expect(session).not.toBeNull();
     expect(session!.id).toBe("sess_abc123");
     expect(session!.organization).toBe("org_1");
+  });
+
+  it("aggregates multiple chunks correctly", async () => {
+    mockGetSessionReplayChunksBySessionId.mockResolvedValue([
+      makeRow({
+        duration_ms: 30000,
+        event_count: 50,
+        error_count: 1,
+        urls_visited: ["https://example.com/a"],
+        feature_keys: ["feat_1"],
+        experiment_keys: ["exp_1"],
+        feature_evals: {
+          items: [
+            {
+              featureKey: "feat_1",
+              timestamp: 1000,
+              result: { value: true },
+            },
+          ],
+        },
+        experiment_evals: { items: [] },
+        session_events: {
+          items: [{ eventName: "click", timestamp: 2000 }],
+        },
+      }),
+      makeRow({
+        duration_ms: 60000,
+        event_count: 100,
+        error_count: 2,
+        urls_visited: ["https://example.com/b"],
+        feature_keys: ["feat_2"],
+        experiment_keys: ["exp_1", "exp_2"],
+        feature_evals: { items: [] },
+        experiment_evals: {
+          items: [
+            {
+              key: "exp_2",
+              timestamp: 3000,
+              result: { value: "v", variationId: 1, featureId: null },
+            },
+          ],
+        },
+        session_events: {
+          items: [{ eventName: "purchase", timestamp: 4000 }],
+        },
+      }),
+    ]);
+
+    const model = new SessionReplayModel(makeContext());
+    const session = await model.getBySessionId("sess_abc123");
+
+    expect(session).not.toBeNull();
+    expect(session!.durationMs).toBe(60000);
+    expect(session!.eventCount).toBe(150);
+    expect(session!.errorCount).toBe(3);
+    expect(session!.urlsVisited).toEqual([
+      "https://example.com/a",
+      "https://example.com/b",
+    ]);
+    expect(session!.featureKeys).toEqual(["feat_1", "feat_2"]);
+    expect(session!.experimentKeys).toEqual(["exp_1", "exp_2"]);
+    expect(session!.featureEvals?.items).toHaveLength(1);
+    expect(session!.experimentEvals?.items).toHaveLength(1);
+    expect(session!.sessionEvents?.items).toHaveLength(2);
   });
 });
 
