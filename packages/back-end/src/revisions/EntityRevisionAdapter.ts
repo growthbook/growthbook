@@ -52,6 +52,26 @@ export interface EntityRevisionAdapter<
   /** Whether the current user can bypass the approval requirement. */
   canBypassApproval(context: Context, snapshot: TSnapshot): boolean;
 
+  /**
+   * Whether an *approved* revision should reset to pending-review when its
+   * proposed changes are subsequently modified. Defaults (when not implemented)
+   * to the entity's approval-flow `resetReviewOnChange` toggle. Override when the
+   * decision depends on what changed and/or the settings live elsewhere — e.g.
+   * constants, which use the feature `requireReviews` model.
+   */
+  shouldResetReviewOnChange?(context: Context, revision: Revision): boolean;
+
+  /**
+   * Whether auto-publish-on-approval may be armed for this entity. Defaults
+   * (when not implemented) to the entity's approval-flow `autopublishOnApproval`
+   * toggle. Override for entities whose review settings live elsewhere — e.g.
+   * constants.
+   */
+  isAutopublishOnApprovalEnabled?(
+    context: Context,
+    snapshot: TSnapshot,
+  ): boolean;
+
   // ---------- Merge ----------
 
   /**

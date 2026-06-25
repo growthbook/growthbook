@@ -249,26 +249,20 @@ export default function ExplorerSideBar({
             </Flex>
             <GraphTypeSelector />
           </Flex>
-          <Flex gap="2" wrap="wrap">
-            <Flex direction="column" gap="2" style={{ minWidth: 0 }}>
-              <Text weight="medium">Date Range</Text>
-              {showComparisonDateControls ? (
-                <ComparisonDateControls
-                  groupBySlot={
-                    isTimeSeriesChart ? <GranularitySelector /> : null
-                  }
-                />
-              ) : (
-                <DateRangePicker shouldWrap />
-              )}
-            </Flex>
-            {!showComparisonDateControls && isTimeSeriesChart && (
-              <Flex direction="column" gap="2">
-                <Text weight="medium">Date Granularity</Text>
-                <GranularitySelector />
-              </Flex>
+          <Flex direction="column" gap="2" width="100%" style={{ minWidth: 0 }}>
+            <Text weight="medium">Date Range</Text>
+            {showComparisonDateControls ? (
+              <ComparisonDateControls fullWidth />
+            ) : (
+              <DateRangePicker fullWidth />
             )}
           </Flex>
+          {isTimeSeriesChart && (
+            <Flex direction="column" gap="2" width="100%">
+              <Text weight="medium">Date Granularity</Text>
+              <GranularitySelector />
+            </Flex>
+          )}
         </Flex>
       )}
 

@@ -531,7 +531,7 @@ export const postReview = async (
     decision === "approve" &&
     context.hasPremiumFeature("require-approvals") &&
     isUserBlockedFromApproving({
-      approvalFlows: context.org.settings?.approvalFlows,
+      settings: context.org.settings,
       entityType: existingRevision.target.type,
       revision: existingRevision,
       userId,
