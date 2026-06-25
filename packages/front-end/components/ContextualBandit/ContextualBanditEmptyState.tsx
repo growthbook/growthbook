@@ -38,11 +38,10 @@ export default function ContextualBanditEmptyState({
             color="text-high"
             align="center"
           >
-            Incorporate Personalization into Experiments with Contextual Bandits
+            Automatically Personalize Experiences with Contextual Bandits
           </Heading>
           <Text size="large" color="text-mid" align="center">
-            Automatically guide traffic to better variants based on defined
-            attributes
+            Drive more traffic to variants that perform best for groups of users
           </Text>
 
           <Flex justify="center" gap="5" pt="4">

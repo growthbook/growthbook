@@ -209,11 +209,11 @@ export default function ContextualBanditDecisionMetricSettings({
   }, [decisionMetricId, decisionMetricWindowKey, scheduleHours]);
 
   const conversionWindowWarning = showConversionWindowWarning && !disabled && (
-    <Callout status="error" my="4">
+    <Callout status="warning" my="4">
       <Text>
-        The decision metric conversion window must be at most 10% of the{" "}
-        <Text weight="semibold">Update Cadence</Text>. Decrease the conversion
-        window or increase the cadence to continue.
+        Consider setting the decision metric conversion window to be at most 10%
+        of the <Text weight="semibold">Update Cadence</Text> to limit metric
+        windows extending into periods when users may switch variations.
       </Text>
     </Callout>
   );
@@ -280,11 +280,7 @@ export default function ContextualBanditDecisionMetricSettings({
         noLegacyMetrics={true}
         requireDatasource={true}
         experimentType={undefined} //@teresayung check this
-        goalMetricsDescription={
-          !datasourceId
-            ? "Select a data source above to choose a decision metric."
-            : "The single decision metric the bandit optimizes toward."
-        }
+        goalMetricsDescription={" "}
         goalMetrics={decisionMetricId ? [decisionMetricId] : []}
         secondaryMetrics={[]}
         guardrailMetrics={[]}
@@ -308,26 +304,28 @@ export default function ContextualBanditDecisionMetricSettings({
         disabled={disabled}
       />
 
-      {decisionMetricId && (
-        <Text color="text-mid" size="small" as="p" my="1">
-          {decisionMetricWindow ? (
-            <>
-              Metric default: {decisionMetricWindow.windowValue}{" "}
-              {decisionMetricWindow.windowValue === 1
-                ? decisionMetricWindow.windowUnit.slice(0, -1)
-                : decisionMetricWindow.windowUnit}
-            </>
-          ) : (
-            "No metric-level conversion window."
-          )}
-        </Text>
-      )}
-
       {decisionMetricId ? (
         <Box my="5">
           <Text size="medium" weight="semibold">
             Conversion Window
           </Text>
+          <Text size="small" color="text-mid" as="p" my="1">
+            Set a short window to ensure the bandit reward is measured before a
+            user may switch variations.
+          </Text>
+          <Text color="text-mid" size="small" as="p" my="1">
+            {decisionMetricWindow ? (
+              <>
+                Metric default: {decisionMetricWindow.windowValue}{" "}
+                {decisionMetricWindow.windowValue === 1
+                  ? decisionMetricWindow.windowUnit.slice(0, -1)
+                  : decisionMetricWindow.windowUnit}
+              </>
+            ) : (
+              "Metric default: No existing metric-level conversion window."
+            )}
+          </Text>
+
           <Grid align="center" flow="column" gap="2" columns="auto" mt="2">
             <Field
               {...form.register("banditConversionWindowValue", {

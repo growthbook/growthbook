@@ -1,5 +1,6 @@
 import { ReactNode, useState } from "react";
-import { Box, Flex, Grid } from "@radix-ui/themes";
+import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
+import { BsThreeDotsVertical } from "react-icons/bs";
 import { date } from "shared/dates";
 import { getMetricLink } from "shared/experiments";
 import { ApiContextualBanditInterface } from "shared/validators";
@@ -21,6 +22,12 @@ import { tagLinkProps } from "@/services/search";
 import { AttributeBadge } from "@/components/Features/AttributeBadge";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
+import {
+  DropdownMenu,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/ui/DropdownMenu";
 import {
   DetailSectionBox,
   DetailSectionColumn,
@@ -76,6 +83,7 @@ export default function ContextualBanditDetailPage({
     cb.datasource,
   );
   const [confirmStop, setConfirmStop] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const updateEndpoint = `/api/v1/contextual-bandits/${cb.id}`;
 
@@ -133,22 +141,33 @@ export default function ContextualBanditDetailPage({
   return (
     <Box>
       {/* Header — title, status, actions */}
-      <Flex justify="between" align="center" gap="3" wrap="wrap">
-        <Flex align="center" gap="3">
-          <Heading as="h1" size="x-large" mb="0">
+      <Flex direction="row" align="start" justify="between" gap="5">
+        <Box>
+          <h1
+            className="mb-0"
+            style={{ display: "inline", verticalAlign: "middle" }}
+          >
             {cb.name}
-          </Heading>
-          <Badge color={STATUS_COLOR[cb.status] ?? "gray"} label={cb.status} />
-          {cb.archived ? <Badge color="gray" label="archived" /> : null}
-        </Flex>
-        <Flex align="center" gap="2">
-          {duplicate ? (
-            <Button variant="outline" onClick={duplicate}>
-              Duplicate
-            </Button>
-          ) : null}
+          </h1>
+          <Box
+            ml="2"
+            mt="1"
+            display="inline-block"
+            style={{ userSelect: "none" }}
+          >
+            <Badge
+              color={STATUS_COLOR[cb.status] ?? "gray"}
+              label={cb.status}
+            />
+            {cb.archived ? (
+              <Badge ml="1" color="gray" label="archived" />
+            ) : null}
+          </Box>
+        </Box>
+
+        <Flex direction="row" align="center" gap="2" flexShrink="0">
           {canRun && cb.status === "draft" ? (
-            <Button onClick={start}>Start</Button>
+            <Button onClick={start}>Start Contextual Bandit</Button>
           ) : null}
           {canRun && cb.status === "running" ? (
             <Button
@@ -156,60 +175,137 @@ export default function ContextualBanditDetailPage({
               color="red"
               onClick={() => setConfirmStop(true)}
             >
-              Stop
+              Stop Contextual Bandit
             </Button>
+          ) : null}
+          {editOverview || duplicate ? (
+            <DropdownMenu
+              trigger={
+                <IconButton
+                  variant="ghost"
+                  color="gray"
+                  radius="full"
+                  size="3"
+                  highContrast
+                  ml="2"
+                >
+                  <BsThreeDotsVertical size={18} />
+                </IconButton>
+              }
+              open={dropdownOpen}
+              onOpenChange={(o) => setDropdownOpen(!!o)}
+              menuPlacement="end"
+            >
+              <DropdownMenuGroup>
+                {editOverview ? (
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setDropdownOpen(false);
+                      editOverview();
+                    }}
+                  >
+                    Edit info
+                  </DropdownMenuItem>
+                ) : null}
+              </DropdownMenuGroup>
+              {editOverview && duplicate ? <DropdownMenuSeparator /> : null}
+              <DropdownMenuGroup>
+                {duplicate ? (
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setDropdownOpen(false);
+                      duplicate();
+                    }}
+                  >
+                    Duplicate
+                  </DropdownMenuItem>
+                ) : null}
+              </DropdownMenuGroup>
+            </DropdownMenu>
           ) : null}
         </Flex>
       </Flex>
 
-      {/* Header — metadata line */}
-      <Flex gap="3" wrap="wrap" align="center" mt="2" mb="1">
-        <Metadata label="Project" value={projectName} />
-        {editProject ? (
-          <Button variant="ghost" onClick={editProject}>
-            Edit
-          </Button>
-        ) : null}
-        <Metadata label="Experiment Key" value={cb.trackingKey} />
-        <Metadata
-          label="Owner"
-          value={<Owner ownerId={cb.owner} gap="1" textColor="text-mid" />}
-        />
-        <Metadata label="Created" value={date(cb.dateCreated)} />
-        {editOverview ? (
-          <Button variant="ghost" onClick={editOverview}>
-            Edit name / key / owner
-          </Button>
-        ) : null}
-      </Flex>
-
-      {/* Header — tags */}
-      <Flex align="center" gap="2" mt="2" mb="4" wrap="wrap">
-        <Metadata
-          label="Tags"
-          value={
-            <Flex gap="1" align="center">
-              {cb.tags.length ? (
-                <SortedTags
-                  tags={cb.tags}
-                  useFlex
-                  shouldShowEllipsis={false}
-                  {...tagLinkProps("contextual-bandits")}
-                />
-              ) : (
-                <Text size="small" color="text-low">
-                  None
-                </Text>
-              )}
-              {editTags ? (
-                <Button variant="ghost" onClick={editTags}>
-                  + Add
-                </Button>
-              ) : null}
-            </Flex>
-          }
-        />
-      </Flex>
+      {/* Header — metadata + tags */}
+      <div className="pb-3">
+        <Flex gap="3" mt="2" mb="1" wrap="wrap" align="center">
+          <Metadata
+            label="Project"
+            value={
+              <Flex gap="1" align="center">
+                {cb.project ? (
+                  <Text weight="regular" color="text-mid">
+                    {projectName}
+                  </Text>
+                ) : editProject ? (
+                  <Link
+                    onClick={(e) => {
+                      e.preventDefault();
+                      editProject();
+                    }}
+                  >
+                    +Add
+                  </Link>
+                ) : (
+                  <Text weight="regular" color="text-mid">
+                    None
+                  </Text>
+                )}
+              </Flex>
+            }
+          />
+          <Metadata label="Experiment Key" value={cb.trackingKey || "None"} />
+          <Metadata
+            label="Owner"
+            value={<Owner ownerId={cb.owner} gap="1" textColor="text-mid" />}
+          />
+          <Metadata label="Created" value={date(cb.dateCreated)} />
+        </Flex>
+        <div className="row mt-2">
+          <div className="col-auto">
+            <Metadata
+              label="Tags"
+              value={
+                <Flex gap="1" align="center">
+                  {cb.tags.length ? (
+                    <>
+                      <SortedTags
+                        tags={cb.tags}
+                        useFlex
+                        shouldShowEllipsis={false}
+                        {...tagLinkProps("contextual-bandits")}
+                      />
+                      {editTags ? (
+                        <Link
+                          onClick={(e) => {
+                            e.preventDefault();
+                            editTags();
+                          }}
+                        >
+                          Edit
+                        </Link>
+                      ) : null}
+                    </>
+                  ) : editTags ? (
+                    <Link
+                      onClick={(e) => {
+                        e.preventDefault();
+                        editTags();
+                      }}
+                    >
+                      +Add
+                    </Link>
+                  ) : (
+                    <Text size="small" color="text-low">
+                      None
+                    </Text>
+                  )}
+                </Flex>
+              }
+            />
+          </div>
+        </div>
+      </div>
 
       <Tabs defaultValue="overview" persistInURL={true}>
         <TabsList>

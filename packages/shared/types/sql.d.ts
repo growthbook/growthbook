@@ -126,6 +126,7 @@ export interface SqlDialect {
    * semantics (1-based vs 0-based, native array vs JSON).
    */
   arrayElement: (arrayCol: string, index: number) => string;
+  // @lukebrawleysmith we shouldn't store this here. Each dialect may have a "max rows" and then we can compute max contexts off of that with a single helper
   /** Max distinct context tuples retained when bucketing contextual bandit attributes. */
   maxContextualBanditContexts: number;
 }

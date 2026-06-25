@@ -10,7 +10,7 @@ import {
   getMalformedTargetingAttributeColumnsForExposureQueries,
 } from "shared/validators";
 import { useForm } from "react-hook-form";
-import { FaExclamationTriangle, FaExternalLinkAlt } from "react-icons/fa";
+import { FaExternalLinkAlt } from "react-icons/fa";
 import { TestQueryRow } from "shared/types/integrations";
 import Code from "@/components/SyntaxHighlighting/Code";
 import StringArrayField from "@/components/Forms/StringArrayField";
@@ -107,6 +107,8 @@ export const AddEditContextualBanditQueryModal: FC<Props> = ({
 
   const saveEnabled = !!userEnteredUserIdType && !!userEnteredQuery;
 
+  // @teresayung: handleSubmit here doesn't seem to verify that you have the required attribute columns in the query
+  // Without ever editing the SQL I'm able to add attribute columns that aren't in the SQL at all
   const handleSubmit = form.handleSubmit(async (value) => {
     // CreatableSelect only commits pending text on blur; force blur first.
     (document.activeElement as HTMLElement | null)?.blur?.();
@@ -241,8 +243,7 @@ export const AddEditContextualBanditQueryModal: FC<Props> = ({
             <label className="mr-5">Query</label>
             {userEnteredQuery === defaultQuery && (
               <Callout status="info" mb="2">
-                <FaExclamationTriangle style={{ marginTop: "-2px" }} /> The
-                prefilled query below may require editing to fit your data
+                The prefilled query below may require editing to fit your data
                 structure.
               </Callout>
             )}
@@ -267,6 +268,7 @@ export const AddEditContextualBanditQueryModal: FC<Props> = ({
           </div>
 
           <div className="mt-3">
+            {/* @teresayung: I think this should be a multi-select that pulls from the organization's attributes */}
             <StringArrayField
               label="Targeting Attribute Columns"
               value={userEnteredTargetingAttributeColumns ?? []}

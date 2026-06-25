@@ -20,8 +20,9 @@ import {
   getMetricWindowHours,
 } from "shared/experiments";
 import { kebabCase } from "lodash";
-import { Box } from "@radix-ui/themes";
+import { Box, Separator } from "@radix-ui/themes";
 import Callout from "@/ui/Callout";
+import Text from "@/ui/Text";
 import { useWatching } from "@/services/WatchProvider";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
@@ -45,9 +46,14 @@ import SelectField, {
   SingleValue,
 } from "@/components/Forms/SelectField";
 import { validateSavedGroupTargeting } from "@/components/Features/SavedGroupTargetingField";
+import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
+import {
+  AttributeOptionWithTooltip,
+  type AttributeOptionForTooltip,
+} from "@/components/Features/AttributeOptionTooltip";
 import { useExperiments } from "@/hooks/useExperiments";
 import { useContextualBanditQueries } from "@/hooks/useContextualBanditQueries";
-import ContextualBanditRefNewFields from "@/components/ContextualBandit/ContextualBanditRefNewFields";
+import ContextualBanditAnalysisFields from "@/components/ContextualBandit/ContextualBanditAnalysisFields";
 import Checkbox from "@/ui/Checkbox";
 import DatePicker from "@/components/DatePicker";
 import {
@@ -66,7 +72,6 @@ type ContextualBanditFormValues = Partial<ExperimentInterfaceStringDates> &
       | "savedGroups"
       | "prerequisites"
       | "variationWeights"
-      | "namespace"
       | "dateStarted"
       | "dateEnded"
     >
@@ -142,6 +147,7 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
   const hashAttribute = hashAttributes.includes("id")
     ? "id"
     : hashAttributes[0] || "id";
+  const hasHashAttributes = hashAttributes.length > 0;
 
   const initialHashAttribute = initialValue?.hashAttribute || hashAttribute;
 
@@ -173,7 +179,6 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
       condition: initialValue?.condition,
       savedGroups: initialValue?.savedGroups,
       prerequisites: initialValue?.prerequisites,
-      namespace: initialValue?.namespace,
       variationWeights:
         initialValue?.variationWeights ?? toEqualWeights(initialExpVariations),
       dateStarted: getValidDate(initialValue?.dateStarted ?? "")
@@ -326,7 +331,7 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
       (q) => q.id === data.exposureQueryId,
     );
     if (!selectedCbQuery) {
-      setStep(2);
+      setStep(1);
       throw new Error(
         "Select a Contextual Bandit query for this data source. If none exist yet, create one first.",
       );
@@ -337,7 +342,7 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
     }
     const decisionMetric = getExperimentMetricById(data.decisionMetric);
     if (decisionMetric?.datasource !== data.datasource) {
-      setStep(2);
+      setStep(1);
       throw new Error(
         "The decision metric must belong to the selected data source",
       );
@@ -365,7 +370,7 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
       effectiveConversionWindowHours != null &&
       cadenceHours < effectiveConversionWindowHours * 10
     ) {
-      setStep(2);
+      setStep(1);
       throw new Error(
         "The decision metric conversion window must be at most 10% of the update cadence. Decrease the conversion window or increase the cadence.",
       );
@@ -476,8 +481,6 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
 
   const status = form.watch("status");
 
-  const [linkNameWithTrackingKey, setLinkNameWithTrackingKey] = useState(true);
-
   let header = isNewExperiment
     ? "Add New Contextual Bandit"
     : "Add New Contextual Bandit Analysis";
@@ -489,7 +492,6 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
   const nameFieldHandlers = form.register("name", {
     setValueAs: (s) => s?.trim(),
   });
-  const trackingKeyFieldHandlers = form.register("trackingKey");
 
   const { currentProjectIsDemo } = useDemoDataSourceProject();
 
@@ -512,13 +514,14 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
             : undefined
         }
         closeCta="Cancel"
+        showHeaderCloseButton={false}
         size="lg"
         step={step}
         setStep={setStep}
         inline={inline}
         backButton={true}
       >
-        <Page display="Overview">
+        <Page display="Settings">
           <div className="px-2">
             {currentProjectIsDemo && (
               <Callout status="warning" mb="3">
@@ -544,7 +547,7 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
             )}
 
             <Field
-              label="Contextual Bandit Name"
+              label="Name"
               required
               minLength={2}
               {...nameFieldHandlers}
@@ -552,7 +555,6 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
                 nameFieldHandlers.onChange(e);
 
                 if (!isNewExperiment) return;
-                if (!linkNameWithTrackingKey) return;
                 const val = e?.target?.value ?? form.watch("name");
                 if (!val) {
                   form.setValue("trackingKey", "");
@@ -569,15 +571,60 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
               }}
             />
 
-            <Field
-              label="Tracking Key"
-              helpText="Unique identifier for this Contextual Bandit, used to track impressions and analyze results"
-              {...trackingKeyFieldHandlers}
-              onChange={(e) => {
-                trackingKeyFieldHandlers.onChange(e);
-                setLinkNameWithTrackingKey(false);
-              }}
-            />
+            <Separator size="4" my="5" />
+            {(isNewExperiment || duplicate) && (
+              <>
+                <div className="mb-4">
+                  <Text as="label" weight="semibold" mb="1">
+                    Assign Variation by Attribute
+                  </Text>
+                  <SelectField
+                    withRadixThemedPortal
+                    containerClassName="flex-1"
+                    options={attributeSchema
+                      .filter((s) => !hasHashAttributes || s.hashAttribute)
+                      .map((s) => ({
+                        label: s.property,
+                        value: s.property,
+                        description: s.description,
+                        tags: s.tags,
+                        datatype: s.datatype,
+                        hashAttribute: s.hashAttribute,
+                      }))}
+                    value={form.watch("hashAttribute") ?? ""}
+                    onChange={(v) => {
+                      form.setValue("hashAttribute", v);
+                    }}
+                    formatOptionLabel={(o, meta) => {
+                      return (
+                        <AttributeOptionWithTooltip
+                          option={o as AttributeOptionForTooltip}
+                          context={meta.context}
+                        >
+                          {o.label}
+                        </AttributeOptionWithTooltip>
+                      );
+                    }}
+                  />
+                </div>
+
+                <FeatureVariationsInput
+                  simple={true}
+                  hideCoverage={true}
+                  label={null}
+                  valueType="string"
+                  coverageLabel="Traffic included in this Bandit"
+                  coverageTooltip="Users not included in the Bandit will skip this experiment"
+                  coverage={form.watch("coverage") ?? 1}
+                  setCoverage={(coverage) =>
+                    form.setValue("coverage", coverage)
+                  }
+                  setWeight={setVariationWeight}
+                  variations={variationsForInput}
+                  setVariations={setCombinedVariations}
+                />
+              </>
+            )}
 
             {duplicate && (
               <Box mb="4">
@@ -594,14 +641,6 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
                 />
               </Box>
             )}
-
-            <Field
-              label="Description"
-              textarea
-              minRows={2}
-              {...form.register("description")}
-              placeholder="Short human-readable description of the Contextual Bandit"
-            />
 
             {!(isNewExperiment || duplicate) && (
               <div className="form-group">
@@ -656,35 +695,19 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
           </div>
         </Page>
 
-        {isNewExperiment || duplicate
-          ? ["Overview", "Traffic", "Metrics"].map((p, i) => {
-              if (i === 0) return null;
-              return (
-                <Page display={p} key={i}>
-                  <div className="px-2">
-                    <ContextualBanditRefNewFields
-                      step={i}
-                      project={project}
-                      namespaceFormPrefix={""}
-                      coverage={form.watch("coverage") ?? 1}
-                      setCoverage={(coverage) =>
-                        form.setValue("coverage", coverage)
-                      }
-                      setWeight={setVariationWeight}
-                      variations={variationsForInput}
-                      setVariations={setCombinedVariations}
-                      disableBanditConversionWindow={
-                        disableBanditConversionWindow
-                      }
-                      setDisableBanditConversionWindow={
-                        setDisableBanditConversionWindow
-                      }
-                    />
-                  </div>
-                </Page>
-              );
-            })
-          : null}
+        {(isNewExperiment || duplicate) && (
+          <Page display="Data">
+            <div className="px-2">
+              <ContextualBanditAnalysisFields
+                project={project}
+                disableBanditConversionWindow={disableBanditConversionWindow}
+                setDisableBanditConversionWindow={
+                  setDisableBanditConversionWindow
+                }
+              />
+            </div>
+          </Page>
+        )}
       </PagedModal>
     </FormProvider>
   );

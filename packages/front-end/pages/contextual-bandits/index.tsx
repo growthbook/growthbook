@@ -207,6 +207,7 @@ const ContextualBanditsPage = (): React.ReactElement => {
                       const isLast =
                         tab === "archived" ||
                         (tab === "drafts" && !hasArchived);
+                      // @teresayung: we should use the same tab structure as we use on experiments, bandits, and holdouts list pages
                       return (
                         <button
                           key={tab}
