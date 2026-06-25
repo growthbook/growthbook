@@ -7,8 +7,8 @@ import {
 } from "shared/validators";
 import { UpdateProps } from "shared/types/base-model";
 import { BadRequestError } from "back-end/src/util/errors";
-import { constantUpdated } from "back-end/src/services/constants";
-import { getResolvableConstants } from "back-end/src/services/resolvableConstants";
+import { resolvableValueChanged } from "back-end/src/services/constants";
+import { getResolvableValues } from "back-end/src/services/resolvableValues";
 import {
   logConstantCreatedEvent,
   logConstantUpdatedEvent,
@@ -74,7 +74,7 @@ export class ConstantModel extends BaseClass {
       value,
       environmentValues,
       // Span both collections — a constant can reference a config and vice versa.
-      await getResolvableConstants(this.context),
+      await getResolvableValues(this.context),
     );
     if (cyclic.length) {
       throw new BadRequestError(
@@ -122,7 +122,7 @@ export class ConstantModel extends BaseClass {
       updates.project !== undefined ||
       updates.archived !== undefined
     ) {
-      constantUpdated(this.context).catch((e) => {
+      resolvableValueChanged(this.context).catch((e) => {
         this.context.logger.error(
           e,
           "Error refreshing SDK Payload on constant update",
@@ -142,7 +142,7 @@ export class ConstantModel extends BaseClass {
 
   // A delete leaves references unresolved, changing the payload.
   protected async afterDelete(doc: ConstantInterface) {
-    constantUpdated(this.context, "deleted").catch((e) => {
+    resolvableValueChanged(this.context, "deleted").catch((e) => {
       this.context.logger.error(
         e,
         "Error refreshing SDK Payload on constant delete",

@@ -121,7 +121,7 @@ import {
   assertCanAutoPublish,
   revisionRequiresReview,
 } from "back-end/src/services/features";
-import { getResolvableConstants } from "back-end/src/services/resolvableConstants";
+import { getResolvableValues } from "back-end/src/services/resolvableValues";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import {
   moveFlatRule,
@@ -4987,7 +4987,7 @@ export async function postFeatureEvaluate(
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const safeRolloutMap =
     await context.models.safeRollout.getAllPayloadSafeRollouts();
-  const constants = await getResolvableConstants(context);
+  const constants = await getResolvableValues(context);
   const results = evaluateFeature({
     feature,
     revision,

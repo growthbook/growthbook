@@ -33,7 +33,7 @@ import {
 import { useConfigDraftStates } from "@/hooks/useConstantDraftStates";
 import { useRevisionsEntityType } from "@/hooks/useRevisions";
 import ConfigModal from "@/components/Configs/ConfigModal";
-import ConfigReviews from "@/components/Constants/ConfigReviews";
+import ConfigReviews from "@/components/Configs/ConfigReviews";
 import ConfigSearchFilters from "@/components/Search/ConfigSearchFilters";
 
 const VALID_TABS = ["all", "drafts"] as const;

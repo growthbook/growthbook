@@ -31,7 +31,7 @@ import {
   assertConstantArchivable,
   assertKeyAvailableAcrossNamespace,
 } from "back-end/src/services/constants";
-import { getResolvableConstants } from "back-end/src/services/resolvableConstants";
+import { getResolvableValues } from "back-end/src/services/resolvableValues";
 import { dispatchConstantRevisionEvent } from "back-end/src/services/constantRevisionEvents";
 
 type PostConstantBody = z.infer<typeof postConstantBodyValidator>;
@@ -102,7 +102,7 @@ export const getConstantCyclicKeys = async (
   if (!constant) {
     return context.throwNotFoundError("Constant not found");
   }
-  const all = await getResolvableConstants(context);
+  const all = await getResolvableValues(context);
   const referencesByKey = new Map(
     all.map((c) => [
       c.key,

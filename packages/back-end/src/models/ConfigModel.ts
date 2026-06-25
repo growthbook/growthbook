@@ -3,8 +3,8 @@ import { configValidator, getCyclicConstantRefs } from "shared/validators";
 import { getConfigParentKey, withParentExtends } from "shared/util";
 import { UpdateProps } from "shared/types/base-model";
 import { BadRequestError } from "back-end/src/util/errors";
-import { constantUpdated } from "back-end/src/services/constants";
-import { getResolvableConstants } from "back-end/src/services/resolvableConstants";
+import { resolvableValueChanged } from "back-end/src/services/constants";
+import { getResolvableValues } from "back-end/src/services/resolvableValues";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
@@ -54,12 +54,15 @@ export class ConfigModel extends BaseClass {
   // Reject cyclic lineage/values; the graph spans both collections. The parent's
   // `$extends` is synthesized in so a parent→…→self cycle is caught at write time.
   private async assertNoCycle(doc: ConfigInterface): Promise<void> {
-    const effectiveValue = withParentExtends(doc.value, getConfigParentKey(doc));
+    const effectiveValue = withParentExtends(
+      doc.value,
+      getConfigParentKey(doc),
+    );
     const cyclic = getCyclicConstantRefs(
       doc.key,
       effectiveValue,
       doc.environmentValues,
-      await getResolvableConstants(this.context),
+      await getResolvableValues(this.context),
     );
     if (cyclic.length) {
       throw new BadRequestError(
@@ -100,7 +103,7 @@ export class ConfigModel extends BaseClass {
       updates.project !== undefined ||
       updates.archived !== undefined
     ) {
-      constantUpdated(this.context, "updated", "config").catch((e) => {
+      resolvableValueChanged(this.context, "updated", "config").catch((e) => {
         this.context.logger.error(
           e,
           "Error refreshing SDK Payload on config update",
@@ -109,9 +112,8 @@ export class ConfigModel extends BaseClass {
     }
   }
 
-  // A delete changes the generated payload too, so refresh on delete.
   protected async afterDelete() {
-    constantUpdated(this.context, "deleted", "config").catch((e) => {
+    resolvableValueChanged(this.context, "deleted", "config").catch((e) => {
       this.context.logger.error(
         e,
         "Error refreshing SDK Payload on config delete",

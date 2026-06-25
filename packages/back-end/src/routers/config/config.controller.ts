@@ -42,7 +42,7 @@ import {
   assertConstantArchivable,
   assertKeyAvailableAcrossNamespace,
 } from "back-end/src/services/constants";
-import { getResolvableConstants } from "back-end/src/services/resolvableConstants";
+import { getResolvableValues } from "back-end/src/services/resolvableValues";
 
 type PostConfigBody = z.infer<typeof postConfigBodyValidator>;
 type PutConfigBody = z.infer<typeof putConfigBodyValidator>;
@@ -88,7 +88,7 @@ export const getConfigCyclicKeys = async (
   if (!config) {
     return context.throwNotFoundError("Config not found");
   }
-  const all = await getResolvableConstants(context);
+  const all = await getResolvableValues(context);
   const referencesByKey = new Map(
     all.map((c) => [
       c.key,
@@ -172,7 +172,7 @@ export const getConfigResolved = async (
 
   // Scoped to this config's project + globals so cross-project values never leak.
   const configProject = config.project || "";
-  const constants = (await getResolvableConstants(context))
+  const constants = (await getResolvableValues(context))
     .filter((c) => !c.project || c.project === configProject)
     .map((c) => ({
       key: c.key,

@@ -13,15 +13,14 @@ import { ApiReqContext } from "back-end/types/api";
 import { BadRequestError } from "back-end/src/util/errors";
 import { getPayloadKeysForAllEnvs } from "back-end/src/models/ExperimentModel";
 import { getAllFeatures } from "back-end/src/models/FeatureModel";
-import { getResolvableConstants } from "./resolvableConstants";
+import { getResolvableValues } from "./resolvableValues";
 import { queueSDKPayloadRefresh } from "./features";
 import { getContextForAgendaJobByOrgObject } from "./organizations";
 
-// A value change alters the generated SDK payload, so refresh the payload cache
-// (and fire SDK webhooks). Constants reference cross-project/env, so — like saved
-// groups — we conservatively refresh everything rather than scope to the constant.
-// TODO: scope to the constant's actual references once reference tracking lands.
-export async function constantUpdated(
+// A constant/config change alters the SDK payload, so refresh it (and fire SDK
+// webhooks). Refs cross project/env, so we refresh everything for now.
+// TODO: scope to the actual references once reference tracking lands.
+export async function resolvableValueChanged(
   baseContext: ReqContext | ApiReqContext,
   event: "updated" | "deleted" = "updated",
   model: "constant" | "config" = "constant",
@@ -39,15 +38,15 @@ export async function constantUpdated(
   });
 }
 
-// A stored cycle leaks raw `@const:` placeholders into the payload (the resolver
-// degrades gracefully but doesn't fix it), so reject cyclic values at write time.
-export async function assertNoConstantCycle(
+// Reject cyclic values at write time — a stored cycle leaks raw `@const:`
+// placeholders into the payload.
+export async function assertNoReferenceCycle(
   context: ReqContext | ApiReqContext,
   key: string,
   value: string | undefined,
   environmentValues: Record<string, string> | undefined,
 ): Promise<void> {
-  const all = await getResolvableConstants(context);
+  const all = await getResolvableValues(context);
   const cyclic = getCyclicConstantRefs(key, value, environmentValues, all);
   if (cyclic.length) {
     throw new BadRequestError(
@@ -58,8 +57,7 @@ export async function assertNoConstantCycle(
   }
 }
 
-// Constants and configs share the `@const:` namespace across separate
-// collections, so check both for a key collision. Returns the owner, or null.
+// Keys are unique across both collections — check each. Returns the owner, or null.
 export async function findKeyOwnerAcrossNamespace(
   context: ReqContext | ApiReqContext,
   key: string,
@@ -152,7 +150,7 @@ export async function loadConstantReferences(
   // Span both collections — references cross the config/constant boundary.
   const configs = await context.models.configs.getAll();
   const configIds = new Set(configs.map((c) => c.id));
-  const allConstants = await getResolvableConstants(context);
+  const allConstants = await getResolvableValues(context);
   const target = allConstants.find((c) => c.id === constantId);
   if (!target) return null;
 

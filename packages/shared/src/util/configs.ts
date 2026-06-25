@@ -4,7 +4,7 @@ import { parsePlainJSONObject } from "./features";
 
 // Inheritance is modeled by a `parent` key on the config, not stored in its
 // editable value. The `$extends` directive that drives resolution is synthesized
-// from `parent` on demand (see configAsConstant). These helpers bridge the two.
+// from `parent` on demand (see configToResolvable). These helpers bridge the two.
 
 // The lineage parent of a config: its explicit `parent`, falling back to a
 // legacy `$extends` ref embedded in the value (for data written before `parent`).
