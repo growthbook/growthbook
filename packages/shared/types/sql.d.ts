@@ -1,5 +1,5 @@
 import type { SqlLanguage } from "sql-formatter";
-import { DataType } from "./integrations";
+import type { DataType } from "./integrations";
 
 export type StringMatchOperator =
   | "starts_with"
@@ -54,10 +54,6 @@ export type DateTruncGranularity = "hour" | "day" | "week" | "month" | "year";
 
 export interface SqlDialect {
   escapeStringLiteral: (s: string) => string;
-  // Builds a string-match condition (LIKE or a warehouse-native equivalent).
-  // Owns LIKE wildcard escaping and any ESCAPE clause. Build it with
-  // createLikeStringMatchFn from shared/sql, passing this dialect's own
-  // escapeStringLiteral — the two must always agree or patterns break.
   stringMatch: StringMatchFn;
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => string;
   evalBoolean: (col: string, value: boolean) => string;

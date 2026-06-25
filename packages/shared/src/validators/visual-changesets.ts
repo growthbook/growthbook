@@ -293,7 +293,10 @@ export const postVisualChangeValidator = {
 };
 
 export const putVisualChangeValidator = {
-  bodySchema: visualChangeBody.partial(),
+  // The body `id` field is intentionally omitted: the server strips it from
+  // the payload (a client can't rename a visual change via PUT), and keeping
+  // it would collide with the path `id` param in SDK code generation.
+  bodySchema: visualChangeBody.omit({ id: true }).partial(),
   querySchema: z.never(),
   paramsSchema: z
     .object({

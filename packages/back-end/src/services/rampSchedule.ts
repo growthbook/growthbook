@@ -406,6 +406,57 @@ export function getStartActionsFromRules({
   }));
 }
 
+// Resolves the rollback anchor (startActions) and an optional advisory for the
+// REST ramp-schedule create/update flow. Pure given the rule + input.
+//
+// - Explicit `startState`: merged onto the rule's current state and returned as
+//   startActions, so partial input like `{ coverage: 0 }` restores full
+//   targeting while anchoring rollback at 0%.
+// - Omitted on create: no startActions (the anchor is derived from the rule's
+//   current coverage at publish). Returns a warning if that coverage isn't 0%,
+//   since rollback would then return there rather than to 0%.
+// - Omitted on update: no-op (leave the existing anchor alone).
+export function resolveRampStartState({
+  rule,
+  ruleId,
+  startState,
+  isCreate,
+}: {
+  rule: FeatureRule;
+  ruleId: string;
+  startState?: Partial<Omit<FeatureRulePatch, "ruleId">>;
+  isCreate: boolean;
+}): { startActions?: RampStepAction[]; warning?: string } {
+  if (startState !== undefined) {
+    const patch = { ...getStartPatchForRule(rule), ...startState };
+    return {
+      startActions: [
+        // targetId is a placeholder — the deferred create re-injects the real
+        // target id (see normalizeAction in FeatureModel).
+        {
+          targetType: "feature-rule",
+          targetId: "",
+          patch: { ruleId, ...patch },
+        },
+      ],
+    };
+  }
+
+  if (isCreate) {
+    const coverage = (rule as { coverage?: number }).coverage;
+    if (typeof coverage === "number" && coverage !== 0) {
+      return {
+        warning:
+          `Ramp start state was inferred from rule "${ruleId}"'s current coverage ` +
+          `(${Math.round(coverage * 100)}%); a rollback will return the rule there, ` +
+          `not to 0%. Pass startState: { "coverage": 0 } to anchor rollbacks at 0%.`,
+      };
+    }
+  }
+
+  return {};
+}
+
 export const featureEntityHandler: EntityHandler = {
   async applyActions(ctx, entityId, actions, opts) {
     const { stepLabel, user, environment } = opts;

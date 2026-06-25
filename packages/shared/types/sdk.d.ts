@@ -19,7 +19,7 @@ export type FeatureDefinitionRule = FeatureRule & {
   isContextualBandit?: boolean;
   attributesRequired?: string[];
   contexts?: {
-    contextId: string;
+    leafId: number;
     condition: Record<string, unknown>;
     weights: number[];
   }[];

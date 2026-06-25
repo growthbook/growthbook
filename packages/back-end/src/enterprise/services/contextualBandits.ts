@@ -11,7 +11,7 @@ import {
   ContextualBanditSnapshotSettings,
   LeafWeight,
 } from "shared/validators";
-import { deriveContextId } from "shared/util";
+import { leafConditionFromContexts } from "shared/experiments";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
@@ -83,6 +83,7 @@ export async function getContextualBanditResultsForUi(
         responses: latestEvent.responses,
         leaf_map: latestEvent.leaf_map,
         leaf_stats: latestEvent.leaf_stats,
+        sse_trajectory: latestEvent.sse_trajectory,
       }
     : null;
 
@@ -100,7 +101,16 @@ export async function getContextualBanditResultsForUi(
 export async function runContextualBanditSnapshot(
   context: ApiReqContext,
   cb: ContextualBanditInterface,
-  opts: { triggeredBy: "manual" | "scheduled" },
+  opts: {
+    triggeredBy: "manual" | "scheduled";
+    /**
+     * When true, block until queries + analysis finish and return the resulting
+     * CBE id. Background jobs that own the run lifecycle set this (mirroring
+     * `updateExperimentResults`). Interactive/API callers leave it false so the
+     * request returns immediately with a "running" snapshot the caller can poll.
+     */
+    wait?: boolean;
+  },
 ): Promise<{ snapshotId: string; cbeId?: string }> {
   // Defense-in-depth: re-check licensing so background jobs / internal callers can't bypass.
   if (!context.hasPremiumFeature("contextual-bandits")) {
@@ -156,8 +166,14 @@ export async function runContextualBanditSnapshot(
     snapshotSettings,
     variationNames,
   });
-  // @teresayung I'm not sure we want to await the entire query and
-  // analysis to finish, for both inline and for job updates.
+
+  // Default path: queries are dispatched and the QueryRunner's own polling
+  // (onQueryFinish timers) drives the run to completion and writes results to the
+  // CBS in the background, so we return the "running" snapshot id without blocking.
+  if (!opts.wait) {
+    return { snapshotId: cbs.id };
+  }
+
   await runner.waitForResults();
 
   const finalCbs =
@@ -178,45 +194,83 @@ export async function runContextualBanditSnapshot(
   };
 }
 
-/** Derives stable leaf ids from per-leaf targeting conditions; seed must match the one used when reading `currentLeafWeights`. */
+/**
+ * Collapses a run's per-context responses into one `LeafWeight` per tree leaf:
+ * `{ leafId, condition, weights }`. `condition` is the targeting predicate that
+ * routes a context to the leaf (built from the leaf's member contexts), so the
+ * persisted weights are self-contained for the SDK payload without re-joining the
+ * event's `leaf_map`. Leaves whose responses carry no updated weights are skipped.
+ */
 export function leafWeightsFromContextualBanditResult(
-  seed: string,
   result: ContextualBanditResult,
   variations: { id: string }[],
 ): LeafWeight[] {
-  return result.responses
-    .filter((r) => r.updatedWeights != null && r.updatedWeights.length > 0)
-    .map((r) => ({
-      contextId: deriveContextId(seed, r.context),
-      weights: r.updatedWeights!.map((weight, i) => ({
+  const responses = result.responses ?? [];
+  const leafMap = result.leaf_map ?? [];
+  const attributeOrder = result.attributes ?? [];
+
+  // Group context indices by leaf id (mirrors buildContextualBanditResultsView).
+  const indicesByLeaf = new Map<number, number[]>();
+  const leafOrder: number[] = [];
+  responses.forEach((_, i) => {
+    const leafId = leafMap[i]?.leafId ?? 0;
+    const existing = indicesByLeaf.get(leafId);
+    if (existing) {
+      existing.push(i);
+    } else {
+      indicesByLeaf.set(leafId, [i]);
+      leafOrder.push(leafId);
+    }
+  });
+
+  const leafWeights: LeafWeight[] = [];
+  for (const leafId of [...leafOrder].sort((a, b) => a - b)) {
+    const indices = indicesByLeaf.get(leafId) ?? [];
+    // Weights are leaf-level, so any member context's response carries them.
+    const updatedWeights = responses[indices[0]]?.updatedWeights;
+    if (!updatedWeights || updatedWeights.length === 0) {
+      continue;
+    }
+    leafWeights.push({
+      leafId,
+      condition: leafConditionFromContexts(
+        indices.map((i) => leafMap[i]?.context ?? {}),
+        attributeOrder,
+      ),
+      weights: updatedWeights.map((weight, i) => ({
         variationId: variations[i]?.id ?? String(i),
         weight,
       })),
-    }));
+    });
+  }
+  return leafWeights;
 }
 
-/** True when any leaf's updated weights differ from the current leaf weights. */
+/** True when any leaf's updated weights differ from the current persisted leaf weights, keyed on the leaf's targeting condition. */
 export function contextualBanditWeightsWereUpdated(
   result: ContextualBanditResult,
-  seed: string,
   currentLeafWeights: LeafWeight[],
+  variations: { id: string }[],
 ): boolean {
-  const currentByContext = Object.fromEntries(
-    currentLeafWeights.map((lw) => [lw.contextId, lw.weights]),
+  const currentByCondition = new Map(
+    currentLeafWeights.map((lw) => [
+      JSON.stringify(lw.condition),
+      lw.weights.map((p) => p.weight),
+    ]),
   );
 
-  return result.responses.some((r) => {
-    if (r.error || !r.updatedWeights?.length) {
-      return false;
-    }
-    const contextId = deriveContextId(seed, r.context);
-    const current = currentByContext[contextId];
-    if (!current) {
-      return true;
-    }
-    const currentNumbers = current.map((p) => p.weight);
-    return JSON.stringify(currentNumbers) !== JSON.stringify(r.updatedWeights);
-  });
+  return leafWeightsFromContextualBanditResult(result, variations).some(
+    (lw) => {
+      const current = currentByCondition.get(JSON.stringify(lw.condition));
+      if (!current) {
+        return true;
+      }
+      return (
+        JSON.stringify(current) !==
+        JSON.stringify(lw.weights.map((p) => p.weight))
+      );
+    },
+  );
 }
 
 /** Persists one CB run's side effects: creates the CBE doc, patches parent CB leaf weights, refreshes SDK payload. */
@@ -240,10 +294,14 @@ export async function persistContextualBanditEvent(
   const inExploreStage = cb.contextualBanditStage === "explore";
   const weightsWereUpdated = inExploreStage
     ? false
-    : contextualBanditWeightsWereUpdated(result, cb.id, currentLeafWeights);
+    : contextualBanditWeightsWereUpdated(
+        result,
+        currentLeafWeights,
+        cb.variations,
+      );
   const leafWeights = inExploreStage
     ? []
-    : leafWeightsFromContextualBanditResult(cb.id, result, cb.variations);
+    : leafWeightsFromContextualBanditResult(result, cb.variations);
 
   const cbe = await context.models.contextualBanditEvents.create({
     contextualBandit: cb.id,
@@ -252,6 +310,7 @@ export async function persistContextualBanditEvent(
     responses: result.responses,
     leaf_map: result.leaf_map,
     leaf_stats: result.leaf_stats,
+    sse_trajectory: result.sse_trajectory,
     weightsWereUpdated,
     ...(result.srm ? { degreesOfFreedom: result.srm.degreesOfFreedom } : {}),
   });
@@ -280,23 +339,6 @@ export async function persistContextualBanditEvent(
   }
 
   return cbe;
-}
-
-/**
- * Converts an attribute map to a targeting condition.
- * Null/undefined values are stripped; an empty map produces `{}` (the "other" catch-all).
- */
-export function attributesToCondition(
-  attributes: Record<string, unknown>,
-): Record<string, unknown> {
-  if (!attributes || typeof attributes !== "object") return {};
-  const result: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(attributes)) {
-    if (v !== null && v !== undefined) {
-      result[k] = v;
-    }
-  }
-  return result;
 }
 
 /** Builds the frozen snapshot settings stored on CBS so the run is reproducible if the parent CB mutates. */

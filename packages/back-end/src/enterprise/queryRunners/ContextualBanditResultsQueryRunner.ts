@@ -5,19 +5,14 @@ import {
   ContextualBanditSnapshotInterface,
   ContextualBanditSnapshotSettings,
 } from "shared/validators";
-import { buildUnitsQuerySettingsFromCb, deriveContextId } from "shared/util";
-import {
-  attributeConditionFromMetricRow,
-  ExperimentMetricInterface,
-  isFactMetric,
-} from "shared/experiments";
+import { buildUnitsQuerySettingsFromCb } from "shared/util";
+import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
 import {
   ContextualBanditSrmQueryResponseRows,
   ExperimentMetricQueryResponseRows,
 } from "shared/types/integrations";
 import type { ExperimentSnapshotAnalysisSettings } from "shared/types/experiment-snapshot";
 import {
-  attributesToCondition,
   buildSnapshotSettingsForCb,
   getContextualBanditSettingsForStatsEngine,
   persistContextualBanditEvent,
@@ -211,18 +206,6 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
 
     const srm = this.extractSrmResult(queryMap);
 
-    const attributeColumns = this.snapshotSettings.contextualAttributes;
-
-    const tagged = rows.map((r) => ({
-      ...r,
-      contextId: deriveContextId(
-        this.snapshotSettings!.experimentId,
-        attributesToCondition(
-          attributeConditionFromMetricRow(r, attributeColumns),
-        ),
-      ),
-    }));
-
     const cb = await this.loadCbDoc();
 
     const statsSettings = getContextualBanditSettingsForStatsEngine(
@@ -264,7 +247,7 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
       1 / 24,
     );
 
-    const analysis = await runContextualStatsEngine(statsSettings, tagged, {
+    const analysis = await runContextualStatsEngine(statsSettings, rows, {
       snapshotId: this.model.id,
       decisionMetricId,
       snapshotSettings: expSnapshotSettings,
@@ -351,22 +334,19 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
             : "success",
     };
 
-    // @teresayung I'm concerned about this happening inside the `update` call.
-    // What if the update gets called multiple times with status succeeded and there
-    // is just some other change? Won't it re-write the results. In general, this calls
-    // for a separate way to handle a side-effect of writing the bandit event, IMO.
-
-    // Fan out side effects BEFORE the final CBS write so `contextualBanditEventId` is never published half-consistent.
     if (status === "succeeded" && result) {
-      const cbe = await persistContextualBanditEvent(
-        this.context,
-        this.model,
-        result,
-      );
-      updates.contextualBanditEventId = cbe.id;
-      updates.weightsWereUpdated = cbe.weightsWereUpdated;
-      if (result.srm) {
-        updates.srm = result.srm;
+      const latest = await this.getLatestModel();
+      if (!latest.contextualBanditEventId) {
+        const cbe = await persistContextualBanditEvent(
+          this.context,
+          this.model,
+          result,
+        );
+        updates.contextualBanditEventId = cbe.id;
+        updates.weightsWereUpdated = cbe.weightsWereUpdated;
+        if (result.srm) {
+          updates.srm = result.srm;
+        }
       }
     }
 

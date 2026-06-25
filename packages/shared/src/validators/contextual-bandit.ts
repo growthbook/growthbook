@@ -12,9 +12,8 @@ export const variationWeightPairValidator = z.object({
 export type VariationWeightPair = z.infer<typeof variationWeightPairValidator>;
 
 export const leafWeightValidator = z.object({
-  // @teresayung should this be named `leafId`? I'm not sure we ever
-  // have a contextId.
-  contextId: z.string(),
+  leafId: z.number().int(),
+  condition: z.record(z.string(), z.unknown()),
   weights: z.array(variationWeightPairValidator),
 });
 export type LeafWeight = z.infer<typeof leafWeightValidator>;
@@ -55,7 +54,7 @@ export const contextualBanditValidator = baseSchema
     seed: z.string().optional(),
     /** SDK fallback when no context match. */
     variationWeights: z.array(variationWeightPairValidator).optional(),
-    /** Per-context bandit weights. */
+    /** Per-leaf bandit weights (one entry per tree leaf), keyed by the leaf's routing condition. */
     currentLeafWeights: z.array(leafWeightValidator),
     /**
      * Number of successful snapshots applied to this bandit. Incremented once per
@@ -207,11 +206,9 @@ export const apiCreateContextualBanditBody = z.strictObject({
   datasource: z.string(),
   contextualBanditQueryId: z.string(),
 
-  // @lukesonnet can we remove the 3 below?
   skipPartialData: z.boolean().optional(),
   activationMetric: z.string().optional(),
   queryFilter: z.string().optional(),
-  // @lukesonnet are we doing cuped
   regressionAdjustmentEnabled: z.boolean().optional(),
 
   contextualAttributes: z.array(z.string()),
@@ -272,7 +269,6 @@ export type ApiUpdateContextualBanditBody = z.infer<
 
 /** Fields `ContextualBanditModel.processApiUpdateBody` keeps after filtering. */
 export const CONTEXTUAL_BANDIT_API_UPDATE_FIELDS = [
-  // @lukesonnet check if all these fields are allowed to be updated
   "name",
   "description",
   "project",
@@ -469,6 +465,9 @@ export const getContextualBanditResultsValidator = {
           responses: z.array(z.unknown()),
           leaf_map: z.array(z.unknown()).optional(),
           leaf_stats: z.array(z.unknown()).optional(),
+          // Total within-tree SSE at each stage of greedy tree growth (root,
+          // after the first split, after the second, ...): [{ numSplits, totalSse }].
+          sse_trajectory: z.array(z.unknown()).optional(),
         })
         .nullable(),
       overallWeights: z
@@ -486,6 +485,14 @@ export const getContextualBanditResultsValidator = {
       results: z
         .object({
           attributes: z.array(z.string()),
+          // Total within-tree SSE at each stage of greedy tree growth, ordered
+          // root-first (numSplits 0 = before the first split).
+          sseTrajectory: z.array(
+            z.object({
+              numSplits: z.number().int().nonnegative(),
+              totalSse: z.number(),
+            }),
+          ),
           overall: z.object({
             variations: z.array(
               z.object({

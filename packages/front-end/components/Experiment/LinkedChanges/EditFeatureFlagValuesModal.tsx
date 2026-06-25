@@ -20,6 +20,9 @@ import {
   getReviewSetting,
   generateVariationId,
   naiveFlattenV1Rules,
+  parsePlainJSONObject,
+  stripDefaultsForSparse,
+  expandSparseToFull,
 } from "shared/util";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";
@@ -52,6 +55,7 @@ import Link from "@/ui/Link";
 import { getDefaultVariationValue } from "@/services/features";
 import Button from "@/ui/Button";
 import track from "@/services/track";
+import SparsePatchToggle from "@/components/Features/SparsePatchToggle";
 
 export interface Props {
   feature: FeatureInterface;
@@ -268,6 +272,15 @@ export default function EditFeatureFlagValuesModal({
     setSelectedDraft(v);
   };
 
+  // Sparse patch mode for this feature's experiment-ref rule. Eligible only for
+  // JSON features whose default is a plain object. The toggle rewrites every
+  // variation value (strip keys equal to the default ⇄ expand onto the default)
+  // and the new flag is persisted alongside the values on save.
+  const sparseEligible =
+    feature.valueType === "json" &&
+    parsePlainJSONObject(feature.defaultValue ?? "") !== null;
+  const [sparse, setSparse] = useState(!!linkedFeatureInfo.sparse);
+
   const watchedVariations = form.watch("variations");
 
   const weights = (watchedVariations ?? []).map((v) => Number(v?.weight) || 0);
@@ -429,6 +442,7 @@ export default function EditFeatureFlagValuesModal({
               features: {
                 [feature.id]: {
                   variations: updatedRefVariations,
+                  ...(sparseEligible && { sparse }),
                   revisionOptions,
                 },
               },
@@ -463,6 +477,28 @@ export default function EditFeatureFlagValuesModal({
       ) : (
         <>
           <Flex direction="column" gap="3" pt="2">
+            {sparseEligible && (
+              <Flex>
+                <SparsePatchToggle
+                  checked={sparse}
+                  onChange={(checked) => {
+                    // Rewrite every variation value so the editor isn't left
+                    // with a default-laden patch (on) or a bare patch shown as
+                    // the full value (off).
+                    const def = feature.defaultValue ?? "";
+                    (form.getValues("variations") || []).forEach((v, i) => {
+                      form.setValue(
+                        `variations.${i}.value`,
+                        checked
+                          ? stripDefaultsForSparse(v.value ?? "", def)
+                          : expandSparseToFull(v.value ?? "", def),
+                      );
+                    });
+                    setSparse(checked);
+                  }}
+                />
+              </Flex>
+            )}
             {isEditingVariations && !isEqualWeights && (
               <Flex justify="end">
                 <Tooltip
@@ -532,6 +568,7 @@ export default function EditFeatureFlagValuesModal({
                             renderJSONInline={true}
                             useCodeInput={true}
                             showFullscreenButton={true}
+                            sparse={sparse}
                           />
                           {isNewVariation && numLinkedChanges > 1 && (
                             <Callout status="warning" mt="2">
@@ -659,6 +696,7 @@ export default function EditFeatureFlagValuesModal({
                     renderJSONInline={true}
                     useCodeInput={true}
                     showFullscreenButton={true}
+                    sparse={sparse}
                   />
                   {isNewVariation && numLinkedChanges > 1 && (
                     <Callout status="warning" mt="2">

@@ -163,6 +163,7 @@ export interface ModelConfig<
   auditLog?: AuditLogConfig<Entity>;
   globallyUniquePrimaryKeys?: boolean;
   skipDateUpdatedFields?: (keyof z.infer<T>)[];
+  skipAuditLogFields?: (keyof z.infer<T>)[];
   readonlyFields?: (keyof z.infer<T>)[];
   additionalIndexes?: {
     fields: Partial<Record<IndexableFieldPath<z.infer<T>>, 1 | -1>>;
@@ -1023,7 +1024,14 @@ export abstract class BaseModel<
       throw new CasConflictError();
     }
 
-    if (this._auditLogger) {
+    // Skip audit logging if only operational fields are being updated
+    const shouldSkipAuditLog =
+      this.config.skipAuditLogFields &&
+      updatedFields.every((field) =>
+        this.config.skipAuditLogFields?.includes(field),
+      );
+
+    if (this._auditLogger && !shouldSkipAuditLog) {
       await this._auditLogger.logUpdate(
         this.context,
         doc,

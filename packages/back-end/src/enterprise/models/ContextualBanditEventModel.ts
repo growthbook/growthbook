@@ -1,4 +1,3 @@
-import { deriveContextId } from "shared/util";
 import {
   ContextualBanditEventInterface,
   contextualBanditEventValidator,
@@ -62,19 +61,6 @@ export class ContextualBanditEventModel extends BaseClass {
     eventId: string,
   ): Promise<ContextualBanditEventInterface | null> {
     return this.getById(eventId);
-  }
-
-  public async getContextHistory(
-    contextualBandit: string,
-    contextId: string,
-  ): Promise<ContextualBanditEventInterface[]> {
-    const events = await this.listForContextualBandit(contextualBandit, 100);
-    return events.filter((e) =>
-      e.responses.some(
-        // Seed must match `persistContextualBanditEvent`'s write seed (the CB id).
-        (r) => deriveContextId(contextualBandit, r.context) === contextId,
-      ),
-    );
   }
 
   public async deleteForContextualBandit(

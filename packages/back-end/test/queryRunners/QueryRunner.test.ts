@@ -244,6 +244,48 @@ describe("QueryRunner", () => {
       clearTimeout(timerA);
     });
 
+    it("processes ready non-runAtEnd queries even when a runAtEnd query is iterated first", async () => {
+      const queryEnd = createMockQuery("qry_end", "queued", []);
+      queryEnd.runAtEnd = true;
+      const queryB = createMockQuery("qry_B", "queued", []);
+
+      const model: InterfaceWithQueries = {
+        id: "test-model",
+        organization: "test-org",
+        queries: [
+          { name: "end", query: "qry_end", status: "queued" },
+          { name: "B", query: "qry_B", status: "queued" },
+        ],
+        runStarted: new Date(),
+      };
+
+      const runner = new TestQueryRunner(mockContext, model, mockIntegration);
+
+      const cb = {
+        run: jest.fn().mockResolvedValue({ rows: [], statistics: {} }),
+        process: jest.fn((rows) => rows),
+        onFailure: jest.fn(),
+      };
+      runner.runCallbacks["qry_end"] = cb;
+      runner.runCallbacks["qry_B"] = cb;
+
+      const queryMap: QueryMap = new Map([
+        ["end", queryEnd],
+        ["B", queryB],
+      ]);
+
+      await runner.startReadyQueries(queryMap);
+
+      expect(runner.executeQuerySpy).not.toHaveBeenCalledWith(
+        expect.objectContaining({ id: "qry_end" }),
+        expect.anything(),
+      );
+      expect(runner.executeQuerySpy).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "qry_B" }),
+        expect.anything(),
+      );
+    });
+
     it("should not execute queries with pending dependencies", async () => {
       const depPending = createMockQuery("qry_dep_pending", "running", []);
       const queryA = createMockQuery("qry_A", "queued", ["qry_dep_pending"]);
@@ -495,13 +537,6 @@ describe("QueryRunner", () => {
       jest.clearAllMocks();
     });
 
-    // Simulates the Full Refresh race: a dependency-free query (e.g. a DROP
-    // TABLE) is executed fire-and-forget inside startQueries() and can finish
-    // — and fire its onQueryFinish follow-up timer — before startAnalysis()
-    // has persisted the full `queries` array to the model. The early timer
-    // reloads a model with no queued/running queries and gives up. Without a
-    // post-persist re-arm, nothing ever drives the rest of the DAG and every
-    // downstream query stays "queued" forever.
     class RaceTestQueryRunner extends QueryRunner<
       InterfaceWithQueries,
       { pointers: Queries },
@@ -547,7 +582,7 @@ describe("QueryRunner", () => {
       }
     }
 
-    it("re-arms the follow-up timer after persisting the query DAG", async () => {
+    it("gates onQueryFinish until the query DAG is persisted, then drives once", async () => {
       jest.useFakeTimers();
       try {
         const model: InterfaceWithQueries = {
@@ -562,6 +597,10 @@ describe("QueryRunner", () => {
           mockIntegration,
         );
 
+        await runner.onQueryFinish();
+        expect(jest.getTimerCount()).toBe(0);
+        expect(runner.onQueryFinishSpy).toHaveBeenLastCalledWith(0);
+
         const pointers: Queries = [
           { name: "drop_old", query: "qry_drop", status: "running" },
           { name: "create", query: "qry_create", status: "queued" },
@@ -569,15 +608,13 @@ describe("QueryRunner", () => {
 
         await runner.startAnalysis({ pointers });
 
-        // updateModel must have been called with the full DAG...
         expect(runner.updateModelSpy).toHaveBeenCalledWith(
           expect.objectContaining({ status: "running", queries: pointers }),
         );
-        // ...and onQueryFinish must have been called AFTER that persist, i.e.
-        // with the full DAG visible in the "database". This is what re-drives
-        // the DAG if a fast dependency-free query already finished and its
-        // follow-up timer already fired before the DAG was persisted.
-        expect(runner.onQueryFinishSpy).toHaveBeenCalledWith(pointers.length);
+        expect(runner.onQueryFinishSpy).toHaveBeenLastCalledWith(
+          pointers.length,
+        );
+        expect(jest.getTimerCount()).toBeGreaterThan(0);
       } finally {
         jest.clearAllTimers();
         jest.useRealTimers();

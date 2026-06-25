@@ -48,6 +48,7 @@ export default function ContextualBanditMetricsModal({
         }
         forceSingleGoalMetric
         goalMetricsDescription="The single decision metric the bandit optimizes toward."
+        experimentType={undefined} //@teresayung check this
       />
     </ModalStandard>
   );

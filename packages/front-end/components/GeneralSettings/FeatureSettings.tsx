@@ -180,6 +180,20 @@ export default function FeatureSettings() {
           </Box>
 
           <Box mb="6" width="100%">
+            <Checkbox
+              id="toggle-sparseJSONRulesByDefault"
+              label="Default JSON rules to sparse patch mode"
+              description="New rules on object-valued JSON flags open in sparse mode, where you edit only the keys that differ from the default."
+              value={!!form.watch("sparseJSONRulesByDefault")}
+              setValue={(value) =>
+                form.setValue("sparseJSONRulesByDefault", value, {
+                  shouldDirty: true,
+                })
+              }
+            />
+          </Box>
+
+          <Box mb="6" width="100%">
             {/* TODO(UI): move to a neutral org-level "Revisions" section once
                 saved groups & others enforce this cap (it's not feature-only). */}
             <Checkbox

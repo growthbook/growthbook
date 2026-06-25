@@ -91,14 +91,6 @@ describe("filterMetricQueryRowsForStatsEngine", () => {
 });
 
 describe("prepareRowsForContextualStats", () => {
-  it("strips the internal contextId field", () => {
-    const result = prepareRowsForContextualStats(
-      rows([{ variation: "0", users: 3, contextId: "ctx_1" }]),
-    );
-    expect(result[0]).not.toHaveProperty("contextId");
-    expect(result[0]).toEqual({ variation: "0", users: 3 });
-  });
-
   it("filters fact-metric rows (m0_id present) down to bare metric columns", () => {
     const result = prepareRowsForContextualStats(
       rows([
@@ -108,7 +100,6 @@ describe("prepareRowsForContextualStats", () => {
           m0_id: "met_1",
           m0_sum: 4,
           m1_sum: 8,
-          contextId: "ctx_1",
         },
       ]),
     );
@@ -121,9 +112,9 @@ describe("prepareRowsForContextualStats", () => {
     });
   });
 
-  it("passes non-fact rows through unchanged aside from contextId", () => {
+  it("passes non-fact rows through unchanged", () => {
     const result = prepareRowsForContextualStats(
-      rows([{ variation: "0", users: 10, main_sum: 2, contextId: "ctx_1" }]),
+      rows([{ variation: "0", users: 10, main_sum: 2 }]),
     );
     expect(result[0]).toEqual({ variation: "0", users: 10, main_sum: 2 });
   });

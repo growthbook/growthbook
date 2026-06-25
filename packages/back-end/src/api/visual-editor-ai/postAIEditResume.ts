@@ -32,6 +32,9 @@ const validation = {
   method: "post" as const,
   path: "/visual-editor/ai/edit/resume",
   operationId: "postVisualEditorAIEditResume",
+  // Internal Visual Editor extension endpoint — not part of the
+  // public OpenAPI spec.
+  excludeFromSpec: true,
 };
 
 export const postAIEditResume = createApiRequestHandler(validation)(async (

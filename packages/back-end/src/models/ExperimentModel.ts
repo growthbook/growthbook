@@ -30,6 +30,7 @@ import {
 } from "back-end/src/services/experiments";
 import { logger } from "back-end/src/util/logger";
 import { upgradeExperimentDoc } from "back-end/src/util/migrations";
+import { validateMetricOverrides } from "back-end/src/util/priors";
 import {
   queueSDKPayloadRefresh,
   URLRedirectExperiment,
@@ -53,6 +54,10 @@ import {
   generateEmbeddings,
   simpleCompletion,
 } from "back-end/src/enterprise/services/ai";
+import {
+  shouldNotifyLicenseServer,
+  notifyLicenseServerEvent,
+} from "back-end/src/enterprise/licenseUtil";
 import { getObjectDiff } from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
 import { IdeaDocument } from "./IdeasModel";
 import { addTags } from "./TagModel";
@@ -514,6 +519,82 @@ export async function getAllExperiments(
   return await findExperiments(context, query, limit, sortBy);
 }
 
+/**
+ * Lightweight sibling of {@link getAllExperiments} for the feature
+ * stale-detection and dependents graph. Projects only the fields that
+ * `buildExperimentDependencyIndex`, `getDependentExperiments`,
+ * `includeExperimentInPayload`, and the temp-rollout scan in
+ * `getFeatureExperimentStates` read, and skips `upgradeExperimentDoc`. Of
+ * the projected fields, only `releasedVariationId` is derived by that
+ * migration, so the same backfill is applied inline below. Same permission
+ * filter as `getAllExperiments`.
+ *
+ * NOTE: the return type is `ExperimentInterface[]` for drop-in use by
+ * `buildFeatureLookups`, but only the projected fields are populated at
+ * runtime. Reach for `getAllExperiments` if you need a complete experiment.
+ */
+export async function getAllExperimentsForStaleGraph(
+  context: ReqContext | ApiReqContext,
+  { includeArchived = false }: { includeArchived?: boolean } = {},
+): Promise<ExperimentInterface[]> {
+  const query: FilterQuery<ExperimentDocument> = {
+    organization: context.org.id,
+    type: { $ne: "holdout" },
+  };
+  if (!includeArchived) {
+    query.archived = { $ne: true };
+  }
+
+  const docs = await getCollection(COLLECTION)
+    .find(query, {
+      projection: {
+        _id: 0,
+        id: 1,
+        name: 1,
+        project: 1,
+        archived: 1,
+        status: 1,
+        type: 1,
+        hasVisualChangesets: 1,
+        hasURLRedirects: 1,
+        linkedFeatures: 1,
+        excludeFromPayload: 1,
+        releasedVariationId: 1,
+        results: 1,
+        winner: 1,
+        "variations.id": 1,
+        "phases.prerequisites": 1,
+      },
+    })
+    .toArray();
+
+  const experiments = docs as unknown as LegacyExperimentInterface[];
+  for (const exp of experiments) {
+    // Mirror upgradeExperimentDoc's releasedVariationId backfill — the only
+    // projected field that migration derives. Keep in sync if that changes.
+    if (!("releasedVariationId" in exp)) {
+      // upgradeExperimentDoc backfills missing variation ids to their index
+      // before deriving releasedVariationId, so do the same here — otherwise a
+      // legacy doc without stored variation ids yields "" and is wrongly
+      // dropped from the payload by includeExperimentInPayload.
+      exp.variations?.forEach((v, i) => {
+        if (!v.id) v.id = i + "";
+      });
+      if (exp.status === "stopped" && exp.results === "lost") {
+        exp.releasedVariationId = exp.variations?.[0]?.id || "";
+      } else if (exp.status === "stopped" && exp.results === "won") {
+        exp.releasedVariationId = exp.variations?.[exp.winner || 1]?.id || "";
+      } else {
+        exp.releasedVariationId = "";
+      }
+    }
+  }
+
+  return (experiments as unknown as ExperimentInterface[]).filter((exp) =>
+    context.permissions.canReadSingleProjectResource(exp.project),
+  );
+}
+
 export async function hasArchivedExperiments(
   context: ReqContext | ApiReqContext,
   project?: string,
@@ -603,6 +684,8 @@ export async function createExperiment({
     context.org.settings?.updateSchedule || null,
   );
 
+  validateMetricOverrides(data.metricOverrides);
+
   const exp = await ExperimentModel.create({
     id: uniqid("exp_"),
     uid: uuidv4().replace(/-/g, ""),
@@ -671,6 +754,8 @@ export async function updateExperiment({
   };
   if (allChanges.name === "")
     throw new Error("Cannot set empty name for experiment!");
+
+  validateMetricOverrides(allChanges.metricOverrides);
 
   await ExperimentModel.updateOne(
     {
@@ -2079,6 +2164,21 @@ const onExperimentUpdate = async ({
       experiment: newExperiment,
       organization: context.org,
     });
+
+  const licenseKey = context.org.licenseKey || process.env.LICENSE_KEY;
+
+  if (
+    oldExperiment.status !== "running" &&
+    newExperiment.status === "running" &&
+    shouldNotifyLicenseServer(licenseKey)
+  ) {
+    notifyLicenseServerEvent({
+      licenseKey,
+      eventName: "experiment_started",
+      uniqueId: newExperiment.id,
+      metadata: { experiment_id: newExperiment.id },
+    });
+  }
 };
 
 const onExperimentDelete = async (

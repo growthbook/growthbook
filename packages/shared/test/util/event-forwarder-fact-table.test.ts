@@ -157,9 +157,11 @@ WHERE ${EVENT_FORWARDER_AVRO_PARTITION_FIELD} BETWEEN '{{startDate}}' AND '{{end
     });
 
     expect(sql).toContain(
-      'TRY_TO_DOUBLE(ATTRIBUTES:"employee_id") AS employee_id',
+      'TRY_TO_DOUBLE(ATTRIBUTES:"employee_id"::STRING) AS employee_id',
     );
-    expect(sql).not.toContain('ATTRIBUTES:"employee_id"::STRING');
+    expect(sql).not.toContain(
+      'ATTRIBUTES:"employee_id"::STRING AS employee_id',
+    );
   });
 
   it("uses typed casts for userIdTypes backed by hash attributes", () => {
@@ -179,6 +181,25 @@ WHERE ${EVENT_FORWARDER_AVRO_PARTITION_FIELD} BETWEEN '{{startDate}}' AND '{{end
     );
     expect(sql).not.toContain(
       `CAST(JSON_VALUE(\`attributes\`, '$."employee_id"') AS STRING)`,
+    );
+  });
+
+  it("projects a prefixed managed identifier id, extracting its source attribute", () => {
+    const sql = buildEventForwarderEventsFactTableSql({
+      sinkType: "bigquery",
+      projectId: "my-project",
+      dataset: "analytics_123",
+      tablePrefix: "gb",
+      // Managed identifier id is prefixed; the column alias keeps the id while the
+      // value is read from the underlying "employee_id" attribute.
+      userIdTypes: ["ef_employee_id"],
+      attributeSchema: [
+        { property: "employee_id", datatype: "number", hashAttribute: true },
+      ],
+    });
+
+    expect(sql).toContain(
+      `SAFE_CAST(JSON_VALUE(\`attributes\`, '$."employee_id"') AS FLOAT64) AS ef_employee_id`,
     );
   });
 
@@ -276,13 +297,17 @@ FROM MY_DB.PUBLIC.GB_EVENTS`);
       ],
     });
 
-    expect(sql).toContain('TRY_TO_DOUBLE(ATTRIBUTES:"age") AS age');
+    expect(sql).toContain('TRY_TO_DOUBLE(ATTRIBUTES:"age"::STRING) AS age');
     expect(sql).toContain(
-      'TRY_TO_BOOLEAN(ATTRIBUTES:"is_active") AS is_active',
+      'TRY_TO_BOOLEAN(ATTRIBUTES:"is_active"::STRING) AS is_active',
     );
-    expect(sql).toContain('TRY_PARSE_JSON(ATTRIBUTES:"tags") AS tags');
-    expect(sql).toContain('TRY_PARSE_JSON(ATTRIBUTES:"scores") AS scores');
-    expect(sql).toContain('TRY_PARSE_JSON(ATTRIBUTES:"secrets") AS secrets');
+    expect(sql).toContain('TRY_PARSE_JSON(ATTRIBUTES:"tags"::STRING) AS tags');
+    expect(sql).toContain(
+      'TRY_PARSE_JSON(ATTRIBUTES:"scores"::STRING) AS scores',
+    );
+    expect(sql).toContain(
+      'TRY_PARSE_JSON(ATTRIBUTES:"secrets"::STRING) AS secrets',
+    );
   });
 });
 

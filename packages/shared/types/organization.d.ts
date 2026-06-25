@@ -293,6 +293,11 @@ export interface OrganizationSettings {
   codeRefsPlatformUrl?: string;
   featureKeyExample?: string; // Example Key of feature flag (e.g. "feature-20240201-name")
   featureRegexValidator?: string; // Regex to validate feature flag name (e.g. ^.+-\d{8}-.+$)
+  // When enabled, new JSON feature-flag rules start in "sparse patch" mode (the
+  // rule value is a partial object merged onto the feature's default value).
+  // The rule editor opens already in sparse mode with a clean-slate value.
+  // Only affects new rules on eligible JSON features; off by default.
+  sparseJSONRulesByDefault?: boolean;
   requireProjectForFeatures?: boolean;
   requireProjectForSdkConnections?: boolean;
   // When true, saving a feature rule or experiment rejects hashAttribute,

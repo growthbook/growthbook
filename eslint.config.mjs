@@ -12,6 +12,7 @@ import * as tsParser from "@typescript-eslint/parser";
 import js from "@eslint/js";
 import { FlatCompat } from "@eslint/eslintrc";
 import noAlertClassname from "./eslint-rules/no-alert-classname.mjs";
+import restrictedQueryTypes from "./eslint-rules/restricted-query-types.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -366,6 +367,18 @@ export default defineConfig([
           ],
         },
       ],
+    },
+  },
+  {
+    files: ["./packages/back-end/**/*.ts"],
+    ignores: ["./packages/back-end/**/*.test.{ts,tsx,js,jsx}"],
+    plugins: {
+      localBackend: {
+        rules: { "restricted-query-types": restrictedQueryTypes },
+      },
+    },
+    rules: {
+      "localBackend/restricted-query-types": "error",
     },
   },
   {

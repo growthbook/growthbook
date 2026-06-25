@@ -1,4 +1,5 @@
 import path from "path";
+import crypto from "crypto";
 import { existsSync, readFileSync } from "fs";
 import bodyParser from "body-parser";
 import cookieParser from "cookie-parser";
@@ -104,7 +105,12 @@ import { isEmailEnabled } from "./services/email";
 import { init } from "./init";
 import { aiRouter } from "./routers/ai/ai.router";
 import { getCustomLogProps, httpLogger, logger } from "./util/logger";
-import { ApiError, shouldSkipErrorLog, SoftWarningError } from "./util/errors";
+import {
+  ApiError,
+  ExperimentIncrementalPipelineRequiresFullRefreshError,
+  shouldSkipErrorLog,
+  SoftWarningError,
+} from "./util/errors";
 import { usersRouter } from "./routers/users/users.router";
 import { organizationsRouter } from "./routers/organizations/organizations.router";
 import { uploadRouter } from "./routers/upload/upload.router";
@@ -180,6 +186,23 @@ if (stringToBoolean(process.env.PYTHON_SERVER_MODE)) {
   app.use(httpLogger);
   app.post(
     "/stats",
+    // When a shared secret is configured, require it before parsing the (large) body
+    (req, res, next) => {
+      const expected = process.env.PYTHON_SERVER_AUTH_TOKEN;
+      if (expected) {
+        const provided = (req.get("authorization") || "").replace(
+          /^Bearer\s+/i,
+          "",
+        );
+        // Hash both to fixed-length digests so the compare leaks no length info
+        const hash = (s: string) =>
+          crypto.createHash("sha256").update(s).digest();
+        if (!crypto.timingSafeEqual(hash(provided), hash(expected))) {
+          return res.status(401).json({ error: "Unauthorized" });
+        }
+      }
+      next();
+    },
     // increase max payload json size to 50mb as a single query can return up to 3000 rows
     // and we pass the results of all queries at once into python
     bodyParser.json({
@@ -279,7 +302,15 @@ app.use((req, res, next) => {
     );
   const isVisualEditorImageGen =
     req.method === "POST" && req.path === "/api/v1/visual-editor/ai/image-gen";
-  const needsLargeBody = isScreenshotUpload || isVisualEditorImageGen;
+  // Figma → Variant's mockup-image path carries a base64-encoded design
+  // image (the Figma-link path fetches server-side, so it's small).
+  const isVisualEditorFigmaToVariant =
+    req.method === "POST" &&
+    req.path === "/api/v1/visual-editor/ai/figma-to-variant";
+  const needsLargeBody =
+    isScreenshotUpload ||
+    isVisualEditorImageGen ||
+    isVisualEditorFigmaToVariant;
   bodyParser.json({ limit: needsLargeBody ? "10mb" : "2mb" })(req, res, next);
 });
 
@@ -888,6 +919,10 @@ app.post(
   featuresController.postFeatureToggleAutoPublish,
 );
 app.post(
+  "/feature/:id/:version/schedule-publish",
+  featuresController.postFeatureScheduledPublish,
+);
+app.post(
   "/feature/:id/:version/recall-review",
   featuresController.postFeatureRecallReview,
 );
@@ -1255,9 +1290,12 @@ const errorHandler: ErrorRequestHandler = (
   if (err instanceof SoftWarningError) {
     body.warnings = err.warnings;
   }
-  // Structured errors carry a machine-readable code + details (same contract
-  // the REST API exposes) so the front-end can render richer error states.
-  if (err instanceof ApiError) {
+  // Structured errors carry a machine-readable code + details so the front-end
+  // can render richer error states.
+  if (
+    err instanceof ApiError ||
+    err instanceof ExperimentIncrementalPipelineRequiresFullRefreshError
+  ) {
     body.code = err.code;
     body.details = err.details;
   }

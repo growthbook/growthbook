@@ -11,7 +11,6 @@ import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
 import { EventForwarderConfigInterface } from "shared/validators";
 import {
   getDataSourceById,
-  getRawDataSourceById,
   updateDataSource,
 } from "back-end/src/models/DataSourceModel";
 import { buildExposureQueryParams } from "back-end/src/services/eventForwarder/sinkParams";
@@ -70,31 +69,26 @@ export async function initializeDatasourceUserIdTypesFromOrgAttributeSchema(
     return;
   }
 
-  const raw = await getRawDataSourceById(context, datasourceId);
-  if (!raw) {
+  const datasource = await getDataSourceById(context, datasourceId);
+  if (!datasource) {
     return;
   }
 
   const built = buildUserIdTypesFromAttributeSchema(
     context.org.settings?.attributeSchema ?? [],
-    raw.projects,
+    datasource.projects,
   );
 
-  const existing = raw.settings?.userIdTypes ?? [];
+  const existing = datasource.settings?.userIdTypes ?? [];
   const merged = mergeUserIdTypes(existing, built);
 
   if (merged.length === existing.length) {
     return;
   }
 
-  const datasource = await getDataSourceById(context, datasourceId);
-  if (!datasource) {
-    return;
-  }
-
   await updateDataSource(context, datasource, {
     settings: {
-      ...raw.settings,
+      ...datasource.settings,
       userIdTypes: merged,
     },
   });
@@ -105,11 +99,6 @@ export async function reconcileEventForwarderDatasourceUserIdTypesAndExposureQue
   config: EventForwarderConfigInterface,
   attributeSchema: SDKAttributeSchema,
 ): Promise<void> {
-  const raw = await getRawDataSourceById(context, config.datasourceId);
-  if (!raw) {
-    return;
-  }
-
   const datasource = await getDataSourceById(context, config.datasourceId);
   if (!datasource) {
     logger.warn(
@@ -124,13 +113,13 @@ export async function reconcileEventForwarderDatasourceUserIdTypesAndExposureQue
 
   const desiredUserIdTypes = buildUserIdTypesFromAttributeSchema(
     attributeSchema,
-    raw.projects,
+    datasource.projects,
   );
   const desiredUserIdTypeIds = desiredUserIdTypes.map(
     (userIdType) => userIdType.userIdType,
   );
-  const existingUserIdTypes = raw.settings?.userIdTypes ?? [];
-  const existingExposure = raw.settings?.queries?.exposure ?? [];
+  const existingUserIdTypes = datasource.settings?.userIdTypes ?? [];
+  const existingExposure = datasource.settings?.queries?.exposure ?? [];
   const managedExposure = getManagedExposureOwnership(existingExposure);
   const ownedUserIdTypes = [
     ...desiredUserIdTypeIds,
@@ -174,10 +163,10 @@ export async function reconcileEventForwarderDatasourceUserIdTypesAndExposureQue
       datasource,
       {
         settings: {
-          ...raw.settings,
+          ...datasource.settings,
           userIdTypes: updatedUserIdTypes,
           queries: {
-            ...raw.settings?.queries,
+            ...datasource.settings?.queries,
             exposure: updatedExposure,
           },
         },

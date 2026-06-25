@@ -122,16 +122,6 @@ function buildContextualBanditWeightsInput(
   };
 }
 
-function stripInternalRowFields(
-  rows: ExperimentMetricQueryResponseRows,
-): ExperimentMetricQueryResponseRows {
-  return rows.map((row) => {
-    const { contextId, ...rest } = row as typeof row & { contextId?: string };
-    void contextId;
-    return rest;
-  });
-}
-
 /** Mirrors gbstats `filter_query_rows` — strips `m0_*` fact-metric columns to `main_sum`, etc. */
 export function filterMetricQueryRowsForStatsEngine(
   rows: ExperimentMetricQueryResponseRows,
@@ -156,7 +146,7 @@ export function prepareRowsForContextualStats(
   rows: ExperimentMetricQueryResponseRows,
 ): ExperimentMetricQueryResponseRows {
   // CB decision metrics are always fact metrics (m0_* prefixed columns).
-  return filterMetricQueryRowsForStatsEngine(stripInternalRowFields(rows), 0);
+  return filterMetricQueryRowsForStatsEngine(rows, 0);
 }
 
 function variationIndexFromRow(

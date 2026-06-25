@@ -52,7 +52,7 @@ export type FeatureRule<T = any> = {
   isContextualBandit?: boolean;
   attributesRequired?: string[];
   contexts?: {
-    contextId: string;
+    leafId: number;
     condition: Record<string, unknown>;
     weights: number[];
   }[];

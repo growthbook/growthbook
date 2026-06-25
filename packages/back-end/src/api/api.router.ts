@@ -48,6 +48,7 @@ import { visualEditorAiRoutes } from "./visual-editor-ai/visualEditorAi.router";
 import { archetypesRoutes } from "./archetypes/archetypes.router";
 import { queriesRoutes } from "./queries/queries.router";
 import { settingsRoutes } from "./settings/settings.router";
+import { metaRoutes } from "./meta/meta.router";
 import { informationSchemaTablesRoutes } from "./information-schema-tables/information-schema-tables.router";
 import { rampSchedulesRoutes } from "./ramp-schedules/ramp-schedules.router";
 import { reportRoutes } from "./reports/reports.router";
@@ -176,6 +177,7 @@ export const allRoutes = [
   ...membersRoutes,
   ...queriesRoutes,
   ...settingsRoutes,
+  ...metaRoutes,
   ...informationSchemaTablesRoutes,
   ...rampSchedulesRoutes,
   ...reportRoutes,

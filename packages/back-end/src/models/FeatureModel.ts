@@ -114,10 +114,12 @@ import {
   updateExperiment,
 } from "./ExperimentModel";
 import {
+  cancelScheduledPublishesForFeature,
   createInitialRevision,
   createRevisionFromLegacyDraft,
   deleteAllRevisionsForFeature,
   getRevision,
+  hasPublishLockingScheduledSibling,
   markRevisionAsPublished,
   computeRevisionPublishChanges,
   updateRevision,
@@ -470,6 +472,43 @@ export async function getAllFeatures(
 
   const features = (await FeatureModel.find(q)).map((m) =>
     toInterface(m, context),
+  );
+
+  return features.filter((feature) =>
+    context.permissions.canReadSingleProjectResource(feature.project),
+  );
+}
+
+/**
+ * Lightweight sibling of {@link getAllFeatures} for the stale-detection and
+ * dependents graph. Skips Mongoose hydration via `.lean()` and projects out
+ * heavy fields the graph does not read. Same migration + permission filter as
+ * `getAllFeatures`, so results are interchangeable for any caller that only
+ * needs the dependency graph.
+ *
+ * NOTE: the return type is `FeatureInterface[]`, but the projected-out fields
+ * (`description` / `jsonSchema` / `customFields` / legacy `draft`) will be
+ * absent at runtime. Only use this for graph/stale callers that don't read
+ * those fields — reach for `getAllFeatures` if you need a complete feature.
+ */
+export async function getAllFeaturesForStaleGraph(
+  context: ReqContext | ApiReqContext,
+  { includeArchived = false }: { includeArchived?: boolean } = {},
+): Promise<FeatureInterface[]> {
+  const q = featureListQuery(context.org.id, { includeArchived });
+
+  const docs = await FeatureModel.find(q, {
+    description: 0,
+    jsonSchema: 0,
+    customFields: 0,
+    draft: 0,
+  }).lean<LegacyFeatureInterface[]>();
+
+  const features = docs.map((raw) =>
+    migrateRawFeatureToV2(
+      omit(raw, ["__v", "_id"]) as LegacyFeatureInterface,
+      context,
+    ),
   );
 
   return features.filter((feature) =>
@@ -1144,7 +1183,18 @@ export async function archiveFeature(
   feature: FeatureInterface,
   isArchived: boolean,
 ) {
-  return await updateFeature(context, feature, { archived: isArchived });
+  const updated = await updateFeature(context, feature, {
+    archived: isArchived,
+  });
+  // Cancel pending schedules so an archived feature can't auto-publish a draft.
+  if (isArchived) {
+    await cancelScheduledPublishesForFeature(
+      context,
+      context.org.id,
+      feature.id,
+    );
+  }
+  return updated;
 }
 
 function setEnvironmentSettings(
@@ -2292,6 +2342,20 @@ export async function publishRevision({
 
   if (!bypassLockdown) {
     await assertFeatureNotLockedByRamp(context, feature.id);
+
+    // A sibling draft's "lock other drafts" schedule freezes other publishes.
+    if (
+      revision.version !== undefined &&
+      (await hasPublishLockingScheduledSibling(
+        context.org.id,
+        feature.id,
+        revision.version,
+      ))
+    ) {
+      throw new Error(
+        "Another draft of this feature is scheduled to publish and has locked publishing of other drafts. Cancel that schedule to publish this revision.",
+      );
+    }
   }
 
   // Run custom hooks before the side-effect writes below so a rejection doesn't orphan them

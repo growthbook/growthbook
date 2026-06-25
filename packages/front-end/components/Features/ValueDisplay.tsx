@@ -3,10 +3,17 @@ import {
   FeatureTestResult,
   FeatureValueType,
 } from "shared/types/feature";
-import React, { CSSProperties, useMemo, useState } from "react";
+import React, {
+  CSSProperties,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import stringify from "json-stringify-pretty-compact";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { PiCheck, PiCornersOut, PiCopy } from "react-icons/pi";
+import { parsePlainJSONObject } from "shared/util";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import styles from "@/components/Archetype/ArchetypeResults.module.scss";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -14,6 +21,45 @@ import { parseFeatureResult } from "@/hooks/useArchetype";
 import Modal from "@/components/Modal";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import Button from "@/ui/Button";
+
+// For sparse JSON rules, the stored `value` is only the patch. We display the
+// fully expanded value (default merged with the patch) and bold the keys that
+// the rule actually overrides. Returns null when the value isn't a plain object
+// (sparse is then a no-op and the value renders normally).
+function getSparseMerge(
+  value: string,
+  defaultValue: string | undefined,
+): { merged: Record<string, unknown>; patchKeys: Set<string> } | null {
+  const patch = parsePlainJSONObject(value);
+  if (!patch) return null;
+  const defaultObj = parsePlainJSONObject(defaultValue ?? "") ?? {};
+  return {
+    merged: { ...defaultObj, ...patch },
+    patchKeys: new Set(Object.keys(patch)),
+  };
+}
+
+// Given fully-expanded (one-key-per-line) JSON and the set of patched keys,
+// returns the 1-based line numbers that make up those keys' entries — including
+// the continuation lines of multi-line (nested) values. Top-level keys sit at a
+// 2-space indent; a line at column 0 (the closing brace) ends the object.
+function getBoldLineNumbers(
+  formatted: string,
+  patchKeys: Set<string>,
+): number[] {
+  const bold: number[] = [];
+  let inPatchedEntry = false;
+  formatted.split("\n").forEach((line, i) => {
+    const topLevelKey = line.match(/^ {2}"([^"]+)":/);
+    if (topLevelKey) {
+      inPatchedEntry = patchKeys.has(topLevelKey[1]);
+    } else if (/^[}\]]/.test(line)) {
+      inPatchedEntry = false;
+    }
+    if (inPatchedEntry) bold.push(i + 1);
+  });
+  return bold;
+}
 
 export default function ValueDisplay({
   value,
@@ -25,6 +71,8 @@ export default function ValueDisplay({
   showFullscreenButton: _showFullscreenButton = false,
   showCopyButton = true,
   isFullscreen = false,
+  sparse = false,
+  defaultValue,
 }: {
   value: string;
   type: FeatureValueType;
@@ -35,21 +83,69 @@ export default function ValueDisplay({
   showFullscreenButton?: boolean;
   showCopyButton?: boolean;
   isFullscreen?: boolean;
+  // When true (JSON rules flagged sparse), `value` is a partial patch. We show
+  // the expanded value (default + patch) with the patched keys in bold.
+  sparse?: boolean;
+  // The feature's default value, used to expand a sparse patch.
+  defaultValue?: string;
 }) {
   const [modalOpen, setModalOpen] = useState(false);
   const { performCopy, copySuccess } = useCopyToClipboard({
     timeout: 800,
   });
+  const sparseMerge = useMemo(
+    () =>
+      sparse && type === "json" ? getSparseMerge(value, defaultValue) : null,
+    [sparse, type, value, defaultValue],
+  );
   const formatted = useMemo(() => {
     if (type === "boolean") return value;
     if (type === "number") return value || "null";
     if (type === "string") return '"' + value + '"';
     try {
+      // Sparse rules display the expanded (merged) value, not the raw patch.
+      // Force one-key-per-line (maxLength: 0) so the overridden keys map to
+      // stable line numbers we can bold.
+      if (sparseMerge) return stringify(sparseMerge.merged, { maxLength: 0 });
       return stringify(JSON.parse(value));
     } catch (e) {
       return value;
     }
-  }, [value, type]);
+  }, [value, type, sparseMerge]);
+
+  // 1-based line numbers of the overridden keys, bolded in the expanded value.
+  const boldLines = useMemo(
+    () =>
+      sparseMerge ? getBoldLineNumbers(formatted, sparseMerge.patchKeys) : [],
+    [sparseMerge, formatted],
+  );
+
+  // For sparse values the override can sit far down a tall object that's
+  // clipped by the fixed-height scroll box. Scroll it so the first highlighted
+  // line is near the top (with a line of padding above). The content is a
+  // lazily-loaded syntax highlighter, so poll on animation frames until it has
+  // rendered enough to be scrollable, scroll once, then stop (bounded so a
+  // short, non-scrollable value doesn't poll forever).
+  const scrollBoxRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!boldLines.length) return;
+    const el = scrollBoxRef.current;
+    if (!el) return;
+    const firstBold = Math.min(...boldLines);
+    const totalLines = formatted.split("\n").length;
+    let raf = 0;
+    let attempts = 0;
+    const tryScroll = () => {
+      if (el.scrollHeight > el.clientHeight + 1) {
+        const targetLine = Math.max(0, firstBold - 2); // 0-based, minus a line of padding
+        el.scrollTop = (targetLine / totalLines) * el.scrollHeight;
+        return;
+      }
+      if (++attempts < 90) raf = requestAnimationFrame(tryScroll);
+    };
+    raf = requestAnimationFrame(tryScroll);
+    return () => cancelAnimationFrame(raf);
+  }, [boldLines, formatted]);
 
   const showFullscreenButton = _showFullscreenButton && type === "json";
 
@@ -92,8 +188,12 @@ export default function ValueDisplay({
   return (
     <>
       <Box position="relative">
-        <Box style={fullStyle} className={fullClassName}>
-          <InlineCode language="json" code={formatted} />
+        <Box ref={scrollBoxRef} style={fullStyle} className={fullClassName}>
+          <InlineCode
+            language="json"
+            code={formatted}
+            boldLines={sparseMerge ? boldLines : undefined}
+          />
         </Box>
         {!isFullscreen && (
           <Flex
@@ -117,7 +217,9 @@ export default function ValueDisplay({
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    if (!copySuccess) performCopy(value);
+                    if (!copySuccess) {
+                      performCopy(sparseMerge ? formatted : value);
+                    }
                   }}
                 >
                   {copySuccess ? <PiCheck size={12} /> : <PiCopy size={12} />}
@@ -161,7 +263,8 @@ export default function ValueDisplay({
                 style={{ width: 100 }}
                 icon={<PiCopy />}
                 onClick={() => {
-                  if (!copySuccess) performCopy(value);
+                  if (!copySuccess)
+                    performCopy(sparseMerge ? formatted : value);
                 }}
               >
                 Copy
@@ -177,6 +280,8 @@ export default function ValueDisplay({
             full={true}
             fullStyle={{ minHeight: 400, maxWidth: "100%" }}
             isFullscreen={true}
+            sparse={sparse}
+            defaultValue={defaultValue}
           />
         </Modal>
       )}

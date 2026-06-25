@@ -28,9 +28,9 @@ import { buildUnitsQuerySettingsFromSnapshot } from "shared/util";
 import {
   ExperimentQueryMetadata,
   Queries,
-  QueryMetadata,
   QueryPointer,
   QueryStatus,
+  RunQueryMetadata,
 } from "shared/types/query";
 import { FactMetricInterface } from "shared/types/fact-table";
 import { ApiReqContext } from "back-end/types/api";
@@ -305,13 +305,13 @@ const startExperimentIncrementalRefreshQueries = async (
       run: (
         query: string,
         setExternalId: ExternalIdCallback,
-        queryMetadata?: QueryMetadata,
+        queryMetadata: RunQueryMetadata,
       ) => Promise<R>,
     ) =>
     async (
       query: string,
       setExternalId: ExternalIdCallback,
-      queryMetadata?: QueryMetadata,
+      queryMetadata: RunQueryMetadata,
     ): Promise<R> => {
       const current =
         await context.models.incrementalRefresh.getCurrentExecutionSnapshotId(
@@ -805,7 +805,7 @@ const startExperimentIncrementalRefreshQueries = async (
         run: (
           query: string,
           setExternalId: ExternalIdCallback,
-          queryMetadata?: QueryMetadata,
+          queryMetadata: RunQueryMetadata,
         ) =>
           integration.runIncrementalWithNoOutputQuery(
             query,
@@ -1392,6 +1392,21 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
     // Release the incremental refresh lock on any terminal status
     // TODO: Properly handle partially-succeeded status that also becomes terminal??
     if (snapshotStatus !== "running") {
+      if (snapshotStatus === "success") {
+        await this.context.models.incrementalRefresh
+          .updateByExperimentIdIfCurrentExecution(
+            this.model.experiment,
+            this.model.id,
+            { materializedBySnapshotId: this.model.id },
+          )
+          .catch((e) =>
+            this.context.logger.warn(
+              e,
+              "Failed to record pipeline tables snapshot id on success",
+            ),
+          );
+      }
+
       await this.context.models.incrementalRefresh
         .releaseLock(this.model.experiment, this.model.id)
         .catch((e) =>
