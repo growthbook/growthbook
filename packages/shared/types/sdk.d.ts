@@ -23,6 +23,7 @@ export type FeatureDefinitionRule = FeatureRule & {
     condition: Record<string, unknown>;
     weights: number[];
   }[];
+  banditVersion?: number;
 };
 
 export type AutoExperimentWithMetadata = AutoExperiment & {

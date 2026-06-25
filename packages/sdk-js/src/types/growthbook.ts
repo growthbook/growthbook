@@ -48,7 +48,6 @@ export type FeatureRule<T = any> = {
     experiment: Experiment<T>;
     result: Result<T>;
   }>;
-  // Contextual-bandit payload extensions (additive, backwards-compatible).
   isContextualBandit?: boolean;
   attributesRequired?: string[];
   contexts?: {
@@ -56,6 +55,8 @@ export type FeatureRule<T = any> = {
     condition: Record<string, unknown>;
     weights: number[];
   }[];
+  // Training period (snapshot epoch) the current leaf weights came from.
+  banditVersion?: number;
 };
 
 export interface FeatureDefinition<T = any> {
@@ -160,11 +161,24 @@ export interface Result<T> {
   hashValue: string;
   featureId: string | null;
   stickyBucketUsed?: boolean;
-  // Set only for contextual-bandit exposures: the id of the leaf (context) the
-  // user was routed into. Used as the warehouse join key so the analysis can
-  // attribute outcomes back to the context whose weights produced them.
+  // The following are set only for contextual-bandit exposures, so the tracking
+  // callback can write them to the events table:
+  // - leafId: the leaf (context) the user was routed into; the warehouse join key.
+  // - variationWeights: the positional weight vector used to bucket this user
+  //   (the matched leaf's weights) — i.e. the assignment propensities.
+  // - banditVersion: the training period (snapshot epoch) those weights came from.
   leafId?: number;
+  variationWeights?: number[];
+  banditVersion?: number;
 }
+
+// Internal: contextual-bandit fields threaded onto an exposure result so they
+// are present before the tracking callbacks fire.
+export type ContextualBanditInfo = {
+  leafId: number;
+  variationWeights: number[];
+  banditVersion?: number;
+};
 
 export type Attributes = Record<string, any>;
 
@@ -190,10 +204,6 @@ export type TrackingCallbackWithUser = (
   user: UserContext,
 ) => Promise<void> | void;
 
-// Opt-in callback that fires only for contextual-bandit exposures. It receives
-// the resolved attributes alongside the experiment/result so the warehouse can
-// record which context (leaf) the user matched. The standard tracking callbacks
-// still fire for these exposures; this is additive.
 export type TrackingCallbackWithAttribute = (
   experiment: Experiment<any>,
   result: Result<any>,

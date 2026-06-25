@@ -1,5 +1,6 @@
 import {
   EvalContext,
+  ContextualBanditInfo,
   FeatureDefinition,
   FeatureRule,
   FeatureResult,
@@ -103,9 +104,6 @@ function onExperimentViewed(
     const cb = ctx.user.trackingCallback;
     calls.push(safeCall(() => cb(experiment, result)));
   }
-  // Contextual-bandit exposures additionally fire the attribute-aware callback
-  // (if registered) so the warehouse can join the exposure to its leaf via the
-  // user's attributes. `result.leafId` is set only for CB exposures.
   if (result.leafId !== undefined && ctx.global.trackingCallbackWithAttribute) {
     const cb = ctx.global.trackingCallbackWithAttribute;
     const attributes = {
@@ -362,12 +360,7 @@ export function evalFeature<V = unknown>(
       if (rule.filters) exp.filters = rule.filters;
       if (rule.condition) exp.condition = rule.condition;
 
-      // Contextual bandit: route the user into a leaf and use that leaf's
-      // weights instead of the marginal `weights`. A missing required attribute
-      // or no matching leaf fails closed (skip the rule, fire no exposure). An
-      // empty `contexts[]` is treated as a normal experiment on the marginal
-      // weights (this is also what non-CB-capable SDKs see after scrubbing).
-      let leafId: number | undefined;
+      let cbInfo: ContextualBanditInfo | undefined;
       if (rule.isContextualBandit && rule.contexts && rule.contexts.length) {
         const leaf = getContextualBanditLeaf(rule, ctx);
         if (!leaf) {
@@ -379,11 +372,17 @@ export function evalFeature<V = unknown>(
           continue;
         }
         exp.weights = leaf.weights;
-        leafId = leaf.leafId;
+        // Carry the leaf, the exact weights used (assignment propensities), and
+        // the training period through onto the exposure result.
+        cbInfo = {
+          leafId: leaf.leafId,
+          variationWeights: leaf.weights,
+          banditVersion: rule.banditVersion,
+        };
       }
 
       // Only return a value if the user is part of the experiment
-      const { result } = runExperiment(exp, id, ctx, leafId);
+      const { result } = runExperiment(exp, id, ctx, cbInfo);
       ctx.global.onExperimentEval && ctx.global.onExperimentEval(exp, result);
       if (result.inExperiment && !result.passthrough) {
         return getFeatureResult(
@@ -418,10 +417,9 @@ export function runExperiment<T>(
   experiment: Experiment<T>,
   featureId: string | null,
   ctx: EvalContext,
-  // Contextual-bandit leaf the user was routed into (already used to pick the
-  // experiment's weights). Threaded onto the result so it's present when the
-  // tracking callbacks fire.
-  leafId?: number,
+  // Contextual-bandit fields (leaf, weights used, training period) to thread
+  // onto the result so they are present when the tracking callbacks fire.
+  cbInfo?: ContextualBanditInfo,
 ): {
   result: Result<T>;
   trackingCall?: Promise<void>;
@@ -758,7 +756,7 @@ export function runExperiment<T>(
     featureId,
     n,
     foundStickyBucket,
-    leafId,
+    cbInfo,
   );
 
   // 13.5. Persist sticky bucket
@@ -855,22 +853,10 @@ function getAttributes(ctx: EvalContext) {
   };
 }
 
-// Contextual bandit leaf selection. The back-end ships a `contexts[]` array
-// (each entry is a leaf with its routing condition and positional weights). The
-// SDK stays intentionally dumb: it just picks the first matching leaf and uses
-// its weights for bucketing — it doesn't know it's a bandit.
-//
-// Returns the matched leaf, or `null` to signal a fail-closed skip (a required
-// attribute is missing, or no leaf matched). Callers should only invoke this
-// for rules that actually carry contexts; an empty `contexts[]` means the SDK
-// falls back to the marginal `weights` (multi-armed-bandit behavior).
 function getContextualBanditLeaf(
   rule: FeatureRule,
   ctx: EvalContext,
 ): { leafId: number; weights: number[] } | null {
-  // Fail closed if any required attribute is missing — no assignment, no
-  // exposure. This keeps users out of contexts we can't correctly route them
-  // into rather than silently dumping them in the catch-all.
   if (rule.attributesRequired && rule.attributesRequired.length) {
     const attributes = getAttributes(ctx);
     for (const attr of rule.attributesRequired) {
@@ -880,16 +866,12 @@ function getContextualBanditLeaf(
     }
   }
 
-  // First-match-wins over the leaves (most specific first, catch-all last). The
-  // catch-all leaf has an empty condition, which matches every eligible user.
   for (const context of rule.contexts || []) {
     if (conditionPasses((context.condition || {}) as ConditionInterface, ctx)) {
       return { leafId: context.leafId, weights: context.weights };
     }
   }
 
-  // No leaf matched (e.g. a malformed payload missing its catch-all) — fail
-  // closed rather than bucketing the user with no weights.
   return null;
 }
 
@@ -950,7 +932,7 @@ export function getExperimentResult<T>(
   featureId: string | null,
   bucket?: number,
   stickyBucketUsed?: boolean,
-  leafId?: number,
+  cbInfo?: ContextualBanditInfo,
 ): Result<T> {
   let inExperiment = true;
   // If assigned variation is not valid, use the baseline and mark the user as not in the experiment
@@ -986,9 +968,15 @@ export function getExperimentResult<T>(
   if (meta.name) res.name = meta.name;
   if (bucket !== undefined) res.bucket = bucket;
   if (meta.passthrough) res.passthrough = meta.passthrough;
-  // Only set for contextual-bandit exposures so the tracking callback and
-  // exposure event can carry the matched leaf through to the warehouse.
-  if (leafId !== undefined && inExperiment) res.leafId = leafId;
+  // Contextual-bandit exposures only: record the leaf, the weights used to
+  // bucket this user, and the training period so the tracking callback can
+  // write them to the events table.
+  if (cbInfo && inExperiment) {
+    res.leafId = cbInfo.leafId;
+    res.variationWeights = cbInfo.variationWeights;
+    if (cbInfo.banditVersion !== undefined)
+      res.banditVersion = cbInfo.banditVersion;
+  }
 
   return res;
 }
