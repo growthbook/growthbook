@@ -38,12 +38,12 @@ and select per-project overrides. For example, a new user could be a `collaborat
 
 GrowthBook first determines whether the action is scoped to a specific project.
 
-**Actions that target a project** (for example, editing a feature flag that belongs to a project) are evaluated against a single role:
+**Actions that target a project** (for example, editing a feature flag that belongs to a project) are evaluated using project-specific roles:
 
-- If the user has a project-specific role for that project, that role is used on its own. The user's project-specific role is evaluated as the union (e.g. most permissive) of their user-level project-specific role and any team-level project-specific role, if they are a member of any teams.
-- Otherwise, the global role applies. The global role is itself a union (e.g. most permissive) of user-level and team-level global roles.
+- If a project-specific role applies (the user's own, or one from any team they're on), only project-specific roles are used for that project; the global role is ignored. The effective permissions are the union of those project-specific roles (the user gets a permission if any of them grants it).
+- Otherwise, the global role applies - itself the union of the user's global role and the global roles of any teams they're on.
 
-So a project-specific `Read Only` role makes a user read-only on that project, even when their global role is `Engineer`.
+Because the global role is ignored whenever a project-specific role applies, a project-specific role can _reduce_ access below the global role. For example, a user whose global role is `Engineer` but who has a `Read Only` role on a project is read-only on that project.
 
 **Actions that are not scoped to a project** are evaluated against the global role. This includes organization-level settings and resources that always live at the org level, such as `Dimensions`, `Namespaces`, and `Presentations`.
 
