@@ -1,7 +1,7 @@
 import { Revision } from "shared/enterprise";
 import {
   postConstantValidator,
-  validateConstantValue,
+  validateResolvableValue,
 } from "shared/validators";
 import { ConstantInterface } from "shared/types/constant";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
@@ -42,9 +42,20 @@ export const postConstant = createApiRequestHandler(postConstantValidator)(
     await assertKeyAvailableAcrossNamespace(req.context, key);
 
     // Validate value shape against the declared type (empty is allowed).
-    if (value !== undefined) validateConstantValue(type, value, "value");
+    if (value !== undefined)
+      validateResolvableValue({
+        type,
+        value,
+        label: "value",
+        forbidConfigRefs: true,
+      });
     for (const [env, v] of Object.entries(environmentValues ?? {})) {
-      validateConstantValue(type, v, env);
+      validateResolvableValue({
+        type,
+        value: v,
+        label: env,
+        forbidConfigRefs: true,
+      });
     }
 
     // Cycle rejection is enforced in ConstantModel (covers every write path).

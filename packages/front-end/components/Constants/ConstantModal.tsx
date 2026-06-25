@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { useForm } from "react-hook-form";
 import { ConstantWithoutValue } from "shared/types/constant";
-import { validateConstantValue } from "shared/validators";
+import { validateResolvableValue } from "shared/validators";
 import { Revision } from "shared/enterprise";
 import { generateTrackingKey } from "shared/experiments";
 import { Box, Flex } from "@radix-ui/themes";
@@ -144,7 +144,12 @@ export default function ConstantModal({
             await onSaved(res.revision);
           }
         } else {
-          validateConstantValue(values.type, values.value, "Value");
+          validateResolvableValue({
+            type: values.type,
+            value: values.value,
+            label: "Value",
+            forbidConfigRefs: true,
+          });
           const res = await apiCall<{ constant: { key: string } }>(
             `/constants`,
             {

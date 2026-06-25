@@ -4,7 +4,7 @@ import { z } from "zod";
 import {
   postConfigBodyValidator,
   putConfigBodyValidator,
-  validateConstantValue,
+  validateResolvableValue,
   getConstantReferenceKeys,
   getReferencingConstantKeys,
 } from "shared/validators";
@@ -200,9 +200,9 @@ export const postConfig = async (
   }
 
   // Config values are JSON objects (empty is allowed).
-  validateConstantValue("json", body.value ?? "");
+  validateResolvableValue({ type: "json", value: body.value ?? "" });
   for (const [envId, v] of Object.entries(body.environmentValues ?? {})) {
-    validateConstantValue("json", v, envId);
+    validateResolvableValue({ type: "json", value: v, label: envId });
   }
 
   // Cycle rejection is enforced in ConfigModel (covers every write path).
@@ -300,10 +300,10 @@ export const putConfig = async (
 
   // Config values are JSON objects (empty is allowed).
   if (typeof value !== "undefined") {
-    validateConstantValue("json", value);
+    validateResolvableValue({ type: "json", value });
   }
   for (const [envId, v] of Object.entries(environmentValues ?? {})) {
-    validateConstantValue("json", v, envId);
+    validateResolvableValue({ type: "json", value: v, label: envId });
   }
 
   // Cycle rejection is enforced in ConfigModel (covers every write path).

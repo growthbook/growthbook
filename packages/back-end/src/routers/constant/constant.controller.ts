@@ -4,7 +4,7 @@ import { z } from "zod";
 import {
   postConstantBodyValidator,
   putConstantBodyValidator,
-  validateConstantValue,
+  validateResolvableValue,
   getConstantReferenceKeys,
   getReferencingConstantKeys,
 } from "shared/validators";
@@ -141,9 +141,18 @@ export const postConstant = async (
   }
 
   // JSON constants must hold parseable JSON (empty is allowed).
-  validateConstantValue(body.type, body.value ?? "");
+  validateResolvableValue({
+    type: body.type,
+    value: body.value ?? "",
+    forbidConfigRefs: true,
+  });
   for (const [envId, v] of Object.entries(body.environmentValues ?? {})) {
-    validateConstantValue(body.type, v, envId);
+    validateResolvableValue({
+      type: body.type,
+      value: v,
+      label: envId,
+      forbidConfigRefs: true,
+    });
   }
 
   // Cycle rejection is enforced in ConstantModel (covers every write path).
@@ -229,10 +238,19 @@ export const putConstant = async (
   // JSON constants must hold parseable JSON (empty is allowed). Type is
   // immutable, so validate incoming values against the existing type.
   if (typeof value !== "undefined") {
-    validateConstantValue(existing.type, value);
+    validateResolvableValue({
+      type: existing.type,
+      value,
+      forbidConfigRefs: true,
+    });
   }
   for (const [envId, v] of Object.entries(environmentValues ?? {})) {
-    validateConstantValue(existing.type, v, envId);
+    validateResolvableValue({
+      type: existing.type,
+      value: v,
+      label: envId,
+      forbidConfigRefs: true,
+    });
   }
 
   // Cycle rejection is enforced in ConstantModel (covers every write path,

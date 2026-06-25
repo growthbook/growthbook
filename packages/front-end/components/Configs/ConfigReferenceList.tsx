@@ -4,8 +4,9 @@ import ReferencesList, {
 } from "@/components/References/ReferencesList";
 import { ConstantReferences } from "@/hooks/useConstantReferences";
 
-// Features, constants, and configs that reference a constant via `@const:key`.
-const ConstantReferencesList: FC<ConstantReferences> = ({
+// Features that implement a config and configs that extend it. Constants can't
+// reference configs, so there's no constants section here.
+const ConfigReferenceList: FC<ConstantReferences> = ({
   features = [],
   constants = [],
 }) => {
@@ -19,18 +20,6 @@ const ConstantReferencesList: FC<ConstantReferences> = ({
         href: `/features/${f.id}`,
         projectIds: f.project ? [f.project] : undefined,
       })),
-    },
-    {
-      title: "Constants",
-      resourceType: "constant",
-      items: constants
-        .filter((c) => !c.isConfig)
-        .map((c) => ({
-          id: c.id,
-          label: c.name || c.key,
-          href: `/constants/${c.key}`,
-          projectIds: c.project ? [c.project] : undefined,
-        })),
     },
     {
       title: "Configs",
@@ -49,4 +38,4 @@ const ConstantReferencesList: FC<ConstantReferences> = ({
   return <ReferencesList sections={sections} />;
 };
 
-export default ConstantReferencesList;
+export default ConfigReferenceList;

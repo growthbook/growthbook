@@ -4,7 +4,7 @@ import { ConstantInterface, ConstantWithoutValue } from "shared/types/constant";
 import { Revision } from "shared/enterprise";
 import { filterProjectsByEnvironment } from "shared/util";
 import {
-  validateConstantValue,
+  validateResolvableValue,
   getConstantReferenceKeys,
 } from "shared/validators";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
@@ -151,9 +151,19 @@ export default function ConstantValueModal({
           ...values.environmentValues,
         };
 
-        validateConstantValue(type, values.value, "Value");
+        validateResolvableValue({
+          type,
+          value: values.value,
+          label: "Value",
+          forbidConfigRefs: true,
+        });
         for (const [envId, v] of Object.entries(environmentValues)) {
-          validateConstantValue(type, v, envId);
+          validateResolvableValue({
+            type,
+            value: v,
+            label: envId,
+            forbidConfigRefs: true,
+          });
         }
 
         // The PUT controller treats `undefined` as "field untouched", so an

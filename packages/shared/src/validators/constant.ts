@@ -175,10 +175,16 @@ export function assertValidExtendsEntries(
   value: unknown,
   prefix = "",
   onlyMergeDirectives = false,
+  forbidConfigRefs = false,
 ): void {
   if (Array.isArray(value)) {
     for (const v of value)
-      assertValidExtendsEntries(v, prefix, onlyMergeDirectives);
+      assertValidExtendsEntries(
+        v,
+        prefix,
+        onlyMergeDirectives,
+        forbidConfigRefs,
+      );
     return;
   }
   if (value === null || typeof value !== "object") return;
@@ -203,6 +209,13 @@ export function assertValidExtendsEntries(
               `literal values as the object's own keys instead.`,
           );
         }
+        // Constants can't embed configs — only configs extend configs (and
+        // feature flags implement them).
+        if (forbidConfigRefs && isConfigRef(entry)) {
+          throw new Error(
+            `${prefix}Constants cannot reference configs. Remove the "@config:" reference.`,
+          );
+        }
         // A config is always the base layer, so its ref must come first.
         if (i > 0 && isConfigRef(entry)) {
           throw new Error(
@@ -214,16 +227,26 @@ export function assertValidExtendsEntries(
   }
   // Descend into own keys and inline-object `$extends` entries (via the array).
   for (const v of Object.values(obj)) {
-    assertValidExtendsEntries(v, prefix, onlyMergeDirectives);
+    assertValidExtendsEntries(v, prefix, onlyMergeDirectives, forbidConfigRefs);
   }
 }
 
 // JSON constants must parse; an empty string is always permitted ("no value").
-export function validateConstantValue(
-  type: z.infer<typeof constantTypeValidator>,
-  value: string,
-  label?: string,
-): void {
+// Validates a constant or config value (they share a shape: a JSON object
+// template with optional `$extends` refs). The only difference is that constants
+// can't embed configs (`forbidConfigRefs: true`), whereas configs extend other
+// configs and feature flags implement them.
+export function validateResolvableValue({
+  type,
+  value,
+  label,
+  forbidConfigRefs = false,
+}: {
+  type: z.infer<typeof constantTypeValidator>;
+  value: string;
+  label?: string;
+  forbidConfigRefs?: boolean;
+}): void {
   if (type !== "json") return;
   if (value === "") return; // empty permitted
   const prefix = label ? `${label}: ` : "";
@@ -235,13 +258,13 @@ export function validateConstantValue(
       `${prefix}Invalid JSON — ${e instanceof Error ? e.message : String(e)}`,
     );
   }
-  // JSON constants are object templates, so the value must be a plain object.
+  // JSON values are object templates, so the value must be a plain object.
   if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
     throw new Error(
-      `${prefix}JSON constants must be a JSON object (key/value map), not an array or primitive.`,
+      `${prefix}JSON values must be a JSON object (key/value map), not an array or primitive.`,
     );
   }
-  assertValidExtendsEntries(parsed, prefix);
+  assertValidExtendsEntries(parsed, prefix, false, forbidConfigRefs);
 }
 
 // A reusable named value referenced from feature values via `@const:key`,

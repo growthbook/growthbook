@@ -2,7 +2,7 @@ import { isEqual } from "lodash";
 import { Revision } from "shared/enterprise";
 import {
   updateConstantValidator,
-  validateConstantValue,
+  validateResolvableValue,
 } from "shared/validators";
 import { ConstantInterface } from "shared/types/constant";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
@@ -59,7 +59,12 @@ export const updateConstant = createApiRequestHandler(updateConstantValidator)(
       fieldsToUpdate.project = project;
     }
     if (value !== undefined && value !== constant.value) {
-      validateConstantValue(constant.type, value, "value");
+      validateResolvableValue({
+        type: constant.type,
+        value,
+        label: "value",
+        forbidConfigRefs: true,
+      });
       fieldsToUpdate.value = value;
     }
     if (
@@ -67,7 +72,12 @@ export const updateConstant = createApiRequestHandler(updateConstantValidator)(
       !isEqual(environmentValues, constant.environmentValues)
     ) {
       for (const [env, v] of Object.entries(environmentValues)) {
-        validateConstantValue(constant.type, v, env);
+        validateResolvableValue({
+          type: constant.type,
+          value: v,
+          label: env,
+          forbidConfigRefs: true,
+        });
       }
       fieldsToUpdate.environmentValues = environmentValues;
     }

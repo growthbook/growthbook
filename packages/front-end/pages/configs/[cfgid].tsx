@@ -73,7 +73,7 @@ import {
 import { useConstantRevision } from "@/hooks/useConstantRevision";
 import { useConstantReferences } from "@/hooks/useConstantReferences";
 import ConstantArchiveModal from "@/components/Constants/ConstantArchiveModal";
-import ConstantReferencesList from "@/components/Constants/ConstantReferencesList";
+import ConfigReferenceList from "@/components/Configs/ConfigReferenceList";
 import ReferencesLink from "@/components/References/ReferencesLink";
 import { ConstantRevisionContext } from "@/components/Constants/useConstantDraftTarget";
 import ConfigModal from "@/components/Configs/ConfigModal";
@@ -938,10 +938,9 @@ export default function ConfigDetailPage(): React.ReactElement {
           useRadixButton={true}
         >
           <Text as="p" mb="3">
-            This config is referenced by the following features and configs via{" "}
-            <code>@const:{config.key}</code>.
+            The following features and configs use this config.
           </Text>
-          <ConstantReferencesList
+          <ConfigReferenceList
             features={references.features}
             constants={references.constants}
           />
