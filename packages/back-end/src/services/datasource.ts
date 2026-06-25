@@ -14,7 +14,7 @@ import {
   FeatureUsageQuery,
 } from "shared/types/datasource";
 import { FactTableColumnType } from "shared/types/fact-table";
-import { QueryStatistics } from "shared/types/query";
+import { QueryStatistics, QueryType } from "shared/types/query";
 import { formatQueryExecutionErrorForApi } from "shared/util";
 import { SQLExecutionError } from "back-end/src/util/errors";
 import { determineColumnTypes } from "back-end/src/util/sql";
@@ -36,6 +36,9 @@ import Mssql from "back-end/src/integrations/Mssql";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
+
+// freeFormQuery runs user-authored SQL; we should only use it for this scenario
+const FREE_FORM_QUERY_TYPE: QueryType = "freeFormQuery";
 
 export function decryptDataSourceParams<T = DataSourceParams>(
   encrypted: string,
@@ -183,7 +186,7 @@ export async function runFreeFormQuery(
     const { results, duration, columns } = await integration.runTestQuery(
       sql,
       ["timestamp"],
-      "freeFormQuery",
+      FREE_FORM_QUERY_TYPE,
     );
 
     // Build a type map from SQL engine metadata
