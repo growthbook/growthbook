@@ -50,7 +50,7 @@ import { DimensionInterface } from "shared/types/dimension";
 import { MixpanelConnectionParams } from "shared/types/integrations/mixpanel";
 import { MetricInterface, MetricType } from "shared/types/metric";
 import { QueryMetadata } from "shared/types/query";
-import { SnapshotMetricRequest } from "shared/types/experiment-snapshot";
+import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 import { FactMetricInterface } from "shared/types/fact-table";
 import { ReqContext } from "back-end/types/request";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
@@ -294,7 +294,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
   }
 
   getExperimentResultsQuery(
-    snapshotSettings: SnapshotMetricRequest,
+    snapshotSettings: ExperimentSnapshotSettings,
     metricDocs: MetricInterface[],
     activationMetricDoc: MetricInterface,
     dimension: DimensionInterface,
@@ -554,7 +554,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
     return query;
   }
   async getExperimentResults(
-    snapshotSettings: SnapshotMetricRequest,
+    snapshotSettings: ExperimentSnapshotSettings,
     metrics: MetricInterface[],
     activationMetric: MetricInterface,
     dimension: DimensionInterface,

@@ -8,7 +8,7 @@ import { deriveContextId } from "shared/util";
 import { ReqContext } from "back-end/types/api";
 import {
   buildContextualBanditSnapshotSettings,
-  buildSnapshotMetricRequestForCb,
+  buildSnapshotSettingsForCb,
   getContextualBanditResultsForUi,
   leafWeightsFromContextualBanditResult,
   persistContextualBanditEvent,
@@ -170,14 +170,14 @@ describe("buildContextualBanditSnapshotSettings", () => {
     expect(settings.trackingKey).toBe("first_contextual_bandit");
   });
 
-  it("maps trackingKey to SnapshotMetricRequest.experimentId for SQL", () => {
+  it("maps trackingKey to ExperimentSnapshotSettings.experimentId for SQL", () => {
     const cbSettings = buildContextualBanditSnapshotSettings(
       makeCb({ trackingKey: "first_contextual_bandit" }),
       makeExposureQuery(),
       false,
     );
 
-    expect(buildSnapshotMetricRequestForCb(cbSettings).experimentId).toBe(
+    expect(buildSnapshotSettingsForCb(cbSettings).experimentId).toBe(
       "first_contextual_bandit",
     );
   });
@@ -224,7 +224,7 @@ describe("buildContextualBanditSnapshotSettings", () => {
 
     expect(cbSettings.regressionAdjustmentEnabled).toBe(true);
 
-    const expSettings = buildSnapshotMetricRequestForCb(cbSettings);
+    const expSettings = buildSnapshotSettingsForCb(cbSettings);
     expect(expSettings.regressionAdjustmentEnabled).toBe(true);
     expect(expSettings.banditSettings?.poolRegressionTheta).toBe(false);
   });

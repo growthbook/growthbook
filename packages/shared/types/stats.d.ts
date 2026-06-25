@@ -215,6 +215,7 @@ export type MultipleExperimentMetricAnalysis = {
   id: string;
   results: ExperimentMetricAnalysis;
   banditResult?: BanditResult;
+  // @teresayung @lukebrawleysmith is this still used? I think it isn't
   contextualBanditResult?: ContextualBanditSnapshot | null;
   error?: string;
   traceback?: string;
@@ -255,9 +256,12 @@ export interface BanditSettingsForStatsEngine {
   reweight: boolean;
   decision_metric: string;
   bandit_weights_seed: number;
+  // @teresayung @lukebrawleysmith is this still used? I think it isn't
+
   contexts?: string[];
 }
 
+// @teresayung @lukebrawleysmith is this still used? I think it isn't
 export interface ContextualBanditSettingsForStatsEngine
   extends BanditSettingsForStatsEngine {
   current_contextual_weights: Record<string, number[]>;

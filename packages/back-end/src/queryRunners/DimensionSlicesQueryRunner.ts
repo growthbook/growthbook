@@ -51,6 +51,10 @@ export class DimensionSlicesQueryRunner extends QueryRunner<
         name: "dimensionSlices",
         query: this.integration.getDimensionSlicesQuery({
           exposureQueryId: params.exposureQueryId,
+          exposureQuery: {
+            query: exposureQuery?.query ?? "",
+            userIdType: exposureQuery?.userIdType ?? "",
+          },
           dimensions: dimensions,
           lookbackDays: params.lookbackDays,
         }),

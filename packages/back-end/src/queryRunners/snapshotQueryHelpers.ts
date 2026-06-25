@@ -1,5 +1,5 @@
 import {
-  SnapshotMetricRequest,
+  ExperimentSnapshotSettings,
   SnapshotType,
 } from "shared/types/experiment-snapshot";
 
@@ -9,7 +9,7 @@ export function shouldRunHealthTrafficQuery({
   runHealthTrafficQuery,
 }: {
   snapshotType: SnapshotType;
-  snapshotDimensions: SnapshotMetricRequest["dimensions"];
+  snapshotDimensions: ExperimentSnapshotSettings["dimensions"];
   runHealthTrafficQuery?: boolean;
 }): boolean {
   if (!runHealthTrafficQuery) {

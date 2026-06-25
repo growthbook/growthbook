@@ -7,7 +7,7 @@ import { Dimension } from "shared/types/integrations";
 import { FactMetricInterface } from "shared/types/fact-table";
 import {
   ExperimentSnapshotInterface,
-  SnapshotMetricRequest,
+  ExperimentSnapshotSettings,
   SnapshotType,
 } from "shared/types/experiment-snapshot";
 import {
@@ -45,7 +45,7 @@ import { SnapshotResult } from "./ExperimentResultsQueryRunner";
 
 export type ExperimentIncrementalRefreshExploratoryQueryParams = {
   snapshotType: SnapshotType;
-  snapshotSettings: SnapshotMetricRequest;
+  snapshotSettings: ExperimentSnapshotSettings;
   variationNames: string[];
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
@@ -73,6 +73,19 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
   const activationMetric = snapshotSettings.activationMetric
     ? (metricMap.get(snapshotSettings.activationMetric) ?? null)
     : null;
+
+  const exposureQuery = (
+    integration.datasource.settings?.queries?.exposure || []
+  ).find((q) => q.id === snapshotSettings.exposureQueryId);
+
+  if (!exposureQuery) {
+    throw new Error("Exposure query not found");
+  }
+
+  const resolvedExposureQuery = {
+    query: exposureQuery.query,
+    userIdType: exposureQuery.userIdType,
+  };
 
   // Only include metrics tied to this experiment, which is goverend by the snapshotSettings.metricSettings
   // after the introduction of metric slices
@@ -231,6 +244,7 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
       displayTitle: `Compute Statistics ${sourceName}`,
       query: integration.getIncrementalRefreshStatisticsQuery({
         settings: snapshotSettings,
+        exposureQuery: resolvedExposureQuery,
         activationMetric: activationMetric,
         // TODO(incremental-refresh): add post-stratification to exploratory
         // analysis. Pre-computation is unused here; we lean on
@@ -291,6 +305,7 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
       displayTitle: `Compute Cross-Fact Statistics ${sourceName}`,
       query: integration.getIncrementalRefreshStatisticsQuery({
         settings: snapshotSettings,
+        exposureQuery: resolvedExposureQuery,
         activationMetric: activationMetric,
         dimensionsForPrecomputation: [],
         dimensionsForAnalysis: dimensionObjs,

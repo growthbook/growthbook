@@ -42,10 +42,44 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
 
   async startQueries(params: MetricAnalysisParams): Promise<Queries> {
     this.metric = getMetricWithFiltersApplied(params);
+
+    // Resolve the population's exposure query up front so the SQL generator
+    // doesn't have to look it up. Only relevant for exposureQuery populations.
+    const populationExposureQuery =
+      params.settings.populationType === "exposureQuery"
+        ? (this.integration.datasource.settings?.queries?.exposure || []).find(
+            (q) => q.id === params.settings.populationId,
+          )
+        : undefined;
+
+    // Fail loudly on a misconfigured population rather than silently emitting
+    // an empty population CTE (which would produce a broken/empty query).
+    if (
+      params.settings.populationType === "exposureQuery" &&
+      !populationExposureQuery
+    ) {
+      throw new Error(
+        `Unknown population exposure query: ${params.settings.populationId}`,
+      );
+    }
+
+    const paramsWithPopulation: MetricAnalysisParams = {
+      ...params,
+      populationExposureQuery: populationExposureQuery
+        ? {
+            query: populationExposureQuery.query,
+            userIdType: populationExposureQuery.userIdType,
+          }
+        : undefined,
+    };
+
     return [
       await this.startQuery({
         name: "metricAnalysis",
-        query: this.integration.getMetricAnalysisQuery(this.metric, params),
+        query: this.integration.getMetricAnalysisQuery(
+          this.metric,
+          paramsWithPopulation,
+        ),
         dependencies: [],
         run: (query, setExternalId, queryMetadata) =>
           this.integration.runMetricAnalysisQuery(

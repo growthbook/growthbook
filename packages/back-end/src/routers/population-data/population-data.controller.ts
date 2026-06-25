@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { Response } from "express";
-import { SnapshotMetricRequest } from "shared/types/experiment-snapshot";
+import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 import { PopulationDataInterface } from "shared/types/population-data";
 import type { PopulationDataQuerySettings } from "shared/types/query";
 import { createPopulationDataPropsValidator } from "shared/validators";
@@ -60,7 +60,7 @@ export const postPopulationData = async (
       data.userIdType,
     );
 
-  const snapshotSettings: SnapshotMetricRequest = {
+  const snapshotSettings: ExperimentSnapshotSettings = {
     dimensions: [],
     metricSettings: [],
     goalMetrics: data.metricIds,

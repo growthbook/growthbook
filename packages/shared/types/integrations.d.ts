@@ -2,7 +2,13 @@ import { BigQueryTimestamp } from "@google-cloud/bigquery";
 import { ExperimentMetricInterface } from "shared/experiments";
 import { MetricAnalysisSettings } from "shared/types/metric-analysis";
 import { DimensionInterface } from "shared/types/dimension";
-import { SnapshotMetricRequest } from "shared/types/experiment-snapshot";
+import { AttributionModel } from "shared/types/experiment";
+import {
+  ExperimentSnapshotSettings,
+  MetricForSnapshot,
+  SnapshotBanditSettings,
+  SnapshotSettingsVariation,
+} from "shared/types/experiment-snapshot";
 import { MetricInterface, MetricType } from "shared/types/metric";
 import { QueryStatistics } from "shared/types/query";
 import {
@@ -15,7 +21,7 @@ import {
 } from "shared/types/fact-table";
 import type { PopulationDataQuerySettings } from "shared/types/query";
 import { SegmentInterface } from "shared/types/segment";
-import { TemplateVariables } from "shared/types/sql";
+import { PhaseSQLVar, TemplateVariables } from "shared/types/sql";
 
 export interface PipelineIntegration {
   getExperimentUnitsTableQueryFromCte(
@@ -302,27 +308,53 @@ export type ColumnTopValuesResponseRow = {
   count: number;
 };
 
+// The resolved assignment query (SQL + id type) plus the experiment-level
+// fields the units SQL reads.
+export interface ExperimentUnitsQuerySettings {
+  experimentId: string;
+  exposureQuery: { query: string; userIdType: string };
+  startDate: Date;
+  endDate: Date;
+  skipPartialData: boolean;
+  attributionModel: AttributionModel;
+  queryFilter: string;
+  phase?: PhaseSQLVar;
+  customFields?: Record<string, unknown>;
+  variations: SnapshotSettingsVariation[];
+  banditSettings?: SnapshotBanditSettings;
+  // Needed only for activation-metric overrides applied inside the units query.
+  metricSettings: MetricForSnapshot[];
+}
+
 interface ExperimentBaseQueryParams {
-  settings: SnapshotMetricRequest;
+  settings: ExperimentSnapshotSettings;
+  // Pre-marshalled units/exposure settings, built by the query runner so the
+  // SQL generators never have to resolve the exposure query themselves.
+  unitsSettings: ExperimentUnitsQuerySettings;
   activationMetric: ExperimentMetricInterface | null;
   factTableMap: FactTableMap;
   dimensions: Dimension[];
   segment: SegmentInterface | null;
   unitsTableFullName?: string;
-  unitsQueryOverride?: { query: string; userIdType: string };
 }
 
-export interface ExperimentUnitsQueryParams extends ExperimentBaseQueryParams {
+export interface ExperimentUnitsQueryParams {
+  unitsSettings: ExperimentUnitsQuerySettings;
+  activationMetric: ExperimentMetricInterface | null;
+  factTableMap: FactTableMap;
+  dimensions: Dimension[];
+  segment: SegmentInterface | null;
+  unitsTableFullName?: string;
   includeIdJoins: boolean;
 }
 
 export interface ContextualBanditSrmQueryParams {
-  settings: SnapshotMetricRequest;
-  unitsQueryOverride: { query: string; userIdType: string };
+  settings: ExperimentUnitsQuerySettings;
 }
 
 export interface CreateExperimentIncrementalUnitsQueryParams {
-  settings: SnapshotMetricRequest;
+  settings: ExperimentSnapshotSettings;
+  exposureQuery: ResolvedExposureQuery;
   activationMetric: ExperimentMetricInterface | null;
   dimensions: Dimension[];
   factTableMap: FactTableMap;
@@ -358,7 +390,8 @@ export interface MaxTimestampMetricSourceQueryParams {
 }
 
 export interface CreateMetricSourceTableQueryParams {
-  settings: SnapshotMetricRequest;
+  settings: ExperimentSnapshotSettings;
+  exposureQuery: ResolvedExposureQuery;
   // The fact table this cache is rooted in. Schema generation uses this to
   // decide, for each metric, which of its sides (numerator, denominator) the
   // cache materializes — a cross-FT ratio metric's numerator-only cache lives
@@ -371,7 +404,8 @@ export interface CreateMetricSourceTableQueryParams {
 }
 
 export interface InsertMetricSourceDataQueryParams {
-  settings: SnapshotMetricRequest;
+  settings: ExperimentSnapshotSettings;
+  exposureQuery: ResolvedExposureQuery;
   activationMetric: ExperimentMetricInterface | null;
   factTableMap: FactTableMap;
   // The fact table whose rows feed this cache. For cross-FT ratio metrics
@@ -389,7 +423,8 @@ export interface DropMetricSourceCovariateTableQueryParams {
 }
 
 export interface CreateMetricSourceCovariateTableQueryParams {
-  settings: SnapshotMetricRequest;
+  settings: ExperimentSnapshotSettings;
+  exposureQuery: ResolvedExposureQuery;
   // The fact table this covariate cache is rooted in. Like the metric source
   // schema, only the side(s) this FT actually hosts get materialized — a
   // cross-FT ratio metric's numerator-only covariate cache lives in its
@@ -401,7 +436,8 @@ export interface CreateMetricSourceCovariateTableQueryParams {
 }
 
 export interface InsertMetricSourceCovariateDataQueryParams {
-  settings: SnapshotMetricRequest;
+  settings: ExperimentSnapshotSettings;
+  exposureQuery: ResolvedExposureQuery;
   activationMetric: ExperimentMetricInterface | null;
   factTableMap: FactTableMap;
   // The fact table whose rows feed this covariate cache. Disambiguates which
@@ -420,6 +456,7 @@ export interface InsertMetricSourceCovariateDataQueryParams {
 // unit into the experiment covariate cache, in place of scanning raw events.
 export interface InsertMetricSourceCovariateFromAggregatedFactTableQueryParams {
   settings: ExperimentSnapshotSettings;
+  exposureQuery: ResolvedExposureQuery;
   activationMetric: ExperimentMetricInterface | null;
   factTableMap: FactTableMap;
   factTableId: string;
@@ -469,7 +506,8 @@ export interface DropAggregatedFactTableQueryParams {
 }
 
 export interface IncrementalRefreshStatisticsQueryParams {
-  settings: SnapshotMetricRequest;
+  settings: ExperimentSnapshotSettings;
+  exposureQuery: ResolvedExposureQuery;
   activationMetric: ExperimentMetricInterface | null;
   dimensionsForPrecomputation: ExperimentDimensionWithSpecifiedSlices[];
   dimensionsForAnalysis: Dimension[];
@@ -485,12 +523,14 @@ export interface IncrementalRefreshStatisticsQueryParams {
 }
 
 type UnitsSource = "exposureQuery" | "exposureTable" | "otherQuery";
+
+export type ResolvedExposureQuery = { query: string; userIdType: string };
+
 export interface ExperimentMetricQueryParams extends ExperimentBaseQueryParams {
   metric: MetricInterface;
   denominatorMetrics: MetricInterface[];
   unitsSource: UnitsSource;
   unitsSql?: string;
-  forcedUserIdType?: string;
 }
 
 export interface ExperimentFactMetricsQueryParams
@@ -498,7 +538,6 @@ export interface ExperimentFactMetricsQueryParams
   metrics: FactMetricInterface[];
   unitsSource: UnitsSource;
   unitsSql?: string;
-  forcedUserIdType?: string;
 }
 
 export interface PopulationBaseQueryParams {
@@ -521,6 +560,7 @@ export interface ExperimentAggregateUnitsQueryParams
 
 export type DimensionSlicesQueryParams = {
   exposureQueryId: string;
+  exposureQuery: ResolvedExposureQuery;
   dimensions: ExperimentDimension[];
   lookbackDays: number;
 };
@@ -555,6 +595,10 @@ export type MetricAnalysisParams = {
   metric: FactMetricInterface;
   factTableMap: FactTableMap;
   segment: SegmentInterface | null;
+  // Resolved population exposure query (SQL + id type), supplied by the caller
+  // when `settings.populationType === "exposureQuery"` so the SQL generator
+  // doesn't look it up. Omitted for segment/factTable populations.
+  populationExposureQuery?: ResolvedExposureQuery;
 };
 
 export type ProductAnalyticsExplorationParams = {
@@ -742,6 +786,8 @@ export type DimensionSlicesQueryResponseRows = {
 }[];
 
 export type ContextualBanditSrmQueryResponseRows = {
+  // @lukebrawleysmith are we going to also return the top-level counts
+  // here so we can show them in the SRM table?
   /**
    * Chi-square statistic: SUM((observed - expected)^2 / expected) over the
    * usable cells (expected >= 5) of the kept (leaf_id, bandit_version)

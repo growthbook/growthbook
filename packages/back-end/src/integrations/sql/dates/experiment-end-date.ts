@@ -1,7 +1,7 @@
-import { SnapshotMetricRequest } from "shared/types/experiment-snapshot";
+import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 
 export function getExperimentEndDate(
-  settings: SnapshotMetricRequest,
+  settings: Pick<ExperimentSnapshotSettings, "skipPartialData" | "endDate">,
   conversionWindowHours: number,
 ): Date {
   // Only include users who entered the experiment before this timestamp

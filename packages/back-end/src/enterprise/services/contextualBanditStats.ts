@@ -2,7 +2,7 @@ import { ExperimentMetricInterface } from "shared/experiments";
 import { ExperimentMetricQueryResponseRows } from "shared/types/integrations";
 import {
   ExperimentSnapshotAnalysisSettings,
-  SnapshotMetricRequest,
+  ExperimentSnapshotSettings,
 } from "shared/types/experiment-snapshot";
 import type { ContextualBanditSnapshot } from "shared/types/stats";
 import {
@@ -27,7 +27,7 @@ export type ContextualBanditResult = ContextualBanditSnapshot;
 export type RunContextualStatsEngineOptions = {
   snapshotId: string;
   decisionMetricId: string;
-  snapshotSettings: SnapshotMetricRequest;
+  snapshotSettings: ExperimentSnapshotSettings;
   analysisSettings: ExperimentSnapshotAnalysisSettings;
   metricMap: Map<string, ExperimentMetricInterface>;
   variations: { id: string; name: string; weight: number }[];

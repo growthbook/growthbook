@@ -127,7 +127,10 @@ export function getBanditStatisticsFactMetricCTE(
       FROM 
         __banditPeriodStatistics
       GROUP BY
-        ${dimensionCols.map((d) => `${d.alias}`).join(", ") || "1"}
+      -- @lukebrawleysmith GROUP BY 1 will cause this query to
+      -- fail as it groups by the first column. Instead the whole thing needs to just skil the group by
+      -- or we need to use a different way to group by ALL
+      ${dimensionCols.map((d) => `${d.alias}`).join(", ") || "1"}
     ),
     __banditPeriodWeights AS (
       SELECT
@@ -199,6 +202,7 @@ export function getBanditStatisticsFactMetricCTE(
         FROM
           __banditPeriodWeights
         GROUP BY
+          -- @lukebrawleysmith same here
           ${dimensionCols.map((d) => `${d.alias}`).join(", ") || "1"}
         )
       `

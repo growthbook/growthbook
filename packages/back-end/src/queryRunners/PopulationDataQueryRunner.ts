@@ -25,7 +25,8 @@ import {
   PopulationDataInterface,
   PopulationDataMetric,
 } from "shared/types/population-data";
-import { SnapshotMetricRequest } from "shared/types/experiment-snapshot";
+import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
+import { buildUnitsQuerySettingsFromSnapshot } from "shared/util";
 import { ApiReqContext } from "back-end/types/api";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { expandDenominatorMetrics } from "back-end/src/util/sql";
@@ -42,7 +43,7 @@ import {
 
 export interface PopulationDataQueryParams {
   populationSettings: PopulationDataQuerySettings;
-  snapshotSettings: SnapshotMetricRequest;
+  snapshotSettings: ExperimentSnapshotSettings;
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
 }
@@ -99,6 +100,13 @@ export const startPopulationDataQueries = async (
     }
   }
 
+  // No datasource exposure query on the population path; the units come from
+  // the population CTE, so we only need to carry the user id type through.
+  const unitsSettings = buildUnitsQuerySettingsFromSnapshot(settings, {
+    query: "",
+    userIdType: params.populationSettings.userIdType,
+  });
+
   for (const m of legacyMetricSingles) {
     if (
       !integration.getPopulationMetricQuery ||
@@ -126,6 +134,7 @@ export const startPopulationDataQueries = async (
       segment: segment,
       settings,
       unitsSource: "otherQuery",
+      unitsSettings,
       factTableMap: params.factTableMap,
       populationSettings: params.populationSettings,
     };
@@ -161,6 +170,7 @@ export const startPopulationDataQueries = async (
       segment: segment,
       settings,
       unitsSource: "otherQuery",
+      unitsSettings,
       factTableMap: params.factTableMap,
       populationSettings: params.populationSettings,
     };

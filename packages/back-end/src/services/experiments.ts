@@ -95,7 +95,7 @@ import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
-  SnapshotMetricRequest,
+  ExperimentSnapshotSettings,
   SnapshotTriggeredBy,
   SnapshotType,
   SnapshotBanditSettings,
@@ -498,7 +498,7 @@ export function getSnapshotSettings({
   datasource?: DataSourceInterface;
   useStickyBucketing?: boolean;
   eligiblePrecomputedUnitDimensionIds?: string[];
-}): SnapshotMetricRequest {
+}): ExperimentSnapshotSettings {
   const phase = experiment.phases[phaseIndex];
   if (!phase) {
     throw new Error("Invalid snapshot phase");
@@ -1336,7 +1336,7 @@ type IncrementalRefreshPrerequisiteArgs = {
   integration: SourceIntegrationInterface;
   experiment: ExperimentInterface;
   metricMap: Map<string, ExperimentMetricInterface>;
-  snapshotSettings: SnapshotMetricRequest;
+  snapshotSettings: ExperimentSnapshotSettings;
   incrementalRefreshModel: IncrementalRefreshInterface | null;
 };
 
@@ -1444,7 +1444,7 @@ async function planSnapshotQueryRunner({
   organization: OrganizationInterface;
   datasource: DataSourceInterface;
   integration: SourceIntegrationInterface;
-  snapshotSettings: SnapshotMetricRequest;
+  snapshotSettings: ExperimentSnapshotSettings;
   metricMap: Map<string, ExperimentMetricInterface>;
   experiment: ExperimentInterface;
   incrementalRefreshModel: IncrementalRefreshInterface | null;

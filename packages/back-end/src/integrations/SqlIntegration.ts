@@ -92,18 +92,18 @@ import {
   AggregatedFactTableMaxTimestampQueryParams,
   DropAggregatedFactTableQueryParams,
   PipelineIntegration,
+  ResolvedExposureQuery,
 } from "shared/types/integrations";
 import { MetricInterface, MetricType } from "shared/types/metric";
 import {
   DataSourceProperties,
-  ExposureQuery,
   SchemaFormatConfig,
   DataSourceInterface,
   AutoFactTableSchemas,
   SchemaFormat,
 } from "shared/types/datasource";
 import {
-  SnapshotMetricRequest,
+  ExperimentSnapshotSettings,
   SnapshotBanditSettings,
   SnapshotSettingsVariation,
 } from "shared/types/experiment-snapshot";
@@ -152,7 +152,6 @@ import { getExperimentFactMetricsQuery as getExperimentFactMetricsQueryFromSql }
 import { getSnapshotMetricQuery as buildSnapshotMetricQuerySql } from "back-end/src/integrations/sql/queries/snapshot-metric-query";
 import { getExperimentResultsQuery } from "back-end/src/integrations/sql/queries/experiment-results-query";
 import { getExperimentUnitsQuery as buildExperimentUnitsQuerySql } from "back-end/src/integrations/sql/queries/experiment-units-query";
-import { getExposureQuery } from "back-end/src/integrations/sql/queries/exposure-query";
 import { getFactMetricCTE } from "back-end/src/integrations/sql/ctes/fact-metric-cte";
 import { getFeatureEvalDiagnosticsQuery as getFeatureEvalDiagnosticsQueryFromSql } from "back-end/src/integrations/sql/queries/feature-eval-diagnostics-query";
 import { getFilterColumnsClause } from "back-end/src/integrations/sql/clauses/filter-columns-clause";
@@ -349,9 +348,7 @@ export default abstract class SqlIntegration
   }
   getPastExperimentQuery(params: PastExperimentParams): string {
     // TODO: for past experiments, UNION all exposure queries together
-    const experimentQueries = (
-      this.datasource.settings.queries?.exposure || []
-    ).map(({ id }) => getExposureQuery(this.datasource, id));
+    const experimentQueries = this.datasource.settings.queries?.exposure || [];
 
     return buildPastExperimentQuerySql(
       this.getSqlDialect(),
@@ -864,7 +861,6 @@ export default abstract class SqlIntegration
       ...params,
       unitsSource: "otherQuery",
       unitsSql: populationSQL,
-      forcedUserIdType: params.populationSettings.userIdType,
     });
   }
 
@@ -882,7 +878,6 @@ export default abstract class SqlIntegration
       ...params,
       unitsSource: "otherQuery",
       unitsSql: populationSQL,
-      forcedUserIdType: params.populationSettings.userIdType,
     });
   }
 
@@ -915,11 +910,7 @@ export default abstract class SqlIntegration
   }
 
   getDimensionSlicesQuery(params: DimensionSlicesQueryParams): string {
-    return getDimensionSlicesQueryFromSql(
-      this.getSqlDialect(),
-      this.datasource,
-      params,
-    );
+    return getDimensionSlicesQueryFromSql(this.getSqlDialect(), params);
   }
 
   async runDimensionSlicesQuery(
@@ -1538,23 +1529,22 @@ export default abstract class SqlIntegration
   // Finally, one per fact table for now:
   // getExperimentIncrementalStatisticsQuery
   parseExperimentParams(params: {
-    settings: SnapshotMetricRequest;
+    settings: ExperimentSnapshotSettings;
+    exposureQuery: ResolvedExposureQuery;
     activationMetric: ExperimentMetricInterface | null;
     dimensions: Dimension[];
     unitsTableFullName: string;
   }): {
-    exposureQuery: ExposureQuery;
+    exposureQuery: ResolvedExposureQuery;
     activationMetric: ExperimentMetricInterface | null;
     experimentDimensions: ExperimentDimension[];
     unitDimensions: Dimension[];
   } {
-    const { settings, activationMetric: activationMetricDoc } = params;
-
-    const exposureQuery = getExposureQuery(
-      this.datasource,
-      settings.exposureQueryId || "",
-      undefined,
-    );
+    const {
+      settings,
+      exposureQuery,
+      activationMetric: activationMetricDoc,
+    } = params;
 
     const activationMetric = processActivationMetric(
       activationMetricDoc,
@@ -1903,13 +1893,7 @@ export default abstract class SqlIntegration
   getCreateMetricSourceCovariateTableQuery(
     params: CreateMetricSourceCovariateTableQueryParams,
   ): string {
-    const exposureQuery = getExposureQuery(
-      this.datasource,
-      params.settings.exposureQueryId || "",
-      undefined,
-    );
-
-    const baseIdType = exposureQuery.userIdType;
+    const baseIdType = params.exposureQuery.userIdType;
     const sortedMetrics = params.metrics.sort((a, b) =>
       a.id.localeCompare(b.id),
     );
@@ -1947,7 +1931,6 @@ export default abstract class SqlIntegration
   ): string {
     return getInsertMetricSourceCovariateFromAggregatedFactTableQuery(
       this.getSqlDialect(),
-      this.datasource,
       params,
     );
   }
@@ -1955,13 +1938,7 @@ export default abstract class SqlIntegration
   getCreateMetricSourceTableQuery(
     params: CreateMetricSourceTableQueryParams,
   ): string {
-    const exposureQuery = getExposureQuery(
-      this.datasource,
-      params.settings.exposureQueryId || "",
-      undefined,
-    );
-
-    const baseIdType = exposureQuery.userIdType;
+    const baseIdType = params.exposureQuery.userIdType;
     // Sort by metric id so column order is stable across runs even when the
     // caller hands us metrics in any order.
     const sortedMetrics = [...params.metrics].sort((a, b) =>
@@ -2051,11 +2028,7 @@ export default abstract class SqlIntegration
   getInsertMetricSourceDataQuery(
     params: InsertMetricSourceDataQueryParams,
   ): string {
-    const exposureQuery = getExposureQuery(
-      this.datasource,
-      params.settings.exposureQueryId || "",
-      undefined,
-    );
+    const exposureQuery = params.exposureQuery;
 
     const factTableMap = params.factTableMap;
     // The caller pins which fact table is feeding this cache (numerator vs
@@ -2315,11 +2288,7 @@ export default abstract class SqlIntegration
   getIncrementalRefreshStatisticsQuery(
     params: IncrementalRefreshStatisticsQueryParams,
   ): string {
-    const exposureQuery = getExposureQuery(
-      this.datasource,
-      params.settings.exposureQueryId || "",
-      undefined,
-    );
+    const exposureQuery = params.exposureQuery;
 
     if (params.metricSources.length === 0) {
       throw new Error(

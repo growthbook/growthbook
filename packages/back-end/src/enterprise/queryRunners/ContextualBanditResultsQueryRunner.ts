@@ -5,7 +5,7 @@ import {
   ContextualBanditSnapshotInterface,
   ContextualBanditSnapshotSettings,
 } from "shared/validators";
-import { deriveContextId } from "shared/util";
+import { buildUnitsQuerySettingsFromCb, deriveContextId } from "shared/util";
 import {
   attributeConditionFromMetricRow,
   ExperimentMetricInterface,
@@ -18,7 +18,7 @@ import {
 import type { ExperimentSnapshotAnalysisSettings } from "shared/types/experiment-snapshot";
 import {
   attributesToCondition,
-  buildSnapshotMetricRequestForCb,
+  buildSnapshotSettingsForCb,
   getContextualBanditSettingsForStatsEngine,
   persistContextualBanditEvent,
 } from "back-end/src/enterprise/services/contextualBandits";
@@ -82,13 +82,16 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
     // Side-effect: ensure the parent CB doc resolves before the SQL runs.
     await this.loadCbDoc();
 
-    const expSnapshotSettings = buildSnapshotMetricRequestForCb(
+    // TODO(query-runner): remove need for snapshotSettings
+    const expSnapshotSettings = buildSnapshotSettingsForCb(
       this.snapshotSettings,
     );
-    const unitsQueryOverride = this.getUnitsQueryOverride();
+    const cbUnitsSettings = buildUnitsQuerySettingsFromCb(
+      this.snapshotSettings,
+    );
 
     // Without usable targeting we degrade to a single global context; warn so the misconfig is visible.
-    if (!hasUsableContextualBanditTargeting(expSnapshotSettings)) {
+    if (!hasUsableContextualBanditTargeting(cbUnitsSettings)) {
       logger.warn(
         `Contextual bandit ${this.snapshotSettings.experimentId} (snapshot ${this.model.id}) has no usable targeting attribute columns ` +
           `(configured: [${(
@@ -134,7 +137,7 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
       segment: null,
       settings: expSnapshotSettings,
       unitsSource: "exposureQuery",
-      unitsQueryOverride,
+      unitsSettings: cbUnitsSettings,
       unitsTableFullName: "",
       factTableMap,
     });
@@ -163,8 +166,7 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
       this.integration.runContextualBanditSrmQuery
     ) {
       const srmSql = this.integration.getContextualBanditSrmQuery({
-        settings: expSnapshotSettings,
-        unitsQueryOverride,
+        settings: cbUnitsSettings,
       });
       queries.push(
         await this.startQuery({
@@ -228,7 +230,7 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
       this.snapshotSettings.variations.map((v) => v.id),
     );
 
-    const expSnapshotSettings = buildSnapshotMetricRequestForCb(
+    const expSnapshotSettings = buildSnapshotSettingsForCb(
       this.snapshotSettings,
     );
     const decisionMetricId = this.snapshotSettings.decisionMetric;
@@ -397,18 +399,6 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
     }
     this.cachedCb = cb;
     return cb;
-  }
-
-  private getUnitsQueryOverride(): { query: string; userIdType: string } {
-    if (!this.snapshotSettings) {
-      throw new Error(
-        "ContextualBanditResultsQueryRunner: snapshotSettings missing in getUnitsQueryOverride",
-      );
-    }
-    return {
-      query: this.snapshotSettings.query,
-      userIdType: this.snapshotSettings.userIdType,
-    };
   }
 
   private async getMetricMapCached(): Promise<

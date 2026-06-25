@@ -93,6 +93,8 @@ export const contextualBanditValidator = baseSchema
           .strict(),
       )
       .optional(),
+    // @teresayung nit, IDK if we need to preface these with `contextualBandit` since they're
+    // within the contextualBandit model.
     contextualBanditScheduleValue: z.number().optional(),
     contextualBanditScheduleUnit: z.enum(["days", "hours"]).optional(),
     contextualBanditBurnInValue: z.number().optional(),

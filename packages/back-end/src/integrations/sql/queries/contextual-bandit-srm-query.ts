@@ -44,10 +44,7 @@ export function getContextualBanditSrmQuery(
 ): string {
   const { settings } = params;
 
-  const exposureQuery = {
-    query: params.unitsQueryOverride.query,
-    userIdType: params.unitsQueryOverride.userIdType,
-  };
+  const exposureQuery = settings.exposureQuery;
 
   const variations = settings.variations ?? [];
   if (variations.length === 0) {

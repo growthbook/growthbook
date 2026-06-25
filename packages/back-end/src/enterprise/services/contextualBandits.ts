@@ -1,5 +1,5 @@
 import type {
-  SnapshotMetricRequest,
+  ExperimentSnapshotSettings,
   SnapshotStatusSummary,
 } from "shared/types/experiment-snapshot";
 import type { ContextualBanditSnapshot } from "shared/types/stats";
@@ -347,10 +347,10 @@ export function buildContextualBanditSnapshotSettings(
   };
 }
 
-/** Translates `ContextualBanditSnapshotSettings` into the `SnapshotMetricRequest` shape used by `SqlIntegration.getSnapshotMetricQuery`. */
-export function buildSnapshotMetricRequestForCb(
+/** Translates `ContextualBanditSnapshotSettings` into the `ExperimentSnapshotSettings` shape used by `SqlIntegration.getSnapshotMetricQuery`. */
+export function buildSnapshotSettingsForCb(
   cbSnapshotSettings: ContextualBanditSnapshotSettings,
-): SnapshotMetricRequest {
+): ExperimentSnapshotSettings {
   const decisionMetric = cbSnapshotSettings.decisionMetric;
   return {
     experimentId: cbSnapshotSettings.trackingKey,

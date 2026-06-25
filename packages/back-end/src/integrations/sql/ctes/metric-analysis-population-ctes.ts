@@ -1,23 +1,22 @@
-import type { DataSourceInterface } from "shared/types/datasource";
 import type { MetricAnalysisSettings } from "shared/types/metric-analysis";
+import type { ResolvedExposureQuery } from "shared/types/integrations";
 import type { SegmentInterface } from "shared/types/segment";
 import type { SqlDialect } from "shared/types/sql";
 import type { FactTableMap } from "back-end/src/models/FactTableModel";
 import { compileSqlTemplate } from "back-end/src/util/sql";
 
-import { getExposureQuery } from "back-end/src/integrations/sql/queries/exposure-query";
 import { getSegmentCTE } from "back-end/src/integrations/sql/ctes/segment-cte";
 
 export function getMetricAnalysisPopulationCTEs(
   dialect: SqlDialect,
   {
-    datasource,
+    populationExposureQuery,
     settings,
     idJoinMap,
     factTableMap,
     segment,
   }: {
-    datasource: DataSourceInterface;
+    populationExposureQuery?: ResolvedExposureQuery;
     settings: MetricAnalysisSettings;
     idJoinMap: Record<string, string>;
     factTableMap: FactTableMap;
@@ -25,15 +24,10 @@ export function getMetricAnalysisPopulationCTEs(
   },
 ): string {
   if (settings.populationType === "exposureQuery") {
-    const exposureQuery = getExposureQuery(
-      datasource,
-      settings.populationId || "",
-    );
-
     return `
       __rawExperiment AS (
         ${compileSqlTemplate(
-          exposureQuery.query,
+          populationExposureQuery?.query ?? "",
           {
             startDate: settings.startDate,
             endDate: settings.endDate ?? undefined,

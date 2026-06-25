@@ -4,7 +4,7 @@ import { ExperimentInterface } from "shared/types/experiment";
 import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
-  SnapshotMetricRequest,
+  ExperimentSnapshotSettings,
 } from "shared/types/experiment-snapshot";
 import { buildAnalysisKey } from "shared/snapshot-analysis-chunks";
 import { MetricSnapshotSettings } from "shared/types/report";
@@ -199,7 +199,7 @@ function makePlan(
       phase: 0,
       queries: [],
       dimension: null,
-      settings: {} as SnapshotMetricRequest,
+      settings: {} as ExperimentSnapshotSettings,
       type: "standard",
       triggeredBy: "manual",
       unknownVariations: [],

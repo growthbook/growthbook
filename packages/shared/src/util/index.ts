@@ -9,7 +9,7 @@ import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
-  SnapshotMetricRequest,
+  ExperimentSnapshotSettings,
 } from "shared/types/experiment-snapshot";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { ExperimentReportVariation } from "shared/types/report";
@@ -26,6 +26,7 @@ import { HoldoutInterfaceStringDates } from "../validators/holdout";
 import { featureHasEnvironment } from "./features";
 
 export * from "./strings";
+export * from "./units-query-settings";
 export * from "./event-forwarder-destination";
 export * from "./features";
 export * from "./managedWarehouse";
@@ -137,7 +138,7 @@ export function putBaselineVariationFirst(
 }
 
 export function isAnalysisAllowed(
-  snapshotSettings: SnapshotMetricRequest,
+  snapshotSettings: ExperimentSnapshotSettings,
   analysisSettings: ExperimentSnapshotAnalysisSettings,
 ): boolean {
   // Analysis dimensions must be subset of snapshot dimensions

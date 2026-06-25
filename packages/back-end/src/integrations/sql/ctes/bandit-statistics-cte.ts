@@ -24,6 +24,7 @@ export function getBanditStatisticsCTE(
     metricData,
     dimensionCols,
     hasRegressionAdjustment,
+    // @lukebrawleysmith is `poolRegressionTheta` still necessary?
     poolRegressionTheta = true,
     hasCapping,
     ignoreNulls,

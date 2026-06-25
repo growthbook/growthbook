@@ -1,11 +1,11 @@
 import cloneDeep from "lodash/cloneDeep";
 import { ExperimentMetricInterface } from "shared/experiments";
-import { SnapshotMetricRequest } from "shared/types/experiment-snapshot";
+import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 import { applyMetricOverrides } from "back-end/src/util/integration";
 
 export function processActivationMetric(
   activationMetricDoc: null | ExperimentMetricInterface,
-  settings: SnapshotMetricRequest,
+  settings: Pick<ExperimentSnapshotSettings, "metricSettings">,
 ): null | ExperimentMetricInterface {
   let activationMetric: null | ExperimentMetricInterface = null;
   if (activationMetricDoc) {

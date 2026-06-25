@@ -8,6 +8,7 @@ import {
 } from "shared/experiments";
 import { FALLBACK_EXPERIMENT_MAX_LENGTH_DAYS } from "shared/constants";
 import { daysBetween } from "shared/dates";
+import { buildUnitsQuerySettingsFromSnapshot } from "shared/util";
 import { SegmentInterface } from "shared/types/segment";
 import {
   Dimension,
@@ -25,7 +26,7 @@ import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotHealth,
   ExperimentSnapshotInterface,
-  SnapshotMetricRequest,
+  ExperimentSnapshotSettings,
   SnapshotType,
 } from "shared/types/experiment-snapshot";
 import { MetricInterface } from "shared/types/metric";
@@ -74,7 +75,7 @@ export type SnapshotResult = {
 
 export type ExperimentResultsQueryParams = {
   snapshotType: SnapshotType;
-  snapshotSettings: SnapshotMetricRequest;
+  snapshotSettings: ExperimentSnapshotSettings;
   variationNames: string[];
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
@@ -128,6 +129,10 @@ export const startExperimentResultQueries = async (
   const exposureQuery = (settings?.queries?.exposure || []).find(
     (q) => q.id === snapshotSettings.exposureQueryId,
   );
+
+  const resolvedExposureQuery = exposureQuery
+    ? { query: exposureQuery.query, userIdType: exposureQuery.userIdType }
+    : { query: "", userIdType: "" };
 
   const snapshotDimensions: Dimension[] = (
     await Promise.all(
@@ -190,13 +195,18 @@ export const startExperimentResultQueries = async (
         eligibleDimensionsWithSlices: [],
       };
 
+  const unitsSettings = buildUnitsQuerySettingsFromSnapshot(
+    snapshotSettings,
+    resolvedExposureQuery,
+  );
+
   const unitQueryParams: ExperimentUnitsQueryParams = {
     activationMetric: activationMetric,
     dimensions: snapshotDimensions.length
       ? snapshotDimensions
       : dimensionsForTraffic,
     segment: segmentObj,
-    settings: snapshotSettings,
+    unitsSettings,
     unitsTableFullName: unitsTableFullName,
     includeIdJoins: true,
     factTableMap: params.factTableMap,
@@ -265,6 +275,7 @@ export const startExperimentResultQueries = async (
       segment: segmentObj,
       settings: snapshotSettings,
       unitsSource: unitQuery ? "exposureTable" : "exposureQuery",
+      unitsSettings,
       unitsTableFullName: unitsTableFullName,
       factTableMap: params.factTableMap,
     };
@@ -297,6 +308,7 @@ export const startExperimentResultQueries = async (
       segment: segmentObj,
       settings: snapshotSettings,
       unitsSource: unitQuery ? "exposureTable" : "exposureQuery",
+      unitsSettings,
       unitsTableFullName: unitsTableFullName,
       factTableMap: params.factTableMap,
     };
@@ -345,6 +357,7 @@ export const startExperimentResultQueries = async (
           segment: segmentObj,
           settings: snapshotSettings,
           unitsSource: "exposureTable",
+          unitsSettings,
           unitsTableFullName: unitsTableFullName,
           factTableMap: params.factTableMap,
         };
@@ -390,6 +403,7 @@ export const startExperimentResultQueries = async (
           segment: segmentObj,
           settings: snapshotSettings,
           unitsSource: "exposureTable",
+          unitsSettings,
           unitsTableFullName: unitsTableFullName,
           factTableMap: params.factTableMap,
         };
@@ -431,6 +445,7 @@ export const startExperimentResultQueries = async (
       name: TRAFFIC_QUERY_NAME,
       query: integration.getExperimentAggregateUnitsQuery({
         ...unitQueryParams,
+        settings: snapshotSettings,
         dimensions: snapshotDimensionsForTraffic.length
           ? snapshotDimensionsForTraffic
           : dimensionsForTraffic,
@@ -716,7 +731,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
   }
 
   private processLegacyExperimentResultsResponse(
-    snapshotSettings: SnapshotMetricRequest,
+    snapshotSettings: ExperimentSnapshotSettings,
     rows: ExperimentQueryResponses,
   ): ExperimentResults {
     const ret: ExperimentResults = {

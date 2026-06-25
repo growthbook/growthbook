@@ -28,7 +28,7 @@ export default async function (agenda: Agenda) {
   async function startUpdateJob() {
     const job = agenda.create(QUEUE_CB_RESULTS_UPDATES, {});
     job.unique({});
-    job.repeatEvery("10 minutes");
+    job.repeatEvery("5 minutes");
     await job.save();
   }
 

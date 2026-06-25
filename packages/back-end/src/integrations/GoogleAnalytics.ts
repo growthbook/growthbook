@@ -50,7 +50,7 @@ import {
 } from "shared/types/datasource";
 import { MetricInterface } from "shared/types/metric";
 import { QueryMetadata } from "shared/types/query";
-import { SnapshotMetricRequest } from "shared/types/experiment-snapshot";
+import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 import { FactMetricInterface } from "shared/types/fact-table";
 import { ReqContext } from "back-end/types/request";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
@@ -439,7 +439,7 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
   }
 
   getExperimentResultsQuery(
-    snapshotSettings: SnapshotMetricRequest,
+    snapshotSettings: ExperimentSnapshotSettings,
     metricDocs: MetricInterface[],
   ): string {
     const metrics = metricDocs.map((m) => {
@@ -493,7 +493,7 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
   }
 
   async getExperimentResults(
-    snapshotSettings: SnapshotMetricRequest,
+    snapshotSettings: ExperimentSnapshotSettings,
     metrics: MetricInterface[],
   ): Promise<ExperimentQueryResponses> {
     const query = this.getExperimentResultsQuery(snapshotSettings, metrics);

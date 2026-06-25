@@ -13,7 +13,7 @@ import {
   IncrementalRefreshInterface,
 } from "shared/validators";
 import {
-  SnapshotMetricRequest,
+  ExperimentSnapshotSettings,
   MetricForSnapshot,
 } from "shared/types/experiment-snapshot";
 import { OrganizationInterface } from "shared/types/organization";
@@ -48,7 +48,7 @@ export async function assertIncrementalRefreshPrerequisites({
 }: {
   org: OrganizationInterface;
   integration: SourceIntegrationInterface;
-  snapshotSettings: SnapshotMetricRequest;
+  snapshotSettings: ExperimentSnapshotSettings;
   metricMap: Map<string, ExperimentMetricInterface>;
   experiment: ExperimentInterface;
   incrementalRefreshModel: IncrementalRefreshInterface | null;
@@ -145,7 +145,7 @@ export async function assertIncrementalRefreshPrerequisites({
 const hashObject = (obj: object) => md5(JSON.stringify(obj));
 
 export function getExperimentSettingsHashForIncrementalRefresh(
-  snapshotSettings: SnapshotMetricRequest,
+  snapshotSettings: ExperimentSnapshotSettings,
 ): string {
   return hashObject({
     // snapshotSettings

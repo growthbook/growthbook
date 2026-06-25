@@ -17,33 +17,110 @@ import {
   ContextualBanditSnapshot,
 } from "shared/types/stats";
 import { QueryLanguage } from "./datasource";
-import { MetricStats } from "./metric";
+import { DimensionInterface } from "./dimension";
+import { MetricPriorSettings, MetricWindowSettings } from "./fact-table";
+import { MetricInterface, MetricStats } from "./metric";
 import { Queries } from "./query";
+import { PhaseSQLVar } from "./sql";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
   LegacyMetricRegressionAdjustmentStatus,
 } from "./report";
 import {
+  AttributionModel,
   ExperimentInterfaceStringDates,
   LegacyBanditResult,
+  LookbackOverride,
 } from "./experiment";
-import {
-  SnapshotBanditSettings,
-  SnapshotMetricRequest,
-} from "./snapshot-metric";
 
-// Re-exported from `./snapshot-metric`; prefer importing from there in new code.
-export type {
-  DimensionForSnapshot,
-  MetricForSnapshot,
-  SnapshotBanditSettings,
-  SnapshotMetricRequest,
-  SnapshotSettingsVariation,
-} from "./snapshot-metric";
+export interface MetricForSnapshot {
+  id: string;
+  /** Snapshot-time copy of the Metric object's settings. */
+  settings?: Pick<
+    MetricInterface,
+    | "datasource"
+    | "aggregation"
+    | "sql"
+    | "cappingSettings"
+    | "denominator"
+    | "userIdTypes"
+    | "type"
+  >;
+  /** Settings after overrides applied; see MetricSnapshotSettings. */
+  computedSettings?: {
+    regressionAdjustmentEnabled: boolean;
+    regressionAdjustmentAvailable: boolean;
+    regressionAdjustmentDays: number;
+    regressionAdjustmentReason: string;
+    properPrior: boolean;
+    properPriorMean: number;
+    properPriorStdDev: number;
+    windowSettings: MetricWindowSettings;
+    targetMDE?: number;
+  };
+}
 
-/** @deprecated Use `SnapshotMetricRequest`. */
-export type ExperimentSnapshotSettings = SnapshotMetricRequest;
+export interface DimensionForSnapshot {
+  /** Encodes type and id (e.g. `exp:country`, `pre:date`). */
+  id: string;
+  slices?: string[];
+  /** Snapshot-time settings, used by the front-end "out-of-date" warning. */
+  settings?: Pick<DimensionInterface, "datasource" | "userIdType" | "sql">;
+}
+
+export interface SnapshotSettingsVariation {
+  id: string;
+  weight: number;
+}
+
+export interface SnapshotBanditSettings {
+  reweight: boolean;
+  decisionMetric: string;
+  seed: number;
+  currentWeights: number[];
+  historicalWeights: {
+    date: Date;
+    weights: number[];
+    totalUsers: number;
+  }[];
+  useFirstExposure?: boolean;
+  windowSettings?: MetricWindowSettings;
+  contextualBandit?: boolean;
+  targetingAttributeColumns?: string[];
+  /** When false, SQL skips pooled `__theta` (used by CB). Defaults to true for MAB. */
+  poolRegressionTheta?: boolean;
+}
+
+export interface ExperimentSnapshotSettings {
+  dimensions: DimensionForSnapshot[];
+  /** Always-computed unit dimensions gathered in 1 pass and split into per-dimension analyses. */
+  precomputedUnitDimensionIds?: string[];
+  metricSettings: MetricForSnapshot[];
+  goalMetrics: string[];
+  secondaryMetrics: string[];
+  guardrailMetrics: string[];
+  activationMetric: string | null;
+  defaultMetricPriorSettings: MetricPriorSettings;
+  regressionAdjustmentEnabled: boolean;
+  attributionModel: AttributionModel;
+  lookbackOverride?: LookbackOverride;
+  experimentId: string;
+  queryFilter: string;
+  segment: string;
+  skipPartialData: boolean;
+  datasourceId: string;
+  exposureQueryId: string;
+  startDate: Date;
+  endDate: Date;
+  phase?: PhaseSQLVar;
+  customFields?: Record<string, unknown>;
+  variations: SnapshotSettingsVariation[];
+  coverage?: number;
+  banditSettings?: SnapshotBanditSettings;
+  /** @deprecated */
+  manual?: boolean;
+}
 
 export interface SnapshotMetric {
   value: number;
@@ -152,7 +229,7 @@ export interface ExperimentSnapshotInterface {
   dateCreated: Date;
   runStarted: Date | null;
   status: "running" | "success" | "error";
-  settings: SnapshotMetricRequest;
+  settings: ExperimentSnapshotSettings;
   type?: SnapshotType;
   triggeredBy?: SnapshotTriggeredBy;
   report?: string;
@@ -168,6 +245,8 @@ export interface ExperimentSnapshotInterface {
   // Keyed by `ExperimentSnapshotAnalysis.analysisKey`
   chunkedAnalysesMeta?: Record<AnalysisKeyType, AnalysisMetaEntry>;
   banditResult?: BanditResult;
+
+  // @teresayung, I think this is unused
   contextualBanditSnapshot?: ContextualBanditSnapshot | null;
   health?: ExperimentSnapshotHealth;
 }
@@ -235,7 +314,7 @@ export interface ExperimentMetricAnalysisParams {
 }
 
 export type ExperimentMetricAnalysisContext = {
-  snapshotSettings: SnapshotMetricRequest;
+  snapshotSettings: ExperimentSnapshotSettings;
   organization: string;
   snapshot: string;
 };

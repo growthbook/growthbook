@@ -6,18 +6,28 @@ import {
   contextualBanditAttrCol,
   contextualBanditRawAttrCol,
 } from "shared/experiments";
-import type { SnapshotMetricRequest } from "shared/types/experiment-snapshot";
-import type { DimensionColumnData } from "shared/types/integrations";
+import type {
+  DimensionColumnData,
+  ExperimentUnitsQuerySettings,
+} from "shared/types/integrations";
 import type { SqlDialect } from "shared/types/sql";
 import {
   formatMalformedTargetingAttributeColumnMessages,
   isSafeSqlIdentifier,
 } from "shared/validators";
 
+// The CB targeting helpers only need the bandit config and variation list, so
+// they accept any settings object carrying those (units-query settings or a
+// full experiment snapshot settings).
+type ContextualBanditTargetingSettings = Pick<
+  ExperimentUnitsQuerySettings,
+  "banditSettings" | "variations"
+>;
+
 export function appendContextualBanditTargetingAttributeCols(
   dialect: SqlDialect,
   dimensionCols: DimensionColumnData[],
-  settings: SnapshotMetricRequest,
+  settings: ContextualBanditTargetingSettings,
 ): void {
   const cfg = getContextualBanditUnitsSqlConfig(dialect, settings);
   if (!cfg) {
@@ -48,7 +58,7 @@ export type ContextualBanditUnitsSqlConfig = {
 
 export function getContextualBanditUnitsSqlConfig(
   dialect: SqlDialect,
-  settings: SnapshotMetricRequest,
+  settings: ContextualBanditTargetingSettings,
 ): ContextualBanditUnitsSqlConfig | null {
   const bs = settings.banditSettings;
   if (!bs?.contextualBandit) {
@@ -71,7 +81,7 @@ export function getContextualBanditUnitsSqlConfig(
 
 /** True when the CB has at least one targeting column and can segment users into distinct contexts. */
 export function hasUsableContextualBanditTargeting(
-  settings: SnapshotMetricRequest,
+  settings: ContextualBanditTargetingSettings,
 ): boolean {
   const bs = settings.banditSettings;
   if (!bs?.contextualBandit) {
