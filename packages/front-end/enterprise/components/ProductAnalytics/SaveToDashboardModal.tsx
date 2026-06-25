@@ -13,6 +13,7 @@ import {
 } from "shared/enterprise";
 import {
   ExplorationConfig,
+  ExplorationDateRange,
   ProductAnalyticsExploration,
 } from "shared/validators";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
@@ -52,6 +53,12 @@ interface Props {
   close: () => void;
   config: ExplorationConfig;
   exploration: ProductAnalyticsExploration | null;
+  /** Whether the explorer is currently comparing periods. */
+  compareEnabled?: boolean;
+  /** The comparison (previous) window the explorer submitted, if any. */
+  previousTimeFrame?: ExplorationDateRange | null;
+  /** Current comparison exploration id, to seed the block before first refresh. */
+  comparisonExplorationId?: string | null;
   trackingSource?: string;
 }
 
@@ -59,6 +66,9 @@ export default function SaveToDashboardModal({
   close,
   config,
   exploration,
+  compareEnabled = false,
+  previousTimeFrame = null,
+  comparisonExplorationId = null,
   trackingSource,
 }: Props) {
   const router = useRouter();
@@ -104,12 +114,28 @@ export default function SaveToDashboardModal({
 
   const handleSubmit = async () => {
     const blockType = datasetTypeToBlockType(config.dataset.type);
+    // Persist the comparison so dashboards can show it and roll it on refresh.
+    // Only store `previousTimeFrame` for a fixed (custom date range) primary;
+    // relative primaries re-derive the previous window each refresh so it rolls.
+    const comparison = compareEnabled
+      ? {
+          enabled: true,
+          previousTimeFrame:
+            config.dateRange.predefined === "customDateRange"
+              ? (previousTimeFrame ?? undefined)
+              : undefined,
+        }
+      : undefined;
     const newBlock = {
       type: blockType,
       title: form.watch("chartTitle"),
       description: "",
       explorerAnalysisId: exploration?.id ?? "",
       config,
+      ...(comparison ? { comparison } : {}),
+      ...(comparison && comparisonExplorationId
+        ? { comparisonExplorerAnalysisId: comparisonExplorationId }
+        : {}),
     };
 
     let dashboardId: string;
