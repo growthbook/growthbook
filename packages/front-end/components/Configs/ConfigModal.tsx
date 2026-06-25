@@ -4,11 +4,13 @@ import { useForm } from "react-hook-form";
 import { ConfigWithoutValue } from "shared/types/config";
 import { Revision } from "shared/enterprise";
 import { generateTrackingKey } from "shared/experiments";
+import { getConfigParentKey } from "shared/util";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiPlus } from "react-icons/pi";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
+import ConfigIcon from "@/components/Configs/ConfigIcon";
 import SelectOwner from "@/components/Owner/SelectOwner";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import Callout from "@/ui/Callout";
@@ -242,19 +244,25 @@ export default function ConfigModal({
           onChange={(v) => form.setValue("parent", v)}
           options={parentOptions}
           initialOption="None (base config)"
-          formatOptionLabel={({ value, label }) => (
-            <span>
-              {label}
-              {value && (
-                <code
-                  className="float-right position-relative"
-                  style={{ top: 1, color: "var(--slate-12)" }}
-                >
+          formatOptionLabel={({ value, label }) =>
+            value ? (
+              <Flex as="span" align="center" gap="1" width="100%">
+                <ConfigIcon
+                  isBase={
+                    getConfigParentKey(
+                      configs.find((c) => c.key === value) ?? {},
+                    ) === null
+                  }
+                />
+                <span>{label}</span>
+                <code style={{ marginLeft: "auto", color: "var(--slate-12)" }}>
                   {value}
                 </code>
-              )}
-            </span>
-          )}
+              </Flex>
+            ) : (
+              <span>{label}</span>
+            )
+          }
           helpText="A child inherits its parent's fields and overrides a subset."
         />
       )}

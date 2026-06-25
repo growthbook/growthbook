@@ -11,6 +11,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
 import LinkButton from "@/ui/LinkButton";
 import Link from "@/ui/Link";
+import Badge from "@/ui/Badge";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import EmptyState from "@/components/EmptyState";
@@ -291,16 +292,21 @@ export default function ConfigsPage(): React.ReactElement {
                           }}
                         >
                           <TableCell style={{ padding: "var(--space-0)" }}>
-                            <Link
-                              color="dark"
-                              style={{
-                                display: "block",
-                                padding: "var(--space-3)",
-                              }}
-                              href={`/configs/${c.key}`}
-                            >
-                              {c.name}
-                            </Link>
+                            <Flex align="center" gap="2">
+                              <Link
+                                color="dark"
+                                style={{
+                                  display: "block",
+                                  padding: "var(--space-3)",
+                                }}
+                                href={`/configs/${c.key}`}
+                              >
+                                {c.name}
+                              </Link>
+                              {c.archived && (
+                                <Badge label="Archived" color="gray" />
+                              )}
+                            </Flex>
                           </TableCell>
                           <TableCell>{c.key}</TableCell>
                           <TableCell>

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { ConstantInterface } from "shared/types/constant";
 import { ConfigInterface } from "shared/types/config";
@@ -71,13 +71,14 @@ import {
   useConstantMergeResult,
 } from "@/components/Constants/useConstantConflictModal";
 import { useConstantRevision } from "@/hooks/useConstantRevision";
-import { useConstantReferences } from "@/hooks/useConstantReferences";
+import { useConfigFamilyReferences } from "@/hooks/useConstantReferences";
 import ConstantArchiveModal from "@/components/Constants/ConstantArchiveModal";
-import ConfigReferenceList from "@/components/Configs/ConfigReferenceList";
-import ReferencesLink from "@/components/References/ReferencesLink";
 import { ConstantRevisionContext } from "@/components/Constants/useConstantDraftTarget";
 import ConfigModal from "@/components/Configs/ConfigModal";
 import LineageTree from "@/components/Configs/LineageTree";
+import ConfigIcon from "@/components/Configs/ConfigIcon";
+import ConfigFeatureReferences from "@/components/Configs/ConfigFeatureReferences";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import FieldDefForm from "@/components/Configs/FieldDefForm";
 import ConfigFieldRow from "@/components/Configs/ConfigFieldRow";
 import {
@@ -122,7 +123,6 @@ export default function ConfigDetailPage(): React.ReactElement {
   const [showChangesModal, setShowChangesModal] = useState(false);
   const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [showAuditModal, setShowAuditModal] = useState(false);
-  const [showReferencesModal, setShowReferencesModal] = useState(false);
   const [compareOpen, setCompareOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -141,6 +141,18 @@ export default function ConfigDetailPage(): React.ReactElement {
   // Inline schema authoring: "add" shows a blank field form; a key string edits
   // that field's definition.
   const [schemaEdit, setSchemaEdit] = useState<"add" | string | null>(null);
+
+  // Switching configs (e.g. via the lineage tree) reuses this page instance, so
+  // clear any in-progress row edit / insert when the addressed config changes.
+  useEffect(() => {
+    setEditKey(null);
+    setEditText("");
+    setEditError(null);
+    setEditKind("value");
+    setSchemaEdit(null);
+    setShowCreateChild(false);
+    setShowOverrides(false);
+  }, [configKey]);
 
   // Addressed by `key`; the resolved endpoint returns the config plus its
   // lineage chain + tree.
@@ -163,9 +175,8 @@ export default function ConfigDetailPage(): React.ReactElement {
     mutateRevisions,
   } = useConstantRevision(config?.id, mutate, config, "config");
 
-  const { references } = useConstantReferences(config?.id, "configs");
-  const totalReferences =
-    (references?.features.length ?? 0) + (references?.constants.length ?? 0);
+  const { references: familyReferences, loading: familyReferencesLoading } =
+    useConfigFamilyReferences(config?.id);
 
   // Constant-picker scope: cycle-creating keys + this config's own key are
   // scrubbed so a value can't reference back into a cycle.
@@ -533,9 +544,11 @@ export default function ConfigDetailPage(): React.ReactElement {
   const childConfigCount = data.lineage.filter(
     (n) => n.parentKey === config.key,
   ).length;
-  const parentName = parentKey
-    ? (data.lineage.find((n) => n.key === parentKey)?.name ?? parentKey)
+  const parentNode = parentKey
+    ? data.lineage.find((n) => n.key === parentKey)
     : null;
+  const parentName = parentKey ? (parentNode?.name ?? parentKey) : null;
+  const parentIsBase = (parentNode?.parentKey ?? null) === null;
   const fieldLabel = (n: number) => `${n} field${n === 1 ? "" : "s"}`;
   const statusParts: string[] = [];
   if (parentKey) {
@@ -565,10 +578,11 @@ export default function ConfigDetailPage(): React.ReactElement {
       />
       <Box className="contents container-fluid pagecontents" mt="2">
         <Flex gap="6" align="start">
-          {/* Lineage sidebar — always shows the full base → child family. */}
+          {/* Sidebar — the lineage family (Configs) and the features that
+              reference it (Features). */}
           <Box
             style={{
-              width: 200,
+              width: 220,
               flexShrink: 0,
               position: "sticky",
               top: "1rem",
@@ -577,37 +591,91 @@ export default function ConfigDetailPage(): React.ReactElement {
               overflowY: "auto",
             }}
           >
-            <Text size="small" weight="semibold" color="text-low">
-              CONFIGS
-            </Text>
-            <Box mt="2">
-              <LineageTree nodes={data.lineage} currentKey={config.key} />
-            </Box>
-            {canUpdate && (
-              <Box mt="3" pl="1">
-                <Link onClick={() => setShowCreateChild(true)}>
-                  + Add override config
-                </Link>
-              </Box>
-            )}
+            <Tabs defaultValue="configs">
+              <TabsList size="1">
+                <TabsTrigger value="configs">
+                  <Flex as="span" align="center" gap="2">
+                    Configs
+                    <Badge
+                      size="xs"
+                      color="gray"
+                      radius="full"
+                      label={`${data.lineage.length}`}
+                    />
+                  </Flex>
+                </TabsTrigger>
+                <TabsTrigger value="features">
+                  <Flex as="span" align="center" gap="2">
+                    Features
+                    <Badge
+                      size="xs"
+                      color="gray"
+                      radius="full"
+                      label={`${familyReferences?.features.length ?? 0}`}
+                    />
+                  </Flex>
+                </TabsTrigger>
+              </TabsList>
+              <TabsContent value="configs">
+                <Box mt="2">
+                  <LineageTree nodes={data.lineage} currentKey={config.key} />
+                </Box>
+                {canUpdate && (
+                  <Box mt="3" pl="1">
+                    <Link size="2" onClick={() => setShowCreateChild(true)}>
+                      <PiPlusBold
+                        style={{ marginRight: 3, verticalAlign: "middle" }}
+                      />
+                      Add override config
+                    </Link>
+                  </Box>
+                )}
+              </TabsContent>
+              <TabsContent value="features">
+                <Box mt="2">
+                  <ConfigFeatureReferences
+                    lineage={data.lineage}
+                    currentKey={config.key}
+                    references={familyReferences}
+                    loading={familyReferencesLoading}
+                  />
+                </Box>
+              </TabsContent>
+            </Tabs>
           </Box>
 
           {/* Main */}
           <Box style={{ flex: 1, minWidth: 0 }}>
             <Flex align="start" justify="between" gap="2" mb="2">
-              <Flex align="center" gap="3" style={{ marginTop: "-4px" }}>
-                <Heading size="x-large" as="h1" mb="0">
-                  {displayedConfig.name}
-                </Heading>
-                <Badge
-                  label={parentKey ? `extends ${parentKey}` : "base config"}
-                  color="gray"
-                  variant="soft"
-                />
-                {displayedConfig.archived && (
-                  <Badge label="Archived" color="gray" />
+              <Box style={{ marginTop: "-4px" }}>
+                <Flex align="center" gap="3">
+                  <Heading size="x-large" as="h1" mb="0">
+                    {displayedConfig.name}
+                  </Heading>
+                  {displayedConfig.archived && (
+                    <Badge label="Archived" color="gray" />
+                  )}
+                </Flex>
+                {parentKey && (
+                  <Metadata
+                    label="Extends"
+                    style={{ marginTop: "var(--space-1)" }}
+                    value={
+                      <Link
+                        href={`/configs/${parentKey}`}
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 4,
+                        }}
+                      >
+                        <ConfigIcon isBase={parentIsBase} size={13} />
+                        {parentName}
+                      </Link>
+                    }
+                  />
                 )}
-              </Flex>
+              </Box>
               <Flex align="center" gap="4" pr="2">
                 <RevisionDropdown
                   entityId={config.id}
@@ -685,23 +753,13 @@ export default function ConfigDetailPage(): React.ReactElement {
               </Flex>
             </Flex>
 
-            <Flex align="center" gap="4" mb="4" wrap="wrap" justify="between">
-              <Flex gap="4" align="center" wrap="wrap">
-                <Metadata label="Key" value={config.key} />
-                <Metadata
-                  label="Project"
-                  value={projectName || "All projects"}
-                />
-                <Box>
-                  <Text weight="medium">Owner: </Text>
-                  <Owner ownerId={displayedConfig.owner} gap="1" />
-                </Box>
-              </Flex>
-              <ReferencesLink
-                total={totalReferences}
-                onShow={() => setShowReferencesModal(true)}
-                emptyTooltip="No features or configs currently reference this config."
-              />
+            <Flex align="center" gap="4" mb="4" wrap="wrap">
+              <Metadata label="Key" value={config.key} />
+              <Metadata label="Project" value={projectName || "All projects"} />
+              <Box>
+                <Text weight="medium">Owner: </Text>
+                <Owner ownerId={displayedConfig.owner} gap="1" />
+              </Box>
             </Flex>
 
             {displayedConfig.description && (
@@ -924,25 +982,6 @@ export default function ConfigDetailPage(): React.ReactElement {
             requiresApproval={selectedRevisionRequiresApproval}
             closeModal={() => setShowChangesModal(false)}
             canUpdateEntity={(s) => permissionsUtil.canUpdateConfig(s, {})}
-          />
-        </Modal>
-      )}
-
-      {showReferencesModal && references && (
-        <Modal
-          header={`'${displayedConfig.name}' References`}
-          trackingEventModalType="show-config-references"
-          close={() => setShowReferencesModal(false)}
-          open={showReferencesModal}
-          closeCta="Close"
-          useRadixButton={true}
-        >
-          <Text as="p" mb="3">
-            The following features and configs use this config.
-          </Text>
-          <ConfigReferenceList
-            features={references.features}
-            constants={references.constants}
           />
         </Modal>
       )}

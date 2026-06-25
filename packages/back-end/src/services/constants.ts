@@ -3,6 +3,11 @@ import {
   getConstantReferenceKeys,
   getCyclicConstantRefs,
 } from "shared/validators";
+import {
+  getConfigParentKey,
+  getConfigSubtree,
+  getConfigBackingKey,
+} from "shared/util";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { BadRequestError } from "back-end/src/util/errors";
@@ -98,12 +103,10 @@ type ValueBearingRule = {
   variations?: Array<{ value?: unknown }>;
 };
 
-// Every value string a feature can hold, from both the v2 `rules` array and the
-// legacy per-environment `environmentSettings[env].rules`.
-function featureValueStrings(feature: FeatureInterface): string[] {
+// Every rule/variation value string a feature holds, from both the v2 `rules`
+// array and the legacy per-environment `environmentSettings[env].rules`.
+function featureRuleValueStrings(feature: FeatureInterface): string[] {
   const out: string[] = [];
-  if (typeof feature.defaultValue === "string") out.push(feature.defaultValue);
-
   const collect = (rule: ValueBearingRule) => {
     if (typeof rule.value === "string") out.push(rule.value);
     for (const v of rule.variations ?? []) {
@@ -119,6 +122,14 @@ function featureValueStrings(feature: FeatureInterface): string[] {
   for (const env of Object.values(envSettings)) {
     for (const rule of env?.rules ?? []) collect(rule);
   }
+  return out;
+}
+
+// Every value string a feature can hold (default value + all rule values).
+function featureValueStrings(feature: FeatureInterface): string[] {
+  const out: string[] = [];
+  if (typeof feature.defaultValue === "string") out.push(feature.defaultValue);
+  out.push(...featureRuleValueStrings(feature));
   return out;
 }
 
@@ -185,6 +196,77 @@ export async function loadConstantReferences(
 
 export function totalConstantReferences(refs: ConstantReferences): number {
   return refs.features.length + refs.constants.length;
+}
+
+export type ConfigFamilyFeatureRef = {
+  id: string;
+  name: string;
+  project?: string;
+  // The config backing the feature's default value (in this family), if any.
+  defaultConfigKey: string | null;
+  // Configs used by rules that differ from the default config — the inverted
+  // tree only surfaces rule overrides that change which config is served.
+  ruleConfigKeys: string[];
+};
+
+// Features that reference any config in the lineage family of `configId` — the
+// config, its ancestors, and all descendants. Each result splits the default
+// config from the (differing) rule configs so the UI can render an inverted
+// tree: feature → default config, then rules → rule configs.
+export async function loadConfigFamilyFeatureReferences(
+  context: ReqContext | ApiReqContext,
+  configId: string,
+): Promise<{
+  familyKeys: string[];
+  features: ConfigFamilyFeatureRef[];
+} | null> {
+  const config = await context.models.configs.getById(configId);
+  if (!config) return null;
+
+  const allConfigs = await context.models.configs.getAll();
+  const byKey = new Map(allConfigs.map((c) => [c.key, c]));
+
+  // Walk to the lineage root, then take its whole subtree as the family.
+  let rootKey = config.key;
+  const seen = new Set<string>();
+  let cur: typeof config | undefined = config;
+  while (cur && !seen.has(cur.key)) {
+    seen.add(cur.key);
+    rootKey = cur.key;
+    const parentKey = getConfigParentKey(cur);
+    cur = parentKey ? byKey.get(parentKey) : undefined;
+  }
+  const familyKeys = getConfigSubtree(rootKey, allConfigs);
+  const familySet = new Set(familyKeys);
+
+  const allFeatures = await getAllFeatures(context, {});
+  const features: ConfigFamilyFeatureRef[] = [];
+  for (const f of allFeatures) {
+    const rawDefaultKey =
+      typeof f.defaultValue === "string"
+        ? getConfigBackingKey(f.defaultValue)
+        : null;
+    const defaultConfigKey =
+      rawDefaultKey && familySet.has(rawDefaultKey) ? rawDefaultKey : null;
+
+    const ruleKeys = new Set<string>();
+    for (const value of featureRuleValueStrings(f)) {
+      const key = getConfigBackingKey(value);
+      if (key && familySet.has(key) && key !== defaultConfigKey) {
+        ruleKeys.add(key);
+      }
+    }
+
+    if (!defaultConfigKey && ruleKeys.size === 0) continue;
+    features.push({
+      id: f.id,
+      name: f.id,
+      project: f.project || undefined,
+      defaultConfigKey,
+      ruleConfigKeys: [...ruleKeys],
+    });
+  }
+  return { familyKeys, features };
 }
 
 // Block archiving a still-referenced constant; unarchiving is always allowed.

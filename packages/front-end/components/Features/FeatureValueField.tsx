@@ -21,6 +21,7 @@ import {
   getConfigBackingKey,
   getConfigBackingPatch,
   setConfigBacking,
+  getConfigParentKey,
 } from "shared/util";
 import { FaMagic, FaRegTrashAlt } from "react-icons/fa";
 import stringify from "json-stringify-pretty-compact";
@@ -38,6 +39,7 @@ import Modal from "@/components/Modal";
 import { GBAddCircle } from "@/components/Icons";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import RadioGroup from "@/ui/RadioGroup";
+import ConfigIcon from "@/components/Configs/ConfigIcon";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import Text from "@/ui/Text";
@@ -227,6 +229,33 @@ export default function FeatureValueField({
     defaultCodeEditorToggledOn,
   );
 
+  // Local buffer for the config-backed override editor. The stored value
+  // round-trips through JSON parse/recompose (to inject the `@config:` ref),
+  // which would normalize/clobber in-progress text on every keystroke. The
+  // buffer preserves exactly what the user typed and is only re-derived when the
+  // stored value changes from outside this editor (e.g. switching configs).
+  const [configPatchDraft, setConfigPatchDraft] = useState<string | null>(null);
+  const lastComposedValueRef = useRef<string | null>(null);
+
+  // A config-backed default value serves the config as-is — this mode has no
+  // patch editor (configBackingShowPatch off). Strip any orphaned override keys
+  // left behind from JSON authored before a config was selected; otherwise they
+  // merge in invisibly (and fail the config's schema) with no way to clear them.
+  useEffect(() => {
+    if (valueType !== "json" || !allowConfigBacking || configBackingShowPatch) {
+      return;
+    }
+    const key = getConfigBackingKey(value);
+    if (!key) return;
+    const existingPatch = getConfigBackingPatch(value);
+    if (existingPatch === "{}" || existingPatch === "") return;
+    const cleaned = setConfigBacking(key, "{}");
+    if (cleaned !== value) {
+      lastComposedValueRef.current = cleaned;
+      setValue(cleaned);
+    }
+  }, [value, valueType, allowConfigBacking, configBackingShowPatch, setValue]);
+
   if (
     validationEnabled &&
     hasJsonValidator &&
@@ -319,8 +348,28 @@ export default function FeatureValueField({
     const isBacked = configKey !== null;
     // When backed, the value's own keys are an override patch on the config;
     // otherwise the whole value is authored directly (and becomes the patch if a
-    // config is later attached).
-    const patch = backedKey !== null ? getConfigBackingPatch(value) : value;
+    // config is later attached). The extracted patch is compact JSON (storage
+    // form) — expand it for the editor so objects don't collapse onto one line.
+    const rawStoredPatch =
+      backedKey !== null ? getConfigBackingPatch(value) : value;
+    const storedPatch =
+      valueType === "json"
+        ? (formatJSON(rawStoredPatch) ?? rawStoredPatch)
+        : rawStoredPatch;
+    // Prefer the local draft while editing (preserves raw text through the
+    // recompose round-trip); fall back to the stored patch when the value
+    // changed from outside this editor.
+    const patch =
+      configPatchDraft !== null && value === lastComposedValueRef.current
+        ? configPatchDraft
+        : storedPatch;
+    // Compose the patch back with the config ref and emit, buffering raw text.
+    const emitPatch = (p: string) => {
+      setConfigPatchDraft(p);
+      const composed = isBacked ? setConfigBacking(configKey, p) : p;
+      lastComposedValueRef.current = composed;
+      setValue(composed);
+    };
     // Rule mode keeps the patch editor visible alongside the config picker;
     // default-value mode hides it once a config is chosen.
     const showPatchEditor = configBackingShowPatch || !isBacked;
@@ -343,23 +392,30 @@ export default function FeatureValueField({
             value: c.key,
           }))}
           onChange={(key) => {
-            // Selecting a config wraps the current value as the override patch;
-            // clearing it (unlocked only) unwraps the patch back into a plain value.
-            setValue(
-              key ? setConfigBacking(key, patch) : getConfigBackingPatch(value),
-            );
+            // Selecting a config wraps the current patch as the override; clearing
+            // it (unlocked only) unwraps the patch back into a plain value. In
+            // default-value mode (no patch editor) the config serves as-is, so
+            // drop any prior keys rather than stranding them as a hidden patch.
+            const nextPatch = key && !configBackingShowPatch ? "{}" : patch;
+            const composed = key ? setConfigBacking(key, nextPatch) : patch;
+            lastComposedValueRef.current = composed;
+            setValue(composed);
           }}
           formatOptionLabel={({ value, label }) =>
             value ? (
-              <span>
-                {label}
-                <code
-                  className="float-right position-relative"
-                  style={{ top: 1, color: "var(--slate-12)" }}
-                >
+              <Flex as="span" align="center" gap="1" width="100%">
+                <ConfigIcon
+                  isBase={
+                    getConfigParentKey(
+                      eligibleConfigs.find((c) => c.key === value) ?? {},
+                    ) === null
+                  }
+                />
+                <span>{label}</span>
+                <code style={{ marginLeft: "auto", color: "var(--slate-12)" }}>
                   {value}
                 </code>
-              </span>
+              </Flex>
             ) : (
               <span className="text-muted">{label}</span>
             )
@@ -378,9 +434,7 @@ export default function FeatureValueField({
             <FeatureValueField
               valueType={valueType}
               value={patch}
-              setValue={(p) =>
-                setValue(isBacked ? setConfigBacking(configKey, p) : p)
-              }
+              setValue={emitPatch}
               id={id}
               placeholder={placeholder}
               feature={feature}

@@ -39,6 +39,12 @@ router.get(
   configController.getConfigReferences,
 );
 
+router.get(
+  "/:id/family-references",
+  validateRequestMiddleware({ params: idParams }),
+  configController.getConfigFamilyReferences,
+);
+
 router.post(
   "/",
   validateRequestMiddleware({ body: postConfigBodyValidator }),

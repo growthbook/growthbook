@@ -36,7 +36,9 @@ import {
 import { getAdapter } from "back-end/src/revisions";
 import {
   ConstantReferences,
+  ConfigFamilyFeatureRef,
   loadConstantReferences,
+  loadConfigFamilyFeatureReferences,
   assertConstantArchivable,
   assertKeyAvailableAcrossNamespace,
 } from "back-end/src/services/constants";
@@ -109,6 +111,27 @@ export const getConfigReferences = async (
     return context.throwNotFoundError("Config not found");
   }
   return res.status(200).json({ status: 200, ...references });
+};
+
+// Features referencing any config in this config's lineage family — for the
+// detail-page "Features" sidebar tab.
+export const getConfigFamilyReferences = async (
+  req: AuthRequest<null, { id: string }>,
+  res: Response<{
+    status: 200;
+    familyKeys: string[];
+    features: ConfigFamilyFeatureRef[];
+  }>,
+) => {
+  const context = getContextFromReq(req);
+  const result = await loadConfigFamilyFeatureReferences(
+    context,
+    req.params.id,
+  );
+  if (!result) {
+    return context.throwNotFoundError("Config not found");
+  }
+  return res.status(200).json({ status: 200, ...result });
 };
 
 // Number of fields a config defines in its own value (excluding `$extends`).

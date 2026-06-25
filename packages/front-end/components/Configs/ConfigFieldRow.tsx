@@ -4,7 +4,7 @@ import { BsThreeDotsVertical } from "react-icons/bs";
 import {
   PiPencilSimpleFill,
   PiInfo,
-  PiDotOutline,
+  PiRadioButton,
   PiArrowBendLeftUp,
   PiPencil,
   PiPlusBold,
@@ -20,11 +20,14 @@ import SelectField from "@/components/Forms/SelectField";
 import { FIVE_LINES_HEIGHT } from "@/components/Forms/CodeTextArea";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import ValueDisplay from "@/components/Features/ValueDisplay";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   FIELD_GRID_TEMPLATE,
   ResolvedField,
   fieldTypeLabel,
   fieldValueType,
+  fieldIsNullable,
+  normalizeField,
   typeDefault,
   valueToDisplayString,
 } from "@/components/Configs/fieldSchema";
@@ -75,6 +78,13 @@ export default function ConfigFieldRow({
   parentValue?: unknown;
 }): React.ReactElement {
   const here = f.source === configKey;
+  // Read schema-derived info from the canonical simple form so raw-authored
+  // fields (enum/nullable/bounds encoded in `jsonSchema`) behave like simple ones.
+  const nf = f.field ? normalizeField(f.field) : null;
+  const { getConfigByKey } = useDefinitions();
+  const sourceName = f.source
+    ? (getConfigByKey(f.source)?.name ?? f.source)
+    : "default";
 
   return (
     <Grid
@@ -90,9 +100,9 @@ export default function ConfigFieldRow({
           <Box style={{ minWidth: 0, overflowWrap: "anywhere" }}>
             <code style={{ color: "var(--slate-12)" }}>{f.key}</code>
           </Box>
-          {f.field?.description && (
+          {nf?.description && (
             <Tooltip
-              body={f.field.description}
+              body={nf.description}
               style={{
                 display: "inline-flex",
                 flexShrink: 0,
@@ -113,11 +123,11 @@ export default function ConfigFieldRow({
             {editing ? (
               <>
                 {(() => {
-                  const nullable = f.field?.nullable === true;
+                  const nullable = fieldIsNullable(nf);
                   const isNull = editKind === "null";
-                  const vt = fieldValueType(f.field);
+                  const vt = fieldValueType(nf);
                   const enumValues =
-                    vt !== "json" && vt !== "boolean" ? f.field?.enum ?? [] : [];
+                    vt !== "json" && vt !== "boolean" ? (nf?.enum ?? []) : [];
                   return (
                     <>
                       {vt === "boolean" ? (
@@ -184,7 +194,7 @@ export default function ConfigFieldRow({
               <>
                 {f.value === undefined ? (
                   <Text color="text-low">
-                    <code>{JSON.stringify(typeDefault(f.field))}</code> (default)
+                    <code>{JSON.stringify(typeDefault(nf))}</code> (default)
                   </Text>
                 ) : f.value === null ? (
                   <ValueDisplay
@@ -194,10 +204,13 @@ export default function ConfigFieldRow({
                   />
                 ) : (
                   (() => {
-                    const vt = fieldValueType(f.field);
+                    const vt = fieldValueType(nf);
                     return (
                       <ValueDisplay
-                        value={valueToDisplayString(squashConstants(f.value), vt)}
+                        value={valueToDisplayString(
+                          squashConstants(f.value),
+                          vt,
+                        )}
                         type={vt}
                         showFullscreenButton={vt === "json"}
                         copyButtonClassName={styles.copyButton}
@@ -212,8 +225,7 @@ export default function ConfigFieldRow({
                   >
                     {parentValue === undefined ? (
                       <Text color="text-low">
-                        <code>{JSON.stringify(typeDefault(f.field))}</code>{" "}
-                        (default)
+                        <code>{JSON.stringify(typeDefault(nf))}</code> (default)
                       </Text>
                     ) : parentValue === null ? (
                       <ValueDisplay
@@ -223,7 +235,7 @@ export default function ConfigFieldRow({
                       />
                     ) : (
                       (() => {
-                        const vt = fieldValueType(f.field);
+                        const vt = fieldValueType(nf);
                         return (
                           <ValueDisplay
                             value={valueToDisplayString(
@@ -245,8 +257,8 @@ export default function ConfigFieldRow({
       </Box>
       <Box style={{ minWidth: 0 }}>
         <Flex align="center" style={{ minHeight: 32 }}>
-          <code style={{ color: "var(--slate-9)" }}>
-            {fieldTypeLabel(f.field)}
+          <code style={{ color: "var(--slate-9)", fontSize: "0.8em" }}>
+            {fieldTypeLabel(nf)}
           </code>
         </Flex>
       </Box>
@@ -258,7 +270,7 @@ export default function ConfigFieldRow({
               variant="soft"
               label={
                 <>
-                  <PiDotOutline /> defined here
+                  <PiRadioButton /> Defined here
                 </>
               }
             />
@@ -268,7 +280,7 @@ export default function ConfigFieldRow({
               variant="soft"
               label={
                 <>
-                  <PiPencil /> override
+                  <PiPencil /> Override
                 </>
               }
             />
@@ -276,20 +288,44 @@ export default function ConfigFieldRow({
             <Badge
               color="gray"
               variant="soft"
-              title={f.source ?? "default"}
+              title={sourceName}
               style={{ maxWidth: "100%" }}
               label={
                 <Flex align="center" gap="1" style={{ minWidth: 0 }}>
                   <PiArrowBendLeftUp style={{ flexShrink: 0 }} />
-                  <span
-                    style={{
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {f.source ?? "default"}
-                  </span>
+                  {f.source ? (
+                    <Link
+                      href={`/configs/${f.source}`}
+                      title={`View config: ${sourceName}`}
+                      className="hover-underline"
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        overflow: "hidden",
+                        color: "var(--accent-11)",
+                      }}
+                    >
+                      <span
+                        style={{
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {sourceName}
+                      </span>
+                    </Link>
+                  ) : (
+                    <span
+                      style={{
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {sourceName}
+                    </span>
+                  )}
                 </Flex>
               }
             />

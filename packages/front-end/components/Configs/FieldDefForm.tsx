@@ -26,6 +26,7 @@ import {
   PresetKey,
   fieldTypeSelectValue,
   fieldValueType,
+  fieldIsNullable,
   normalizeField,
   presetKeyFromField,
   presetSchemaString,
@@ -263,8 +264,7 @@ export default function FieldDefForm({
     />
   );
 
-  const enumValues =
-    !valueIsJson && valueType !== "boolean" ? field.enum : [];
+  const enumValues = !valueIsJson && valueType !== "boolean" ? field.enum : [];
   const valueInput =
     valueType === "boolean" ? (
       <SelectField
@@ -505,7 +505,7 @@ export default function FieldDefForm({
                 {valueIsNull ? <Text color="text-low">null</Text> : valueInput}
               </Box>
             </Flex>
-            {!isNew && field.nullable === true && !valueIsJson && (
+            {!isNew && fieldIsNullable(field) && !valueIsJson && (
               <Checkbox
                 size="sm"
                 weight="regular"

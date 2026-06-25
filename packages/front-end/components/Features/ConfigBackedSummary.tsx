@@ -1,18 +1,25 @@
-import { FeatureInterface } from "shared/types/feature";
+import { FeatureInterface, SchemaField } from "shared/types/feature";
 import { ConstantInterface } from "shared/types/constant";
-import { getConfigBackingPatch, setConfigBacking } from "shared/util";
+import {
+  getConfigBackingPatch,
+  setConfigBacking,
+  validateJSONFeatureValue,
+  getConfigParentKey,
+} from "shared/util";
 import {
   buildConstantValueMap,
   resolveConstantRefs,
   ConstantSource,
 } from "shared/sdk-versioning";
 import { Box, Flex } from "@radix-ui/themes";
-import { PiStackBold } from "react-icons/pi";
 import { useMemo } from "react";
 import { isEqual } from "lodash";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { useUser } from "@/services/UserContext";
 import useApi from "@/hooks/useApi";
 import Text from "@/ui/Text";
+import Callout from "@/ui/Callout";
+import ConfigIcon from "@/components/Configs/ConfigIcon";
 import ValueDisplay from "./ValueDisplay";
 
 // Shared "SERVE <icon> ConfigName" header. The name links to the config detail
@@ -20,10 +27,12 @@ import ValueDisplay from "./ValueDisplay";
 function ServeConfigHeader({
   configKey,
   name,
+  isBase,
   suffix,
 }: {
   configKey: string;
   name: string;
+  isBase: boolean;
   suffix?: string;
 }) {
   return (
@@ -32,7 +41,7 @@ function ServeConfigHeader({
       <Flex as="span" align="center" gap="2">
         <a href={`/configs/${configKey}`} target="_blank" rel="noreferrer">
           <Flex as="span" align="center" gap="1">
-            <PiStackBold />
+            <ConfigIcon isBase={isBase} />
             {name}
           </Flex>
         </a>
@@ -76,11 +85,14 @@ export default function ConfigBackedSummary({
   sparse?: boolean;
 }) {
   const { configs } = useDefinitions();
+  const { hasCommercialFeature } = useUser();
+  const hasJsonValidator = hasCommercialFeature("json-validation");
   const config = configs.find((c) => c.key === configKey);
 
-  const { data } = useApi<{ constants: ResolvableInput[] }>(
-    `/configs/${configKey}/resolved`,
-  );
+  const { data } = useApi<{
+    constants: ResolvableInput[];
+    effectiveSchema?: SchemaField[];
+  }>(`/configs/${configKey}/resolved`);
 
   const resolved = useMemo(() => {
     if (!data?.constants) return null;
@@ -131,6 +143,30 @@ export default function ConfigBackedSummary({
     return { merged, diffKeys };
   }, [data, value, configKey, feature.project, feature.defaultValue, sparse]);
 
+  // Validate the resolved (base + patch) value against the config's own schema.
+  // The flag's `jsonSchema` is disabled for config-backed values, so this is the
+  // only schema in play — `validateJSONFeatureValue` against the feature would be
+  // a no-op here.
+  const validationErrors = useMemo(() => {
+    if (!hasJsonValidator || !resolved) return null;
+    const fields = data?.effectiveSchema;
+    if (!fields?.length) return null;
+    const { valid, enabled, errors } = validateJSONFeatureValue(
+      resolved.merged,
+      {
+        jsonSchema: {
+          schemaType: "simple",
+          simple: { type: "object", fields },
+          schema: "",
+          date: new Date(),
+          enabled: true,
+        },
+      },
+    );
+    if (!enabled || valid) return null;
+    return errors;
+  }, [hasJsonValidator, resolved, data?.effectiveSchema]);
+
   const fullStyle = {
     maxHeight: maxHeight ?? 150,
     overflowY: "auto" as const,
@@ -142,6 +178,7 @@ export default function ConfigBackedSummary({
       <ServeConfigHeader
         configKey={configKey}
         name={config?.name ?? configKey}
+        isBase={config ? getConfigParentKey(config) === null : false}
         suffix={resolved?.diffKeys?.size ? "with overrides" : undefined}
       />
       {resolved !== null && (
@@ -168,6 +205,16 @@ export default function ConfigBackedSummary({
             />
           )}
         </Box>
+      )}
+      {validationErrors && (
+        <Callout status="error" mt="2">
+          Value fails validation with the config&apos;s JSON schema.
+          <ul className="mb-0 mt-1">
+            {validationErrors.map((msg, i) => (
+              <li key={i}>{msg}</li>
+            ))}
+          </ul>
+        </Callout>
       )}
     </>
   );

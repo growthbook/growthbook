@@ -46,23 +46,6 @@ const JSON_SCHEMA_SIMPLE_TYPES: Record<string, SchemaField["type"]> = {
   number: "float",
   boolean: "boolean",
 };
-function simpleTypeFromJsonSchema(
-  jsonSchema: string,
-): SchemaField["type"] | null {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(jsonSchema);
-  } catch {
-    return null;
-  }
-  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-    return null;
-  }
-  const keys = Object.keys(parsed);
-  if (keys.length !== 1 || keys[0] !== "type") return null;
-  const t = (parsed as { type: unknown }).type;
-  return typeof t === "string" ? (JSON_SCHEMA_SIMPLE_TYPES[t] ?? null) : null;
-}
 
 // Non-primitive type picks, each backed by a canonical raw JSON Schema.
 export const JSON_SCHEMA_PRESETS = {
@@ -154,24 +137,168 @@ export function fieldTypeSelectValue(field: SchemaField): string {
   }
 }
 
-// Collapse a raw schema that's really a simple type back to that type.
-export function normalizeField(f: SchemaField): SchemaField {
-  if (f.jsonSchema === undefined) return f;
-  const simple = simpleTypeFromJsonSchema(f.jsonSchema);
-  if (simple === null) return f;
-  return { ...f, type: simple, jsonSchema: undefined };
+// Whether a field admits `null` — either via the `nullable` flag or a raw schema
+// whose top-level `type` is a union that includes `"null"`.
+export function fieldIsNullable(f: SchemaField | null): boolean {
+  if (!f) return false;
+  if (f.nullable === true) return true;
+  if (f.jsonSchema === undefined) return false;
+  try {
+    const t = (JSON.parse(f.jsonSchema) as { type?: unknown }).type;
+    return Array.isArray(t) && t.includes("null");
+  } catch {
+    return false;
+  }
 }
 
-// "advanced" for an irreducible raw JSON Schema.
+// Keys a simple-mode field can faithfully round-trip through JSON Schema (the
+// inverse of `simpleSchemaFieldToJSONSchema`). A raw schema using only these can
+// be collapsed back to simple form; anything else stays "advanced".
+const SIMPLE_SCHEMA_KEYS = new Set([
+  "type",
+  "description",
+  "default",
+  "enum",
+  "minLength",
+  "maxLength",
+  "minimum",
+  "maximum",
+  "multipleOf",
+  "format",
+]);
+
+// Collapse a raw schema back to its canonical simple/preset form. Handles a bare
+// `{type:"string"}`, a `T | null` union (lifted to the `nullable` flag), a
+// nullable object/array preset, and a primitive carrying only simple-mode
+// constraints (description, default, enum, bounds). Anything else (nested
+// shapes, real unions, unknown keywords) is left untouched so it stays
+// "advanced".
+export function normalizeField(f: SchemaField): SchemaField {
+  if (f.jsonSchema === undefined) return f;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(f.jsonSchema);
+  } catch {
+    return f;
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return f;
+  const obj = parsed as Record<string, unknown>;
+  const keys = Object.keys(obj);
+
+  const rawType = obj.type;
+  const arr = Array.isArray(rawType) ? rawType : [rawType];
+  const hasNull = arr.includes("null");
+  const nonNull = arr.filter((t) => t !== "null");
+  if (nonNull.length !== 1) return f;
+  const base = nonNull[0];
+  const nullable = f.nullable === true || hasNull;
+
+  if (base === "object" || base === "array") {
+    // Only a bare preset (optionally `| null`) reduces; structural keys are kept.
+    if (keys.length !== 1) return f;
+    return {
+      ...f,
+      jsonSchema: presetSchemaString(base === "object" ? "json" : "array"),
+      nullable,
+    };
+  }
+
+  const simple =
+    typeof base === "string" ? JSON_SCHEMA_SIMPLE_TYPES[base] : undefined;
+  if (simple === undefined) return f;
+  // Reduce a primitive only when every keyword maps to a simple-mode control,
+  // and the integer markers are exactly what we emit (else we'd lose meaning).
+  if (!keys.every((k) => SIMPLE_SCHEMA_KEYS.has(k))) return f;
+  if (obj.multipleOf !== undefined && obj.multipleOf !== 1) return f;
+  if (obj.format !== undefined && obj.format !== "number") return f;
+  // `{type:"number"}` with an integer marker is really an integer.
+  const type: SchemaField["type"] =
+    simple === "float" && (obj.multipleOf === 1 || obj.format === "number")
+      ? "integer"
+      : simple;
+
+  const enumValues = Array.isArray(obj.enum)
+    ? obj.enum.map((v) => (typeof v === "string" ? v : JSON.stringify(v)))
+    : f.enum;
+  const minRaw = type === "string" ? obj.minLength : obj.minimum;
+  const maxRaw = type === "string" ? obj.maxLength : obj.maximum;
+
+  return {
+    ...f,
+    type,
+    nullable,
+    enum: enumValues,
+    min: typeof minRaw === "number" ? minRaw : f.min,
+    max: typeof maxRaw === "number" ? maxRaw : f.max,
+    description:
+      typeof obj.description === "string" ? obj.description : f.description,
+    default:
+      obj.default === undefined
+        ? f.default
+        : typeof obj.default === "string"
+          ? obj.default
+          : JSON.stringify(obj.default),
+    jsonSchema: undefined,
+  };
+}
+
+// Base-type label for a raw schema, ignoring validation keywords (min/max,
+// pattern, format, …) and a `| null` union. Returns null only for genuinely
+// exotic shapes — no single type, or a structured object/array — which warrant
+// the "advanced" badge. (Bare object/array presets are handled before this.)
+function rawSchemaBaseLabel(jsonSchema: string): string | null {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(jsonSchema);
+  } catch {
+    return null;
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
+    return null;
+  const obj = parsed as Record<string, unknown>;
+  const rawType = obj.type;
+  const types = (Array.isArray(rawType) ? rawType : [rawType]).filter(
+    (t) => t !== "null",
+  );
+  if (types.length !== 1) return null;
+  let label: string;
+  switch (types[0]) {
+    case "string":
+      label = "string";
+      break;
+    case "integer":
+      label = "integer";
+      break;
+    case "number":
+      label =
+        obj.multipleOf === 1 || obj.format === "number" ? "integer" : "float";
+      break;
+    case "boolean":
+      label = "boolean";
+      break;
+    default:
+      // object / array with structural keys, or an unknown type → exotic.
+      return null;
+  }
+  return Array.isArray(obj.enum) && obj.enum.length > 0
+    ? `enum<${label}>`
+    : label;
+}
+
+// "advanced" only for exotic type shapes; plain validations keep the base type.
 export function fieldTypeLabel(f: SchemaField | null): string {
   if (!f) return "—";
   const reduced = normalizeField(f);
   const preset = presetKeyFromField(reduced);
   let label: string;
   if (preset !== null) label = PRESET_LABELS[preset];
-  else if (reduced.jsonSchema !== undefined) return "advanced";
+  else if (reduced.jsonSchema !== undefined) {
+    const raw = rawSchemaBaseLabel(reduced.jsonSchema);
+    if (raw === null) return "advanced";
+    label = raw;
+  } else if (reduced.enum.length > 0) label = `enum<${reduced.type}>`;
   else label = reduced.type;
-  if (reduced.nullable) label += " | null";
+  if (fieldIsNullable(reduced)) label += " | null";
   return label;
 }
 
