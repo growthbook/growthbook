@@ -411,10 +411,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
       document
         .getElementById(deepLinkSection)
         ?.scrollIntoView({ behavior: "smooth", block: "start" });
-      setUrlHash(activeTab);
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [deepLinkSection, activeTab, setUrlHash]);
+  }, [deepLinkSection]);
 
   // I Don't think this works as intended - the hasChanges(value, originalValue) always seems to return true.
   const ctaEnabled =
