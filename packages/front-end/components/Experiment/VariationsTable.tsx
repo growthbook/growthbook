@@ -10,6 +10,7 @@ import {
   PiCameraPlusLight,
   PiPencilSimple,
   PiPlus,
+  PiPlusCircle,
 } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import { trafficSplitPercentages } from "@/services/utils";
@@ -130,6 +131,21 @@ interface Props {
   shareUid?: string;
   shareType?: "experiment" | "report";
   onEditMetadata?: (variationIndex: number) => void;
+  onAddVariation?: () => void;
+}
+
+function AddVariationButton({ onClick }: { onClick: () => void }) {
+  return (
+    <IconButton
+      variant="ghost"
+      color="violet"
+      radius="full"
+      onClick={onClick}
+      aria-label="Add variation"
+    >
+      <PiPlusCircle size="15" />
+    </IconButton>
+  );
 }
 
 function NoImageBox({
@@ -342,6 +358,7 @@ const VariationsTable: FC<Props> = ({
   shareUid,
   shareType = "experiment",
   onEditMetadata,
+  onAddVariation,
 }) => {
   const { apiCall } = useAuth();
   const variations = getLatestPhaseVariations(experiment);
@@ -365,13 +382,18 @@ const VariationsTable: FC<Props> = ({
   const gap = "4";
   const maxImageHeight = hasAnyImages ? 200 : 72; // shrink the image height if there are no images
 
+  // When the last row is full (count is a multiple of the 3-column max), there's
+  // no room to the right of the last card, so the add button drops below the row.
+  const fullLastRow = variations.length % 3 === 0;
+  const lastIndex = variations.length - 1;
+
   return (
     <Box mx={noMargin ? "0" : "4"}>
       <Grid gap={gap} justify="center" columns={getVariationGridColumns(cols)}>
-        {variations.map((v, i) =>
-          variationsList && !variationsList.includes(v.id) ? null : (
+        {variations.map((v, i) => {
+          if (variationsList && !variationsList.includes(v.id)) return null;
+          const box = (
             <VariationBox
-              key={v.id}
               i={v.index}
               v={v}
               experiment={experiment}
@@ -391,9 +413,37 @@ const VariationsTable: FC<Props> = ({
               onEditMetadata={onEditMetadata}
               showNoImage={experiment.status === "draft"}
             />
-          ),
-        )}
+          );
+
+          // For a partial last row, render the add button to the right of the
+          // last card. It's a sibling of the card (outside it), absolutely
+          // positioned so the centered cards don't shift.
+          if (onAddVariation && !fullLastRow && i === lastIndex) {
+            return (
+              <Box key={v.id} style={{ position: "relative" }}>
+                {box}
+                <Box
+                  style={{
+                    position: "absolute",
+                    left: "calc(100% + var(--space-3))",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                  }}
+                >
+                  <AddVariationButton onClick={onAddVariation} />
+                </Box>
+              </Box>
+            );
+          }
+
+          return <Box key={v.id}>{box}</Box>;
+        })}
       </Grid>
+      {onAddVariation && fullLastRow ? (
+        <Flex justify="center" style={{ marginTop: 20 }}>
+          <AddVariationButton onClick={onAddVariation} />
+        </Flex>
+      ) : null}
       {openCarousel && (
         <ExperimentCarouselModal
           experiment={experiment}

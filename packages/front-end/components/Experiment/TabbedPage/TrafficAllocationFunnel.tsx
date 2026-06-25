@@ -382,6 +382,11 @@ export default function TrafficAllocationFunnel({
                   ? (index) => setEditVariationIndex(index)
                   : undefined
               }
+              onAddVariation={
+                canEditExperiment && !isRunning && editTraffic
+                  ? editTraffic
+                  : undefined
+              }
             />
           </>
         )}
