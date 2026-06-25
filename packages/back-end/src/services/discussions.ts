@@ -25,6 +25,37 @@ export async function getAllDiscussionsByOrg(organization: string) {
   });
 }
 
+// Batch comment counts for many parents at once (e.g. every card in a list)
+// so list views don't need one GET /discussion/:type/:id call per item.
+// Parents with no discussion doc are simply absent from the returned map.
+export async function getDiscussionCommentCounts(
+  organization: string,
+  parentType: DiscussionParentType,
+  parentIds: string[],
+): Promise<Record<string, number>> {
+  if (!parentIds.length) return {};
+
+  const rows = await DiscussionModel.aggregate<{
+    parentId: string;
+    count: number;
+  }>([
+    { $match: { organization, parentType, parentId: { $in: parentIds } } },
+    {
+      $project: {
+        _id: 0,
+        parentId: 1,
+        count: { $size: { $ifNull: ["$comments", []] } },
+      },
+    },
+  ]);
+
+  const counts: Record<string, number> = {};
+  rows.forEach((row) => {
+    counts[row.parentId] = row.count;
+  });
+  return counts;
+}
+
 export async function getProjectsByParentId(
   context: ReqContext,
   parentType: DiscussionParentType,
@@ -69,6 +100,16 @@ export async function getProjectsByParentId(
       }
 
       return metric.projects || [];
+    }
+
+    case "insight": {
+      const insight = await context.models.insights.getById(parentId);
+
+      if (!insight) {
+        throw new Error("Insight not found");
+      }
+
+      return insight.projects || [];
     }
   }
 }

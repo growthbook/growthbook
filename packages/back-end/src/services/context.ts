@@ -74,6 +74,8 @@ import { TeamModel } from "back-end/src/models/TeamModel";
 import { AnalyticsExplorationModel } from "back-end/src/models/AnalyticsExplorationModel";
 import { RevisionModel } from "back-end/src/models/RevisionModel";
 import { AIConversationModel } from "back-end/src/models/AIConversationModel";
+import { InsightModel } from "back-end/src/models/InsightModel";
+import { InsightsFindCacheModel } from "back-end/src/models/InsightsFindCacheModel";
 import { EventForwarderConfigModel } from "back-end/src/models/EventForwarderConfigModel";
 import { PresentationThemeModel } from "back-end/src/models/PresentationThemeModel";
 import { WatchModel } from "back-end/src/models/WatchModel";
@@ -130,6 +132,8 @@ export type ModelName =
   | "rampSchedules"
   | "rampScheduleTemplates"
   | "aiConversations"
+  | "insights"
+  | "insightsFindCache"
   | "eventForwarderConfigs";
 
 export const modelClasses = {
@@ -173,6 +177,8 @@ export const modelClasses = {
   rampSchedules: RampScheduleModel,
   rampScheduleTemplates: RampScheduleTemplateModel,
   aiConversations: AIConversationModel,
+  insights: InsightModel,
+  insightsFindCache: InsightsFindCacheModel,
   eventForwarderConfigs: EventForwarderConfigModel,
 };
 export type ModelClass = (typeof modelClasses)[ModelName];
@@ -226,6 +232,8 @@ export class ReqContextClass {
       rampSchedules: new RampScheduleModel(this),
       rampScheduleTemplates: new RampScheduleTemplateModel(this),
       aiConversations: new AIConversationModel(this),
+      insights: new InsightModel(this),
+      insightsFindCache: new InsightsFindCacheModel(this),
       eventForwarderConfigs: new EventForwarderConfigModel(this),
     };
   }

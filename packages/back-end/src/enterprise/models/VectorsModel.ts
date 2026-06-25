@@ -49,6 +49,16 @@ export class VectorsModel extends BaseClass {
     return this._find({ joinId: { $in: ids }, type: "metric" });
   }
 
+  public getByInsightIds(ids: string[]) {
+    // Make sure ids is an array of strings
+    if (!Array.isArray(ids) || !ids.every((id) => typeof id === "string")) {
+      throw new Error("Invalid ids");
+    }
+    if (!ids.length) return Promise.resolve([]);
+
+    return this._find({ joinId: { $in: ids }, type: "insight" });
+  }
+
   public async addOrUpdateExperimentVector(
     experimentId: string,
     obj: UpdateProps<Vectors>,
@@ -63,9 +73,23 @@ export class VectorsModel extends BaseClass {
     return await this.addOrUpdate(metricId, "metric", obj);
   }
 
+  public async addOrUpdateInsightVector(
+    insightId: string,
+    obj: UpdateProps<Vectors>,
+  ) {
+    return await this.addOrUpdate(insightId, "insight", obj);
+  }
+
+  public async deleteByJoinId(joinId: string, type: Vectors["type"]) {
+    const existing = await this._findOne({ joinId, type });
+    if (existing) {
+      await this.delete(existing);
+    }
+  }
+
   public async addOrUpdate(
     joinId: string,
-    type: "experiment" | "metric",
+    type: Vectors["type"],
     obj: UpdateProps<Vectors>,
   ) {
     if (!joinId) {

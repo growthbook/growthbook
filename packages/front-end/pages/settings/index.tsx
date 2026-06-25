@@ -16,6 +16,7 @@ import {
   DEFAULT_REQUIRE_PROJECT_FOR_FEATURES,
   DEFAULT_REQUIRE_PROJECT_FOR_SDK_CONNECTIONS,
   DEFAULT_POST_STRATIFICATION_ENABLED,
+  DEFAULT_LEARNING_STATUSES,
   DEFAULT_REVISION_CONFIGURATION,
 } from "shared/constants";
 import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/settings";
@@ -236,6 +237,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
         settings.approvalFlows,
         hasRequireApprovals,
       ),
+      learningStatuses: settings.learningStatuses ?? DEFAULT_LEARNING_STATUSES,
     },
   });
   const { apiCall } = useAuth();
@@ -296,6 +298,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     maxMetricSliceLevels: form.watch("maxMetricSliceLevels"),
     savedGroupSizeLimit: form.watch("savedGroupSizeLimit"),
     approvalFlows: form.watch("approvalFlows"),
+    learningStatuses: form.watch("learningStatuses"),
     requireRegisteredAttributes: form.watch("requireRegisteredAttributes"),
   };
   function updateCronString(cron?: string) {

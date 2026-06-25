@@ -1,6 +1,9 @@
 import { FactMetricType } from "shared/types/fact-table";
 import { EntityEvents } from "shared/types/audit";
-import { ApprovalFlowConfigurations } from "shared/types/organization";
+import {
+  ApprovalFlowConfigurations,
+  LearningStatus,
+} from "shared/types/organization";
 
 export const DEFAULT_STATS_ENGINE = "bayesian" as const;
 export const DEFAULT_METRIC_HISTOGRAM_BINS = 25;
@@ -92,6 +95,16 @@ export const DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION = 5;
 export const DEFAULT_SRM_THRESHOLD = 0.001;
 
 export const DEFAULT_DECISION_FRAMEWORK_ENABLED = false;
+
+// Default statuses for saved learnings (insights). Orgs can customize the
+// list in General Settings → Experiment Settings. Status IDs are persisted
+// on each saved learning, so they must remain stable across renames.
+export const DEFAULT_LEARNING_STATUSES: LearningStatus[] = [
+  { id: "emerging", label: "Emerging", color: "blue" },
+  { id: "supported", label: "Supported", color: "amber" },
+  { id: "confirmed", label: "Confirmed", color: "green" },
+  { id: "rejected", label: "Rejected", color: "red" },
+];
 
 // Power
 export const DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS = 3;
@@ -267,6 +280,7 @@ export const entityEvents = {
     "approval-bypassed",
   ],
   rampScheduleTemplate: ["create", "update", "delete"],
+  insight: ["create", "update", "delete"],
   eventForwarderConfig: ["create", "update", "delete", "teardownFailure"],
 } as const;
 

@@ -1,4 +1,9 @@
-export type DiscussionParentType = "experiment" | "idea" | "metric" | "feature";
+export type DiscussionParentType =
+  | "experiment"
+  | "idea"
+  | "metric"
+  | "feature"
+  | "insight";
 
 export interface Comment {
   date: Date;
