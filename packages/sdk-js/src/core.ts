@@ -361,7 +361,11 @@ export function evalFeature<V = unknown>(
       if (rule.condition) exp.condition = rule.condition;
 
       let cbInfo: ContextualBanditInfo | undefined;
-      if (rule.isContextualBandit && rule.contexts && rule.contexts.length) {
+      if (
+        rule.type === "contextual-bandit" &&
+        rule.contexts &&
+        rule.contexts.length
+      ) {
         const leaf = getContextualBanditLeaf(rule, ctx);
         if (!leaf) {
           process.env.NODE_ENV !== "production" &&

@@ -16,7 +16,7 @@ export type ExperimentMetadata = {
 // and (additive, backwards-compatible) contextual-bandit payload fields.
 export type FeatureDefinitionRule = FeatureRule & {
   metadata?: ExperimentMetadata;
-  isContextualBandit?: boolean;
+  type?: "standard" | "multi-armed-bandit" | "contextual-bandit";
   attributesRequired?: string[];
   contexts?: {
     leafId: number;
