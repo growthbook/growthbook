@@ -60,7 +60,7 @@ export async function listSessions(
   res: Response<SessionsResponse>,
 ) {
   const context = getContextFromReq(req);
-  const page = parseIntWithDefaultCapped(req.query.page, 1, 1_000_000);
+  const page = parseIntWithDefaultCapped(req.query.page, 1, 1_000);
   const pageSize = 100;
   const offset = (page - 1) * pageSize;
 

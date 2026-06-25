@@ -735,8 +735,8 @@ export default function SessionReplayPage() {
           {/* Pagination */}
           <Flex justify="between" align="center" mt="3">
             <Text color="text-low" size="small">
-              {sessions.length} session{sessions.length === 1 ? "" : "s"}{" "}
-              matched
+              Showing {sessions.length} session
+              {sessions.length === 1 ? "" : "s"}
             </Text>
             <Flex gap="1">
               <Button
@@ -875,8 +875,7 @@ export default function SessionReplayPage() {
             position: "relative",
           }}
         >
-          {/* Empty / error / loading states: centered inside the container */}
-          {(!selectedSessionId || playerLoading || playerError) && (
+          {!selectedSessionId || playerLoading || playerError ? (
             <Flex
               align="center"
               justify="center"
@@ -896,15 +895,13 @@ export default function SessionReplayPage() {
                 <Text color="text-mid">Loading session data…</Text>
               )}
             </Flex>
-          )}
-          {/* Player fills the full container — dimensions measured from container */}
-          {events && (
+          ) : events ? (
             <RrwebPlayer
               key={selectedSessionId}
               events={events}
               ref={playerHandle}
             />
-          )}
+          ) : null}
         </Box>
 
         {/* ----- Evaluations overlay — absolute over player --------------- */}
