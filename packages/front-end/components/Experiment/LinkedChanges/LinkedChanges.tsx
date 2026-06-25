@@ -77,7 +77,7 @@ export default function LinkedChanges({
             ? "Linked Changes"
             : "Variations & Values"}
         </Heading>
-        {!isPublic && onAddVariation ? (
+        {!isPublic && onAddVariation && !hideVariations ? (
           <Button variant="ghost" onClick={onAddVariation}>
             Edit Variations
           </Button>
