@@ -1969,7 +1969,7 @@ export async function postExperiment(
     changes.phases = phases;
   }
 
-  if (data.coverage) {
+  if (data.coverage !== undefined) {
     const phases = changes.phases || [...experiment.phases];
     const lastIndex = phases.length - 1;
     phases[lastIndex] = {
