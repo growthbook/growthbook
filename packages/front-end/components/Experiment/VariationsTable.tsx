@@ -29,6 +29,7 @@ export const MAX_VARIATION_WIDTH = 336;
 // anywhere) still render a sensible block. When a sibling variation does have an
 // image, the placeholder grows past this to match the row height instead.
 const NO_IMAGE_MIN_HEIGHT = 72;
+const MAX_IMAGE_HEIGHT = 150;
 
 // Radix Themes breakpoints (px). These mirror `@radix-ui/themes`'
 // `src/styles/breakpoints.css` (`--xs`/`--sm`)
@@ -411,7 +412,6 @@ const VariationsTable: FC<Props> = ({
 
   const hasDescriptions = variations.some((v) => !!v.description?.trim());
   const hasUniqueIDs = variations.some((v, i) => v.key !== i + "");
-  const hasAnyImages = variations.some((v) => v.screenshots.length > 0);
 
   const cols = centered
     ? Math.min(variations.length, 3)
@@ -419,7 +419,6 @@ const VariationsTable: FC<Props> = ({
       ? 4
       : variations.length;
   const gap = "4";
-  const maxImageHeight = hasAnyImages ? 200 : 72;
 
   const maxColsForViewport = useMaxColsForViewport();
   const columnsPerRow = Math.min(variations.length, maxColsForViewport);
@@ -451,7 +450,7 @@ const VariationsTable: FC<Props> = ({
               experiment={experiment}
               showDescription={hasDescriptions}
               showIds={hasUniqueIDs}
-              height={maxImageHeight}
+              height={MAX_IMAGE_HEIGHT}
               canEdit={canEditExperiment}
               allowImages={allowImages}
               openCarousel={(variationId, index) => {
