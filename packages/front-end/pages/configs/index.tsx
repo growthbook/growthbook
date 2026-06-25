@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { date, datetime } from "shared/dates";
 import { Box, Flex } from "@radix-ui/themes";
-import { ConstantInterface } from "shared/types/constant";
 import { isProjectListValidForProject, truncateString } from "shared/util";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -30,7 +29,7 @@ import {
   draftStatusDots,
   draftStatusTooltip,
 } from "@/components/Reviews/RevisionStatusBadge";
-import { useConstantDraftStates } from "@/hooks/useConstantDraftStates";
+import { useConfigDraftStates } from "@/hooks/useConstantDraftStates";
 import { useRevisionsEntityType } from "@/hooks/useRevisions";
 import ConfigModal from "@/components/Constants/ConfigModal";
 import ConfigReviews from "@/components/Constants/ConfigReviews";
@@ -45,7 +44,7 @@ function isConfigsTab(value: string): value is ConfigsTab {
 
 export default function ConfigsPage(): React.ReactElement {
   const router = useRouter();
-  const { ready, project, projects, constants } = useDefinitions();
+  const { ready, project, projects, configs } = useDefinitions();
   const { getOwnerDisplay } = useUser();
   const permissionsUtil = usePermissionsUtil();
 
@@ -75,34 +74,21 @@ export default function ConfigsPage(): React.ReactElement {
     return () => window.removeEventListener("hashchange", onHashChange);
   }, []);
 
-  // Configs are `config`-type constants and share the "constant" revision pool;
-  // count only the config-type open revisions for the Drafts tab badge.
-  const { revisions: openConfigRevisions } = useRevisionsEntityType(
-    "constant",
-    {
-      status: "open",
-      limit: 500,
-    },
-  );
+  const { revisions: openConfigRevisions } = useRevisionsEntityType("config", {
+    status: "open",
+    limit: 500,
+  });
   const openReviewsCount = useMemo(
-    () =>
-      openConfigRevisions.filter(
-        (r) =>
-          r.target.type === "constant" &&
-          (r.target.snapshot as ConstantInterface | undefined)?.type ===
-            "config",
-      ).length,
+    () => openConfigRevisions.filter((r) => r.target.type === "config").length,
     [openConfigRevisions],
   );
 
   const visibleConfigs = useMemo(
     () =>
-      constants.filter(
-        (c) =>
-          c.type === "config" &&
-          isProjectListValidForProject(c.project ? [c.project] : [], project),
+      configs.filter((c) =>
+        isProjectListValidForProject(c.project ? [c.project] : [], project),
       ),
-    [constants, project],
+    [configs, project],
   );
 
   const configItems = useAddComputedFields(visibleConfigs, (c) => ({
@@ -112,7 +98,7 @@ export default function ConfigsPage(): React.ReactElement {
       : [],
   }));
 
-  const draftHook = useConstantDraftStates();
+  const draftHook = useConfigDraftStates();
   const hasDraftStates = Object.keys(draftHook.draftStates).length > 0;
 
   const {
@@ -181,17 +167,13 @@ export default function ConfigsPage(): React.ReactElement {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items, hasDraftFilter]);
 
-  const configs = useMemo(
-    () => constants.filter((c) => c.type === "config"),
-    [constants],
-  );
   const hasArchived = configs.some((c) => c.archived);
 
   if (!ready) {
     return <LoadingOverlay />;
   }
 
-  const canAdd = permissionsUtil.canCreateConstant({
+  const canAdd = permissionsUtil.canCreateConfig({
     project: project || undefined,
   });
   const hasConfigs = configs.length > 0;

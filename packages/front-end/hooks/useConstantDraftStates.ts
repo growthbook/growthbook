@@ -11,3 +11,10 @@ export function useConstantDraftStates(): UseConstantDraftStatesReturn {
     responseKey: "constants",
   });
 }
+
+export function useConfigDraftStates(): UseConstantDraftStatesReturn {
+  return useEntityDraftStates({
+    path: "/configs-draft-states",
+    responseKey: "configs",
+  });
+}

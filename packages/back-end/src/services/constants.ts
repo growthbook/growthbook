@@ -8,6 +8,7 @@ import { ApiReqContext } from "back-end/types/api";
 import { BadRequestError } from "back-end/src/util/errors";
 import { getPayloadKeysForAllEnvs } from "back-end/src/models/ExperimentModel";
 import { getAllFeatures } from "back-end/src/models/FeatureModel";
+import { getResolvableConstants } from "./resolvableConstants";
 import { queueSDKPayloadRefresh } from "./features";
 import { getContextForAgendaJobByOrgObject } from "./organizations";
 
@@ -22,6 +23,9 @@ import { getContextForAgendaJobByOrgObject } from "./organizations";
 export async function constantUpdated(
   baseContext: ReqContext | ApiReqContext,
   event: "updated" | "deleted" = "updated",
+  // Audit label for the refresh job. Configs trigger the same payload refresh
+  // (their values resolve into the payload too) but are tagged "config".
+  model: "constant" | "config" = "constant",
 ) {
   // Background job: use a context with full read permissions.
   const context = getContextForAgendaJobByOrgObject(baseContext.org);
@@ -32,7 +36,7 @@ export async function constantUpdated(
     treatEmptyProjectAsGlobal: true,
     auditContext: {
       event,
-      model: "constant",
+      model,
     },
   });
 }
@@ -47,7 +51,7 @@ export async function assertNoConstantCycle(
   value: string | undefined,
   environmentValues: Record<string, string> | undefined,
 ): Promise<void> {
-  const all = await context.models.constants.getAll();
+  const all = await getResolvableConstants(context);
   const cyclic = getCyclicConstantRefs(key, value, environmentValues, all);
   if (cyclic.length) {
     throw new BadRequestError(
@@ -58,9 +62,50 @@ export async function assertNoConstantCycle(
   }
 }
 
+// Constants and configs share the `@const:<key>` reference namespace but live in
+// separate collections, so each collection's unique index only guards its own
+// keys. Resolution (`buildConstantValueMap`), cycle detection, and reference
+// lookups all key by `key` across the merged universe, so a key shared between a
+// constant and a config would resolve ambiguously. Enforce global uniqueness at
+// every create path. Returns the conflicting entity kind, or null when free.
+export async function findKeyOwnerAcrossNamespace(
+  context: ReqContext | ApiReqContext,
+  key: string,
+): Promise<"constant" | "config" | null> {
+  const [constant, config] = await Promise.all([
+    context.models.constants.getByKey(key),
+    context.models.configs.getByKey(key),
+  ]);
+  if (constant) return "constant";
+  if (config) return "config";
+  return null;
+}
+
+// Throw a friendly duplicate-key error if `key` is taken by a constant or config
+// (rather than surfacing a raw Mongo duplicate-key index failure).
+export async function assertKeyAvailableAcrossNamespace(
+  context: ReqContext | ApiReqContext,
+  key: string,
+): Promise<void> {
+  const owner = await findKeyOwnerAcrossNamespace(context, key);
+  if (owner) {
+    throw new BadRequestError(
+      `A ${owner} with key "${key}" already exists. Keys must be unique across constants and configs.`,
+    );
+  }
+}
+
 export type ConstantReferences = {
   features: { id: string; name: string; project?: string }[];
-  constants: { id: string; key: string; name: string; project?: string }[];
+  // `isConfig` distinguishes a referencing config from a constant so the UI can
+  // link to the right detail page (`/configs/:key` vs `/constants/:key`).
+  constants: {
+    id: string;
+    key: string;
+    name: string;
+    project?: string;
+    isConfig?: boolean;
+  }[];
 };
 
 // A rule member that may carry a feature value (force/rollout `value`, or
@@ -115,11 +160,17 @@ export async function loadConstantReferences(
   context: ReqContext | ApiReqContext,
   constantId: string,
 ): Promise<ConstantReferences | null> {
-  const allConstants = await context.models.constants.getAll();
+  // Span both collections: a config can reference a constant (and vice versa)
+  // via `$extends` / `{{ }}`, so the "what references this?" graph and the
+  // archivability gate must see configs too.
+  const configs = await context.models.configs.getAll();
+  const configIds = new Set(configs.map((c) => c.id));
+  const allConstants = await getResolvableConstants(context);
   const target = allConstants.find((c) => c.id === constantId);
   if (!target) return null;
 
-  // Other constants that directly embed the target (via `$extends` or `{{ }}`).
+  // Other constants/configs that directly embed the target (via `$extends` or
+  // `{{ }}`).
   const constantsReferencingTarget = allConstants.filter(
     (c) =>
       c.id !== constantId &&
@@ -153,6 +204,7 @@ export async function loadConstantReferences(
     key: c.key,
     name: c.name,
     project: c.project || undefined,
+    isConfig: configIds.has(c.id) || undefined,
   }));
 
   return { features, constants };
@@ -171,16 +223,19 @@ export function totalConstantReferences(refs: ConstantReferences): number {
 export async function assertConstantArchivable(
   context: ReqContext | ApiReqContext,
   constantId: string,
+  // The entity being archived — only affects the error wording. References span
+  // both collections, so the "referenced by" detail stays entity-neutral.
+  noun: "constant" | "config" = "constant",
 ): Promise<void> {
   const refs = await loadConstantReferences(context, constantId);
   if (!refs || totalConstantReferences(refs) === 0) return;
   const parts: string[] = [];
   if (refs.features.length) parts.push(`${refs.features.length} feature(s)`);
   if (refs.constants.length) {
-    parts.push(`${refs.constants.length} other constant(s)`);
+    parts.push(`${refs.constants.length} other constant(s)/config(s)`);
   }
   throw new BadRequestError(
-    `Cannot archive constant: it is still referenced by ${parts.join(
+    `Cannot archive ${noun}: it is still referenced by ${parts.join(
       ", ",
     )}. Remove these references first.`,
   );

@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { ConstantInterface } from "shared/types/constant";
+import { ConfigInterface } from "shared/types/config";
 import { SchemaField, SimpleSchema } from "shared/types/feature";
 import {
   Revision,
@@ -54,7 +55,7 @@ import CompareRevisionsModal from "@/components/Revision/CompareRevisionsModal";
 import AuditHistoryExplorerModal from "@/components/AuditHistoryExplorer/AuditHistoryExplorerModal";
 import { OVERFLOW_SECTION_LABEL } from "@/components/AuditHistoryExplorer/useAuditDiff";
 import {
-  REVISION_CONSTANT_DIFF_CONFIG,
+  REVISION_CONFIG_DIFF_CONFIG,
   renderConstantSettings,
   renderConstantValues,
   renderConstantSchema,
@@ -88,7 +89,7 @@ import {
 
 type ResolvedResponse = {
   status: number;
-  config: ConstantInterface;
+  config: ConfigInterface;
   // The full lineage chain (base → leaf) with each config's own value + appended
   // schema. The editor re-resolves this client-side (via `resolveConfigChain`)
   // so a selected draft's proposed value is reflected in the field table.
@@ -143,7 +144,7 @@ export default function ConfigDetailPage(): React.ReactElement {
   // The detail page is addressed by the config's `key`; the resolved endpoint
   // returns the underlying constant (`config`) plus its lineage chain + tree.
   const { data, error, mutate } = useApi<ResolvedResponse>(
-    `/constants/${configKey}/resolved`,
+    `/configs/${configKey}/resolved`,
     { shouldRun: () => !!configKey },
   );
   const config = data?.config;
@@ -159,16 +160,16 @@ export default function ConfigDetailPage(): React.ReactElement {
     handleDiscard,
     handleReopen,
     mutateRevisions,
-  } = useConstantRevision(config?.id, mutate, config);
+  } = useConstantRevision(config?.id, mutate, config, "config");
 
-  const { references } = useConstantReferences(config?.id);
+  const { references } = useConstantReferences(config?.id, "configs");
   const totalReferences =
     (references?.features.length ?? 0) + (references?.constants.length ?? 0);
 
   // Constant-picker scope for value editing: cycle-creating keys + this config
   // itself are scrubbed so a value can't reference back into a cycle.
   const { data: cyclicData } = useApi<{ cyclicKeys: string[] }>(
-    config?.id ? `/constants/${config.id}/cyclic-keys` : "",
+    config?.id ? `/configs/${config.id}/cyclic-keys` : "",
     { shouldRun: () => !!config?.id },
   );
   const constantContext = useMemo(
@@ -225,11 +226,10 @@ export default function ConfigDetailPage(): React.ReactElement {
     hasApprovalsFeature &&
     constantRequiresReview(
       {
-        project: (selectedRevision.target.snapshot as ConstantInterface)
-          .project,
+        project: (selectedRevision.target.snapshot as ConfigInterface).project,
       },
       getConstantRevisionChange(
-        selectedRevision.target.snapshot as ConstantInterface,
+        selectedRevision.target.snapshot as ConfigInterface,
         selectedRevision.target.proposedChanges,
       ),
       settings,
@@ -239,9 +239,9 @@ export default function ConfigDetailPage(): React.ReactElement {
   const displayedConfig = useMemo(() => {
     if (!selectedRevision) return config;
     return applyTopLevelPatchOps(
-      selectedRevision.target.snapshot as ConstantInterface,
+      selectedRevision.target.snapshot as ConfigInterface,
       selectedRevision.target.proposedChanges,
-    ) as ConstantInterface;
+    ) as ConfigInterface;
   }, [selectedRevision, config]);
 
   // Always-expanded JSON readout: every key/value on its own line (2-space
@@ -271,7 +271,12 @@ export default function ConfigDetailPage(): React.ReactElement {
     return resolveConfigChain(chain);
   }, [data, displayedConfig]);
 
-  const mergeResult = useConstantMergeResult(config, selectedRevision, isDraft);
+  const mergeResult = useConstantMergeResult(
+    config,
+    selectedRevision,
+    isDraft,
+    "config",
+  );
 
   const parentKey = useMemo(() => {
     const self = data?.lineage.find((n) => n.key === config?.key);
@@ -293,15 +298,15 @@ export default function ConfigDetailPage(): React.ReactElement {
   // regardless of approval settings).
   const handleNewDraft = async () => {
     const res = await apiCall<{ revision?: Revision }>(
-      `/constants/${config.id}?forceCreateRevision=1`,
+      `/configs/${config.id}?forceCreateRevision=1`,
       { method: "PUT", body: JSON.stringify({}) },
     );
     if (res?.revision) await onRevisionCreated(res.revision);
   };
 
-  const canUpdate = permissionsUtil.canUpdateConstant(config, config);
+  const canUpdate = permissionsUtil.canUpdateConfig(config, config);
   const canDeleteNow =
-    permissionsUtil.canDeleteConstant(config) && !!config.archived;
+    permissionsUtil.canDeleteConfig(config) && !!config.archived;
   // Editing is only meaningful on the live state or a draft.
   const canEditNow = canUpdate && (!selectedRevision || isDraft);
   // Inline field/value editing is draft-only: changes must land in an active
@@ -340,7 +345,7 @@ export default function ConfigDetailPage(): React.ReactElement {
 
   const saveValue = async (next: Record<string, unknown>) => {
     const res = await apiCall<{ revision?: Revision }>(
-      `/constants/${config.id}${writeQuery()}`,
+      `/configs/${config.id}${writeQuery()}`,
       { method: "PUT", body: JSON.stringify({ value: JSON.stringify(next) }) },
     );
     await mutate();
@@ -425,7 +430,7 @@ export default function ConfigDetailPage(): React.ReactElement {
   ) => {
     const schema: SimpleSchema = { type: ownSchema().type, fields };
     const res = await apiCall<{ revision?: Revision }>(
-      `/constants/${config.id}${writeQuery()}`,
+      `/configs/${config.id}${writeQuery()}`,
       {
         method: "PUT",
         body: JSON.stringify({
@@ -814,8 +819,8 @@ export default function ConfigDetailPage(): React.ReactElement {
           closeCta="Close"
           useRadixButton={true}
         >
-          <RevisionDetail<ConstantInterface>
-            diffConfig={REVISION_CONSTANT_DIFF_CONFIG}
+          <RevisionDetail<ConfigInterface>
+            diffConfig={REVISION_CONFIG_DIFF_CONFIG}
             revision={selectedRevision}
             currentState={config}
             mutate={async () => {
@@ -831,7 +836,7 @@ export default function ConfigDetailPage(): React.ReactElement {
             allRevisions={allRevisions}
             requiresApproval={selectedRevisionRequiresApproval}
             closeModal={() => setShowChangesModal(false)}
-            canUpdateEntity={(s) => permissionsUtil.canUpdateConstant(s, {})}
+            canUpdateEntity={(s) => permissionsUtil.canUpdateConfig(s, {})}
           />
         </Modal>
       )}
@@ -859,6 +864,7 @@ export default function ConfigDetailPage(): React.ReactElement {
       {editInfoOpen && (
         <ConstantModal
           existing={displayedConfig}
+          entity="configs"
           revisionCtx={revisionCtx}
           onSaved={async (revision) => {
             await onRevisionCreated(revision);
@@ -870,6 +876,7 @@ export default function ConfigDetailPage(): React.ReactElement {
       {showArchiveModal && (
         <ConstantArchiveModal
           constant={displayedConfig}
+          entity="configs"
           revisionCtx={revisionCtx}
           onSaved={onRevisionCreated}
           selectFlow={selectRevision}
@@ -881,7 +888,7 @@ export default function ConfigDetailPage(): React.ReactElement {
         <CompareRevisionsModal
           liveEntity={config}
           entityId={config.id}
-          diffConfig={REVISION_CONSTANT_DIFF_CONFIG}
+          diffConfig={REVISION_CONFIG_DIFF_CONFIG}
           allRevisions={allRevisions}
           currentRevisionId={selectedRevisionId}
           onClose={() => setCompareOpen(false)}
@@ -893,16 +900,16 @@ export default function ConfigDetailPage(): React.ReactElement {
       )}
 
       {showAuditModal && (
-        <AuditHistoryExplorerModal<ConstantInterface>
+        <AuditHistoryExplorerModal<ConfigInterface>
           entityId={config.id}
           entityName="Config"
           config={{
-            entityType: "constant",
-            includedEvents: ["constant.created", "constant.updated"],
-            alwaysVisibleEvents: ["constant.created"],
+            entityType: "config",
+            includedEvents: ["config.created", "config.updated"],
+            alwaysVisibleEvents: ["config.created"],
             labelOnlyEvents: [
               {
-                event: "constant.deleted",
+                event: "config.deleted",
                 getLabel: () => "Deleted",
                 alwaysVisible: true,
               },
@@ -927,7 +934,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                 getBadges: getConstantSchemaBadges,
               },
             ],
-            updateEventNames: ["constant.updated"],
+            updateEventNames: ["config.updated"],
             defaultGroupBy: "minute",
             hideFilters: true,
             hiddenLabelSections: [OVERFLOW_SECTION_LABEL],
@@ -953,7 +960,7 @@ export default function ConfigDetailPage(): React.ReactElement {
           content="This permanently deletes the config. This cannot be undone."
           yesText="Delete"
           onConfirm={async () => {
-            await apiCall(`/constants/${config.id}`, { method: "DELETE" });
+            await apiCall(`/configs/${config.id}`, { method: "DELETE" });
             await mutateDefinitions();
             router.push("/configs");
           }}

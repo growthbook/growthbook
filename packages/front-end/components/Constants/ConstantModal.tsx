@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { useForm } from "react-hook-form";
 import { ConstantWithoutValue } from "shared/types/constant";
+import { ConfigWithoutValue } from "shared/types/config";
 import { validateConstantValue } from "shared/validators";
 import { Revision } from "shared/enterprise";
 import { generateTrackingKey } from "shared/experiments";
@@ -51,17 +52,25 @@ export default function ConstantModal({
   close,
   revisionCtx,
   onSaved,
+  entity = "constants",
 }: {
-  existing: ConstantWithoutValue | null;
+  existing: ConstantWithoutValue | ConfigWithoutValue | null;
   close: () => void;
   // Required when editing (info changes route through the revision system).
   revisionCtx?: ConstantRevisionContext;
   onSaved?: (revision: Revision) => void | Promise<void>;
+  // Base API path; "configs" routes info edits through the config endpoints.
+  entity?: "constants" | "configs";
 }) {
   const { apiCall } = useAuth();
   const router = useRouter();
-  const { mutateDefinitions, getConstantByKey, projects, project } =
-    useDefinitions();
+  const {
+    mutateDefinitions,
+    getConstantByKey,
+    getConfigByKey,
+    projects,
+    project,
+  } = useDefinitions();
 
   const editing = !!existing;
 
@@ -79,7 +88,8 @@ export default function ConstantModal({
     defaultValues: {
       key: existing?.key ?? "",
       name: existing?.name ?? "",
-      type: existing?.type === "config" ? "json" : (existing?.type ?? "string"),
+      type:
+        existing && "type" in existing ? (existing.type ?? "string") : "string",
       // Owner is stored as a userId; backend defaults it to the creator when blank.
       owner: existing?.owner ?? "",
       description: existing?.description ?? "",
@@ -94,11 +104,14 @@ export default function ConstantModal({
   useEffect(() => {
     if (editing || keyTouched.current || !name) return;
     let active = true;
-    generateTrackingKey({ name }, async (k) => getConstantByKey(k)).then(
-      (k) => {
-        if (active) form.setValue("key", k);
-      },
-    );
+    // Keys are unique across both constants and configs — check both so an
+    // auto-generated slug doesn't collide with a config.
+    generateTrackingKey(
+      { name },
+      async (k) => getConstantByKey(k) ?? getConfigByKey(k),
+    ).then((k) => {
+      if (active) form.setValue("key", k);
+    });
     return () => {
       active = false;
     };
@@ -123,7 +136,7 @@ export default function ConstantModal({
       submit={form.handleSubmit(async (values) => {
         if (editing && existing) {
           const res = await apiCall<{ revision?: Revision }>(
-            `/constants/${existing.id}${draft.buildQueryString()}`,
+            `/${entity}/${existing.id}${draft.buildQueryString()}`,
             {
               method: "PUT",
               body: JSON.stringify({

@@ -17454,7 +17454,6 @@ paths:
                   enum:
                     - string
                     - json
-                    - config
                 value:
                   type: string
                 environmentValues:
@@ -40208,7 +40207,6 @@ components:
           enum:
             - string
             - json
-            - config
         owner:
           description: The userId of the owner (or raw owner name/email for legacy records)
           type: string

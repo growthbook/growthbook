@@ -7,9 +7,10 @@ import { CONSTANT_EXTENDS_KEY } from "../constants";
 // single project ("" = global); a reference from a feature in a different
 // project is also scrubbed (see `isScrubbed`).
 export type ConstantValueMapEntry = {
-  // `config` is a JSON-object constant with a field schema; it resolves and
-  // composes (`$extends`) exactly like `json`.
-  type: "string" | "json" | "config";
+  // Configs resolve identically to `json` and are coerced to `type: "json"`
+  // when merged into this map (see the resolution-universe loader), so only two
+  // surface types exist here.
+  type: "string" | "json";
   value: string;
   project?: string;
   archived?: boolean;
@@ -69,10 +70,9 @@ export function buildConstantValueMap(
     }
     const value = c.environmentValues?.[environment] ?? c.value;
     if (value === undefined) continue;
-    // Parse `json`/`config` values once up front so `$extends` resolution can
-    // reuse it (config values are JSON objects too).
+    // Parse `json` values once up front so `$extends` resolution can reuse it.
     let parsed: unknown;
-    if (c.type === "json" || c.type === "config") {
+    if (c.type === "json") {
       try {
         parsed = JSON.parse(value);
       } catch {
@@ -174,11 +174,7 @@ function resolveValue(
     // Memoized per pass.
     const resolveExtendsRef = (key: string): Record<string, unknown> | null => {
       const entry = ctx.map.get(key);
-      if (
-        !entry ||
-        (entry.type !== "json" && entry.type !== "config") ||
-        isScrubbed(entry, ctx)
-      )
+      if (!entry || entry.type !== "json" || isScrubbed(entry, ctx))
         return null;
       if (visited.has(key)) {
         ctx.onCycle?.(key);

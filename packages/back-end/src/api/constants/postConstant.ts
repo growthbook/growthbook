@@ -7,6 +7,7 @@ import { ConstantInterface } from "shared/types/constant";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError } from "back-end/src/util/errors";
+import { assertKeyAvailableAcrossNamespace } from "back-end/src/services/constants";
 import { getAdapter } from "back-end/src/revisions";
 import {
   buildPatchOps,
@@ -37,11 +38,9 @@ export const postConstant = createApiRequestHandler(postConstantValidator)(
       await req.context.models.projects.ensureProjectsExist([project]);
     }
 
-    // Key is unique per org.
-    const existing = await req.context.models.constants.getByKey(key);
-    if (existing) {
-      throw new BadRequestError(`A constant with key "${key}" already exists`);
-    }
+    // Keys must be unique across both constants and configs (shared `@const:`
+    // namespace).
+    await assertKeyAvailableAcrossNamespace(req.context, key);
 
     // Validate value shape against the declared type (empty is allowed).
     if (value !== undefined) validateConstantValue(type, value, "value");

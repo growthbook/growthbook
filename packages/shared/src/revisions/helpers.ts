@@ -163,7 +163,7 @@ const isSelfApprovalBlockedForEntity = (
   entityType: RevisionTargetType,
   revision: Pick<Revision, "target">,
 ): boolean => {
-  if (entityType === "constant") {
+  if (entityType === "constant" || entityType === "config") {
     const snapshot = revision.target.snapshot as { project?: string };
     return constantBlockSelfApproval({ project: snapshot.project }, settings);
   }
@@ -205,7 +205,7 @@ export const isAutopublishOnApprovalEnabled = (
   // for entities that read from `approvalFlows`.
   project?: string,
 ): boolean => {
-  if (entityType === "constant") {
+  if (entityType === "constant" || entityType === "config") {
     return constantAutopublishOnApproval({ project }, settings);
   }
   return !!getApprovalFlowSettings(settings?.approvalFlows, entityType)
@@ -226,6 +226,8 @@ export const getRevisionKey = (
       return "saved-groups";
     case "constant":
       return "constants";
+    case "config":
+      return "configs";
     // case "feature": return "features";  ← add future entity types here
     default:
       return null;
@@ -269,7 +271,11 @@ export const canUserReviewEntity = ({
 
   // Extension point: add a new `case` here when introducing a new RevisionTargetType
   // that requires custom reviewer logic beyond the default `canEditEntity` check.
-  if (entityType === "saved-group" || entityType === "constant") {
+  if (
+    entityType === "saved-group" ||
+    entityType === "constant" ||
+    entityType === "config"
+  ) {
     // Anyone who can edit can review (except the author, checked above)
     return !!canEditEntity;
   }

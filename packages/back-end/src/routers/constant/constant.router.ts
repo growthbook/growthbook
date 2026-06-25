@@ -32,14 +32,6 @@ router.get(
   constantController.getConstantByKey,
 );
 
-// Resolved Configuration editor view (lineage chain + effective schema +
-// per-field provenance). By key, since configs are key-addressed.
-router.get(
-  "/:key/resolved",
-  validateRequestMiddleware({ params: keyParams }),
-  constantController.getConstantConfigResolved,
-);
-
 router.get(
   "/:id/cyclic-keys",
   validateRequestMiddleware({ params: idParams }),

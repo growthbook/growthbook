@@ -2,19 +2,25 @@ import type { Response } from "express";
 import { isEqual } from "lodash";
 import { z } from "zod";
 import {
-  postConstantBodyValidator,
-  putConstantBodyValidator,
+  postConfigBodyValidator,
+  putConfigBodyValidator,
   validateConstantValue,
   getConstantReferenceKeys,
   getReferencingConstantKeys,
 } from "shared/validators";
-import { ConstantInterface, ConstantWithoutValue } from "shared/types/constant";
+import { ConfigInterface, ConfigWithoutValue } from "shared/types/config";
 import {
   Revision,
   normalizeProposedChanges,
   getConstantRevisionChange,
 } from "shared/enterprise";
-import { constantRequiresReview } from "shared/util";
+import {
+  constantRequiresReview,
+  parsePlainJSONObject,
+  resolveConfigChain,
+  ConfigChainNode,
+} from "shared/util";
+import { CONSTANT_EXTENDS_KEY } from "shared/constants";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
@@ -32,10 +38,9 @@ import {
   assertKeyAvailableAcrossNamespace,
 } from "back-end/src/services/constants";
 import { getResolvableConstants } from "back-end/src/services/resolvableConstants";
-import { dispatchConstantRevisionEvent } from "back-end/src/services/constantRevisionEvents";
 
-type PostConstantBody = z.infer<typeof postConstantBodyValidator>;
-type PutConstantBody = z.infer<typeof putConstantBodyValidator>;
+type PostConfigBody = z.infer<typeof postConfigBodyValidator>;
+type PutConfigBody = z.infer<typeof putConfigBodyValidator>;
 
 // Loosely-typed shape the revision helpers expect for the live entity.
 type RevisionEntityArg = Record<string, unknown> & {
@@ -44,20 +49,19 @@ type RevisionEntityArg = Record<string, unknown> & {
   dateCreated?: Date;
 };
 
-// GET /constants — value-omitted projection (values can be large; the full
-// value is fetched per-constant via GET /constants/:id).
-export const getConstants = async (
+// GET /configs — value-omitted projection (values can be large; the full value
+// is fetched per-config via GET /configs/:key/resolved).
+export const getConfigs = async (
   req: AuthRequest,
-  res: Response<{ status: 200; constants: ConstantWithoutValue[] }>,
+  res: Response<{ status: 200; configs: ConfigWithoutValue[] }>,
 ) => {
   const context = getContextFromReq(req);
-  const constants = await context.models.constants.getAllWithoutValues();
-  return res.status(200).json({ status: 200, constants });
+  const configs = await context.models.configs.getAllWithoutValues();
+  return res.status(200).json({ status: 200, configs });
 };
 
-// GET /constants/draft-states — active draft status counts per constant id, for
-// the "Draft Status" column on the list page (mirrors saved groups).
-export const getConstantDraftStates = async (
+// GET /configs-draft-states — active draft status counts per config id.
+export const getConfigDraftStates = async (
   req: AuthRequest<null, Record<string, never>, { ids?: string }>,
   res: Response,
 ) => {
@@ -65,42 +69,24 @@ export const getConstantDraftStates = async (
   const ids = req.query.ids
     ? req.query.ids.split(",").filter(Boolean)
     : undefined;
-  const constants = await context.models.revisions.getActiveDraftStates(
-    "constant",
+  const configs = await context.models.revisions.getActiveDraftStates(
+    "config",
     ids,
   );
-  return res.status(200).json({ status: 200, constants });
+  return res.status(200).json({ status: 200, configs });
 };
 
-// GET /constants/:key — full constant (includes values), looked up by its
-// human-readable `key` (the immutable, org-unique reference handle that powers
-// the detail-page URL). Mutations and sub-resource endpoints below still take
-// the internal `id` the client already holds after this fetch.
-export const getConstantByKey = async (
-  req: AuthRequest<null, { key: string }>,
-  res: Response<{ status: 200; constant: ConstantInterface }>,
-) => {
-  const context = getContextFromReq(req);
-  const constant = await context.models.constants.getByKey(req.params.key);
-  if (!constant) {
-    return context.throwNotFoundError("Constant not found");
-  }
-  return res.status(200).json({ status: 200, constant });
-};
-
-// GET /constants/:id/cyclic-keys — keys of constants that already (transitively)
-// reference this one. Referencing any of them from this constant would close a
-// cycle, so the editor scrubs them (plus this constant itself) from the picker.
-// Conservative: the reference graph unions each constant's value + all env
-// overrides across environments.
-export const getConstantCyclicKeys = async (
+// GET /configs/:id/cyclic-keys — keys that already (transitively) reference this
+// config; referencing any of them would close a cycle. The graph spans both
+// collections (a config can reference constants and vice versa).
+export const getConfigCyclicKeys = async (
   req: AuthRequest<null, { id: string }>,
   res: Response<{ status: 200; cyclicKeys: string[] }>,
 ) => {
   const context = getContextFromReq(req);
-  const constant = await context.models.constants.getById(req.params.id);
-  if (!constant) {
-    return context.throwNotFoundError("Constant not found");
+  const config = await context.models.configs.getById(req.params.id);
+  if (!config) {
+    return context.throwNotFoundError("Config not found");
   }
   const all = await getResolvableConstants(context);
   const referencesByKey = new Map(
@@ -110,28 +96,119 @@ export const getConstantCyclicKeys = async (
     ]),
   );
   const cyclicKeys = [
-    ...getReferencingConstantKeys(constant.key, referencesByKey),
+    ...getReferencingConstantKeys(config.key, referencesByKey),
   ];
   return res.status(200).json({ status: 200, cyclicKeys });
 };
 
-// GET /constants/:id/references — features and other constants that reference
-// this constant via `@const:key`.
-export const getConstantReferences = async (
+// GET /configs/:id/references — features, constants, and configs that reference
+// this config via `@const:key`.
+export const getConfigReferences = async (
   req: AuthRequest<null, { id: string }>,
   res: Response<{ status: 200 } & ConstantReferences>,
 ) => {
   const context = getContextFromReq(req);
   const references = await loadConstantReferences(context, req.params.id);
   if (!references) {
-    return context.throwNotFoundError("Constant not found");
+    return context.throwNotFoundError("Config not found");
   }
   return res.status(200).json({ status: 200, ...references });
 };
 
-export const postConstant = async (
-  req: AuthRequest<PostConstantBody>,
-  res: Response<{ status: 200; constant: ConstantInterface }>,
+// The single `@const:<key>` parent a config extends (its lineage parent), or
+// null for a base config. Configs use exactly one `$extends` ref.
+function configParentKey(value: string | undefined): string | null {
+  const obj = parsePlainJSONObject(value ?? "");
+  const list = obj?.[CONSTANT_EXTENDS_KEY];
+  if (!Array.isArray(list)) return null;
+  const first = list.find((r): r is string => typeof r === "string");
+  const m = first?.match(/^@const:([a-z0-9][a-z0-9_-]*)$/);
+  return m ? m[1] : null;
+}
+
+// GET /configs/:key/resolved — the Configuration editor view: the config, its
+// effective schema and per-field resolved values (walking base→leaf lineage),
+// and the full lineage tree it belongs to.
+export const getConfigResolved = async (
+  req: AuthRequest<null, { key: string }>,
+  res: Response,
+) => {
+  const context = getContextFromReq(req);
+  const config = await context.models.configs.getByKey(req.params.key);
+  if (!config) {
+    return context.throwNotFoundError("Config not found");
+  }
+
+  // Walk ancestors (leaf → base), then reverse to base → leaf for resolution.
+  const chain: ConfigChainNode[] = [];
+  const visited = new Set<string>();
+  let cur: typeof config | null = config;
+  while (cur && !visited.has(cur.key)) {
+    visited.add(cur.key);
+    chain.unshift({
+      key: cur.key,
+      name: cur.name,
+      value: cur.value,
+      schema: cur.schema,
+    });
+    const parentKey = configParentKey(cur.value);
+    cur = parentKey ? await context.models.configs.getByKey(parentKey) : null;
+  }
+
+  const { effectiveSchema, fields } = resolveConfigChain(chain);
+
+  // Value-map inputs for the client to squash `@const:` references in the field
+  // table (default values; same scrubbing as payload generation). Spans both
+  // collections and is scoped to this config's project + globals so cross-project
+  // values are never sent to the client.
+  const configProject = config.project || "";
+  const constants = (await getResolvableConstants(context))
+    .filter((c) => !c.project || c.project === configProject)
+    .map((c) => ({
+      key: c.key,
+      type: c.type,
+      value: c.value,
+      project: c.project,
+      archived: c.archived,
+    }));
+
+  // Lineage tree: every config descending from this chain's base, so the editor
+  // sidebar can render the whole family and browse between them.
+  const allConfigs = await context.models.configs.getAll();
+  const rootKey = chain[0]?.key ?? config.key;
+  const lineage: { key: string; name: string; parentKey: string | null }[] = [];
+  const seen = new Set<string>();
+  const queue = [rootKey];
+  while (queue.length) {
+    const k = queue.shift() as string;
+    if (seen.has(k)) continue;
+    seen.add(k);
+    const node = allConfigs.find((c) => c.key === k);
+    if (!node) continue;
+    lineage.push({
+      key: node.key,
+      name: node.name,
+      parentKey: configParentKey(node.value),
+    });
+    for (const child of allConfigs) {
+      if (configParentKey(child.value) === k) queue.push(child.key);
+    }
+  }
+
+  return res.status(200).json({
+    status: 200,
+    config,
+    chain,
+    effectiveSchema,
+    fields,
+    lineage,
+    constants,
+  });
+};
+
+export const postConfig = async (
+  req: AuthRequest<PostConfigBody>,
+  res: Response<{ status: 200; config: ConfigInterface }>,
 ) => {
   const context = getContextFromReq(req);
   const body = req.body;
@@ -140,44 +217,42 @@ export const postConstant = async (
     await context.models.projects.ensureProjectsExist([body.project]);
   }
 
-  // JSON constants must hold parseable JSON (empty is allowed).
-  validateConstantValue(body.type, body.value ?? "");
+  // Config values are JSON objects (empty is allowed).
+  validateConstantValue("json", body.value ?? "");
   for (const [envId, v] of Object.entries(body.environmentValues ?? {})) {
-    validateConstantValue(body.type, v, envId);
+    validateConstantValue("json", v, envId);
   }
 
-  // Cycle rejection is enforced in ConstantModel (covers every write path).
+  // Cycle rejection is enforced in ConfigModel (covers every write path).
 
   // Keys must be unique across both constants and configs (shared `@const:`
-  // namespace); pre-check for a friendly error rather than a raw duplicate-key
-  // failure from the unique index.
+  // namespace); pre-check for a friendly error.
   await assertKeyAvailableAcrossNamespace(context, body.key);
 
   // Permission is enforced by the model's canCreate.
-  const constant = await context.models.constants.create({
+  const config = await context.models.configs.create({
     key: body.key,
     name: body.name,
-    // Owner is a userId; default to the creator when not explicitly provided.
     owner: body.owner || context.userId,
-    type: body.type,
     value: body.value,
     environmentValues: body.environmentValues,
     description: body.description,
     project: body.project,
+    schema: body.schema,
   });
 
   // Backfill an initial "live" revision so the history view has a baseline.
   await ensureLiveRevisionExists(
     context,
-    "constant",
-    constant as unknown as RevisionEntityArg,
+    "config",
+    config as unknown as RevisionEntityArg,
   );
 
-  return res.status(200).json({ status: 200, constant });
+  return res.status(200).json({ status: 200, config });
 };
 
-type PutConstantRequest = AuthRequest<
-  PutConstantBody,
+type PutConfigRequest = AuthRequest<
+  PutConfigBody,
   { id: string },
   {
     bypassApproval?: string;
@@ -189,17 +264,16 @@ type PutConstantRequest = AuthRequest<
   }
 >;
 
-type PutConstantResponse =
+type PutConfigResponse =
   | { status: 200; requiresApproval?: false; revision?: Revision }
   | { status: 202; requiresApproval: boolean; revision: Revision };
 
-// PUT /constants/:id
-// All edits flow through the revision system. When approval isn't required the
-// change is tracked as a revision and merged immediately; when it is required
-// (and the caller can't bypass) the change is stored as a draft for review.
-export const putConstant = async (
-  req: PutConstantRequest,
-  res: Response<PutConstantResponse | ApiErrorResponse>,
+// PUT /configs/:id — all edits flow through the revision system (same approval
+// model as constants). When approval isn't required the change is merged
+// immediately; otherwise it's stored as a draft for review.
+export const putConfig = async (
+  req: PutConfigRequest,
+  res: Response<PutConfigResponse | ApiErrorResponse>,
 ) => {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -211,59 +285,56 @@ export const putConstant = async (
     description,
     project,
     archived,
+    schema,
   } = req.body;
   const { id } = req.params;
 
-  const existing = await context.models.constants.getById(id);
+  const existing = await context.models.configs.getById(id);
   if (!existing) {
-    return context.throwNotFoundError("Constant not found");
+    return context.throwNotFoundError("Config not found");
   }
 
-  // Permission check always runs regardless of approval flow status.
   if (
-    !context.permissions.canUpdateConstant(existing, {
+    !context.permissions.canUpdateConfig(existing, {
       project: project ?? existing.project,
     })
   ) {
     context.permissions.throwPermissionError();
   }
 
-  // JSON constants must hold parseable JSON (empty is allowed). Type is
-  // immutable, so validate incoming values against the existing type.
+  // Config values are JSON objects (empty is allowed).
   if (typeof value !== "undefined") {
-    validateConstantValue(existing.type, value);
+    validateConstantValue("json", value);
   }
   for (const [envId, v] of Object.entries(environmentValues ?? {})) {
-    validateConstantValue(existing.type, v, envId);
+    validateConstantValue("json", v, envId);
   }
 
-  // Cycle rejection is enforced in ConstantModel (covers every write path,
-  // including the publish/applyChanges merge).
+  // Cycle rejection is enforced in ConfigModel (covers every write path).
 
   // If updating a specific revision, compare against its current (patched) state
   // rather than the live entity so we don't re-propose unchanged fields.
   const revisionId = req.query.revisionId;
-  let comparisonBase: ConstantInterface = existing;
+  let comparisonBase: ConfigInterface = existing;
   if (revisionId) {
     const targetRevision = await context.models.revisions.getById(revisionId);
-    if (targetRevision && targetRevision.target.type === "constant") {
+    if (targetRevision && targetRevision.target.type === "config") {
       const patchedSnapshot = applyPatchToSnapshot(
-        targetRevision.target.snapshot as ConstantInterface,
+        targetRevision.target.snapshot as ConfigInterface,
         normalizeProposedChanges(targetRevision.target.proposedChanges),
       );
       comparisonBase = { ...existing, ...patchedSnapshot };
     }
   }
 
-  // null/undefined means "field wasn't intentionally changed" (the form sends
-  // null for untouched fields).
+  // null/undefined means "field wasn't intentionally changed".
   const hasChanged = (newVal: unknown, oldVal: unknown): boolean => {
     if ((newVal ?? null) === null) return false;
     if ((oldVal ?? null) === null) return true;
     return !isEqual(newVal, oldVal);
   };
 
-  const fieldsToUpdate: Partial<ConstantInterface> = {};
+  const fieldsToUpdate: Partial<ConfigInterface> = {};
   if (typeof name !== "undefined" && hasChanged(name, comparisonBase.name)) {
     fieldsToUpdate.name = name;
   }
@@ -288,12 +359,14 @@ export const putConstant = async (
   if (hasChanged(archived, comparisonBase.archived)) {
     fieldsToUpdate.archived = archived;
   }
+  // `schema` (config field definitions) is a content change like `value`.
+  if (hasChanged(schema, comparisonBase.schema)) {
+    fieldsToUpdate.schema = schema;
+  }
 
-  // Block the archive transition when the constant is still referenced (same
-  // gate as the REST archive endpoints and the front-end ConstantArchiveModal).
-  // Mirrors saved groups; only archiving is blocked, never unarchiving.
+  // Block the archive transition when the config is still referenced.
   if (fieldsToUpdate.archived === true && !comparisonBase.archived) {
-    await assertConstantArchivable(context, existing.id);
+    await assertConstantArchivable(context, existing.id, "config");
   }
 
   const forceCreateRevision = req.query.forceCreateRevision === "1";
@@ -302,9 +375,6 @@ export const putConstant = async (
   const title = req.query.title;
   const revertedFrom = req.query.revertedFrom;
 
-  // If no draft-intent flag was provided we treat the request as an implicit
-  // auto-publish so the change is still tracked as a revision and merged
-  // immediately when approval isn't required.
   const wantsDraft = !!revisionId || forceCreateRevision;
   const wantsMerge = bypassApproval || autoPublish || !wantsDraft;
 
@@ -319,16 +389,13 @@ export const putConstant = async (
 
   await ensureLiveRevisionExists(
     context,
-    "constant",
+    "config",
     existing as unknown as RevisionEntityArg,
   );
 
   const patchOps = buildPatchOps(fieldsToUpdate as Record<string, unknown>);
 
-  // Constants inherit the feature `requireReviews` settings: a value change
-  // requires review (all environments), a per-env override only when its
-  // environment is in scope, metadata per the rule's metadata-review toggle.
-  // Computed against the live entity + this change, matching the merge endpoint.
+  // Configs inherit the feature `requireReviews` settings (same as constants).
   const approvalRequired = constantRequiresReview(
     { project: existing.project },
     getConstantRevisionChange(existing, patchOps),
@@ -339,7 +406,7 @@ export const putConstant = async (
 
   let revision = await createOrUpdateRevision(
     context,
-    "constant",
+    "config",
     existing as unknown as Record<string, unknown> & { id: string },
     patchOps,
     {
@@ -352,24 +419,15 @@ export const putConstant = async (
   );
 
   if (wantsMerge) {
-    // Delegate to the adapter so the multi-project bypass rule has a single
-    // source of truth (also used by the generic revision controller).
-    const canBypass = getAdapter("constant").canBypassApproval(
+    const canBypass = getAdapter("config").canBypassApproval(
       context,
       existing as unknown as Record<string, unknown>,
     );
 
-    // bypassApproval is an explicit admin override — enforce server-side.
     if (bypassApproval && approvalRequired && !canBypass) {
       context.permissions.throwPermissionError();
     }
 
-    // autoPublish must not bypass review that this change genuinely requires.
-    // `approvalRequired` is already change-aware (it returns false for changes
-    // the review rules don't gate — e.g. metadata when metadata review is off,
-    // or an out-of-scope environment), so a remaining `approvalRequired` here
-    // means real review is needed: only an admin bypass (or revert bypass) may
-    // publish immediately.
     if (autoPublish && approvalRequired && !canBypass) {
       const isRevertBypass =
         !!revertedFrom && !!org.settings?.revertsBypassApproval;
@@ -382,7 +440,6 @@ export const putConstant = async (
       !approvalRequired || bypassApproval || autoPublish;
 
     if (canImmediatelyMerge) {
-      // Only record a bypass when the caller used the explicit admin override.
       const isBypass = approvalRequired && bypassApproval;
 
       // Claim the merge first (CAS-guarded) so a concurrent discard can't orphan
@@ -394,11 +451,9 @@ export const putConstant = async (
       );
 
       try {
-        await context.models.constants.update(
+        await context.models.configs.update(
           existing,
-          fieldsToUpdate as Parameters<
-            typeof context.models.constants.update
-          >[1],
+          fieldsToUpdate as Parameters<typeof context.models.configs.update>[1],
         );
       } catch (e) {
         try {
@@ -409,23 +464,9 @@ export const putConstant = async (
         throw e;
       }
 
-      await dispatchConstantRevisionEvent(context, revision, {
-        type: revision.revertedFrom ? "reverted" : "published",
-      });
-
       return res.status(200).json({ status: 200, revision });
     }
   }
-
-  // Draft path (approval required, no immediate merge). Fire created/updated so
-  // the draft lifecycle is observable via webhooks even from the internal UI.
-  const updatedExisting =
-    wantsDraft && !bypassApproval && !autoPublish && !!revisionId;
-  await dispatchConstantRevisionEvent(
-    context,
-    revision,
-    updatedExisting ? { type: "updated" } : { type: "created" },
-  );
 
   return res.status(202).json({
     status: 202,
@@ -434,21 +475,20 @@ export const putConstant = async (
   });
 };
 
-export const deleteConstant = async (
+export const deleteConfig = async (
   req: AuthRequest<null, { id: string }>,
   res: Response<{ status: 200 }>,
 ) => {
   const context = getContextFromReq(req);
-  const existing = await context.models.constants.getById(req.params.id);
+  const existing = await context.models.configs.getById(req.params.id);
   if (!existing) {
-    return context.throwNotFoundError("Constant not found");
+    return context.throwNotFoundError("Config not found");
   }
-  // Require the constant to be archived first. Archive is reversible and flows
-  // through the approval system; delete isn't, so this gives users an undo step
-  // (mirrors saved groups).
+  // Require the config to be archived first (mirrors constants): archive is
+  // reversible and flows through approvals; delete isn't.
   if (!existing.archived) {
-    throw new Error("Constant must be archived before it can be deleted");
+    throw new Error("Config must be archived before it can be deleted");
   }
-  await context.models.constants.delete(existing);
+  await context.models.configs.delete(existing);
   return res.status(200).json({ status: 200 });
 };

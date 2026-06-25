@@ -4,7 +4,6 @@ import { useRouter } from "next/router";
 import Link from "next/link";
 import { date, datetime } from "shared/dates";
 import { Revision, RevisionStatus } from "shared/enterprise";
-import { ConstantInterface } from "shared/types/constant";
 import Callout from "@/ui/Callout";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useUser } from "@/services/UserContext";
@@ -44,14 +43,8 @@ const DEFAULT_STATUSES: RevisionStatus[] = [
   "changes-requested",
 ];
 
-// Configs are `config`-type constants, so their revisions share the "constant"
-// entity pool. Filter to config snapshots.
 function isConfigRevision(revision: Revision): boolean {
-  return (
-    revision.target.type === "constant" &&
-    (revision.target.snapshot as ConstantInterface | undefined)?.type ===
-      "config"
-  );
+  return revision.target.type === "config";
 }
 
 type ReviewRow = {
@@ -107,7 +100,7 @@ const ConfigReviews: FC = () => {
   const [serverStatusFilter, setServerStatusFilter] = useState<
     string | undefined
   >("open");
-  const { revisions, isLoading } = useRevisionsEntityType("constant", {
+  const { revisions, isLoading } = useRevisionsEntityType("config", {
     status: serverStatusFilter,
     limit: 500,
   });

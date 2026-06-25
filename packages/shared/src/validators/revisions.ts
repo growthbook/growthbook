@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { savedGroupValidator } from "./saved-group";
 import { constantValidator } from "./constant";
+import { configValidator } from "./config";
 
 export const revisionStatus = [
   "draft",
@@ -35,7 +36,11 @@ export type Review = z.infer<typeof reviewValidator>;
 // 4. Create packages/back-end/src/revisions/adapters/feature.adapter.ts
 // 5. Register it in packages/back-end/src/revisions/index.ts registry
 // 6. Extend getRevisionKey / canUserReviewEntity switches in shared/src/revisions/helpers.ts
-export const revisionTargetType = ["saved-group", "constant"] as const;
+export const revisionTargetType = [
+  "saved-group",
+  "constant",
+  "config",
+] as const;
 export type RevisionTargetType = (typeof revisionTargetType)[number];
 
 export const jsonPatchOperationValidator = z.discriminatedUnion("op", [
@@ -111,11 +116,22 @@ export type RevisionConstantTarget = z.infer<
   typeof revisionConstantTargetValidator
 >;
 
+export const revisionConfigTargetValidator = z.object({
+  type: z.literal("config"),
+  id: z.string(),
+  snapshot: configValidator,
+  proposedChanges: z.array(jsonPatchOperationValidator),
+});
+export type RevisionConfigTarget = z.infer<
+  typeof revisionConfigTargetValidator
+>;
+
 // Extension point: add new revisionXxxTargetValidator entries here as new entity types are added.
 // Each validator must have a unique `type` literal and a `snapshot` field with the entity's schema.
 export const revisionTargetValidator = z.discriminatedUnion("type", [
   revisionSavedGroupTargetValidator,
   revisionConstantTargetValidator,
+  revisionConfigTargetValidator,
   // revisionFeatureTargetValidator,  ← add future entity types here
 ]);
 export type RevisionTarget = z.infer<typeof revisionTargetValidator>;

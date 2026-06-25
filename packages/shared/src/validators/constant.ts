@@ -8,12 +8,11 @@ import {
 } from "./owner-field";
 import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
 import { namedSchema } from "./openapi-helpers";
-import { simpleSchemaValidator } from "./features";
 
-// "config" is a JSON object constant that additionally carries a field schema
-// and is edited through the (enterprise) Configuration UI. Its value resolves
-// exactly like a "json" constant; the schema only drives typing/validation/UX.
-export const constantTypeValidator = z.enum(["string", "json", "config"]);
+// A constant is either a raw `string` (interpolated as `{{ @const:key }}`) or a
+// `json` object (merged via `$extends`). Configs are a separate entity/model
+// (see configValidator) that resolve like `json` constants.
+export const constantTypeValidator = z.enum(["string", "json"]);
 
 // The source of a `@const:<key>` reference (capture group 1 = the key). Exported
 // so the front-end can build a fresh `RegExp` from it (e.g. to linkify
@@ -246,8 +245,7 @@ export function validateConstantValue(
   value: string,
   label?: string,
 ): void {
-  // `config` values are JSON objects too — validate them exactly like `json`.
-  if (type !== "json" && type !== "config") return;
+  if (type !== "json") return;
   if (value === "") return; // empty permitted
   const prefix = label ? `${label}: ` : "";
   let parsed: unknown;
@@ -292,9 +290,6 @@ export const constantValidator = z
     // drop-in for feature config (and share the feature approval scoping rules).
     project: z.string().optional(),
     archived: z.boolean().optional(),
-    // Field schema for `config`-type constants — defines each field and its type
-    // for the Configuration UI / typing. Unset for plain string/json constants.
-    schema: simpleSchemaValidator.optional(),
     dateCreated: z.date(),
     dateUpdated: z.date(),
   })
@@ -311,7 +306,6 @@ export const constantUpdatableFieldsSchema = constantValidator.pick({
   description: true,
   project: true,
   archived: true,
-  schema: true,
 });
 
 const keyField = z
@@ -331,7 +325,6 @@ export const postConstantBodyValidator = z.object({
   environmentValues: z.record(z.string(), z.string()).optional(),
   description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   project: z.string().optional(),
-  schema: simpleSchemaValidator.optional(),
 });
 
 export const putConstantBodyValidator = z.object({
@@ -342,7 +335,6 @@ export const putConstantBodyValidator = z.object({
   description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   project: z.string().optional(),
   archived: z.boolean().optional(),
-  schema: simpleSchemaValidator.optional(),
 });
 
 // ---------------------------------------------------------------------------

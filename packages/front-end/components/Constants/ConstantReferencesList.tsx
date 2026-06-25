@@ -21,12 +21,12 @@ const ConstantReferencesList: FC<ConstantReferences> = ({
       })),
     },
     {
-      title: "Constants",
+      title: "Constants & Configs",
       resourceType: "constant",
       items: constants.map((c) => ({
         id: c.id,
         label: c.name || c.key,
-        href: `/constants/${c.key}`,
+        href: c.isConfig ? `/configs/${c.key}` : `/constants/${c.key}`,
         projectIds: c.project ? [c.project] : undefined,
       })),
     },

@@ -11,6 +11,8 @@ export type ConstantConstantRef = {
   key: string;
   name: string;
   project?: string;
+  // True when the referencing entity is a config (so the UI links to /configs).
+  isConfig?: boolean;
 };
 
 export type ConstantReferences = {
@@ -18,15 +20,19 @@ export type ConstantReferences = {
   constants: ConstantConstantRef[];
 };
 
-// Features and other constants that reference a given constant via `@const:key`.
-// Cached for 5 minutes to avoid duplicate fetches when the references modal
-// mounts shortly after the detail page.
-export function useConstantReferences(constantId: string | null | undefined): {
+// Features, constants, and configs that reference a given constant/config via
+// `@const:key`. Cached for 5 minutes to avoid duplicate fetches when the
+// references modal mounts shortly after the detail page. `entity` selects the
+// API base path ("constants" or "configs").
+export function useConstantReferences(
+  constantId: string | null | undefined,
+  entity: "constants" | "configs" = "constants",
+): {
   references: ConstantReferences | null;
   loading: boolean;
 } {
   const { apiCall, orgId } = useAuth();
-  const path = constantId ? `/constants/${constantId}/references` : null;
+  const path = constantId ? `/${entity}/${constantId}/references` : null;
   const key = path && orgId ? `${orgId}::${path}` : null;
 
   const { data, isLoading } = useSWR<

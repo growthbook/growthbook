@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
 import isEqual from "lodash/isEqual";
 import { ConstantInterface } from "shared/types/constant";
+import { ConfigInterface } from "shared/types/config";
 import { Box } from "@radix-ui/themes";
 import {
   ChangeField,
@@ -11,8 +12,12 @@ import {
 import type { DiffBadge } from "@/components/AuditHistoryExplorer/types";
 import { RevisionDiffConfig } from "@/components/Revision/useRevisionDiff";
 
-type Pre = Partial<ConstantInterface> | null;
-type Post = Partial<ConstantInterface>;
+// Render/badge helpers are shared by both the constant and config diff configs.
+// Constants carry `type`; configs carry `schema` — the combined shape exposes
+// every diff-relevant field so a single set of helpers serves both entities.
+type DiffShape = ConstantInterface & ConfigInterface;
+type Pre = Partial<DiffShape> | null;
+type Post = Partial<DiffShape>;
 
 // One value chunk. Short, single-line values render inline (Δ → ); multi-line /
 // JSON values render as before/after boxes.
@@ -258,18 +263,48 @@ export function getConstantValuesBadges(pre: Pre, post: Post): DiffBadge[] {
   return badges;
 }
 
+// Parse a JSON-typed value (and per-env overrides) into objects so the raw diff
+// expands them as nested JSON rather than escaped strings. Mirrors the
+// saved-group `condition` and feature value handling.
+function parseJsonValues<T extends Partial<DiffShape>>(snapshot: T): T {
+  const parse = (v: string): string => {
+    if (v === "") return v;
+    try {
+      // JSON.parse returns `any`; the parsed object flows through the diff's
+      // stringify step, which re-serializes it as pretty JSON.
+      return JSON.parse(v);
+    } catch {
+      return v; // leave invalid/legacy JSON as-is
+    }
+  };
+  const result = { ...snapshot };
+  if (typeof result.value === "string") {
+    result.value = parse(result.value);
+  }
+  if (result.environmentValues) {
+    const parsed: Record<string, string> = {};
+    for (const [env, val] of Object.entries(result.environmentValues)) {
+      parsed[env] = typeof val === "string" ? parse(val) : val;
+    }
+    result.environmentValues = parsed;
+  }
+  return result;
+}
+
+const SETTINGS_KEYS = [
+  "name",
+  "owner",
+  "description",
+  "project",
+  "archived",
+] as const;
+
 export const REVISION_CONSTANT_DIFF_CONFIG: RevisionDiffConfig<ConstantInterface> =
   {
     sections: [
       {
         label: "Settings",
-        keys: [
-          "name",
-          "owner",
-          "description",
-          "project",
-          "archived",
-        ] as (keyof ConstantInterface)[],
+        keys: [...SETTINGS_KEYS] as (keyof ConstantInterface)[],
         render: renderConstantSettings,
         getBadges: getConstantSettingsBadges,
       },
@@ -279,40 +314,36 @@ export const REVISION_CONSTANT_DIFF_CONFIG: RevisionDiffConfig<ConstantInterface
         render: renderConstantValues,
         getBadges: getConstantValuesBadges,
       },
+    ],
+    normalizeSnapshot: (snapshot: ConstantInterface): ConstantInterface => {
+      if (snapshot.type !== "json") return snapshot;
+      return parseJsonValues(snapshot);
+    },
+  };
+
+export const REVISION_CONFIG_DIFF_CONFIG: RevisionDiffConfig<ConfigInterface> =
+  {
+    sections: [
+      {
+        label: "Settings",
+        keys: [...SETTINGS_KEYS] as (keyof ConfigInterface)[],
+        render: renderConstantSettings,
+        getBadges: getConstantSettingsBadges,
+      },
+      {
+        label: "Value",
+        keys: ["value", "environmentValues"] as (keyof ConfigInterface)[],
+        render: renderConstantValues,
+        getBadges: getConstantValuesBadges,
+      },
       {
         label: "Fields",
-        keys: ["schema"] as (keyof ConstantInterface)[],
+        keys: ["schema"] as (keyof ConfigInterface)[],
         render: renderConstantSchema,
         getBadges: getConstantSchemaBadges,
       },
     ],
-    // For JSON constants, parse the value (and per-env overrides) into objects
-    // so the raw diff expands them as nested JSON rather than escaped strings.
-    // Mirrors the saved-group `condition` and feature value handling.
-    normalizeSnapshot: (snapshot: ConstantInterface): ConstantInterface => {
-      if (snapshot.type !== "json" && snapshot.type !== "config")
-        return snapshot;
-      const parse = (v: string): string => {
-        if (v === "") return v;
-        try {
-          // JSON.parse returns `any`; the parsed object flows through the
-          // diff's stringify step, which re-serializes it as pretty JSON.
-          return JSON.parse(v);
-        } catch {
-          return v; // leave invalid/legacy JSON as-is
-        }
-      };
-      const result = { ...snapshot };
-      if (typeof result.value === "string") {
-        result.value = parse(result.value);
-      }
-      if (result.environmentValues) {
-        const parsed: Record<string, string> = {};
-        for (const [env, val] of Object.entries(result.environmentValues)) {
-          parsed[env] = typeof val === "string" ? parse(val) : val;
-        }
-        result.environmentValues = parsed;
-      }
-      return result;
-    },
+    // Configs are always JSON objects, so their value/overrides are always parsed.
+    normalizeSnapshot: (snapshot: ConfigInterface): ConfigInterface =>
+      parseJsonValues(snapshot),
   };

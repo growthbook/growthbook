@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { ConstantWithoutValue } from "shared/types/constant";
+import { ConfigWithoutValue } from "shared/types/config";
 import { Revision } from "shared/enterprise";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { useAuth } from "@/services/auth";
@@ -22,15 +23,21 @@ export default function ConstantArchiveModal({
   onSaved,
   selectFlow,
   close,
+  entity = "constants",
 }: {
-  constant: ConstantWithoutValue;
+  constant: ConstantWithoutValue | ConfigWithoutValue;
   revisionCtx: ConstantRevisionContext;
   onSaved?: (revision: Revision) => void;
   selectFlow?: (revision: Revision | null) => void;
   close: () => void;
+  // Base API path; "configs" routes the archive change through config endpoints.
+  entity?: "constants" | "configs";
 }) {
   const { apiCall } = useAuth();
   const { mutateDefinitions } = useDefinitions();
+
+  const noun = entity === "configs" ? "config" : "constant";
+  const Noun = entity === "configs" ? "Config" : "Constant";
 
   const { openRevisions, allRevisions, approvalRequired, canBypassApproval } =
     revisionCtx;
@@ -42,6 +49,7 @@ export default function ConstantArchiveModal({
   // Unarchiving is always allowed.
   const { references, loading: referencesLoading } = useConstantReferences(
     isArchived ? null : constant.id,
+    entity,
   );
   const totalReferences =
     (references?.features.length ?? 0) + (references?.constants.length ?? 0);
@@ -70,7 +78,7 @@ export default function ConstantArchiveModal({
     <ModalStandard
       open={true}
       trackingEventModalType="constant-archive-modal"
-      header={isArchived ? "Unarchive Constant" : "Archive Constant"}
+      header={isArchived ? `Unarchive ${Noun}` : `Archive ${Noun}`}
       size="lg"
       close={close}
       cta={
@@ -101,7 +109,7 @@ export default function ConstantArchiveModal({
 
         const qs = params.toString();
         const res = await apiCall<{ revision?: Revision }>(
-          `/constants/${constant.id}${qs ? `?${qs}` : ""}`,
+          `/${entity}/${constant.id}${qs ? `?${qs}` : ""}`,
           {
             method: "PUT",
             body: JSON.stringify({ archived: desiredArchived }),
@@ -130,21 +138,21 @@ export default function ConstantArchiveModal({
       />
       {isArchived ? (
         <p>
-          Are you sure you want to continue? This will make the constant active
+          Are you sure you want to continue? This will make the {noun} active
           again.
         </p>
       ) : referencesLoading ? (
         <Text color="text-disabled">
-          <LoadingSpinner /> Checking constant references...
+          <LoadingSpinner /> Checking {noun} references...
         </Text>
       ) : blockedByReferences ? (
         <>
           <Callout status="error" mb="4">
             <Text as="p" weight="semibold" mb="2">
-              Cannot archive constant
+              Cannot archive {noun}
             </Text>
             <Text as="p" mb="0">
-              Before you can archive this constant, you will need to remove any
+              Before you can archive this {noun}, you will need to remove any
               references to it. Check the following item
               {totalReferences > 1 ? "s" : ""} below:
             </Text>
@@ -155,9 +163,7 @@ export default function ConstantArchiveModal({
           />
         </>
       ) : (
-        <p>
-          Are you sure you want to continue? This will archive the constant.
-        </p>
+        <p>Are you sure you want to continue? This will archive the {noun}.</p>
       )}
     </ModalStandard>
   );

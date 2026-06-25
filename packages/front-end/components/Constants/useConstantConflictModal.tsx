@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from "react";
 import { ConstantInterface } from "shared/types/constant";
+import { ConfigInterface } from "shared/types/config";
 import {
   Revision,
   checkMergeConflicts,
@@ -8,7 +9,7 @@ import {
 import FixRevisionConflictsModal from "@/components/Revision/FixRevisionConflictsModal";
 
 interface ConstantConflictModalProps {
-  constant: ConstantInterface;
+  constant: ConstantInterface | ConfigInterface;
   selectedRevision: Revision;
   close: () => void;
   mutate: () => void | Promise<void>;
@@ -39,13 +40,14 @@ export function ConstantConflictModal({
 }
 
 export function useConstantMergeResult(
-  constant: ConstantInterface | undefined,
+  constant: ConstantInterface | ConfigInterface | undefined,
   selectedRevision: Revision | null,
   isDraft: boolean | Revision | null,
+  targetType: "constant" | "config" = "constant",
 ) {
   return useMemo(() => {
     if (!constant || !selectedRevision || !isDraft) return null;
-    if (selectedRevision.target.type !== "constant") return null;
+    if (selectedRevision.target.type !== targetType) return null;
 
     const baseSnapshot = selectedRevision.target.snapshot;
     if (!baseSnapshot) return null;
@@ -59,5 +61,5 @@ export function useConstantMergeResult(
       constant as unknown as Record<string, unknown>,
       proposedChanges,
     );
-  }, [constant, selectedRevision, isDraft]);
+  }, [constant, selectedRevision, isDraft, targetType]);
 }

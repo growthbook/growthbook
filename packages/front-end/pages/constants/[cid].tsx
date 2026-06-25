@@ -64,7 +64,6 @@ import { ConstantRevisionContext } from "@/components/Constants/useConstantDraft
 const TYPE_LABEL: Record<ConstantInterface["type"], string> = {
   string: "String",
   json: "JSON",
-  config: "Config",
 };
 
 // Renders a constant value with the same formatter as feature flag values

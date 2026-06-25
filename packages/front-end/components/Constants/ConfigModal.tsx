@@ -23,8 +23,14 @@ export default function ConfigModal({
 }) {
   const router = useRouter();
   const { apiCall } = useAuth();
-  const { constants, projects, project, mutateDefinitions, getConstantByKey } =
-    useDefinitions();
+  const {
+    configs,
+    projects,
+    project,
+    mutateDefinitions,
+    getConfigByKey,
+    getConstantByKey,
+  } = useDefinitions();
 
   const [error, setError] = useState<string | null>(null);
 
@@ -37,8 +43,8 @@ export default function ConfigModal({
     },
   });
 
-  const configOptions = constants
-    .filter((c) => c.type === "config" && !c.archived)
+  const configOptions = configs
+    .filter((c) => !c.archived)
     .map((c) => ({ label: `${c.name} (${c.key})`, value: c.key }));
 
   // Auto-derive the slug key from the name until the user edits the key.
@@ -47,11 +53,14 @@ export default function ConfigModal({
   useEffect(() => {
     if (keyTouched.current || !name) return;
     let active = true;
-    generateTrackingKey({ name }, async (k) => getConstantByKey(k)).then(
-      (k) => {
-        if (active) form.setValue("key", k);
-      },
-    );
+    // Keys are unique across both configs and constants — check both so an
+    // auto-generated slug doesn't collide with a constant.
+    generateTrackingKey(
+      { name },
+      async (k) => getConfigByKey(k) ?? getConstantByKey(k),
+    ).then((k) => {
+      if (active) form.setValue("key", k);
+    });
     return () => {
       active = false;
     };
@@ -72,12 +81,11 @@ export default function ConfigModal({
           ? JSON.stringify({ $extends: [`@const:${values.parent}`] })
           : undefined;
         try {
-          await apiCall(`/constants`, {
+          await apiCall(`/configs`, {
             method: "POST",
             body: JSON.stringify({
               key: values.key,
               name: values.name,
-              type: "config",
               ...(value ? { value } : {}),
               project: values.project || undefined,
             }),

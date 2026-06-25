@@ -8,6 +8,7 @@ import {
 import { UpdateProps } from "shared/types/base-model";
 import { BadRequestError } from "back-end/src/util/errors";
 import { constantUpdated } from "back-end/src/services/constants";
+import { getResolvableConstants } from "back-end/src/services/resolvableConstants";
 import {
   logConstantCreatedEvent,
   logConstantUpdatedEvent,
@@ -81,7 +82,8 @@ export class ConstantModel extends BaseClass {
       key,
       value,
       environmentValues,
-      await this.getAll(),
+      // Span both collections — a constant can reference a config and vice versa.
+      await getResolvableConstants(this.context),
     );
     if (cyclic.length) {
       throw new BadRequestError(
