@@ -114,7 +114,16 @@ function makeCb(
     stickyBucketing: false,
     canonicalFormVersion: 1,
     dateStarted: new Date("2025-01-02T00:00:00Z"),
-    currentLeafWeights: [{ contextId: "ctx_catchall", weights: [0.5, 0.5] }],
+    currentLeafWeights: [
+      {
+        leafId: 0,
+        condition: { country: "US" },
+        weights: [
+          { variationId: "v0", weight: 0.5 },
+          { variationId: "v1", weight: 0.5 },
+        ],
+      },
+    ],
     banditVersion: 0,
     ...overrides,
   } as ContextualBanditInterface;
@@ -221,7 +230,7 @@ describe("ContextualBanditResultsQueryRunner", () => {
   });
 
   describe("runAnalysis (happy path)", () => {
-    it("tags rows with contextIds, caps contexts, and forwards to the stats engine", async () => {
+    it("forwards rows to the stats engine unchanged", async () => {
       const cb = makeCb();
       const context = makeContext(cb);
       const runner = newRunner(context);
@@ -278,19 +287,20 @@ describe("ContextualBanditResultsQueryRunner", () => {
       expect(result).toEqual(fitted);
       expect(runContextualStatsEngineMock).toHaveBeenCalledTimes(1);
 
-      const [statsSettings, taggedRows, runParams] =
+      const [statsSettings, forwardedRows, runParams] =
         runContextualStatsEngineMock.mock.calls[0];
       expect(statsSettings.varIds).toEqual(["v0", "v1"]);
       expect(statsSettings.contextualAttributes).toEqual(["country"]);
       expect(runParams?.snapshotId).toBe("cbs_1");
       expect(runParams?.decisionMetricId).toBe("fact__g1");
+      // Rows are forwarded to the stats engine unchanged (no contextId tagging).
+      expect(forwardedRows).toHaveLength(2);
+      expect(forwardedRows).toEqual(rows);
       expect(
-        taggedRows.every(
-          (r) =>
-            typeof (r as never as { contextId: string }).contextId === "string",
+        forwardedRows.every(
+          (r) => !("contextId" in (r as Record<string, unknown>)),
         ),
       ).toBe(true);
-      expect(taggedRows).toHaveLength(2);
     });
 
     it("rejects when snapshotSettings have not been initialised", async () => {

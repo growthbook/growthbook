@@ -44090,8 +44090,13 @@ components:
           items:
             type: object
             properties:
-              contextId:
-                type: string
+              leafId:
+                type: integer
+              condition:
+                type: object
+                propertyNames:
+                  type: string
+                additionalProperties: {}
               weights:
                 type: array
                 items:
@@ -44106,7 +44111,8 @@ components:
                     - weight
                   additionalProperties: false
             required:
-              - contextId
+              - leafId
+              - condition
               - weights
             additionalProperties: false
         banditVersion:
@@ -47060,8 +47066,13 @@ components:
     currentLeafWeights:
       type: object
       properties:
-        contextId:
-          type: string
+        leafId:
+          type: integer
+        condition:
+          type: object
+          propertyNames:
+            type: string
+          additionalProperties: {}
         weights:
           type: array
           items:
@@ -47076,7 +47087,8 @@ components:
               - weight
             additionalProperties: false
       required:
-        - contextId
+        - leafId
+        - condition
         - weights
       additionalProperties: false
     snapshots:

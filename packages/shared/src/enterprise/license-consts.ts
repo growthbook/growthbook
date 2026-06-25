@@ -265,7 +265,6 @@ const commercialFeaturesEnterpriseOnly: CommercialFeature[] = [
   "share-product-analytics-dashboards",
   "incremental-refresh",
   "adv-presentations",
-  // TODO(post-launch): promote to commercialFeaturesPro
   "contextual-bandits",
 ];
 

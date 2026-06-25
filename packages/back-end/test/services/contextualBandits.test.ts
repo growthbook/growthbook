@@ -4,7 +4,6 @@ import {
   ContextualBanditSnapshotInterface,
   contextualBanditSnapshotSettingsValidator,
 } from "shared/validators";
-import { deriveContextId } from "shared/util";
 import { ReqContext } from "back-end/types/api";
 import {
   buildContextualBanditSnapshotSettings,
@@ -62,7 +61,16 @@ function makeCb(
     ],
     dateStarted: new Date("2025-01-02T00:00:00Z"),
     variationWeights: [0.4, 0.6],
-    currentLeafWeights: [{ contextId: "ctx_catchall", weights: [0.5, 0.5] }],
+    currentLeafWeights: [
+      {
+        leafId: 0,
+        condition: { country: "US", device: "mobile" },
+        weights: [
+          { variationId: "v0", weight: 0.5 },
+          { variationId: "v1", weight: 0.5 },
+        ],
+      },
+    ],
     banditVersion: 0,
     linkedFeatures: [],
     ...overrides,
@@ -288,15 +296,16 @@ describe("persistContextualBanditEvent", () => {
     const [cbIdArg, leafWeightsArg] = patchLeafWeightsMock.mock.calls[0];
     expect(cbIdArg).toBe(cb.id);
     expect(leafWeightsArg).toHaveLength(2);
-    // deriveContextId is seeded by CB id, matching persistContextualBanditEvent.
     const expectedLeafWeights = leafWeightsFromContextualBanditResult(
-      cb.id,
       result,
+      cb.variations,
     );
     expect(leafWeightsArg).toEqual(expectedLeafWeights);
-    expect(leafWeightsArg[0].contextId).toBe(
-      deriveContextId(cb.id, { country: "US" }),
-    );
+    expect(leafWeightsArg[0].leafId).toBe(0);
+    expect(leafWeightsArg[0].condition).toEqual({
+      country: "US",
+      device: "mobile",
+    });
 
     expect(queueSDKPayloadRefreshMock).toHaveBeenCalledWith(
       expect.objectContaining({

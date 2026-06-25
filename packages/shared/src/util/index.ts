@@ -692,7 +692,6 @@ export function capitalizeFirstCharacter(s: string) {
   return s.charAt(0).toLocaleUpperCase() + s.slice(1);
 }
 
-export { canonicalize, deriveContextId } from "./canonicalize-condition";
 export {
   NON_PRODUCTION_ENV_PATTERNS,
   isEnvironmentDevLike,

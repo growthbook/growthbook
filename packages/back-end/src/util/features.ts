@@ -884,7 +884,13 @@ export function getFeatureDefinition({
           if (cbCapable) {
             rule.isContextualBandit = true;
             rule.attributesRequired = cb.contextualAttributes;
-            // TODO(post-stats-engine): emit `rule.contexts` once per-leaf split predicates exist.
+            // Per-leaf weights: each entry carries the leaf's routing condition and
+            // its positional variation weights so the SDK can assign within a leaf.
+            rule.contexts = (cb.currentLeafWeights ?? []).map((lw) => ({
+              leafId: lw.leafId,
+              condition: lw.condition,
+              weights: pairedWeightsToPositional(lw.weights, cb.variations),
+            }));
           }
 
           rule.key = cb.trackingKey;

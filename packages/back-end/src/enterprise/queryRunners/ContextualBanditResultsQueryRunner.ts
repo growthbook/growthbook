@@ -5,19 +5,13 @@ import {
   ContextualBanditSnapshotInterface,
   ContextualBanditSnapshotSettings,
 } from "shared/validators";
-import { deriveContextId } from "shared/util";
-import {
-  attributeConditionFromMetricRow,
-  ExperimentMetricInterface,
-  isFactMetric,
-} from "shared/experiments";
+import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
 import {
   ContextualBanditSrmQueryResponseRows,
   ExperimentMetricQueryResponseRows,
 } from "shared/types/integrations";
 import type { ExperimentSnapshotAnalysisSettings } from "shared/types/experiment-snapshot";
 import {
-  attributesToCondition,
   buildSnapshotMetricRequestForCb,
   getContextualBanditSettingsForStatsEngine,
   persistContextualBanditEvent,
@@ -209,18 +203,6 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
 
     const srm = this.extractSrmResult(queryMap);
 
-    const attributeColumns = this.snapshotSettings.contextualAttributes;
-
-    const tagged = rows.map((r) => ({
-      ...r,
-      contextId: deriveContextId(
-        this.snapshotSettings!.experimentId,
-        attributesToCondition(
-          attributeConditionFromMetricRow(r, attributeColumns),
-        ),
-      ),
-    }));
-
     const cb = await this.loadCbDoc();
 
     const statsSettings = getContextualBanditSettingsForStatsEngine(
@@ -262,7 +244,7 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
       1 / 24,
     );
 
-    const analysis = await runContextualStatsEngine(statsSettings, tagged, {
+    const analysis = await runContextualStatsEngine(statsSettings, rows, {
       snapshotId: this.model.id,
       decisionMetricId,
       snapshotSettings: expSnapshotSettings,
