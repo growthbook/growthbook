@@ -28,6 +28,8 @@ import {
   ruleAppliesToEnv,
   namespacesToMap,
   stemRuleId,
+  getConfigBackingKey,
+  getConfigBackingPatch,
 } from "shared/util";
 import {
   getConnectionSDKCapabilities,
@@ -2085,6 +2087,18 @@ export function revisionToApiInterface(
 // ---- V2 serializers ----
 
 // v2 API rule shape: v1 fields + `allEnvironments` / `environments` scope.
+// v2 read transform: split a stored (possibly config-backed) value into the
+// API's `{ value, config }` pair. `@config:` is an internal detail — the API
+// exposes the config key + override patch, never the raw `$extends` directive.
+function decomposeConfigValue(stored: string | undefined): {
+  value: string | undefined;
+  config: string | null;
+} {
+  const config = getConfigBackingKey(stored);
+  if (config === null) return { value: stored, config: null };
+  return { value: getConfigBackingPatch(stored), config };
+}
+
 export function normalizeRuleForApiV2(rule: FeatureRule): ApiFeatureRuleV2 {
   const base = normalizeRuleForApi(rule);
   return {
@@ -2114,6 +2128,8 @@ export function revisionToApiInterfaceV2(
       })
     : [];
 
+  const revDefault = decomposeConfigValue(rev.defaultValue);
+
   return {
     featureId: rev.featureId,
     baseVersion: rev.baseVersion,
@@ -2125,7 +2141,8 @@ export function revisionToApiInterfaceV2(
     status: rev.status,
     createdBy: eventUserToApiEventUser(rev.createdBy),
     publishedBy: eventUserToApiEventUser(rev.publishedBy),
-    defaultValue: rev.defaultValue,
+    defaultValue: revDefault.value,
+    ...(revDefault.config !== null && { config: revDefault.config }),
     rules,
     ...(rev.environmentsEnabled !== undefined && {
       environmentsEnabled: rev.environmentsEnabled,
@@ -2253,7 +2270,9 @@ export function getApiFeatureObjV2({
   safeRolloutMap: Map<string, SafeRolloutInterface>;
   rampScheduleMap?: Map<string, string>;
 }): ApiFeatureWithRevisionsV2 {
-  const defaultValue = feature.defaultValue;
+  const { value: decomposedDefault, config: defaultValueConfig } =
+    decomposeConfigValue(feature.defaultValue);
+  const defaultValue = decomposedDefault ?? feature.defaultValue;
   const featureEnvironments: Record<string, ApiFeatureEnvironmentV2> = {};
   const environments = getEnvironmentIdsFromOrg(organization);
 
@@ -2289,7 +2308,8 @@ export function getApiFeatureObjV2({
     archived: !!feature.archived,
     dateCreated: feature.dateCreated.toISOString(),
     dateUpdated: feature.dateUpdated.toISOString(),
-    defaultValue: feature.defaultValue,
+    defaultValue,
+    ...(defaultValueConfig !== null && { config: defaultValueConfig }),
     rules: apiRules,
     environments: featureEnvironments,
     prerequisites: (feature?.prerequisites || []).map((p) => p.id),

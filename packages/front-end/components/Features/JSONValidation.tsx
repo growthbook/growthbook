@@ -1,5 +1,5 @@
 import { FeatureInterface } from "shared/types/feature";
-import { getValidation } from "shared/util";
+import { getValidation, getConfigBackingKey } from "shared/util";
 import { useState } from "react";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { Box, Flex } from "@radix-ui/themes";
@@ -48,6 +48,30 @@ export default function JSONValidation({
 
   // Boolean flags can't have a validation schema; json/string/number can.
   if (feature.valueType === "boolean") return null;
+
+  // When the default value is config-backed, the config's schema is
+  // authoritative — the flag's own schema is disabled (see backend validation).
+  const configBackedKey = getConfigBackingKey(feature.defaultValue);
+  if (configBackedKey !== null) {
+    return (
+      <Box>
+        <Flex align="center" gap="1" mb="1">
+          <Heading as="h3" size="medium" mb="0">
+            Schema Validation
+          </Heading>
+          <Badge label="Provided by config" color="violet" variant="soft" />
+        </Flex>
+        <em className="text-muted">
+          This flag&apos;s default value is backed by the{" "}
+          <a href={`/configs/${configBackedKey}`}>
+            <code>{configBackedKey}</code>
+          </a>{" "}
+          config, which supplies its own schema. The flag-level schema is
+          disabled while a config is attached.
+        </em>
+      </Box>
+    );
+  }
 
   return (
     <Box>

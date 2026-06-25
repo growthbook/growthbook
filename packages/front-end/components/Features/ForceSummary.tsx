@@ -1,8 +1,10 @@
 import { FeatureInterface } from "shared/types/feature";
+import { getConfigBackingKey } from "shared/util";
 import { Box, Flex } from "@radix-ui/themes";
 import ValidateValue from "@/components/Features/ValidateValue";
 import Text from "@/ui/Text";
 import ValueDisplay from "./ValueDisplay";
+import ConfigBackedSummary from "./ConfigBackedSummary";
 
 export default function ForceSummary({
   value,
@@ -15,6 +17,22 @@ export default function ForceSummary({
   maxHeight?: number;
   sparse?: boolean;
 }) {
+  // A config-backed feature's values always serve a config: an explicit ref on
+  // this value, else the feature default's config (the base it overrides).
+  const configKey =
+    getConfigBackingKey(value) ?? getConfigBackingKey(feature.defaultValue);
+  if (configKey !== null) {
+    return (
+      <ConfigBackedSummary
+        value={value}
+        configKey={configKey}
+        feature={feature}
+        maxHeight={maxHeight}
+        sparse={sparse}
+      />
+    );
+  }
+
   return (
     <>
       <Flex direction="row" gap="2">

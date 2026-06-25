@@ -251,6 +251,18 @@ describe("assertValidExtendsEntries", () => {
         assertValidExtendsEntries({ $extends: ["@const:a", { x: 1 }] }),
       ).not.toThrow();
     });
+
+    it("accepts a @config ref as the first entry", () => {
+      expect(() =>
+        assertValidExtendsEntries({ $extends: ["@config:base", "@const:a"] }),
+      ).not.toThrow();
+    });
+
+    it("rejects a @config ref that is not the first entry", () => {
+      expect(() =>
+        assertValidExtendsEntries({ $extends: ["@const:a", "@config:base"] }),
+      ).toThrow(/@config/);
+    });
   });
 
   describe("lenient (features — onlyMergeDirectives)", () => {

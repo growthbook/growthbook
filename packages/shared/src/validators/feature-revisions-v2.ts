@@ -855,7 +855,17 @@ export const putFeatureRevisionDefaultValueV2Validator = {
   tags: ["feature-revisions-v2"],
   paramsSchema: revisionParams,
   bodySchema: z
-    .object({ defaultValue: z.string(), ...newDraftMetadataFields })
+    .object({
+      defaultValue: z.string(),
+      config: z
+        .string()
+        .nullable()
+        .describe(
+          "Key of a config to back the default value with. When set, `defaultValue` is treated as a JSON override patch merged on top of that config (its own keys win), and the flag must not also define its own `jsonSchema` (the config's schema is authoritative). Pass `null` to detach a config.",
+        )
+        .optional(),
+      ...newDraftMetadataFields,
+    })
     .strict(),
   querySchema: z.never(),
   responseSchema: revisionResponse,

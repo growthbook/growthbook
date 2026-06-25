@@ -13,21 +13,31 @@ import { namedSchema } from "./openapi-helpers";
 // via `$extends`). Configs are separate but resolve like `json` constants.
 export const constantTypeValidator = z.enum(["string", "json"]);
 
-// Capture group 1 = the key. Exported so the front-end can build its own RegExp.
+// Capture group 1 = the key. Constant-only; exported so the front-end can build
+// its own RegExp for constant references.
 export const CONSTANT_REF_PATTERN = "@const:([a-z0-9][a-z0-9_-]*)";
+// Config-only counterpart (`@config:key`), for the front-end config linkifier.
+export const CONFIG_REF_PATTERN = "@config:([a-z0-9][a-z0-9_-]*)";
+// Either namespace; capture group 1 = the key. Used wherever the reference is
+// counted/linkified regardless of namespace (cycle detection and the key space
+// are shared, so keys are globally unique).
+export const ANY_REF_PATTERN = "@(?:const|config):([a-z0-9][a-z0-9_-]*)";
 
 // Backtick-escaped interpolations are emitted literally, so they're not refs.
 const ESCAPED_INTERP_RE = new RegExp(
-  "`\\{\\{\\s*@const:[a-z0-9][a-z0-9_-]*\\s*\\}\\}`",
+  "`\\{\\{\\s*@(?:const|config):[a-z0-9][a-z0-9_-]*\\s*\\}\\}`",
   "g",
 );
 // The only string position the resolver substitutes.
 const INTERP_REF_RE = new RegExp(
-  "\\{\\{\\s*" + CONSTANT_REF_PATTERN + "\\s*\\}\\}",
+  "\\{\\{\\s*" + ANY_REF_PATTERN + "\\s*\\}\\}",
   "g",
 );
-// A bare `@const:key` placeholder, as it appears in an `$extends` array.
-const PLACEHOLDER_KEY_RE = new RegExp("^" + CONSTANT_REF_PATTERN + "$");
+// A bare `@const:key`/`@config:key` placeholder, as it appears in `$extends`.
+const PLACEHOLDER_KEY_RE = new RegExp("^" + ANY_REF_PATTERN + "$");
+// A bare `@config:key` placeholder specifically (must be the first `$extends`
+// entry).
+const CONFIG_PLACEHOLDER_RE = new RegExp("^" + CONFIG_REF_PATTERN + "$");
 
 // Interpolation keys in a string, ignoring backtick-escaped ones.
 function collectStringInterpRefs(s: string, into: Set<string>): void {
@@ -79,9 +89,9 @@ export function getConstantReferenceKeys(
   const keys = new Set<string>();
   const scan = (s: string | undefined) => {
     if (!s) return;
-    // Cheap pre-check: every reference contains "@const:", and most values hold
-    // none, so this short-circuits the JSON.parse + walk on the hot path.
-    if (!s.includes("@const:")) return;
+    // Cheap pre-check: every reference contains "@const:"/"@config:", and most
+    // values hold none, so this short-circuits the JSON.parse + walk.
+    if (!s.includes("@const:") && !s.includes("@config:")) return;
     let parsed: unknown;
     try {
       parsed = JSON.parse(s);
@@ -177,13 +187,15 @@ export function assertValidExtendsEntries(
   if (Array.isArray(list)) {
     const isRef = (e: unknown): boolean =>
       typeof e === "string" && PLACEHOLDER_KEY_RE.test(e);
+    const isConfigRef = (e: unknown): boolean =>
+      typeof e === "string" && CONFIG_PLACEHOLDER_RE.test(e);
     const isInlineObject = (e: unknown): boolean =>
       e !== null && typeof e === "object" && !Array.isArray(e);
     const looksLikeMergeDirective = list.some(
       (e) => isRef(e) || isInlineObject(e),
     );
     if (!onlyMergeDirectives || looksLikeMergeDirective) {
-      for (const entry of list) {
+      list.forEach((entry, i) => {
         if (!isRef(entry) && !isInlineObject(entry)) {
           throw new Error(
             `${prefix}Invalid "$extends" entry ${JSON.stringify(entry)} — each ` +
@@ -191,7 +203,13 @@ export function assertValidExtendsEntries(
               `literal values as the object's own keys instead.`,
           );
         }
-      }
+        // A config is always the base layer, so its ref must come first.
+        if (i > 0 && isConfigRef(entry)) {
+          throw new Error(
+            `${prefix}A "@config:" reference must be the first "$extends" entry.`,
+          );
+        }
+      });
     }
   }
   // Descend into own keys and inline-object `$extends` entries (via the array).

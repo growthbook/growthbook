@@ -7908,6 +7908,16 @@ paths:
               properties:
                 defaultValue:
                   type: string
+                config:
+                  description: >-
+                    Key of a config to back the default value with. When set,
+                    `defaultValue` is treated as a JSON override patch merged on
+                    top of that config (its own keys win), and the flag must not
+                    also define its own `jsonSchema` (the config's schema is
+                    authoritative). Pass `null` to detach a config.
+                  anyOf:
+                    - type: string
+                    - type: 'null'
                 revisionTitle:
                   description: >-
                     Title for a newly created draft. Only used when version is
@@ -36232,6 +36242,14 @@ components:
             - json
         defaultValue:
           type: string
+        config:
+          description: >-
+            Key of the config backing the default value, or null when the value
+            is not config-backed. The config supplies the base JSON (and its
+            schema); `defaultValue` is an override patch on top.
+          anyOf:
+            - type: string
+            - type: 'null'
         tags:
           type: array
           items:
@@ -36410,8 +36428,19 @@ components:
         publishedBy:
           $ref: '#/components/schemas/EventUser'
         defaultValue:
-          description: The default value at the time this revision was created
+          description: >-
+            The default value at the time this revision was created. When
+            `config` is set, this is the JSON override patch merged on top of
+            that config (its own keys win); otherwise it is the full value.
           type: string
+        config:
+          description: >-
+            Key of the config backing the default value, or null when the value
+            is not config-backed. The config supplies the base JSON (and its
+            schema); `defaultValue` is an override patch on top.
+          anyOf:
+            - type: string
+            - type: 'null'
         rules:
           description: >-
             Unified rules array. Each rule carries its own environment scope via

@@ -92,7 +92,16 @@ export const apiFeatureRevisionV2Validator = namedSchema(
       publishedBy: apiEventUserValidator.optional(),
       defaultValue: z
         .string()
-        .describe("The default value at the time this revision was created")
+        .describe(
+          "The default value at the time this revision was created. When `config` is set, this is the JSON override patch merged on top of that config (its own keys win); otherwise it is the full value.",
+        )
+        .optional(),
+      config: z
+        .string()
+        .nullable()
+        .describe(
+          "Key of the config backing the default value, or null when the value is not config-backed. The config supplies the base JSON (and its schema); `defaultValue` is an override patch on top.",
+        )
         .optional(),
       rules: z
         .array(apiFeatureRuleV2Validator)
@@ -234,6 +243,13 @@ export const apiFeatureV2Validator = namedSchema(
       project: z.string(),
       valueType: z.enum(["boolean", "string", "number", "json"]),
       defaultValue: z.string(),
+      config: z
+        .string()
+        .nullable()
+        .describe(
+          "Key of the config backing the default value, or null when the value is not config-backed. The config supplies the base JSON (and its schema); `defaultValue` is an override patch on top.",
+        )
+        .optional(),
       tags: z.array(z.string()),
       rules: z
         .array(apiFeatureRuleV2Validator)

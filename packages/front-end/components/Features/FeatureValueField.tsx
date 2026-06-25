@@ -18,6 +18,9 @@ import {
   getValidation,
   stripDefaultsForSparse,
   expandSparseToFull,
+  getConfigBackingKey,
+  getConfigBackingPatch,
+  setConfigBacking,
 } from "shared/util";
 import { FaMagic, FaRegTrashAlt } from "react-icons/fa";
 import stringify from "json-stringify-pretty-compact";
@@ -28,6 +31,7 @@ import { PiCheck, PiCopy, PiBracketsCurly } from "react-icons/pi";
 import { formatJSON, LARGE_FILE_SIZE } from "@/services/features";
 import Field from "@/components/Forms/Field";
 import { useUser } from "@/services/UserContext";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Modal from "@/components/Modal";
@@ -81,6 +85,20 @@ export interface Props {
   setSparse?: (sparse: boolean) => void;
   // Tighter sparse editor layout for embedded contexts (e.g. ramp step editors).
   condensed?: boolean;
+  // JSON features only. Offers a "Use a config" picker: instead of authoring the
+  // value directly, back it with a config (its base JSON + schema), with the
+  // value acting as an override patch. Serializes to an internal `@config:` ref.
+  allowConfigBacking?: boolean;
+  // When set, restricts the config-backing picker to these config keys (e.g. a
+  // rule may only override with the feature default's config or its children).
+  configBackingOptionKeys?: string[];
+  // Rule mode: keep the override-patch editor visible even when a config is
+  // selected (a rule layers its own patch on top of the chosen config). When
+  // false (default-value mode), selecting a config hides the editor.
+  configBackingShowPatch?: boolean;
+  // Rule mode: require a config (no "None" option) — a rule on a config-backed
+  // feature always serves the default's config or a compatible child.
+  lockConfigBacking?: boolean;
 }
 
 export default function FeatureValueField({
@@ -88,6 +106,7 @@ export default function FeatureValueField({
   label,
   value,
   setValue,
+  id,
   helpText,
   placeholder,
   feature,
@@ -104,10 +123,15 @@ export default function FeatureValueField({
   sparse,
   setSparse,
   condensed = false,
+  allowConfigBacking = false,
+  configBackingOptionKeys,
+  configBackingShowPatch = false,
+  lockConfigBacking = false,
 }: Props) {
   // Inline mode also suppresses the copy button.
   const copyHidden = hideCopyButton || inlineConstantButton;
   const { hasCommercialFeature } = useUser();
+  const { configs } = useDefinitions();
   const hasJsonValidator = hasCommercialFeature("json-validation");
   const { simpleSchema, validationEnabled } = feature
     ? getValidation(feature)
@@ -270,6 +294,109 @@ export default function FeatureValueField({
         </div>
         {helpText && <small className="text-muted">{helpText}</small>}
       </div>
+    );
+  }
+
+  if (valueType === "json" && allowConfigBacking) {
+    // Configs eligible to back this value: JSON-typed, in scope, not archived.
+    // A caller may further restrict the set (e.g. rules to the default's subtree).
+    const backingProject = project ?? feature?.project ?? "";
+    const optionKeySet = configBackingOptionKeys
+      ? new Set(configBackingOptionKeys)
+      : null;
+    const eligibleConfigs = configs.filter(
+      (c) =>
+        !c.archived &&
+        (!c.project || !backingProject || c.project === backingProject) &&
+        (!optionKeySet || optionKeySet.has(c.key)),
+    );
+    const backedKey = getConfigBackingKey(value);
+    // When locked (rules), always resolve to a config: fall back to the first
+    // eligible (the feature default's config, which getConfigSubtree lists first).
+    const configKey =
+      backedKey ??
+      (lockConfigBacking ? (eligibleConfigs[0]?.key ?? null) : null);
+    const isBacked = configKey !== null;
+    // When backed, the value's own keys are an override patch on the config;
+    // otherwise the whole value is authored directly (and becomes the patch if a
+    // config is later attached).
+    const patch = backedKey !== null ? getConfigBackingPatch(value) : value;
+    // Rule mode keeps the patch editor visible alongside the config picker;
+    // default-value mode hides it once a config is chosen.
+    const showPatchEditor = configBackingShowPatch || !isBacked;
+
+    return (
+      <Box mb="3">
+        {label !== undefined && (
+          <Box mb="1" mt="3">
+            <Text as="label" weight="semibold">
+              {label}
+            </Text>
+          </Box>
+        )}
+        <SelectField
+          label="Reference a config"
+          value={configKey ?? ""}
+          initialOption={lockConfigBacking ? undefined : "None"}
+          options={eligibleConfigs.map((c) => ({
+            label: c.name,
+            value: c.key,
+          }))}
+          onChange={(key) => {
+            // Selecting a config wraps the current value as the override patch;
+            // clearing it (unlocked only) unwraps the patch back into a plain value.
+            setValue(
+              key ? setConfigBacking(key, patch) : getConfigBackingPatch(value),
+            );
+          }}
+          formatOptionLabel={({ value, label }) =>
+            value ? (
+              <span>
+                {label}
+                <code
+                  className="float-right position-relative"
+                  style={{ top: 1, color: "var(--slate-12)" }}
+                >
+                  {value}
+                </code>
+              </span>
+            ) : (
+              <span className="text-muted">{label}</span>
+            )
+          }
+          helpText={
+            lockConfigBacking
+              ? "Serve the feature's config or a compatible child. Add overrides below."
+              : configBackingShowPatch
+                ? "Override with a config that extends the feature's default. Leave as None to patch the default directly."
+                : "A config supplies the base JSON and its schema for this value."
+          }
+          disabled={disabled}
+        />
+        {showPatchEditor && (
+          <Box mt="2">
+            <FeatureValueField
+              valueType={valueType}
+              value={patch}
+              setValue={(p) =>
+                setValue(isBacked ? setConfigBacking(configKey, p) : p)
+              }
+              id={id}
+              placeholder={placeholder}
+              feature={feature}
+              project={project}
+              constantContext={constantContext}
+              renderJSONInline={renderJSONInline}
+              disabled={disabled}
+              useCodeInput={useCodeInput}
+              showFullscreenButton={showFullscreenButton}
+              codeInputDefaultHeight={codeInputDefaultHeight}
+              sparse={configBackingShowPatch ? sparse : undefined}
+            />
+          </Box>
+        )}
+        {helpText && <small className="text-muted">{helpText}</small>}
+      </Box>
     );
   }
 

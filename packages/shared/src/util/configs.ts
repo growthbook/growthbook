@@ -16,7 +16,7 @@ export function getConfigParentKey(config: {
   const list = parsePlainJSONObject(config.value ?? "")?.[CONSTANT_EXTENDS_KEY];
   if (!Array.isArray(list)) return null;
   const first = list.find((r): r is string => typeof r === "string");
-  const m = first?.match(/^@const:([a-z0-9][a-z0-9_-]*)$/);
+  const m = first?.match(/^@(?:const|config):([a-z0-9][a-z0-9_-]*)$/);
   return m ? m[1] : null;
 }
 
@@ -31,7 +31,7 @@ export function stripExtends(value: string | undefined): string | undefined {
   return JSON.stringify(rest);
 }
 
-// Synthesize the resolution value for a config: inject `$extends: ["@const:parent"]`
+// Synthesize the resolution value for a config: inject `$extends: ["@config:parent"]`
 // so it merges its parent as the base (own keys still win). With no parent, just
 // strip any stray `$extends`.
 export function withParentExtends(
@@ -42,9 +42,100 @@ export function withParentExtends(
   const rest = parsePlainJSONObject(value ?? "") ?? {};
   delete rest[CONSTANT_EXTENDS_KEY];
   return JSON.stringify({
-    [CONSTANT_EXTENDS_KEY]: [`@const:${parentKey}`],
+    [CONSTANT_EXTENDS_KEY]: [`@config:${parentKey}`],
     ...rest,
   });
+}
+
+// A feature value can be "backed by a config": stored as
+// `{ "$extends": ["@config:<key>"], ...patch }` where the config is the base
+// layer and the value's own keys are an override patch on top. These helpers
+// keep the stored string and the (key, patch) split in sync. The `@config:`
+// token is an internal detail — the UI/API expose only the key + patch.
+
+// If `value` is config-backed (its first `$extends` entry is a `@config:` ref),
+// return that config key; else null.
+export function getConfigBackingKey(value: string | undefined): string | null {
+  const list = parsePlainJSONObject(value ?? "")?.[CONSTANT_EXTENDS_KEY];
+  if (!Array.isArray(list) || !list.length) return null;
+  const m =
+    typeof list[0] === "string"
+      ? list[0].match(/^@config:([a-z0-9][a-z0-9_-]*)$/)
+      : null;
+  return m ? m[1] : null;
+}
+
+// The override patch of a config-backed value: its own keys (everything but the
+// `$extends` directive), as a JSON string. Empty object when there is no patch.
+export function getConfigBackingPatch(value: string | undefined): string {
+  const obj = parsePlainJSONObject(value ?? "");
+  if (!obj) return "{}";
+  const rest = { ...obj };
+  delete rest[CONSTANT_EXTENDS_KEY];
+  return JSON.stringify(rest);
+}
+
+// Compose a config key + an override patch into the stored value string. The
+// config ref is always the first `$extends` entry (the base layer). With no
+// config key, returns the patch unchanged (plain value). An unparseable patch is
+// treated as an empty object.
+export function setConfigBacking(
+  configKey: string | null,
+  patch: string | undefined,
+): string {
+  const rest = parsePlainJSONObject(patch ?? "") ?? {};
+  delete rest[CONSTANT_EXTENDS_KEY];
+  if (!configKey) return JSON.stringify(rest);
+  return JSON.stringify({
+    [CONSTANT_EXTENDS_KEY]: [`@config:${configKey}`],
+    ...rest,
+  });
+}
+
+// `rootKey` plus every config that descends from it, in BFS order (root first,
+// then each level). Builds a children adjacency map once (O(N)) and walks only
+// the subtree, keyed off `getConfigParentKey` so legacy `$extends`-only data
+// still links up. Cycle-safe. Used to constrain which configs a rule may
+// override with (the feature default's config or its children) and to build the
+// lineage tree on the config detail page.
+export function getConfigSubtree(
+  rootKey: string,
+  configs: { key: string; parent?: string; value?: string }[],
+): string[] {
+  const childrenOf = new Map<string, string[]>();
+  for (const c of configs) {
+    const parentKey = getConfigParentKey(c);
+    if (parentKey === null) continue;
+    const list = childrenOf.get(parentKey);
+    if (list) list.push(c.key);
+    else childrenOf.set(parentKey, [c.key]);
+  }
+
+  const ordered: string[] = [];
+  const seen = new Set<string>();
+  const queue = [rootKey];
+  while (queue.length) {
+    const key = queue.shift() as string;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    ordered.push(key);
+    for (const child of childrenOf.get(key) ?? []) queue.push(child);
+  }
+  return ordered;
+}
+
+// Ensure a value for a config-backed feature carries a config ref. A rule (or
+// default value) that doesn't explicitly reference a config implicitly serves
+// the feature's base/default config, so we prepend it when the leading
+// `@config:` entry is missing. No-op when there's no default config key (a
+// non-config feature) or the value already references a config.
+export function ensureConfigBacking(
+  value: string | undefined,
+  defaultConfigKey: string | null,
+): string {
+  if (!defaultConfigKey) return value ?? "";
+  if (getConfigBackingKey(value) !== null) return value ?? "";
+  return setConfigBacking(defaultConfigKey, value);
 }
 
 // A single config in a lineage chain (base → … → leaf). `value` is the config's

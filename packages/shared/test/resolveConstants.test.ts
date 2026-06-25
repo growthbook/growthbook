@@ -34,11 +34,13 @@ describe("buildConstantValueMap", () => {
     ];
     expect(buildConstantValueMap(constants, "production").get("host")).toEqual({
       type: "string",
+      source: "constant",
       value: "prod.example.com",
       project: "",
     });
     expect(buildConstantValueMap(constants, "dev").get("host")).toEqual({
       type: "string",
+      source: "constant",
       value: "default.example.com",
       project: "",
     });
@@ -55,6 +57,7 @@ describe("buildConstantValueMap", () => {
     ];
     expect(buildConstantValueMap(constants, "dev").get("x")).toEqual({
       type: "string",
+      source: "constant",
       value: "",
       project: "",
     });
@@ -359,6 +362,7 @@ describe("buildConstantValueMap — archived", () => {
     ];
     expect(buildConstantValueMap(constants, "dev").get("x")).toEqual({
       type: "json",
+      source: "constant",
       value: "",
       archived: true,
       project: "",
@@ -492,6 +496,93 @@ describe("resolveConstantRefs — project scoping", () => {
         "prj_b",
       ),
     ).toEqual({ keep: 1 });
+  });
+});
+
+describe("resolveConstantRefs — @config namespace separation", () => {
+  // A config (source "config") and a constant (source "constant"), exercising
+  // that refs only resolve within their own namespace.
+  const map: ConstantValueMap = new Map([
+    [
+      "base",
+      {
+        type: "json",
+        source: "config",
+        value: '{"a":1,"b":2}',
+        parsed: { a: 1, b: 2 },
+      },
+    ],
+    [
+      "cst",
+      { type: "json", source: "constant", value: '{"x":9}', parsed: { x: 9 } },
+    ],
+    ["greeting", { type: "string", source: "constant", value: "hi" }],
+  ]);
+
+  it("resolves a config via @config: $extends", () => {
+    expect(resolveConstantRefs({ $extends: ["@config:base"] }, map)).toEqual({
+      a: 1,
+      b: 2,
+    });
+  });
+
+  it("does not resolve a config via the @const: namespace", () => {
+    expect(resolveConstantRefs({ $extends: ["@const:base"] }, map)).toEqual({});
+  });
+
+  it("does not resolve a constant via the @config: namespace", () => {
+    expect(resolveConstantRefs({ $extends: ["@config:cst"] }, map)).toEqual({});
+  });
+
+  it("does not interpolate a constant string via @config:", () => {
+    expect(resolveConstantRefs("x={{ @config:greeting }}", map)).toBe(
+      "x={{ @config:greeting }}",
+    );
+  });
+
+  it("merges an override patch on top of a config base (own keys win)", () => {
+    expect(
+      resolveConstantRefs({ $extends: ["@config:base"], b: 99, c: 3 }, map),
+    ).toEqual({ a: 1, b: 99, c: 3 });
+  });
+});
+
+describe("resolveConstantRefs — config extends config", () => {
+  const map: ConstantValueMap = new Map([
+    [
+      "root",
+      { type: "json", source: "config", value: '{"a":1}', parsed: { a: 1 } },
+    ],
+    [
+      "child",
+      {
+        type: "json",
+        source: "config",
+        value: '{"$extends":["@config:root"],"b":2}',
+        parsed: { $extends: ["@config:root"], b: 2 },
+      },
+    ],
+  ]);
+
+  it("flattens a config lineage through @config: refs", () => {
+    expect(resolveConstantRefs({ $extends: ["@config:child"] }, map)).toEqual({
+      a: 1,
+      b: 2,
+    });
+  });
+});
+
+describe("buildConstantValueMap — source tagging", () => {
+  it("tags entries with their source and defaults to constant", () => {
+    const map = buildConstantValueMap(
+      [
+        { key: "c", type: "json", value: "{}", source: "config" },
+        { key: "k", type: "string", value: "v" },
+      ],
+      "dev",
+    );
+    expect(map.get("c")?.source).toBe("config");
+    expect(map.get("k")?.source).toBe("constant");
   });
 });
 

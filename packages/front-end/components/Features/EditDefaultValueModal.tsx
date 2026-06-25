@@ -113,6 +113,7 @@ export default function EditDefaultValueModal({
         renderJSONInline={true}
         useCodeInput={true}
         showFullscreenButton={true}
+        allowConfigBacking={feature.valueType === "json"}
       />
     </ModalStandard>
   );

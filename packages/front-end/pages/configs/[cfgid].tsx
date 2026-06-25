@@ -18,6 +18,7 @@ import {
 import {
   buildConstantValueMap,
   resolveConstantRefs,
+  ConstantSource,
 } from "shared/sdk-versioning";
 import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
@@ -100,10 +101,10 @@ type ResolvedResponse = {
   lineage: LineageNode[];
   // Project-scoped value-map inputs so the field table can squash `@const:`
   // refs client-side. The editor and JSON view keep references raw.
-  constants: Pick<
+  constants: (Pick<
     ConstantInterface,
     "key" | "type" | "value" | "project" | "archived"
-  >[];
+  > & { source: ConstantSource })[];
 };
 
 export default function ConfigDetailPage(): React.ReactElement {

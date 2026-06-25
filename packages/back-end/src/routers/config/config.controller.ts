@@ -20,6 +20,7 @@ import {
   resolveConfigChain,
   ConfigChainNode,
   getConfigParentKey,
+  getConfigSubtree,
   stripExtends,
 } from "shared/util";
 import { CONSTANT_EXTENDS_KEY } from "shared/constants";
@@ -153,6 +154,7 @@ export const getConfigResolved = async (
     .map((c) => ({
       key: c.key,
       type: c.type,
+      source: c.source,
       value: c.value,
       project: c.project,
       archived: c.archived,
@@ -161,30 +163,19 @@ export const getConfigResolved = async (
   // Every config descending from this chain's base, for the sidebar tree.
   const allConfigs = await context.models.configs.getAll();
   const rootKey = chain[0]?.key ?? config.key;
-  const lineage: {
-    key: string;
-    name: string;
-    parentKey: string | null;
-    fieldCount: number;
-  }[] = [];
-  const seen = new Set<string>();
-  const queue = [rootKey];
-  while (queue.length) {
-    const k = queue.shift() as string;
-    if (seen.has(k)) continue;
-    seen.add(k);
-    const node = allConfigs.find((c) => c.key === k);
-    if (!node) continue;
-    lineage.push({
-      key: node.key,
-      name: node.name,
-      parentKey: getConfigParentKey(node),
-      fieldCount: configOwnFieldCount(node.value),
-    });
-    for (const child of allConfigs) {
-      if (getConfigParentKey(child) === k) queue.push(child.key);
-    }
-  }
+  const byKey = new Map(allConfigs.map((c) => [c.key, c]));
+  const lineage = getConfigSubtree(rootKey, allConfigs).flatMap((key) => {
+    const node = byKey.get(key);
+    if (!node) return [];
+    return [
+      {
+        key: node.key,
+        name: node.name,
+        parentKey: getConfigParentKey(node),
+        fieldCount: configOwnFieldCount(node.value),
+      },
+    ];
+  });
 
   return res.status(200).json({
     status: 200,

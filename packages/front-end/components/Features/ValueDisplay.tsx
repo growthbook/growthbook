@@ -126,8 +126,10 @@ export default function ValueDisplay({
       // Sparse rules display the expanded (merged) value, not the raw patch.
       // Force one-key-per-line (maxLength: 0) so the overridden keys map to
       // stable line numbers we can bold.
+      // Always break to one key/element per line (never compact short objects
+      // onto a single line) for consistent, scannable JSON.
       if (sparseMerge) return stringify(sparseMerge.merged, { maxLength: 0 });
-      return stringify(JSON.parse(value));
+      return stringify(JSON.parse(value), { maxLength: 0 });
     } catch (e) {
       return value;
     }

@@ -20,6 +20,8 @@ import {
   buildExperimentDependencyIndex,
   ExperimentDependencyIndex,
   parsePlainJSONObject,
+  getConfigBackingKey,
+  ensureConfigBacking,
 } from "shared/util";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { GroupMap, SavedGroupInterface } from "shared/types/saved-group";
@@ -602,9 +604,18 @@ export function getFeatureDefinition({
       : base;
   })();
 
+  // For a config-backed feature, every rule/variation value implicitly serves
+  // the base/default config: if a value doesn't reference its own config, we
+  // prepend the default's so resolution flattens the base config underneath it.
+  const defaultConfigKey =
+    feature.valueType === "json" ? getConfigBackingKey(defaultValue) : null;
+
   const valueForSDK = (valueStr: string, sparse?: boolean): unknown => {
+    const normalized = defaultConfigKey
+      ? ensureConfigBacking(valueStr, defaultConfigKey)
+      : valueStr;
     if (sparse && jsonDefaultObj) {
-      const patch = parsePlainJSONObject(valueStr);
+      const patch = parsePlainJSONObject(normalized);
       if (patch !== null) {
         // Resolve the patch's constants BEFORE merging so the rule's fields are
         // spread last and win over the (already-resolved) default — i.e. sparse
@@ -633,7 +644,7 @@ export function getFeatureDefinition({
       }
     }
     // Non-sparse values are resolved by the caller's post-build pass.
-    return getJSONValue(feature.valueType, valueStr);
+    return getJSONValue(feature.valueType, normalized);
   };
 
   // Rule source: revision's unified array (draft/published) > feature's (live).
