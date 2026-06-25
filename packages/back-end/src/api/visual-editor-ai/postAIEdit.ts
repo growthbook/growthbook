@@ -135,6 +135,9 @@ const validation = {
   method: "post" as const,
   path: "/visual-editor/ai/edit",
   operationId: "postVisualEditorAIEdit",
+  // Internal Visual Editor extension endpoint — not part of the
+  // public OpenAPI spec.
+  excludeFromSpec: true,
 };
 
 // OpenAI strict JSON mode rejects `.optional()` — every property must be
@@ -202,14 +205,18 @@ Allowed attribute values and what they do:
 - "class" — with action "set" replaces the className, with action "append" adds classes (space-separated).
 - "position" — moves the element into a new parent. Use action "set". value MUST be null. Set parentSelector to the destination parent (required, must be in the catalog). Set insertBeforeSelector to a sibling inside that parent to insert this element BEFORE it; omit (null) to append at the end. Example to move a CTA above the headline:
     { selector: ".cta-button", action: "set", attribute: "position", value: null, parentSelector: ".hero", insertBeforeSelector: ".hero-headline" }
-  Use moves only when the user explicitly asks to reorder, swap, or relocate elements — for purely visual ordering (e.g. "show CTA first"), a CSS "order" style on a flex container is usually safer than a real move.
+  Use moves only when the user explicitly asks to reorder, swap, or relocate elements, AND the elements involved are already direct children of their destination parent. To reorder items that sit inside wrappers (nav menus, lists, cards), prefer a CSS \`order\` rule instead of a move — see "Position-move rules" below.
 - Any real HTML attribute name: "src", "href", "alt", "title", "aria-label", "data-foo", etc.
 
 DO NOT invent attribute names. There is NO "text" attribute. To change visible text, ALWAYS use attribute "html". To hide an element use attribute "style" with value containing "display:none".
 
 Position-move rules (critical):
+- A move is applied as parentSelector.insertBefore(element, insertBeforeSelector). The hard DOM requirement is on insertBeforeSelector ONLY: it must resolve to a DIRECT CHILD of parentSelector — it's the reference node the browser inserts before, and insertBefore fails if it isn't a direct child of the parent. The moved element (selector) can live ANYWHERE in the DOM — it's detached from its current spot and re-inserted — so relocating an element into a different container is perfectly valid. The common mistake is naming a deeper descendant as insertBeforeSelector (e.g. a link nested inside a list item), which is NOT a direct child of the parent, so the insert fails.
 - parentSelector MUST be a real selector from the Page elements catalog.
-- insertBeforeSelector (when provided) MUST also be from the catalog AND must be a child of parentSelector on the page. If you can't be sure it's a child, omit it (null) — appending at the end is safer than guessing.
+- insertBeforeSelector (when provided) MUST also be from the catalog AND be a DIRECT child of parentSelector. If you can't be sure it's a direct child, omit it (null) — appending at the end is safer than guessing.
+- Reordering nav / menu / list items — do NOT use a position move on the inner link or text. These items are almost always wrapped (\`<li><a href="…">…</a></li>\`), and the catalog lists the INNER element (e.g. \`[href="#deals"]\`), which is NOT a direct child of the list container — moving it, or naming it as insertBeforeSelector, rips the link out of its \`<li>\` and breaks the nav (this is a common failure). Instead, reorder with a CSS \`order\` rule in the global \`css\` field: the \`css\` field is NOT restricted to catalog selectors, so you can target the wrapper with \`:has()\`, and \`order\` works on flex/grid containers (navs usually are one) without restructuring the DOM. Example — put "Flight Deals" before "Destinations":
+    css: \`.nav-links li:has(a[href="#deals"]) { order: -1; }\`
+- Real position moves are well-suited to relocating a block-level element into a different container (e.g. moving a <section> to before another <section> under <main>) and to reordering siblings that are themselves direct children of the parent. They're a poor fit for reordering items wrapped in <li>/<div> (nav menus, lists) — prefer the CSS \`order\` approach above for those.
 - The source selector and parentSelector must NOT match the same element — that's a no-op or, worse, a self-cycle.
 - For every move you propose, set value to null. Do not put position data in value.
 - Never combine position with action "append" or "remove". Always action "set".
@@ -217,17 +224,22 @@ Position-move rules (critical):
 SELECTOR GROUNDING — this is critical:
 - You will be given a "Page elements" catalog with the actual selectors present on the page. It includes a "Page structure" section (html, body, header, main, footer, etc.) plus catalogs of headings, buttons, links, inputs, and images.
 - You MUST pick selectors verbatim from this catalog or from the user's picked elementContext. Do NOT invent selectors like ".cta", ".hero-cta", "h1.headline" unless you can see them in the catalog.
+- PICKED ELEMENTS WIN — when the user has selected element(s) (the elementContext block, shown below as "selected the following elements … as context"), they are the DEFAULT target: apply the request to the picked element(s) or on an element inside of the context if it makes sense- unless the user's message explicitly names a different one. This takes PRECEDENCE over the keyword/semantic heuristics below. Example: the user picked an \`<div>\` that contains an \`<h2>\` and says "rewrite the heading to be funnier" → edit THAT \`<h2>\`, NOT the page's \`<h1>\`. If the user selects directly a \`<p>\` that contains text, and says to "make it shorter", it should apply directly to that text of the container. Using "this" or other pronouns in the prompt when the context or picked element is passed, refer to that picked element. Only fall back to the keyword/catalog rules when nothing relevant inside the context found or is picked.
+- EXCEPTION — selectors the USER names explicitly: when the user's own message contains a concrete class, id, or attribute selector (e.g. "elements with the \`section_bg-gradient-2\` class", "the \`#pricing\` section", "everything matching \`[data-card]\`"), treat it as ground truth and use it verbatim — even if it is NOT in the catalog. The catalog is a NON-EXHAUSTIVE sample: it only lists structural nodes (html/body/header/main/footer…) plus headings, buttons, links, inputs, and images. A class on a \`<section>\`, \`<div>\`, \`<li>\`, etc. will routinely be absent from it. Never refuse or ask for clarification just because a user-supplied class/id isn't in the catalog. The grounding rule above exists to stop you HALLUCINATING selectors from vague descriptions — not to override a selector the user handed you directly.
+- Apply any "style every element matching this class / id / attribute" request through GLOBAL CSS (the \`css\` field), not DOM mutations. A CSS rule targets any selector regardless of catalog membership, and styling a whole class of elements is exactly what global CSS is for.
 - When the user's request matches a semantic concept (e.g. "the hero CTA", "the signup button"), find the closest match by text content or position in the catalog and use that exact selector.
-- "Title" / "the title" / "page title" / "headline" → ALWAYS interpret this as the visible main heading on the page — pick the first \`h1\` from the catalog (or the most prominent heading if no h1 is present). NEVER target the \`<title>\` element in \`<head>\`, \`document.title\`, or set the HTML "title" attribute (tooltip) for these requests. Users running an A/B test want to test what readers see on the page, not the browser tab text. The same applies to "subtitle" / "subheading" → the visible \`h2\` (or first heading below the h1), not anything in \`<head>\`.
+- "Title" / "the title" / "page title" / "headline" / "heading" → when the user has NOT picked a relevant element (a picked element always wins — see "PICKED ELEMENTS WIN" above), interpret this as the visible main heading on the page — pick the first \`h1\` from the catalog (or the most prominent heading if no h1 is present). NEVER target the \`<title>\` element in \`<head>\`, \`document.title\`, or set the HTML "title" attribute (tooltip) for these requests. Users running an A/B test want to test what readers see on the page, not the browser tab text. The same applies to "subtitle" / "subheading" → the visible \`h2\` (or first heading below the h1), not anything in \`<head>\`.
 - For "the page", "the background", "the whole site", "globally", and similar broad requests, prefer "body" or "html" from the Page structure section. These are always valid targets — never refuse a global styling request because the more-specific catalogs only list components.
 - "html" and "body" are ALWAYS valid selectors even if the Page structure section is missing (e.g. older content scripts). Treat them as if they were in the catalog.
-- If no element in the catalog plausibly matches AND the request isn't a global styling change, say so in the explanation and return mutations = []. Do not guess.
+- If no element in the catalog plausibly matches, the user named no explicit selector, AND the request isn't a global styling change, say so in the explanation and return mutations = []. Do not guess invented selectors.
+- Prefer PARTIAL completion over wholesale refusal. When a request has several targets and only some are grounded, fulfill the parts you can — the global/body portion, and any user-named class via global CSS — and note any genuinely unverifiable target in the explanation. Do not refuse the entire request because one target couldn't be confirmed.
 
 Other rules:
 - Prefer the smallest, most targeted mutation.
 - Reuse selectors from elementContext when relevant.
 - When asked to change color/size/spacing, prefer "style" mutations over global CSS.
-- Use global CSS only for sweeping changes (e.g. "make all buttons green") or for ::pseudo-element edits.
+- Use global CSS for sweeping changes (e.g. "make all buttons green", styling every element matching a class/attribute), for ::pseudo-element edits, and for any CSS \`@keyframes\` animation.
+- "Animated" effects are CSS, not images: an animated gradient, shimmering/pulsing/rotating background, "psychedelic rainbow", etc. is a global-CSS \`@keyframes\` + \`animation\` rule (often a \`linear-gradient\` with oversized \`background-size\` animating its \`background-position\`). Do NOT reach for \`generateImage\` for these — it only produces a STATIC image. Reserve \`generateImage\` for requests that genuinely want a photographic/illustrated picture.
 - Never produce destructive JS. Only emit JS when the request cannot be done declaratively.
 
 Selector durability — critical for variations that survive future deploys:
@@ -423,7 +435,7 @@ const buildPrompt = ({
   const digestBlock = domDigest ? formatDigest(domDigest) : "";
 
   const contextBlock = elementContext.length
-    ? `\nThe user has selected the following elements on the page as context (prefer these targets when they fit the request):\n\`\`\`json\n${JSON.stringify(elementContext, null, 2)}\n\`\`\`\n`
+    ? `\nThe user has selected the following elements on the page as context. These are the DEFAULT target for the request — apply the change to them unless the user explicitly names a different element. They take precedence over the "title"/"heading" keyword rules (e.g. a picked <h2> + "rewrite the heading" means THAT <h2>, not the page <h1>):\n\`\`\`json\n${JSON.stringify(elementContext, null, 2)}\n\`\`\`\n`
     : !domDigest
       ? "\n(No specific elements were selected and no page catalog is available. Operate on the user's request alone.)\n"
       : "";
@@ -600,11 +612,11 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
         .filter((s) => !trustedSelectors.has(s));
       if (misses.length > 0) {
         const uniqueMisses = Array.from(new Set(misses));
-        const retryHint = `RETRY: Your previous attempt used selectors that are NOT on the page: ${uniqueMisses
+        const retryHint = `RETRY: Your previous attempt used selectors that are NOT in the page-elements catalog: ${uniqueMisses
           .map((s) => `\`${s}\``)
           .join(
             ", ",
-          )}. Pick selectors verbatim from the "Page elements" catalog above. For position moves, the parent and insert-before targets count too — they must also be in the catalog. If no catalog entry plausibly matches a target, return mutations = [] and explain why.`;
+          )}. For position moves, the parent and insert-before targets count too — they must be in the catalog. Resolve this ONE of two ways: (1) if the user NAMED one of these selectors explicitly in their request (a class/id/attribute), it's valid — don't drop it, move that change into the global \`css\` field instead (a CSS rule can target selectors the catalog doesn't list); (2) otherwise pick a matching selector verbatim from the catalog. Only return mutations = [] if neither applies and no catalog entry plausibly matches — and even then, still complete any global/body or user-named-class portion via \`css\`.`;
         try {
           result = await runRetry(retryHint);
         } catch (e) {

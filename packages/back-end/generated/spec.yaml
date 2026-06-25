@@ -1,6 +1,6 @@
 openapi: 3.1.0
 info:
-  version: 1.0.0
+  version: 4.4.0
   title: GrowthBook REST API
   description: >
     GrowthBook offers a full REST API for interacting with the application.
@@ -112,6 +112,10 @@ servers:
     description: GrowthBook Cloud
   - url: https://{domain}/api
     description: Self-hosted GrowthBook
+    variables:
+      domain:
+        default: localhost:3100
+        description: Your self-hosted GrowthBook host (and port)
 tags:
   - name: projects
     x-displayName: Projects
@@ -257,6 +261,11 @@ tags:
   - name: usage
     x-displayName: Usage
     description: Usage information for metrics in experiments.
+  - name: meta
+    x-displayName: Meta
+    description: >-
+      Server metadata, including the running build's version and commit for
+      version-skew checks.
   - name: Dashboards
     x-displayName: Dashboards
     description: ''
@@ -361,18 +370,15 @@ tags:
   - name: FactTableFilter_model
     x-displayName: Fact Table Filter
     description: <SchemaDefinition schemaRef="#/components/schemas/FactTableFilter" />
-  - name: Feature_model
-    x-displayName: Feature
-    description: <SchemaDefinition schemaRef="#/components/schemas/Feature" />
   - name: FeatureBaseRule_model
     x-displayName: Feature Base Rule
     description: <SchemaDefinition schemaRef="#/components/schemas/FeatureBaseRule" />
   - name: FeatureDefinition_model
     x-displayName: Feature Definition
     description: <SchemaDefinition schemaRef="#/components/schemas/FeatureDefinition" />
-  - name: FeatureEnvironment_model
-    x-displayName: Feature Environment
-    description: <SchemaDefinition schemaRef="#/components/schemas/FeatureEnvironment" />
+  - name: FeatureEnvironmentV1_model
+    x-displayName: Feature Environment V1
+    description: <SchemaDefinition schemaRef="#/components/schemas/FeatureEnvironmentV1" />
   - name: FeatureEnvironmentV2_model
     x-displayName: Feature Environment V2
     description: <SchemaDefinition schemaRef="#/components/schemas/FeatureEnvironmentV2" />
@@ -389,18 +395,23 @@ tags:
   - name: FeatureForceRule_model
     x-displayName: Feature Force Rule
     description: <SchemaDefinition schemaRef="#/components/schemas/FeatureForceRule" />
-  - name: FeatureRevision_model
-    x-displayName: Feature Revision
-    description: <SchemaDefinition schemaRef="#/components/schemas/FeatureRevision" />
+  - name: FeatureRevisionSummary_model
+    x-displayName: Feature Revision Summary
+    description: >-
+      <SchemaDefinition schemaRef="#/components/schemas/FeatureRevisionSummary"
+      />
+  - name: FeatureRevisionV1_model
+    x-displayName: Feature Revision V1
+    description: <SchemaDefinition schemaRef="#/components/schemas/FeatureRevisionV1" />
   - name: FeatureRevisionV2_model
     x-displayName: Feature Revision V2
     description: <SchemaDefinition schemaRef="#/components/schemas/FeatureRevisionV2" />
   - name: FeatureRolloutRule_model
     x-displayName: Feature Rollout Rule
     description: <SchemaDefinition schemaRef="#/components/schemas/FeatureRolloutRule" />
-  - name: FeatureRule_model
-    x-displayName: Feature Rule
-    description: <SchemaDefinition schemaRef="#/components/schemas/FeatureRule" />
+  - name: FeatureRuleV1_model
+    x-displayName: Feature Rule V1
+    description: <SchemaDefinition schemaRef="#/components/schemas/FeatureRuleV1" />
   - name: FeatureRuleV2_model
     x-displayName: Feature Rule V2
     description: <SchemaDefinition schemaRef="#/components/schemas/FeatureRuleV2" />
@@ -409,12 +420,17 @@ tags:
     description: >-
       <SchemaDefinition schemaRef="#/components/schemas/FeatureSafeRolloutRule"
       />
+  - name: FeatureV1_model
+    x-displayName: Feature V1
+    description: <SchemaDefinition schemaRef="#/components/schemas/FeatureV1" />
   - name: FeatureV2_model
     x-displayName: Feature V2
     description: <SchemaDefinition schemaRef="#/components/schemas/FeatureV2" />
-  - name: FeatureWithRevisions_model
-    x-displayName: Feature With Revisions
-    description: <SchemaDefinition schemaRef="#/components/schemas/FeatureWithRevisions" />
+  - name: FeatureWithRevisionsV1_model
+    x-displayName: Feature With Revisions V1
+    description: >-
+      <SchemaDefinition schemaRef="#/components/schemas/FeatureWithRevisionsV1"
+      />
   - name: FeatureWithRevisionsV2_model
     x-displayName: Feature With Revisions V2
     description: >-
@@ -546,6 +562,7 @@ paths:
         - $ref: '#/components/parameters/skipPagination'
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -555,7 +572,7 @@ paths:
                       features:
                         type: array
                         items:
-                          $ref: '#/components/schemas/Feature'
+                          $ref: '#/components/schemas/FeatureV1'
                     required:
                       - features
                     additionalProperties: false
@@ -696,6 +713,13 @@ paths:
                                   const: force
                                 value:
                                   type: string
+                                sparse:
+                                  description: >-
+                                    JSON features only. When true, the rule
+                                    value is a partial object merged onto the
+                                    feature's default value instead of replacing
+                                    it.
+                                  type: boolean
                               required:
                                 - type
                                 - value
@@ -755,6 +779,13 @@ paths:
                                   const: rollout
                                 value:
                                   type: string
+                                sparse:
+                                  description: >-
+                                    JSON features only. When true, the rule
+                                    value is a partial object merged onto the
+                                    feature's default value instead of replacing
+                                    it.
+                                  type: boolean
                                 coverage:
                                   description: >-
                                     Percent of traffic included in this
@@ -848,6 +879,13 @@ paths:
                                     additionalProperties: false
                                 experimentId:
                                   type: string
+                                sparse:
+                                  description: >-
+                                    JSON features only. When true, the rule
+                                    value is a partial object merged onto the
+                                    feature's default value instead of replacing
+                                    it.
+                                  type: boolean
                               required:
                                 - type
                                 - variations
@@ -1027,6 +1065,13 @@ paths:
                                       const: force
                                     value:
                                       type: string
+                                    sparse:
+                                      description: >-
+                                        JSON features only. When true, the rule
+                                        value is a partial object merged onto
+                                        the feature's default value instead of
+                                        replacing it.
+                                      type: boolean
                                   required:
                                     - type
                                     - value
@@ -1086,6 +1131,13 @@ paths:
                                       const: rollout
                                     value:
                                       type: string
+                                    sparse:
+                                      description: >-
+                                        JSON features only. When true, the rule
+                                        value is a partial object merged onto
+                                        the feature's default value instead of
+                                        replacing it.
+                                      type: boolean
                                     coverage:
                                       description: >-
                                         Percent of traffic included in this
@@ -1179,6 +1231,13 @@ paths:
                                         additionalProperties: false
                                     experimentId:
                                       type: string
+                                    sparse:
+                                      description: >-
+                                        JSON features only. When true, the rule
+                                        value is a partial object merged onto
+                                        the feature's default value instead of
+                                        replacing it.
+                                      type: boolean
                                   required:
                                     - type
                                     - variations
@@ -1323,13 +1382,14 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
                 type: object
                 properties:
                   feature:
-                    $ref: '#/components/schemas/Feature'
+                    $ref: '#/components/schemas/FeatureV1'
                 required:
                   - feature
                 additionalProperties: false
@@ -1353,13 +1413,14 @@ paths:
         - $ref: '#/components/parameters/withRevisions'
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
                 type: object
                 properties:
                   feature:
-                    $ref: '#/components/schemas/FeatureWithRevisions'
+                    $ref: '#/components/schemas/FeatureWithRevisionsV1'
                 required:
                   - feature
                 additionalProperties: false
@@ -1491,6 +1552,13 @@ paths:
                                   const: force
                                 value:
                                   type: string
+                                sparse:
+                                  description: >-
+                                    JSON features only. When true, the rule
+                                    value is a partial object merged onto the
+                                    feature's default value instead of replacing
+                                    it.
+                                  type: boolean
                               required:
                                 - type
                                 - value
@@ -1550,6 +1618,13 @@ paths:
                                   const: rollout
                                 value:
                                   type: string
+                                sparse:
+                                  description: >-
+                                    JSON features only. When true, the rule
+                                    value is a partial object merged onto the
+                                    feature's default value instead of replacing
+                                    it.
+                                  type: boolean
                                 coverage:
                                   description: >-
                                     Percent of traffic included in this
@@ -1643,6 +1718,13 @@ paths:
                                     additionalProperties: false
                                 experimentId:
                                   type: string
+                                sparse:
+                                  description: >-
+                                    JSON features only. When true, the rule
+                                    value is a partial object merged onto the
+                                    feature's default value instead of replacing
+                                    it.
+                                  type: boolean
                               required:
                                 - type
                                 - variations
@@ -1822,6 +1904,13 @@ paths:
                                       const: force
                                     value:
                                       type: string
+                                    sparse:
+                                      description: >-
+                                        JSON features only. When true, the rule
+                                        value is a partial object merged onto
+                                        the feature's default value instead of
+                                        replacing it.
+                                      type: boolean
                                   required:
                                     - type
                                     - value
@@ -1881,6 +1970,13 @@ paths:
                                       const: rollout
                                     value:
                                       type: string
+                                    sparse:
+                                      description: >-
+                                        JSON features only. When true, the rule
+                                        value is a partial object merged onto
+                                        the feature's default value instead of
+                                        replacing it.
+                                      type: boolean
                                     coverage:
                                       description: >-
                                         Percent of traffic included in this
@@ -1974,6 +2070,13 @@ paths:
                                         additionalProperties: false
                                     experimentId:
                                       type: string
+                                    sparse:
+                                      description: >-
+                                        JSON features only. When true, the rule
+                                        value is a partial object merged onto
+                                        the feature's default value instead of
+                                        replacing it.
+                                      type: boolean
                                   required:
                                     - type
                                     - variations
@@ -2135,13 +2238,14 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
                 type: object
                 properties:
                   feature:
-                    $ref: '#/components/schemas/Feature'
+                    $ref: '#/components/schemas/FeatureV1'
                 required:
                   - feature
                 additionalProperties: false
@@ -2172,6 +2276,7 @@ paths:
         - $ref: '#/components/parameters/id'
       responses:
         '200':
+          description: Resource deleted
           content:
             application/json:
               schema:
@@ -2249,13 +2354,14 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
                 type: object
                 properties:
                   feature:
-                    $ref: '#/components/schemas/Feature'
+                    $ref: '#/components/schemas/FeatureV1'
                 required:
                   - feature
                 additionalProperties: false
@@ -2311,13 +2417,14 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
                 type: object
                 properties:
                   feature:
-                    $ref: '#/components/schemas/Feature'
+                    $ref: '#/components/schemas/FeatureV1'
                 required:
                   - feature
                 additionalProperties: false
@@ -2343,6 +2450,7 @@ paths:
         - $ref: '#/components/parameters/projectId'
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -2368,6 +2476,7 @@ paths:
         - $ref: '#/components/parameters/ids'
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -2408,6 +2517,7 @@ paths:
         - $ref: '#/components/parameters/mine'
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -2416,7 +2526,7 @@ paths:
                   revisions:
                     type: array
                     items:
-                      $ref: '#/components/schemas/FeatureRevision'
+                      $ref: '#/components/schemas/FeatureRevisionV1'
                   limit:
                     type: integer
                   offset:
@@ -2468,6 +2578,7 @@ paths:
         - $ref: '#/components/parameters/author'
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -2476,7 +2587,7 @@ paths:
                   revisions:
                     type: array
                     items:
-                      $ref: '#/components/schemas/FeatureRevision'
+                      $ref: '#/components/schemas/FeatureRevisionV1'
                   limit:
                     type: integer
                   offset:
@@ -2542,13 +2653,14 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
                 type: object
                 properties:
                   revision:
-                    $ref: '#/components/schemas/FeatureRevision'
+                    $ref: '#/components/schemas/FeatureRevisionV1'
                 required:
                   - revision
                 additionalProperties: false
@@ -2604,13 +2716,14 @@ paths:
               - type: boolean
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
                 type: object
                 properties:
                   revision:
-                    $ref: '#/components/schemas/FeatureRevision'
+                    $ref: '#/components/schemas/FeatureRevisionV1'
                 required:
                   - revision
                 additionalProperties: false
@@ -2645,13 +2758,14 @@ paths:
         - $ref: '#/components/parameters/version'
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
                 type: object
                 properties:
                   revision:
-                    $ref: '#/components/schemas/FeatureRevision'
+                    $ref: '#/components/schemas/FeatureRevisionV1'
                 required:
                   - revision
                 additionalProperties: false
@@ -2811,13 +2925,14 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource updated
           content:
             application/json:
               schema:
                 type: object
                 properties:
                   revision:
-                    $ref: '#/components/schemas/FeatureRevision'
+                    $ref: '#/components/schemas/FeatureRevisionV1'
                 required:
                   - revision
                 additionalProperties: false
@@ -2879,13 +2994,14 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource updated
           content:
             application/json:
               schema:
                 type: object
                 properties:
                   revision:
-                    $ref: '#/components/schemas/FeatureRevision'
+                    $ref: '#/components/schemas/FeatureRevisionV1'
                 required:
                   - revision
                 additionalProperties: false
@@ -2958,13 +3074,14 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource updated
           content:
             application/json:
               schema:
                 type: object
                 properties:
                   revision:
-                    $ref: '#/components/schemas/FeatureRevision'
+                    $ref: '#/components/schemas/FeatureRevisionV1'
                 required:
                   - revision
                 additionalProperties: false
@@ -3036,13 +3153,14 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource updated
           content:
             application/json:
               schema:
                 type: object
                 properties:
                   revision:
-                    $ref: '#/components/schemas/FeatureRevision'
+                    $ref: '#/components/schemas/FeatureRevisionV1'
                 required:
                   - revision
                 additionalProperties: false
@@ -3102,13 +3220,14 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource updated
           content:
             application/json:
               schema:
                 type: object
                 properties:
                   revision:
-                    $ref: '#/components/schemas/FeatureRevision'
+                    $ref: '#/components/schemas/FeatureRevisionV1'
                 required:
                   - revision
                 additionalProperties: false
@@ -3171,13 +3290,14 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
                 type: object
                 properties:
                   revision:
-                    $ref: '#/components/schemas/FeatureRevision'
+                    $ref: '#/components/schemas/FeatureRevisionV1'
                 required:
                   - revision
                 additionalProperties: false
@@ -3313,6 +3433,8 @@ paths:
                             required:
                               - value
                             additionalProperties: false
+                        sparse:
+                          type: boolean
                       required:
                         - type
                         - experimentId
@@ -3525,6 +3647,8 @@ paths:
                             - rollout
                         value:
                           type: string
+                        sparse:
+                          type: boolean
                         coverage:
                           type: number
                           minimum: 0
@@ -3968,13 +4092,14 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
                 type: object
                 properties:
                   revision:
-                    $ref: '#/components/schemas/FeatureRevision'
+                    $ref: '#/components/schemas/FeatureRevisionV1'
                 required:
                   - revision
                 additionalProperties: false
@@ -4103,6 +4228,8 @@ paths:
                         - safe-rollout
                     value:
                       type: string
+                    sparse:
+                      type: boolean
                     coverage:
                       type: number
                       minimum: 0
@@ -4563,13 +4690,14 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource updated
           content:
             application/json:
               schema:
                 type: object
                 properties:
                   revision:
-                    $ref: '#/components/schemas/FeatureRevision'
+                    $ref: '#/components/schemas/FeatureRevisionV1'
                 required:
                   - revision
                 additionalProperties: false
@@ -4630,13 +4758,14 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource deleted
           content:
             application/json:
               schema:
                 type: object
                 properties:
                   revision:
-                    $ref: '#/components/schemas/FeatureRevision'
+                    $ref: '#/components/schemas/FeatureRevisionV1'
                 required:
                   - revision
                 additionalProperties: false
@@ -4703,13 +4832,14 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
                 type: object
                 properties:
                   revision:
-                    $ref: '#/components/schemas/FeatureRevision'
+                    $ref: '#/components/schemas/FeatureRevisionV1'
                 required:
                   - revision
                 additionalProperties: false
@@ -5170,13 +5300,14 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource updated
           content:
             application/json:
               schema:
                 type: object
                 properties:
                   revision:
-                    $ref: '#/components/schemas/FeatureRevision'
+                    $ref: '#/components/schemas/FeatureRevisionV1'
                 required:
                   - revision
                 additionalProperties: false
@@ -5236,13 +5367,14 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource deleted
           content:
             application/json:
               schema:
                 type: object
                 properties:
                   revision:
-                    $ref: '#/components/schemas/FeatureRevision'
+                    $ref: '#/components/schemas/FeatureRevisionV1'
                 required:
                   - revision
                 additionalProperties: false
@@ -5289,13 +5421,14 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
                 type: object
                 properties:
                   revision:
-                    $ref: '#/components/schemas/FeatureRevision'
+                    $ref: '#/components/schemas/FeatureRevisionV1'
                 required:
                   - revision
                 additionalProperties: false
@@ -5355,13 +5488,14 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
                 type: object
                 properties:
                   revision:
-                    $ref: '#/components/schemas/FeatureRevision'
+                    $ref: '#/components/schemas/FeatureRevisionV1'
                   autoPublished:
                     type: boolean
                 required:
@@ -5400,6 +5534,7 @@ paths:
         - $ref: '#/components/parameters/version'
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -5496,13 +5631,14 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
                 type: object
                 properties:
                   revision:
-                    $ref: '#/components/schemas/FeatureRevision'
+                    $ref: '#/components/schemas/FeatureRevisionV1'
                 required:
                   - revision
                 additionalProperties: false
@@ -5557,13 +5693,14 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
                 type: object
                 properties:
                   revision:
-                    $ref: '#/components/schemas/FeatureRevision'
+                    $ref: '#/components/schemas/FeatureRevisionV1'
                 required:
                   - revision
                 additionalProperties: false
@@ -5608,13 +5745,14 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
                 type: object
                 properties:
                   revision:
-                    $ref: '#/components/schemas/FeatureRevision'
+                    $ref: '#/components/schemas/FeatureRevisionV1'
                 required:
                   - revision
                 additionalProperties: false
@@ -5667,13 +5805,14 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
                 type: object
                 properties:
                   revision:
-                    $ref: '#/components/schemas/FeatureRevision'
+                    $ref: '#/components/schemas/FeatureRevisionV1'
                 required:
                   - revision
                 additionalProperties: false
@@ -5702,6 +5841,7 @@ paths:
         - $ref: '#/components/parameters/skipPagination'
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -5853,6 +5993,12 @@ paths:
                             const: force
                           value:
                             type: string
+                          sparse:
+                            description: >-
+                              JSON features only. When true, the rule value is a
+                              partial object merged onto the feature's default
+                              value instead of replacing it.
+                            type: boolean
                           allEnvironments:
                             description: >-
                               When true the rule applies to all environments
@@ -5937,6 +6083,12 @@ paths:
                             const: rollout
                           value:
                             type: string
+                          sparse:
+                            description: >-
+                              JSON features only. When true, the rule value is a
+                              partial object merged onto the feature's default
+                              value instead of replacing it.
+                            type: boolean
                           coverage:
                             type: number
                           hashAttribute:
@@ -6046,6 +6198,12 @@ paths:
                               additionalProperties: false
                           experimentId:
                             type: string
+                          sparse:
+                            description: >-
+                              JSON features only. When true, the rule value is a
+                              partial object merged onto the feature's default
+                              value instead of replacing it.
+                            type: boolean
                           allEnvironments:
                             description: >-
                               When true the rule applies to all environments
@@ -6208,6 +6366,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -6234,6 +6393,7 @@ paths:
         - $ref: '#/components/parameters/withRevisions'
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -6381,6 +6541,12 @@ paths:
                             const: force
                           value:
                             type: string
+                          sparse:
+                            description: >-
+                              JSON features only. When true, the rule value is a
+                              partial object merged onto the feature's default
+                              value instead of replacing it.
+                            type: boolean
                           allEnvironments:
                             description: >-
                               When true the rule applies to all environments
@@ -6465,6 +6631,12 @@ paths:
                             const: rollout
                           value:
                             type: string
+                          sparse:
+                            description: >-
+                              JSON features only. When true, the rule value is a
+                              partial object merged onto the feature's default
+                              value instead of replacing it.
+                            type: boolean
                           coverage:
                             type: number
                           hashAttribute:
@@ -6574,6 +6746,12 @@ paths:
                               additionalProperties: false
                           experimentId:
                             type: string
+                          sparse:
+                            description: >-
+                              JSON features only. When true, the rule value is a
+                              partial object merged onto the feature's default
+                              value instead of replacing it.
+                            type: boolean
                           allEnvironments:
                             description: >-
                               When true the rule applies to all environments
@@ -6753,6 +6931,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -6784,6 +6963,7 @@ paths:
         - $ref: '#/components/parameters/id'
       responses:
         '200':
+          description: Resource deleted
           content:
             application/json:
               schema:
@@ -6850,6 +7030,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -6906,6 +7087,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -6932,6 +7114,7 @@ paths:
         - $ref: '#/components/parameters/projectId'
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -6953,6 +7136,7 @@ paths:
         - $ref: '#/components/parameters/ids'
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -7091,6 +7275,7 @@ paths:
               - type: boolean
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -7147,6 +7332,7 @@ paths:
         - $ref: '#/components/parameters/mine'
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -7213,6 +7399,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -7274,6 +7461,7 @@ paths:
             type: string
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -7309,6 +7497,7 @@ paths:
         - $ref: '#/components/parameters/version'
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -7355,6 +7544,7 @@ paths:
         - $ref: '#/components/parameters/base'
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -7630,6 +7820,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource updated
           content:
             application/json:
               schema:
@@ -7693,6 +7884,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource updated
           content:
             application/json:
               schema:
@@ -7774,6 +7966,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource updated
           content:
             application/json:
               schema:
@@ -7848,6 +8041,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource updated
           content:
             application/json:
               schema:
@@ -7911,6 +8105,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource updated
           content:
             application/json:
               schema:
@@ -7977,6 +8172,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -8488,6 +8684,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -8597,6 +8794,8 @@ paths:
                         - safe-rollout
                     value:
                       type: string
+                    sparse:
+                      type: boolean
                     coverage:
                       type: number
                       minimum: 0
@@ -9086,6 +9285,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource updated
           content:
             application/json:
               schema:
@@ -9148,6 +9348,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource deleted
           content:
             application/json:
               schema:
@@ -9217,6 +9418,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -9243,6 +9445,12 @@ paths:
         already has a live ramp schedule, this stores an `update` action applied
         on publish; otherwise it stores a `create` action. No live schedule
         config changes are applied immediately by this endpoint.
+
+
+        You can build the ramp from a template (`templateId`) and set the
+        rollback anchor (`startState`) in the same request — e.g. pull in a
+        template and pass `startState: { "coverage": 0 }` so a rollback returns
+        the rule to 0%.
       tags:
         - feature-revisions-v2
       parameters:
@@ -9671,6 +9879,91 @@ paths:
                 environment:
                   deprecated: true
                   type: string
+                startState:
+                  description: >-
+                    The rule state to roll back to (the rollback/jump-to-start
+                    anchor). Merged onto the rule's current state, so `{
+                    "coverage": 0 }` keeps existing targeting but rolls back to
+                    0%. This affects rollbacks only — it is NOT applied when the
+                    ramp starts. On create, omitting it infers the anchor from
+                    the rule's current coverage (and returns a warning if that
+                    isn't 0%); on update of a live schedule, omitting it leaves
+                    the existing anchor unchanged.
+                  type: object
+                  properties:
+                    coverage:
+                      description: >-
+                        Traffic fraction (0–1). For monitored steps the rollout
+                        rule is promoted to an experiment: treatment = [0,
+                        coverage), control = [0.5, 0.5+coverage). Both arms are
+                        equal-sized and non-adjacent, so a step-up only adds new
+                        users to each arm — no existing user changes group. The
+                        REST API enforces coverage ≤ 0.5 on monitored steps so
+                        control end never exceeds 1.0. The SDK uses explicit
+                        hash ranges on bucketingV2 clients to keep bucketing
+                        stable across monitored/unmonitored transitions.
+                      anyOf:
+                        - type: number
+                          minimum: 0
+                          maximum: 1
+                        - type: 'null'
+                    condition:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                    savedGroups:
+                      anyOf:
+                        - type: array
+                          items:
+                            type: object
+                            properties:
+                              match:
+                                type: string
+                                enum:
+                                  - all
+                                  - none
+                                  - any
+                              ids:
+                                type: array
+                                items:
+                                  type: string
+                            required:
+                              - match
+                              - ids
+                            additionalProperties: false
+                        - type: 'null'
+                    prerequisites:
+                      anyOf:
+                        - type: array
+                          items:
+                            type: object
+                            properties:
+                              id:
+                                type: string
+                              condition:
+                                type: string
+                            required:
+                              - id
+                              - condition
+                            additionalProperties: false
+                        - type: 'null'
+                    allEnvironments:
+                      anyOf:
+                        - type: boolean
+                        - type: 'null'
+                    environments:
+                      anyOf:
+                        - type: array
+                          items:
+                            type: string
+                        - type: 'null'
+                    force:
+                      description: Force value (any JSON type)
+                    enabled:
+                      anyOf:
+                        - type: boolean
+                        - type: 'null'
+                  additionalProperties: false
                 revisionTitle:
                   description: >-
                     Title for a newly created draft. Only used when version is
@@ -9684,6 +9977,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource updated
           content:
             application/json:
               schema:
@@ -9691,6 +9985,13 @@ paths:
                 properties:
                   revision:
                     $ref: '#/components/schemas/FeatureRevisionV2'
+                  warnings:
+                    description: >-
+                      Non-fatal advisories about how the request was
+                      interpreted.
+                    type: array
+                    items:
+                      type: string
                 required:
                   - revision
                 additionalProperties: false
@@ -9748,6 +10049,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource deleted
           content:
             application/json:
               schema:
@@ -9778,6 +10080,14 @@ paths:
         requires the org to have auto-publish-on-approval enabled for the
         feature and the caller to have publish permission; the auto-publish then
         executes with the caller's authority.
+
+
+        Set `scheduledPublishAt` to a future ISO date-time to defer the
+        auto-publish until that date (it still also requires approval when
+        review is required). Use `scheduledPublishLockEdits` to freeze edits to
+        this draft while the schedule is pending, and
+        `scheduledPublishLockOthers` to block publishing other drafts of this
+        feature in the meantime.
       tags:
         - feature-revisions-v2
       parameters:
@@ -9799,9 +10109,19 @@ paths:
                   type: string
                 autoPublishOnApproval:
                   type: boolean
+                scheduledPublishAt:
+                  anyOf:
+                    - format: date-time
+                      type: string
+                    - type: 'null'
+                scheduledPublishLockEdits:
+                  type: boolean
+                scheduledPublishLockOthers:
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -9817,6 +10137,75 @@ paths:
           source: >-
             curl -X POST
             'https://api.growthbook.io/api/v2/features/{id}/revisions/{version}/request-review'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v2/features/{id}/revisions/{version}/schedule-publish:
+    post:
+      operationId: postFeatureRevisionSchedulePublishV2
+      summary: Schedule (or cancel) a deferred publish for a draft revision
+      description: >-
+        Arms a deferred publish: the revision publishes automatically on/after
+        `scheduledPublishAt` (and, when review is required, only once also
+        approved). Send `scheduledPublishAt: null` to cancel the schedule.
+
+
+        Use `lockEdits` to freeze content edits to this draft while the schedule
+        is pending (rebasing is still allowed), and `lockOthers` to block
+        publishing other drafts of this feature until the schedule fires or is
+        canceled. Requires publish permission; the publish executes with the
+        caller's authority. An admin with bypass-approval permission can
+        schedule even without approval — pass `bypassApproval: true` to mark it
+        as an admin override, which locks the schedule to cancel-and-re-arm
+        only.
+      tags:
+        - feature-revisions-v2
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - $ref: '#/components/parameters/version'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                scheduledPublishAt:
+                  anyOf:
+                    - format: date-time
+                      type: string
+                    - type: 'null'
+                lockEdits:
+                  type: boolean
+                lockOthers:
+                  type: boolean
+                bypassApproval:
+                  type: boolean
+              required:
+                - scheduledPublishAt
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/FeatureRevisionV2'
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v2/features/{id}/revisions/{version}/schedule-publish'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v2/features/{id}/revisions/{version}/submit-review:
@@ -9863,6 +10252,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -9915,6 +10305,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -9964,6 +10355,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -10002,6 +10394,7 @@ paths:
         - $ref: '#/components/parameters/version'
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -10056,6 +10449,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource updated
           content:
             application/json:
               schema:
@@ -10103,6 +10497,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource deleted
           content:
             application/json:
               schema:
@@ -10145,6 +10540,7 @@ paths:
         - $ref: '#/components/parameters/version'
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -10306,6 +10702,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -10459,6 +10856,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -10514,6 +10912,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -10555,6 +10954,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -10600,6 +11000,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -10650,6 +11051,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -10675,6 +11077,7 @@ paths:
         - archetypes
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -10737,6 +11140,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -10762,6 +11166,7 @@ paths:
         - $ref: '#/components/parameters/id'
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -10821,6 +11226,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource updated
           content:
             application/json:
               schema:
@@ -10847,6 +11253,7 @@ paths:
         - $ref: '#/components/parameters/id'
       responses:
         '200':
+          description: Resource deleted
           content:
             application/json:
               schema:
@@ -10887,6 +11294,7 @@ paths:
               - stopped
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -11397,6 +11805,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -11456,6 +11865,7 @@ paths:
               - stopped
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -11485,6 +11895,7 @@ paths:
         - $ref: '#/components/parameters/id'
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -11999,6 +12410,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -12045,6 +12457,7 @@ paths:
         - $ref: '#/components/parameters/id'
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -12082,6 +12495,7 @@ paths:
         - $ref: '#/components/parameters/dimension'
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -12127,6 +12541,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -12229,6 +12644,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -12319,6 +12735,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -12389,6 +12806,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -12477,6 +12895,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -12536,6 +12955,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -12606,6 +13026,7 @@ paths:
         - $ref: '#/components/parameters/projectId'
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -12639,6 +13060,7 @@ paths:
             type: string
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -12704,6 +13126,7 @@ paths:
               additionalProperties: {}
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -12741,6 +13164,7 @@ paths:
             type: string
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -12769,6 +13193,7 @@ paths:
         - $ref: '#/components/parameters/datasourceId'
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -13172,6 +13597,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -13197,6 +13623,7 @@ paths:
         - $ref: '#/components/parameters/id'
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -13584,6 +14011,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource updated
           content:
             application/json:
               schema:
@@ -13610,6 +14038,7 @@ paths:
         - $ref: '#/components/parameters/id'
       responses:
         '200':
+          description: Resource deleted
           content:
             application/json:
               schema:
@@ -13659,6 +14088,7 @@ paths:
             type: string
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -13688,6 +14118,7 @@ paths:
         - $ref: '#/components/parameters/datasourceId'
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -13788,6 +14219,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -13815,6 +14247,7 @@ paths:
         - $ref: '#/components/parameters/id'
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -13908,6 +14341,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -13934,6 +14368,7 @@ paths:
         - $ref: '#/components/parameters/id'
       responses:
         '200':
+          description: Resource deleted
           content:
             application/json:
               schema:
@@ -13963,6 +14398,7 @@ paths:
         - $ref: '#/components/parameters/datasourceId'
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -14033,6 +14469,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -14060,6 +14497,7 @@ paths:
         - $ref: '#/components/parameters/id'
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -14123,6 +14561,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -14149,6 +14588,7 @@ paths:
         - $ref: '#/components/parameters/id'
       responses:
         '200':
+          description: Resource deleted
           content:
             application/json:
               schema:
@@ -14178,6 +14618,7 @@ paths:
         - $ref: '#/components/parameters/offset'
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -14265,6 +14706,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -14292,6 +14734,7 @@ paths:
         - $ref: '#/components/parameters/id'
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -14352,6 +14795,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource updated
           content:
             application/json:
               schema:
@@ -14378,6 +14822,7 @@ paths:
         - $ref: '#/components/parameters/id'
       responses:
         '200':
+          description: Resource deleted
           content:
             application/json:
               schema:
@@ -14403,6 +14848,7 @@ paths:
         - environments
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -14458,6 +14904,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -14506,6 +14953,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource updated
           content:
             application/json:
               schema:
@@ -14532,6 +14980,7 @@ paths:
         - $ref: '#/components/parameters/id'
       responses:
         '200':
+          description: Resource deleted
           content:
             application/json:
               schema:
@@ -14569,6 +15018,7 @@ paths:
             type: string
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -14646,6 +15096,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -14720,6 +15171,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource updated
           content:
             application/json:
               schema:
@@ -14746,6 +15198,7 @@ paths:
         - $ref: '#/components/parameters/property'
       responses:
         '200':
+          description: Resource deleted
           content:
             application/json:
               schema:
@@ -14776,6 +15229,7 @@ paths:
         - $ref: '#/components/parameters/multiOrg'
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -14863,6 +15317,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -14888,6 +15343,7 @@ paths:
         - $ref: '#/components/parameters/id'
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -14970,6 +15426,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource updated
           content:
             application/json:
               schema:
@@ -14995,6 +15452,7 @@ paths:
         - $ref: '#/components/parameters/id'
       responses:
         '200':
+          description: Resource deleted
           content:
             application/json:
               schema:
@@ -15021,6 +15479,7 @@ paths:
         - $ref: '#/components/parameters/key'
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -15049,6 +15508,7 @@ paths:
         - $ref: '#/components/parameters/projectId'
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -15078,6 +15538,7 @@ paths:
         - $ref: '#/components/parameters/id'
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -15108,6 +15569,7 @@ paths:
         - $ref: '#/components/parameters/dataSourceId'
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -15136,6 +15598,7 @@ paths:
         - $ref: '#/components/parameters/includeExperiment'
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -15241,6 +15704,7 @@ paths:
               additionalProperties: {}
       responses:
         '200':
+          description: Resource updated
           content:
             application/json:
               schema:
@@ -15318,6 +15782,7 @@ paths:
               additionalProperties: {}
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -15356,8 +15821,6 @@ paths:
             schema:
               type: object
               properties:
-                id:
-                  type: string
                 description:
                   type: string
                 css:
@@ -15395,6 +15858,7 @@ paths:
               additionalProperties: {}
       responses:
         '200':
+          description: Resource updated
           content:
             application/json:
               schema:
@@ -15425,6 +15889,7 @@ paths:
         - $ref: '#/components/parameters/offset'
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -15510,6 +15975,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -15574,6 +16040,7 @@ paths:
               - type: boolean
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -15622,6 +16089,7 @@ paths:
         - $ref: '#/components/parameters/id'
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -15688,6 +16156,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -15715,6 +16184,7 @@ paths:
         - $ref: '#/components/parameters/id'
       responses:
         '200':
+          description: Resource deleted
           content:
             application/json:
               schema:
@@ -15741,6 +16211,7 @@ paths:
         - $ref: '#/components/parameters/id'
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -15767,6 +16238,7 @@ paths:
         - $ref: '#/components/parameters/id'
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -15835,6 +16307,7 @@ paths:
               - type: boolean
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -15904,6 +16377,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -15960,6 +16434,7 @@ paths:
               - type: boolean
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -15997,6 +16472,7 @@ paths:
         - $ref: '#/components/parameters/version'
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -16069,6 +16545,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource updated
           content:
             application/json:
               schema:
@@ -16130,6 +16607,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource updated
           content:
             application/json:
               schema:
@@ -16194,6 +16672,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource updated
           content:
             application/json:
               schema:
@@ -16255,6 +16734,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource updated
           content:
             application/json:
               schema:
@@ -16319,6 +16799,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -16381,6 +16862,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -16434,6 +16916,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -16498,6 +16981,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -16537,6 +17021,7 @@ paths:
         - $ref: '#/components/parameters/version'
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -16628,6 +17113,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -16682,6 +17168,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -16728,6 +17215,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -16783,6 +17271,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -16814,6 +17303,7 @@ paths:
         - $ref: '#/components/parameters/offset'
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -16883,6 +17373,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -16928,6 +17419,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource updated
           content:
             application/json:
               schema:
@@ -16959,6 +17451,7 @@ paths:
             type: string
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema: {}
@@ -16980,6 +17473,7 @@ paths:
         - $ref: '#/components/parameters/projectId'
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -17070,6 +17564,10 @@ paths:
                     lookbackWindow:
                       type: integer
                       exclusiveMinimum: 0
+                    restateChunkDays:
+                      type: integer
+                      minimum: 1
+                      maximum: 7
                   required:
                     - idTypes
                     - updateTime
@@ -17096,6 +17594,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -17123,6 +17622,7 @@ paths:
         - $ref: '#/components/parameters/id'
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -17208,6 +17708,10 @@ paths:
                     lookbackWindow:
                       type: integer
                       exclusiveMinimum: 0
+                    restateChunkDays:
+                      type: integer
+                      minimum: 1
+                      maximum: 7
                   required:
                     - idTypes
                     - updateTime
@@ -17247,6 +17751,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -17273,6 +17778,7 @@ paths:
         - $ref: '#/components/parameters/id'
       responses:
         '200':
+          description: Resource deleted
           content:
             application/json:
               schema:
@@ -17303,6 +17809,7 @@ paths:
         - $ref: '#/components/parameters/offset'
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -17362,6 +17869,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -17391,6 +17899,7 @@ paths:
         - $ref: '#/components/parameters/id'
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -17445,6 +17954,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -17474,6 +17984,7 @@ paths:
         - $ref: '#/components/parameters/id'
       responses:
         '200':
+          description: Resource deleted
           content:
             application/json:
               schema:
@@ -17505,6 +18016,7 @@ paths:
         - $ref: '#/components/parameters/id'
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -17566,6 +18078,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -17601,6 +18114,7 @@ paths:
         - $ref: '#/components/parameters/offset'
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -17640,6 +18154,7 @@ paths:
         - $ref: '#/components/parameters/runId'
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -17680,6 +18195,7 @@ paths:
             type: string
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -18184,6 +18700,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -18211,6 +18728,7 @@ paths:
         - $ref: '#/components/parameters/id'
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -18706,6 +19224,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -18733,6 +19252,7 @@ paths:
         - $ref: '#/components/parameters/id'
       responses:
         '200':
+          description: Resource deleted
           content:
             application/json:
               schema:
@@ -18827,6 +19347,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -19481,6 +20002,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -19564,6 +20086,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -19591,6 +20114,7 @@ paths:
         - $ref: '#/components/parameters/offset'
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -19620,6 +20144,7 @@ paths:
         - $ref: '#/components/parameters/id'
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -19651,6 +20176,7 @@ paths:
         - $ref: '#/components/parameters/globalRole'
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -19723,6 +20249,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -19748,6 +20275,7 @@ paths:
         - $ref: '#/components/parameters/id'
       responses:
         '200':
+          description: Resource deleted
           content:
             application/json:
               schema:
@@ -19773,6 +20301,7 @@ paths:
         - $ref: '#/components/parameters/id'
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -19796,6 +20325,7 @@ paths:
         - settings
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -19811,6 +20341,36 @@ paths:
           source: |-
             curl -X GET 'https://api.growthbook.io/api/v1/settings' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/version:
+    get:
+      operationId: getVersion
+      summary: Get the GrowthBook server version and build info
+      tags:
+        - meta
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  version:
+                    type: string
+                  commit:
+                    type: string
+                  date:
+                    type: string
+                required:
+                  - version
+                  - commit
+                  - date
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/version' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/information-schema-tables/{tableId}:
     get:
       operationId: getInformationSchemaTable
@@ -19825,6 +20385,7 @@ paths:
         - $ref: '#/components/parameters/tableId'
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -19869,6 +20430,7 @@ paths:
               - rolled-back
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -20323,6 +20885,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -20373,6 +20936,7 @@ paths:
             type: string
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -20419,6 +20983,7 @@ paths:
             type: string
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -20467,6 +21032,7 @@ paths:
             type: string
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -20531,6 +21097,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -20584,6 +21151,7 @@ paths:
             type: string
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -20650,6 +21218,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -20705,6 +21274,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -20793,6 +21363,7 @@ paths:
             type: string
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -20855,6 +21426,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -20918,6 +21490,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -21025,6 +21598,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -21062,6 +21636,7 @@ paths:
             type: string
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -21144,6 +21719,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -21495,6 +22071,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -21908,6 +22485,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource updated
           content:
             application/json:
               schema:
@@ -22262,6 +22840,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource updated
           content:
             application/json:
               schema:
@@ -22664,6 +23243,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource updated
           content:
             application/json:
               schema:
@@ -22719,6 +23299,7 @@ paths:
             type: string
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -22753,6 +23334,7 @@ paths:
             type: string
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -22988,6 +23570,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -23013,6 +23596,7 @@ paths:
         - $ref: '#/components/parameters/id'
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -23038,6 +23622,7 @@ paths:
         - $ref: '#/components/parameters/id'
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -23104,6 +23689,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource updated
           content:
             application/json:
               schema:
@@ -23343,6 +23929,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource updated
           content:
             application/json:
               schema:
@@ -23370,6 +23957,7 @@ paths:
         - $ref: '#/components/parameters/offset'
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -23433,6 +24021,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -23466,6 +24055,7 @@ paths:
             type: string
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -23522,6 +24112,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource updated
           content:
             application/json:
               schema:
@@ -23559,6 +24150,7 @@ paths:
             type: string
       responses:
         '200':
+          description: Resource deleted
           content:
             application/json:
               schema:
@@ -23595,6 +24187,7 @@ paths:
         - $ref: '#/components/parameters/offset'
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -23652,6 +24245,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -23695,6 +24289,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema: {}
@@ -23702,636 +24297,6 @@ paths:
         - lang: cURL
           source: |-
             curl -X POST 'https://api.growthbook.io/api/v1/transform-copy' \
-              -H 'Authorization: Bearer YOUR_API_KEY'
-  /v1/visual-editor/ai/edit:
-    post:
-      operationId: postVisualEditorAIEdit
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                prompt:
-                  type: string
-                  minLength: 1
-                  maxLength: 2000
-                elementContext:
-                  default: []
-                  maxItems: 20
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      selector:
-                        type: string
-                      tagName:
-                        type: string
-                      textSnippet:
-                        type: string
-                      outerHTML:
-                        type: string
-                      attrs:
-                        type: object
-                        propertyNames:
-                          type: string
-                        additionalProperties:
-                          type: string
-                      computedStyles:
-                        type: object
-                        propertyNames:
-                          type: string
-                        additionalProperties:
-                          type: string
-                    required:
-                      - selector
-                      - tagName
-                      - textSnippet
-                      - outerHTML
-                      - attrs
-                    additionalProperties: false
-                variationId:
-                  type: string
-                visualChangesetId:
-                  type: string
-                domDigest:
-                  type: object
-                  properties:
-                    url:
-                      type: string
-                    title:
-                      type: string
-                    structural:
-                      default: []
-                      type: array
-                      items:
-                        type: object
-                        properties:
-                          selector:
-                            type: string
-                          tag:
-                            type: string
-                          note:
-                            type: string
-                        required:
-                          - selector
-                          - tag
-                        additionalProperties: false
-                    headings:
-                      default: []
-                      type: array
-                      items:
-                        type: object
-                        properties:
-                          selector:
-                            type: string
-                          tag:
-                            type: string
-                          text:
-                            type: string
-                        required:
-                          - selector
-                          - tag
-                          - text
-                        additionalProperties: false
-                    buttons:
-                      default: []
-                      type: array
-                      items:
-                        type: object
-                        properties:
-                          selector:
-                            type: string
-                          tag:
-                            type: string
-                          text:
-                            type: string
-                          href:
-                            type: string
-                        required:
-                          - selector
-                          - tag
-                          - text
-                        additionalProperties: false
-                    links:
-                      default: []
-                      type: array
-                      items:
-                        type: object
-                        properties:
-                          selector:
-                            type: string
-                          text:
-                            type: string
-                          href:
-                            type: string
-                        required:
-                          - selector
-                          - text
-                          - href
-                        additionalProperties: false
-                    inputs:
-                      default: []
-                      type: array
-                      items:
-                        type: object
-                        properties:
-                          selector:
-                            type: string
-                          type:
-                            type: string
-                          name:
-                            type: string
-                          placeholder:
-                            type: string
-                          label:
-                            type: string
-                        required:
-                          - selector
-                          - type
-                        additionalProperties: false
-                    images:
-                      default: []
-                      type: array
-                      items:
-                        type: object
-                        properties:
-                          selector:
-                            type: string
-                          alt:
-                            type: string
-                          src:
-                            type: string
-                        required:
-                          - selector
-                          - src
-                        additionalProperties: false
-                  required:
-                    - url
-                    - title
-                  additionalProperties: false
-                conversationHistory:
-                  maxItems: 12
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      role:
-                        type: string
-                        enum:
-                          - user
-                          - assistant
-                      text:
-                        type: string
-                        maxLength: 4000
-                    required:
-                      - role
-                      - text
-                    additionalProperties: false
-                locale:
-                  type: string
-                  minLength: 2
-                  maxLength: 10
-                  pattern: ^[a-zA-Z]{2,3}(-[a-zA-Z0-9]{2,8})?$
-                streamingMode:
-                  type: boolean
-              required:
-                - prompt
-                - variationId
-                - visualChangesetId
-              additionalProperties: false
-      responses:
-        '200':
-          content:
-            application/json:
-              schema: {}
-      x-codeSamples:
-        - lang: cURL
-          source: >-
-            curl -X POST
-            'https://api.growthbook.io/api/v1/visual-editor/ai/edit' \
-              -H 'Authorization: Bearer YOUR_API_KEY'
-  /v1/visual-editor/ai/edit/resume:
-    post:
-      operationId: postVisualEditorAIEditResume
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                jobId:
-                  type: string
-                  minLength: 1
-                  maxLength: 100
-                callId:
-                  type: string
-                  minLength: 1
-                  maxLength: 100
-                result: {}
-              required:
-                - jobId
-                - callId
-                - result
-              additionalProperties: false
-      responses:
-        '200':
-          content:
-            application/json:
-              schema: {}
-      x-codeSamples:
-        - lang: cURL
-          source: >-
-            curl -X POST
-            'https://api.growthbook.io/api/v1/visual-editor/ai/edit/resume' \
-              -H 'Authorization: Bearer YOUR_API_KEY'
-  /v1/visual-editor/ai/suggestions:
-    post:
-      operationId: postVisualEditorAISuggestions
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                visualChangesetId:
-                  type: string
-                pageHints:
-                  type: object
-                  properties:
-                    url:
-                      type: string
-                    title:
-                      type: string
-                    description:
-                      type: string
-                    headings:
-                      maxItems: 20
-                      type: array
-                      items:
-                        type: string
-                  additionalProperties: false
-              required:
-                - visualChangesetId
-              additionalProperties: false
-      responses:
-        '200':
-          content:
-            application/json:
-              schema: {}
-      x-codeSamples:
-        - lang: cURL
-          source: >-
-            curl -X POST
-            'https://api.growthbook.io/api/v1/visual-editor/ai/suggestions' \
-              -H 'Authorization: Bearer YOUR_API_KEY'
-  /v1/visual-editor/ai/image-gen:
-    post:
-      operationId: postVisualEditorAIImageGen
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                prompt:
-                  type: string
-                  minLength: 1
-                  maxLength: 1000
-                aspectRatio:
-                  type: string
-                count:
-                  type: integer
-                  minimum: 1
-                  maximum: 4
-                visualChangesetId:
-                  type: string
-                referenceImage:
-                  type: object
-                  properties:
-                    data:
-                      type: string
-                      minLength: 1
-                      maxLength: 8388608
-                    mimeType:
-                      type: string
-                      enum:
-                        - image/png
-                        - image/jpeg
-                        - image/gif
-                        - image/webp
-                  required:
-                    - data
-                    - mimeType
-                  additionalProperties: false
-              required:
-                - prompt
-                - visualChangesetId
-              additionalProperties: false
-      responses:
-        '200':
-          content:
-            application/json:
-              schema: {}
-      x-codeSamples:
-        - lang: cURL
-          source: >-
-            curl -X POST
-            'https://api.growthbook.io/api/v1/visual-editor/ai/image-gen' \
-              -H 'Authorization: Bearer YOUR_API_KEY'
-  /v1/visual-editor/ai/promote-image:
-    post:
-      operationId: postVisualEditorAIPromoteImage
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                visualChangesetId:
-                  type: string
-                filePath:
-                  type: string
-              required:
-                - visualChangesetId
-                - filePath
-              additionalProperties: false
-      responses:
-        '200':
-          content:
-            application/json:
-              schema: {}
-      x-codeSamples:
-        - lang: cURL
-          source: >-
-            curl -X POST
-            'https://api.growthbook.io/api/v1/visual-editor/ai/promote-image' \
-              -H 'Authorization: Bearer YOUR_API_KEY'
-  /v1/visual-editor/ai/upload-signed-url:
-    post:
-      operationId: postVisualEditorAIUploadSignedUrl
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                contentType:
-                  type: string
-                  enum:
-                    - image/png
-                    - image/jpeg
-                    - image/gif
-                    - image/webp
-                visualChangesetId:
-                  type: string
-              required:
-                - contentType
-                - visualChangesetId
-              additionalProperties: false
-      responses:
-        '200':
-          content:
-            application/json:
-              schema: {}
-      x-codeSamples:
-        - lang: cURL
-          source: >-
-            curl -X POST
-            'https://api.growthbook.io/api/v1/visual-editor/ai/upload-signed-url'
-            \
-              -H 'Authorization: Bearer YOUR_API_KEY'
-  /v1/visual-editor/add-variant:
-    post:
-      operationId: postVisualEditorAddVariant
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                visualChangesetId:
-                  type: string
-                name:
-                  type: string
-                  minLength: 1
-                  maxLength: 120
-              required:
-                - visualChangesetId
-              additionalProperties: false
-      responses:
-        '200':
-          content:
-            application/json:
-              schema: {}
-      x-codeSamples:
-        - lang: cURL
-          source: >-
-            curl -X POST
-            'https://api.growthbook.io/api/v1/visual-editor/add-variant' \
-              -H 'Authorization: Bearer YOUR_API_KEY'
-  /v1/visual-editor/create-experiment:
-    post:
-      operationId: postVisualEditorCreateExperiment
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                name:
-                  type: string
-                  minLength: 1
-                  maxLength: 200
-                pageUrl:
-                  type: string
-                  format: uri
-                urlPatterns:
-                  minItems: 1
-                  maxItems: 100
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      include:
-                        default: true
-                        type: boolean
-                      type:
-                        default: simple
-                        type: string
-                        enum:
-                          - simple
-                          - regex
-                      pattern:
-                        type: string
-                        minLength: 1
-                        maxLength: 2000
-                    required:
-                      - pattern
-                    additionalProperties: false
-                project:
-                  type: string
-                hashAttribute:
-                  type: string
-                  minLength: 1
-                  maxLength: 100
-                hypothesis:
-                  type: string
-                  maxLength: 2000
-                description:
-                  type: string
-                  maxLength: 2000
-                type:
-                  default: standard
-                  type: string
-                  enum:
-                    - standard
-                    - multi-armed-bandit
-              required:
-                - name
-                - pageUrl
-                - urlPatterns
-                - hashAttribute
-              additionalProperties: false
-      responses:
-        '200':
-          content:
-            application/json:
-              schema: {}
-      x-codeSamples:
-        - lang: cURL
-          source: >-
-            curl -X POST
-            'https://api.growthbook.io/api/v1/visual-editor/create-experiment' \
-              -H 'Authorization: Bearer YOUR_API_KEY'
-  /v1/visual-editor/create-changeset:
-    post:
-      operationId: postVisualEditorCreateChangeset
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                visualChangesetId:
-                  type: string
-                pageUrl:
-                  type: string
-                  format: uri
-                urlPatterns:
-                  minItems: 1
-                  maxItems: 100
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      include:
-                        default: true
-                        type: boolean
-                      type:
-                        default: simple
-                        type: string
-                        enum:
-                          - simple
-                          - regex
-                      pattern:
-                        type: string
-                        minLength: 1
-                        maxLength: 2000
-                    required:
-                      - pattern
-                    additionalProperties: false
-              required:
-                - visualChangesetId
-                - pageUrl
-                - urlPatterns
-              additionalProperties: false
-      responses:
-        '200':
-          content:
-            application/json:
-              schema: {}
-      x-codeSamples:
-        - lang: cURL
-          source: >-
-            curl -X POST
-            'https://api.growthbook.io/api/v1/visual-editor/create-changeset' \
-              -H 'Authorization: Bearer YOUR_API_KEY'
-  /v1/visual-editor/rename-experiment:
-    post:
-      operationId: postVisualEditorRenameExperiment
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                visualChangesetId:
-                  type: string
-                name:
-                  type: string
-                  minLength: 1
-                  maxLength: 200
-              required:
-                - visualChangesetId
-                - name
-              additionalProperties: false
-      responses:
-        '200':
-          content:
-            application/json:
-              schema: {}
-      x-codeSamples:
-        - lang: cURL
-          source: >-
-            curl -X POST
-            'https://api.growthbook.io/api/v1/visual-editor/rename-experiment' \
-              -H 'Authorization: Bearer YOUR_API_KEY'
-  /v1/visual-editor/bootstrap:
-    get:
-      operationId: getVisualEditorBootstrap
-      responses:
-        '200':
-          content:
-            application/json:
-              schema: {}
-      x-codeSamples:
-        - lang: cURL
-          source: >-
-            curl -X GET
-            'https://api.growthbook.io/api/v1/visual-editor/bootstrap' \
-              -H 'Authorization: Bearer YOUR_API_KEY'
-  /v1/visual-editor/library/images:
-    get:
-      operationId: getVisualEditorLibraryImages
-      parameters:
-        - name: limit
-          in: query
-          description: ''
-          schema:
-            type: integer
-            minimum: 1
-            maximum: 1000
-      responses:
-        '200':
-          content:
-            application/json:
-              schema: {}
-      x-codeSamples:
-        - lang: cURL
-          source: >-
-            curl -X GET
-            'https://api.growthbook.io/api/v1/visual-editor/library/images' \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/dashboards/{id}:
     get:
@@ -24348,6 +24313,7 @@ paths:
             type: string
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -24377,6 +24343,7 @@ paths:
             type: string
       responses:
         '200':
+          description: Resource deleted
           content:
             application/json:
               schema:
@@ -25033,6 +25000,52 @@ paths:
                                   - sum
                               metricAnalysisId:
                                 type: string
+                              comparison:
+                                type: object
+                                properties:
+                                  enabled:
+                                    type: boolean
+                                  previousTimeFrame:
+                                    type: object
+                                    properties:
+                                      predefined:
+                                        type: string
+                                        enum:
+                                          - today
+                                          - last7Days
+                                          - last30Days
+                                          - last90Days
+                                          - customLookback
+                                          - customDateRange
+                                      lookbackValue:
+                                        anyOf:
+                                          - type: number
+                                          - type: 'null'
+                                      lookbackUnit:
+                                        anyOf:
+                                          - type: string
+                                            enum:
+                                              - hour
+                                              - day
+                                              - week
+                                              - month
+                                          - type: 'null'
+                                      startDate:
+                                        anyOf:
+                                          - type: string
+                                          - type: 'null'
+                                      endDate:
+                                        anyOf:
+                                          - type: string
+                                          - type: 'null'
+                                    required:
+                                      - predefined
+                                    additionalProperties: false
+                                required:
+                                  - enabled
+                                additionalProperties: false
+                              comparisonMetricAnalysisId:
+                                type: string
                               analysisSettings:
                                 type: object
                                 properties:
@@ -25139,6 +25152,52 @@ paths:
                                   - avg
                                   - sum
                               metricAnalysisId:
+                                type: string
+                              comparison:
+                                type: object
+                                properties:
+                                  enabled:
+                                    type: boolean
+                                  previousTimeFrame:
+                                    type: object
+                                    properties:
+                                      predefined:
+                                        type: string
+                                        enum:
+                                          - today
+                                          - last7Days
+                                          - last30Days
+                                          - last90Days
+                                          - customLookback
+                                          - customDateRange
+                                      lookbackValue:
+                                        anyOf:
+                                          - type: number
+                                          - type: 'null'
+                                      lookbackUnit:
+                                        anyOf:
+                                          - type: string
+                                            enum:
+                                              - hour
+                                              - day
+                                              - week
+                                              - month
+                                          - type: 'null'
+                                      startDate:
+                                        anyOf:
+                                          - type: string
+                                          - type: 'null'
+                                      endDate:
+                                        anyOf:
+                                          - type: string
+                                          - type: 'null'
+                                    required:
+                                      - predefined
+                                    additionalProperties: false
+                                required:
+                                  - enabled
+                                additionalProperties: false
+                              comparisonMetricAnalysisId:
                                 type: string
                               analysisSettings:
                                 type: object
@@ -25806,6 +25865,52 @@ paths:
                                 additionalProperties: false
                               explorerAnalysisId:
                                 type: string
+                              comparison:
+                                type: object
+                                properties:
+                                  enabled:
+                                    type: boolean
+                                  previousTimeFrame:
+                                    type: object
+                                    properties:
+                                      predefined:
+                                        type: string
+                                        enum:
+                                          - today
+                                          - last7Days
+                                          - last30Days
+                                          - last90Days
+                                          - customLookback
+                                          - customDateRange
+                                      lookbackValue:
+                                        anyOf:
+                                          - type: number
+                                          - type: 'null'
+                                      lookbackUnit:
+                                        anyOf:
+                                          - type: string
+                                            enum:
+                                              - hour
+                                              - day
+                                              - week
+                                              - month
+                                          - type: 'null'
+                                      startDate:
+                                        anyOf:
+                                          - type: string
+                                          - type: 'null'
+                                      endDate:
+                                        anyOf:
+                                          - type: string
+                                          - type: 'null'
+                                    required:
+                                      - predefined
+                                    additionalProperties: false
+                                required:
+                                  - enabled
+                                additionalProperties: false
+                              comparisonExplorerAnalysisId:
+                                type: string
                               config:
                                 type: object
                                 properties:
@@ -26116,6 +26221,52 @@ paths:
                                   - h
                                 additionalProperties: false
                               explorerAnalysisId:
+                                type: string
+                              comparison:
+                                type: object
+                                properties:
+                                  enabled:
+                                    type: boolean
+                                  previousTimeFrame:
+                                    type: object
+                                    properties:
+                                      predefined:
+                                        type: string
+                                        enum:
+                                          - today
+                                          - last7Days
+                                          - last30Days
+                                          - last90Days
+                                          - customLookback
+                                          - customDateRange
+                                      lookbackValue:
+                                        anyOf:
+                                          - type: number
+                                          - type: 'null'
+                                      lookbackUnit:
+                                        anyOf:
+                                          - type: string
+                                            enum:
+                                              - hour
+                                              - day
+                                              - week
+                                              - month
+                                          - type: 'null'
+                                      startDate:
+                                        anyOf:
+                                          - type: string
+                                          - type: 'null'
+                                      endDate:
+                                        anyOf:
+                                          - type: string
+                                          - type: 'null'
+                                    required:
+                                      - predefined
+                                    additionalProperties: false
+                                required:
+                                  - enabled
+                                additionalProperties: false
+                              comparisonExplorerAnalysisId:
                                 type: string
                               config:
                                 type: object
@@ -26437,6 +26588,52 @@ paths:
                                 additionalProperties: false
                               explorerAnalysisId:
                                 type: string
+                              comparison:
+                                type: object
+                                properties:
+                                  enabled:
+                                    type: boolean
+                                  previousTimeFrame:
+                                    type: object
+                                    properties:
+                                      predefined:
+                                        type: string
+                                        enum:
+                                          - today
+                                          - last7Days
+                                          - last30Days
+                                          - last90Days
+                                          - customLookback
+                                          - customDateRange
+                                      lookbackValue:
+                                        anyOf:
+                                          - type: number
+                                          - type: 'null'
+                                      lookbackUnit:
+                                        anyOf:
+                                          - type: string
+                                            enum:
+                                              - hour
+                                              - day
+                                              - week
+                                              - month
+                                          - type: 'null'
+                                      startDate:
+                                        anyOf:
+                                          - type: string
+                                          - type: 'null'
+                                      endDate:
+                                        anyOf:
+                                          - type: string
+                                          - type: 'null'
+                                    required:
+                                      - predefined
+                                    additionalProperties: false
+                                required:
+                                  - enabled
+                                additionalProperties: false
+                              comparisonExplorerAnalysisId:
+                                type: string
                               config:
                                 type: object
                                 properties:
@@ -26733,6 +26930,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource updated
           content:
             application/json:
               schema:
@@ -27387,6 +27585,52 @@ paths:
                               - sum
                           metricAnalysisId:
                             type: string
+                          comparison:
+                            type: object
+                            properties:
+                              enabled:
+                                type: boolean
+                              previousTimeFrame:
+                                type: object
+                                properties:
+                                  predefined:
+                                    type: string
+                                    enum:
+                                      - today
+                                      - last7Days
+                                      - last30Days
+                                      - last90Days
+                                      - customLookback
+                                      - customDateRange
+                                  lookbackValue:
+                                    anyOf:
+                                      - type: number
+                                      - type: 'null'
+                                  lookbackUnit:
+                                    anyOf:
+                                      - type: string
+                                        enum:
+                                          - hour
+                                          - day
+                                          - week
+                                          - month
+                                      - type: 'null'
+                                  startDate:
+                                    anyOf:
+                                      - type: string
+                                      - type: 'null'
+                                  endDate:
+                                    anyOf:
+                                      - type: string
+                                      - type: 'null'
+                                required:
+                                  - predefined
+                                additionalProperties: false
+                            required:
+                              - enabled
+                            additionalProperties: false
+                          comparisonMetricAnalysisId:
+                            type: string
                           analysisSettings:
                             type: object
                             properties:
@@ -27445,6 +27689,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -27467,6 +27712,7 @@ paths:
         - Dashboards
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -27499,6 +27745,7 @@ paths:
             type: string
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -27613,6 +27860,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -27641,6 +27889,7 @@ paths:
             type: string
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -27668,6 +27917,7 @@ paths:
         - $ref: '#/components/parameters/index'
       responses:
         '200':
+          description: Resource deleted
           content:
             application/json:
               schema:
@@ -27698,6 +27948,7 @@ paths:
             type: string
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -27792,6 +28043,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource updated
           content:
             application/json:
               schema:
@@ -27822,6 +28074,7 @@ paths:
             type: string
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -27851,6 +28104,7 @@ paths:
             type: string
       responses:
         '200':
+          description: Resource deleted
           content:
             application/json:
               schema:
@@ -27917,6 +28171,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource updated
           content:
             application/json:
               schema:
@@ -27982,6 +28237,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -28004,6 +28260,7 @@ paths:
         - MetricGroups
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -28036,6 +28293,7 @@ paths:
             type: string
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -28129,6 +28387,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource updated
           content:
             application/json:
               schema:
@@ -28159,6 +28418,7 @@ paths:
         - $ref: '#/components/parameters/deleteMembers'
       responses:
         '200':
+          description: Resource deleted
           content:
             application/json:
               schema:
@@ -28250,6 +28510,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -28272,6 +28533,7 @@ paths:
         - Teams
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -28318,6 +28580,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -28361,6 +28624,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource deleted
           content:
             application/json:
               schema:
@@ -28392,6 +28656,7 @@ paths:
             type: string
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -28422,6 +28687,7 @@ paths:
             type: string
       responses:
         '200':
+          description: Resource deleted
           content:
             application/json:
               schema:
@@ -28591,6 +28857,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource updated
           content:
             application/json:
               schema:
@@ -28761,6 +29028,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -28790,6 +29058,7 @@ paths:
             type: string
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -28979,6 +29248,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -29270,6 +29540,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -29918,6 +30189,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -30592,6 +30864,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -31001,6 +31274,7 @@ paths:
             type: string
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -31031,6 +31305,7 @@ paths:
             type: string
       responses:
         '200':
+          description: Resource deleted
           content:
             application/json:
               schema:
@@ -31329,9 +31604,13 @@ paths:
                   required:
                     - mode
                   additionalProperties: false
+                order:
+                  description: Display order within the org (lower sorts first).
+                  type: number
               additionalProperties: false
       responses:
         '200':
+          description: Resource updated
           content:
             application/json:
               schema:
@@ -31624,12 +31903,18 @@ paths:
                   required:
                     - mode
                   additionalProperties: false
+                order:
+                  description: >-
+                    Display order within the org (lower sorts first). Omit to
+                    append to the end.
+                  type: number
               required:
                 - name
                 - steps
               additionalProperties: false
       responses:
         '200':
+          description: Resource created
           content:
             application/json:
               schema:
@@ -31653,6 +31938,7 @@ paths:
         - RampScheduleTemplates
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -31686,6 +31972,7 @@ paths:
             type: string
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -31720,6 +32007,7 @@ paths:
             type: string
       responses:
         '200':
+          description: Resource deleted
           content:
             application/json:
               schema:
@@ -32200,6 +32488,7 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Resource updated
           content:
             application/json:
               schema:
@@ -32697,7 +32986,7 @@ components:
           - required
           - never
   schemas:
-    Feature:
+    FeatureV1:
       type: object
       properties:
         id:
@@ -32741,7 +33030,7 @@ components:
           propertyNames:
             type: string
           additionalProperties:
-            $ref: '#/components/schemas/FeatureEnvironment'
+            $ref: '#/components/schemas/FeatureEnvironmentV1'
         prerequisites:
           description: Feature IDs. Each feature must evaluate to `true`
           type: array
@@ -32804,7 +33093,7 @@ components:
         - environments
         - revision
       additionalProperties: false
-    FeatureEnvironment:
+    FeatureEnvironmentV1:
       type: object
       properties:
         enabled:
@@ -32814,7 +33103,7 @@ components:
         rules:
           type: array
           items:
-            $ref: '#/components/schemas/FeatureRule'
+            $ref: '#/components/schemas/FeatureRuleV1'
         definition:
           description: A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model)
           type: string
@@ -32828,7 +33117,7 @@ components:
             rules:
               type: array
               items:
-                $ref: '#/components/schemas/FeatureRule'
+                $ref: '#/components/schemas/FeatureRuleV1'
             definition:
               description: >-
                 A JSON stringified
@@ -32844,7 +33133,7 @@ components:
         - defaultValue
         - rules
       additionalProperties: false
-    FeatureRule:
+    FeatureRuleV1:
       anyOf:
         - $ref: '#/components/schemas/FeatureForceRule'
         - $ref: '#/components/schemas/FeatureRolloutRule'
@@ -32942,6 +33231,11 @@ components:
               const: force
             value:
               type: string
+            sparse:
+              description: >-
+                JSON features only. When true, `value` is a partial object
+                merged onto the feature's default value instead of replacing it.
+              type: boolean
           required:
             - type
             - value
@@ -33055,6 +33349,11 @@ components:
               const: rollout
             value:
               type: string
+            sparse:
+              description: >-
+                JSON features only. When true, `value` is a partial object
+                merged onto the feature's default value instead of replacing it.
+              type: boolean
             coverage:
               type: number
               minimum: 0
@@ -33325,6 +33624,12 @@ components:
                 additionalProperties: false
             experimentId:
               type: string
+            sparse:
+              description: >-
+                JSON features only. When true, each variation `value` is a
+                partial object merged onto the feature's default value instead
+                of replacing it.
+              type: boolean
           required:
             - type
             - variations
@@ -33468,17 +33773,17 @@ components:
         - hasMore
         - nextOffset
       additionalProperties: false
-    FeatureWithRevisions:
+    FeatureWithRevisionsV1:
       allOf:
-        - $ref: '#/components/schemas/Feature'
+        - $ref: '#/components/schemas/FeatureV1'
         - type: object
           properties:
             revisions:
               type: array
               items:
-                $ref: '#/components/schemas/FeatureRevision'
+                $ref: '#/components/schemas/FeatureRevisionV1'
           additionalProperties: false
-    FeatureRevision:
+    FeatureRevisionV1:
       type: object
       properties:
         featureId:
@@ -33509,7 +33814,7 @@ components:
           additionalProperties:
             type: array
             items:
-              $ref: '#/components/schemas/FeatureRule'
+              $ref: '#/components/schemas/FeatureRuleV1'
         definitions:
           type: object
           propertyNames:
@@ -34542,24 +34847,7 @@ components:
           items:
             type: string
         revision:
-          type: object
-          properties:
-            version:
-              type: integer
-            comment:
-              type: string
-            date:
-              format: date-time
-              type: string
-            createdBy:
-              $ref: '#/components/schemas/EventUser'
-            publishedBy:
-              $ref: '#/components/schemas/EventUser'
-          required:
-            - version
-            - comment
-            - date
-          additionalProperties: false
+          $ref: '#/components/schemas/FeatureRevisionSummary'
         customFields:
           type: object
           propertyNames:
@@ -34599,7 +34887,7 @@ components:
       additionalProperties: false
     FeatureRuleV2:
       allOf:
-        - $ref: '#/components/schemas/FeatureRule'
+        - $ref: '#/components/schemas/FeatureRuleV1'
         - type: object
           properties:
             allEnvironments:
@@ -34640,6 +34928,25 @@ components:
       required:
         - enabled
         - defaultValue
+      additionalProperties: false
+    FeatureRevisionSummary:
+      type: object
+      properties:
+        version:
+          type: integer
+        comment:
+          type: string
+        date:
+          format: date-time
+          type: string
+        createdBy:
+          $ref: '#/components/schemas/EventUser'
+        publishedBy:
+          $ref: '#/components/schemas/EventUser'
+      required:
+        - version
+        - comment
+        - date
       additionalProperties: false
     EventUser:
       description: The user (or automated actor) responsible for an action
@@ -35659,6 +35966,42 @@ components:
                   - rampScheduleId
                   - ruleId
                 additionalProperties: false
+        autoPublishOnApproval:
+          description: >-
+            When true, the revision is armed to publish automatically once
+            governance allows (immediately on approval, or on
+            `scheduledPublishAt` if set).
+          type: boolean
+        scheduledPublishAt:
+          description: >-
+            Target date for a deferred (scheduled) publish. Null/absent means
+            publish as soon as approved.
+          anyOf:
+            - format: date-time
+              type: string
+            - type: 'null'
+        scheduledPublishLockEdits:
+          description: >-
+            When true, content edits to this draft are frozen while the schedule
+            is pending (rebasing is still allowed).
+          type: boolean
+        scheduledPublishLockOthers:
+          description: >-
+            When true, publishing other drafts of this feature is blocked while
+            the schedule is pending.
+          type: boolean
+        scheduledPublishBypassApproval:
+          description: >-
+            When true, this schedule was armed by an admin via the
+            bypass-approval override. It cannot be edited inline (only canceled
+            and re-armed) and anyone with publish authority may cancel it.
+          type: boolean
+        scheduledPublishLastError:
+          description: >-
+            Set when a due scheduled publish keeps failing (e.g. still awaiting
+            approval, merge conflict). Indicates the schedule is stuck and
+            retrying.
+          type: string
         reviews:
           description: >-
             Reviewer verdicts for the current review cycle (one entry per
@@ -35767,6 +36110,11 @@ components:
         value:
           description: The value to serve when this rule matches.
           type: string
+        sparse:
+          description: >-
+            JSON features only. When true, the rule value is a partial object
+            merged onto the feature's default value instead of replacing it.
+          type: boolean
         coverage:
           description: >-
             Percentage of users to include (0–1). Defaults to 1. When less than
@@ -35864,6 +36212,12 @@ components:
             required:
               - value
             additionalProperties: false
+        sparse:
+          description: >-
+            JSON features only. When true, each variation value is a partial
+            object merged onto the feature's default value instead of replacing
+            it.
+          type: boolean
       required:
         - type
         - experimentId
@@ -38507,6 +38861,10 @@ components:
             lookbackWindow:
               type: integer
               exclusiveMinimum: 0
+            restateChunkDays:
+              type: integer
+              minimum: 1
+              maximum: 7
           required:
             - idTypes
             - updateTime
@@ -39731,6 +40089,8 @@ components:
           type: string
         featureRegexValidator:
           type: string
+        sparseJSONRulesByDefault:
+          type: boolean
         banditScheduleValue:
           type: number
         banditScheduleUnit:
@@ -40928,6 +41288,50 @@ components:
               additionalProperties: false
         title:
           type: string
+        comparison:
+          type: object
+          properties:
+            enabled:
+              type: boolean
+            previousTimeFrame:
+              type: object
+              properties:
+                predefined:
+                  type: string
+                  enum:
+                    - today
+                    - last7Days
+                    - last30Days
+                    - last90Days
+                    - customLookback
+                    - customDateRange
+                lookbackValue:
+                  anyOf:
+                    - type: number
+                    - type: 'null'
+                lookbackUnit:
+                  anyOf:
+                    - type: string
+                      enum:
+                        - hour
+                        - day
+                        - week
+                        - month
+                    - type: 'null'
+                startDate:
+                  anyOf:
+                    - type: string
+                    - type: 'null'
+                endDate:
+                  anyOf:
+                    - type: string
+                    - type: 'null'
+              required:
+                - predefined
+              additionalProperties: false
+          required:
+            - enabled
+          additionalProperties: false
         grid:
           type: object
           properties:
@@ -41020,6 +41424,52 @@ components:
                       - avg
                       - sum
                   metricAnalysisId:
+                    type: string
+                  comparison:
+                    type: object
+                    properties:
+                      enabled:
+                        type: boolean
+                      previousTimeFrame:
+                        type: object
+                        properties:
+                          predefined:
+                            type: string
+                            enum:
+                              - today
+                              - last7Days
+                              - last30Days
+                              - last90Days
+                              - customLookback
+                              - customDateRange
+                          lookbackValue:
+                            anyOf:
+                              - type: number
+                              - type: 'null'
+                          lookbackUnit:
+                            anyOf:
+                              - type: string
+                                enum:
+                                  - hour
+                                  - day
+                                  - week
+                                  - month
+                              - type: 'null'
+                          startDate:
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          endDate:
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                        required:
+                          - predefined
+                        additionalProperties: false
+                    required:
+                      - enabled
+                    additionalProperties: false
+                  comparisonMetricAnalysisId:
                     type: string
                   analysisSettings:
                     type: object
@@ -41687,6 +42137,52 @@ components:
                     additionalProperties: false
                   explorerAnalysisId:
                     type: string
+                  comparison:
+                    type: object
+                    properties:
+                      enabled:
+                        type: boolean
+                      previousTimeFrame:
+                        type: object
+                        properties:
+                          predefined:
+                            type: string
+                            enum:
+                              - today
+                              - last7Days
+                              - last30Days
+                              - last90Days
+                              - customLookback
+                              - customDateRange
+                          lookbackValue:
+                            anyOf:
+                              - type: number
+                              - type: 'null'
+                          lookbackUnit:
+                            anyOf:
+                              - type: string
+                                enum:
+                                  - hour
+                                  - day
+                                  - week
+                                  - month
+                              - type: 'null'
+                          startDate:
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          endDate:
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                        required:
+                          - predefined
+                        additionalProperties: false
+                    required:
+                      - enabled
+                    additionalProperties: false
+                  comparisonExplorerAnalysisId:
+                    type: string
                   config:
                     type: object
                     properties:
@@ -41997,6 +42493,52 @@ components:
                       - h
                     additionalProperties: false
                   explorerAnalysisId:
+                    type: string
+                  comparison:
+                    type: object
+                    properties:
+                      enabled:
+                        type: boolean
+                      previousTimeFrame:
+                        type: object
+                        properties:
+                          predefined:
+                            type: string
+                            enum:
+                              - today
+                              - last7Days
+                              - last30Days
+                              - last90Days
+                              - customLookback
+                              - customDateRange
+                          lookbackValue:
+                            anyOf:
+                              - type: number
+                              - type: 'null'
+                          lookbackUnit:
+                            anyOf:
+                              - type: string
+                                enum:
+                                  - hour
+                                  - day
+                                  - week
+                                  - month
+                              - type: 'null'
+                          startDate:
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          endDate:
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                        required:
+                          - predefined
+                        additionalProperties: false
+                    required:
+                      - enabled
+                    additionalProperties: false
+                  comparisonExplorerAnalysisId:
                     type: string
                   config:
                     type: object
@@ -42317,6 +42859,52 @@ components:
                       - h
                     additionalProperties: false
                   explorerAnalysisId:
+                    type: string
+                  comparison:
+                    type: object
+                    properties:
+                      enabled:
+                        type: boolean
+                      previousTimeFrame:
+                        type: object
+                        properties:
+                          predefined:
+                            type: string
+                            enum:
+                              - today
+                              - last7Days
+                              - last30Days
+                              - last90Days
+                              - customLookback
+                              - customDateRange
+                          lookbackValue:
+                            anyOf:
+                              - type: number
+                              - type: 'null'
+                          lookbackUnit:
+                            anyOf:
+                              - type: string
+                                enum:
+                                  - hour
+                                  - day
+                                  - week
+                                  - month
+                              - type: 'null'
+                          startDate:
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          endDate:
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                        required:
+                          - predefined
+                        additionalProperties: false
+                    required:
+                      - enabled
+                    additionalProperties: false
+                  comparisonExplorerAnalysisId:
                     type: string
                   config:
                     type: object
@@ -43287,12 +43875,18 @@ components:
                 - mode
               additionalProperties: false
             - type: 'null'
+        order:
+          description: >-
+            Manual display order within the org (read-only; managed via the
+            app).
+          type: number
       required:
         - id
         - dateCreated
         - dateUpdated
         - name
         - steps
+        - order
       additionalProperties: false
     ExperimentSnapshot:
       type: object
@@ -44678,6 +45272,8 @@ components:
                     const: force
                   value:
                     type: string
+                  sparse:
+                    type: boolean
                 required:
                   - description
                   - id
@@ -44760,6 +45356,8 @@ components:
                     const: rollout
                   value:
                     type: string
+                  sparse:
+                    type: boolean
                   coverage:
                     type: number
                   hashAttribute:
@@ -45108,6 +45706,8 @@ components:
                         - variationId
                         - value
                       additionalProperties: false
+                  sparse:
+                    type: boolean
                 required:
                   - description
                   - id
@@ -45970,6 +46570,7 @@ x-tagGroups:
       - settings
       - attributes
       - usage
+      - meta
       - Dashboards
       - CustomFields
       - MetricGroups
@@ -46004,22 +46605,23 @@ x-tagGroups:
       - FactTable_model
       - FactTableColumn_model
       - FactTableFilter_model
-      - Feature_model
       - FeatureBaseRule_model
       - FeatureDefinition_model
-      - FeatureEnvironment_model
+      - FeatureEnvironmentV1_model
       - FeatureEnvironmentV2_model
       - FeatureExperimentRefRule_model
       - FeatureExperimentRule_model
       - FeatureForceRule_model
-      - FeatureRevision_model
+      - FeatureRevisionSummary_model
+      - FeatureRevisionV1_model
       - FeatureRevisionV2_model
       - FeatureRolloutRule_model
-      - FeatureRule_model
+      - FeatureRuleV1_model
       - FeatureRuleV2_model
       - FeatureSafeRolloutRule_model
+      - FeatureV1_model
       - FeatureV2_model
-      - FeatureWithRevisions_model
+      - FeatureWithRevisionsV1_model
       - FeatureWithRevisionsV2_model
       - InformationSchema_model
       - InformationSchemaTable_model

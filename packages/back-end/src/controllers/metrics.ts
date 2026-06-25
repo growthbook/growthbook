@@ -537,7 +537,9 @@ export const getMetricExperimentResults = async (
     limit: 500,
   });
 
-  const snapshots = await _getSnapshots(context, experiments);
+  const snapshots = await _getSnapshots(context, experiments, undefined, true, [
+    req.params.id,
+  ]);
 
   // TODO simplify data for front-end?
   const data = experiments.map((e) => ({

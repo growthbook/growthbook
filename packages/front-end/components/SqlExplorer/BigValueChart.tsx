@@ -1,5 +1,5 @@
 import { Flex, Heading, Text } from "@radix-ui/themes";
-import React from "react";
+import React, { type ReactNode } from "react";
 import { BigValueFormat } from "shared/validators";
 import { useCurrency } from "@/hooks/useCurrency";
 import { formatCurrency } from "@/services/metrics";
@@ -9,6 +9,9 @@ type Props = {
   format?: BigValueFormat;
   formatter?: (value: number) => string;
   label?: string;
+  compareSlot?: ReactNode;
+  /** Smaller heading for dense layouts (e.g. multi-metric grid). */
+  compact?: boolean;
 };
 
 function formatValue(value: number, format: BigValueFormat, currency: string) {
@@ -41,6 +44,8 @@ export default function BigValueChart({
   label,
   format,
   formatter,
+  compareSlot,
+  compact = false,
 }: Props) {
   const currency = useCurrency();
   if (value === undefined || value === null) {
@@ -55,7 +60,7 @@ export default function BigValueChart({
       pt="2"
       pb="2"
     >
-      <Heading as="h1" size="9">
+      <Heading as="h1" size={compact ? "7" : "9"}>
         {formatter
           ? formatter(value)
           : formatValue(value, format ?? "longNumber", currency)}
@@ -65,6 +70,7 @@ export default function BigValueChart({
           {label}
         </Text>
       )}
+      {compareSlot}
     </Flex>
   );
 }
