@@ -338,7 +338,11 @@ export function VariationBox({
           <Flex align="center" justify="between">
             <Box>
               {!isBandit && percent !== undefined ? (
-                <Metadata label="Split" value={`${percent.toFixed(0)}%`} />
+                <Metadata
+                  label="Split"
+                  value={`${percent.toFixed(0)}%`}
+                  size="small"
+                />
               ) : null}
             </Box>
             {allowImages && (
