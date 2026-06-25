@@ -1,22 +1,16 @@
-import { useState, useEffect } from "react";
+import { ReactNode } from "react";
 import { Revision } from "shared/enterprise";
 import { dateNoYear } from "shared/dates";
-import { Box, Flex } from "@radix-ui/themes";
-import { PiCaretDownBold } from "react-icons/pi";
+import { Flex } from "@radix-ui/themes";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Switch from "@/ui/Switch";
 import Text from "@/ui/Text";
-import {
-  DropdownMenu,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-} from "@/ui/DropdownMenu";
-import Link from "@/ui/Link";
+import { DropdownMenuLabel } from "@/ui/DropdownMenu";
 import { useUser } from "@/services/UserContext";
 import { getStatusBadge } from "@/components/Revision/revisionUtils";
-import RevisionLabel, {
-  revisionLabelText,
-} from "@/components/Reviews/RevisionLabel";
+import SharedRevisionDropdown, {
+  RevisionDropdownRow,
+} from "@/components/Reviews/RevisionDropdown";
 
 export interface Props {
   savedGroupId: string;
@@ -28,88 +22,26 @@ export interface Props {
   context?: "header";
 }
 
-function RevisionRow({
-  revision,
-  liveRevisionId,
-  revisionNumber,
-}: {
-  revision: Revision;
-  liveRevisionId: string | null;
-  revisionNumber: number;
-  requiresApproval?: boolean;
-}) {
-  const { getUserDisplay } = useUser();
-  const isLive = revision.id === liveRevisionId;
-  const revDate = revision.dateUpdated;
-
-  return (
-    <Flex align="center" justify="between" gap="3" style={{ width: "100%" }}>
-      <Box style={{ flex: 1, minWidth: 0 }}>
-        <Text weight="semibold">
-          <span
-            style={{
-              display: "block",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-              maxWidth: 400,
-            }}
-            title={revisionLabelText(revisionNumber, revision.title)}
-          >
-            <RevisionLabel version={revisionNumber} title={revision.title} />
-          </span>
-        </Text>
-      </Box>
-      <Box
-        flexShrink="1"
-        overflow="hidden"
-        style={{ textOverflow: "ellipsis" }}
-      >
-        <Text size="small" color="text-low" whiteSpace="nowrap">
-          {getUserDisplay(revision.authorId)}
-          {revDate && <> &middot; {dateNoYear(revDate)}</>}
-        </Text>
-      </Box>
-      <Box flexShrink="0">
-        {getStatusBadge(isLive ? "live" : revision.status)}
-      </Box>
-    </Flex>
-  );
-}
-
+// Saved-group wrapper around the shared <RevisionDropdown>: resolves the live
+// (latest merged) revision, computes display version numbers, applies the
+// drafts-only / discarded filtering, and renders the author/date metadata and
+// the generic status badge. The shared component owns open/scroll/pagination/menu.
 export default function SavedGroupRevisionDropdown({
   savedGroupId,
   allRevisions,
   selectedRevisionId,
   onSelectRevision,
-  requiresApproval = true,
   draftsOnly = false,
   context,
 }: Props) {
-  const initialPageSize = 5;
-
-  const [open, setOpen] = useState(false);
-  const [extraShown, setExtraShown] = useState(0);
-
-  useEffect(() => {
-    if (open) {
-      const frame = requestAnimationFrame(() => {
-        document
-          .querySelector(".rt-DropdownMenuContent .selected-item")
-          ?.scrollIntoView({ block: "nearest" });
-      });
-      return () => cancelAnimationFrame(frame);
-    } else {
-      setExtraShown(0);
-    }
-  }, [open]);
+  const { getUserDisplay } = useUser();
 
   const [showDiscarded, setShowDiscarded] = useLocalStorage(
     `savedGroupRevisionDropdown__showDiscarded__${savedGroupId}`,
     false,
   );
 
-  // Find the latest merged revision to use for "Live"
+  // Latest merged revision is "Live".
   const liveRevision = [...allRevisions]
     .filter((r) => r.status === "merged")
     .sort(
@@ -117,12 +49,11 @@ export default function SavedGroupRevisionDropdown({
         new Date(b.dateUpdated).getTime() - new Date(a.dateUpdated).getTime(),
     )[0];
 
-  // Create a map of revision ID to revision number
+  // Map revision id → display version (stored version, else position by creation).
   const sortedAllRevisions = [...allRevisions].sort(
     (a, b) =>
       new Date(a.dateCreated).getTime() - new Date(b.dateCreated).getTime(),
   );
-
   const revisionNumberById = new Map<string, number>(
     allRevisions.map((revision) => {
       const version =
@@ -132,13 +63,11 @@ export default function SavedGroupRevisionDropdown({
     }),
   );
 
-  // Sort by version number (descending)
   const allSorted = [...allRevisions].sort(
     (a, b) =>
       (revisionNumberById.get(b.id) ?? 0) - (revisionNumberById.get(a.id) ?? 0),
   );
 
-  // Filter for drafts only if specified
   const filteredForDrafts = draftsOnly
     ? allSorted.filter(
         (r) =>
@@ -149,154 +78,84 @@ export default function SavedGroupRevisionDropdown({
       )
     : allSorted;
 
-  // Show all revisions, optionally filtering discarded
   const displayList = showDiscarded
     ? filteredForDrafts
     : filteredForDrafts.filter(
         (r) => r.status !== "discarded" || r.id === selectedRevisionId,
       );
 
-  // When viewing live (selectedRevisionId is null), find the live revision in the list
+  // Viewing live (selectedRevisionId null) selects the live revision in the list.
   const effectiveSelectedId = selectedRevisionId ?? liveRevision?.id ?? null;
 
-  const selectedIndex =
-    effectiveSelectedId === null
-      ? -1
-      : displayList.findIndex((r) => r.id === effectiveSelectedId);
-  const baseWindow = Math.max(
-    initialPageSize,
-    selectedIndex >= 0 ? selectedIndex + 1 : 0,
+  const buildMeta = (r: Revision): ReactNode => (
+    <Text size="small" color="text-low" whiteSpace="nowrap">
+      {getUserDisplay(r.authorId)}
+      {r.dateUpdated && <> &middot; {dateNoYear(r.dateUpdated)}</>}
+    </Text>
   );
-  const windowSize = baseWindow + extraShown;
-  const shown = displayList.slice(0, windowSize);
-  const remaining = displayList.length - windowSize;
 
-  const selectedRevision =
-    effectiveSelectedId !== null
-      ? (shown.find((r) => r.id === effectiveSelectedId) ??
-        allSorted.find((r) => r.id === effectiveSelectedId))
-      : null;
-
-  const handleSelect = (revisionId: string) => {
-    // If selecting the live revision, pass null to view live state
-    const revision = allRevisions.find((r) => r.id === revisionId) ?? null;
-    if (revision?.id === liveRevision?.id) {
-      onSelectRevision(null);
-    } else {
-      onSelectRevision(revision);
-    }
-    setOpen(false);
-  };
-
-  const menuItems = shown.map((r) => (
-    <DropdownMenuItem
-      key={r.id}
-      className={`multiline-item${r.id === effectiveSelectedId ? " selected-item" : ""}`}
-      onClick={() => handleSelect(r.id)}
-    >
-      <RevisionRow
-        revision={r}
-        liveRevisionId={liveRevision?.id ?? null}
-        revisionNumber={revisionNumberById.get(r.id) ?? 1}
-        requiresApproval={requiresApproval}
-      />
-    </DropdownMenuItem>
-  ));
+  const rows: RevisionDropdownRow[] = displayList.map((r) => {
+    const isLive = r.id === liveRevision?.id;
+    return {
+      key: r.id,
+      version: revisionNumberById.get(r.id) ?? 1,
+      title: r.title,
+      meta: buildMeta(r),
+      badge: getStatusBadge(isLive ? "live" : r.status),
+    };
+  });
 
   const discardedCount = allSorted.filter(
     (r) => r.status === "discarded",
   ).length;
 
-  const triggerWidth = context === "header" ? 280 : "100%";
-  const selectedRevisionNumber = selectedRevision
-    ? (revisionNumberById.get(selectedRevision.id) ?? 1)
-    : null;
+  const selectedRevision =
+    effectiveSelectedId !== null
+      ? (displayList.find((r) => r.id === effectiveSelectedId) ??
+        allSorted.find((r) => r.id === effectiveSelectedId))
+      : null;
 
-  const trigger = (
-    <Flex
-      align="center"
-      justify="between"
-      gap="3"
-      style={{ width: triggerWidth, overflow: "hidden" }}
-    >
-      <Box style={{ flex: 1, minWidth: 0 }}>
-        <Text weight="semibold">
-          {selectedRevision && selectedRevisionNumber !== null ? (
-            <span
-              style={{
-                display: "block",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-                maxWidth: 400,
-              }}
-              title={revisionLabelText(
-                selectedRevisionNumber,
-                selectedRevision.title,
-              )}
-            >
-              <RevisionLabel
-                numbered={false}
-                version={selectedRevisionNumber}
-                title={selectedRevision.title}
-              />
-            </span>
-          ) : (
-            "Select revision"
-          )}
-        </Text>
-      </Box>
-      <Box flexShrink="0">
-        {selectedRevision
+  const toggles =
+    discardedCount > 0 ? (
+      <DropdownMenuLabel>
+        <Flex align="center" gap="2" justify="end" style={{ width: "100%" }}>
+          <Text size="small" color="text-low">
+            Show discarded ({discardedCount})
+          </Text>
+          <Switch size="1" value={showDiscarded} onChange={setShowDiscarded} />
+        </Flex>
+      </DropdownMenuLabel>
+    ) : undefined;
+
+  const handleSelect = (key: string) => {
+    const revision = allRevisions.find((r) => r.id === key) ?? null;
+    // Selecting the live revision views the live state (null).
+    if (revision?.id === liveRevision?.id) {
+      onSelectRevision(null);
+    } else {
+      onSelectRevision(revision);
+    }
+  };
+
+  return (
+    <SharedRevisionDropdown
+      rows={rows}
+      selectedKey={effectiveSelectedId}
+      onSelect={handleSelect}
+      toggles={toggles}
+      selectedBadge={
+        selectedRevision
           ? getStatusBadge(
               selectedRevision.id === liveRevision?.id
                 ? "live"
                 : selectedRevision.status,
             )
-          : null}
-      </Box>
-      <PiCaretDownBold style={{ flexShrink: 0 }} />
-    </Flex>
-  );
-
-  return (
-    <DropdownMenu
-      variant="soft"
-      open={open}
-      onOpenChange={setOpen}
-      trigger={trigger}
-      triggerClassName={`dropdown-trigger-select-style${context === "header" ? " dropdown-trigger-header" : ""}`}
-      triggerStyle={
-        context === "header" ? { paddingTop: 4, paddingBottom: 4 } : undefined
+          : undefined
       }
-      menuWidth="full"
+      triggerPlaceholder="Select revision"
+      triggerNumbered={false}
+      context={context}
       menuPlacement="end"
-    >
-      {discardedCount > 0 && (
-        <DropdownMenuLabel>
-          <Flex align="center" gap="2" justify="end" style={{ width: "100%" }}>
-            <Text size="small" color="text-low">
-              Show discarded ({discardedCount})
-            </Text>
-            <Switch
-              size="1"
-              value={showDiscarded}
-              onChange={setShowDiscarded}
-            />
-          </Flex>
-        </DropdownMenuLabel>
-      )}
-      {menuItems}
-      {remaining > 0 && (
-        <DropdownMenuLabel>
-          <Link
-            size="2"
-            onClick={() => setExtraShown((prev) => prev + remaining)}
-          >
-            Show all ({remaining} more)
-          </Link>
-        </DropdownMenuLabel>
-      )}
-    </DropdownMenu>
+    />
   );
 }
