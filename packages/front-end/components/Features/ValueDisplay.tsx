@@ -14,7 +14,10 @@ import stringify from "json-stringify-pretty-compact";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { PiCheck, PiCornersOut, PiCopy } from "react-icons/pi";
 import { parsePlainJSONObject } from "shared/util";
-import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
+import InlineCode, {
+  LinkifyConfig,
+} from "@/components/SyntaxHighlighting/InlineCode";
+import { useConstantLinkify } from "@/components/Constants/useConstantLinkify";
 import styles from "@/components/Archetype/ArchetypeResults.module.scss";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { parseFeatureResult } from "@/hooks/useArchetype";
@@ -73,6 +76,8 @@ export default function ValueDisplay({
   isFullscreen = false,
   sparse = false,
   defaultValue,
+  fullscreenHeader = "Feature Value",
+  linkify,
 }: {
   value: string;
   type: FeatureValueType;
@@ -83,12 +88,23 @@ export default function ValueDisplay({
   showFullscreenButton?: boolean;
   showCopyButton?: boolean;
   isFullscreen?: boolean;
+  // Header for the fullscreen modal (e.g. "Constant Value" when reused outside features).
+  fullscreenHeader?: string;
   // When true (JSON rules flagged sparse), `value` is a partial patch. We show
   // the expanded value (default + patch) with the patched keys in bold.
   sparse?: boolean;
   // The feature's default value, used to expand a sparse patch.
   defaultValue?: string;
+  // Overrides the default constant linkify (matching `@const:` references render
+  // as links to the referenced constant). Rarely needed — pass to customize or,
+  // with a no-op getHref, effectively disable linking.
+  linkify?: LinkifyConfig;
 }) {
+  // Link `@const:` references to their constant by default on every surface that
+  // renders a value, unless the caller supplies its own linkify config.
+  const constantLinkify = useConstantLinkify();
+  const resolvedLinkify = linkify ?? constantLinkify;
+
   const [modalOpen, setModalOpen] = useState(false);
   const { performCopy, copySuccess } = useCopyToClipboard({
     timeout: 800,
@@ -193,6 +209,7 @@ export default function ValueDisplay({
             language="json"
             code={formatted}
             boldLines={sparseMerge ? boldLines : undefined}
+            linkify={resolvedLinkify}
           />
         </Box>
         {!isFullscreen && (
@@ -247,7 +264,7 @@ export default function ValueDisplay({
       </Box>
       {modalOpen && (
         <Modal
-          header="Feature Value"
+          header={fullscreenHeader}
           open={modalOpen}
           close={() => setModalOpen(false)}
           trackingEventModalType=""
@@ -282,6 +299,7 @@ export default function ValueDisplay({
             isFullscreen={true}
             sparse={sparse}
             defaultValue={defaultValue}
+            linkify={resolvedLinkify}
           />
         </Modal>
       )}

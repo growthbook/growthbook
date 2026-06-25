@@ -2,8 +2,10 @@ import isEqual from "lodash/isEqual";
 import type {
   ApprovalFlowConfiguration,
   ApprovalFlowConfigurations,
+  OrganizationSettings,
 } from "shared/types/organization";
 import type { TeamInterface } from "shared/types/team";
+import type { ConstantInterface } from "shared/types/constant";
 import type {
   RevisionTargetType,
   Revision,
@@ -12,6 +14,14 @@ import type {
   MergeResult,
   JsonPatchOperation,
 } from "../validators/revisions";
+// Constants borrow the feature `requireReviews` model rather than the
+// saved-group `approvalFlows` config, so self-approval / autopublish are read
+// from there. Imported from the specific file (not the barrel) to avoid a
+// runtime import cycle.
+import {
+  constantBlockSelfApproval,
+  constantAutopublishOnApproval,
+} from "../util/features";
 
 /**
  * Resolve the approval-flow configuration for a given entity type.
@@ -30,7 +40,8 @@ export const getApprovalFlowSettings = (
   switch (entityType) {
     case "saved-group":
       return approvalFlows.savedGroups?.[0];
-    // case "feature": return approvalFlows.features?.[0];  ← add future entity types here
+    // Constants don't use this config — they inherit the feature `requireReviews`
+    // settings (see constantRequiresReview).
     default:
       return undefined;
   }
@@ -74,6 +85,88 @@ export const isSavedGroupRevisionMetadataOnly = (
 };
 
 /**
+ * Top-level constant fields that count as "metadata" for the `requireMetadataReview`
+ * gate. The content fields (`value`, `environmentValues`) always require full
+ * review when approval is enabled, since they change the value the SDK resolves.
+ */
+export const CONSTANT_METADATA_FIELDS: ReadonlySet<string> = new Set([
+  "name",
+  "owner",
+  "description",
+  "project",
+  "archived",
+]);
+
+/**
+ * Returns true when every proposed change in the revision touches a constant
+ * metadata field (per `CONSTANT_METADATA_FIELDS`). An empty proposed-changes
+ * list returns false. Mirrors `isSavedGroupRevisionMetadataOnly`.
+ */
+export const isConstantRevisionMetadataOnly = (
+  proposedChanges: JsonPatchOperation[] | unknown,
+): boolean => {
+  const ops = normalizeProposedChanges(proposedChanges);
+  if (ops.length === 0) return false;
+  return ops.every((op) => {
+    const field = op.path.split("/")[1];
+    return !!field && CONSTANT_METADATA_FIELDS.has(field);
+  });
+};
+
+/**
+ * Derive what a constant revision changes, for approval scoping: whether the
+ * generic `value` changed (affects all environments), which per-environment
+ * overrides changed, and whether the change is metadata-only. Feeds
+ * `constantRequiresReview`, which mirrors the feature review model.
+ */
+export const getConstantRevisionChange = (
+  snapshot: Pick<ConstantInterface, "value" | "environmentValues">,
+  proposedChanges: JsonPatchOperation[] | unknown,
+): {
+  valueChanged: boolean;
+  changedEnvironments: string[];
+  metadataOnly: boolean;
+} => {
+  const ops = normalizeProposedChanges(proposedChanges);
+  const patched = applyTopLevelPatchOps(
+    snapshot as unknown as Record<string, unknown>,
+    ops,
+  ) as Pick<ConstantInterface, "value" | "environmentValues">;
+
+  const valueChanged = (snapshot.value ?? "") !== (patched.value ?? "");
+
+  const oldEnvs = snapshot.environmentValues ?? {};
+  const newEnvs = patched.environmentValues ?? {};
+  const changedEnvironments = Array.from(
+    new Set([...Object.keys(oldEnvs), ...Object.keys(newEnvs)]),
+  ).filter((env) => (oldEnvs[env] ?? "") !== (newEnvs[env] ?? ""));
+
+  return {
+    valueChanged,
+    changedEnvironments,
+    metadataOnly: isConstantRevisionMetadataOnly(ops),
+  };
+};
+
+/**
+ * Whether self-approval is blocked for this revision's entity, read from the
+ * correct config source: constants use the feature `requireReviews` model
+ * (matched on the constant's project); other entities use `approvalFlows`.
+ */
+const isSelfApprovalBlockedForEntity = (
+  settings: OrganizationSettings | undefined,
+  entityType: RevisionTargetType,
+  revision: Pick<Revision, "target">,
+): boolean => {
+  if (entityType === "constant") {
+    const snapshot = revision.target.snapshot as { project?: string };
+    return constantBlockSelfApproval({ project: snapshot.project }, settings);
+  }
+  return !!getApprovalFlowSettings(settings?.approvalFlows, entityType)
+    ?.blockSelfApproval;
+};
+
+/**
  * Returns true when `userId` contributed to the revision and the entity-type's
  * `blockSelfApproval` setting is enabled — meaning the user must NOT be allowed
  * to approve.
@@ -83,27 +176,34 @@ export const isSavedGroupRevisionMetadataOnly = (
  * effective gate for them.
  */
 export const isUserBlockedFromApproving = ({
-  approvalFlows,
+  settings,
   entityType,
   revision,
   userId,
 }: {
-  approvalFlows: ApprovalFlowConfigurations | undefined;
+  settings: OrganizationSettings | undefined;
   entityType: RevisionTargetType;
-  revision: Pick<Revision, "authorId" | "contributors">;
+  revision: Pick<Revision, "authorId" | "contributors" | "target">;
   userId: string;
 }): boolean => {
-  const settings = getApprovalFlowSettings(approvalFlows, entityType);
-  if (!settings?.blockSelfApproval) return false;
+  if (!isSelfApprovalBlockedForEntity(settings, entityType, revision)) {
+    return false;
+  }
   const contributors = revision.contributors ?? [revision.authorId];
   return contributors.includes(userId);
 };
 
 export const isAutopublishOnApprovalEnabled = (
-  approvalFlows: ApprovalFlowConfigurations | undefined,
+  settings: OrganizationSettings | undefined,
   entityType: RevisionTargetType,
+  // The constant's project, used to match its `requireReviews` rule. Ignored
+  // for entities that read from `approvalFlows`.
+  project?: string,
 ): boolean => {
-  return !!getApprovalFlowSettings(approvalFlows, entityType)
+  if (entityType === "constant") {
+    return constantAutopublishOnApproval({ project }, settings);
+  }
+  return !!getApprovalFlowSettings(settings?.approvalFlows, entityType)
     ?.autopublishOnApproval;
 };
 
@@ -119,6 +219,8 @@ export const getRevisionKey = (
   switch (entityType) {
     case "saved-group":
       return "saved-groups";
+    case "constant":
+      return "constants";
     // case "feature": return "features";  ← add future entity types here
     default:
       return null;
@@ -162,8 +264,8 @@ export const canUserReviewEntity = ({
 
   // Extension point: add a new `case` here when introducing a new RevisionTargetType
   // that requires custom reviewer logic beyond the default `canEditEntity` check.
-  if (entityType === "saved-group") {
-    // For saved groups: anyone who can edit can review (except the author, checked above)
+  if (entityType === "saved-group" || entityType === "constant") {
+    // Anyone who can edit can review (except the author, checked above)
     return !!canEditEntity;
   }
   // case "feature": return !!canEditEntity;  ← add future entity types here
