@@ -32,11 +32,16 @@ export function parseSettingsHash(hash: string | undefined): {
   section: SettingsSectionId | null;
 } {
   const [tabSegment, sectionSegment] = (hash ?? "").split("/");
+  const section =
+    sectionSegment && isSettingsSectionId(sectionSegment)
+      ? sectionSegment
+      : null;
   return {
-    tab: isSettingsTab(tabSegment) ? tabSegment : DEFAULT_SETTINGS_TAB,
-    section:
-      sectionSegment && isSettingsSectionId(sectionSegment)
-        ? sectionSegment
-        : null,
+    tab: section
+      ? SETTINGS_SECTIONS[section]
+      : isSettingsTab(tabSegment)
+        ? tabSegment
+        : DEFAULT_SETTINGS_TAB,
+    section,
   };
 }
