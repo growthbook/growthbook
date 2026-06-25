@@ -1100,6 +1100,8 @@ export default function EditSavedGroupPage() {
             allRevisions={allRevisions}
             currentState={savedGroup}
             diffConfig={REVISION_SAVED_GROUP_DIFF_CONFIG}
+            entityName={savedGroup.groupName}
+            entityNoun="saved group"
             // Defer to the per-revision gate so metadata-only revisions skip
             // the review dance when `requireMetadataReview` is off (matching
             // the server-side rule in the saved-group adapter).

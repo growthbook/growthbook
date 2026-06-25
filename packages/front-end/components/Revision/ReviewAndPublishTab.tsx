@@ -54,6 +54,7 @@ import RevisionTimeline, {
 } from "@/components/Reviews/RevisionTimeline";
 import ScheduledPublishControl from "@/components/Reviews/ScheduledPublishControl";
 import ReviewHeader from "@/components/Reviews/ReviewHeader";
+import { RevisionDiffContent } from "@/components/Reviews/RevisionDiffContent";
 import { useRevisionDiff, RevisionDiffConfig } from "./useRevisionDiff";
 import { RevisionDiff } from "./RevisionDiff";
 import { revisionTimelineLogs } from "./revisionTimelineLogs";
@@ -117,6 +118,10 @@ export interface ReviewAndPublishTabProps<T> {
   // The live entity (merge target).
   currentState: T;
   diffConfig: RevisionDiffConfig<T>;
+  // Entity display name + noun for the Changes-tab Copy-as exports
+  // (e.g. "Checkout users" / "saved group").
+  entityName?: string;
+  entityNoun?: string;
   // Per-revision approval gate (caller applies org settings + e.g. the
   // metadata-only shortcut).
   requiresApproval: boolean;
@@ -160,6 +165,8 @@ function ReviewAndPublishRevision<T>({
   allRevisions,
   currentState,
   diffConfig,
+  entityName = "",
+  entityNoun = "revision",
   requiresApproval,
   canEditEntity,
   canBypassApproval,
@@ -684,15 +691,29 @@ function ReviewAndPublishRevision<T>({
         <RevisionDescriptionSection revision={revision} />
       )}
 
-      <Box className="appbox" p="4" mb="4">
-        <RevisionDiff
-          diffs={diffs}
-          badges={badges}
-          customRenderGroups={customRenderGroups}
-          variant={subTab === "overview" ? "formatted" : "json"}
-          diffComments={subTab === "changes" ? diffComments : undefined}
-        />
-      </Box>
+      {subTab === "overview" ? (
+        <Box className="appbox" p="4" mb="4">
+          <RevisionDiff
+            diffs={diffs}
+            badges={badges}
+            customRenderGroups={customRenderGroups}
+            variant="formatted"
+          />
+        </Box>
+      ) : (
+        // Changes tab: the feature's diff chrome (JSON/raw toggle + Copy-as),
+        // fed the saved-group diff items.
+        <Box className="appbox" mb="4">
+          <RevisionDiffContent
+            diffs={diffs}
+            diffComments={diffComments}
+            raw={{ before: baseSnapshot, after: proposedSnapshot }}
+            entityName={entityName}
+            entityNoun={entityNoun}
+            formats={["json", "raw"]}
+          />
+        </Box>
+      )}
 
       <Box mb="4">
         <RevisionTimeline

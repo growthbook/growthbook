@@ -356,11 +356,15 @@ function formattedNodeToText(root: HTMLElement): string {
 // currently being *viewed*.
 export function CopyAsButton({
   entityName,
+  entityNoun = "feature",
   diffs,
   raw,
   formattedRef,
 }: {
   entityName: string;
+  // Noun for the copy wording ("Changes to <noun> …") + the copy formats'
+  // entityType. Defaults to "feature" so the feature flow is unchanged.
+  entityNoun?: string;
   diffs: FeatureRevisionDiff[];
   // Whole before/after object of the primary entity, when available. Powers the
   // "Full JSON" and "LLM" formats.
@@ -380,9 +384,15 @@ export function CopyAsButton({
     if (format === "formatted") {
       const root = formattedRef?.current;
       const rendered = root ? formattedNodeToText(root) : "";
-      if (rendered) return `Changes to feature "${entityName}":\n\n${rendered}`;
+      if (rendered)
+        return `Changes to ${entityNoun} "${entityName}":\n\n${rendered}`;
     }
-    return formatDiffForCopy(format, { entityName, diffs, raw });
+    return formatDiffForCopy(format, {
+      entityName,
+      entityType: entityNoun,
+      diffs,
+      raw,
+    });
   };
 
   const formatIcons: Record<CopyDiffFormat, React.ReactNode> = {
