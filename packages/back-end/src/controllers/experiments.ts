@@ -1625,26 +1625,33 @@ export async function postExperiment(
 
   if (data.variations) {
     validateVariationIds(data.variations);
+  }
 
-    // Mirrors the front-end `safeToEdit` gate: can't add/remove variations once
-    // the experiment is live in the SDK payload.
-    if (data.variations.length !== experiment.variations.length) {
-      const linkedFeaturesForPayload = await getFeaturesByIds(
-        context,
-        experiment.linkedFeatures || [],
-      );
-      const inPayload = includeExperimentInPayload(
-        experiment,
-        linkedFeaturesForPayload,
-      );
-      if (experiment.status === "running" && inPayload) {
-        res.status(400).json({
-          status: 400,
-          message:
-            "Cannot change the number of variations while the experiment is running and live in the SDK payload.",
-        });
-        return;
-      }
+  const variationCountChanged =
+    !!data.variations &&
+    data.variations.length !== experiment.variations.length;
+  const coverageChanged = !!data.coverage;
+  if (
+    experiment.status === "running" &&
+    (variationCountChanged || coverageChanged)
+  ) {
+    const linkedFeaturesForPayload = await getFeaturesByIds(
+      context,
+      experiment.linkedFeatures || [],
+    );
+    const inPayload = includeExperimentInPayload(
+      experiment,
+      linkedFeaturesForPayload,
+    );
+    if (inPayload) {
+      const field = variationCountChanged
+        ? "the number of variations"
+        : "coverage";
+      res.status(400).json({
+        status: 400,
+        message: `Cannot change ${field} while the experiment is running and live in the SDK payload.`,
+      });
+      return;
     }
   }
 
