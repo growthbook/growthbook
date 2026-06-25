@@ -48,11 +48,6 @@ export type FeatureRule<T = any> = {
     experiment: Experiment<T>;
     result: Result<T>;
   }>;
-  // Experiment subtype discriminator, flattened onto the wire. Only
-  // "contextual-bandit" is currently emitted (and only for SDKs that advertise
-  // the contextualBandits capability); standard / multi-armed-bandit rules omit
-  // it. The SDK treats anything other than "contextual-bandit" as a normal
-  // weighted experiment.
   type?: "standard" | "multi-armed-bandit" | "contextual-bandit";
   attributesRequired?: string[];
   contexts?: {
@@ -60,7 +55,6 @@ export type FeatureRule<T = any> = {
     condition: Record<string, unknown>;
     weights: number[];
   }[];
-  // Training period (snapshot epoch) the current leaf weights came from.
   banditVersion?: number;
 };
 
@@ -166,19 +160,11 @@ export interface Result<T> {
   hashValue: string;
   featureId: string | null;
   stickyBucketUsed?: boolean;
-  // The following are set only for contextual-bandit exposures, so the tracking
-  // callback can write them to the events table:
-  // - leafId: the leaf (context) the user was routed into; the warehouse join key.
-  // - variationWeights: the positional weight vector used to bucket this user
-  //   (the matched leaf's weights) — i.e. the assignment propensities.
-  // - banditVersion: the training period (snapshot epoch) those weights came from.
   leafId?: number;
   variationWeights?: number[];
   banditVersion?: number;
 }
 
-// Internal: contextual-bandit fields threaded onto an exposure result so they
-// are present before the tracking callbacks fire.
 export type ContextualBanditInfo = {
   leafId: number;
   variationWeights: number[];

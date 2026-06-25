@@ -320,10 +320,8 @@ describe("expandNestedSavedGroups", () => {
 describe("getPayloadAllowedKeys (contextual bandits)", () => {
   it("preserves contextual-bandit rule keys (incl. type + contexts) when the capability is present", () => {
     const { featureRuleKeys } = getPayloadAllowedKeys(["contextualBandits"]);
-    // The experiment-subtype discriminator the SDK keys CB behavior off of.
     expect(featureRuleKeys).toContain("type");
     expect(featureRuleKeys).toContain("attributesRequired");
-    // The leaf weights live under `contexts`; without it the SDK can't route.
     expect(featureRuleKeys).toContain("contexts");
     expect(featureRuleKeys).toContain("banditVersion");
   });
@@ -334,7 +332,6 @@ describe("getPayloadAllowedKeys (contextual bandits)", () => {
     expect(featureRuleKeys).not.toContain("attributesRequired");
     expect(featureRuleKeys).not.toContain("contexts");
     expect(featureRuleKeys).not.toContain("banditVersion");
-    // It still keeps the marginal `weights`, so older SDKs degrade to MAB.
     expect(featureRuleKeys).toContain("weights");
   });
 });
