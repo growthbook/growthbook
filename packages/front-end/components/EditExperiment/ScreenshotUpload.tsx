@@ -19,8 +19,7 @@ type props = {
   variation: number;
   onSuccess: (variation: number, screenshot: Screenshot) => void;
   children?: ReactNode;
-  // When true, the drop area stretches to fill its container so wrapped content
-  // (e.g. the "no image" placeholder) can grow to the available height.
+  // Stretch the drop area to fill its container so wrapped content can grow.
   fillHeight?: boolean;
 };
 

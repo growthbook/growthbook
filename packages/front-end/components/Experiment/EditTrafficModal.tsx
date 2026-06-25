@@ -31,8 +31,7 @@ export interface Props {
   experiment: ExperimentInterfaceStringDates;
   mutate: () => void;
   safeToEdit: boolean;
-  // When set (via clicking edit on a specific variation card), the matching
-  // variation's Name field is auto-focused when the modal opens.
+  // Auto-focus this variation's Name field when the modal opens.
   focusVariationIndex?: number | null;
 }
 
@@ -46,10 +45,6 @@ export default function EditTrafficModal({
   const simpleExperimentFlow = useFeatureIsOn("simple-experiment-flow");
 
   if (safeToEdit) {
-    // With the "simple-experiment-flow" flag on, traffic editing happens in the
-    // streamlined funnel modal. With the flag off we restore the full pre-PR
-    // Edit Traffic modal, which also hosts the Namespace selector (otherwise
-    // unreachable since the new EditNamespaceModal only lives in the funnel).
     return simpleExperimentFlow ? (
       <EditTrafficForm
         close={close}
@@ -177,7 +172,6 @@ function EditTrafficForm({
               v.map((data) => {
                 const { value, ...newData } = data;
                 return {
-                  // default values
                   name: "",
                   description: "",
                   screenshots: [],

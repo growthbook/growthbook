@@ -125,8 +125,7 @@ const BanditExperimentPage = (): ReactElement => {
     : null;
   const editTraffic = canRunExperiment
     ? (variationIndex?: number) => {
-        // Some callers (e.g. button onClick handlers) invoke this with a DOM
-        // event, so only treat numeric values as a variation to focus.
+        // Callers may pass a DOM event, so only numeric values focus a variation.
         setTrafficFocusVariation(
           typeof variationIndex === "number" ? variationIndex : null,
         );

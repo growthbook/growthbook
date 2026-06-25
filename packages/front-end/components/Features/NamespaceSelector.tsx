@@ -405,8 +405,7 @@ export default function NamespaceSelector({
             onChange={(v) => {
               if (v === namespace) return;
 
-              // The "Global (all users)" option (empty value) clears the
-              // namespace, reverting the experiment to no namespace targeting.
+              // Empty value ("Global (all users)") clears namespace targeting.
               if (hideEnableToggle && !v) {
                 form.setValue(namespacePath, DISABLED_NAMESPACE, {
                   shouldDirty: true,

@@ -47,8 +47,7 @@ interface SortableProps {
   dragging?: boolean;
   className?: string;
   onlySafeToEditVariationMetadata?: boolean;
-  // When true, the variation Name field is auto-focused on mount. Used to jump
-  // straight to a specific variation when opening the Edit Traffic modal.
+  // Auto-focus this variation's Name field on mount.
   autoFocusName?: boolean;
   // JSON features only. Renders the value as a sparse patch (merged onto the
   // feature default) in the value editor.

@@ -58,8 +58,6 @@ export default function LinkedChanges({
   onAddVariation?: () => void;
   canEditExperiment?: boolean;
   setEditVariationIndex?: (index: number) => void;
-  // Standard experiments render variations in the Traffic Allocation funnel, so
-  // they hide the variations table (and "Edit Variations" button) here.
   hideVariations?: boolean;
 }) {
   const numLinkedChanges =

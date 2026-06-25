@@ -1626,9 +1626,8 @@ export async function postExperiment(
   if (data.variations) {
     validateVariationIds(data.variations);
 
-    // Changing the number of variations is only safe before the experiment is
-    // live in the SDK payload. Mirrors the front-end `safeToEdit` gate so a
-    // running, in-payload experiment can't have variations added/removed.
+    // Mirrors the front-end `safeToEdit` gate: can't add/remove variations once
+    // the experiment is live in the SDK payload.
     if (data.variations.length !== experiment.variations.length) {
       const linkedFeaturesForPayload = await getFeaturesByIds(
         context,
@@ -1963,8 +1962,6 @@ export async function postExperiment(
     changes.phases = phases;
   }
 
-  // Apply coverage to the latest phase so traffic % can be edited through the
-  // same call as variations/weights (mirrors variationWeights handling above).
   if (data.coverage) {
     const phases = changes.phases || [...experiment.phases];
     const lastIndex = phases.length - 1;

@@ -424,7 +424,6 @@ export default function FeatureVariationsInput({
                                   editingSplits,
                                 );
 
-                                // Add a new value and update weights
                                 const newValues = [
                                   ...variations,
                                   {

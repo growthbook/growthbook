@@ -107,12 +107,10 @@ function FunnelConnector({ label }: { label?: ReactNode }) {
 function VariationFork({ count, label }: { count: number; label?: ReactNode }) {
   const cols = Math.min(count, 3);
 
-  // Same column template as the variations grid in VariationsTable so the
-  // arrows stay aligned with the (responsive, shrinkable) variation columns.
+  // Match the VariationsTable grid so the arrows align with the columns.
   const columns = getVariationGridColumns(cols);
 
-  // Cell visibility per breakpoint, matching the grid's column count so the
-  // fork never wraps: cell 0 always, cell 1 from xs, cell 2 from sm.
+  // Match the grid's per-breakpoint column count: cell 0 always, cell 1 from xs, cell 2 from sm.
   const cellDisplay = (i: number) =>
     i === 0
       ? undefined
@@ -120,8 +118,7 @@ function VariationFork({ count, label }: { count: number; label?: ReactNode }) {
         ? ({ initial: "none", xs: "flex" } as const)
         : ({ initial: "none", sm: "flex" } as const);
 
-  // Right-hand bus segment is only drawn when this cell's right neighbor is
-  // also visible at the same breakpoint (cell 1 appears at xs, cell 2 at sm).
+  // Draw the right bus segment only when the right neighbor is visible at this breakpoint.
   const rightSegDisplay = (i: number) =>
     i === 0
       ? ({ initial: "none", xs: "block" } as const)
@@ -137,11 +134,10 @@ function VariationFork({ count, label }: { count: number; label?: ReactNode }) {
           </Text>
         </Flex>
       ) : null}
-      {/* Stem down from the Traffic card to the horizontal bus */}
+      {/* Stem down to the horizontal bus */}
       <Flex direction="column" align="center">
         <Box className={styles.connectorLine} height="12px" />
       </Flex>
-      {/* Fork mirroring the variations grid so arrows align with the columns */}
       <Grid columns={columns} gap="4" justify="center">
         {Array.from({ length: cols }).map((_, i) => (
           <Flex
@@ -151,13 +147,11 @@ function VariationFork({ count, label }: { count: number; label?: ReactNode }) {
             display={cellDisplay(i)}
             className={styles.cell}
           >
-            {/* Left half of the horizontal bus, from the gap midpoint to the
-                center of this column. */}
+            {/* Left half of the horizontal bus */}
             {i > 0 ? (
               <Box className={clsx(styles.busSegment, styles.busSegmentLeft)} />
             ) : null}
-            {/* Right half of the horizontal bus, from the center of this column
-                to the gap midpoint. */}
+            {/* Right half of the horizontal bus */}
             {i < cols - 1 ? (
               <Box
                 display={rightSegDisplay(i)}
@@ -190,8 +184,7 @@ export default function TrafficAllocationFunnel({
   const phase = experiment.phases?.[phaseIndex ?? experiment.phases.length - 1];
   const hasNamespace = phase?.namespace && phase.namespace.enabled;
 
-  // Total fraction of traffic let through by the namespace (1 when there's no
-  // namespace), used for the dynamic connector labels.
+  // Fraction of traffic let through by the namespace (1 if none), for connector labels.
   const namespaceRange =
     hasNamespace && phase?.namespace
       ? calculateNamespaceCoverage(phase.namespace)

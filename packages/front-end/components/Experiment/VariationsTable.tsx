@@ -25,14 +25,12 @@ import Metadata from "@/ui/Metadata";
 
 export const MAX_VARIATION_WIDTH = 336;
 
-// Floor for the "no image" placeholder so all-empty rows (no screenshots
-// anywhere) still render a sensible block. When a sibling variation does have an
-// image, the placeholder grows past this to match the row height instead.
+// Floor height for the "no image" placeholder when no variation in the row has
+// a screenshot; otherwise it grows to match the row height.
 const NO_IMAGE_MIN_HEIGHT = 72;
 const MAX_IMAGE_HEIGHT = 150;
 
-// Radix Themes breakpoints (px). These mirror `@radix-ui/themes`'
-// `src/styles/breakpoints.css` (`--xs`/`--sm`)
+// Radix Themes breakpoints (px), mirroring `@radix-ui/themes` `--xs`/`--sm`.
 const XS_BREAKPOINT = 520;
 const SM_BREAKPOINT = 768;
 
@@ -159,8 +157,7 @@ interface Props {
   onEditMetadata?: (variationIndex: number) => void;
   onAddVariation?: () => void;
   onEditTraffic?: (variationIndex?: number) => void;
-  // When true (used by the Traffic Allocation funnel), the grid is centered and
-  // capped at 3 columns. Otherwise the pre-PR grid layout is used.
+  // When true, the grid is centered and capped at 3 columns.
   centered?: boolean;
 }
 
@@ -188,8 +185,6 @@ function NoImageBox({ canEdit }: { canEdit?: boolean }) {
       flexGrow="1"
       style={{
         backgroundColor: "var(--slate-a3)",
-        // Fill the (flex-grow) image area so the placeholder matches the row
-        // height instead of forcing a fixed height.
         height: "100%",
         minHeight: NO_IMAGE_MIN_HEIGHT + "px",
         color: "var(--slate-a9)",
