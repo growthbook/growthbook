@@ -1683,17 +1683,19 @@ export const postSchedulePublish = async (
   }
 
   // Canceling needs publish authority; arming additionally needs the
-  // scheduled-publish capability (premium + publish authority).
+  // scheduled-publish capability. Both come from generic defaults so every
+  // revisioned entity — current and future — works without per-adapter wiring:
+  // publish authority defaults to canUpdate, and the schedule capability
+  // defaults to the scheduled-revisions premium feature plus that publish
+  // authority (you can only schedule a publish you'd be allowed to perform). An
+  // adapter may override either to narrow it (e.g. an environment-scoped gate).
   const canPublish = adapter.canPublishRevision
     ? adapter.canPublishRevision(context, snapshot)
     : adapter.canUpdate(context, snapshot);
-  if (isCancel) {
-    if (!canPublish) context.permissions.throwPermissionError();
-  } else if (
-    !(adapter.canSchedulePublish
-      ? adapter.canSchedulePublish(context, snapshot)
-      : false)
-  ) {
+  const canSchedule = adapter.canSchedulePublish
+    ? adapter.canSchedulePublish(context, snapshot)
+    : context.hasPremiumFeature("scheduled-revisions") && canPublish;
+  if (isCancel ? !canPublish : !canSchedule) {
     context.permissions.throwPermissionError();
   }
 
