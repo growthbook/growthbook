@@ -188,7 +188,9 @@ const ExperimentsPage = (): React.ReactElement => {
             {showViewSampleButton && <ViewSampleDataButton />}
             <div className="col-auto">{addExperimentDropdownButton}</div>
           </div>
-          <CustomMarkdown page={"experimentList"} />
+          <div className="mt-3">
+            <CustomMarkdown page={"experimentList"} />
+          </div>
           {!hasExperiments && analyzeExisting ? (
             <EmptyState
               title="Analyze Experiment Results"

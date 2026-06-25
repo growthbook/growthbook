@@ -74,6 +74,7 @@ import {
   isMergeAggregationMetric,
   REST_API_ONLY_EDIT_MESSAGE,
 } from "@/services/factMetrics";
+import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 
 function FactTableLink({ id }: { id?: string }) {
   const { getFactTableById } = useDefinitions();
@@ -266,6 +267,13 @@ export default function FactMetricPage() {
   const datasource = factMetric.datasource
     ? getDatasourceById(factMetric.datasource)
     : null;
+
+  const variables = {
+    metricName: factMetric.name,
+    tags: factMetric.tags || [],
+    metricType: factMetric.metricType,
+    metricDatasource: datasource?.name || "",
+  };
 
   const userFilters = getAggregateFilters({
     columnRef: factMetric.numerator,
@@ -701,6 +709,10 @@ export default function FactMetricPage() {
             </span>
           )}
         </Flex>
+      </Box>
+
+      <Box mt="3">
+        <CustomMarkdown page={"metric"} variables={variables} />
       </Box>
 
       <div className="row">

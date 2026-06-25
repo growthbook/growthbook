@@ -904,6 +904,9 @@ export default function FeaturesOverview({
             </>
           );
         })()}
+        <Box mt="3">
+          <CustomMarkdown page={"feature"} variables={variables} />
+        </Box>
         {revision && (
           <Frame mt="2" mb="4" px="6" py="4">
             <Flex align="start" justify="between" mb="2" wrap="wrap" gap="2">
@@ -1128,9 +1131,6 @@ export default function FeaturesOverview({
           </Collapsible>
         </Frame>
 
-        <Box mt="3">
-          <CustomMarkdown page={"feature"} variables={variables} />
-        </Box>
         <Frame mb="4" px="6" py="4">
           <Flex align="center" justify="between" gap="2" mb="2">
             <Heading as="h4" size="small" mb="0">

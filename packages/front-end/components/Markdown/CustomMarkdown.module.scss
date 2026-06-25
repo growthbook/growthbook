@@ -1,12 +1,3 @@
 .customMarkdown {
   border-color: var(--custom-markdown-border);
-  color: var(--text-color-primary);
-
-  a {
-    vertical-align: middle;
-
-    &:hover {
-      text-decoration: underline !important;
-    }
-  }
 }
