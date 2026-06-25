@@ -160,6 +160,10 @@ export interface Result<T> {
   hashValue: string;
   featureId: string | null;
   stickyBucketUsed?: boolean;
+  // Set only for contextual-bandit exposures: the id of the leaf (context) the
+  // user was routed into. Used as the warehouse join key so the analysis can
+  // attribute outcomes back to the context whose weights produced them.
+  leafId?: number;
 }
 
 export type Attributes = Record<string, any>;
@@ -184,6 +188,16 @@ export type TrackingCallbackWithUser = (
   experiment: Experiment<any>,
   result: Result<any>,
   user: UserContext,
+) => Promise<void> | void;
+
+// Opt-in callback that fires only for contextual-bandit exposures. It receives
+// the resolved attributes alongside the experiment/result so the warehouse can
+// record which context (leaf) the user matched. The standard tracking callbacks
+// still fire for these exposures; this is additive.
+export type TrackingCallbackWithAttribute = (
+  experiment: Experiment<any>,
+  result: Result<any>,
+  attributes: Attributes,
 ) => Promise<void> | void;
 
 export type FeatureUsageCallback = (
@@ -250,6 +264,7 @@ export type Options = {
   /** @deprecated */
   disableDevTools?: boolean;
   trackingCallback?: TrackingCallback;
+  trackingCallbackWithAttribute?: TrackingCallbackWithAttribute;
   onFeatureUsage?: FeatureUsageCallback;
   eventLogger?: EventLogger;
   cacheKeyAttributes?: (keyof Attributes)[];
@@ -293,6 +308,7 @@ export type ClientOptions = {
   qaMode?: boolean;
   disableCache?: boolean;
   trackingCallback?: TrackingCallbackWithUser;
+  trackingCallbackWithAttribute?: TrackingCallbackWithAttribute;
   onFeatureUsage?: (
     key: string,
     result: FeatureResult<any>,
@@ -320,6 +336,7 @@ export type GlobalContext = {
   forcedVariations?: Record<string, number>;
   forcedFeatureValues?: Map<string, any>;
   trackingCallback?: TrackingCallbackWithUser;
+  trackingCallbackWithAttribute?: TrackingCallbackWithAttribute;
   onFeatureUsage?: FeatureUsageCallbackWithUser;
   onExperimentEval?: (experiment: Experiment<any>, result: Result<any>) => void;
   saveDeferredTrack?: (data: TrackingData) => void;
