@@ -374,6 +374,7 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
   cacheSystemPrompt = false,
   onStepFinish,
   retryOnNoObject = true,
+  maxOutputTokens = 8000,
 }: {
   context: ReqContext | ApiReqContext;
   instructions?: string;
@@ -392,6 +393,14 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
   // selector-correction retry — otherwise one request could fan out to
   // 4 LLM calls).
   retryOnNoObject?: boolean;
+  // Cap on GENERATED (output) tokens. Set explicitly because an un-capped
+  // call relies on the provider default (~4k for Anthropic), and a large
+  // response — e.g. a full global-CSS replacement, where the model must
+  // re-emit all existing CSS — can blow past it and get truncated
+  // mid-JSON, which surfaces as NoObjectGeneratedError ("couldn't format a
+  // valid response"). 8000 stays under every current provider's ceiling;
+  // callers that emit large artifacts (Figma → Variant) can raise it.
+  maxOutputTokens?: number;
   // Optional tool-calling: when present, the model may emit tool calls
   // across up to `maxSteps` LLM round-trips before producing the final
   // structured output. Default of 1 keeps the no-tools shape identical.
@@ -453,6 +462,7 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
       output: Output.object({
         schema: zodObjectSchema,
       }),
+      maxOutputTokens,
       ...(effectiveTemperature != null
         ? { temperature: effectiveTemperature }
         : {}),
@@ -469,6 +479,16 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
   // rate is a simpler schema or a stronger model; this is just a cheap
   // backstop. A failed attempt still bills tokens (the error carries its
   // usage), so track them or the retry under-counts on Cloud.
+  // Pull the useful diagnostics off a NoObjectGeneratedError so prod logs
+  // show WHY it failed: finishReason ("length" = truncated mid-JSON vs
+  // "stop" = model produced invalid/prose output), the underlying Zod cause,
+  // and a bounded sample of the raw text the model actually returned.
+  const noObjectDiag = (e: NoObjectGeneratedError) => ({
+    finishReason: e.finishReason,
+    cause: e.cause instanceof Error ? e.cause.message : String(e.cause ?? ""),
+    textSample: (e.text ?? "").slice(0, 2000),
+  });
+
   let retriedTokens = 0;
   let response: Awaited<ReturnType<typeof generateOnce>>;
   try {
@@ -479,7 +499,7 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
     if (!retryOnNoObject) throw err;
     retriedTokens += err.usage?.totalTokens ?? 0;
     logger.warn(
-      { type, model },
+      { type, model, ...noObjectDiag(err) },
       "parsePrompt: model returned no schema-valid object; retrying once",
     );
     try {
@@ -487,6 +507,10 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
     } catch (retryErr) {
       if (!NoObjectGeneratedError.isInstance(retryErr)) throw retryErr;
       retriedTokens += retryErr.usage?.totalTokens ?? 0;
+      logger.warn(
+        { type, model, ...noObjectDiag(retryErr) },
+        "parsePrompt: model returned no schema-valid object after retry; giving up",
+      );
       // Bill both failed attempts before surfacing the error so Cloud
       // rate-limiting doesn't under-count a double failure.
       if (IS_CLOUD && retriedTokens > 0) {
@@ -495,8 +519,15 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
           organization: context.org,
         });
       }
+      // If either attempt stopped on the output-token ceiling, the JSON was
+      // cut off mid-stream — a generic "try again" won't help an inherently
+      // too-large response, so point the user at narrowing the request.
+      const truncated =
+        err.finishReason === "length" || retryErr.finishReason === "length";
       throw new Error(
-        "The AI couldn't format a valid response for this request. Please try again, or rephrase/simplify the request.",
+        truncated
+          ? "Your request produced a response too large to return in one piece. Try a more focused request — for example, edit one section or a few elements at a time, then layer on more."
+          : "The AI couldn't format a valid response for this request. Please try again, or rephrase/simplify the request.",
       );
     }
   }
