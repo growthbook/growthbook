@@ -377,6 +377,7 @@ export default function TrafficAllocationFunnel({
               canEditExperiment={canEditExperiment}
               mutate={mutate}
               noMargin
+              centered
               onEditMetadata={
                 canEditExperiment && setEditVariationIndex
                   ? (index) => setEditVariationIndex(index)

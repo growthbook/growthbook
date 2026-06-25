@@ -1,5 +1,6 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { Box } from "@radix-ui/themes";
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { useAttributeSchema, useEnvironments } from "@/services/features";
 import TargetingFieldsGroup from "@/components/Features/TargetingFieldsGroup";
 import FallbackAttributeSelector from "@/components/Features/FallbackAttributeSelector";
@@ -74,6 +75,8 @@ export default function EditTargetingModal({
 
   const orgStickyBucketing = !!settings.useStickyBucketing;
 
+  const simpleExperimentFlow = useFeatureIsOn("simple-experiment-flow");
+
   if (safeToEdit) {
     return (
       <ModalStandard
@@ -86,56 +89,60 @@ export default function EditTargetingModal({
         size="lg"
       >
         <div className="pt-2">
-          <SelectField
-            withRadixThemedPortal
-            containerClassName="flex-1"
-            label="Assignment Attribute"
-            labelClassName="font-weight-bold"
-            options={hashAttributeOptions}
-            sort={false}
-            value={form.watch("hashAttribute")}
-            onChange={(v) => {
-              form.setValue("hashAttribute", v);
-            }}
-            formatOptionLabel={(o, meta) => {
-              return (
-                <AttributeOptionWithTooltip
-                  option={o as AttributeOptionForTooltip}
-                  context={meta.context}
-                >
-                  {o.label}
-                </AttributeOptionWithTooltip>
-              );
-            }}
-            helpText={
-              "Will be hashed together with the Tracking Key to determine which variation to assign"
-            }
-          />
-          {orgStickyBucketing ? (
-            <Switch
-              mt="4"
-              mb="2"
-              label="Disable Sticky Bucketing"
-              description="Do not persist variation assignments for this experiment (overrides your organization settings)"
-              value={!!form.watch("disableStickyBucketing")}
-              onChange={(v) => {
-                form.setValue("disableStickyBucketing", v);
-              }}
-            />
+          {simpleExperimentFlow ? (
+            <>
+              <SelectField
+                withRadixThemedPortal
+                containerClassName="flex-1"
+                label="Assignment Attribute"
+                labelClassName="font-weight-bold"
+                options={hashAttributeOptions}
+                sort={false}
+                value={form.watch("hashAttribute")}
+                onChange={(v) => {
+                  form.setValue("hashAttribute", v);
+                }}
+                formatOptionLabel={(o, meta) => {
+                  return (
+                    <AttributeOptionWithTooltip
+                      option={o as AttributeOptionForTooltip}
+                      context={meta.context}
+                    >
+                      {o.label}
+                    </AttributeOptionWithTooltip>
+                  );
+                }}
+                helpText={
+                  "Will be hashed together with the Tracking Key to determine which variation to assign"
+                }
+              />
+              {orgStickyBucketing ? (
+                <Switch
+                  mt="4"
+                  mb="2"
+                  label="Disable Sticky Bucketing"
+                  description="Do not persist variation assignments for this experiment (overrides your organization settings)"
+                  value={!!form.watch("disableStickyBucketing")}
+                  onChange={(v) => {
+                    form.setValue("disableStickyBucketing", v);
+                  }}
+                />
+              ) : null}
+              {!disableStickyBucketing && (
+                <FallbackAttributeSelector
+                  form={form}
+                  attributeSchema={attributeSchema}
+                />
+              )}
+              <HashVersionSelector
+                value={form.watch("hashVersion")}
+                onChange={(v) => form.setValue("hashVersion", v)}
+                project={experiment.project}
+              />
+            </>
           ) : null}
-          {!disableStickyBucketing && (
-            <FallbackAttributeSelector
-              form={form}
-              attributeSchema={attributeSchema}
-            />
-          )}
-          <HashVersionSelector
-            value={form.watch("hashVersion")}
-            onChange={(v) => form.setValue("hashVersion", v)}
-            project={experiment.project}
-          />
 
-          <Box mt="6">
+          <Box mt={simpleExperimentFlow ? "6" : "0"}>
             <TargetingFieldsGroup
               project={experiment.project || ""}
               environments={envs}

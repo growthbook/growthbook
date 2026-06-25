@@ -9,6 +9,7 @@ import { useState } from "react";
 import { HoldoutInterfaceStringDates } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import { Flex } from "@radix-ui/themes";
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import LinkedChanges from "@/components/Experiment/LinkedChanges/LinkedChanges";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useAuth } from "@/services/auth";
@@ -105,11 +106,9 @@ export default function Implementation({
   );
 
   const isHoldout = experiment.type === "holdout";
-  // The Traffic Allocation funnel (with the dedicated namespace block and
-  // variations inside) is used for standard experiments and bandits. Holdouts
-  // keep their existing layout. The funnel itself is bandit-aware (it hides the
-  // "% Split" fork and disables editing while a bandit is running).
-  const showTrafficFunnel = !isHoldout;
+  const simpleExperimentFlow = useFeatureIsOn("simple-experiment-flow");
+
+  const showTrafficFunnel = !isHoldout && simpleExperimentFlow;
   const canEditHoldoutDefaultState =
     isHoldout &&
     !!holdout &&

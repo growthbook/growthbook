@@ -153,6 +153,9 @@ interface Props {
   onEditMetadata?: (variationIndex: number) => void;
   onAddVariation?: () => void;
   onEditTraffic?: () => void;
+  // When true (used by the Traffic Allocation funnel), the grid is centered and
+  // capped at 3 columns. Otherwise the pre-PR grid layout is used.
+  centered?: boolean;
 }
 
 function AddVariationButton({ onClick }: { onClick: () => void }) {
@@ -218,6 +221,7 @@ export function VariationBox({
   shareType = "experiment",
   onEditMetadata,
   onEditTraffic,
+  capWidth = false,
 }: {
   i: number;
   v: Variation;
@@ -237,6 +241,7 @@ export function VariationBox({
   shareType?: "experiment" | "report";
   onEditMetadata?: (variationIndex: number) => void;
   onEditTraffic?: () => void;
+  capWidth?: boolean;
 }) {
   const { blockFileUploads } = useOrgSettings();
   const isBandit = experiment.type === "multi-armed-bandit";
@@ -249,7 +254,7 @@ export function VariationBox({
       className={`appbox mb-0 position-relative variation variation${i} with-variation-label`}
       style={{
         minWidth,
-        maxWidth: MAX_VARIATION_WIDTH + "px",
+        maxWidth: capWidth ? MAX_VARIATION_WIDTH + "px" : undefined,
       }}
     >
       <Box
@@ -387,6 +392,7 @@ const VariationsTable: FC<Props> = ({
   onEditMetadata,
   onAddVariation,
   onEditTraffic,
+  centered = false,
 }) => {
   const { apiCall } = useAuth();
   const variations = getLatestPhaseVariations(experiment);
@@ -405,7 +411,11 @@ const VariationsTable: FC<Props> = ({
   const hasUniqueIDs = variations.some((v, i) => v.key !== i + "");
   const hasAnyImages = variations.some((v) => v.screenshots.length > 0);
 
-  const cols = Math.min(variations.length, 3);
+  const cols = centered
+    ? Math.min(variations.length, 3)
+    : variations.length > 4
+      ? 4
+      : variations.length;
   const gap = "4";
   const maxImageHeight = hasAnyImages ? 200 : 72;
 
@@ -417,7 +427,19 @@ const VariationsTable: FC<Props> = ({
 
   return (
     <Box mx={noMargin ? "0" : "4"}>
-      <Grid gap={gap} justify="center" columns={getVariationGridColumns(cols)}>
+      <Grid
+        gap={gap}
+        {...(centered
+          ? { justify: "center", columns: getVariationGridColumns(cols) }
+          : {
+              columns: {
+                initial: "1",
+                xs: "2",
+                sm: cols === 2 ? "2" : "3",
+                md: cols.toString(),
+              },
+            })}
+      >
         {variations.map((v, i) => {
           if (variationsList && !variationsList.includes(v.id)) return null;
           const box = (
@@ -441,6 +463,7 @@ const VariationsTable: FC<Props> = ({
               onEditMetadata={onEditMetadata}
               onEditTraffic={onEditTraffic}
               showNoImage={experiment.status === "draft"}
+              capWidth={centered}
             />
           );
 
