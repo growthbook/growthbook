@@ -296,10 +296,11 @@ export type ColumnTopValuesParams = {
   lookbackDays?: number;
   maxValueLength?: number;
 };
+
+/** Rows are returned most-frequent-first per column. */
 export type ColumnTopValuesResponseRow = {
   column: string;
   value: string;
-  count: number;
 };
 
 interface ExperimentBaseQueryParams {
