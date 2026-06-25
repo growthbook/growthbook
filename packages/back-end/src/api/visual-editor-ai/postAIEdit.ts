@@ -734,6 +734,10 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
     tools,
     maxSteps: VISUAL_EDITOR_MAX_STEPS,
     cacheSystemPrompt: true,
+    // Attach the picked-element selectors to the structured-output failure
+    // logs so we can see which selectors (e.g. hashed classes) correlate
+    // with "couldn't format a valid response" errors. Diagnostic only.
+    logContext: { pickedSelectors: elementContext.map((e) => e.selector) },
     onStepFinish: ({ toolCalls }) => {
       if (toolCalls && toolCalls.length > 0) {
         logger.debug(

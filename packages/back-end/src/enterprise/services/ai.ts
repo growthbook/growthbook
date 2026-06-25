@@ -375,6 +375,7 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
   onStepFinish,
   retryOnNoObject = true,
   maxOutputTokens = 8000,
+  logContext,
 }: {
   context: ReqContext | ApiReqContext;
   instructions?: string;
@@ -401,6 +402,11 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
   // valid response"). 8000 stays under every current provider's ceiling;
   // callers that emit large artifacts (Figma → Variant) can raise it.
   maxOutputTokens?: number;
+  // Extra fields merged into the NoObjectGeneratedError diagnostic logs so
+  // callers can attach request-specific context (e.g. the visual editor's
+  // picked-element selectors) for correlating which inputs trip the
+  // structured-output failure. Diagnostic only — never affects the model.
+  logContext?: Record<string, unknown>;
   // Optional tool-calling: when present, the model may emit tool calls
   // across up to `maxSteps` LLM round-trips before producing the final
   // structured output. Default of 1 keeps the no-tools shape identical.
@@ -487,6 +493,7 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
     finishReason: e.finishReason,
     cause: e.cause instanceof Error ? e.cause.message : String(e.cause ?? ""),
     textSample: (e.text ?? "").slice(0, 2000),
+    ...(logContext ?? {}),
   });
 
   let retriedTokens = 0;
