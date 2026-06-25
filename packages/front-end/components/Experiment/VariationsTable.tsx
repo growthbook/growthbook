@@ -3,7 +3,7 @@ import {
   Variation,
 } from "shared/types/experiment";
 import { getLatestPhaseVariations } from "shared/experiments";
-import { FC, useState, useRef, useCallback } from "react";
+import { FC, useState, useRef, useCallback, useEffect } from "react";
 import { Box, Flex, Grid, Heading, IconButton } from "@radix-ui/themes";
 import {
   PiCameraLight,
@@ -25,15 +25,35 @@ import Metadata from "@/ui/Metadata";
 
 export const MAX_VARIATION_WIDTH = 336;
 
-// Responsive `grid-template-columns` for variation columns. Shared so the
-// traffic-allocation funnel fork can align its arrows with these same columns.
-// `cols` is the number of variations, capped at 3 by the caller.
+// Radix Themes breakpoints (px). These mirror `@radix-ui/themes`'
+// `src/styles/breakpoints.css` (`--xs`/`--sm`)
+const XS_BREAKPOINT = 520;
+const SM_BREAKPOINT = 768;
+
 export const getVariationGridColumns = (cols: number) => ({
   initial: `minmax(0, ${MAX_VARIATION_WIDTH}px)`,
   xs: `repeat(${Math.min(cols, 2)}, minmax(0, ${MAX_VARIATION_WIDTH}px))`,
   sm: `repeat(${cols}, minmax(0, ${MAX_VARIATION_WIDTH}px))`,
   md: `repeat(${cols}, minmax(0, ${MAX_VARIATION_WIDTH}px))`,
 });
+
+function useMaxColsForViewport(): number {
+  const [maxCols, setMaxCols] = useState(3);
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const xs = window.matchMedia(`(min-width: ${XS_BREAKPOINT}px)`);
+    const sm = window.matchMedia(`(min-width: ${SM_BREAKPOINT}px)`);
+    const update = () => setMaxCols(sm.matches ? 3 : xs.matches ? 2 : 1);
+    update();
+    xs.addEventListener("change", update);
+    sm.addEventListener("change", update);
+    return () => {
+      xs.removeEventListener("change", update);
+      sm.removeEventListener("change", update);
+    };
+  }, []);
+  return maxCols;
+}
 
 const imageCache = {};
 
@@ -377,14 +397,14 @@ const VariationsTable: FC<Props> = ({
   const hasUniqueIDs = variations.some((v, i) => v.key !== i + "");
   const hasAnyImages = variations.some((v) => v.screenshots.length > 0);
 
-  // set some variables for the display of the component - could make options
   const cols = Math.min(variations.length, 3);
   const gap = "4";
-  const maxImageHeight = hasAnyImages ? 200 : 72; // shrink the image height if there are no images
+  const maxImageHeight = hasAnyImages ? 200 : 72;
 
-  // When the last row is full (count is a multiple of the 3-column max), there's
-  // no room to the right of the last card, so the add button drops below the row.
-  const fullLastRow = variations.length % 3 === 0;
+  const maxColsForViewport = useMaxColsForViewport();
+  const columnsPerRow = Math.min(variations.length, maxColsForViewport);
+  const fullLastRow =
+    columnsPerRow > 0 && variations.length % columnsPerRow === 0;
   const lastIndex = variations.length - 1;
 
   return (
@@ -415,9 +435,6 @@ const VariationsTable: FC<Props> = ({
             />
           );
 
-          // For a partial last row, render the add button to the right of the
-          // last card. It's a sibling of the card (outside it), absolutely
-          // positioned so the centered cards don't shift.
           if (onAddVariation && !fullLastRow && i === lastIndex) {
             return (
               <Box key={v.id} style={{ position: "relative" }}>
