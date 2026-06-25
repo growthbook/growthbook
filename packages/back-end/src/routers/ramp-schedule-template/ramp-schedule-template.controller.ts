@@ -49,17 +49,25 @@ export const postRampScheduleTemplate = async (
 
   const body = req.body;
 
-  const { steps, name, official, endPatch, monitoringConfig, lockdownConfig } =
-    body;
+  const {
+    steps,
+    name,
+    entityType,
+    official,
+    endPatch,
+    monitoringConfig,
+    lockdownConfig,
+  } = body;
 
   const created = await context.models.rampScheduleTemplates.create({
     name,
+    entityType,
     steps: steps ?? [],
     endPatch,
     official,
     monitoringConfig,
     lockdownConfig,
-    order: await context.models.rampScheduleTemplates.getNextOrder(),
+    order: await context.models.rampScheduleTemplates.getNextOrder(entityType),
   });
   res.status(201).json({ status: 201, rampScheduleTemplate: created });
 };
@@ -118,6 +126,7 @@ export const putRampScheduleTemplate = async (
     updates.monitoringConfig = body.monitoringConfig;
   if (body.lockdownConfig !== undefined)
     updates.lockdownConfig = body.lockdownConfig;
+  // entityType is readonly post-create and intentionally not updatable here.
 
   const updated = await context.models.rampScheduleTemplates.updateById(
     template.id,

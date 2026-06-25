@@ -5,6 +5,7 @@ import { format } from "date-fns";
 import { abbreviateAgo } from "shared/dates";
 import {
   isReadyForApproval,
+  getEffectiveRampStatus,
   RampScheduleInterface,
   RampScheduleStatus,
   RampStepAction,
@@ -184,9 +185,87 @@ function PopoverPatchDisplay({
   const additionalItems: ReactNode[] = [];
 
   actions.forEach((action, ai) => {
+    const k = (s: string) => `${ai}-${s}`;
+
+    if (action.targetType === "experiment") {
+      const p = action.patch;
+
+      if (p.coverage !== null && p.coverage !== undefined) {
+        coverageItems.push(
+          <PopoverEffectRow key={k("cov")} label="Coverage">
+            {Math.round(p.coverage * 100)}%
+          </PopoverEffectRow>,
+        );
+      }
+      if (p.variationWeights && p.variationWeights.length > 0) {
+        additionalItems.push(
+          <PopoverEffectRow key={k("weights")} label="Split">
+            <Text size="small">
+              {p.variationWeights
+                .map((w) => `${Math.round(w * 100)}%`)
+                .join(" / ")}
+            </Text>
+          </PopoverEffectRow>,
+        );
+      }
+      if (p.condition !== null && p.condition !== undefined) {
+        additionalItems.push(
+          <PopoverEffectRow key={k("cond")} label="Attribute targeting">
+            {p.condition && p.condition !== "{}" ? (
+              <ConditionDisplay condition={p.condition} />
+            ) : (
+              <Text size="small" fontStyle="italic">
+                None
+              </Text>
+            )}
+          </PopoverEffectRow>,
+        );
+      }
+      if (p.savedGroups !== null && p.savedGroups !== undefined) {
+        additionalItems.push(
+          <PopoverEffectRow key={k("sg")} label="Saved groups">
+            {p.savedGroups.length > 0 ? (
+              <SavedGroupTargetingDisplay savedGroups={p.savedGroups} />
+            ) : (
+              <Text size="small" fontStyle="italic">
+                None
+              </Text>
+            )}
+          </PopoverEffectRow>,
+        );
+      }
+      if (p.prerequisites !== null && p.prerequisites !== undefined) {
+        additionalItems.push(
+          <PopoverEffectRow key={k("prereq")} label="Prerequisites">
+            {p.prerequisites.length > 0 ? (
+              <ConditionDisplay prerequisites={p.prerequisites} />
+            ) : (
+              <Text size="small" fontStyle="italic">
+                None
+              </Text>
+            )}
+          </PopoverEffectRow>,
+        );
+      }
+      // Phase / bucketing controls — surface the re-randomization behavior so
+      // it's clear which steps reshuffle users vs. update coverage in place.
+      const bucketingNotes: string[] = [];
+      if (p.newPhase) bucketingNotes.push("New phase");
+      if (p.reseed) bucketingNotes.push("Re-seed");
+      if (p.bumpBucketVersion) bucketingNotes.push("Re-bucket");
+      if (p.blockPriorBucketed) bucketingNotes.push("Exclude prior users");
+      if (bucketingNotes.length > 0) {
+        additionalItems.push(
+          <PopoverEffectRow key={k("phase")} label="Bucketing">
+            <Text size="small">{bucketingNotes.join(", ")}</Text>
+          </PopoverEffectRow>,
+        );
+      }
+      return;
+    }
+
     if (action.targetType !== "feature-rule") return;
     const p = action.patch;
-    const k = (s: string) => `${ai}-${s}`;
 
     if (p.coverage !== null && p.coverage !== undefined) {
       const displayCov = Math.round(p.coverage * 100);
@@ -421,6 +500,11 @@ function NodePopoverContent({
       }
       if (status === "paused")
         return { label: "Paused", color: "var(--amber-11)" };
+      // Not started yet — the schedule is armed but hasn't begun running.
+      if (status === "pending" || status === "ready")
+        return { label: "Scheduled", color: "var(--amber-9)" };
+      if (status === "rolled-back")
+        return { label: "Rolled back", color: "var(--red-9)" };
       if (monitored) return { label: "Monitoring", color: "var(--blue-9)" };
       return { label: "Running", color: "var(--green-9)" };
     }
@@ -649,6 +733,8 @@ interface NodeMeta {
   connectorLabel?: ReactNode;
   dotColorOverride?: string;
   labelColorOverride?: string;
+  /** Force this node's state instead of deriving it from the playhead. */
+  stateOverride?: NodeState;
   /** Pre-built popover content — when present, wraps node in a hover popover. */
   popoverContent?: ReactNode;
 }
@@ -746,6 +832,15 @@ interface Props {
   onJump?: (targetStepIndex: number) => Promise<void> | void;
   onComplete?: () => Promise<void> | void;
   onCompleteAndDisable?: () => Promise<void> | void;
+  // Experiment ramps don't carry their start/end on the schedule itself (the
+  // experiment's statusUpdateSchedule owns them, and `cutoffDate` is unused).
+  // When provided, these drive what the start/end nodes show.
+  displayStartDate?: Date | string | null;
+  displayEndDate?: Date | string | null;
+  // The owning experiment's status (experiment ramps only). Drives the
+  // liveness-aware playhead (a draft never shows progress) and the separate
+  // "experiment ends" node.
+  experimentStatus?: string;
 }
 
 // ─── Exported helpers (used by parent pages to build header rows) ─────────────
@@ -799,6 +894,66 @@ export function getRampStepsCompleted(rs: RampScheduleInterface): number {
   return Math.min(rs.steps.length, Math.max(0, rs.currentStepIndex + 1));
 }
 
+// Format a duration (in seconds) as a compact human label, e.g. "2d 3h", "45m".
+export function formatRemainingDuration(totalSeconds: number): string {
+  if (totalSeconds < 60) return `${Math.round(totalSeconds)}s`;
+  const minutes = totalSeconds / 60;
+  if (minutes < 60) return `${Math.round(minutes)}m`;
+  const hours = totalSeconds / 3600;
+  if (hours < 24) {
+    const h = Math.floor(hours);
+    const m = Math.round((hours - h) * 60);
+    return m > 0 ? `${h}h ${m}m` : `${h}h`;
+  }
+  const days = totalSeconds / 86400;
+  const d = Math.floor(days);
+  const h = Math.round((days - d) * 24);
+  return h > 0 ? `${d}d ${h}h` : `${d}d`;
+}
+
+// Estimate the time and manual approvals left before the ramp completes. Only
+// meaningful while running/paused; returns null otherwise.
+export function computeRemainingTime(
+  rs: RampScheduleInterface,
+): { seconds: number; manualApprovals: number } | null {
+  if (rs.status !== "running" && rs.status !== "paused") return null;
+
+  let seconds = 0;
+  let manualApprovals = 0;
+
+  // The current step can have two holds that clear in sequence: the interval
+  // timer first, then a manual approval. Count both remaining components — the
+  // time still left on the timer plus the approval, which only becomes
+  // actionable once the timer elapses — so the estimate reflects all the work
+  // left before the step can advance.
+  const currentStep =
+    rs.currentStepIndex >= 0 ? rs.steps[rs.currentStepIndex] : undefined;
+  const currentNeedsApproval =
+    !!currentStep?.holdConditions?.requiresApproval &&
+    rs.stepApproval?.stepIndex !== rs.currentStepIndex;
+  // nextStepAt is the current step's timer; it is frozen (null) while paused.
+  const currentTimerRemainingMs = rs.nextStepAt
+    ? new Date(rs.nextStepAt).getTime() - Date.now()
+    : 0;
+  if (currentNeedsApproval) manualApprovals++;
+  if (currentTimerRemainingMs > 0) {
+    seconds += Math.ceil(currentTimerRemainingMs / 1000);
+  }
+
+  // Future steps still contribute their full interval and approval holds.
+  for (let i = rs.currentStepIndex + 1; i < rs.steps.length; i++) {
+    const step = rs.steps[i];
+    if (step?.interval) {
+      seconds += step.interval;
+    }
+    if (step?.holdConditions?.requiresApproval) {
+      manualApprovals++;
+    }
+  }
+
+  return { seconds, manualApprovals };
+}
+
 // ─── RampTimeline ─────────────────────────────────────────────────────────────
 
 export default function RampTimeline({
@@ -807,6 +962,9 @@ export default function RampTimeline({
   onJump,
   onComplete,
   onCompleteAndDisable,
+  displayStartDate,
+  displayEndDate,
+  experimentStatus,
 }: Props) {
   const { steps, status, startDate, targets } = rs;
   // activatingRevisionVersion is now per-target; find the first target that has one
@@ -815,8 +973,37 @@ export default function RampTimeline({
   )?.activatingRevisionVersion;
   const doneCount = completedNodeCount(rs);
 
+  // Experiments don't have a rule to "disable" — a cutoff date stops the
+  // experiment. Use entity-appropriate wording for the terminal node.
+  const isExperiment = rs.entityType === "experiment";
+
+  // Effective start/end shown on the boundary nodes. Callers (experiment ramps)
+  // can override since the experiment's scheduled start/stop live outside the
+  // schedule; otherwise fall back to the schedule's own dates.
+  // Experiments never use the schedule's own startDate/cutoffDate (feature-only)
+  // — their boundary dates come from the experiment via the display* props.
+  const effectiveStartDate = isExperiment
+    ? displayStartDate || null
+    : (displayStartDate ?? startDate) || null;
+  const effectiveEndDate = isExperiment
+    ? displayEndDate || null
+    : (displayEndDate ?? rs.cutoffDate) || null;
+  const cutoffLabel = isExperiment ? "stop" : "disable";
+  const cutoffHeading = isExperiment ? "Stop" : "Disable";
+
+  // For experiment ramps, the playhead is liveness-aware: a not-started
+  // experiment sits at the Start node with nothing progressed, even if the
+  // stored schedule has a residual step index.
+  const expNotStarted =
+    isExperiment &&
+    !!experimentStatus &&
+    getEffectiveRampStatus(experimentStatus, rs) === "not-started";
+  const experimentStopped = isExperiment && experimentStatus === "stopped";
+
   function getState(i: number): NodeState {
     if (pendingDetach) return "future";
+    // Liveness-aware: a not-yet-live experiment sits at Start, nothing done.
+    if (expNotStarted) return i === 0 ? "active" : "future";
     if (i < doneCount) return "completed";
     if (status === "pending") return "future";
     if (status === "ready") {
@@ -831,17 +1018,19 @@ export default function RampTimeline({
     return "future";
   }
 
-  // Show the configured startDate on the Start node only while the schedule
-  // is still waiting to actually start. `startDate` is a one-shot gate
-  // consumed when the schedule first transitions out of pending/ready; the
-  // resume path from a rolled-back step -1 also fires step 0 immediately
-  // (it doesn't re-arm the startDate hold), so showing the date once we've
-  // started would just be stale UI.
+  // For features, show the configured startDate on the Start node only while
+  // the schedule is still waiting to start — `startDate` is a one-shot gate
+  // consumed once it starts, so showing it afterward would be stale UI. For
+  // experiments the start date is the experiment's actual start, so it stays
+  // meaningful (and worth showing) for the whole run.
   const showStartDate =
-    !!startDate && (status === "pending" || status === "ready");
-  const startSublabel = showStartDate ? formatScheduledDate(startDate!) : null;
+    !!effectiveStartDate &&
+    (isExperiment || status === "pending" || status === "ready");
+  const startSublabel = showStartDate
+    ? formatScheduledDate(effectiveStartDate!)
+    : null;
   const startInline = showStartDate
-    ? formatScheduledDate(startDate!, { inline: true })
+    ? formatScheduledDate(effectiveStartDate!, { inline: true })
     : null;
   const nodes: NodeMeta[] = [
     {
@@ -870,18 +1059,21 @@ export default function RampTimeline({
       const state = getState(i + 1);
       return {
         key: `step-${i}`,
-        label: step.monitored ? (
-          <Flex align="center" gap="1">
-            {i + 1}
-            <MonitoredIcon size={16} style={{ opacity: 0.65 }} />
-          </Flex>
-        ) : (
-          String(i + 1)
-        ),
+        // Experiments are inherently monitored (they're an experiment), so the
+        // per-step "monitored" indicator is meaningless noise — hide it.
+        label:
+          !isExperiment && step.monitored ? (
+            <Flex align="center" gap="1">
+              {i + 1}
+              <MonitoredIcon size={16} style={{ opacity: 0.65 }} />
+            </Flex>
+          ) : (
+            String(i + 1)
+          ),
         sublabel: null,
         connectorLabel:
           i === 0 ? (
-            !startDate ? (
+            !effectiveStartDate ? (
               <Text size="small">auto</Text>
             ) : undefined
           ) : (
@@ -897,7 +1089,7 @@ export default function RampTimeline({
             interval={step.interval}
             triggerLabel={formatStepGate(step.interval, step.holdConditions)}
             actions={step.actions}
-            monitored={step.monitored}
+            monitored={!isExperiment && step.monitored}
             holdConditions={step.holdConditions}
             stepIndex={i}
             isActive={state === "active"}
@@ -917,6 +1109,78 @@ export default function RampTimeline({
               steps[steps.length - 1].holdConditions,
             )
           : undefined;
+
+      // Experiment ramps: the end of the ramp-up and the end of the experiment
+      // are two distinct events. Show them as two nodes so it's clear which is
+      // which — "ramp ends" (steps complete) then "experiment ends" (the
+      // scheduled stop, or a future manual stop when no end date is set). The
+      // experiment-end node carries no ramp interval (its connector is blank),
+      // signalling it's a separate milestone outside the ramp.
+      if (isExperiment) {
+        const rampEndIdx = steps.length + 1;
+        const expEndState: NodeState = experimentStopped
+          ? "completed"
+          : "future";
+        return [
+          {
+            key: "ramp-end",
+            label: "ramp ends",
+            sublabel: null,
+            connectorLabel: lastStepConnector,
+            popoverContent: (
+              <NodePopoverContent
+                heading="Ramp ends"
+                headingColor={nodeLabelColor(getState(rampEndIdx), status)}
+                nodeColor={dotColor(getState(rampEndIdx), status)}
+                nodeState={getState(rampEndIdx)}
+                status={status}
+                interval={null}
+                triggerLabel={
+                  <Text size="small">
+                    Ramp-up complete; experiment continues
+                  </Text>
+                }
+                actions={rs.endActions ?? []}
+                stepIndex="end"
+                isActive={getState(rampEndIdx) === "active"}
+                rs={rs}
+              />
+            ),
+          },
+          {
+            key: "experiment-end",
+            label: "experiment ends",
+            sublabel: effectiveEndDate ? (
+              formatScheduledDate(effectiveEndDate)
+            ) : (
+              <Text size="small">when stopped</Text>
+            ),
+            // Blank connector — this is not a ramp step gate.
+            stateOverride: expEndState,
+            popoverContent: (
+              <NodePopoverContent
+                heading="Experiment ends"
+                headingColor={nodeLabelColor(expEndState, status)}
+                nodeColor={dotColor(expEndState, status)}
+                nodeState={expEndState}
+                status={status}
+                interval={null}
+                triggerLabel={
+                  effectiveEndDate ? (
+                    formatScheduledDate(effectiveEndDate, { inline: true })
+                  ) : (
+                    <Text size="small">No scheduled end — stops manually</Text>
+                  )
+                }
+                actions={[]}
+                stepIndex="end"
+                isActive={false}
+                rs={rs}
+              />
+            ),
+          },
+        ];
+      }
 
       if (dual) {
         const rampEndIdx = steps.length + 1;
@@ -947,11 +1211,11 @@ export default function RampTimeline({
           },
           {
             key: "end-cutoff",
-            label: "disable",
+            label: cutoffLabel,
             sublabel: formatScheduledDate(rs.cutoffDate!),
             popoverContent: (
               <NodePopoverContent
-                heading="Disable"
+                heading={cutoffHeading}
                 headingColor={nodeLabelColor(getState(cutoffIdx), status)}
                 nodeColor={dotColor(getState(cutoffIdx), status)}
                 nodeState={getState(cutoffIdx)}
@@ -973,18 +1237,18 @@ export default function RampTimeline({
         ];
       }
 
-      const singleDate = rs.cutoffDate ?? null;
+      const singleDate = effectiveEndDate;
       const hasDisableDate = !!singleDate;
       const endNodeIndex = steps.length + 1;
       return [
         {
           key: "end",
-          label: hasDisableDate ? "disable" : "end",
+          label: hasDisableDate ? cutoffLabel : "end",
           sublabel: singleDate ? formatScheduledDate(singleDate) : null,
           connectorLabel: lastStepConnector,
           popoverContent: (
             <NodePopoverContent
-              heading={hasDisableDate ? "Disable" : "End"}
+              heading={hasDisableDate ? cutoffHeading : "End"}
               headingColor={nodeLabelColor(getState(endNodeIndex), status)}
               nodeColor={dotColor(getState(endNodeIndex), status)}
               nodeState={getState(endNodeIndex)}
@@ -1075,7 +1339,11 @@ export default function RampTimeline({
                   }
                 />
               )}
-              <Node node={node} state={getState(i)} status={status} />
+              <Node
+                node={node}
+                state={node.stateOverride ?? getState(i)}
+                status={status}
+              />
             </Fragment>
           ))}
         </Flex>

@@ -17,7 +17,7 @@ import {
   getExperimentResultStatus,
   getHealthSettings,
 } from "shared/enterprise";
-import { ExperimentAnalysisSummary } from "shared/validators";
+import { AutoRollbackMode, ExperimentAnalysisSummary } from "shared/validators";
 import { StatsEngine } from "shared/types/stats";
 import {
   ExperimentHealthSettings,
@@ -33,6 +33,11 @@ import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
 import { logger } from "back-end/src/util/logger";
 import { getLatestSuccessfulSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
+import {
+  resolveHealthSignals,
+  applyShippingCriteria,
+  resolveShippingMode,
+} from "back-end/src/services/experimentRampSchedule";
 import { getExperimentMetricById } from "back-end/src/services/experiments";
 import {
   getEnvironmentIdsFromOrg,
@@ -695,5 +700,141 @@ export const notifyExperimentChange = async ({
     }
   }
 
+  // After notifications, evaluate health signal auto-actions for non-ramp
+  // experiments. Ramp experiments already have their health checks inside
+  // evaluateExperimentRampStep.
+  if (!experiment.rampScheduleId) {
+    await applyHealthActions(
+      context,
+      experiment,
+      currentStatus ?? null,
+      triggeredNoData,
+    );
+  }
+
+  // Evaluate shipping criteria (auto-ship) for non-ramp experiments.
+  // Ramp experiments handle end-of-ramp shipping via their own evaluator.
+  if (!experiment.rampScheduleId) {
+    await evaluateShippingCriteria(context, experiment);
+  }
+
   return notificationsTriggered;
 };
+
+function resolveAutoRollbackMode(
+  experiment: ExperimentInterface,
+  org: { settings?: { defaultAutoRollbackMode?: AutoRollbackMode } },
+): AutoRollbackMode {
+  return (
+    experiment.autoRollbackMode ??
+    org.settings?.defaultAutoRollbackMode ??
+    "off"
+  );
+}
+
+/**
+ * Evaluates health signal auto-actions for non-ramp running experiments.
+ * Health signal classification comes from the experiment's Decision Criteria.
+ *
+ * Gated by autoRollbackMode — only executes when mode includes health
+ * signals ("all" or "health-only").
+ *
+ * "rollback" -> auto-stop the experiment.
+ * "review"   -> no-op here (notifications handled separately;
+ *               rampProgressionMode blocks ramp/shipping in other evaluators).
+ */
+async function applyHealthActions(
+  context: Context,
+  experiment: ExperimentInterface,
+  status: ExperimentResultStatusData | null,
+  noData: boolean,
+): Promise<void> {
+  if (experiment.status !== "running") return;
+
+  const mode = resolveAutoRollbackMode(experiment, context.org);
+  if (mode !== "all" && mode !== "health-only") return;
+
+  const hs = await resolveHealthSignals(context, experiment);
+
+  // No-traffic auto-stop
+  if (noData && hs.noTrafficAction === "rollback") {
+    logger.info(
+      `Health auto-action: stopping experiment ${experiment.id} due to no traffic`,
+    );
+    await updateExperiment({
+      context,
+      experiment,
+      changes: {
+        status: "stopped",
+        results: "dnf",
+      },
+    });
+    return;
+  }
+
+  if (!status || status.status !== "unhealthy") return;
+  const unhealthy = status.unhealthyData;
+
+  // SRM
+  if (unhealthy.srm && hs.srmAction === "rollback") {
+    logger.info(
+      `Health auto-action: stopping experiment ${experiment.id} due to SRM`,
+    );
+    await updateExperiment({
+      context,
+      experiment,
+      changes: { status: "stopped", results: "dnf" },
+    });
+    return;
+  }
+
+  // Multiple exposures
+  if (unhealthy.multipleExposures && hs.multipleExposureAction === "rollback") {
+    logger.info(
+      `Health auto-action: stopping experiment ${experiment.id} due to multiple exposures`,
+    );
+    await updateExperiment({
+      context,
+      experiment,
+      changes: { status: "stopped", results: "dnf" },
+    });
+    return;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Shipping criteria evaluation
+// ---------------------------------------------------------------------------
+
+/**
+ * Evaluates shipping criteria for running experiments. Called on every
+ * snapshot update (same cadence as health actions).
+ *
+ * All auto-ship modes require an end date. Without one, no automated
+ * shipping occurs (equivalent to "off").
+ *
+ * Modes:
+ *  - "off": manual — show recommended decision, no automation
+ *  - "auto": wait for end date, then ship if DC says clear winner.
+ *            Continue running past end date if no clear winner yet.
+ *  - "auto-force": wait for end date, then ship regardless of criteria.
+ */
+async function evaluateShippingCriteria(
+  context: Context,
+  experiment: ExperimentInterface,
+): Promise<void> {
+  if (experiment.status !== "running") return;
+
+  // Non-ramp experiments auto-ship on their scheduled stop date. (Ramp
+  // experiments are gated out before this is called and instead ship at ramp
+  // completion via completeRollout → applyShippingCriteria.)
+  if (resolveShippingMode(experiment, context.org) === "off") return;
+
+  const stopAt = experiment.statusUpdateSchedule?.stopAt;
+  if (!stopAt) return;
+  if (new Date(stopAt) > new Date()) return;
+
+  // The stop date is the trigger; mode→strategy mapping + min-runtime gate are
+  // shared with the ramp-completion path.
+  await applyShippingCriteria(context, experiment);
+}

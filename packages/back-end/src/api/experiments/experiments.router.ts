@@ -16,6 +16,11 @@ import { postVariationImageUpload } from "./postVariationImageUpload";
 import { deleteVariationScreenshot } from "./deleteVariationScreenshot";
 import { getExperimentNames } from "./getExperimentNames";
 import { getExperimentStartChecklist } from "./getExperimentStartChecklist";
+import { getExperimentRampSchedule } from "./getExperimentRampSchedule";
+import { postExperimentRampScheduleRollback } from "./postExperimentRampScheduleRollback";
+import { postExperimentRampSchedulePause } from "./postExperimentRampSchedulePause";
+import { postExperimentRampScheduleResume } from "./postExperimentRampScheduleResume";
+import { postExperimentRampScheduleAdvance } from "./postExperimentRampScheduleAdvance";
 
 export const experimentsRoutes: OpenApiRoute[] = [
   // Experiment Endpoints
@@ -36,6 +41,12 @@ export const experimentsRoutes: OpenApiRoute[] = [
   postVariationImageUpload,
   deleteVariationScreenshot,
   getExperimentNames,
+  // Ramp schedule sub-resource endpoints
+  getExperimentRampSchedule,
+  postExperimentRampScheduleRollback,
+  postExperimentRampSchedulePause,
+  postExperimentRampScheduleResume,
+  postExperimentRampScheduleAdvance,
   // VisualChangeset Endpoints (mounted under /experiments)
   listVisualChangesets,
   postVisualChangesets,

@@ -1,6 +1,7 @@
 import {
   DecisionCriteriaInterface,
   decisionCriteriaInterface,
+  DEFAULT_DC_HEALTH_SIGNALS,
 } from "shared/enterprise";
 import { MakeModelClass } from "back-end/src/models/BaseModel";
 
@@ -19,7 +20,17 @@ const BaseClass = MakeModelClass({
 
 // TODO: project scoping or make more permissive
 export class DecisionCriteriaModel extends BaseClass {
-  // CRUD permission checks
+  protected migrate(legacyDoc: unknown): DecisionCriteriaInterface {
+    if (legacyDoc && typeof legacyDoc === "object") {
+      const raw = legacyDoc as Record<string, unknown>;
+      delete raw["rampBehavior"];
+      if (!raw["healthSignals"]) {
+        raw["healthSignals"] = { ...DEFAULT_DC_HEALTH_SIGNALS };
+      }
+    }
+    return legacyDoc as DecisionCriteriaInterface;
+  }
+
   protected canCreate(): boolean {
     return this.context.permissions.canCreateDecisionCriteria();
   }

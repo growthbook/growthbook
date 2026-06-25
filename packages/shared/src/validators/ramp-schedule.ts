@@ -80,16 +80,133 @@ export const rampMonitoringConfig = z.object({
 });
 export type RampMonitoringConfig = z.infer<typeof rampMonitoringConfig>;
 
-export const rampStepAction = z.object({
+export const featureRuleStepAction = z.object({
   targetType: z.literal("feature-rule"),
   targetId: z.string(),
   patch: featureRulePatch,
 });
+export type FeatureRuleStepAction = z.infer<typeof featureRuleStepAction>;
+
+/** Sparse patch applied to an experiment entity by a ramp step. */
+export const experimentPatch = z.object({
+  coverage: z.number().min(0).max(1).nullish(),
+  variationWeights: z.array(z.number().min(0).max(1)).nullish(),
+  condition: z.string().nullish(),
+  savedGroups: z.array(savedGroupTargeting).nullish(),
+  prerequisites: z.array(featurePrerequisite).nullish(),
+  /**
+   * Whether this step starts a new experiment phase.
+   * true  = full phase change (rerandomization, new seed, analysis window reset)
+   * false = simple in-place coverage / targeting update within the current phase
+   */
+  newPhase: z.boolean().optional(),
+  /** Generate a new random seed when starting a new phase. */
+  reseed: z.boolean().optional(),
+  /** Increment experiment.bucketVersion so sticky-bucketed users get re-assigned. */
+  bumpBucketVersion: z.boolean().optional(),
+  /** Set experiment.minBucketVersion = new bucketVersion to block prior-bucketed users entirely. */
+  blockPriorBucketed: z.boolean().optional(),
+});
+export type ExperimentPatch = z.infer<typeof experimentPatch>;
+
+export const experimentStepAction = z.object({
+  targetType: z.literal("experiment"),
+  targetId: z.string(),
+  patch: experimentPatch,
+});
+export type ExperimentStepAction = z.infer<typeof experimentStepAction>;
+
+/** Discriminated union of all supported ramp step action types. */
+export const rampStepAction = z.discriminatedUnion("targetType", [
+  featureRuleStepAction,
+  experimentStepAction,
+]);
 export type RampStepAction = z.infer<typeof rampStepAction>;
+
+// ---------------------------------------------------------------------------
+// Experiment end strategy
+// ---------------------------------------------------------------------------
+
+export const experimentEndStrategyTypeArray = [
+  "soft",
+  "soft-edf",
+  "hard-planned",
+] as const;
+export type ExperimentEndStrategyType =
+  (typeof experimentEndStrategyTypeArray)[number];
+
+/**
+ * @deprecated Superseded by `shippingCriteria`. Action applied when the
+ * experiment reaches its scheduled stop. The date itself lives on the
+ * experiment (`statusUpdateSchedule.stopAt`). Absent/null means "no automatic
+ * action".
+ */
+export const experimentEndStrategy = z
+  .object({
+    type: z.enum(experimentEndStrategyTypeArray),
+    plannedVariationId: z.string().optional(),
+    minimumRuntimeDays: z.number().positive().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.type === "hard-planned" && !data.plannedVariationId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          'End strategy type "hard-planned" requires a plannedVariationId.',
+        path: ["plannedVariationId"],
+      });
+    }
+  });
+export type ExperimentEndStrategy = z.infer<typeof experimentEndStrategy>;
+
+// ---------------------------------------------------------------------------
+// Experiment ramp automation (shared by the experiment and ramp templates).
+// These live here (rather than in experiments.ts) so ramp templates can carry
+// them without creating an import cycle — experiments.ts imports them back.
+// ---------------------------------------------------------------------------
+
+// Controls automated shipping at the scheduled stop date.
+//   "off"        — manual: show recommended decision, no automation
+//   "auto"       — ship on stop date if DC says clear winner; keep running if not
+//   "auto-force" — ship on stop date regardless of criteria
+export const shippingCriteriaModeArray = ["off", "auto", "auto-force"] as const;
+export const shippingCriteriaMode = z.enum(shippingCriteriaModeArray);
+export type ShippingCriteriaMode = z.infer<typeof shippingCriteriaMode>;
+
+export const shippingCriteria = z
+  .object({
+    mode: shippingCriteriaMode,
+    plannedVariationId: z.string().optional(),
+    minimumRuntimeDays: z.number().positive().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.mode === "auto-force" && !data.plannedVariationId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          'Shipping criteria mode "auto-force" requires a plannedVariationId.',
+        path: ["plannedVariationId"],
+      });
+    }
+  });
+export type ShippingCriteria = z.infer<typeof shippingCriteria>;
+
+// Controls how ramp schedules respond to health signals.
+//   "hold-for-health" — (default) ramp pauses when health signals fire
+//   "ignore"          — ramp advances on schedule; health signals notify only
+export const rampProgressionMode = z.enum(["hold-for-health", "ignore"]);
+export type RampProgressionMode = z.infer<typeof rampProgressionMode>;
+
+// Controls whether rollback signals are executed automatically.
+//   "off"         — manual: prompt to rollback
+//   "all"         — auto-rollback for all signals (metric + health)
+//   "health-only" — auto-rollback for health signals only; prompt for metric
+export const autoRollbackMode = z.enum(["off", "all", "health-only"]);
+export type AutoRollbackMode = z.infer<typeof autoRollbackMode>;
 
 export const rampTarget = z.object({
   id: z.string(),
-  entityType: z.enum(["feature"]), // TODO v2: add "experiment"
+  entityType: z.enum(["feature", "experiment"]),
   entityId: z.string(),
   ruleId: z.string().nullish(),
   // Deprecated pre-v2 rule disambiguator.
@@ -183,14 +300,15 @@ export type RampEvent = z.infer<typeof rampEvent>;
 export const rampScheduleValidator = baseSchema
   .extend({
     name: z.string(),
-    entityType: z.enum(["feature"]), // TODO v2: add "experiment"
+    entityType: z.enum(["feature", "experiment"]),
     entityId: z.string(),
     targets: z.array(rampTarget),
-    // Restores the controlled rules to their pre-ramp state when rolling back to start.
+    // Restores the controlled entity to its pre-ramp state when rolling back to start.
     startActions: z.array(rampStepAction).optional(),
     steps: z.array(rampStep),
     // Applied on top of accumulated step patches when the ramp completes.
     endActions: z.array(rampStepAction).optional(),
+
     // When set, the rule stays disabled until this activation date.
     startDate: z.date().nullish(),
     cutoffDate: z.date().nullish(),
@@ -251,6 +369,9 @@ export const rampScheduleValidator = baseSchema
       const step = data.steps[i];
       if (!step.monitored) continue;
       for (const action of step.actions) {
+        // Coverage constraints only apply to feature-rule actions (safe rollout bucketing model).
+        // Experiment steps can use full 0–1 coverage range.
+        if (action.targetType !== "feature-rule") continue;
         if (action.patch.coverage === 0) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
@@ -345,6 +466,55 @@ export function isReadyForApproval(
   return new Date(schedule.nextStepAt).getTime() <= now.getTime();
 }
 
+/**
+ * The displayed/effective state of an experiment ramp, derived from the
+ * experiment's liveness and the ramp's own stored status.
+ *
+ * The stored `status` records the ramp's intent and lifecycle (pause, terminal
+ * states, progression). Whether it is *actively ramping right now* additionally
+ * depends on the experiment being live — a ramp can only progress while its
+ * experiment is running. Deriving this (rather than trusting `status` alone)
+ * means a ramp can never read or behave as "ramping" off a draft/stopped
+ * experiment, regardless of how its stored status got set.
+ *
+ * Pause is orthogonal: it's an explicit user intent (`status: "paused"`) that
+ * holds while the experiment keeps running, so it's reported as "paused" — not
+ * collapsed away by the liveness check.
+ */
+export type EffectiveRampStatus =
+  | "not-started"
+  | "ramping"
+  | "paused"
+  | "completed"
+  | "rolled-back"
+  | "inactive";
+
+export function getEffectiveRampStatus(
+  experimentStatus: string | undefined,
+  schedule: { status: string; currentStepIndex: number },
+): EffectiveRampStatus {
+  // Terminal states are real regardless of experiment liveness.
+  if (schedule.status === "completed") return "completed";
+  if (schedule.status === "rolled-back") return "rolled-back";
+
+  // A ramp only ramps while the experiment is live. Off a non-running
+  // experiment (draft or stopped) it's either not started yet, or inactive if
+  // it had already progressed — frozen in place so it resumes where it left
+  // off when the experiment runs again (e.g. a transient edit back to draft).
+  // This also guards against showing/behaving as "ramping" before the
+  // experiment is live.
+  if (experimentStatus !== "running") {
+    return schedule.currentStepIndex >= 0 ? "inactive" : "not-started";
+  }
+
+  // Experiment is live: honor an explicit pause, otherwise reflect progression.
+  if (schedule.status === "paused") return "paused";
+  if (schedule.status === "pending" || schedule.status === "ready") {
+    return "not-started";
+  }
+  return "ramping";
+}
+
 export const TEMPLATE_PATCH_FIELDS = [
   "coverage",
   "condition",
@@ -360,9 +530,20 @@ export const TEMPLATE_STRUCTURAL_KEYS = [
 ] as const;
 
 const templateFeatureRulePatch = featureRulePatch.omit({ force: true });
-const templateRampStepAction = rampStepAction.extend({
+const templateFeatureRuleStepAction = featureRuleStepAction.extend({
   patch: templateFeatureRulePatch,
 });
+// Experiment template steps carry the full experiment patch (coverage ladder,
+// targeting, phase-control). `targetId` is a placeholder — the real experiment
+// id is injected at materialization. EDF automation (rollback/progression mode,
+// decision criteria) is intentionally NOT templatized; it stays on the experiment.
+const templateExperimentStepAction = experimentStepAction;
+// Templates support both feature-rule and experiment step actions. The
+// `entityType` on the template determines which kind a given template uses.
+const templateRampStepAction = z.discriminatedUnion("targetType", [
+  templateFeatureRuleStepAction,
+  templateExperimentStepAction,
+]);
 const templateRampStep = rampStep.extend({
   actions: z.array(templateRampStepAction),
 });
@@ -379,6 +560,13 @@ export type TemplateEndPatch = z.infer<typeof templateEndPatchValidator>;
 
 export const rampScheduleTemplateValidator = baseSchema.extend({
   name: z.string(),
+  /**
+   * Which entity kind this template targets. Feature templates carry
+   * feature-rule step actions; experiment templates carry experiment step
+   * actions. Optional/absent is treated as "feature" for backward compat with
+   * documents written before the discriminator existed.
+   */
+  entityType: z.enum(["feature", "experiment"]).optional(),
   steps: z.array(templateRampStep),
   endPatch: templateEndPatchValidator.optional(),
   official: z.boolean().optional(),
@@ -417,7 +605,7 @@ const apiRampStepCommon = {
     .boolean()
     .optional()
     .describe(
-      "When true, this step runs A/B traffic analysis while active. Treatment = [0, coverage), control = [0.5, 0.5+coverage). Arms are equal-sized and non-adjacent: step-ups only add users, never reassign existing ones. The UI caps monitored-step coverage at 0.5 so control end never exceeds 1.0. The SDK uses explicit hash ranges on the experiment rule to prevent bucketing shifts across monitored/unmonitored transitions.",
+      "When true, this step runs A/B traffic analysis while active. For feature-rule steps the rollout rule is promoted to a safe-rollout-style experiment with treatment = [0, coverage), control = [0.5, 0.5+coverage); arms are equal-sized and non-adjacent (step-ups only add users), and coverage is capped at 0.5 so control end never exceeds 1.0. Experiment steps target an existing experiment and may use the full 0–1 coverage range. The SDK uses explicit hash ranges to keep bucketing stable across monitored/unmonitored transitions.",
     ),
   holdConditions: stepHoldConditions.optional(),
 };
@@ -455,7 +643,7 @@ export const apiRampScheduleInterface = namedSchema(
   apiBaseSchema.extend({
     id: z.string().describe("Unique identifier (rs_ prefix)"),
     name: z.string(),
-    entityType: z.enum(["feature"]),
+    entityType: z.enum(["feature", "experiment"]),
     entityId: z.string(),
     targets: z.array(rampTarget).describe("Controlled entity references"),
     startActions: z

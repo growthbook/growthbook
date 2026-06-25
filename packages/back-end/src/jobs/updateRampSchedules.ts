@@ -1,5 +1,6 @@
 import Agenda, { Job } from "agenda";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
+import { getAgendaInstance } from "back-end/src/services/queueing";
 import { logger } from "back-end/src/util/logger";
 import {
   advanceUntilBlocked,
@@ -52,6 +53,23 @@ type AdvanceSingleRampScheduleJob = Job<{
 
 export const QUEUE_RAMP_SCHEDULE_ADVANCES = "queueRampScheduleAdvances";
 const ADVANCE_SINGLE_RAMP_SCHEDULE = "advanceSingleRampSchedule";
+
+/**
+ * Immediately queue an advance evaluation for a specific ramp schedule,
+ * bypassing the 1-minute polling interval. Safe to call concurrently —
+ * the job is `.unique()` so duplicate queues are de-duplicated by Agenda.
+ *
+ * Used by ExperimentSnapshotModel to close the reactivity gap: when a
+ * snapshot lands for a ramp experiment we want health/rollback signals
+ * evaluated right away, not on the next polling tick.
+ */
+export async function triggerImmediateRampScheduleAdvance(
+  rampScheduleId: string,
+  organization: string,
+): Promise<void> {
+  const agenda = getAgendaInstance();
+  await queueRampScheduleAdvance(agenda, { id: rampScheduleId, organization });
+}
 
 const RAMP_POLL_INTERVAL_MINUTES = 1;
 
@@ -172,7 +190,11 @@ export const advanceSingleRampSchedule = async (
     }
 
     if (current.status === "running") {
-      current = await ensureSafeRolloutForMonitoredRamp(context, current);
+      // SafeRollout is only used for feature ramps. Experiment ramps read
+      // analysisSummary directly from the experiment document.
+      if (current.entityType !== "experiment") {
+        current = await ensureSafeRolloutForMonitoredRamp(context, current);
+      }
 
       const decision = await evaluateCurrentStep(context, current, now);
       const result = await applyRampEvaluationDecision(
@@ -220,7 +242,7 @@ export const advanceSingleRampSchedule = async (
           : {}),
       },
     );
-    if (errorSchedule) {
+    if (errorSchedule && errorSchedule.entityType !== "experiment") {
       try {
         await syncLinkedSafeRolloutForRampState(context, updated);
       } catch (syncErr) {

@@ -42,6 +42,8 @@ import {
   TEMPLATE_STRUCTURAL_KEYS,
   type RampStep,
   type FeatureRulePatch,
+  type ExperimentPatch,
+  type FeatureRuleStepAction,
   type TemplateEndPatch,
   type RevisionRampCreateAction,
   type RevisionRampUpdateAction,
@@ -58,6 +60,7 @@ import {
   getRampStatusLabel,
   getRampStepsCompleted,
   formatScheduledDate,
+  formatRemainingDuration,
 } from "@/components/RampSchedule/RampTimeline";
 import Badge from "@/ui/Badge";
 import SelectField from "@/components/Forms/SelectField";
@@ -96,7 +99,6 @@ import { allConnectionsSupportBucketingV2 } from "@/components/Experiment/HashVe
 import useSDKConnections from "@/hooks/useSDKConnections";
 import { RolloutHashingOptions } from "@/components/Features/RolloutPercentInput";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
-import { formatRemainingDuration } from "@/components/Features/Rule";
 import { Popover } from "@/ui/Popover";
 import { getExposureQuery } from "@/services/datasources";
 import styles from "./RampScheduleSection.module.scss";
@@ -254,6 +256,11 @@ function generateSimpleStepsFromSeconds(totalSeconds: number): UIStep[] {
 export function stepsMatchSimplePattern(
   steps: UIStep[],
   endPatch?: UIStepPatch,
+  // When provided, the steps are compared against the canonical simple ramp for
+  // THIS duration (e.g. the current simpleDurationDays) rather than the pattern
+  // derived from the steps' own total. Used so the "Simple View" warning fires
+  // whenever switching would regenerate a different ramp.
+  expectedTotalSeconds?: number,
 ): boolean {
   // Any non-coverage rule patch means this is advanced mode.
   const hasStepRuleEffects = steps.some((s) =>
@@ -275,13 +282,13 @@ export function stepsMatchSimplePattern(
     (sum, s) => sum + s.intervalValue * UNIT_MULT[s.intervalUnit],
     0,
   );
-  const expectedSimpleSteps = generateSimpleStepsFromSeconds(totalSeconds).map(
-    (s) => ({
-      ...s,
-      monitored: firstStep.monitored,
-      holdConditions: firstStep.holdConditions,
-    }),
-  );
+  const expectedSimpleSteps = generateSimpleStepsFromSeconds(
+    expectedTotalSeconds ?? totalSeconds,
+  ).map((s) => ({
+    ...s,
+    monitored: firstStep.monitored,
+    holdConditions: firstStep.holdConditions,
+  }));
   const normalizeSimpleStep = (s: UIStep) => ({
     triggerType: s.triggerType,
     intervalSeconds: s.intervalValue * UNIT_MULT[s.intervalUnit],
@@ -405,8 +412,8 @@ function isEmptyConditionValue(value: string | null | undefined): boolean {
 export function buildPatch(
   patch: UIStepPatch,
   ruleId: string,
-): RampStepAction["patch"] {
-  const out: RampStepAction["patch"] = { ruleId };
+): FeatureRuleStepAction["patch"] {
+  const out: FeatureRuleStepAction["patch"] = { ruleId };
 
   if (patch.coverage !== undefined) out.coverage = patch.coverage / 100;
   if (patch.condition !== undefined) {
@@ -451,7 +458,7 @@ export function buildPatch(
 export function buildEndActions(
   endPatch: UIStepPatch,
   ruleId: string,
-): RampStepAction[] {
+): FeatureRuleStepAction[] {
   const patch = buildPatch(endPatch, ruleId);
   const isEmpty = Object.keys(patch).length <= 1; // only ruleId
   if (isEmpty) return [];
@@ -544,7 +551,13 @@ export function buildRampSteps(
       interval: hasInterval
         ? Math.max(1, s.intervalValue) * UNIT_MULT[s.intervalUnit]
         : null,
-      actions: [{ targetType: "feature-rule" as const, targetId, patch }],
+      actions: [
+        {
+          targetType: "feature-rule" as const,
+          targetId,
+          patch,
+        } satisfies FeatureRuleStepAction,
+      ],
       ...(approvalRequired && s.approvalNotes
         ? { approvalNotes: s.approvalNotes }
         : {}),
@@ -966,7 +979,12 @@ export default function RampScheduleSection({
   const { data: templatesData, mutate: mutateTemplates } = useApi<{
     rampScheduleTemplates: RampScheduleTemplateInterface[];
   }>("/ramp-schedule-templates");
-  const templates = templatesData?.rampScheduleTemplates ?? [];
+  // Feature rules can only use feature templates. Experiment templates carry
+  // experiment step actions and would produce a malformed feature rule if
+  // applied here. (Absent entityType = legacy feature template.)
+  const templates = (templatesData?.rampScheduleTemplates ?? []).filter(
+    (t) => t.entityType !== "experiment",
+  );
 
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [presetOpen, setPresetOpen] = useState(false);
@@ -3315,8 +3333,23 @@ export default function RampScheduleSection({
   const showAdvancedEditor = !isSimpleMode || hasTemplate;
 
   const hasCustomizedSteps = useMemo(() => {
-    return !stepsMatchSimplePattern(state.steps, state.endPatch);
-  }, [state.steps, state.endPatch]);
+    // Switching to Simple View regenerates the ramp from simpleDurationDays, so
+    // warn whenever the current steps differ from THAT ramp — not just when
+    // they fail to match any simple-shaped pattern. (Otherwise a simple-shaped
+    // ramp at a different duration would erase silently.)
+    const unit = state.simpleDurationUnit ?? "days";
+    const expectedTotalSeconds = state.simpleDurationDays * UNIT_MULT[unit];
+    return !stepsMatchSimplePattern(
+      state.steps,
+      state.endPatch,
+      expectedTotalSeconds,
+    );
+  }, [
+    state.steps,
+    state.endPatch,
+    state.simpleDurationDays,
+    state.simpleDurationUnit,
+  ]);
 
   const hasSafeRolloutFeature = hasCommercialFeature("safe-rollout");
 
@@ -4129,7 +4162,7 @@ export default function RampScheduleSection({
 }
 
 export function reconstructUIPatch(
-  patch?: FeatureRulePatch | null,
+  patch?: FeatureRulePatch | ExperimentPatch | null,
 ): UIStepPatch {
   if (!patch) return {};
   const p: UIStepPatch = {};
@@ -4149,21 +4182,43 @@ export function reconstructUIPatch(
     p.prerequisites =
       prerequisites && prerequisites.length > 0 ? prerequisites : null;
   }
-  if ((patch.allEnvironments ?? null) !== null)
+  // Feature-rule-only fields.
+  if ("allEnvironments" in patch && (patch.allEnvironments ?? null) !== null)
     p.allEnvironments = patch.allEnvironments ?? undefined;
-  if ((patch.environments ?? null) !== null)
+  if ("environments" in patch && (patch.environments ?? null) !== null)
     p.environments = patch.environments as string[];
-  if (patch.force !== undefined) {
+  if ("force" in patch && patch.force !== undefined) {
     p.force =
       typeof patch.force === "string"
         ? patch.force
         : JSON.stringify(patch.force);
   }
+  // Experiment-only fields (variation weights + phase controls). Read via a
+  // record cast since they're not on the UIStepPatch type but round-trip
+  // through buildExperimentSteps the same way.
+  const ext = patch as Record<string, unknown>;
+  const out = p as Record<string, unknown>;
+  if (Array.isArray(ext.variationWeights)) {
+    out.variationWeights = ext.variationWeights;
+  }
+  for (const flag of [
+    "newPhase",
+    "reseed",
+    "bumpBucketVersion",
+    "blockPriorBucketed",
+  ]) {
+    if (ext[flag]) out[flag] = true;
+  }
   return p;
 }
 
 export function reconstructUIStep(step: RampStep): UIStep {
-  const patch = reconstructUIPatch(step.actions[0]?.patch);
+  const firstAction = step.actions[0];
+  // Read the patch for both feature-rule and experiment actions — experiment
+  // ramp steps carry coverage/targeting/weights too, and dropping them here
+  // would reset every step to 100% coverage on read.
+  const firstPatch = firstAction?.patch;
+  const patch = reconstructUIPatch(firstPatch);
   const additionalEffectsOpen = VALID_STEP_FIELDS.some(
     (f) => patch[f] !== undefined,
   );
@@ -4216,7 +4271,10 @@ export function reconstructUIEndPatch(
   endActions: RampScheduleInterface["endActions"],
 ): UIStepPatch {
   if (!endActions?.length) return { coverage: 100 };
-  return reconstructUIPatch(endActions[0]?.patch);
+  const firstAction = endActions[0];
+  // Read both feature-rule and experiment end actions (experiment end actions
+  // carry the final coverage).
+  return reconstructUIPatch(firstAction?.patch);
 }
 
 export function rampScheduleToSectionState(
@@ -4405,7 +4463,7 @@ export function templateToSectionState(
 ): RampSectionState {
   const rawEndPatch = template.endPatch;
   const endPatch: UIStepPatch = rawEndPatch
-    ? reconstructUIPatch(rawEndPatch as RampStepAction["patch"])
+    ? reconstructUIPatch(rawEndPatch as FeatureRuleStepAction["patch"])
     : { coverage: 100 };
   const mc = template.monitoringConfig;
   return {
@@ -4448,15 +4506,19 @@ export function buildTemplatePayload(
   const PLACEHOLDER_TARGET = "template-target";
   const PLACEHOLDER_RULE = "template-rule";
 
-  function stripIds(actions: RampStepAction[]): RampStepAction[] {
-    return actions.map((a) => ({
-      ...a,
-      targetId: PLACEHOLDER_TARGET,
-      patch: {
-        ...pick(a.patch, TEMPLATE_PATCH_FIELDS),
-        ruleId: PLACEHOLDER_RULE,
-      },
-    }));
+  // Templates only support feature-rule actions; narrow + drop any others.
+  type TemplateAction = Extract<RampStepAction, { targetType: "feature-rule" }>;
+  function stripIds(actions: RampStepAction[]): TemplateAction[] {
+    return actions
+      .filter((a): a is TemplateAction => a.targetType === "feature-rule")
+      .map((a) => ({
+        ...a,
+        targetId: PLACEHOLDER_TARGET,
+        patch: {
+          ...pick(a.patch, TEMPLATE_PATCH_FIELDS),
+          ruleId: PLACEHOLDER_RULE,
+        },
+      }));
   }
 
   const steps = buildRampSteps(

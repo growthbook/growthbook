@@ -21,6 +21,10 @@ const BaseClass = MakeModelClass({
   defaultValues: {
     order: 0,
   },
+  // entityType is fixed at creation: it determines the permission tier and the
+  // allowed step-action kind, so flipping it post-create would bypass the
+  // create-time permission check.
+  readonlyFields: ["entityType"],
   // Reordering only touches `order`; don't bump dateUpdated or emit audit logs.
   skipDateUpdatedFields: ["order"],
   skipAuditLogFields: ["order"],
@@ -32,7 +36,16 @@ const BaseClass = MakeModelClass({
 
 export class RampScheduleTemplateModel extends BaseClass {
   protected migrate(legacyDoc: unknown): RampScheduleTemplateInterface {
-    const doc = legacyDoc as RampScheduleTemplateInterface;
+    // Drop fields that no longer live on templates. `rampBehavior` was removed;
+    // `endStrategy` (EDF shipping automation) belongs to the experiment, not the
+    // template. `entityType` is preserved — templates may target experiments as
+    // well as features.
+    const raw = legacyDoc as Record<string, unknown> | null;
+    if (raw) {
+      delete raw.rampBehavior;
+      delete raw.endStrategy;
+    }
+    const doc = raw as RampScheduleTemplateInterface;
     const migrated = migrateRampStepTriggers(
       doc as unknown as Parameters<typeof migrateRampStepTriggers>[0],
     ) as unknown as RampScheduleTemplateInterface;
@@ -41,23 +54,62 @@ export class RampScheduleTemplateModel extends BaseClass {
     return { ...migrated, order: migrated.order ?? 0 };
   }
 
-  protected canRead() {
-    return this.context.permissions.canViewFeatureModal(undefined);
+  // Templates with no entityType predate the discriminator and are features.
+  private isExperimentTemplate(doc: {
+    entityType?: RampScheduleTemplateInterface["entityType"];
+  }) {
+    return doc.entityType === "experiment";
   }
-  protected canCreate() {
-    return this.context.permissions.canCreateFeature({ project: undefined });
+
+  // Enforce the entityType ⟺ step-action-kind invariant (the discriminated
+  // union in the schema can't express this cross-field constraint, and a
+  // schema-level superRefine would be stripped by BaseModel's create/update
+  // `.omit()`).
+  protected async customValidation(doc: RampScheduleTemplateInterface) {
+    const allowed = this.isExperimentTemplate(doc)
+      ? "experiment"
+      : "feature-rule";
+    for (const step of doc.steps ?? []) {
+      for (const action of step.actions ?? []) {
+        if (action.targetType !== allowed) {
+          throw new Error(
+            `A ${
+              doc.entityType ?? "feature"
+            } ramp template may only contain ${allowed} step actions.`,
+          );
+        }
+      }
+    }
+  }
+
+  protected canRead(doc: RampScheduleTemplateInterface) {
+    return this.isExperimentTemplate(doc)
+      ? this.context.permissions.canViewExperimentModal(undefined)
+      : this.context.permissions.canViewFeatureModal(undefined);
+  }
+  protected canCreate(doc: RampScheduleTemplateInterface) {
+    return this.isExperimentTemplate(doc)
+      ? this.context.permissions.canCreateExperiment({ project: undefined })
+      : this.context.permissions.canCreateFeature({ project: undefined });
   }
   protected canUpdate(
-    _existing: RampScheduleTemplateInterface,
+    existing: RampScheduleTemplateInterface,
     _updates: UpdateProps<RampScheduleTemplateInterface>,
   ) {
-    return this.context.permissions.canUpdateFeature(
-      { project: undefined },
-      { project: undefined },
-    );
+    return this.isExperimentTemplate(existing)
+      ? this.context.permissions.canUpdateExperiment(
+          { project: undefined },
+          { project: undefined },
+        )
+      : this.context.permissions.canUpdateFeature(
+          { project: undefined },
+          { project: undefined },
+        );
   }
-  protected canDelete(_existing: RampScheduleTemplateInterface) {
-    return this.context.permissions.canDeleteFeature({ project: undefined });
+  protected canDelete(existing: RampScheduleTemplateInterface) {
+    return this.isExperimentTemplate(existing)
+      ? this.context.permissions.canDeleteExperiment({ project: undefined })
+      : this.context.permissions.canDeleteFeature({ project: undefined });
   }
 
   // Templates in manual order. Ties (e.g. legacy order=0) fall back to
@@ -73,10 +125,25 @@ export class RampScheduleTemplateModel extends BaseClass {
     return this.sortByOrder(await this.getAll());
   }
 
-  // Order to assign a newly created template so it lands at the end.
-  public async getNextOrder(): Promise<number> {
+  // `order` is unique per entityType — feature and experiment templates are
+  // shown and reordered in separate lists, so each maintains its own 0..n.
+  private entityTypeOf(
+    t: RampScheduleTemplateInterface,
+  ): "feature" | "experiment" {
+    return t.entityType ?? "feature";
+  }
+
+  // Order to assign a newly created template so it lands at the end of its
+  // entityType's list.
+  public async getNextOrder(
+    entityType: "feature" | "experiment" = "feature",
+  ): Promise<number> {
     const all = await this.getAll();
-    return all.reduce((max, t) => Math.max(max, t.order), -1) + 1;
+    return (
+      all
+        .filter((t) => this.entityTypeOf(t) === entityType)
+        .reduce((max, t) => Math.max(max, t.order), -1) + 1
+    );
   }
 
   // REST create: append to the end unless the caller pins an explicit order, so
@@ -88,17 +155,27 @@ export class RampScheduleTemplateModel extends BaseClass {
     const body = rawBody as CreateProps<RampScheduleTemplateInterface> & {
       order?: number;
     };
-    return { ...body, order: body.order ?? (await this.getNextOrder()) };
+    return {
+      ...body,
+      order: body.order ?? (await this.getNextOrder(body.entityType)),
+    };
   }
 
   // Move `oldId` into the slot held by `newId`, then renumber so `order`
-  // matches array position. Returns the full reordered list, or null if either
-  // id is missing.
+  // matches array position. Reordering is scoped to the moved template's
+  // entityType (each type keeps its own 0..n), so `newId` must be the same
+  // type. Returns that type's reordered list, or null if either id is missing
+  // or they're different types.
   public async reorder(
     oldId: string,
     newId: string,
   ): Promise<RampScheduleTemplateInterface[] | null> {
-    const sorted = await this.getAllSorted();
+    const all = await this.getAllSorted();
+    const moved = all.find((t) => t.id === oldId);
+    if (!moved) return null;
+    const entityType = this.entityTypeOf(moved);
+    const sorted = all.filter((t) => this.entityTypeOf(t) === entityType);
+
     const oldIndex = sorted.findIndex((t) => t.id === oldId);
     const newIndex = sorted.findIndex((t) => t.id === newId);
     if (oldIndex === -1 || newIndex === -1) return null;

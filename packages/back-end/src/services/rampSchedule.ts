@@ -3,6 +3,7 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { EventUser } from "shared/types/events/event-types";
 import {
   DEFAULT_NO_TRAFFIC_GRACE_PERIOD_HOURS,
+  ExperimentPatch,
   FeatureRulePatch,
   LockdownConfig,
   RampEvent,
@@ -13,6 +14,7 @@ import {
   RampScheduleTemplateInterface,
   RampStepAction,
   SafeRolloutInterface,
+  TemplateEndPatch,
 } from "shared/validators";
 import { ResourceEvents } from "shared/types/events/base-types";
 import { filterEnvironmentsByFeature, MergeResultChanges } from "shared/util";
@@ -269,6 +271,51 @@ export function remapTemplateActions(
   });
 }
 
+// Materialize an experiment template's steps into live ramp steps for a
+// specific experiment, injecting the experiment id as each action's target.
+// Non-experiment actions (shouldn't occur on an experiment template) are
+// dropped defensively.
+export function remapTemplateExperimentSteps(
+  steps: RampScheduleTemplateInterface["steps"],
+  experimentId: string,
+): RampScheduleInterface["steps"] {
+  return (steps ?? []).map((step) => ({
+    interval: step.interval,
+    actions: (step.actions ?? [])
+      .filter((a) => a.targetType === "experiment")
+      .map(
+        (a): RampStepAction => ({
+          targetType: "experiment" as const,
+          targetId: experimentId,
+          patch: a.patch as ExperimentPatch,
+        }),
+      ),
+    approvalNotes: step.approvalNotes ?? undefined,
+    monitored: !!step.monitored,
+    holdConditions: step.holdConditions ?? undefined,
+  }));
+}
+
+// Build the experiment ramp's end action from a template's endPatch. Only the
+// fields meaningful to an experiment are carried over (coverage + targeting);
+// feature-only fields (allEnvironments/environments) are ignored.
+export function remapTemplateExperimentEndActions(
+  endPatch: TemplateEndPatch | undefined,
+  experimentId: string,
+): RampStepAction[] | undefined {
+  if (!endPatch) return undefined;
+  const patch: ExperimentPatch = {};
+  if (endPatch.coverage !== undefined) patch.coverage = endPatch.coverage;
+  if (endPatch.condition !== undefined) patch.condition = endPatch.condition;
+  if (endPatch.savedGroups !== undefined)
+    patch.savedGroups = endPatch.savedGroups;
+  if (endPatch.prerequisites !== undefined) {
+    patch.prerequisites = endPatch.prerequisites;
+  }
+  if (Object.keys(patch).length === 0) return undefined;
+  return [{ targetType: "experiment" as const, targetId: experimentId, patch }];
+}
+
 // Sparse step patches accumulate through the target step.
 export function computeEffectivePatch(
   schedule: Pick<
@@ -517,9 +564,33 @@ export const featureEntityHandler: EntityHandler = {
   },
 };
 
+export const experimentEntityHandler: EntityHandler = {
+  async applyActions(ctx, entityId, actions, opts) {
+    const { stepLabel } = opts;
+    const { applyExperimentCoverageChange } = await import(
+      "back-end/src/services/experimentRampSchedule"
+    );
+    const experiment = await (
+      await import("back-end/src/models/ExperimentModel")
+    ).getExperimentById(ctx, entityId);
+    if (!experiment) {
+      throw new Error(`Experiment not found: ${entityId}`);
+    }
+    for (const action of actions) {
+      if (action.targetType !== "experiment") continue;
+      await applyExperimentCoverageChange(
+        ctx,
+        experiment,
+        action.patch,
+        stepLabel,
+      );
+    }
+  },
+};
+
 const entityHandlers: Record<string, EntityHandler> = {
   feature: featureEntityHandler,
-  // TODO v2: experiment: experimentEntityHandler,
+  experiment: experimentEntityHandler,
 };
 
 function getEntityHandler(entityType: string): EntityHandler {
@@ -676,8 +747,7 @@ async function executeStepActions(
   stepIndex: number,
   actions: RampStepAction[],
 ): Promise<void> {
-  const ruleActions = actions.filter((a) => a.targetType === "feature-rule");
-  if (!ruleActions.length) return;
+  if (!actions.length) return;
 
   const byEntity = new Map<
     string,
@@ -689,21 +759,34 @@ async function executeStepActions(
     }
   >();
 
-  for (const action of ruleActions) {
-    if (action.targetType !== "feature-rule") continue;
-    const target = schedule.targets.find((t) => t.id === action.targetId);
-    if (!target || target.status !== "active") continue;
-
-    const key = `${target.entityType}:${target.entityId}`;
-    if (!byEntity.has(key)) {
-      byEntity.set(key, {
-        entityType: target.entityType,
-        entityId: target.entityId,
-        actions: [],
-        environment: target.environment,
-      });
+  for (const action of actions) {
+    // For feature-rule actions, resolve the entity via the targets array.
+    if (action.targetType === "feature-rule") {
+      const target = schedule.targets.find((t) => t.id === action.targetId);
+      if (!target || target.status !== "active") continue;
+      const key = `${target.entityType}:${target.entityId}`;
+      if (!byEntity.has(key)) {
+        byEntity.set(key, {
+          entityType: target.entityType,
+          entityId: target.entityId,
+          actions: [],
+          environment: target.environment,
+        });
+      }
+      byEntity.get(key)!.actions.push(action);
+    } else if (action.targetType === "experiment") {
+      // Experiment actions target the entity directly by ID.
+      const key = `experiment:${action.targetId}`;
+      if (!byEntity.has(key)) {
+        byEntity.set(key, {
+          entityType: "experiment",
+          entityId: action.targetId,
+          actions: [],
+          environment: null,
+        });
+      }
+      byEntity.get(key)!.actions.push(action);
     }
-    byEntity.get(key)!.actions.push(action);
   }
 
   const user: EventUser = {
@@ -881,29 +964,48 @@ export async function advanceStep(
   const isMonitoredStep = step.monitored === true;
   const hasInterval = step.interval !== null && step.interval !== undefined;
 
-  const effective = computeEffectivePatch(schedule, nextStepIndex);
+  // Collect actions to execute. For feature-rule steps the effective patch
+  // accumulates sparse fields from all prior steps. For experiment steps we
+  // apply the step's actions directly (no accumulation — each step explicitly
+  // states its target coverage).
+  const effectiveActions: RampStepAction[] = [];
 
-  // so the rule becomes visible in the same revision as its targeting/coverage.
-  // Otherwise the rule would briefly be live with pre-ramp state.
-  if (schedule.currentStepIndex < 0) {
-    for (const target of schedule.targets) {
-      if (target.status !== "active" || target.entityType !== "feature") {
-        continue;
+  const hasExperimentActions = step.actions.some(
+    (a) => a.targetType === "experiment",
+  );
+
+  if (!hasExperimentActions) {
+    // Feature-rule path: compute the accumulated patch up to this step.
+    const effective = computeEffectivePatch(schedule, nextStepIndex);
+
+    // On the very first step advance (from pre-start), ensure target rules are
+    // enabled so the rule becomes visible in the same revision as its patch.
+    if (schedule.currentStepIndex < 0) {
+      for (const target of schedule.targets) {
+        if (target.status !== "active" || target.entityType !== "feature") {
+          continue;
+        }
+        const existing = effective.get(target.id) ?? {
+          ruleId: target.ruleId ?? "",
+        };
+        effective.set(target.id, { ...existing, enabled: true });
       }
-      const existing = effective.get(target.id) ?? {
-        ruleId: target.ruleId ?? "",
-      };
-      effective.set(target.id, { ...existing, enabled: true });
+    }
+
+    for (const [targetId, patch] of effective.entries()) {
+      effectiveActions.push({
+        targetType: "feature-rule" as const,
+        targetId,
+        patch,
+      });
+    }
+  } else {
+    // Experiment-step path: apply each action directly.
+    for (const action of step.actions) {
+      effectiveActions.push(action);
     }
   }
 
-  const effectiveActions: RampStepAction[] = [...effective.entries()].map(
-    ([targetId, patch]) => ({
-      targetType: "feature-rule" as const,
-      targetId,
-      patch,
-    }),
-  );
   await executeStepActions(ctx, schedule, nextStepIndex, effectiveActions);
 
   // `nextStepAt` is the time gate. Steps without an interval (pure approval /
@@ -1616,12 +1718,22 @@ async function applyEndActionsAndAwaitCutoff(
       patch,
     }),
   );
-  if (actionsToApply.length > 0) {
+
+  // computeEffectivePatch only accumulates feature-rule patches, so experiment
+  // endActions (targetType === "experiment") must be applied separately —
+  // mirroring completeRollout. Without this the final experiment coverage is
+  // silently dropped on the cutoff-await path.
+  const experimentEndActions: RampStepAction[] = (
+    schedule.endActions ?? []
+  ).filter((a) => a.targetType === "experiment");
+
+  const allActionsToApply = [...actionsToApply, ...experimentEndActions];
+  if (allActionsToApply.length > 0) {
     await executeStepActions(
       ctx,
       schedule,
       schedule.steps.length,
-      actionsToApply,
+      allActionsToApply,
     );
   }
 
@@ -1709,12 +1821,25 @@ export async function completeRollout(
     },
   );
 
-  if (actionsToApply.length > 0) {
+  // Experiment-entity ramps store their completion patch in endActions with
+  // targetType === "experiment". computeEffectivePatch only accumulates
+  // feature-rule patches, so we collect experiment endActions separately and
+  // fire them through the same executeStepActions path.
+  const experimentEndActions: RampStepAction[] = (
+    schedule.endActions ?? []
+  ).filter((a) => a.targetType === "experiment");
+
+  const allActionsToApply: RampStepAction[] = [
+    ...actionsToApply,
+    ...experimentEndActions,
+  ];
+
+  if (allActionsToApply.length > 0) {
     await executeStepActions(
       ctx,
       schedule,
       schedule.steps.length,
-      actionsToApply,
+      allActionsToApply,
     );
   }
 
@@ -1738,6 +1863,22 @@ export async function completeRollout(
   });
 
   await transitionLinkedSafeRollout(ctx, updated, "released");
+
+  // For experiment ramps, ramp completion is the auto-ship trigger (the
+  // stopAt-driven path in experimentNotifications is gated out for ramp
+  // experiments). Honor the experiment's shippingCriteria here.
+  if (updated.entityType === "experiment" && updated.entityId) {
+    const { getExperimentById } = await import(
+      "back-end/src/models/ExperimentModel"
+    );
+    const experiment = await getExperimentById(ctx, updated.entityId);
+    if (experiment) {
+      const { applyShippingCriteria } = await import(
+        "back-end/src/services/experimentRampSchedule"
+      );
+      await applyShippingCriteria(ctx, experiment);
+    }
+  }
 
   await dispatchRampEvent(ctx, updated, "rampSchedule.actions.completed", {
     object: {

@@ -2870,14 +2870,14 @@ export async function toExperimentApiInterface(
     precomputedUnitDimensionIds: experiment.precomputedUnitDimensionIds ?? [],
     defaultDashboardId: experiment.defaultDashboardId,
     templateId: experiment.templateId || undefined,
-    statusUpdateSchedule: experiment.statusUpdateSchedule
+    statusUpdateSchedule: experiment.statusUpdateSchedule?.startAt
       ? {
           startAt: experiment.statusUpdateSchedule.startAt.toISOString(),
         }
-      : experiment.statusUpdateSchedule,
-    // Only "start" is produced for experiments; updateExperimentStatus.ts
-    // clears any other type before it can be observed. Filter defensively
-    // so the API response always matches the documented schema.
+      : null,
+    // The external API only documents the "start" type. A staged "stop" is a
+    // valid internal state but isn't exposed here yet, so non-"start" types
+    // serialize as null to keep the response matching the documented schema.
     nextScheduledStatusUpdate:
       experiment.nextScheduledStatusUpdate?.type === "start"
         ? {
@@ -2887,6 +2887,9 @@ export async function toExperimentApiInterface(
         : experiment.nextScheduledStatusUpdate === undefined
           ? undefined
           : null,
+    // Internally nullable (cleared on ramp removal); the API exposes it as an
+    // optional string, so coerce a cleared null back to undefined.
+    rampScheduleId: experiment.rampScheduleId ?? undefined,
   };
   return apiExperiment;
 }
@@ -4295,15 +4298,26 @@ export function validateStatusUpdateSchedule(
   ) {
     throw new Error("statusUpdateSchedule.startAt must be in the future");
   }
+  if (
+    statusUpdateSchedule &&
+    statusUpdateSchedule.stopAt &&
+    statusUpdateSchedule.startAt &&
+    getValidDate(statusUpdateSchedule.stopAt) <=
+      getValidDate(statusUpdateSchedule.startAt)
+  ) {
+    throw new Error("statusUpdateSchedule.stopAt must be after startAt");
+  }
 }
 
 /**
  * Normalize `statusUpdateSchedule` / `nextScheduledStatusUpdate` on an in-progress
  * Changeset:
- *  - Explicit null clears both the schedule and any staged start.
- *  - An object resolves `startAt` via getValidDate; missing startAt is treated
- *    as "clear the schedule"; any existing staged start is reset so the schedule
- *    must be re-staged.
+ *  - Explicit null clears both the schedule and any staged update.
+ *  - An object resolves `startAt`/`stopAt` via getValidDate; when both are
+ *    missing the schedule is cleared. For a running, non-ramp experiment a
+ *    future `stopAt` is re-staged as a scheduled stop; otherwise any staged
+ *    update is reset (drafts re-stage their start via the start endpoint; ramp
+ *    experiments ship at ramp completion).
  *  - If `statusUpdateSchedule` is not in the payload but `status` is moving out
  *    of draft, clear any pending staged start so the agenda job won't fire it.
  */
@@ -4320,8 +4334,24 @@ export function normalizeStatusUpdateScheduleChanges(
       const startAt = incoming?.startAt
         ? getValidDate(incoming.startAt)
         : undefined;
-      changes.statusUpdateSchedule = startAt ? { startAt } : null;
-      changes.nextScheduledStatusUpdate = null;
+      // Preserve an existing stopAt when the incoming object omits the key
+      // entirely (the external REST API can't express stopAt, so a PUT with
+      // `{ startAt }` must not silently wipe a stop date set in the app). An
+      // explicit `stopAt: null` (as the app modal sends) still clears it.
+      const stopAtSource =
+        incoming && "stopAt" in incoming
+          ? incoming.stopAt
+          : experiment.statusUpdateSchedule?.stopAt;
+      const stopAt = stopAtSource ? getValidDate(stopAtSource) : undefined;
+      changes.statusUpdateSchedule =
+        startAt || stopAt ? { startAt, stopAt } : null;
+      changes.nextScheduledStatusUpdate =
+        experiment.status === "running" &&
+        !experiment.rampScheduleId &&
+        stopAt &&
+        stopAt > new Date()
+          ? { type: "stop" as const, date: stopAt }
+          : null;
     }
   } else if (
     changes.status &&

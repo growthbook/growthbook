@@ -38,16 +38,19 @@ export default function RunningExperimentDecisionBanner({
   if (
     runningExperimentStatus.status !== "ship-now" &&
     runningExperimentStatus.status !== "ready-for-review" &&
-    runningExperimentStatus.status !== "rollback-now"
+    runningExperimentStatus.status !== "rollback-now" &&
+    runningExperimentStatus.status !== "review-now"
   )
     return null;
 
-  const decidedVariations: VariationWithIndex[] =
-    runningExperimentStatus.variations
-      .map(({ variationId }) =>
-        indexedVariations.find((v) => v.id === variationId),
-      )
-      .filter((v) => v !== undefined);
+  const hasVariations = "variations" in runningExperimentStatus;
+  const decidedVariations: VariationWithIndex[] = hasVariations
+    ? (runningExperimentStatus.variations ?? [])
+        .map(({ variationId }) =>
+          indexedVariations.find((v) => v.id === variationId),
+        )
+        .filter((v) => v !== undefined)
+    : [];
 
   const variationNames: Record<string, JSX.Element> = {};
   variations.forEach((v) => {
@@ -88,6 +91,13 @@ export default function RunningExperimentDecisionBanner({
       <>
         <BsLightningFill className="mx-1 text-danger" />
         <Text weight="bold">Rollback now:</Text>
+      </>
+    );
+  } else if (runningExperimentStatus.status === "review-now") {
+    decisionContent = (
+      <>
+        <BsLightningFill className="mx-1 text-warning" />
+        <Text weight="bold">Review now (mid-ramp signal):</Text>
       </>
     );
   }

@@ -35,6 +35,7 @@ export type Props = TrackingEventModalProps & {
   ctaColor?: "red" | "violet";
   ctaEnabled?: boolean;
   size?: Size;
+  maxWidth?: string;
   submit?: () => void | Promise<void>;
   trackOnSubmit?: boolean;
   dismissible?: boolean;
@@ -59,6 +60,7 @@ export default function ModalStandard({
   ctaColor = "violet",
   ctaEnabled = true,
   size = "md",
+  maxWidth,
   submit,
   secondaryAction,
   close,
@@ -105,6 +107,7 @@ export default function ModalStandard({
         if (!nextOpen) close();
       }}
       size={size}
+      maxWidth={maxWidth}
       dismissible={dismissible ?? !submit}
       hasDescription={!!subheader}
       trackingEventModalType={trackingEventModalType}

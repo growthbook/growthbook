@@ -1775,6 +1775,10 @@ export async function postExperiment(
     "defaultDashboardId",
     "customMetricSlices",
     "precomputedUnitDimensionIds",
+    "endStrategy",
+    "shippingCriteria",
+    "autoRollbackMode",
+    "rampProgressionMode",
   ];
   let changes: Changeset = {};
 

@@ -5,6 +5,8 @@ import {
   DecisionCriteriaCondition,
   DecisionCriteriaRule,
   DecisionCriteriaData,
+  DcHealthSignals,
+  DEFAULT_DC_HEALTH_SIGNALS,
 } from "shared/enterprise";
 import { useAuth } from "@/services/auth";
 
@@ -25,6 +27,7 @@ interface DecisionCriteriaFormData
     "name" | "description" | "rules" | "defaultAction"
   > {
   rules: DecisionCriteriaRuleUI[];
+  healthSignals: DcHealthSignals;
 }
 
 interface UseDecisionCriteriaFormProps {
@@ -38,13 +41,13 @@ export const useDecisionCriteriaForm = ({
 }: UseDecisionCriteriaFormProps) => {
   const { apiCall } = useAuth();
 
-  // Initialize form with empty values first
   const form = useForm<DecisionCriteriaFormData>({
     defaultValues: {
       name: "",
       description: "",
       defaultAction: "review",
       rules: [],
+      healthSignals: { ...DEFAULT_DC_HEALTH_SIGNALS },
     },
   });
 
@@ -59,7 +62,6 @@ export const useDecisionCriteriaForm = ({
     direction: "statsigWinner",
   });
 
-  // Set initial form values after functions are defined
   useEffect(() => {
     form.reset({
       name: decisionCriteria?.name || "",
@@ -81,6 +83,9 @@ export const useDecisionCriteriaForm = ({
               action: "ship",
             },
           ],
+      healthSignals: decisionCriteria?.healthSignals ?? {
+        ...DEFAULT_DC_HEALTH_SIGNALS,
+      },
     });
   }, [decisionCriteria]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -191,26 +196,27 @@ export const useDecisionCriteriaForm = ({
       }),
     );
 
-    // validate no guardrail has statsig winner
-    const guardrailWithStatsigWinner = rulesToSave.some((rule) =>
+    // Guardrails only have a regular harmful (statsigLoser) status. They have
+    // no "good" direction and no super stat sig variant, so reject anything else.
+    const guardrailWithInvalidDirection = rulesToSave.some((rule) =>
       rule.conditions.some(
         (condition) =>
           condition.metrics === "guardrails" &&
-          condition.direction === "statsigWinner",
+          condition.direction !== "statsigLoser",
       ),
     );
-    if (guardrailWithStatsigWinner) {
+    if (guardrailWithInvalidDirection) {
       throw new Error(
-        "Guardrails cannot be checked for Stat Sig Good results.",
+        "Guardrails can only be checked for Stat Sig Bad results.",
       );
     }
 
-    // Use the existing API endpoint structure but with our new naming
     const updatedCriteria = {
       name: formData.name,
       description: formData.description,
       rules: rulesToSave,
       defaultAction: formData.defaultAction,
+      healthSignals: formData.healthSignals,
     };
 
     // If we have an ID, we're updating an existing decision criteria

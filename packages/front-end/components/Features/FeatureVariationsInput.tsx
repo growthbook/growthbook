@@ -54,6 +54,7 @@ export interface Props {
   simple?: boolean;
   sortableClassName?: string;
   onlySafeToEditVariationMetadata?: boolean;
+  className?: string;
   // JSON features only. When true, each variation value is rendered as a sparse
   // patch (merged onto the feature default). Pass-through to the value editor;
   // callers own the sparse toggle since it's a rule-level flag.
@@ -88,6 +89,7 @@ export default function FeatureVariationsInput({
   simple,
   sortableClassName,
   onlySafeToEditVariationMetadata,
+  className,
   sparse,
 }: Props) {
   const weights = variations?.map((v) => v.weight) || [];
@@ -127,7 +129,7 @@ export default function FeatureVariationsInput({
           : "Traffic Percentage & Variation Weights";
 
   return (
-    <div className="form-group">
+    <div className={className ?? "form-group"}>
       {_label !== null ? (
         <Text as="label" weight="semibold">
           {label}

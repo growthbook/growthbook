@@ -189,6 +189,8 @@ export default function SDKConnectionForm({
         (initialValue as { includeTagsInPayload?: boolean })
           .includeTagsInPayload ??
         false,
+      includeExperimentScheduleInMetadata:
+        initialValue.includeExperimentScheduleInMetadata ?? false,
     },
   });
 
@@ -1274,6 +1276,36 @@ export default function SDKConnectionForm({
                           When enabled, all feature tags will be included in the{" "}
                           <code>metadata.tags</code> array for each feature in
                           the SDK payload.
+                        </p>
+                      </>
+                    }
+                  >
+                    <PiInfo />
+                  </Tooltip>
+                </>
+              }
+            />
+          </Box>
+          <Box>
+            <Checkbox
+              weight="regular"
+              value={form.watch("includeExperimentScheduleInMetadata")}
+              setValue={(val) =>
+                form.setValue("includeExperimentScheduleInMetadata", val)
+              }
+              label={
+                <>
+                  Include experiment start/end dates{" "}
+                  <Tooltip
+                    body={
+                      <>
+                        <p className="mb-0">
+                          When enabled, an experiment&apos;s scheduled start and
+                          stop dates are included as{" "}
+                          <code>metadata.startDate</code> and{" "}
+                          <code>metadata.endDate</code> (ISO 8601) on experiment
+                          payload entries and experiment-reference feature
+                          rules.
                         </p>
                       </>
                     }

@@ -38,7 +38,10 @@ import {
   InvalidStatusError,
   PendingDraftPublishFailedError,
 } from "back-end/src/util/errors";
-import { assertFeatureNotLockedByRamp } from "back-end/src/services/rampSchedule";
+import {
+  assertFeatureNotLockedByRamp,
+  startSchedule,
+} from "back-end/src/services/rampSchedule";
 
 export type StartChecklistItemStatus = {
   key: string;
@@ -395,11 +398,41 @@ export async function executeExperimentStart(
     changes.phases = startExperimentTarget.phases;
   }
 
+  // Now that the start has fired, stage the scheduled stop if a future stop
+  // date is configured. Ramp experiments ship at ramp completion instead, so
+  // they're excluded. Default to clearing any prior staged update.
+  const stopAt =
+    !experiment.rampScheduleId && experiment.statusUpdateSchedule?.stopAt
+      ? getValidDate(experiment.statusUpdateSchedule.stopAt)
+      : null;
+  const nextScheduledStatusUpdate =
+    stopAt && stopAt > new Date()
+      ? { type: "stop" as const, date: stopAt }
+      : null;
+
   const updated = await updateExperiment({
     context,
     experiment,
-    changes: { nextScheduledStatusUpdate: null, ...changes },
+    changes: { nextScheduledStatusUpdate, ...changes },
   });
+
+  // A ramp attached to a draft experiment stays "ready" until the experiment
+  // goes live (so it doesn't ramp before the experiment starts). Now that the
+  // experiment is running, start the ramp — unless it has a future start date.
+  if (updated.rampScheduleId) {
+    const schedule = await context.models.rampSchedules.getById(
+      updated.rampScheduleId,
+    );
+    if (schedule && schedule.status === "ready") {
+      const rampStartAt = schedule.startDate
+        ? new Date(schedule.startDate)
+        : null;
+      if (!rampStartAt || rampStartAt <= new Date()) {
+        await startSchedule(context, schedule);
+      }
+    }
+  }
+
   return { updated, publishResult };
 }
 

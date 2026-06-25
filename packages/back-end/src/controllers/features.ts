@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { Request, Response } from "express";
 import { evaluateFeatures } from "@growthbook/proxy-eval";
 import { cloneDeep, isEqual, omit } from "lodash";
@@ -48,6 +49,7 @@ import {
   RevisionRampDetachAction,
   RevisionRampUpdateAction,
   RampStepAction,
+  featureRulePatch,
 } from "shared/validators";
 import { FeatureUsageLookback } from "shared/types/integrations";
 import {
@@ -239,7 +241,7 @@ function normalizeRampStepAction(a: {
   return {
     targetType: "feature-rule",
     targetId: a.targetId ?? "",
-    patch: a.patch as RampStepAction["patch"],
+    patch: a.patch as z.infer<typeof featureRulePatch>,
   };
 }
 
@@ -361,6 +363,7 @@ export type SDKPayloadParams = Pick<
   | "includeCustomFieldsInMetadata"
   | "allowedCustomFieldsInMetadata"
   | "includeTagsInMetadata"
+  | "includeExperimentScheduleInMetadata"
 > &
   Partial<Pick<SDKConnectionInterface, "organization">> & {
     // Extend languages to allow "legacy" for old API keys
@@ -404,6 +407,8 @@ export async function getPayloadParamsFromApiKey(
       includeCustomFieldsInMetadata: connection.includeCustomFieldsInMetadata,
       allowedCustomFieldsInMetadata: connection.allowedCustomFieldsInMetadata,
       includeTagsInMetadata: connection.includeTagsInMetadata,
+      includeExperimentScheduleInMetadata:
+        connection.includeExperimentScheduleInMetadata,
       hashSecureAttributes: connection.hashSecureAttributes,
       remoteEvalEnabled: connection.remoteEvalEnabled,
       savedGroupReferencesEnabled: connection.savedGroupReferencesEnabled,
@@ -521,6 +526,8 @@ export async function getFeatureDefinitionsWithCache({
       includeCustomFieldsInMetadata: params.includeCustomFieldsInMetadata,
       allowedCustomFieldsInMetadata: params.allowedCustomFieldsInMetadata,
       includeTagsInMetadata: params.includeTagsInMetadata,
+      includeExperimentScheduleInMetadata:
+        params.includeExperimentScheduleInMetadata,
       hashSecureAttributes: params.hashSecureAttributes,
       savedGroupReferencesEnabled:
         params.savedGroupReferencesEnabled !== undefined

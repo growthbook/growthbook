@@ -41,6 +41,8 @@ import RampScheduleBadge from "@/components/RampSchedule/RampScheduleBadge";
 import SafeRolloutRuleDashboard from "@/components/RampSchedule/SafeRolloutRuleDashboard";
 import RampTimeline, {
   getRampStepsCompleted,
+  computeRemainingTime,
+  formatRemainingDuration,
 } from "@/components/RampSchedule/RampTimeline";
 import Button from "@/ui/Button";
 import { useAuth } from "@/services/auth";
@@ -133,62 +135,6 @@ function getRampEnableDate(
   return new Date(startDate);
 }
 
-export function formatRemainingDuration(totalSeconds: number): string {
-  if (totalSeconds < 60) return `${Math.round(totalSeconds)}s`;
-  const minutes = totalSeconds / 60;
-  if (minutes < 60) return `${Math.round(minutes)}m`;
-  const hours = totalSeconds / 3600;
-  if (hours < 24) {
-    const h = Math.floor(hours);
-    const m = Math.round((hours - h) * 60);
-    return m > 0 ? `${h}h ${m}m` : `${h}h`;
-  }
-  const days = totalSeconds / 86400;
-  const d = Math.floor(days);
-  const h = Math.round((days - d) * 24);
-  return h > 0 ? `${d}d ${h}h` : `${d}d`;
-}
-
-function computeRemainingTime(
-  rs: RampScheduleInterface,
-): { seconds: number; manualApprovals: number } | null {
-  if (rs.status !== "running" && rs.status !== "paused") return null;
-
-  let seconds = 0;
-  let manualApprovals = 0;
-
-  // The current step can have two holds that clear in sequence: the interval
-  // timer first, then a manual approval. Count both remaining components — the
-  // time still left on the timer plus the approval, which only becomes
-  // actionable once the timer elapses — so the estimate reflects all the work
-  // left before the step can advance.
-  const currentStep =
-    rs.currentStepIndex >= 0 ? rs.steps[rs.currentStepIndex] : undefined;
-  const currentNeedsApproval =
-    !!currentStep?.holdConditions?.requiresApproval &&
-    rs.stepApproval?.stepIndex !== rs.currentStepIndex;
-  // nextStepAt is the current step's timer; it is frozen (null) while paused.
-  const currentTimerRemainingMs = rs.nextStepAt
-    ? new Date(rs.nextStepAt).getTime() - Date.now()
-    : 0;
-  if (currentNeedsApproval) manualApprovals++;
-  if (currentTimerRemainingMs > 0) {
-    seconds += Math.ceil(currentTimerRemainingMs / 1000);
-  }
-
-  // Future steps still contribute their full interval and approval holds.
-  for (let i = rs.currentStepIndex + 1; i < rs.steps.length; i++) {
-    const step = rs.steps[i];
-    if (step?.interval) {
-      seconds += step.interval;
-    }
-    if (step?.holdConditions?.requiresApproval) {
-      manualApprovals++;
-    }
-  }
-
-  return { seconds, manualApprovals };
-}
 import ExperimentSummary from "./ExperimentSummary";
 import ExperimentRefSummary, {
   isExperimentRefRuleSkipped,

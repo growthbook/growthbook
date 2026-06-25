@@ -770,6 +770,22 @@ export function upgradeExperimentDoc(
     experiment.uid = uuidv4().replace(/-/g, "");
   }
 
+  // Migrate endStrategy → shippingCriteria
+  if (experiment.endStrategy && !experiment.shippingCriteria) {
+    const strategyMap: Record<string, string> = {
+      soft: "off",
+      "soft-edf": "auto",
+      "hard-planned": "auto-force",
+    };
+    const mode = strategyMap[experiment.endStrategy.type] ?? "off";
+    experiment.shippingCriteria = {
+      mode: mode as "off" | "auto" | "auto-force",
+      plannedVariationId: experiment.endStrategy.plannedVariationId,
+      minimumRuntimeDays: experiment.endStrategy.minimumRuntimeDays,
+    };
+  }
+
+
   return experiment as ExperimentInterface;
 }
 
