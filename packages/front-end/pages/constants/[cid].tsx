@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { ConstantInterface } from "shared/types/constant";
 import {
@@ -7,6 +7,7 @@ import {
   getConstantRevisionChange,
 } from "shared/enterprise";
 import { constantRequiresReview, getReviewSetting } from "shared/util";
+import { REVIEW_REQUESTED_STATUSES } from "shared/validators";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import useApi from "@/hooks/useApi";
@@ -37,7 +38,10 @@ import {
 } from "@/ui/DropdownMenu";
 import RevisionDropdown from "@/components/Revision/RevisionDropdown";
 import RevisionSummaryCard from "@/components/Revision/RevisionSummaryCard";
-import RevisionDetail from "@/components/Revision/RevisionDetail";
+import ReviewAndPublishTab from "@/components/Revision/ReviewAndPublishTab";
+import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import { draftStatusTooltip } from "@/components/Reviews/RevisionStatusBadge";
 import AuditHistoryExplorerModal from "@/components/AuditHistoryExplorer/AuditHistoryExplorerModal";
 import { OVERFLOW_SECTION_LABEL } from "@/components/AuditHistoryExplorer/useAuditDiff";
 import {
@@ -95,6 +99,9 @@ function ConstantValueDisplay({
   );
 }
 
+const constantTabs = ["overview", "review"] as const;
+type ConstantTab = (typeof constantTabs)[number];
+
 export default function ConstantDetailPage(): React.ReactElement {
   const router = useRouter();
   const { cid } = router.query;
@@ -110,7 +117,7 @@ export default function ConstantDetailPage(): React.ReactElement {
   const [editInfoOpen, setEditInfoOpen] = useState(false);
   const [editValueOpen, setEditValueOpen] = useState(false);
   const [conflictOpen, setConflictOpen] = useState(false);
-  const [showChangesModal, setShowChangesModal] = useState(false);
+  const [tab, setTab] = useState<ConstantTab>("overview");
   const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [showAuditModal, setShowAuditModal] = useState(false);
   const [showReferencesModal, setShowReferencesModal] = useState(false);
@@ -136,6 +143,52 @@ export default function ConstantDetailPage(): React.ReactElement {
     handleReopen,
     mutateRevisions,
   } = useConstantRevision(constant?.id, mutate, constant);
+
+  // ── Page-level tabs: Overview | Review & Publish, driven by the URL hash.
+  // The hash may carry a sub-tab after a comma (`#review,changes`); only the
+  // first segment selects the page tab — the review tab reads the rest.
+  useEffect(() => {
+    const hash = (new URL(router.asPath, "http://x").hash
+      .replace(/^#/, "")
+      .split(",")[0] || undefined) as ConstantTab | undefined;
+    if (hash && constantTabs.includes(hash)) {
+      setTab(hash);
+    }
+  }, [router.asPath]);
+  const setTabAndScroll = (newTab: ConstantTab) => {
+    setTab(newTab);
+    router.replace(
+      { pathname: router.pathname, query: router.query, hash: newTab },
+      undefined,
+      { shallow: true },
+    );
+  };
+
+  // When viewing "live" (no explicit selection) fall back to the latest merged
+  // revision so the review tab renders its read-only Live view instead of the
+  // "select a revision" empty state, matching saved groups.
+  const displayRevision = useMemo(() => {
+    if (selectedRevision) return selectedRevision;
+    return [...allRevisions]
+      .filter((r) => r.status === "merged")
+      .sort(
+        (a, b) =>
+          new Date(b.dateUpdated).getTime() - new Date(a.dateUpdated).getTime(),
+      )[0];
+  }, [selectedRevision, allRevisions]);
+
+  // Count of active drafts awaiting/in review — drives the count bubble on the
+  // "Review & Publish" tab, matching saved groups and the feature header.
+  const draftStatusCounts: Partial<Record<string, number>> = {};
+  allRevisions.forEach((r) => {
+    if ((REVIEW_REQUESTED_STATUSES as readonly string[]).includes(r.status)) {
+      draftStatusCounts[r.status] = (draftStatusCounts[r.status] ?? 0) + 1;
+    }
+  });
+  const activeDraftCount = Object.values(draftStatusCounts).reduce<number>(
+    (sum, n) => sum + (n ?? 0),
+    0,
+  );
 
   const { references } = useConstantReferences(constant?.id);
   const totalReferences =
@@ -401,34 +454,62 @@ export default function ConstantDetailPage(): React.ReactElement {
           onNewDraft={canUpdate ? handleNewDraft : undefined}
           onCompare={() => setCompareOpen(true)}
           onFixConflicts={() => setConflictOpen(true)}
-          onReviewPublish={() => setShowChangesModal(true)}
+          onReviewPublish={() => setTabAndScroll("review")}
         />
 
-        <Frame mb="4" px="6" py="5">
-          <Flex justify="between" align="center" gap="3" mb="3">
-            <Heading size="medium" as="h2" mb="0">
-              Value
-            </Heading>
-            {canEditNow && (
-              <Button variant="ghost" onClick={() => setEditValueOpen(true)}>
-                Edit
-              </Button>
-            )}
-          </Flex>
-          <ConstantValueDisplay
-            value={displayedConstant.value}
-            type={displayedConstant.type}
-          />
+        <Box mb="4">
+          <Tabs
+            value={tab}
+            onValueChange={(v) => setTabAndScroll(v as ConstantTab)}
+          >
+            <TabsList>
+              <TabsTrigger value="overview">Overview</TabsTrigger>
+              <TabsTrigger value="review">
+                Review &amp; Publish
+                {activeDraftCount > 0 && (
+                  <Tooltip body={draftStatusTooltip(draftStatusCounts)}>
+                    <Badge
+                      label={String(activeDraftCount)}
+                      color="red"
+                      variant="solid"
+                      radius="full"
+                      ml="2"
+                      style={{ minWidth: 18, height: 18 }}
+                    />
+                  </Tooltip>
+                )}
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </Box>
 
-          {Object.keys(displayedConstant.environmentValues || {}).length >
-            0 && (
-            <>
-              <Heading size="medium" as="h2" mt="6" mb="3">
-                Environment overrides
+        {tab === "overview" && (
+          <Frame mb="4" px="6" py="5">
+            <Flex justify="between" align="center" gap="3" mb="3">
+              <Heading size="medium" as="h2" mb="0">
+                Value
               </Heading>
-              <Flex direction="column" gap="5">
-                {Object.entries(displayedConstant.environmentValues || {}).map(
-                  ([env, value]) => (
+              {canEditNow && (
+                <Button variant="ghost" onClick={() => setEditValueOpen(true)}>
+                  Edit
+                </Button>
+              )}
+            </Flex>
+            <ConstantValueDisplay
+              value={displayedConstant.value}
+              type={displayedConstant.type}
+            />
+
+            {Object.keys(displayedConstant.environmentValues || {}).length >
+              0 && (
+              <>
+                <Heading size="medium" as="h2" mt="6" mb="3">
+                  Environment overrides
+                </Heading>
+                <Flex direction="column" gap="5">
+                  {Object.entries(
+                    displayedConstant.environmentValues || {},
+                  ).map(([env, value]) => (
                     <Box key={env}>
                       <Text as="div" size="large" weight="semibold" mb="2">
                         {env}
@@ -438,47 +519,34 @@ export default function ConstantDetailPage(): React.ReactElement {
                         type={displayedConstant.type}
                       />
                     </Box>
-                  ),
-                )}
-              </Flex>
-            </>
-          )}
-        </Frame>
-      </div>
+                  ))}
+                </Flex>
+              </>
+            )}
+          </Frame>
+        )}
 
-      {showChangesModal && selectedRevision && (
-        <Modal
-          header={selectedRevision.title || "Revision"}
-          trackingEventModalType="constant-revision-changes"
-          close={() => setShowChangesModal(false)}
-          open={showChangesModal}
-          dismissible
-          size="max"
-          hideCta={true}
-          closeCta="Close"
-          useRadixButton={true}
-        >
-          <RevisionDetail<ConstantInterface>
-            diffConfig={REVISION_CONSTANT_DIFF_CONFIG}
-            revision={selectedRevision}
+        {tab === "review" && (
+          <ReviewAndPublishTab<ConstantInterface>
+            revision={selectedRevision ?? displayRevision ?? null}
+            allRevisions={allRevisions}
             currentState={constant}
+            diffConfig={REVISION_CONSTANT_DIFF_CONFIG}
+            entityName={constant.name}
+            entityNoun="constant"
+            requiresApproval={selectedRevisionRequiresApproval}
+            canEditEntity={permissionsUtil.canUpdateConstant(constant, {})}
+            canBypassApproval={canBypassApproval}
+            selectRevision={selectRevision}
+            onPublish={handlePublish}
+            onDiscard={handleDiscard}
+            onReopen={handleReopen}
             mutate={async () => {
               await Promise.all([mutateRevisions(), mutate()]);
             }}
-            setCurrentRevision={(r) => selectRevision(r)}
-            onPublish={async (revisionId) => {
-              await handlePublish(revisionId);
-            }}
-            onReopen={async (revisionId) => {
-              await handleReopen(revisionId);
-            }}
-            allRevisions={allRevisions}
-            requiresApproval={selectedRevisionRequiresApproval}
-            closeModal={() => setShowChangesModal(false)}
-            canUpdateEntity={(s) => permissionsUtil.canUpdateConstant(s, {})}
           />
-        </Modal>
-      )}
+        )}
+      </div>
 
       {showReferencesModal && references && (
         <Modal
