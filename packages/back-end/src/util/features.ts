@@ -953,8 +953,6 @@ export function getFeatureDefinition({
             capabilities === undefined ||
             capabilities.includes("contextualBandits");
           if (cbCapable) {
-            // Experiment subtype discriminator on the wire. The SDK keys CB
-            // behavior off `type === "contextual-bandit"`.
             rule.type = "contextual-bandit";
             rule.attributesRequired = cb.contextualAttributes;
             rule.contexts = (cb.currentLeafWeights ?? []).map((lw) => ({
@@ -962,9 +960,6 @@ export function getFeatureDefinition({
               condition: lw.condition,
               weights: pairedWeightsToPositional(lw.weights, cb.variations),
             }));
-            // Training period these weights came from. The SDK threads this onto
-            // the exposure so the warehouse can tie an assignment to the weight
-            // epoch (and its propensities) in effect when it happened.
             rule.banditVersion = cb.banditVersion;
           }
 

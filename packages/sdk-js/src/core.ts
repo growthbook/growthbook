@@ -376,8 +376,6 @@ export function evalFeature<V = unknown>(
           continue;
         }
         exp.weights = leaf.weights;
-        // Carry the leaf, the exact weights used (assignment propensities), and
-        // the training period through onto the exposure result.
         cbInfo = {
           leafId: leaf.leafId,
           variationWeights: leaf.weights,
@@ -421,8 +419,6 @@ export function runExperiment<T>(
   experiment: Experiment<T>,
   featureId: string | null,
   ctx: EvalContext,
-  // Contextual-bandit fields (leaf, weights used, training period) to thread
-  // onto the result so they are present when the tracking callbacks fire.
   cbInfo?: ContextualBanditInfo,
 ): {
   result: Result<T>;
@@ -972,9 +968,6 @@ export function getExperimentResult<T>(
   if (meta.name) res.name = meta.name;
   if (bucket !== undefined) res.bucket = bucket;
   if (meta.passthrough) res.passthrough = meta.passthrough;
-  // Contextual-bandit exposures only: record the leaf, the weights used to
-  // bucket this user, and the training period so the tracking callback can
-  // write them to the events table.
   if (cbInfo && inExperiment) {
     res.leafId = cbInfo.leafId;
     res.variationWeights = cbInfo.variationWeights;

@@ -45,6 +45,7 @@ export const STICKY_BUCKETING_RULE_KEYS = [
 
 export const PREREQUISITE_RULE_KEYS = ["parentConditions"] as const;
 
+// Preserved only when the SDK declares `contextualBandits` capability.
 export const CONTEXTUAL_BANDIT_RULE_KEYS = [
   "type",
   "attributesRequired",
