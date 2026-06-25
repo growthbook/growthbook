@@ -152,6 +152,7 @@ interface Props {
   shareType?: "experiment" | "report";
   onEditMetadata?: (variationIndex: number) => void;
   onAddVariation?: () => void;
+  onEditTraffic?: () => void;
 }
 
 function AddVariationButton({ onClick }: { onClick: () => void }) {
@@ -216,6 +217,7 @@ export function VariationBox({
   shareUid,
   shareType = "experiment",
   onEditMetadata,
+  onEditTraffic,
 }: {
   i: number;
   v: Variation;
@@ -234,6 +236,7 @@ export function VariationBox({
   shareUid?: string;
   shareType?: "experiment" | "report";
   onEditMetadata?: (variationIndex: number) => void;
+  onEditTraffic?: () => void;
 }) {
   const { blockFileUploads } = useOrgSettings();
   const isBandit = experiment.type === "multi-armed-bandit";
@@ -271,12 +274,16 @@ export function VariationBox({
                   {v.name}
                 </Heading>
               </Flex>
-              {canEdit && onEditMetadata ? (
+              {canEdit && onEditMetadata && onEditTraffic ? (
                 <IconButton
                   variant="ghost"
                   size="1"
                   color="violet"
-                  onClick={() => onEditMetadata(i)}
+                  onClick={() => {
+                    experiment.status === "running"
+                      ? onEditMetadata(i)
+                      : onEditTraffic();
+                  }}
                   aria-label="Edit variation"
                 >
                   <PiPencilSimple size="15" />
@@ -379,6 +386,7 @@ const VariationsTable: FC<Props> = ({
   shareType = "experiment",
   onEditMetadata,
   onAddVariation,
+  onEditTraffic,
 }) => {
   const { apiCall } = useAuth();
   const variations = getLatestPhaseVariations(experiment);
@@ -431,6 +439,7 @@ const VariationsTable: FC<Props> = ({
               shareUid={shareUid}
               shareType={shareType}
               onEditMetadata={onEditMetadata}
+              onEditTraffic={onEditTraffic}
               showNoImage={experiment.status === "draft"}
             />
           );

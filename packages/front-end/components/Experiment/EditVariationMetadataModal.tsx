@@ -45,7 +45,7 @@ const EditVariationMetadataModal: FC<Props> = ({
           Want to edit values? Navigate to{" "}
           <Text size="large" weight="semibold">
             {" "}
-            Implementation {">"} Edit
+            Linked Changes {">"} Edit
           </Text>
         </>
       }
