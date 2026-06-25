@@ -1,10 +1,4 @@
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-  useRef,
-} from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { SavedGroupInterface } from "shared/types/saved-group";
 import {
@@ -12,20 +6,11 @@ import {
   applyTopLevelPatchOps,
   isSavedGroupRevisionMetadataOnly,
 } from "shared/enterprise";
-import { ago, datetime } from "shared/dates";
 import { FaPlusCircle } from "react-icons/fa";
-import {
-  PiArrowsDownUp,
-  PiPencil,
-  PiProhibit,
-  PiLockSimple,
-  PiPencilSimpleFill,
-  PiGitDiff,
-  PiCaretRightFill,
-} from "react-icons/pi";
+import { PiArrowsDownUp, PiPencilSimpleFill } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { isIdListSupportedAttribute } from "shared/util";
-import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
 import Link from "@/ui/Link";
 import Field from "@/components/Forms/Field";
 import PageHead from "@/components/Layout/PageHead";
@@ -35,7 +20,6 @@ import Metadata from "@/ui/Metadata";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Badge from "@/ui/Badge";
-import { getStatusBadge } from "@/components/Revision/revisionUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
@@ -84,9 +68,8 @@ import CompareSavedGroupRevisionsModal from "@/components/SavedGroups/CompareSav
 import { useSavedGroupRevision } from "@/hooks/useSavedGroupRevision";
 import { useSavedGroupReferences } from "@/hooks/useSavedGroupReferences";
 import { REVISION_SAVED_GROUP_DIFF_CONFIG } from "@/components/Revision/RevisionDiffConfig";
+import RevisionSummaryCard from "@/components/Revision/RevisionSummaryCard";
 import { useUser } from "@/services/UserContext";
-import EventUser from "@/components/Avatar/EventUser";
-import { useScrollPosition } from "@/hooks/useScrollPosition";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import SavedGroupDraftSelectorForChanges, {
@@ -94,55 +77,6 @@ import SavedGroupDraftSelectorForChanges, {
 } from "@/components/SavedGroups/SavedGroupDraftSelectorForChanges";
 
 const NUM_PER_PAGE = 10;
-
-function CoAuthorsFromIds({
-  authorId,
-  contributorIds,
-}: {
-  authorId: string;
-  contributorIds: string[];
-}) {
-  const [open, setOpen] = useState(false);
-  const filtered = contributorIds.filter((id) => id !== authorId);
-  if (filtered.length === 0) return null;
-  const label = `Co-author${filtered.length > 1 ? "s" : ""} (${filtered.length})`;
-  return (
-    <Box mt="3" mb="3">
-      <div
-        className="link-purple"
-        style={{
-          cursor: "pointer",
-          userSelect: "none",
-          display: "inline-block",
-        }}
-        onClick={() => setOpen((o) => !o)}
-      >
-        <PiCaretRightFill
-          style={{
-            display: "inline",
-            marginRight: 4,
-            transition: "transform 0.15s ease",
-            transform: open ? "rotate(90deg)" : "none",
-          }}
-        />
-        {label}
-      </div>
-      {open && (
-        <Flex direction="column" gap="2" mt="2" ml="3">
-          {filtered.map((id) => (
-            <EventUser
-              key={id}
-              user={{ type: "dashboard", id, name: "", email: "" }}
-              display="avatar-name-email"
-              size="sm"
-              wrap={true}
-            />
-          ))}
-        </Flex>
-      )}
-    </Box>
-  );
-}
 
 export default function EditSavedGroupPage() {
   const router = useRouter();
@@ -193,17 +127,6 @@ export default function EditSavedGroupPage() {
   // When the org allows reverts to bypass approval, the revert dialog defaults
   // to publishing immediately; the user can still opt to create a draft instead.
   const [revertPublishNow, setRevertPublishNow] = useState<boolean>(false);
-  const [editingTitle, setEditingTitle] = useState(false);
-  const [titleDraft, setTitleDraft] = useState("");
-
-  const bannerRef = useRef<HTMLDivElement>(null);
-  const [bannerPinned, setBannerPinned] = useState(false);
-  const { scrollY } = useScrollPosition();
-
-  useEffect(() => {
-    if (!bannerRef.current) return;
-    setBannerPinned(bannerRef.current.getBoundingClientRect().top <= 110);
-  }, [scrollY]);
 
   const settings = useOrgSettings();
   const { savedGroupSizeLimit, attributeSchema } = settings;
@@ -317,25 +240,6 @@ export default function EditSavedGroupPage() {
     // (i.e. live is archived but the target was not).
     setRevertIncludeArchive(liveArchived && !targetArchived);
   }, [confirmRevert, revisionToRevert, savedGroup, revertsBypassApproval]);
-
-  // Sync title draft when selected revision changes
-  useEffect(() => {
-    setEditingTitle(false);
-    setTitleDraft(selectedRevision?.title || "");
-  }, [selectedRevision?.id, selectedRevision?.title]);
-
-  const commitTitleEdit = useCallback(async () => {
-    if (!selectedRevision) return;
-    setEditingTitle(false);
-    const next = titleDraft.trim();
-    if (next !== (selectedRevision.title ?? "")) {
-      await apiCall(`/revision/${selectedRevision.id}/title`, {
-        method: "PATCH",
-        body: JSON.stringify({ title: next }),
-      });
-      await mutateRevisions();
-    }
-  }, [titleDraft, selectedRevision, apiCall, mutateRevisions]);
 
   // When a revision is selected, show its proposed state in the overview
   const displayedSavedGroup = useMemo(() => {
@@ -824,6 +728,9 @@ export default function EditSavedGroupPage() {
                 // (matching the server-side rule in the saved-group adapter).
                 requiresApproval={selectedRevisionRequiresApproval}
                 closeModal={() => setShowChangesModal(false)}
+                canUpdateEntity={(s) =>
+                  permissionsUtil.canUpdateSavedGroup(s, {})
+                }
               />
             </Modal>
           );
@@ -1319,429 +1226,36 @@ export default function EditSavedGroupPage() {
             instead
           </Callout>
         )}
-        {(() => {
-          const bannerProps = isDraft
-            ? {
-                icon: <PiPencil size={18} />,
-                color: "var(--amber-11)",
-                bgColor: "var(--amber-a3)",
-                message: (
-                  <>
-                    Viewing a <strong>draft</strong> — changes will not go live
-                    until published
-                  </>
-                ),
-              }
-            : metadataReviewRequired && isDiscarded
-              ? {
-                  icon: <PiProhibit size={18} />,
-                  color: "var(--gray-11)",
-                  bgColor: "var(--gray-a3)",
-                  message: (
-                    <>
-                      Viewing a <strong>discarded</strong> revision — this was
-                      never published
-                    </>
-                  ),
-                }
-              : metadataReviewRequired && isMerged
-                ? {
-                    icon: <PiLockSimple size={18} />,
-                    color: "var(--gray-11)",
-                    bgColor: "var(--gray-a3)",
-                    message: (
-                      <>
-                        Viewing a previously <strong>published</strong>{" "}
-                        revision.{" "}
-                        <span
-                          style={{
-                            cursor: "pointer",
-                            color: "var(--accent-11)",
-                            fontWeight: 600,
-                            textUnderlineOffset: 2,
-                          }}
-                          onClick={() => selectFlow(null)}
-                        >
-                          Switch to live
-                        </span>
-                      </>
-                    ),
-                  }
-                : isLive
-                  ? (() => {
-                      const activeDrafts = allRevisions.filter(
-                        (r) =>
-                          r.status === "draft" ||
-                          r.status === "approved" ||
-                          r.status === "changes-requested" ||
-                          r.status === "pending-review",
-                      );
-                      if (activeDrafts.length === 0) return null;
-                      return {
-                        icon: <PiPencil size={18} />,
-                        color: "var(--gray-11)",
-                        bgColor: "var(--gray-a3)",
-                        message: (
-                          <>
-                            This saved group has{" "}
-                            <strong>
-                              {activeDrafts.length === 1
-                                ? "a draft revision"
-                                : `${activeDrafts.length} draft revisions`}
-                            </strong>
-                            {activeDrafts.length === 1 && (
-                              <>
-                                {". "}
-                                <span
-                                  style={{
-                                    cursor: "pointer",
-                                    color: "var(--accent-11)",
-                                    fontWeight: 600,
-                                    textUnderlineOffset: 2,
-                                  }}
-                                  onClick={() => selectFlow(activeDrafts[0])}
-                                >
-                                  Switch to draft
-                                </span>
-                              </>
-                            )}
-                          </>
-                        ),
-                      };
-                    })()
-                  : null;
-
-          return (
-            <>
-              {bannerProps && (
-                <div
-                  ref={bannerRef}
-                  style={{
-                    position: "sticky",
-                    top: 110,
-                    zIndex: 920,
-                    marginBottom: 12,
-                    display: "flex",
-                    justifyContent: "center",
-                    pointerEvents: "none",
-                  }}
-                >
-                  <div
-                    style={{
-                      width: "100%",
-                      backgroundColor: "var(--color-background)",
-                      borderRadius: "var(--radius-3)",
-                      overflow: "hidden",
-                      maxWidth: bannerPinned ? "580px" : "2000px",
-                      boxShadow: bannerPinned ? "var(--shadow-3)" : undefined,
-                      transition: "all 200ms ease",
-                      pointerEvents: "auto",
-                    }}
-                  >
-                    <Flex
-                      align="center"
-                      justify="center"
-                      gap="2"
-                      px="4"
-                      py="3"
-                      style={{
-                        color: bannerProps.color,
-                        backgroundColor: bannerProps.bgColor,
-                      }}
-                    >
-                      <span
-                        style={{
-                          display: "flex",
-                          flexGrow: 0,
-                          flexShrink: 0,
-                        }}
-                      >
-                        {bannerProps.icon}
-                      </span>
-                      <span style={{ fontSize: "var(--font-size-2)" }}>
-                        {bannerProps.message}
-                      </span>
-                    </Flex>
-                  </div>
-                </div>
-              )}
-              <Frame mt="2" mb="4" px="6" py="4">
-                <Flex
-                  align="start"
-                  justify="between"
-                  mb="2"
-                  wrap="wrap"
-                  gap="2"
-                >
-                  <Flex align="start" gap="4" style={{ marginTop: 5 }}>
-                    <Flex direction="column" gap="1">
-                      {hasRevisions && (
-                        <Flex align="center" gap="2">
-                          {displayRevision?.title && (
-                            <span
-                              style={{
-                                display: "inline-block",
-                                fontVariantNumeric: "tabular-nums",
-                                flexShrink: 0,
-                              }}
-                            >
-                              <Text as="span" color="text-mid" size="medium">
-                                {revisionNumber}.
-                              </Text>
-                            </span>
-                          )}
-                          {editingTitle ? (
-                            <Field
-                              autoFocus
-                              value={titleDraft}
-                              placeholder={`Revision ${revisionNumber}`}
-                              onChange={(e) => setTitleDraft(e.target.value)}
-                              onKeyDown={async (e) => {
-                                if (e.key === "Enter") {
-                                  e.preventDefault();
-                                  await commitTitleEdit();
-                                } else if (e.key === "Escape") {
-                                  setEditingTitle(false);
-                                  setTitleDraft(selectedRevision?.title || "");
-                                }
-                              }}
-                              onBlur={commitTitleEdit}
-                              containerStyle={{
-                                maxWidth: 250,
-                                marginBottom: 0,
-                              }}
-                              style={{
-                                border: "none",
-                                borderBottom: "1px solid var(--violet-9)",
-                                borderCollapse: "collapse",
-                                borderRadius: 0,
-                                outline: "none",
-                                background: "transparent",
-                                boxShadow: "none",
-                                padding: "0 2px",
-                                height: "auto",
-                                fontSize: "var(--font-size-3)",
-                                fontWeight: 700,
-                              }}
-                            />
-                          ) : (
-                            <Text weight="semibold" size="large">
-                              <OverflowText
-                                maxWidth={250}
-                                title={
-                                  displayRevision?.title ||
-                                  `Revision ${revisionNumber}`
-                                }
-                              >
-                                {displayRevision?.title ||
-                                  `Revision ${revisionNumber}`}
-                              </OverflowText>
-                            </Text>
-                          )}
-                          {isDraft &&
-                            selectedRevision?.authorId === user?.id &&
-                            !editingTitle && (
-                              <IconButton
-                                variant="ghost"
-                                color="violet"
-                                size="2"
-                                radius="full"
-                                onClick={() => {
-                                  setTitleDraft(selectedRevision?.title || "");
-                                  setEditingTitle(true);
-                                }}
-                                mx="1"
-                              >
-                                <PiPencilSimpleFill />
-                              </IconButton>
-                            )}
-                          <Box flexShrink="0">
-                            {getStatusBadge(
-                              isLive
-                                ? "live"
-                                : (selectedRevision?.status ?? "draft"),
-                            )}
-                          </Box>
-                        </Flex>
-                      )}
-                    </Flex>
-                    {hasRevisions && allRevisions.length >= 2 && (
-                      <>
-                        <Separator
-                          orientation="vertical"
-                          style={{ marginTop: 2 }}
-                        />
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          icon={<PiGitDiff />}
-                          onClick={() => setCompareRevisionsModalOpen(true)}
-                          style={{ position: "relative", top: -5 }}
-                        >
-                          Compare revisions
-                        </Button>
-                      </>
-                    )}
-                  </Flex>
-                  <Flex align="center" justify="end" gap="4" flexGrow="1">
-                    {hasRevisions && isDiscarded && displayRevision && (
-                      <Button
-                        onClick={() => handleReopen(displayRevision.id)}
-                        size="sm"
-                      >
-                        Reopen
-                      </Button>
-                    )}
-                    {hasRevisions && isMerged && displayRevision && (
-                      <Button
-                        onClick={() => {
-                          setRevisionToRevert(displayRevision);
-                          setConfirmRevert(true);
-                        }}
-                        size="sm"
-                      >
-                        Revert to Previous
-                      </Button>
-                    )}
-                    {hasRevisions &&
-                      isDraft &&
-                      displayRevision &&
-                      displayRevision.authorId === user?.id && (
-                        <Button
-                          onClick={async () => {
-                            await handleDiscard(displayRevision.id);
-                          }}
-                          color="red"
-                          variant="ghost"
-                          size="sm"
-                        >
-                          Discard
-                        </Button>
-                      )}
-                    {isLive && (
-                      <Button
-                        onClick={() => setConfirmNewDraft(true)}
-                        size="sm"
-                        variant="soft"
-                      >
-                        New Draft
-                      </Button>
-                    )}
-                    {hasRevisions && isDraft && (
-                      <>
-                        {mergeResult && !mergeResult.success && (
-                          <Tooltip body="There have been conflicting changes published since this draft was created. Resolve them before publishing.">
-                            <Button
-                              variant="ghost"
-                              color="red"
-                              onClick={() => {
-                                setConflictModal(true);
-                              }}
-                              size="sm"
-                            >
-                              Fix conflicts
-                            </Button>
-                          </Tooltip>
-                        )}
-                        <Tooltip
-                          body={
-                            mergeResult && !mergeResult.success
-                              ? "This revision has conflicts — resolve them before publishing"
-                              : ""
-                          }
-                        >
-                          <Button
-                            onClick={() => setShowChangesModal(true)}
-                            size="sm"
-                          >
-                            {selectedRevisionRequiresApproval
-                              ? displayRevision?.status === "draft"
-                                ? "Request Approval to Publish"
-                                : displayRevision?.status === "pending-review"
-                                  ? "View Approval Request"
-                                  : "View Changes"
-                              : "Review & Publish"}
-                          </Button>
-                        </Tooltip>
-                      </>
-                    )}
-                  </Flex>
-                </Flex>
-                <Separator size="4" my="3" />
-                <Flex direction="column">
-                  <Flex
-                    align="center"
-                    justify="between"
-                    wrap="wrap"
-                    style={{
-                      rowGap: "var(--space-1)",
-                      columnGap: "var(--space-4)",
-                    }}
-                  >
-                    <Metadata
-                      label={hasRevisions ? "Revised by" : "Created by"}
-                      value={
-                        <EventUser
-                          user={{
-                            type: "dashboard",
-                            id:
-                              hasRevisions && displayRevision
-                                ? displayRevision.authorId
-                                : savedGroup.owner,
-                            name: "",
-                            email: "",
-                          }}
-                          display="avatar-name-email"
-                          size="sm"
-                        />
-                      }
-                    />
-                    <Flex align="center" gap="4" wrap="wrap">
-                      <Metadata
-                        label="Created"
-                        value={datetime(
-                          hasRevisions && displayRevision
-                            ? displayRevision.dateCreated
-                            : savedGroup.dateCreated,
-                        )}
-                      />
-                      {hasRevisions &&
-                        (isLive || isMerged) &&
-                        displayRevision?.resolution?.dateCreated && (
-                          <Metadata
-                            label="Published"
-                            value={datetime(
-                              displayRevision.resolution.dateCreated,
-                            )}
-                          />
-                        )}
-                      {hasRevisions && isDraft && displayRevision && (
-                        <Metadata
-                          label="Last update"
-                          value={ago(displayRevision.dateUpdated)}
-                        />
-                      )}
-                    </Flex>
-                  </Flex>
-                  {hasRevisions &&
-                    displayRevision &&
-                    (() => {
-                      const coAuthorIds = (
-                        displayRevision.contributors ?? []
-                      ).filter((id) => id !== displayRevision.authorId);
-                      if (coAuthorIds.length === 0) return null;
-                      return (
-                        <CoAuthorsFromIds
-                          authorId={displayRevision.authorId}
-                          contributorIds={coAuthorIds}
-                        />
-                      );
-                    })()}
-                </Flex>
-              </Frame>
-            </>
-          );
-        })()}
+        <RevisionSummaryCard
+          allRevisions={allRevisions}
+          selectedRevision={selectedRevision}
+          entityNoun="saved group"
+          hasRevisions={hasRevisions}
+          metadataReviewRequired={metadataReviewRequired}
+          requiresApproval={selectedRevisionRequiresApproval}
+          mergeResult={mergeResult}
+          currentUserId={user?.id}
+          fallbackOwnerId={savedGroup.owner}
+          fallbackDateCreated={savedGroup.dateCreated}
+          onSelectRevision={selectFlow}
+          onTitleCommit={async (revisionId, title) => {
+            await apiCall(`/revision/${revisionId}/title`, {
+              method: "PATCH",
+              body: JSON.stringify({ title }),
+            });
+            await mutateRevisions();
+          }}
+          onCompare={() => setCompareRevisionsModalOpen(true)}
+          onReopen={(revisionId) => handleReopen(revisionId)}
+          onRevert={(revision) => {
+            setRevisionToRevert(revision);
+            setConfirmRevert(true);
+          }}
+          onDiscard={(revisionId) => handleDiscard(revisionId)}
+          onNewDraft={() => setConfirmNewDraft(true)}
+          onFixConflicts={() => setConflictModal(true)}
+          onReviewPublish={() => setShowChangesModal(true)}
+        />
         {savedGroup.type === "list" && (
           <LargeSavedGroupPerformanceWarning
             hasLargeSavedGroupFeature={hasLargeSavedGroupFeature}
