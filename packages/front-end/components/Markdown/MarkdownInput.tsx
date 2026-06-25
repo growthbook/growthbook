@@ -26,6 +26,7 @@ import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import track from "@/services/track";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
+import Link from "@/ui/Link";
 import Markdown from "./Markdown";
 
 const Item = ({ entity: { name, char } }) => <div>{`${name}: ${char}`}</div>;
@@ -308,7 +309,7 @@ const MarkdownInput: FC<{
                     >
                       Upload images by dragging &amp; dropping or clicking here
                     </span>
-                    <a
+                    <Link
                       href="https://guides.github.com/features/mastering-markdown/"
                       target="_blank"
                       rel="noreferrer"
@@ -321,7 +322,7 @@ const MarkdownInput: FC<{
                       }}
                     >
                       <FaMarkdown />
-                    </a>
+                    </Link>
                   </Flex>
                 </>
               )}

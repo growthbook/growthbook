@@ -8,6 +8,7 @@ import Callout from "@/ui/Callout";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import EmptyState from "@/components/EmptyState";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
+import DropdownLink from "@/components/Dropdown/DropdownLink";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import Code from "@/components/SyntaxHighlighting/Code";
 import { isCloud } from "@/services/env";
@@ -161,31 +162,22 @@ export default function CustomHooksPage() {
                       </TableCell>
                       <TableCell>
                         <MoreMenu useRadix iconButtonSize="1">
-                          <a
-                            href="#"
-                            className="dropdown-item"
-                            onClick={(e) => {
-                              e.preventDefault();
+                          <DropdownLink
+                            onClick={() => {
                               setViewCodeHook(hook);
                             }}
                           >
                             Preview Code
-                          </a>
-                          <a
-                            href="#"
-                            className="dropdown-item"
-                            onClick={(e) => {
-                              e.preventDefault();
+                          </DropdownLink>
+                          <DropdownLink
+                            onClick={() => {
                               setModalData(hook);
                             }}
                           >
                             Edit
-                          </a>
-                          <a
-                            href="#"
-                            className="dropdown-item"
-                            onClick={async (e) => {
-                              e.preventDefault();
+                          </DropdownLink>
+                          <DropdownLink
+                            onClick={async () => {
                               await apiCall(`/custom-hooks/${hook.id}`, {
                                 method: "PUT",
                                 body: JSON.stringify({
@@ -196,7 +188,7 @@ export default function CustomHooksPage() {
                             }}
                           >
                             {hook.enabled ? "Disable" : "Enable"}
-                          </a>
+                          </DropdownLink>
                           <DeleteButton
                             useIcon={false}
                             text="Delete"
@@ -251,16 +243,13 @@ export default function CustomHooksPage() {
                       </TableCell>
                       <TableCell>
                         <MoreMenu useRadix iconButtonSize="1">
-                          <a
-                            href="#"
-                            className="dropdown-item"
-                            onClick={(e) => {
-                              e.preventDefault();
+                          <DropdownLink
+                            onClick={() => {
                               setViewCodeHook(hook);
                             }}
                           >
                             Preview Code
-                          </a>
+                          </DropdownLink>
                         </MoreMenu>
                       </TableCell>
                     </TableRow>

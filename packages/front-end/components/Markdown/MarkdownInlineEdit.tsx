@@ -10,6 +10,7 @@ import OptInModal from "@/components/License/OptInModal";
 import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import track from "@/services/track";
+import Link from "@/ui/Link";
 import Markdown from "./Markdown";
 import MarkdownInput from "./MarkdownInput";
 
@@ -154,17 +155,15 @@ export default function MarkdownInlineEdit({
                     {emptyHelperText ? (
                       <em>{emptyHelperText}</em>
                     ) : (
-                      <a
-                        role="button"
+                      <Link
                         className="link-purple"
-                        onClick={(e) => {
-                          e.preventDefault();
+                        onClick={() => {
                           setVal(value || "");
                           setEdit(true);
                         }}
                       >
                         <em>Add {label}</em>
-                      </a>
+                      </Link>
                     )}
                   </Box>
                   {aiSuggestFunction && (
@@ -223,17 +222,15 @@ export default function MarkdownInlineEdit({
         </Box>
         {value && canEdit && !header && (
           <Box className="">
-            <a
-              role="button"
-              className="link-purple"
-              onClick={(e) => {
-                e.preventDefault();
+            <Link
+              className="link-purple font-weight-bold"
+              onClick={() => {
                 setVal(value || "");
                 setEdit(true);
               }}
             >
-              <Button variant="ghost">Edit</Button>
-            </a>
+              Edit
+            </Link>
           </Box>
         )}
       </Flex>

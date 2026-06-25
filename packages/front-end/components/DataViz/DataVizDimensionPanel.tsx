@@ -7,6 +7,7 @@ import { Select, SelectItem } from "@/ui/Select";
 import { supportsDimension } from "@/services/dataVizTypeGuards";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
+import Link from "@/ui/Link";
 
 export default function DataVizDimensionPanel({
   dataVizConfig,
@@ -257,9 +258,9 @@ export default function DataVizDimensionPanel({
               ) : null}
               {/* Currently, we only support 1 dimension, but this might change down the road. So only showing the Add CTA if there are no dimensions */}
               {!dimensions.length ? (
-                <a
-                  role="button"
-                  className="d-inline-block link-purple font-weight-bold"
+                <Link
+                  className="d-inline-block"
+                  weight="bold"
                   onClick={() => {
                     onDataVizConfigChange({
                       ...dataVizConfig,
@@ -275,7 +276,7 @@ export default function DataVizDimensionPanel({
                 >
                   <FaPlusCircle className="mr-1" />
                   Add {label}
-                </a>
+                </Link>
               ) : null}
             </Flex>
           </Box>

@@ -10,6 +10,7 @@ import SelectField, {
 } from "@/components/Forms/SelectField";
 import StringArrayField from "@/components/Forms/StringArrayField";
 import Button from "@/ui/Button";
+import Link from "@/ui/Link";
 import {
   NUMBER_PATTERN,
   numberRegex,
@@ -375,10 +376,8 @@ export function RowFilterInput({
         );
       })}
       <div>
-        <a
-          href="#"
-          onClick={(e) => {
-            e.preventDefault();
+        <Link
+          onClick={() => {
             const newFilters = [...value];
             newFilters.push({
               column: "",
@@ -389,7 +388,7 @@ export function RowFilterInput({
           }}
         >
           <PiPlus /> Add
-        </a>
+        </Link>
       </div>
     </Flex>
   );

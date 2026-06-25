@@ -296,34 +296,27 @@ function CustomHooksTable({
                 </TableCell>
                 <TableCell>
                   <MoreMenu>
-                    <a
-                      href="#"
+                    <button
+                      type="button"
                       className="dropdown-item"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setViewCodeHook(hook);
-                      }}
+                      onClick={() => setViewCodeHook(hook)}
                     >
                       Preview Code
-                    </a>
+                    </button>
                     {canManage && featureScoped && (
-                      <a
-                        href="#"
+                      <button
+                        type="button"
                         className="dropdown-item"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setModalData(hook);
-                        }}
+                        onClick={() => setModalData(hook)}
                       >
                         Edit
-                      </a>
+                      </button>
                     )}
                     {canManage && featureScoped && (
-                      <a
-                        href="#"
+                      <button
+                        type="button"
                         className="dropdown-item"
-                        onClick={async (e) => {
-                          e.preventDefault();
+                        onClick={async () => {
                           await apiCall(`/custom-hooks/${hook.id}`, {
                             method: "PUT",
                             body: JSON.stringify({
@@ -334,7 +327,7 @@ function CustomHooksTable({
                         }}
                       >
                         {hook.enabled ? "Disable" : "Enable"}
-                      </a>
+                      </button>
                     )}
                     {canManage && featureScoped && (
                       <DeleteButton

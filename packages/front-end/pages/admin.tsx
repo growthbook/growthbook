@@ -38,6 +38,7 @@ import Switch from "@/ui/Switch";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import ConfirmButton from "@/components/Modal/ConfirmButton";
 import SelectField from "@/components/Forms/SelectField";
+import Link from "@/ui/Link";
 import StringArrayField from "@/components/Forms/StringArrayField";
 import Checkbox from "@/ui/Checkbox";
 import Callout from "@/ui/Callout";
@@ -186,16 +187,12 @@ function OrganizationRow({
         })}
       >
         <td>
-          <a
+          <Link
             className={clsx("mb-1 h5")}
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
-              switchTo(organization);
-            }}
+            onClick={() => switchTo(organization)}
           >
             {organization.name}
-          </a>
+          </Link>
         </td>
         <td>{organization.ownerEmail}</td>
         <td>{date(organization.dateCreated)}</td>
@@ -214,30 +211,22 @@ function OrganizationRow({
         )}
         <td>{organization.members.length ?? 0}</td>
         <td className="p-0 text-center">
-          <a
-            href="#"
+          <Link
             className="d-block w-100 h-100"
-            onClick={(e) => {
-              e.preventDefault();
-              setEditOrgModalOpen(true);
-            }}
+            onClick={() => setEditOrgModalOpen(true)}
             style={{ lineHeight: "40px" }}
           >
             <FaPencilAlt />
-          </a>
+          </Link>
         </td>
         <td style={{ width: 40 }} className="p-0 text-center">
-          <a
-            href="#"
+          <Link
             className="d-block w-100 h-100"
-            onClick={(e) => {
-              e.preventDefault();
-              setExpanded(!expanded);
-            }}
+            onClick={() => setExpanded(!expanded)}
             style={{ fontSize: "1.2em", lineHeight: "40px" }}
           >
             {expanded ? <FaAngleDown /> : <FaAngleRight />}
-          </a>
+          </Link>
         </td>
       </tr>
       {expanded && (
@@ -283,15 +272,7 @@ function OrganizationRow({
                 </div>
                 {isCloud() && (
                   <div className="col-auto">
-                    <a
-                      href="#"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setEditSSOOpen(true);
-                      }}
-                    >
-                      Edit
-                    </a>
+                    <Link onClick={() => setEditSSOOpen(true)}>Edit</Link>
                   </div>
                 )}
               </div>
@@ -367,20 +348,14 @@ function OrganizationRow({
                           }
                           modalHeader="Drop and Recreate Managed Warehouse"
                         >
-                          <a href="#" className="text-danger">
+                          <Link className="text-danger">
                             Drop and Recreate Database
-                          </a>
+                          </Link>
                         </ConfirmButton>
                       ) : (
-                        <a
-                          href="#"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            setClickhouseModalOpen(true);
-                          }}
-                        >
+                        <Link onClick={() => setClickhouseModalOpen(true)}>
                           Create Database
-                        </a>
+                        </Link>
                       )}
                     </div>
                   </div>
@@ -495,30 +470,22 @@ function MemberRow({
           {memberOrgs.length ? memberOrgs.map((mo) => mo.name).join(", ") : "-"}
         </td>
         <td className="p-0 text-center">
-          <a
-            href="#"
+          <Link
             className="d-block w-100 h-100"
-            onClick={(e) => {
-              e.preventDefault();
-              setEditMemberModalOpen(true);
-            }}
+            onClick={() => setEditMemberModalOpen(true)}
             style={{ lineHeight: "40px" }}
           >
             <FaPencilAlt />
-          </a>
+          </Link>
         </td>
         <td style={{ width: 40 }} className="p-0 text-center">
-          <a
-            href="#"
+          <Link
             className="d-block w-100 h-100"
-            onClick={(e) => {
-              e.preventDefault();
-              setExpanded(!expanded);
-            }}
+            onClick={() => setExpanded(!expanded)}
             style={{ fontSize: "1.2em", lineHeight: "40px" }}
           >
             {expanded ? <FaAngleDown /> : <FaAngleRight />}
-          </a>
+          </Link>
         </td>
       </tr>
       {expanded && (

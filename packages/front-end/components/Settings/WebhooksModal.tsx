@@ -184,10 +184,7 @@ export function CreateSDKWebhookModal({
         helpText={
           <>
             Please select an existing{" "}
-            <DocLink useRadix docSection="webhookSecrets">
-              webhook secret
-            </DocLink>{" "}
-            or{" "}
+            <DocLink docSection="webhookSecrets">webhook secret</DocLink> or{" "}
             <Link onClick={() => setIsSecretModalOpen(true)}>
               create a new one
             </Link>
@@ -370,13 +367,13 @@ export function CreateSDKWebhookModal({
               <div className="alert alert-danger">
                 <strong>Error: </strong>Localhost not supported directly. Try
                 using{" "}
-                <a
+                <Link
                   href="https://www.npmjs.com/package/ngrok"
                   target="_blank"
                   rel="noreferrer"
                 >
                   ngrok
-                </a>{" "}
+                </Link>{" "}
                 instead.
               </div>
             )}
@@ -624,13 +621,13 @@ const EditSDKWebhooksModal: FC<{
       {form.watch("endpoint").match(/localhost/) && (
         <div className="alert alert-danger">
           <strong>Error: </strong>Localhost not supported directly. Try using{" "}
-          <a
+          <Link
             href="https://www.npmjs.com/package/ngrok"
             target="_blank"
             rel="noreferrer"
           >
             ngrok
-          </a>{" "}
+          </Link>{" "}
           instead.
         </div>
       )}

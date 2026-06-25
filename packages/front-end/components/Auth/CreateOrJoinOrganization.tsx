@@ -23,6 +23,7 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import { useProject } from "@/services/DefinitionsContext";
 import SelectField from "@/components/Forms/SelectField";
 import Checkbox from "@/ui/Checkbox";
+import Link from "@/ui/Link";
 import style from "./CreateOrJoinOrganization.module.scss";
 import WelcomeFrame from "./WelcomeFrame";
 
@@ -410,17 +411,15 @@ const CreateOrJoinOrganization: FC<{
           loading={loading}
           pathName="/create-org"
         >
-          <a
+          <Link
             className="logout-link"
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
+            onClick={() => {
               setLoading(true);
               logout();
             }}
           >
             <FiLogOut /> log out
-          </a>
+          </Link>
           {rightSide}
         </WelcomeFrame>
       </>

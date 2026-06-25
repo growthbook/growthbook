@@ -14,6 +14,7 @@ import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import { OfficialBadge } from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
+import Link from "@/ui/Link";
 import {
   DropdownMenu,
   DropdownMenuGroup,
@@ -203,15 +204,7 @@ export default function FactFilterList({ factTable }: Props) {
                 <tr>
                   <td colSpan={3} align={"center"}>
                     No matching filters.{" "}
-                    <a
-                      href="#"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        clear();
-                      }}
-                    >
-                      Clear search field
-                    </a>
+                    <Link onClick={() => clear()}>Clear search field</Link>
                   </td>
                 </tr>
               )}

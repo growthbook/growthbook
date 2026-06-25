@@ -17,6 +17,7 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import { isCloud } from "@/services/env";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
+import Link from "@/ui/Link";
 import track from "@/services/track";
 
 // Formatter for numbers
@@ -240,20 +241,19 @@ export default function CloudUsage() {
         </Box>
       )}
       <Box mt="5">
-        <a
+        <Link
           href="https://docs.growthbook.io/faq#what-are-the-growthbook-cloud-cdn-usage-limits"
           className="text-decoration-none"
           target="_blank"
           rel="noopener noreferrer"
+          weight="bold"
           onClick={() => {
             track("Clicked Read About CDN Limits Link");
           }}
         >
-          <strong className="a link-purple">
-            Read about CDN limits and techniques to reduce usage{" "}
-            <PiArrowSquareOut style={{ position: "relative", top: "-2px" }} />
-          </strong>
-        </a>
+          Read about CDN limits and techniques to reduce usage{" "}
+          <PiArrowSquareOut style={{ position: "relative", top: "-2px" }} />
+        </Link>
       </Box>
     </Frame>
   );

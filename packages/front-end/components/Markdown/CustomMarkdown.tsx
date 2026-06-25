@@ -4,6 +4,7 @@ import { PiNote } from "react-icons/pi";
 import clsx from "clsx";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import Link from "@/ui/Link";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Markdown from "./Markdown";
 import styles from "./CustomMarkdown.module.scss";
@@ -71,9 +72,9 @@ const CustomMarkdown: React.FC<Props> = ({ page, variables }) => {
 
       <div className={clsx(styles.customMarkdown, "appbox p-4")}>
         <PiNote className="mr-2" style={{ height: "20px", width: "20px" }} />
-        <a role="button" onClick={() => setShowModal(true)}>
+        <Link onClick={() => setShowModal(true)}>
           <strong>{PAGE_TO_CTA[page] + organization.name}</strong>
-        </a>
+        </Link>
       </div>
     </>
   );

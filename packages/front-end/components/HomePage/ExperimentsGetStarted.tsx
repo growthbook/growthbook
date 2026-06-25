@@ -18,6 +18,7 @@ import track from "@/services/track";
 import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
 import Button from "@/components/Button";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Link from "@/ui/Link";
 
 const ExperimentsGetStarted = (): React.ReactElement => {
   const { metrics, datasources, mutateDefinitions, project, projects } =
@@ -118,15 +119,9 @@ const ExperimentsGetStarted = (): React.ReactElement => {
         {showAnalysisSteps ? (
           <div style={{ maxWidth: 900 }}>
             <div className="mb-2">
-              <a
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setShowAnalysisSteps(false);
-                }}
-              >
+              <Link onClick={() => setShowAnalysisSteps(false)}>
                 <FaArrowLeft /> Back to Options
-              </a>
+              </Link>
             </div>
             <h1>Analyze an Existing Experiment</h1>
             <p>
@@ -154,22 +149,21 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                         and metric data lives. We support Snowflake, Redshift,
                         BigQuery, Databricks, Postgres, and more. If you
                         don&apos;t see yours,{" "}
-                        <a
-                          className={``}
+                        <Link
                           href="https://www.growthbook.io/contact"
                           target="_blank"
                           rel="noreferrer"
                         >
                           let us know
-                        </a>{" "}
+                        </Link>{" "}
                         or{" "}
-                        <a
+                        <Link
                           href="https://github.com/growthbook/growthbook/issues/new"
                           target="_blank"
                           rel="noreferrer"
                         >
                           open a GitHub issue
-                        </a>
+                        </Link>
                         .
                       </>
                     }

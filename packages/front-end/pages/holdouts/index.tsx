@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { date, datetime } from "shared/dates";
-import Link from "next/link";
 import { startCase } from "lodash";
 import { Box, Flex } from "@radix-ui/themes";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -29,6 +28,7 @@ import Table, {
 } from "@/ui/Table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import useURLHash from "@/hooks/useURLHash";
+import Link from "@/ui/Link";
 
 const HOLDOUT_TABS = [
   "all",

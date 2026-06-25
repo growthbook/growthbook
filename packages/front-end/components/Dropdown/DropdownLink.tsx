@@ -16,23 +16,23 @@ const DropdownLink: FC<{
   children,
 }) => {
   return (
-    <a
+    <button
+      type="button"
       className={clsx("dropdown-item", className, {
         active,
         disabled,
       })}
-      role="button"
+      disabled={disabled}
       onClick={
         onClick !== undefined
-          ? (e) => {
-              e.preventDefault();
+          ? () => {
               onClick();
             }
           : undefined
       }
     >
       {children}
-    </a>
+    </button>
   );
 };
 export default DropdownLink;

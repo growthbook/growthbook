@@ -30,6 +30,7 @@ import SelectField from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { DocLink } from "@/components/DocLink";
 import { formatPercent } from "@/services/metrics";
+import Link from "@/ui/Link";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -260,8 +261,7 @@ export default function ReleaseChangesForm({
             <label>Targeting and traffic changes</label>
             <div className="flex-1" />
             <div className="position-relative small" style={{ bottom: -6 }}>
-              <a
-                role="button"
+              <Link
                 className="link-purple ml-3"
                 onClick={() => setShowFullTargetingInfo(!showFullTargetingInfo)}
               >
@@ -276,7 +276,7 @@ export default function ReleaseChangesForm({
                     Show full targeting
                   </>
                 )}
-              </a>
+              </Link>
             </div>
           </div>
           <div className="appbox bg-light px-3 pt-3 pb-0 mb-0">

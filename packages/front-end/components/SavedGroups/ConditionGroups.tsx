@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { date, datetime } from "shared/dates";
 import {
   SavedGroupInterface,
@@ -31,6 +30,7 @@ import {
 } from "@/components/Reviews/RevisionStatusBadge";
 import { useSavedGroupDraftStates } from "@/hooks/useSavedGroupDraftStates";
 import SavedGroupSearchFilters from "@/components/Search/SavedGroupSearchFilters";
+import Link from "@/ui/Link";
 import TruncatedConditionDisplay from "./TruncatedConditionDisplay";
 import SavedGroupForm from "./SavedGroupForm";
 import SavedGroupDeleteModal from "./SavedGroupDeleteModal";

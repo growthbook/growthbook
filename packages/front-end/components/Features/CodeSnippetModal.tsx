@@ -387,13 +387,13 @@ export default function CodeSnippetModal({
                       <p>
                         For back-end and hybrid integrations, use the official
                         GrowthBook adapter for Vercel&apos;s{" "}
-                        <a
+                        <Link
                           href="https://flags-sdk.dev/providers/growthbook"
                           target="_blank"
                           rel="noreferrer"
                         >
                           Flags SDK
-                        </a>{" "}
+                        </Link>{" "}
                         (@flags-sdk/growthbook).
                       </p>
                       <Callout status="info" mb="6">
@@ -415,7 +415,7 @@ export default function CodeSnippetModal({
                   />
                   {languageMapping[language]?.packageUrl && (
                     <div className="mt-3">
-                      <a
+                      <Link
                         href={languageMapping[language].packageUrl}
                         target="_blank"
                         rel="noreferrer"
@@ -429,7 +429,7 @@ export default function CodeSnippetModal({
                         {getPackageRepositoryName(
                           languageMapping[language].packageUrl,
                         )}
-                      </a>
+                      </Link>
                     </div>
                   )}
                 </div>

@@ -2,6 +2,7 @@ import { FC, useState } from "react";
 import { FaEye } from "react-icons/fa";
 import { useAuth } from "@/services/auth";
 import { useWatching } from "@/services/WatchProvider";
+import Link from "@/ui/Link";
 
 const WatchButton: FC<{
   item: string;
@@ -39,12 +40,10 @@ const WatchButton: FC<{
   }
 
   return (
-    <a
+    <Link
       className={classNames}
-      href="#"
       title={isWatching ? "click to unwatch" : "click to watch"}
-      onClick={async (e) => {
-        e.preventDefault();
+      onClick={async () => {
         if (loading) return;
         setLoading(true);
         try {
@@ -63,7 +62,7 @@ const WatchButton: FC<{
       }}
     >
       <FaEye /> <span>{text}</span>
-    </a>
+    </Link>
   );
 };
 

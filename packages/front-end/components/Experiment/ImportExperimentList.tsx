@@ -304,9 +304,9 @@ const ImportExperimentList: FC<{
                 queries={data.experiments.queries?.map((q) => q.query) ?? []}
                 error={data.experiments.error}
                 ctaComponent={(onClick) => (
-                  <a className="alert-link" href="#" onClick={onClick}>
+                  <Link className="alert-link" onClick={onClick}>
                     View Queries
-                  </a>
+                  </Link>
                 )}
               />{" "}
               for more information.
@@ -492,15 +492,7 @@ const ImportExperimentList: FC<{
             Showing <strong>{items.length}</strong> of{" "}
             <strong>{totalRows}</strong> experiments.{" "}
             {items.length < totalRows && (
-              <a
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  clearFilters();
-                }}
-              >
-                Clear all filters
-              </a>
+              <Link onClick={() => clearFilters()}>Clear all filters</Link>
             )}
           </small>
           <table className="table appbox">
@@ -637,15 +629,9 @@ const ImportExperimentList: FC<{
                     <div className="alert alert-info">
                       <em>
                         No experiments match your current filters.{" "}
-                        <a
-                          href="#"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            clearFilters();
-                          }}
-                        >
+                        <Link onClick={() => clearFilters()}>
                           Clear all filters
-                        </a>
+                        </Link>
                       </em>
                     </div>
                   </td>
@@ -671,11 +657,9 @@ const ImportExperimentList: FC<{
                 </>
               }
             >
-              <a
-                href="#"
+              <Link
                 className="ml-2 btn btn-link"
-                onClick={async (e) => {
-                  e.preventDefault();
+                onClick={async () => {
                   await apiCall<{ id: string }>("/experiments/import", {
                     method: "POST",
                     body: JSON.stringify({
@@ -688,7 +672,7 @@ const ImportExperimentList: FC<{
                 }}
               >
                 Full Refresh
-              </a>
+              </Link>
             </Tooltip>
           </div>
         )}

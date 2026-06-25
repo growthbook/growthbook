@@ -14,6 +14,7 @@ import useSDKConnections from "@/hooks/useSDKConnections";
 import { DocLink } from "@/components/DocLink";
 import SelectField from "@/components/Forms/SelectField";
 import Switch from "@/ui/Switch";
+import Link from "@/ui/Link";
 import {
   AttributeOptionWithTooltip,
   type AttributeOptionForTooltip,
@@ -160,13 +161,12 @@ export default function FallbackAttributeSelector({
                   <>
                     {!orgStickyBucketing && <span>(disabled by org)</span>}
                     {permissionsUtil.canManageOrgSettings() && (
-                      <a
-                        role="button"
-                        className="a ml-2"
+                      <Link
+                        className="ml-2"
                         onClick={() => setShowSBInformation(true)}
                       >
                         <FaGear size={13} />
-                      </a>
+                      </Link>
                     )}
                   </>
                 ) : (

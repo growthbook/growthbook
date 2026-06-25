@@ -8,6 +8,7 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Code from "@/components/SyntaxHighlighting/Code";
 import ExpandableSavedQuery from "@/components/SavedQueries/ExpandableSavedQuery";
+import Link from "@/ui/Link";
 import ExpandableQuery from "./ExpandableQuery";
 import QueryStatsRow from "./QueryStatsRow";
 
@@ -95,22 +96,16 @@ const AsyncQueriesModal: FC<{
         datasourceId && (
           <div className="alert alert-warning">
             One or more of these queries is waiting to run. Click{" "}
-            <a href={`/datasources/queries/${datasourceId}`}>here</a> to see the
-            status of all your queries
+            <Link href={`/datasources/queries/${datasourceId}`}>here</Link> to
+            see the status of all your queries
           </div>
         )}
       {hasStats ? (
         <div className="mb-4">
-          <a
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
-              setShowStats(!showStats);
-            }}
-          >
+          <Link onClick={() => setShowStats(!showStats)}>
             {showStats ? "Hide" : "Show"} overall query stats{" "}
             {showStats ? <FaAngleDown /> : <FaAngleRight />}
-          </a>
+          </Link>
           {showStats && data && data.queries && (
             <div className="bg-light appbox px-3 pt-2 mt-2">
               <QueryStatsRow

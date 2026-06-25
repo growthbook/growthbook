@@ -4,6 +4,7 @@ import Field from "@/components/Forms/Field";
 import { redirectWithTimeout, safeLogout } from "@/services/auth";
 import { getApiHost, isCloud } from "@/services/env";
 import WelcomeFrame from "@/components/Auth/WelcomeFrame";
+import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
 
 export async function lookupByEmail(email: string) {
@@ -92,22 +93,21 @@ export default function OAuthLookup() {
       <div className="text-center mt-3">
         <p>
           Not using SSO?{" "}
-          <a
-            href="#"
-            onClick={async (e) => {
-              e.preventDefault();
+          <Link
+            onClick={async () => {
               setLoading(true);
               await safeLogout();
             }}
           >
             Go back to login
-          </a>
+          </Link>
         </p>
         <div>
           <br />
           Don&apos;t have a GrowthBook Enterprise plan yet?
           <br />
-          Email <a href="mailto:sales@growthbook.io">sales@growthbook.io</a> to
+          Email{" "}
+          <Link href="mailto:sales@growthbook.io">sales@growthbook.io</Link> to
           learn more and get a quote.
         </div>
       </div>

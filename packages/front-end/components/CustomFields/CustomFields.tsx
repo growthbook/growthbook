@@ -28,6 +28,7 @@ import CustomFieldModal from "@/components/CustomFields/CustomFieldModal";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
+import Link from "@/ui/Link";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import useURLHash from "@/hooks/useURLHash";
 
@@ -135,15 +136,13 @@ function CustomFieldsTable({
               <em>
                 No custom fields in this view.{" "}
                 {canManage ? (
-                  <a
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
+                  <Link
+                    onClick={() => {
                       openAddModal();
                     }}
                   >
                     Add custom field
-                  </a>
+                  </Link>
                 ) : null}
               </em>
             </td>

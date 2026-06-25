@@ -127,15 +127,13 @@ export default function CreateMetricFromTemplate() {
             callout: (
               <Callout status="warning" mb="3">
                 A metric with the name &quot;{data.name}&quot; already exists.{" "}
-                <a
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
+                <Link
+                  onClick={() => {
                     setMetricToCreate({ data });
                   }}
                 >
                   Create Anyway
-                </a>
+                </Link>
               </Callout>
             ),
           };

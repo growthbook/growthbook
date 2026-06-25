@@ -321,8 +321,7 @@ export default function FeatureVariationsInput({
                             usePortal={true}
                             tipPosition="top"
                           >
-                            <a
-                              role="button"
+                            <Link
                               className="ml-1 mb-0"
                               onClick={() => {
                                 setEditingSplits(true);
@@ -332,7 +331,7 @@ export default function FeatureVariationsInput({
                                 className="text-purple"
                                 size={15}
                               />
-                            </a>
+                            </Link>
                           </Tooltip>
                         )}
                       {editingSplits &&
@@ -344,17 +343,13 @@ export default function FeatureVariationsInput({
                             usePortal={true}
                             tipPosition="top"
                           >
-                            <a
-                              role="button"
+                            <Link
                               className="ml-2 link-purple small"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                setEqualWeights();
-                              }}
+                              onClick={() => setEqualWeights()}
                             >
                               <PiArrowsClockwise className="mr-1" size={12} />
                               set equal
-                            </a>
+                            </Link>
                           </Tooltip>
                         )}
                     </th>
@@ -411,8 +406,7 @@ export default function FeatureVariationsInput({
                         <div className="row">
                           <div className="col">
                             {valueType !== "boolean" && setVariations && (
-                              <a
-                                role="button"
+                              <Link
                                 className="btn btn-link link-purple font-weight-bold p-0"
                                 onClick={() => {
                                   const newWeights = distributeWeights(
@@ -420,7 +414,6 @@ export default function FeatureVariationsInput({
                                     editingSplits,
                                   );
 
-                                  // Add a new value and update weights
                                   const newValues = [
                                     ...variations,
                                     {
@@ -444,18 +437,19 @@ export default function FeatureVariationsInput({
                               >
                                 <GBAddCircle className="mr-1" />
                                 Add variation
-                              </a>
+                              </Link>
                             )}
                             {valueType === "boolean" && (
                               <>
                                 <Tooltip body="Boolean features can only have two variations. Use a different feature type to add multiple variations.">
-                                  <a
-                                    role="button"
-                                    className="btn btn-link p-0 disabled"
+                                  <button
+                                    type="button"
+                                    disabled
+                                    className="btn btn-link p-0"
                                   >
                                     <GBAddCircle className="mr-2" />
                                     Add variation
-                                  </a>
+                                  </button>
                                 </Tooltip>
                               </>
                             )}

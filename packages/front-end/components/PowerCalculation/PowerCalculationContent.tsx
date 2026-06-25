@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { useMemo, useState, useCallback } from "react";
 import clsx from "clsx";
 import {
@@ -23,6 +22,7 @@ import { ParentSize } from "@visx/responsive";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
+import Link from "@/ui/Link";
 import { ensureAndReturn } from "@/types/utils";
 import { GBHeadingArrowLeft } from "@/components/Icons";
 import Frame from "@/ui/Frame";
@@ -116,10 +116,7 @@ const AnalysisSettings = ({
                 : ` (${alphaToChanceToWin(params.alpha)}% chance to win threshold)
               `}{" "}
               ·{" "}
-              <Link
-                href="#"
-                onClick={() => setShowStatsEngineSettingsModal(true)}
-              >
+              <Link onClick={() => setShowStatsEngineSettingsModal(true)}>
                 Edit
               </Link>
             </p>

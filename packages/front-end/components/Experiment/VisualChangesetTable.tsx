@@ -497,7 +497,7 @@ function VariationRow({
         </Box>
         <Flex className={styles.rowActions}>
           {previewUrl && (
-            <a
+            <Link
               className={styles.ghostAction}
               href={previewUrl}
               target="_blank"
@@ -505,7 +505,7 @@ function VariationRow({
             >
               Preview
               <PiArrowSquareOutBold size={12} />
-            </a>
+            </Link>
           )}
           {canEdit && change && (
             <Button

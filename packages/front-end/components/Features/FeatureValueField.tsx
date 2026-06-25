@@ -28,6 +28,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import RadioGroup from "@/ui/RadioGroup";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
+import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import SparsePatchToggle from "@/components/Features/SparsePatchToggle";
 import SparseTabbedEditor from "@/components/Features/SparseTabbedEditor";
@@ -222,29 +223,25 @@ export default function FeatureValueField({
     const formatted = formatJSON(value);
 
     const codeEditorToggleButton = useCodeInput ? (
-      <a
-        href="#"
+      <Link
         className="text-purple"
-        onClick={(e) => {
-          e.preventDefault();
+        onClick={() => {
           setCodeEditorToggledOn(!codeEditorToggledOn);
         }}
         style={{ whiteSpace: "nowrap" }}
       >
         <PiBracketsCurly />{" "}
         {codeEditorToggledOn ? "Use text editor" : "Use code editor"}
-      </a>
+      </Link>
     ) : null;
 
     const formatJSONButton = (
-      <a
-        href="#"
+      <Link
         className={clsx("text-purple", {
           "text-muted cursor-default no-underline":
             !formatted || formatted === value,
         })}
-        onClick={(e) => {
-          e.preventDefault();
+        onClick={() => {
           if (formatted && formatted !== value) {
             setValue(formatted);
           }
@@ -252,7 +249,7 @@ export default function FeatureValueField({
         style={{ whiteSpace: "nowrap" }}
       >
         <FaMagic /> Format JSON
-      </a>
+      </Link>
     );
 
     const combinedHelpText = helpText ? (
@@ -806,17 +803,15 @@ function SimpleSchemaEditor({
             label={label}
           />
           {!disabled && (
-            <a
-              href="#"
+            <Link
               className="text-purple"
-              onClick={(e) => {
-                e.preventDefault();
+              onClick={() => {
                 setTempValue(value);
                 setOpen(true);
               }}
             >
               Edit Value <BsBoxArrowUpRight style={{ marginTop: -3 }} />
-            </a>
+            </Link>
           )}
         </div>
       </>
@@ -878,15 +873,7 @@ function JSONTextEditor({
                 <div>{label}</div>
                 {editAsForm && (
                   <div className="ml-auto">
-                    <a
-                      href="#"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        editAsForm();
-                      }}
-                    >
-                      Edit as Form
-                    </a>
+                    <Link onClick={() => editAsForm()}>Edit as Form</Link>
                   </div>
                 )}
               </>
@@ -993,16 +980,9 @@ function SimpleSchemaObjectArrayEditor({
         <div className="d-flex">
           <label>{label}</label>
           {!disabled && (
-            <a
-              href="#"
-              className="ml-auto"
-              onClick={(e) => {
-                e.preventDefault();
-                setRawJSONInput(true);
-              }}
-            >
+            <Link className="ml-auto" onClick={() => setRawJSONInput(true)}>
               Edit as JSON
-            </a>
+            </Link>
           )}
         </div>
         <div className="appbox bg-light px-3 pt-3">
@@ -1039,16 +1019,9 @@ function SimpleSchemaObjectArrayEditor({
       <div className="form-group">
         <div className="d-flex">
           <label>{label}</label>
-          <a
-            href="#"
-            className="ml-auto"
-            onClick={(e) => {
-              e.preventDefault();
-              setRawJSONInput(true);
-            }}
-          >
+          <Link className="ml-auto" onClick={() => setRawJSONInput(true)}>
             Edit as JSON
-          </a>
+          </Link>
         </div>
         <div style={{ overflowX: "auto" }} className="mb-3">
           <table
@@ -1100,24 +1073,22 @@ function SimpleSchemaObjectArrayEditor({
                       </td>
                     ))}
                     <td className="px-0">
-                      <a
+                      <Link
                         className="text-danger"
-                        href="#"
                         style={{
                           verticalAlign: "middle",
                           fontSize: "1.2em",
                           paddingTop: 2,
                           display: "block",
                         }}
-                        onClick={(e) => {
-                          e.preventDefault();
+                        onClick={() => {
                           const newItems = [...items];
                           newItems.splice(i, 1);
                           setValue(JSON.stringify(newItems));
                         }}
                       >
                         <FaRegTrashAlt />
-                      </a>
+                      </Link>
                     </td>
                   </tr>
                 );
@@ -1126,11 +1097,9 @@ function SimpleSchemaObjectArrayEditor({
           </table>
         </div>
         <div className="d-flex">
-          <a
-            href="#"
+          <Link
             className="text-purple"
-            onClick={(e) => {
-              e.preventDefault();
+            onClick={() => {
               setValue(
                 JSON.stringify([
                   ...items,
@@ -1151,17 +1120,10 @@ function SimpleSchemaObjectArrayEditor({
             }}
           >
             <GBAddCircle className="mr-1" /> Add Row
-          </a>
-          <a
-            href="#"
-            className="ml-auto text-danger"
-            onClick={(e) => {
-              e.preventDefault();
-              setValue("[]");
-            }}
-          >
+          </Link>
+          <Link className="ml-auto text-danger" onClick={() => setValue("[]")}>
             Clear All
-          </a>
+          </Link>
         </div>
       </div>
     );

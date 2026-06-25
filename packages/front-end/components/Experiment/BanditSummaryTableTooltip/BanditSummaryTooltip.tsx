@@ -177,17 +177,17 @@ export default function BanditSummaryTooltip({
             style={{ position: "absolute", bottom: -30, left: arrowLeft }}
           />
         )}
-        <a
-          role="button"
+        <button
+          type="button"
           style={{
             top: 3,
             right: 5,
           }}
-          className="position-absolute text-gray cursor-pointer"
+          className="position-absolute text-gray cursor-pointer border-0 bg-transparent p-0"
           onClick={close}
         >
           <BsXCircle size={16} />
-        </a>
+        </button>
 
         {/*tooltip contents*/}
         <div className="px-2 pt-1 pb-3">
