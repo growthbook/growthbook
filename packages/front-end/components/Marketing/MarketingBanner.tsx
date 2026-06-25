@@ -9,6 +9,9 @@ import LinkButton from "@/ui/LinkButton";
 import Text from "@/ui/Text";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 
+// How long a dismissed banner stays hidden before re-showing.
+const DISMISS_DURATION_MS = 90 * 24 * 60 * 60 * 1000;
+
 export type MarketingBannerProps = {
   /** Unique id — also used as the localStorage key for dismissal */
   id: string;
@@ -37,10 +40,16 @@ export default function MarketingBanner({
   dismissible = true,
   icon,
 }: MarketingBannerProps) {
-  const [dismissed, setDismissed] = useLocalStorage(
+  // Store when the banner was dismissed so it re-shows after the window below,
+  // rather than staying hidden forever.
+  const [dismissedAt, setDismissedAt] = useLocalStorage<number | null>(
     `marketing-banner:${id}`,
-    false,
+    null,
   );
+
+  const dismissed =
+    typeof dismissedAt === "number" &&
+    Date.now() - dismissedAt < DISMISS_DURATION_MS;
 
   if (dismissible && dismissed) return null;
 
@@ -89,7 +98,7 @@ export default function MarketingBanner({
               variant="ghost"
               color="gray"
               size="1"
-              onClick={() => setDismissed(true)}
+              onClick={() => setDismissedAt(Date.now())}
               aria-label="Dismiss"
               style={{ flexShrink: 0 }}
             >
