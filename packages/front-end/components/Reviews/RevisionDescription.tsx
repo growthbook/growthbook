@@ -23,6 +23,7 @@ export default function RevisionDescription({
   canEdit = false,
   onEdit,
   editorMeta,
+  label,
 }: {
   description?: string | null;
   heading?: string;
@@ -34,6 +35,9 @@ export default function RevisionDescription({
   // Optional attribution rendered on the right of the header (e.g. who last
   // edited it + when). Omitted by entities that don't track it.
   editorMeta?: ReactNode;
+  // Optional label rendered after the heading (e.g. a version label when
+  // comparing multiple revisions).
+  label?: ReactNode;
 }) {
   const [editing, setEditing] = useState(false);
   // Optimistic value so the saved description shows immediately (the parent's
@@ -91,6 +95,7 @@ export default function RevisionDescription({
             </IconButton>
           )}
         </Flex>
+        {label}
         {editorMeta && (
           <Flex align="center" gap="1" ml="auto">
             {editorMeta}

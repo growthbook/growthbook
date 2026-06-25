@@ -11,6 +11,7 @@ import {
   findPublishLockingScheduledRevision,
 } from "shared/enterprise";
 import type { PublishGovernanceResult } from "shared/util";
+import { datetime } from "shared/dates";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiCaretDownBold, PiGitMergeBold } from "react-icons/pi";
 import { useUser } from "@/services/UserContext";
@@ -698,6 +699,28 @@ function ReviewAndPublishRevision<T>({
             });
             await mutate();
           }}
+          editorMeta={
+            <>
+              <EventUser
+                user={{
+                  type: "dashboard",
+                  id: revision.authorId,
+                  name:
+                    users.get(revision.authorId)?.name ||
+                    getUserDisplay(revision.authorId) ||
+                    "",
+                  email: users.get(revision.authorId)?.email || "",
+                }}
+                display="avatar-name-email"
+                size="sm"
+                wrap={true}
+              />
+              <Text size="small" color="text-low">
+                {" · "}
+                {datetime(revision.dateUpdated)}
+              </Text>
+            </>
+          }
         />
       )}
 
