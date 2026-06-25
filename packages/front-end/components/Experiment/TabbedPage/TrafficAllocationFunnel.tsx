@@ -74,7 +74,7 @@ function FunnelCard({
         {onEdit && !disabled ? (
           <IconButton
             variant="ghost"
-            color="purple"
+            color="violet"
             onClick={onEdit}
             size="1"
             aria-label={`Edit ${title}`}

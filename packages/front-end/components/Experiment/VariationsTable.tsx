@@ -9,8 +9,8 @@ import {
   PiCameraLight,
   PiCameraPlusLight,
   PiPencilSimple,
-  PiPlus,
   PiPlusCircle,
+  PiUploadSimple,
 } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import { trafficSplitPercentages } from "@/services/utils";
@@ -255,7 +255,7 @@ export function VariationBox({
                 <IconButton
                   variant="ghost"
                   size="1"
-                  color="purple"
+                  color="violet"
                   onClick={() => onEditMetadata(i)}
                   aria-label="Edit variation"
                 >
@@ -314,12 +314,6 @@ export function VariationBox({
             </Box>
             {allowImages && (
               <Flex align="center" justify="end" gap="2">
-                {v.screenshots.length > 0 ? (
-                  <Text color="text-mid">
-                    {v.screenshots.length} image
-                    {v.screenshots.length > 1 ? "s" : ""}
-                  </Text>
-                ) : null}
                 {canEdit && !blockFileUploads && (
                   <div>
                     <ScreenshotUpload
@@ -328,7 +322,7 @@ export function VariationBox({
                       onSuccess={() => mutate?.()}
                     >
                       <Button
-                        icon={<PiPlus size="15" />}
+                        icon={<PiUploadSimple size="15" />}
                         variant="ghost"
                         size="xs"
                         style={{ padding: 0, margin: 0 }}
@@ -338,6 +332,12 @@ export function VariationBox({
                     </ScreenshotUpload>
                   </div>
                 )}
+                {v.screenshots.length > 0 ? (
+                  <Text color="text-mid">
+                    {v.screenshots.length} image
+                    {v.screenshots.length > 1 ? "s" : ""}
+                  </Text>
+                ) : null}
               </Flex>
             )}
           </Flex>
