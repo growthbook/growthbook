@@ -418,9 +418,8 @@ const VariationsTable: FC<Props> = ({
   const gap = "4";
 
   const maxColsForViewport = useMaxColsForViewport();
-  const columnsPerRow = Math.min(variations.length, maxColsForViewport);
   const fullLastRow =
-    columnsPerRow > 0 && variations.length % columnsPerRow === 0;
+    maxColsForViewport > 0 && variations.length % maxColsForViewport === 0;
   const lastIndex = variations.length - 1;
 
   return (
