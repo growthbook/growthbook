@@ -51,16 +51,13 @@ import {
   getConstantSettingsBadges,
   getConstantValuesBadges,
 } from "@/components/Constants/ConstantDiffRenders";
-import {
-  ConstantConflictModal,
-  useConstantMergeResult,
-} from "@/components/Constants/useConstantConflictModal";
 import { useConstantRevision } from "@/hooks/useConstantRevision";
 import ConstantModal from "@/components/Constants/ConstantModal";
 import ConstantValueModal from "@/components/Constants/ConstantValueModal";
 import ConstantArchiveModal from "@/components/Constants/ConstantArchiveModal";
 import ConstantReferencesList from "@/components/Constants/ConstantReferencesList";
 import CompareRevisionsModal from "@/components/Revision/CompareRevisionsModal";
+import EditRevisionDescriptionModal from "@/components/Reviews/EditRevisionDescriptionModal";
 import ReferencesLink from "@/components/References/ReferencesLink";
 import { useConstantReferences } from "@/hooks/useConstantReferences";
 import { ConstantRevisionContext } from "@/components/Constants/useConstantDraftTarget";
@@ -116,7 +113,7 @@ export default function ConstantDetailPage(): React.ReactElement {
 
   const [editInfoOpen, setEditInfoOpen] = useState(false);
   const [editValueOpen, setEditValueOpen] = useState(false);
-  const [conflictOpen, setConflictOpen] = useState(false);
+  const [editDescriptionModal, setEditDescriptionModal] = useState(false);
   const [tab, setTab] = useState<ConstantTab>("overview");
   const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [showAuditModal, setShowAuditModal] = useState(false);
@@ -248,12 +245,6 @@ export default function ConstantDetailPage(): React.ReactElement {
       selectedRevision.target.proposedChanges,
     ) as ConstantInterface;
   }, [selectedRevision, constant]);
-
-  const mergeResult = useConstantMergeResult(
-    constant,
-    selectedRevision,
-    isDraft,
-  );
 
   if (error) {
     return (
@@ -426,37 +417,6 @@ export default function ConstantDetailPage(): React.ReactElement {
           </Box>
         )}
 
-        <RevisionSummaryCard
-          allRevisions={allRevisions}
-          selectedRevision={selectedRevision}
-          entityNoun="constant"
-          hasRevisions={allRevisions.length > 0}
-          metadataReviewRequired={metadataReviewRequired}
-          requiresApproval={selectedRevisionRequiresApproval}
-          mergeResult={mergeResult}
-          currentUserId={userId}
-          fallbackOwnerId={constant.owner}
-          fallbackDateCreated={constant.dateCreated}
-          onSelectRevision={selectRevision}
-          onTitleCommit={async (revisionId, title) => {
-            await apiCall(`/revision/${revisionId}/title`, {
-              method: "PATCH",
-              body: JSON.stringify({ title }),
-            });
-            await mutateRevisions();
-          }}
-          onReopen={async (revisionId) => {
-            await handleReopen(revisionId);
-          }}
-          onDiscard={async (revisionId) => {
-            await handleDiscard(revisionId);
-          }}
-          onNewDraft={canUpdate ? handleNewDraft : undefined}
-          onCompare={() => setCompareOpen(true)}
-          onFixConflicts={() => setConflictOpen(true)}
-          onReviewPublish={() => setTabAndScroll("review")}
-        />
-
         <Box mb="4">
           <Tabs
             value={tab}
@@ -484,46 +444,72 @@ export default function ConstantDetailPage(): React.ReactElement {
         </Box>
 
         {tab === "overview" && (
-          <Frame mb="4" px="6" py="5">
-            <Flex justify="between" align="center" gap="3" mb="3">
-              <Heading size="medium" as="h2" mb="0">
-                Value
-              </Heading>
-              {canEditNow && (
-                <Button variant="ghost" onClick={() => setEditValueOpen(true)}>
-                  Edit
-                </Button>
-              )}
-            </Flex>
-            <ConstantValueDisplay
-              value={displayedConstant.value}
-              type={displayedConstant.type}
+          <>
+            <RevisionSummaryCard
+              allRevisions={allRevisions}
+              selectedRevision={selectedRevision}
+              entityNoun="constant"
+              hasRevisions={allRevisions.length > 0}
+              metadataReviewRequired={metadataReviewRequired}
+              currentUserId={userId}
+              fallbackOwnerId={constant.owner}
+              fallbackDateCreated={constant.dateCreated}
+              onSelectRevision={selectRevision}
+              onTitleCommit={async (revisionId, title) => {
+                await apiCall(`/revision/${revisionId}/title`, {
+                  method: "PATCH",
+                  body: JSON.stringify({ title }),
+                });
+                await mutateRevisions();
+              }}
+              onNewDraft={canUpdate ? handleNewDraft : undefined}
+              onReviewPublish={() => setTabAndScroll("review")}
+              onEditDescription={() => setEditDescriptionModal(true)}
             />
-
-            {Object.keys(displayedConstant.environmentValues || {}).length >
-              0 && (
-              <>
-                <Heading size="medium" as="h2" mt="6" mb="3">
-                  Environment overrides
+            <Frame mb="4" px="6" py="5">
+              <Flex justify="between" align="center" gap="3" mb="3">
+                <Heading size="medium" as="h2" mb="0">
+                  Value
                 </Heading>
-                <Flex direction="column" gap="5">
-                  {Object.entries(
-                    displayedConstant.environmentValues || {},
-                  ).map(([env, value]) => (
-                    <Box key={env}>
-                      <Text as="div" size="large" weight="semibold" mb="2">
-                        {env}
-                      </Text>
-                      <ConstantValueDisplay
-                        value={value}
-                        type={displayedConstant.type}
-                      />
-                    </Box>
-                  ))}
-                </Flex>
-              </>
-            )}
-          </Frame>
+                {canEditNow && (
+                  <Button
+                    variant="ghost"
+                    onClick={() => setEditValueOpen(true)}
+                  >
+                    Edit
+                  </Button>
+                )}
+              </Flex>
+              <ConstantValueDisplay
+                value={displayedConstant.value}
+                type={displayedConstant.type}
+              />
+
+              {Object.keys(displayedConstant.environmentValues || {}).length >
+                0 && (
+                <>
+                  <Heading size="medium" as="h2" mt="6" mb="3">
+                    Environment overrides
+                  </Heading>
+                  <Flex direction="column" gap="5">
+                    {Object.entries(
+                      displayedConstant.environmentValues || {},
+                    ).map(([env, value]) => (
+                      <Box key={env}>
+                        <Text as="div" size="large" weight="semibold" mb="2">
+                          {env}
+                        </Text>
+                        <ConstantValueDisplay
+                          value={value}
+                          type={displayedConstant.type}
+                        />
+                      </Box>
+                    ))}
+                  </Flex>
+                </>
+              )}
+            </Frame>
+          </>
         )}
 
         {tab === "review" && (
@@ -541,6 +527,9 @@ export default function ConstantDetailPage(): React.ReactElement {
             onPublish={handlePublish}
             onDiscard={handleDiscard}
             onReopen={handleReopen}
+            onCompareRevisions={
+              allRevisions.length >= 2 ? () => setCompareOpen(true) : undefined
+            }
             mutate={async () => {
               await Promise.all([mutateRevisions(), mutate()]);
             }}
@@ -654,12 +643,15 @@ export default function ConstantDetailPage(): React.ReactElement {
         />
       )}
 
-      {conflictOpen && selectedRevision && (
-        <ConstantConflictModal
-          constant={constant}
-          selectedRevision={selectedRevision}
-          close={() => setConflictOpen(false)}
-          mutate={async () => {
+      {editDescriptionModal && displayRevision && (
+        <EditRevisionDescriptionModal
+          initialValue={displayRevision.comment || ""}
+          close={() => setEditDescriptionModal(false)}
+          onSubmit={async (description) => {
+            await apiCall(`/revision/${displayRevision.id}/description`, {
+              method: "PATCH",
+              body: JSON.stringify({ description }),
+            });
             await Promise.all([mutateRevisions(), mutate()]);
           }}
         />

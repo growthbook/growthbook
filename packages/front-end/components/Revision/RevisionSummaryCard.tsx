@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Revision, MergeResult } from "shared/enterprise";
+import { Revision } from "shared/enterprise";
 import { datetime, ago } from "shared/dates";
 import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";
 import {
@@ -7,13 +7,14 @@ import {
   PiProhibit,
   PiLockSimple,
   PiPencilSimpleFill,
-  PiGitDiff,
-  PiCaretRightFill,
 } from "react-icons/pi";
+import { FaArrowRight } from "react-icons/fa";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
 import Frame from "@/ui/Frame";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import Link from "@/ui/Link";
+import Markdown from "@/components/Markdown/Markdown";
+import CoAuthorsList from "@/components/Reviews/CoAuthorsList";
 import Field from "@/components/Forms/Field";
 import Metadata from "@/ui/Metadata";
 import EventUser from "@/components/Avatar/EventUser";
@@ -24,55 +25,6 @@ import { useUser } from "@/services/UserContext";
 
 const DRAFT_STATUSES = ["draft", "pending-review", "changes-requested"];
 
-function CoAuthorsFromIds({
-  authorId,
-  contributorIds,
-}: {
-  authorId: string;
-  contributorIds: string[];
-}) {
-  const [open, setOpen] = useState(false);
-  const filtered = contributorIds.filter((id) => id !== authorId);
-  if (filtered.length === 0) return null;
-  const label = `Co-author${filtered.length > 1 ? "s" : ""} (${filtered.length})`;
-  return (
-    <Box mt="3" mb="3">
-      <div
-        className="link-purple"
-        style={{
-          cursor: "pointer",
-          userSelect: "none",
-          display: "inline-block",
-        }}
-        onClick={() => setOpen((o) => !o)}
-      >
-        <PiCaretRightFill
-          style={{
-            display: "inline",
-            marginRight: 4,
-            transition: "transform 0.15s ease",
-            transform: open ? "rotate(90deg)" : "none",
-          }}
-        />
-        {label}
-      </div>
-      {open && (
-        <Flex direction="column" gap="2" mt="2" ml="3">
-          {filtered.map((id) => (
-            <EventUser
-              key={id}
-              user={{ type: "dashboard", id, name: "", email: "" }}
-              display="avatar-name-email"
-              size="sm"
-              wrap={true}
-            />
-          ))}
-        </Flex>
-      )}
-    </Box>
-  );
-}
-
 export interface RevisionSummaryCardProps {
   allRevisions: Revision[];
   // The revision currently in view; null when viewing the live state.
@@ -81,9 +33,6 @@ export interface RevisionSummaryCardProps {
   entityNoun: string;
   hasRevisions: boolean;
   metadataReviewRequired: boolean;
-  // Whether the selected revision still requires approval (drives the CTA copy).
-  requiresApproval: boolean;
-  mergeResult: MergeResult | null;
   currentUserId?: string;
   // Used for the "Created by" / "Created" fields before any real revision exists.
   fallbackOwnerId: string;
@@ -91,13 +40,9 @@ export interface RevisionSummaryCardProps {
   onSelectRevision: (revision: Revision | null) => void;
   onTitleCommit: (revisionId: string, title: string) => Promise<void>;
   // Each action is optional; the corresponding control is hidden when omitted.
-  onCompare?: () => void;
-  onReopen?: (revisionId: string) => void | Promise<void>;
-  onRevert?: (revision: Revision) => void;
-  onDiscard?: (revisionId: string) => void | Promise<void>;
   onNewDraft?: () => void;
-  onFixConflicts?: () => void;
   onReviewPublish?: () => void;
+  onEditDescription?: () => void;
 }
 
 // Shared revision header used by every revisioned entity's detail page: the
@@ -110,20 +55,14 @@ export default function RevisionSummaryCard({
   entityNoun,
   hasRevisions,
   metadataReviewRequired,
-  requiresApproval,
-  mergeResult,
   currentUserId,
   fallbackOwnerId,
   fallbackDateCreated,
   onSelectRevision,
   onTitleCommit,
-  onCompare,
-  onReopen,
-  onRevert,
-  onDiscard,
   onNewDraft,
-  onFixConflicts,
   onReviewPublish,
+  onEditDescription,
 }: RevisionSummaryCardProps) {
   const { getOwnerDisplay } = useUser();
   const bannerRef = useRef<HTMLDivElement>(null);
@@ -172,6 +111,8 @@ export default function RevisionSummaryCard({
     setEditingTitle(false);
     setTitleDraft(selectedRevision?.title || "");
   }, [selectedRevision?.id, selectedRevision?.title]);
+
+  const [commentExpanded, setCommentExpanded] = useState(false);
 
   const commitTitleEdit = async () => {
     if (!selectedRevision) return;
@@ -276,14 +217,6 @@ export default function RevisionSummaryCard({
               ),
             }
           : null;
-
-  const reviewPublishLabel = requiresApproval
-    ? displayRevision?.status === "draft"
-      ? "Request Approval to Publish"
-      : displayRevision?.status === "pending-review"
-        ? "View Approval Request"
-        : "View Changes"
-    : "Review & Publish";
 
   return (
     <>
@@ -416,79 +349,22 @@ export default function RevisionSummaryCard({
                 </Flex>
               )}
             </Flex>
-            {hasRevisions && allRevisions.length >= 2 && onCompare && (
-              <>
-                <Separator orientation="vertical" style={{ marginTop: 2 }} />
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  icon={<PiGitDiff />}
-                  onClick={onCompare}
-                  style={{ position: "relative", top: -5 }}
-                >
-                  Compare revisions
-                </Button>
-              </>
-            )}
           </Flex>
           <Flex align="center" justify="end" gap="4" flexGrow="1">
-            {hasRevisions && isDiscarded && displayRevision && onReopen && (
-              <Button onClick={() => onReopen(displayRevision.id)} size="sm">
-                Reopen
-              </Button>
-            )}
-            {hasRevisions && isMerged && displayRevision && onRevert && (
-              <Button onClick={() => onRevert(displayRevision)} size="sm">
-                Revert to Previous
-              </Button>
-            )}
-            {hasRevisions &&
-              isDraft &&
-              displayRevision &&
-              displayRevision.authorId === currentUserId &&
-              onDiscard && (
-                <Button
-                  onClick={() => onDiscard(displayRevision.id)}
-                  color="red"
-                  variant="ghost"
-                  size="sm"
-                >
-                  Discard
-                </Button>
-              )}
             {isLive && onNewDraft && (
               <Button onClick={onNewDraft} size="sm" variant="soft">
                 New Draft
               </Button>
             )}
-            {hasRevisions && isDraft && (
-              <>
-                {mergeResult && !mergeResult.success && onFixConflicts && (
-                  <Tooltip body="There have been conflicting changes published since this draft was created. Resolve them before publishing.">
-                    <Button
-                      variant="ghost"
-                      color="red"
-                      onClick={onFixConflicts}
-                      size="sm"
-                    >
-                      Fix conflicts
-                    </Button>
-                  </Tooltip>
-                )}
-                {onReviewPublish && (
-                  <Tooltip
-                    body={
-                      mergeResult && !mergeResult.success
-                        ? "This revision has conflicts — resolve them before publishing"
-                        : ""
-                    }
-                  >
-                    <Button onClick={onReviewPublish} size="sm">
-                      {reviewPublishLabel}
-                    </Button>
-                  </Tooltip>
-                )}
-              </>
+            {hasRevisions && isDraft && onReviewPublish && (
+              <Button
+                icon={<FaArrowRight />}
+                iconPosition="right"
+                onClick={onReviewPublish}
+                style={{ whiteSpace: "nowrap" }}
+              >
+                Review and Publish
+              </Button>
             )}
           </Flex>
         </Flex>
@@ -549,14 +425,87 @@ export default function RevisionSummaryCard({
               )}
             </Flex>
           </Flex>
-          {hasRevisions && displayRevision && (
-            <CoAuthorsFromIds
-              authorId={displayRevision.authorId}
-              contributorIds={(displayRevision.contributors ?? []).filter(
+          {hasRevisions &&
+            displayRevision &&
+            (() => {
+              const coAuthorIds = (displayRevision.contributors ?? []).filter(
                 (id) => id !== displayRevision.authorId,
-              )}
-            />
-          )}
+              );
+              if (coAuthorIds.length === 0) return null;
+              return <CoAuthorsList coAuthorIds={coAuthorIds} mt="3" mb="3" />;
+            })()}
+          {hasRevisions &&
+            displayRevision &&
+            (() => {
+              const canEditDescription =
+                !!isDraft && displayRevision.authorId === currentUserId;
+              const editDescriptionButton =
+                canEditDescription && onEditDescription ? (
+                  <IconButton
+                    variant="ghost"
+                    color="violet"
+                    size="2"
+                    radius="full"
+                    onClick={onEditDescription}
+                    style={{
+                      flexShrink: 0,
+                      marginTop: -2,
+                      marginBottom: -2,
+                      marginLeft: 4,
+                      marginRight: 0,
+                    }}
+                  >
+                    <PiPencilSimpleFill />
+                  </IconButton>
+                ) : null;
+              return (
+                <Flex align="start" gap="2" style={{ width: "fit-content" }}>
+                  <Text weight="semibold" color="text-high">
+                    Revision description:
+                  </Text>{" "}
+                  {displayRevision.comment ? (
+                    <Flex align="start" gap="1">
+                      <Box>
+                        <Box
+                          style={
+                            !commentExpanded
+                              ? {
+                                  display: "-webkit-box",
+                                  WebkitLineClamp: 2,
+                                  WebkitBoxOrient: "vertical",
+                                  overflow: "hidden",
+                                }
+                              : undefined
+                          }
+                        >
+                          <Markdown className="speech-bubble" highlightCode>
+                            {displayRevision.comment}
+                          </Markdown>
+                        </Box>
+                        {displayRevision.comment.length > 80 && (
+                          <Box mt={commentExpanded ? "1" : "0"}>
+                            <Link
+                              onClick={() => setCommentExpanded((v) => !v)}
+                              style={{ whiteSpace: "nowrap" }}
+                            >
+                              {commentExpanded ? "show less" : "show more"}
+                            </Link>
+                          </Box>
+                        )}
+                      </Box>
+                      {editDescriptionButton}
+                    </Flex>
+                  ) : (
+                    <>
+                      <Text as="span" color="text-mid">
+                        none
+                      </Text>
+                      {editDescriptionButton}
+                    </>
+                  )}
+                </Flex>
+              );
+            })()}
         </Flex>
       </Frame>
     </>
