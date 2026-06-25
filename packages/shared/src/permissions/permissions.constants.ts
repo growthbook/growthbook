@@ -6,6 +6,7 @@ export const POLICIES = [
   "FeaturesFullAccess",
   "ArchetypesFullAccess",
   "FeaturesBypassApprovals",
+  "ConstantsFullAccess",
   "ExperimentsFullAccess",
   "VisualEditorFullAccess",
   "SuperDeleteReports",
@@ -114,6 +115,7 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
   AttributesFullAccess: ["readData", "manageTargetingAttributes"],
   EnvironmentsFullAccess: ["readData", "manageEnvironments"],
   NamespacesFullAccess: ["readData", "manageNamespaces"],
+  ConstantsFullAccess: ["readData", "manageConstants"],
   SavedGroupsFullAccess: ["readData", "manageSavedGroups"],
   SavedGroupsBypassSizeLimit: [
     "readData",
@@ -167,6 +169,7 @@ export const POLICY_DISPLAY_GROUPS: { name: string; policies: Policy[] }[] = [
       "FeaturesFullAccess",
       "ArchetypesFullAccess",
       "FeaturesBypassApprovals",
+      "ConstantsFullAccess",
     ],
   },
   {
@@ -269,6 +272,10 @@ export const POLICY_METADATA_MAP: Record<
   FeaturesBypassApprovals: {
     displayName: "Features Bypass Approvals",
     description: "Bypass required approval checks for feature flag changes",
+  },
+  ConstantsFullAccess: {
+    displayName: "Constants Full Access",
+    description: "Create, edit, and delete constants",
   },
   ExperimentsFullAccess: {
     displayName: "Experiments Full Access",
@@ -514,6 +521,7 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
       "EnvironmentsFullAccess",
       "NamespacesFullAccess",
       "SavedGroupsFullAccess",
+      "ConstantsFullAccess",
       "TagsFullAccess",
     ],
   },
@@ -569,6 +577,7 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
       "EnvironmentsFullAccess",
       "NamespacesFullAccess",
       "SavedGroupsFullAccess",
+      "ConstantsFullAccess",
       "TagsFullAccess",
       "DataSourceConfiguration",
       "TemplatesFullAccess",
@@ -603,6 +612,7 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
       "EnvironmentsFullAccess",
       "NamespacesFullAccess",
       "SavedGroupsFullAccess",
+      "ConstantsFullAccess",
       "TagsFullAccess",
       "DataSourceConfiguration",
       "TemplatesFullAccess",
@@ -664,6 +674,7 @@ export const PROJECT_SCOPED_PERMISSIONS = [
   "manageTargetingAttributes",
   "manageVisualChanges",
   "manageSavedGroups",
+  "manageConstants",
   "manageCustomFields",
   "manageTemplates",
   "manageExecReports",

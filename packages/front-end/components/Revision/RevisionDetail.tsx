@@ -10,7 +10,6 @@ import {
   isUserBlockedFromApproving,
   isAutopublishOnApprovalEnabled,
 } from "shared/enterprise";
-import { SavedGroupInterface } from "shared/types/saved-group";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
 import { useUser } from "@/services/UserContext";
@@ -42,6 +41,10 @@ interface RevisionDetailProps<T> {
   allRevisions?: Revision[];
   requiresApproval?: boolean;
   closeModal?: () => void;
+  // Entity-specific "can update/publish" gate. Saved groups and constants gate
+  // review + publish on the same edit permission (manageSavedGroups vs
+  // manageConstants), so the page passes the matching permission check.
+  canUpdateEntity: (state: T) => boolean;
 }
 
 function RevisionDetail<T>({
@@ -55,6 +58,7 @@ function RevisionDetail<T>({
   allRevisions = [],
   requiresApproval = true,
   closeModal,
+  canUpdateEntity,
 }: RevisionDetailProps<T>) {
   const { getUserDisplay, userId, user, organization, hasCommercialFeature } =
     useUser();
@@ -162,18 +166,13 @@ function RevisionDetail<T>({
     }
   };
 
-  const canUserReview =
-    !!userId &&
-    permissionsUtil.canUpdateSavedGroup(
-      currentState as SavedGroupInterface,
-      {},
-    );
+  const canUserReview = !!userId && canUpdateEntity(currentState as T);
   const isRevisionAuthor = !!userId && revision.authorId === userId;
   const isBlockedContributor =
     !!userId &&
     hasCommercialFeature("require-approvals") &&
     isUserBlockedFromApproving({
-      approvalFlows: organization?.settings?.approvalFlows,
+      settings: organization?.settings,
       entityType: revision.target.type,
       revision,
       userId,
@@ -181,18 +180,16 @@ function RevisionDetail<T>({
 
   const autopublishOnApproval =
     isAutopublishOnApprovalEnabled(
-      organization?.settings?.approvalFlows,
+      organization?.settings,
       revision.target.type,
+      (revision.target.snapshot as { project?: string })?.project,
     ) && hasCommercialFeature("require-approvals");
 
   const revisionAutoPublishArmed = !!revision.autoPublishOnApproval;
 
-  // Saved groups gate review and publish on the same edit permission, so a
-  // reviewer who can approve can also publish.
-  const canReviewerPublish = permissionsUtil.canUpdateSavedGroup(
-    currentState as SavedGroupInterface,
-    {},
-  );
+  // Review and publish gate on the same edit permission, so a reviewer who can
+  // approve can also publish.
+  const canReviewerPublish = canUpdateEntity(currentState as T);
 
   const canRequestAutoPublish =
     autopublishOnApproval &&
@@ -311,12 +308,12 @@ function RevisionDetail<T>({
     }
   };
 
-  const savedGroupProjects = (currentState as SavedGroupInterface).projects;
+  const entityProjects = (currentState as { projects?: string[] }).projects;
   const canBypass =
     isOpen &&
     (user?.role === "admin" ||
-      (savedGroupProjects?.length
-        ? savedGroupProjects.every((project) =>
+      (entityProjects?.length
+        ? entityProjects.every((project) =>
             permissionsUtil.canBypassApprovalChecks({ project: project || "" }),
           )
         : permissionsUtil.canBypassApprovalChecks({ project: "" })));
@@ -328,17 +325,11 @@ function RevisionDetail<T>({
     if (diffs.length === 0) return false;
     // If approval is not required, allow publishing drafts directly
     if (!requiresApproval) {
-      return permissionsUtil.canUpdateSavedGroup(
-        currentState as SavedGroupInterface,
-        {},
-      );
+      return canUpdateEntity(currentState as T);
     }
     // If approval is required, check for approval or bypass
     if (revision.status !== "approved" && !bypassApproval) return false;
-    return permissionsUtil.canUpdateSavedGroup(
-      currentState as SavedGroupInterface,
-      {},
-    );
+    return canUpdateEntity(currentState as T);
   };
 
   const getActivityLabel = (

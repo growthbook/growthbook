@@ -28,6 +28,7 @@ import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { IdeaInterface } from "shared/types/idea";
 import { ArchetypeInterface } from "shared/types/archetype";
 import { SavedGroupInterface } from "shared/types/saved-group";
+import { ConstantInterface } from "shared/types/constant";
 import { CustomHookInterface } from "../validators/custom-hooks";
 import { EventForwarderConfigInterface } from "../validators/event-forwarder-config";
 import { HoldoutInterface } from "../validators/holdout";
@@ -1290,6 +1291,35 @@ export class Permissions {
     savedGroup: Pick<SavedGroupInterface, "projects">,
   ): boolean => {
     return this.checkProjectFilterPermission(savedGroup, "manageSavedGroups");
+  };
+
+  public canCreateConstant = (
+    constant: Pick<ConstantInterface, "project">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: constant.project ? [constant.project] : [] },
+      "manageConstants",
+    );
+  };
+
+  public canUpdateConstant = (
+    existing: Pick<ConstantInterface, "project">,
+    updated: Pick<ConstantInterface, "project">,
+  ): boolean => {
+    return this.checkProjectFilterUpdatePermission(
+      { projects: existing.project ? [existing.project] : [] },
+      "project" in updated ? { projects: [updated.project || ""] } : {},
+      "manageConstants",
+    );
+  };
+
+  public canDeleteConstant = (
+    constant: Pick<ConstantInterface, "project">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: constant.project ? [constant.project] : [] },
+      "manageConstants",
+    );
   };
 
   public canBypassSavedGroupSizeLimit = (projects?: string[]): boolean => {
