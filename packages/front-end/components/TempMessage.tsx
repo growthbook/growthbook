@@ -1,5 +1,6 @@
 import { ReactNode, FC, useEffect, useState, CSSProperties } from "react";
 import clsx from "clsx";
+import Callout from "@/ui/Callout";
 
 const SHOW_TIME = 3000;
 
@@ -48,11 +49,9 @@ const TempMessage: FC<TempMessageProps> = ({
   }, [closing]);
 
   return (
-    <div
-      className={clsx(
-        "alert alert-success shadow sticky-top text-center",
-        className,
-      )}
+    <Callout
+      status="success"
+      className={clsx("shadow sticky-top text-center", className)}
       style={{
         top,
         transition: "200ms all",
@@ -74,7 +73,7 @@ const TempMessage: FC<TempMessageProps> = ({
         </button>
       )}
       {children}
-    </div>
+    </Callout>
   );
 };
 

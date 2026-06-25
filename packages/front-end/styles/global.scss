@@ -3420,6 +3420,11 @@ input:disabled {
   color: var(--text-color-premium);
 }
 .alert-premium {
+  position: relative;
+  padding: 0.75rem 1.25rem;
+  margin-bottom: 1rem;
+  border: 1px solid transparent;
+  border-radius: 0.375rem;
   background: radial-gradient(
     120% 150% at bottom right,
     var(--alert-premium-background-gradient-1),

@@ -2163,11 +2163,7 @@ export default function ReviewAndPublish({
             mb="4"
             style={{ maxWidth: 800, margin: "0 auto var(--space-4)" }}
           >
-            <Callout
-              status="info"
-              contentsAs="div"
-              icon={<PiGitMergeBold size={18} />}
-            >
+            <Callout status="info" icon={<PiGitMergeBold size={18} />}>
               <Text as="p">
                 Your draft is based on an older version, and the live version
                 has since been published with conflicting changes. Resolve each

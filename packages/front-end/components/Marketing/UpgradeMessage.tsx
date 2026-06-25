@@ -42,7 +42,7 @@ export default function UpgradeMessage({
         showUpgradeModal();
       }}
     >
-      <div className={`${styles.cta} alert alert-premium mb-0`}>
+      <div className={`${styles.cta} alert-premium mb-0`}>
         <div className={`${styles.headerMessage} text-dark mb-2`}>
           {headerMessage}
         </div>

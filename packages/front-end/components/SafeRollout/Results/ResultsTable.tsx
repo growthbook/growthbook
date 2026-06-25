@@ -41,6 +41,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import useApi from "@/hooks/useApi";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { useSafeRolloutSnapshot } from "@/components/SafeRollout/SnapshotProvider";
+import Callout from "@/ui/Callout";
 import StatusColumn from "./StatusColumn";
 
 export type ResultsTableProps = {
@@ -428,10 +429,15 @@ export default function ResultsTable({
                                   })}
                                 </div>
                               ) : null}
-                              <div className="alert alert-danger px-2 py-1 mb-1 ml-1">
+                              <Callout
+                                status="error"
+                                mb="1"
+                                ml="1"
+                                className="px-2 py-1"
+                              >
                                 <FaExclamationTriangle className="mr-1" />
                                 Query error
-                              </div>
+                              </Callout>
                             </>
                           ),
                         });

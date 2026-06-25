@@ -18,6 +18,7 @@ import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
 import Checkbox from "@/ui/Checkbox";
+import Callout from "@/ui/Callout";
 
 type EditExperimentAssignmentQueryProps = {
   exposureQuery?: ExposureQuery;
@@ -284,11 +285,10 @@ export const AddEditExperimentAssignmentQueryModal: FC<
               <div className="form-group">
                 <label className="mr-5">Query</label>
                 {userEnteredQuery === defaultQuery && (
-                  <div className="alert alert-info">
-                    <FaExclamationTriangle style={{ marginTop: "-2px" }} /> The
-                    prefilled query below may require editing to fit your data
-                    structure.
-                  </div>
+                  <Callout status="info" icon={<FaExclamationTriangle />}>
+                    The prefilled query below may require editing to fit your
+                    data structure.
+                  </Callout>
                 )}
                 {userEnteredQuery && (
                   <Code

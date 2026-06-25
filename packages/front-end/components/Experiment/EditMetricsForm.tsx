@@ -234,7 +234,7 @@ const EditMetricsForm: FC<{
       {!hasCommercialFeature("metric-groups") ? (
         <PremiumCallout
           commercialFeature="metric-groups"
-          dismissable={true}
+          dismissible={true}
           id="metrics-list-metric-group-promo"
           docSection="metricGroups"
           mb="4"

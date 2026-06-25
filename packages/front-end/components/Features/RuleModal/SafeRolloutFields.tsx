@@ -30,6 +30,7 @@ import {
 import RuleEnvironmentScopeField, {
   type EnvScopeProps,
 } from "@/components/Features/RuleModal/EnvironmentScopeField";
+import Callout from "@/ui/Callout";
 
 export default function SafeRolloutFields({
   feature,
@@ -117,11 +118,11 @@ export default function SafeRolloutFields({
           onRuleCyclicChange={onRuleCyclicChange}
         />
         {isCyclic && (
-          <div className="alert alert-danger">
+          <Callout status="error">
             <FaExclamationTriangle /> A prerequisite (
             <code>{cyclicFeatureId}</code>) creates a circular dependency.
             Remove this prerequisite to continue.
-          </div>
+          </Callout>
         )}
 
         {mode === "duplicate" && !!form.watch("seed") && (
@@ -241,12 +242,12 @@ export default function SafeRolloutFields({
               disabled={!dataSourceOptions || disableFields}
             />
             {dataSourceOptions.length === 0 && (
-              <div className="alert alert-warning mt-2">
+              <Callout status="warning" mt="2">
                 <small>
                   No data sources configured. Please add a data source in the
                   settings.
                 </small>
-              </div>
+              </Callout>
             )}
           </div>
           <div className="pb-1">

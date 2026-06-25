@@ -5,6 +5,7 @@ import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import Field from "@/components/Forms/Field";
 import Modal from "@/components/Modal";
+import Callout from "@/ui/Callout";
 import styles from "./EditLicenseForm.module.scss";
 
 const EditLicenseModal: FC<{
@@ -86,12 +87,12 @@ const EditLicenseModal: FC<{
               Change
             </button>
             {successMessage ? (
-              <div className="alert alert-success">{successMessage}</div>
+              <Callout status="success">{successMessage}</Callout>
             ) : (
-              <div className="alert alert-warning">
-                <FaExclamationTriangle /> You already have an active license.
-                Click &quot;Change&quot; to enter a new license key.
-              </div>
+              <Callout status="warning" icon={<FaExclamationTriangle />}>
+                You already have an active license. Click &quot;Change&quot; to
+                enter a new license key.
+              </Callout>
             )}
           </div>
         </div>

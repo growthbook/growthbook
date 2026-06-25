@@ -37,6 +37,9 @@ export default defineConfig([
     "docs/build",
     "packages/sdk-js/scripts",
     "**/*.tsbuildinfo",
+    // Throwaway generated debug artifact (see .context/generate_debug_callouts.cjs).
+    // Remove this line together with the debug-callouts page.
+    "packages/front-end/components/DebugAllCalloutsGenerated.tsx",
   ]),
   nextRecommendedConfig,
   {

@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { Flex } from "@radix-ui/themes";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Callout from "@/ui/Callout";
 
@@ -31,15 +30,9 @@ export default function PendingTablesCard({ mutate }: { mutate: () => void }) {
   return (
     <>
       {!error ? (
-        <Callout status="info" mt="2">
-          <Flex align="center" gap="2">
-            <LoadingSpinner />
-            <div>
-              We&apos;re identifying what tables are available on this Data
-              Source. This may take a minute, depending on the size of the Data
-              Source.
-            </div>
-          </Flex>
+        <Callout status="info" mt="2" icon={<LoadingSpinner />}>
+          We&apos;re identifying what tables are available on this Data Source.
+          This may take a minute, depending on the size of the Data Source.
         </Callout>
       ) : (
         <Callout status="warning" mt="2">
