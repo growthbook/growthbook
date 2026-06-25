@@ -29,7 +29,6 @@ import {
 } from "@/ui/DropdownMenu";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import EventUser from "@/components/Avatar/EventUser";
-import Markdown from "@/components/Markdown/Markdown";
 import CommentComposer from "@/components/Comments/CommentComposer";
 import ReviewCommentPopover from "@/components/Reviews/ReviewCommentPopover";
 import DivergenceNotice from "@/components/Reviews/DivergenceNotice";
@@ -55,6 +54,7 @@ import RevisionTimeline, {
 import ScheduledPublishControl from "@/components/Reviews/ScheduledPublishControl";
 import ReviewHeader from "@/components/Reviews/ReviewHeader";
 import { RevisionDiffContent } from "@/components/Reviews/RevisionDiffContent";
+import RevisionDescription from "@/components/Reviews/RevisionDescription";
 import { useRevisionDiff, RevisionDiffConfig } from "./useRevisionDiff";
 import { RevisionDiff } from "./RevisionDiff";
 import { revisionTimelineLogs } from "./revisionTimelineLogs";
@@ -688,7 +688,17 @@ function ReviewAndPublishRevision<T>({
   const leftColumn = (
     <>
       {subTab === "overview" && (
-        <RevisionDescriptionSection revision={revision} />
+        <RevisionDescription
+          description={revision.comment}
+          canEdit={isActiveDraft && canEditEntity}
+          onEdit={async (value) => {
+            await apiCall(`/revision/${revision.id}/description`, {
+              method: "PATCH",
+              body: JSON.stringify({ description: value }),
+            });
+            await mutate();
+          }}
+        />
       )}
 
       {subTab === "overview" ? (
@@ -1212,30 +1222,6 @@ function ReviewAndPublishRevision<T>({
           {isActiveDraft ? draftActionsColumn : readonlyActionsColumn}
         </Box>
       </Flex>
-    </Box>
-  );
-}
-
-// "Revision description" card (mirrors the feature tab's RevisionCommentSection):
-// free-form markdown context stored on the generic revision's `comment` field
-// (set at draft creation). Read-only on the generic revision backend — there's
-// no description-edit endpoint — so it renders only when a description exists.
-function RevisionDescriptionSection({ revision }: { revision: Revision }) {
-  const description = revision.comment?.trim() || "";
-  if (!description) return null;
-
-  return (
-    <Box mb="4" className="appbox">
-      <CardHeader gap="2">
-        <Heading as="h5" size="small" color="text-mid" mb="0">
-          Revision description
-        </Heading>
-      </CardHeader>
-      <Box p="4">
-        <Markdown className="speech-bubble" highlightCode>
-          {description}
-        </Markdown>
-      </Box>
     </Box>
   );
 }
