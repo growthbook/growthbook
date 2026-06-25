@@ -1630,7 +1630,7 @@ export async function postExperiment(
   const variationCountChanged =
     !!data.variations &&
     data.variations.length !== experiment.variations.length;
-  const coverageChanged = !!data.coverage;
+  const coverageChanged = data.coverage !== undefined;
   if (
     experiment.status === "running" &&
     (variationCountChanged || coverageChanged)
