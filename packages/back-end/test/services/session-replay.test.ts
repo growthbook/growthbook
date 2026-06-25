@@ -1,5 +1,6 @@
 import zlib from "zlib";
 import {
+  filterClientKeysByProject,
   getSessionReplayEventsByStoragePrefix,
   parseChunkIndexFromKey,
   sortReplayChunkKeysByChunkIndex,
@@ -198,5 +199,57 @@ describe("getSessionReplayEventsByStoragePrefix", () => {
     await expect(
       getSessionReplayEventsByStoragePrefix("org/session"),
     ).rejects.toThrow();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// filterClientKeysByProject
+// ---------------------------------------------------------------------------
+
+describe("filterClientKeysByProject", () => {
+  const permittedKeys = new Map([
+    ["sdk-abc", ["prj_1", "prj_2"]],
+    ["sdk-def", ["prj_2", "prj_3"]],
+    ["sdk-ghi", []], // empty = all projects
+    ["sdk-jkl", ["prj_1"]],
+  ]);
+
+  it("returns all keys when no project filter is specified", () => {
+    const result = filterClientKeysByProject(permittedKeys);
+    expect(result).toEqual(["sdk-abc", "sdk-def", "sdk-ghi", "sdk-jkl"]);
+  });
+
+  it("returns all keys when project is empty string", () => {
+    const result = filterClientKeysByProject(permittedKeys, "");
+    expect(result).toEqual(["sdk-abc", "sdk-def", "sdk-ghi", "sdk-jkl"]);
+  });
+
+  it("filters to connections that include the specified project", () => {
+    const result = filterClientKeysByProject(permittedKeys, "prj_1");
+    expect(result).toEqual(["sdk-abc", "sdk-ghi", "sdk-jkl"]);
+  });
+
+  it("always includes connections with empty projects (all-projects)", () => {
+    const result = filterClientKeysByProject(permittedKeys, "prj_3");
+    expect(result).toEqual(["sdk-def", "sdk-ghi"]);
+  });
+
+  it("returns only all-projects connections when project matches none", () => {
+    const result = filterClientKeysByProject(permittedKeys, "prj_unknown");
+    expect(result).toEqual(["sdk-ghi"]);
+  });
+
+  it("returns empty array when map is empty", () => {
+    const result = filterClientKeysByProject(new Map(), "prj_1");
+    expect(result).toEqual([]);
+  });
+
+  it("returns empty when no connections match and none are all-projects", () => {
+    const noGlobal = new Map([
+      ["sdk-abc", ["prj_1"]],
+      ["sdk-def", ["prj_2"]],
+    ]);
+    const result = filterClientKeysByProject(noGlobal, "prj_99");
+    expect(result).toEqual([]);
   });
 });

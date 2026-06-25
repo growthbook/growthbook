@@ -9,7 +9,11 @@ import {
   listSessionReplays,
   SessionReplayRow,
 } from "back-end/src/services/clickhouse";
-import { getSessionReplayEventsByStoragePrefix } from "back-end/src/services/session-replay";
+import {
+  filterClientKeysByProject,
+  getSessionReplayEventsByStoragePrefix,
+} from "back-end/src/services/session-replay";
+import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
 
 /**
  * Internal API model for Session Replay metadata.
@@ -18,18 +22,31 @@ import { getSessionReplayEventsByStoragePrefix } from "back-end/src/services/ses
  */
 export class SessionReplayModel {
   protected context: ReqContext;
+  private _permittedKeys: Map<string, string[]> | null = null;
 
   public constructor(context: ReqContext) {
     this.context = context;
   }
 
-  // ---------- Permission methods ----------
+  // ---------- Permission helpers ----------
+
+  /**
+   * Builds a map of clientKey → projects from the SDK connections the current
+   * user is allowed to read. Memoized per request (model instance is per-request).
+   */
+  private async getPermittedClientKeys(): Promise<Map<string, string[]>> {
+    if (this._permittedKeys) return this._permittedKeys;
+    const connections = await findSDKConnectionsByOrganization(this.context);
+    this._permittedKeys = new Map(connections.map((c) => [c.key, c.projects]));
+    return this._permittedKeys;
+  }
 
   protected canRead(
     doc: Pick<SessionReplayInterface, "organization">,
+    projects: string[],
   ): boolean {
     if (doc.organization !== this.context.org.id) return false;
-    return this.context.permissions.canViewSessionReplay();
+    return this.context.permissions.canViewSessionReplay({ projects });
   }
 
   protected canCreate(): boolean {
@@ -42,9 +59,10 @@ export class SessionReplayModel {
 
   protected canDelete(
     doc: Pick<SessionReplayInterface, "organization">,
+    projects: string[],
   ): boolean {
     if (doc.organization !== this.context.org.id) return false;
-    return this.context.permissions.canDeleteSessionReplay();
+    return this.context.permissions.canDeleteSessionReplay({ projects });
   }
 
   // ---------- Read methods ----------
@@ -61,13 +79,24 @@ export class SessionReplayModel {
     maxEventCount?: number;
     featureKey?: string;
     experimentKey?: string;
+    project?: string;
     limit?: number;
     offset?: number;
   }): Promise<SessionReplayInterface[]> {
-    const rows = await listSessionReplays(this.context, options);
-    return rows
-      .map((row) => this.toInterface(row))
-      .filter((doc) => this.canRead(doc));
+    const permittedKeys = await this.getPermittedClientKeys();
+    if (permittedKeys.size === 0) return [];
+
+    const clientKeys = filterClientKeysByProject(
+      permittedKeys,
+      options?.project,
+    );
+    if (clientKeys.length === 0) return [];
+
+    const rows = await listSessionReplays(this.context, {
+      ...options,
+      clientKeys,
+    });
+    return rows.map((row) => this.toInterface(row));
   }
 
   public async getBySessionId(
@@ -79,7 +108,13 @@ export class SessionReplayModel {
     );
     if (!chunks.length) return null;
     const doc = this.mergeChunks(chunks);
-    if (!this.canRead(doc)) return null;
+
+    const permittedKeys = await this.getPermittedClientKeys();
+    const projects = permittedKeys.get(doc.clientKey);
+    // clientKey not in permitted set — orphaned or no access
+    if (projects === undefined) return null;
+    if (!this.canRead(doc, projects)) return null;
+
     return doc;
   }
 

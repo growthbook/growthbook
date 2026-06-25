@@ -217,6 +217,8 @@ export async function listSessionReplays(
   options?: {
     userId?: string;
     clientKey?: string;
+    /** Pre-filter to sessions from these SDK connection keys (permission scoping) */
+    clientKeys?: string[];
     url?: string;
     country?: string;
     device?: string;
@@ -245,6 +247,12 @@ export async function listSessionReplays(
 
   if (options?.userId) {
     conditions.push(`user_id = '${escapeClickhouseString(options.userId)}'`);
+  }
+  if (options?.clientKeys?.length) {
+    const escaped = options.clientKeys
+      .map((k) => `'${escapeClickhouseString(k)}'`)
+      .join(", ");
+    conditions.push(`client_key IN (${escaped})`);
   }
   if (options?.clientKey) {
     conditions.push(

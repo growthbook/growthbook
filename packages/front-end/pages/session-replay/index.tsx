@@ -21,6 +21,7 @@ import Text from "@/ui/Text";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import FilterQueryPopover, {
   FilterCondition,
 } from "@/components/SessionReplay/FilterQueryPopover";
@@ -241,6 +242,7 @@ export default function SessionReplayPage() {
 
   const router = useRouter();
   const { apiCall } = useAuth();
+  const { project } = useDefinitions();
 
   // ---- UI panel state ------------------------------------------------------
   const [leftCollapsed, setLeftCollapsed] = useState(false);
@@ -280,6 +282,7 @@ export default function SessionReplayPage() {
   const queryString = useMemo(() => {
     const params = new URLSearchParams();
     params.set("page", String(page));
+    if (project) params.set("project", project);
     for (const key of FILTER_KEYS) {
       const val = router.query[key];
       if (typeof val === "string" && val) {
@@ -288,7 +291,7 @@ export default function SessionReplayPage() {
     }
     return params.toString();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, ...FILTER_KEYS.map((k) => router.query[k])]);
+  }, [page, project, ...FILTER_KEYS.map((k) => router.query[k])]);
 
   const { data: sessionsData, error: sessionsError } = useApi<{
     sessions: SessionReplayRow[];
@@ -321,6 +324,23 @@ export default function SessionReplayPage() {
       shallow: true,
     });
   };
+
+  // Clear selected session when project changes so a session from another
+  // project doesn't stay visible after switching.
+  const prevProjectRef = useRef(project);
+  useEffect(() => {
+    if (prevProjectRef.current !== project) {
+      prevProjectRef.current = project;
+      if (selectedSessionId) {
+        const { sessionId: _, ...rest } = router.query;
+        void router.push(
+          { pathname: "/session-replay", query: { ...rest, page: "1" } },
+          undefined,
+          { shallow: true },
+        );
+      }
+    }
+  }, [project, selectedSessionId, router]);
 
   /** Map a FilterCondition from the popover to route query params. */
   const conditionToParams = (c: FilterCondition): Record<string, string> => {

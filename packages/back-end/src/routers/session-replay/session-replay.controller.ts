@@ -54,6 +54,7 @@ export async function listSessions(
       eventCountMax?: string;
       featureKey?: string;
       experimentKey?: string;
+      project?: string;
       page?: string;
     }
   >,
@@ -82,6 +83,7 @@ export async function listSessions(
     maxEventCount: parsePositiveFloat(req.query.eventCountMax),
     featureKey: req.query.featureKey,
     experimentKey: req.query.experimentKey,
+    project: req.query.project,
     limit: pageSize,
     offset,
   });

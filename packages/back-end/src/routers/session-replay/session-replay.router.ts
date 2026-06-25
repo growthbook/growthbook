@@ -40,6 +40,7 @@ router.get(
         eventCountMax: nonNegativeIntegerString.optional(),
         featureKey: filterString.optional(),
         experimentKey: filterString.optional(),
+        project: filterString.optional(),
         page: z.string().optional(),
       })
       .strict(),

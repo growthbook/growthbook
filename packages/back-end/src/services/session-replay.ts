@@ -43,3 +43,23 @@ export function parseChunkIndexFromKey(storageKey: string): number {
   const parsedNumber = parseInt(numericText, 10);
   return Number.isFinite(parsedNumber) ? parsedNumber : 0;
 }
+
+/**
+ * Given a map of SDK connection clientKey → projects and an optional project
+ * filter, return the subset of clientKeys the caller is allowed to see.
+ *
+ * An SDK connection with an empty projects array is treated as "all projects"
+ * and is always included regardless of the project filter.
+ */
+export function filterClientKeysByProject(
+  permittedKeys: Map<string, string[]>,
+  project?: string,
+): string[] {
+  const keys = Array.from(permittedKeys.keys());
+  if (!project) return keys;
+  return keys.filter((key) => {
+    const projects = permittedKeys.get(key);
+    if (!projects || projects.length === 0) return true;
+    return projects.includes(project);
+  });
+}
