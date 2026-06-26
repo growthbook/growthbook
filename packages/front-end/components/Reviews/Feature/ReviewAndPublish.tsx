@@ -36,7 +36,6 @@ import {
   PiLockSimple,
   PiLock,
   PiClockFill,
-  PiGitDiff,
   PiGitMergeBold,
   PiCaretDownBold,
 } from "react-icons/pi";
@@ -61,9 +60,7 @@ import Revisionlog, {
   REVIEW_ACTIVITY_ACTIONS,
 } from "@/components/Reviews/Feature/RevisionLog";
 import useApi from "@/hooks/useApi";
-import RevisionLabel, {
-  revisionLabelText,
-} from "@/components/Reviews/RevisionLabel";
+import RevisionLabel from "@/components/Reviews/RevisionLabel";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import {
   useFeatureRevisionDiff,
@@ -79,10 +76,7 @@ import Text from "@/ui/Text";
 import DatePicker from "@/components/DatePicker";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Heading from "@/ui/Heading";
-import Badge from "@/ui/Badge";
-import Link from "@/ui/Link";
-import RevisionStatusBadge, {
-  revisionStatusBadgeVariant,
+import {
   revisionStatusColor,
   revisionStatusIcon,
   revisionStatusLabel,
@@ -107,7 +101,6 @@ import {
   scrollToLatestRevisionLogEntry,
 } from "@/components/Reviews/diffCommentRefs";
 import useURLHash from "@/hooks/useURLHash";
-import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
 
 // Sub-views of the review surface: "overview" is the conversation-first view
 // (notes, human-readable changes, review activity), "changes" is the diff-first
@@ -130,6 +123,9 @@ import {
   PersonRow,
   ReviewerVerdictIcon,
 } from "@/components/Reviews/ReviewPeople";
+import ReviewHeader, {
+  ReviewHeaderOtherDraft,
+} from "@/components/Reviews/ReviewHeader";
 
 export interface Props {
   // The base (live) feature.
@@ -213,50 +209,16 @@ export default function ReviewAndPublish({
         r.version !== revision?.version,
     )
     .sort((a, b) => b.version - a.version);
-  const otherDraftsNav =
-    otherAttentionDrafts.length === 1 ? (
-      <Flex align="center" gap="2">
-        <Text color="text-mid" whiteSpace="nowrap">
-          1 other draft needs attention:
-        </Text>
-        <Link
-          weight="medium"
-          onClick={() => setVersion(otherAttentionDrafts[0].version)}
-        >
-          {revisionLabelText(
-            otherAttentionDrafts[0].version,
-            otherAttentionDrafts[0].title,
-            false,
-          )}
-        </Link>
-        <RevisionStatusBadge
-          revision={otherAttentionDrafts[0]}
-          liveVersion={feature.version}
-        />
-      </Flex>
-    ) : otherAttentionDrafts.length > 1 ? (
-      <DropdownMenu
-        trigger={
-          <Link weight="medium">
-            {otherAttentionDrafts.length} other drafts need attention{" "}
-            <PiCaretDownBold size={11} />
-          </Link>
-        }
-        menuPlacement="end"
-      >
-        {otherAttentionDrafts.map((r) => (
-          <DropdownMenuItem
-            key={r.version}
-            onClick={() => setVersion(r.version)}
-          >
-            <Flex align="center" justify="between" gap="4" width="100%">
-              <RevisionLabel version={r.version} title={r.title} />
-              <RevisionStatusBadge revision={r} liveVersion={feature.version} />
-            </Flex>
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenu>
-    ) : null;
+  // Other active drafts, mapped into the shared ReviewHeader's quick-nav shape.
+  const headerOtherDrafts: ReviewHeaderOtherDraft[] = otherAttentionDrafts.map(
+    (r) => ({
+      key: String(r.version),
+      version: r.version,
+      title: r.title,
+      badge: { version: r.version, status: r.status },
+      onNavigate: () => setVersion(r.version),
+    }),
+  );
 
   // ── Reviewers (per-user latest verdict) ──
   // Pull the revision log (SWR-deduped against <Revisionlog>'s own fetch) and
@@ -1073,42 +1035,6 @@ export default function ReviewAndPublish({
     );
   }
 
-  // ── Sub-tab bar: Overview | Changes, full-width underline (rendered above
-  // the two-column layout in both the draft and read-only flows). The
-  // cross-revision audit tool rides along on the right so reviewers can
-  // pivot from "this draft vs live" to "any revision vs any revision".
-  // Same embed pattern as the rules tab bar: the wrapping Flex carries the
-  // underline so it runs beneath the right-aligned action too. ──
-  const subTabBar = (
-    <Box mb="4">
-      <Tabs value={subTab} onValueChange={(v) => setSubTab(v as ReviewSubTab)}>
-        <Flex
-          align="center"
-          justify="between"
-          style={{ boxShadow: "inset 0 -1px 0 0 var(--slate-a3)" }}
-        >
-          <TabsList style={{ boxShadow: "none" }}>
-            <TabsTrigger value="overview">Conversation</TabsTrigger>
-            <TabsTrigger value="changes">Changes</TabsTrigger>
-          </TabsList>
-          {onCompareRevisions && (
-            <Box pl="2" flexShrink="0">
-              <Button
-                variant="ghost"
-                size="sm"
-                icon={<PiGitDiff />}
-                onClick={onCompareRevisions}
-                style={{ whiteSpace: "nowrap" }}
-              >
-                Compare revisions
-              </Button>
-            </Box>
-          )}
-        </Flex>
-      </Tabs>
-    </Box>
-  );
-
   // ── Shared left column (both the draft flow and the read-only review).
   // Overview: notes + height-capped human-readable changes + the review
   // activity timeline. Changes: JSON/Full JSON diffs (with the comment
@@ -1285,7 +1211,6 @@ export default function ReviewAndPublish({
     // the terminal state (merged/published, live, or discarded) instead of a
     // pending merge.
     const status = isLive ? "live" : revision.status;
-    const statusColor = revisionStatusColor(status);
     // The actions-widget header reflects the review lifecycle, not deployment
     // state — "Live"/"Locked" aren't lifecycle stages, so terminal revisions
     // all read as "Published" here. Discarded stays (it can be reopened for
@@ -1303,12 +1228,6 @@ export default function ReviewAndPublish({
       revision.comment?.trim() ||
       `Revision ${revision.version}`;
     const baseV = readonlyBaseRevision?.version;
-    const publishedDate = revision.datePublished
-      ? format(new Date(revision.datePublished), "MMM d, yyyy")
-      : null;
-    const discardedDate = revision.dateUpdated
-      ? format(new Date(revision.dateUpdated), "MMM d, yyyy")
-      : null;
 
     // Errors surface inside the confirm modal via ModalForm's error handling.
     const doReopen = async () => {
@@ -1319,59 +1238,21 @@ export default function ReviewAndPublish({
     };
 
     const readonlyHeader = (
-      <Box mb="4">
-        <Flex align="start" justify="between" gap="4">
-          <Box>
-            <Heading as="h3" size="medium" mb="2">
-              {headerTitle}{" "}
-              <span
-                style={{
-                  display: "inline-block",
-                  verticalAlign: "middle",
-                  // correct `middle` to the visual center of the glyphs
-                  transform: "translateY(-2px)",
-                  marginLeft: 4,
-                }}
-              >
-                <Badge
-                  variant={revisionStatusBadgeVariant(status)}
-                  radius="full"
-                  color={statusColor}
-                  label={revisionStatusLabel(status)}
-                />
-              </span>
-            </Heading>
-            <Text as="span" color="text-low">
-              {isDiscarded ? (
-                <>
-                  Revision <strong>{revision.version}</strong>
-                  {baseV != null ? <> (based on revision {baseV})</> : null} was
-                  discarded{discardedDate ? ` on ${discardedDate}` : ""}
-                </>
-              ) : (
-                <>
-                  Revision <strong>{revision.version}</strong>
-                  {baseV != null ? (
-                    <>
-                      {" "}
-                      was merged into revision <strong>{baseV}</strong> and
-                      published
-                    </>
-                  ) : (
-                    <> was published</>
-                  )}
-                  {publishedDate ? ` on ${publishedDate}` : ""}
-                </>
-              )}
-            </Text>
-          </Box>
-          {otherDraftsNav && (
-            <Box flexShrink="0" pt="1">
-              {otherDraftsNav}
-            </Box>
-          )}
-        </Flex>
-      </Box>
+      <ReviewHeader
+        title={headerTitle}
+        badgeStatus={status}
+        version={revision.version}
+        liveVersion={feature.version}
+        lifecycle={isDiscarded ? "discarded" : "merged"}
+        baseVersion={baseV}
+        mergedIntoVersion={baseV}
+        publishedDate={revision.datePublished ?? undefined}
+        discardedDate={isDiscarded ? revision.dateUpdated : undefined}
+        otherDrafts={headerOtherDrafts}
+        subTab={subTab}
+        setSubTab={setSubTab}
+        onCompareRevisions={onCompareRevisions}
+      />
     );
 
     const readonlyActionsColumn = (
@@ -1559,7 +1440,6 @@ export default function ReviewAndPublish({
           </ModalStandard>
         )}
         {readonlyHeader}
-        {subTabBar}
         <Flex gap="5" align="start">
           <Box style={{ flex: 1, minWidth: 0 }}>
             {renderLeftColumn(readonlyDiffs, {
@@ -2229,53 +2109,24 @@ export default function ReviewAndPublish({
     revision.title?.trim() ||
     revision.comment?.trim() ||
     `Revision ${revision.version}`;
-  const staleBase = revision.baseVersion !== feature.version;
 
   const mergeHeader = (
-    <Box mb="4">
-      <Flex align="start" justify="between" gap="4">
-        <Box>
-          <Heading as="h3" size="medium" mb="2">
-            {headerTitle}{" "}
-            <span
-              style={{
-                display: "inline-block",
-                verticalAlign: "middle",
-                // correct `middle` to the visual center of the glyphs
-                transform: "translateY(-2px)",
-                marginLeft: 4,
-              }}
-            >
-              <Badge
-                variant="soft"
-                radius="full"
-                color={revisionStatusColor(revision.status)}
-                label={revisionStatusLabel(revision.status)}
-              />
-            </span>
-          </Heading>
-          <Text as="span" color="text-low">
-            {reviewRequested && requesterName ? (
-              <>
-                <strong>{requesterName}</strong> requested review to merge{" "}
-              </>
-            ) : (
-              <>Merging </>
-            )}
-            revision <strong>{revision.version}</strong> into the live version
-            (revision <strong>{feature.version}</strong>)
-            {staleBase ? (
-              <> · based on revision {revision.baseVersion}</>
-            ) : null}
-          </Text>
-        </Box>
-        {otherDraftsNav && (
-          <Box flexShrink="0" pt="1">
-            {otherDraftsNav}
-          </Box>
-        )}
-      </Flex>
-    </Box>
+    <ReviewHeader
+      title={headerTitle}
+      badgeStatus={revision.status}
+      version={revision.version}
+      liveVersion={feature.version}
+      baseVersion={revision.baseVersion}
+      reviewRequesterName={
+        reviewRequested && requesterName ? requesterName : undefined
+      }
+      lifecycle="active"
+      otherDrafts={headerOtherDrafts}
+      subTab={subTab}
+      setSubTab={setSubTab}
+      onCompareRevisions={onCompareRevisions}
+      hideSubTabs={experimentsStep}
+    />
   );
 
   // ── Left column: all of the changes, then history ──
@@ -2950,10 +2801,10 @@ export default function ReviewAndPublish({
     <>
       {conflictModal}
       {discardConfirmModal}
-      {mergeHeader}
       {/* The experiments checklist step temporarily replaces the left column;
-          hide the sub-tabs so the step reads as a focused flow. */}
-      {!experimentsStep && subTabBar}
+          ReviewHeader hides the sub-tabs (hideSubTabs) so the step reads as a
+          focused flow. */}
+      {mergeHeader}
       <Flex gap="5" align="start">
         <Box style={{ flex: 1, minWidth: 0 }}>{changesColumn}</Box>
         <Box style={{ width: 360, minWidth: 360, flexShrink: 0 }}>

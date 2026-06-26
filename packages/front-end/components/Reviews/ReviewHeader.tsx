@@ -13,6 +13,7 @@ import RevisionLabel, {
 } from "@/components/Reviews/RevisionLabel";
 import RevisionStatusBadge, {
   RevisionLike,
+  revisionStatusBadgeVariant,
   revisionStatusColor,
   revisionStatusLabel,
 } from "@/components/Reviews/RevisionStatusBadge";
@@ -49,19 +50,25 @@ export default function ReviewHeader({
   reviewRequesterName,
   lifecycle = "active",
   publishedDate,
+  mergedIntoVersion,
+  discardedDate,
   otherDrafts,
   subTab,
   setSubTab,
   onCompareRevisions,
+  hideSubTabs = false,
 }: {
   title: string;
   // Status for the inline badge, normalized to the badge vocabulary by the
-  // caller (e.g. the generic "merged" → "published").
+  // caller (e.g. the generic "merged" → "published"). Drives both the badge's
+  // color and its solid/soft variant (live/discarded read as solid).
   badgeStatus: Parameters<typeof revisionStatusColor>[0];
   version: number;
   // The live revision's version — shown as "into the live version (revision N)".
   liveVersion: number;
-  // When set and distinct from the live version, appends "· based on revision N".
+  // When set and distinct from the live version, appends "· based on revision N"
+  // to the active line; for the discarded lifecycle it renders the inline
+  // "(based on revision N)" clause.
   baseVersion?: number;
   // When set, the line reads "<name> requested review to merge …".
   reviewRequesterName?: string;
@@ -69,11 +76,19 @@ export default function ReviewHeader({
   lifecycle?: "active" | "merged" | "discarded";
   // For the merged lifecycle: optional publish date.
   publishedDate?: Date | string;
+  // For the merged lifecycle: when provided, the line reads "was merged into
+  // revision N and published …" (features track this; generic entities may not).
+  mergedIntoVersion?: number;
+  // For the discarded lifecycle: optional discard date ("was discarded on …").
+  discardedDate?: Date | string;
   // Other active drafts, surfaced as quick-nav in the header.
   otherDrafts: ReviewHeaderOtherDraft[];
   subTab: ReviewHeaderSubTab;
   setSubTab: (t: ReviewHeaderSubTab) => void;
   onCompareRevisions?: () => void;
+  // Suppress the Conversation/Changes sub-tab bar (e.g. the feature flow's
+  // focused experiments-checklist step). Defaults to showing the bar.
+  hideSubTabs?: boolean;
 }) {
   const otherDraftsNav =
     otherDrafts.length === 1 ? (
@@ -136,7 +151,7 @@ export default function ReviewHeader({
                 }}
               >
                 <Badge
-                  variant="soft"
+                  variant={revisionStatusBadgeVariant(badgeStatus)}
                   radius="full"
                   color={revisionStatusColor(badgeStatus)}
                   label={revisionStatusLabel(badgeStatus)}
@@ -146,16 +161,38 @@ export default function ReviewHeader({
             <Text as="span" color="text-low">
               {lifecycle === "merged" ? (
                 <>
-                  Revision <strong>{version}</strong> was published
+                  Revision <strong>{version}</strong>
+                  {mergedIntoVersion != null ? (
+                    <>
+                      {" "}
+                      was merged into revision{" "}
+                      <strong>{mergedIntoVersion}</strong> and published
+                    </>
+                  ) : (
+                    <> was published</>
+                  )}
                   {publishedDate
                     ? ` on ${format(new Date(publishedDate), "MMM d, yyyy")}`
                     : ""}
                 </>
               ) : lifecycle === "discarded" ? (
-                <>
-                  Revision <strong>{version}</strong> was discarded and never
-                  published
-                </>
+                baseVersion != null || discardedDate ? (
+                  <>
+                    Revision <strong>{version}</strong>
+                    {baseVersion != null ? (
+                      <> (based on revision {baseVersion})</>
+                    ) : null}{" "}
+                    was discarded
+                    {discardedDate
+                      ? ` on ${format(new Date(discardedDate), "MMM d, yyyy")}`
+                      : ""}
+                  </>
+                ) : (
+                  <>
+                    Revision <strong>{version}</strong> was discarded and never
+                    published
+                  </>
+                )
               ) : (
                 <>
                   {reviewRequesterName ? (
@@ -181,36 +218,38 @@ export default function ReviewHeader({
         </Flex>
       </Box>
 
-      <Box mb="4">
-        <Tabs
-          value={subTab}
-          onValueChange={(v) => setSubTab(v as ReviewHeaderSubTab)}
-        >
-          <Flex
-            align="center"
-            justify="between"
-            style={{ boxShadow: "inset 0 -1px 0 0 var(--slate-a3)" }}
+      {!hideSubTabs && (
+        <Box mb="4">
+          <Tabs
+            value={subTab}
+            onValueChange={(v) => setSubTab(v as ReviewHeaderSubTab)}
           >
-            <TabsList style={{ boxShadow: "none" }}>
-              <TabsTrigger value="overview">Conversation</TabsTrigger>
-              <TabsTrigger value="changes">Changes</TabsTrigger>
-            </TabsList>
-            {onCompareRevisions && (
-              <Box pl="2" flexShrink="0">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  icon={<PiGitDiff />}
-                  onClick={onCompareRevisions}
-                  style={{ whiteSpace: "nowrap" }}
-                >
-                  Compare revisions
-                </Button>
-              </Box>
-            )}
-          </Flex>
-        </Tabs>
-      </Box>
+            <Flex
+              align="center"
+              justify="between"
+              style={{ boxShadow: "inset 0 -1px 0 0 var(--slate-a3)" }}
+            >
+              <TabsList style={{ boxShadow: "none" }}>
+                <TabsTrigger value="overview">Conversation</TabsTrigger>
+                <TabsTrigger value="changes">Changes</TabsTrigger>
+              </TabsList>
+              {onCompareRevisions && (
+                <Box pl="2" flexShrink="0">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    icon={<PiGitDiff />}
+                    onClick={onCompareRevisions}
+                    style={{ whiteSpace: "nowrap" }}
+                  >
+                    Compare revisions
+                  </Button>
+                </Box>
+              )}
+            </Flex>
+          </Tabs>
+        </Box>
+      )}
     </Box>
   );
 }
