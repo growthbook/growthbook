@@ -5,11 +5,14 @@ import { FaMagic } from "react-icons/fa";
 import clsx from "clsx";
 import { SchemaField, SimpleSchema } from "shared/types/feature";
 import {
+  fieldsToTsType,
   inferJsonSchemaForValue,
   jsonSchemaStringToFields,
   reconcileSchemaFields,
+  SchemaConversionResult,
   simpleToJSONSchema,
   stripConfigExtends,
+  tsTypesToFields,
 } from "shared/util";
 import { formatJSON } from "@/services/features";
 import FeatureValueField from "@/components/Features/FeatureValueField";
@@ -17,10 +20,14 @@ import ValueDisplay from "@/components/Features/ValueDisplay";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
 import Field from "@/components/Forms/Field";
 import Button from "@/ui/Button";
+import SplitButton from "@/ui/SplitButton";
 import Callout from "@/ui/Callout";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import Text from "@/ui/Text";
 import { ResolvedField } from "@/components/Configs/fieldSchema";
+
+// The schema editor speaks JSON Schema or TypeScript; both compile to the same
+// SchemaField[]. JSON Schema stays the canonical/default surface.
+type SchemaLang = "json" | "typescript";
 
 type Props = {
   // Stable saved strings — local state reseeds whenever these change (after a
@@ -39,6 +46,10 @@ type Props = {
   extensible: boolean;
   constantContext: { project?: string; excludeKeys?: string[] };
   canEdit: boolean;
+  // Which surface to render. The page owns the Form/JSON/Preview tab bar, so the
+  // editor no longer carries its own Edit/Preview tabs. "preview" is read-only
+  // and driven entirely by props (resolved value + effective schema).
+  view?: "edit" | "preview";
   onSave: (
     value: Record<string, unknown>,
     fields: SchemaField[],
@@ -81,27 +92,55 @@ function emptySchemaText(additionalProperties: boolean): string {
   );
 }
 
-// Seed the editable schema buffer from the config's declared own fields (or an
-// empty object schema for a config that declares none yet). `additionalProperties`
-// reflects family extensibility ("Allow extra fields").
-function seedSchemaText(
-  schemaJson: string,
+// Compile a set of fields into the editable schema buffer for the active
+// language. JSON Schema is pretty-printed; TypeScript emits a `.d.ts`-style
+// interface. `additionalProperties` reflects family extensibility.
+function compileFieldsToText(
+  fields: SchemaField[],
   type: SimpleSchema["type"],
   additionalProperties: boolean,
+  lang: SchemaLang,
 ): string {
-  const declared = parseFields(schemaJson);
-  if (!declared.length) return emptySchemaText(additionalProperties);
+  if (lang === "typescript") {
+    return fieldsToTsType(fields, { additionalProperties });
+  }
+  if (!fields.length) return emptySchemaText(additionalProperties);
   try {
     return JSON.stringify(
-      JSON.parse(
-        simpleToJSONSchema({ type, fields: declared, additionalProperties }),
-      ),
+      JSON.parse(simpleToJSONSchema({ type, fields, additionalProperties })),
       null,
       2,
     );
   } catch {
     return emptySchemaText(additionalProperties);
   }
+}
+
+// Parse the editable buffer back to fields for the active language. Both
+// converters return the uniform `SchemaConversionResult` shape.
+function parseSchemaText(
+  text: string,
+  lang: SchemaLang,
+): SchemaConversionResult {
+  return lang === "typescript"
+    ? tsTypesToFields(text)
+    : jsonSchemaStringToFields(text);
+}
+
+// Seed the editable schema buffer from the config's declared own fields (or an
+// empty object schema for a config that declares none yet).
+function seedSchemaText(
+  schemaJson: string,
+  type: SimpleSchema["type"],
+  additionalProperties: boolean,
+  lang: SchemaLang,
+): string {
+  return compileFieldsToText(
+    parseFields(schemaJson),
+    type,
+    additionalProperties,
+    lang,
+  );
 }
 
 // Compile fields to a JSON Schema string for read-only display. `simpleToJSONSchema`
@@ -130,14 +169,14 @@ export default function ConfigJsonEditor({
   extensible,
   constantContext,
   canEdit,
+  view = "edit",
   onSave,
 }: Props) {
-  const [mode, setMode] = useState<"edit" | "preview">("edit");
   const [valueText, setValueText] = useState<string>(() =>
     prettyValue(valueJson),
   );
   const [schemaText, setSchemaText] = useState<string>(() =>
-    seedSchemaText(schemaJson, schemaType, extensible),
+    seedSchemaText(schemaJson, schemaType, extensible, "json"),
   );
   const [parseError, setParseError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -145,6 +184,13 @@ export default function ConfigJsonEditor({
   // Schema editor surface: Ace code editor (default) vs. a plain textarea, with
   // a Format JSON action — mirrors the value editor's CTAs.
   const [schemaCodeMode, setSchemaCodeMode] = useState(true);
+  // Active schema language. Held in a ref too so the reseed effect (which must
+  // not re-run on a language switch) can read the current language.
+  const [schemaLang, setSchemaLang] = useState<SchemaLang>("json");
+  const schemaLangRef = useRef<SchemaLang>(schemaLang);
+  useEffect(() => {
+    schemaLangRef.current = schemaLang;
+  }, [schemaLang]);
 
   // Value keys we've already auto-seeded into the schema. Each new key is added
   // once; after that the author fully owns the schema text (no clobber/re-add).
@@ -162,16 +208,19 @@ export default function ConfigJsonEditor({
     setValueText(prettyValue(valueJson));
   }, [valueJson]);
   useEffect(() => {
-    setSchemaText(seedSchemaText(schemaJson, schemaType, extensible));
+    setSchemaText(
+      seedSchemaText(schemaJson, schemaType, extensible, schemaLangRef.current),
+    );
     seededKeys.current = new Set();
   }, [schemaJson, schemaType, extensible]);
 
   // Live assist (draft only): when the value introduces a brand-new own key,
   // splice a best-guess property into the schema once. Existing properties — and
   // any key the author already removed — are left alone. Override keys
-  // (ancestor-owned) are never added; they belong to a parent.
+  // (ancestor-owned) are never added; they belong to a parent. Only JSON Schema
+  // is auto-grown (TS is hand-edited; reconciliation keeps saves clean).
   useEffect(() => {
-    if (!canEdit) return;
+    if (!canEdit || schemaLang !== "json" || view === "preview") return;
     const valueObj = parsePlainObject(valueText);
     if (!valueObj) {
       setParseError(valueText.trim() ? "Value must be a JSON object" : null);
@@ -214,14 +263,24 @@ export default function ConfigJsonEditor({
       };
       return JSON.stringify(next, null, 2);
     });
-  }, [valueText, ancestorOwned, canEdit]);
+  }, [valueText, ancestorOwned, canEdit, schemaLang, view]);
 
   const parsedSchema = useMemo(
-    () => jsonSchemaStringToFields(schemaText),
-    [schemaText],
+    () => parseSchemaText(schemaText, schemaLang),
+    [schemaText, schemaLang],
   );
   const fields = parsedSchema.fields;
   const schemaError = parsedSchema.error;
+  const schemaWarnings = parsedSchema.warnings;
+
+  // Switch the schema language: recompile the current fields into the target
+  // language so existing definitions carry over (no blank slate / lost work).
+  const switchSchemaLang = (next: SchemaLang) => {
+    if (next === schemaLang) return;
+    setSchemaText(compileFieldsToText(fields, schemaType, extensible, next));
+    setSchemaLang(next);
+    seededKeys.current = new Set();
+  };
 
   const conflictKeys = useMemo(
     () => fields.map((f) => f.key).filter((k) => ancestorOwned.has(k)),
@@ -305,8 +364,9 @@ export default function ConfigJsonEditor({
   );
 
   // Schema editor CTAs (toggle Ace/textarea + Format JSON), styled to match the
-  // value editor's links and rendered as the editor's helpText.
-  const formattedSchema = formatJSON(schemaText);
+  // value editor's links and rendered as the editor's helpText. Format JSON only
+  // applies to the JSON Schema surface.
+  const formattedSchema = schemaLang === "json" ? formatJSON(schemaText) : null;
   const schemaCtas = (
     <Flex gap="3" justify="end" width="100%">
       <a
@@ -321,22 +381,51 @@ export default function ConfigJsonEditor({
         <PiBracketsCurly />{" "}
         {schemaCodeMode ? "Use text editor" : "Use code editor"}
       </a>
-      <a
-        href="#"
-        className={clsx("text-purple", {
-          "text-muted cursor-default no-underline":
-            !formattedSchema || formattedSchema === schemaText,
-        })}
-        style={{ whiteSpace: "nowrap" }}
-        onClick={(e) => {
-          e.preventDefault();
-          if (formattedSchema && formattedSchema !== schemaText) {
-            setSchemaText(formattedSchema);
-          }
-        }}
-      >
-        <FaMagic /> Format JSON
-      </a>
+      {schemaLang === "json" && (
+        <a
+          href="#"
+          className={clsx("text-purple", {
+            "text-muted cursor-default no-underline":
+              !formattedSchema || formattedSchema === schemaText,
+          })}
+          style={{ whiteSpace: "nowrap" }}
+          onClick={(e) => {
+            e.preventDefault();
+            if (formattedSchema && formattedSchema !== schemaText) {
+              setSchemaText(formattedSchema);
+            }
+          }}
+        >
+          <FaMagic /> Format JSON
+        </a>
+      )}
+    </Flex>
+  );
+
+  // Small split toggle that sets the schema language. Gray (not the primary
+  // accent) so it reads as a subordinate, editor-local control.
+  const schemaLangToggle = (
+    <SplitButton variant="outline">
+      {(["json", "typescript"] as const).map((lang) => (
+        <Button
+          key={lang}
+          size="xs"
+          color="gray"
+          variant={schemaLang === lang ? "solid" : "outline"}
+          onClick={() => switchSchemaLang(lang)}
+        >
+          {lang === "json" ? "JSON Schema" : "TypeScript"}
+        </Button>
+      ))}
+    </SplitButton>
+  );
+
+  const schemaHeader = (
+    <Flex justify="between" align="center" mb="1" gap="3">
+      <Text weight="semibold" size="medium" as="div">
+        Schema
+      </Text>
+      {schemaLangToggle}
     </Flex>
   );
 
@@ -375,10 +464,10 @@ export default function ConfigJsonEditor({
           )}
         </>,
         <>
-          {columnHeader("Schema")}
+          {schemaHeader}
           {schemaCodeMode ? (
             <CodeTextArea
-              language="json"
+              language={schemaLang === "typescript" ? "typescript" : "json"}
               value={schemaText}
               setValue={setSchemaText}
               minLines={12}
@@ -400,6 +489,13 @@ export default function ConfigJsonEditor({
               {schemaError}
             </div>
           )}
+          {schemaWarnings.length > 0 && (
+            <div
+              style={{ color: "var(--amber-11)", fontSize: 12, marginTop: 4 }}
+            >
+              {schemaWarnings.map((w) => w.message).join("; ")}
+            </div>
+          )}
         </>,
       )}
     </>
@@ -416,7 +512,15 @@ export default function ConfigJsonEditor({
     </>,
   );
 
-  // Off-draft: a read-only view of this config's own stored value + schema.
+  // Resolved (read-only) view — resolved value + effective schema. Available on
+  // every revision (draft or not) and driven entirely by props, so "Resolved"
+  // always means the same thing.
+  if (view === "preview") {
+    return <Box mt="3">{previewContent}</Box>;
+  }
+
+  // Off-draft: read-only view of this config's own stored value + schema. "JSON"
+  // always means the config's own definition; here it just isn't editable.
   if (!canEdit) {
     return (
       <Box mt="3">
@@ -434,26 +538,15 @@ export default function ConfigJsonEditor({
     );
   }
 
+  // Editable value + schema, with Save anchored top-right.
   return (
     <Box mt="3">
-      <Tabs
-        value={mode}
-        onValueChange={(v) => setMode(v === "preview" ? "preview" : "edit")}
-      >
-        <Flex justify="between" align="center" mb="3">
-          <TabsList>
-            <TabsTrigger value="edit">Edit</TabsTrigger>
-            <TabsTrigger value="preview">Preview</TabsTrigger>
-          </TabsList>
-          {mode === "edit" && (
-            <Button onClick={handleSave} disabled={!canSave} loading={saving}>
-              Save
-            </Button>
-          )}
-        </Flex>
-        <TabsContent value="edit">{editContent}</TabsContent>
-        <TabsContent value="preview">{previewContent}</TabsContent>
-      </Tabs>
+      <Flex justify="end" mb="3">
+        <Button onClick={handleSave} disabled={!canSave} loading={saving}>
+          Save
+        </Button>
+      </Flex>
+      {editContent}
     </Box>
   );
 }

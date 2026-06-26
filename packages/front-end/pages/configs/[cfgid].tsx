@@ -37,13 +37,11 @@ import Modal from "@/components/Modal";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Badge from "@/ui/Badge";
-import Button from "@/ui/Button";
 import Link from "@/ui/Link";
 import Metadata from "@/ui/Metadata";
 import Callout from "@/ui/Callout";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 import ConfigJsonEditor from "@/components/Configs/ConfigJsonEditor";
-import SplitButton from "@/ui/SplitButton";
 import Switch from "@/ui/Switch";
 import {
   DropdownMenu,
@@ -131,7 +129,9 @@ export default function ConfigDetailPage(): React.ReactElement {
   const [showCreateChild, setShowCreateChild] = useState(false);
 
   // Field currently being overridden (inline value edit), and the draft text.
-  const [activeTab, setActiveTab] = useState<"form" | "json">("form");
+  const [activeTab, setActiveTab] = useState<"form" | "json" | "resolved">(
+    "form",
+  );
   const [editKey, setEditKey] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const [editError, setEditError] = useState<string | null>(null);
@@ -829,181 +829,205 @@ export default function ConfigDetailPage(): React.ReactElement {
               promptDraftWhenLive
             />
 
-            <Box mb="4" py="5" px="6" className="appbox">
-              <Flex justify="between" align="center" gap="3" mb="4">
-                <Text color="text-mid">{statusText}</Text>
-                <Flex align="center" gap="6">
-                  {overrideCount > 0 && activeTab === "form" && (
-                    <Switch
-                      value={showOverrides}
-                      onChange={setShowOverrides}
-                      label="Show overrides"
-                    />
-                  )}
-                  <SplitButton variant="outline">
-                    {(["form", "json"] as const).map((tab) => (
-                      <Button
-                        key={tab}
-                        size="sm"
-                        variant={activeTab === tab ? "solid" : "outline"}
-                        onClick={() => {
-                          cancelEdits();
-                          setActiveTab(tab);
-                        }}
-                      >
-                        {tab === "json" ? "JSON" : "Form"}
-                      </Button>
-                    ))}
-                  </SplitButton>
+            <Box mb="4" pb="5" px="6" className="appbox">
+              <Tabs
+                value={activeTab}
+                onValueChange={(v) => {
+                  cancelEdits();
+                  setActiveTab(
+                    v === "json"
+                      ? "json"
+                      : v === "resolved"
+                        ? "resolved"
+                        : "form",
+                  );
+                }}
+              >
+                {/* Single tab bar with consistent meanings on every revision:
+                    Form/JSON show this config's own definition (editable only on
+                    a draft); Resolved is the read-only resolved value + effective
+                    schema after inheritance/constants. */}
+                <Flex justify="between" align="center" gap="3" pt="4" mb="4">
+                  <TabsList>
+                    <TabsTrigger value="form">Form</TabsTrigger>
+                    <TabsTrigger value="json">JSON</TabsTrigger>
+                    <TabsTrigger value="resolved">Resolved</TabsTrigger>
+                  </TabsList>
+                  <Flex align="center" gap="5">
+                    <Text color="text-mid" size="small">
+                      {statusText}
+                    </Text>
+                    {overrideCount > 0 && activeTab === "form" && (
+                      <Switch
+                        value={showOverrides}
+                        onChange={setShowOverrides}
+                        label="Show overrides"
+                      />
+                    )}
+                  </Flex>
                 </Flex>
-              </Flex>
 
-              {/* Form — per-field resolved values (override / reset). */}
-              {activeTab === "form" && (
-                <Box style={{ overflowX: "auto" }}>
-                  {canEditInline && reconciliationPreview.length > 0 && (
-                    <Callout status="info" mt="3">
-                      Publishing will remove{" "}
-                      {reconciliationPreview
-                        .map(
-                          (h) =>
-                            `${h.keys.map((k) => `"${k}"`).join(", ")} from ${h.name}`,
-                        )
-                        .join("; ")}{" "}
-                      — this config now defines{" "}
-                      {reconciliationPreview.length === 1 &&
-                      reconciliationPreview[0].keys.length === 1
-                        ? "that field"
-                        : "those fields"}
-                      , so the descendant keeps only a value override (base
-                      wins).
-                    </Callout>
-                  )}
-                  <Box style={{ minWidth: 800 }}>
-                    {/* Column header — same grid template as the rows so it aligns.
+                {/* Form — per-field resolved values (override / reset). */}
+                <TabsContent value="form">
+                  <Box style={{ overflowX: "auto" }}>
+                    {canEditInline && reconciliationPreview.length > 0 && (
+                      <Callout status="info" mt="3">
+                        Publishing will remove{" "}
+                        {reconciliationPreview
+                          .map(
+                            (h) =>
+                              `${h.keys.map((k) => `"${k}"`).join(", ")} from ${h.name}`,
+                          )
+                          .join("; ")}{" "}
+                        — this config now defines{" "}
+                        {reconciliationPreview.length === 1 &&
+                        reconciliationPreview[0].keys.length === 1
+                          ? "that field"
+                          : "those fields"}
+                        , so the descendant keeps only a value override (base
+                        wins).
+                      </Callout>
+                    )}
+                    <Box style={{ minWidth: 800 }}>
+                      {/* Column header — same grid template as the rows so it aligns.
                       The 5th (actions) column is intentionally left empty. */}
-                    <Grid
-                      columns={FIELD_GRID_TEMPLATE}
-                      gapX="5"
-                      align="start"
-                      mt="3"
-                      pb="1"
-                      px="3"
-                      style={{ borderBottom: "1px solid var(--slate-a4)" }}
-                    >
-                      {["Key", "Value", "Type", "Source"].map((label) => (
-                        <Box key={label} style={{ minWidth: 0 }}>
-                          <Flex align="center" style={{ minHeight: 24 }}>
-                            <Text
-                              size="small"
-                              weight="medium"
-                              color="text-low"
-                              textTransform="uppercase"
-                            >
-                              {label}
-                            </Text>
-                          </Flex>
-                        </Box>
-                      ))}
-                    </Grid>
+                      <Grid
+                        columns={FIELD_GRID_TEMPLATE}
+                        gapX="5"
+                        align="start"
+                        mt="3"
+                        pb="1"
+                        px="3"
+                        style={{ borderBottom: "1px solid var(--slate-a4)" }}
+                      >
+                        {["Key", "Value", "Type", "Source"].map((label) => (
+                          <Box key={label} style={{ minWidth: 0 }}>
+                            <Flex align="center" style={{ minHeight: 24 }}>
+                              <Text
+                                size="small"
+                                weight="medium"
+                                color="text-low"
+                                textTransform="uppercase"
+                              >
+                                {label}
+                              </Text>
+                            </Flex>
+                          </Box>
+                        ))}
+                      </Grid>
 
-                    {resolved.fields.map((f) => {
-                      // Editing an own field replaces the row with the full editor
-                      // (definition + value); the value is seeded from the resolved
-                      // value, mirroring the inherited-field value editor.
-                      if (schemaEdit === f.key) {
-                        const isJson = isJsonField(f.field);
-                        // JSON editors accept `null` as literal text, so only
-                        // non-JSON fields use the null flag/checkbox.
-                        const seedNull = f.value === null && !isJson;
-                        const seedVal =
-                          f.value !== undefined && f.value !== null
-                            ? f.value
-                            : typeDefault(f.field);
+                      {resolved.fields.map((f) => {
+                        // Editing an own field replaces the row with the full editor
+                        // (definition + value); the value is seeded from the resolved
+                        // value, mirroring the inherited-field value editor.
+                        if (schemaEdit === f.key) {
+                          const isJson = isJsonField(f.field);
+                          // JSON editors accept `null` as literal text, so only
+                          // non-JSON fields use the null flag/checkbox.
+                          const seedNull = f.value === null && !isJson;
+                          const seedVal =
+                            f.value !== undefined && f.value !== null
+                              ? f.value
+                              : typeDefault(f.field);
+                          return (
+                            <FieldDefForm
+                              key={f.key}
+                              withValue
+                              initial={
+                                ownSchema().fields.find(
+                                  (sf) => sf.key === f.key,
+                                ) ?? blankField()
+                              }
+                              initialValue={
+                                seedNull
+                                  ? ""
+                                  : isJson
+                                    ? JSON.stringify(
+                                        f.value !== undefined
+                                          ? f.value
+                                          : seedVal,
+                                        null,
+                                        2,
+                                      )
+                                    : String(seedVal)
+                              }
+                              initialNull={seedNull}
+                              existingKeys={resolved.fields.map((rf) => rf.key)}
+                              constantContext={constantContext}
+                              onCancel={() => setSchemaEdit(null)}
+                              onSave={saveField}
+                            />
+                          );
+                        }
                         return (
-                          <FieldDefForm
+                          <ConfigFieldRow
                             key={f.key}
-                            withValue
-                            initial={
-                              ownSchema().fields.find(
-                                (sf) => sf.key === f.key,
-                              ) ?? blankField()
-                            }
-                            initialValue={
-                              seedNull
-                                ? ""
-                                : isJson
-                                  ? JSON.stringify(
-                                      f.value !== undefined ? f.value : seedVal,
-                                      null,
-                                      2,
-                                    )
-                                  : String(seedVal)
-                            }
-                            initialNull={seedNull}
-                            existingKeys={resolved.fields.map((rf) => rf.key)}
+                            field={f}
+                            configKey={config.key}
+                            isOwnField={ownSchemaKeys.includes(f.key)}
+                            canEditInline={canEditInline}
                             constantContext={constantContext}
-                            onCancel={() => setSchemaEdit(null)}
-                            onSave={saveField}
+                            squashConstants={squashConstants}
+                            editing={editKey === f.key}
+                            editText={editText}
+                            editKind={editKind}
+                            editError={editError}
+                            setEditText={setEditText}
+                            setEditKind={setEditKind}
+                            onStartEdit={() => startOverride(f)}
+                            onSubmit={submitOverride}
+                            onCancelEdit={() => setEditKey(null)}
+                            onEditDefinition={() => {
+                              setEditKey(null);
+                              setSchemaEdit(f.key);
+                            }}
+                            onRemoveField={() => removeField(f.key)}
+                            onRemoveOverride={() => removeOverride(f.key)}
+                            showParentValue={
+                              showOverrides && isOverrideField(f)
+                            }
+                            parentValue={parentFieldValues.get(f.key)}
                           />
                         );
-                      }
-                      return (
-                        <ConfigFieldRow
-                          key={f.key}
-                          field={f}
-                          configKey={config.key}
-                          isOwnField={ownSchemaKeys.includes(f.key)}
-                          canEditInline={canEditInline}
-                          constantContext={constantContext}
-                          squashConstants={squashConstants}
-                          editing={editKey === f.key}
-                          editText={editText}
-                          editKind={editKind}
-                          editError={editError}
-                          setEditText={setEditText}
-                          setEditKind={setEditKind}
-                          onStartEdit={() => startOverride(f)}
-                          onSubmit={submitOverride}
-                          onCancelEdit={() => setEditKey(null)}
-                          onEditDefinition={() => {
-                            setEditKey(null);
-                            setSchemaEdit(f.key);
-                          }}
-                          onRemoveField={() => removeField(f.key)}
-                          onRemoveOverride={() => removeOverride(f.key)}
-                          showParentValue={showOverrides && isOverrideField(f)}
-                          parentValue={parentFieldValues.get(f.key)}
-                        />
-                      );
-                    })}
+                      })}
 
-                    {resolved.fields.length === 0 && schemaEdit !== "add" && (
-                      <Text as="p" size="small" color="text-low" mt="3" mb="1">
-                        No fields yet.
-                      </Text>
-                    )}
-                    {renderAddField()}
+                      {resolved.fields.length === 0 && schemaEdit !== "add" && (
+                        <Text
+                          as="p"
+                          size="small"
+                          color="text-low"
+                          mt="3"
+                          mb="1"
+                        >
+                          No fields yet.
+                        </Text>
+                      )}
+                      {renderAddField()}
+                    </Box>
                   </Box>
-                </Box>
-              )}
+                </TabsContent>
 
-              {/* JSON — code-only value + schema. Read-only off-draft; an
-                  editable, sparse surface (with a resolved preview) while drafting. */}
-              {activeTab === "json" && (
-                <ConfigJsonEditor
-                  valueJson={displayedConfig.value ?? "{}"}
-                  schemaJson={JSON.stringify(ownSchema().fields)}
-                  ancestorOwnedKeys={ancestorOwnedKeys}
-                  resolvedFields={resolved.fields}
-                  effectiveSchema={resolved.effectiveSchema}
-                  schemaType={ownSchema().type}
-                  extensible={effectiveExtensible}
-                  constantContext={constantContext}
-                  canEdit={canEditInline}
-                  onSave={(value, fields) => saveSchema(fields, value)}
-                />
-              )}
+                {/* JSON (own value + schema; editable only on a draft) and
+                    Resolved (resolved value + effective schema, read-only) share
+                    ONE editor instance at a fixed tree position, so switching
+                    between them only flips the `view` prop — the component stays
+                    mounted and edit buffers survive. */}
+                {(activeTab === "json" || activeTab === "resolved") && (
+                  <ConfigJsonEditor
+                    valueJson={displayedConfig.value ?? "{}"}
+                    schemaJson={JSON.stringify(ownSchema().fields)}
+                    ancestorOwnedKeys={ancestorOwnedKeys}
+                    resolvedFields={resolved.fields}
+                    effectiveSchema={resolved.effectiveSchema}
+                    schemaType={ownSchema().type}
+                    extensible={effectiveExtensible}
+                    constantContext={constantContext}
+                    canEdit={canEditInline}
+                    view={activeTab === "resolved" ? "preview" : "edit"}
+                    onSave={(value, fields) => saveSchema(fields, value)}
+                  />
+                )}
+              </Tabs>
             </Box>
           </Box>
         </Flex>

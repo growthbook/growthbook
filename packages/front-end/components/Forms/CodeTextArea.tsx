@@ -58,6 +58,9 @@ const AceEditor = dynamic(
       import("ace-builds/src-min-noconflict/ext-searchbox"),
       import("ace-builds/src-min-noconflict/mode-sql"),
       import("ace-builds/src-min-noconflict/mode-javascript"),
+      // TypeScript mode is highlighting-only (its `createWorker` returns null),
+      // so TS schemas don't get flagged by the JavaScript (JSHint) validator.
+      import("ace-builds/src-min-noconflict/mode-typescript"),
       import("ace-builds/src-min-noconflict/mode-python"),
       import("ace-builds/src-min-noconflict/mode-yaml"),
       import("ace-builds/src-min-noconflict/mode-json"),
@@ -168,7 +171,13 @@ const AceEditor = dynamic(
   },
 );
 
-export type Language = "sql" | "json" | "javascript" | "python" | "yml";
+export type Language =
+  | "sql"
+  | "json"
+  | "javascript"
+  | "typescript"
+  | "python"
+  | "yml";
 
 export const FIVE_LINES_HEIGHT = 97;
 export const TEN_LINES_HEIGHT = 194;

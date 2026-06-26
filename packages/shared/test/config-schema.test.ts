@@ -1,12 +1,14 @@
 import { SchemaField } from "../types/feature";
 import {
   fieldsCanonicallyEqual,
+  fieldsToTsType,
   inferFieldFromValue,
   inferFieldsFromValue,
   inferJsonSchemaForValue,
   jsonSchemaStringToFields,
-  jsonValueImporter,
+  jsonValueConverter,
   reconcileSchemaFields,
+  tsTypesToFields,
 } from "../src/util/config-schema";
 
 const field = (over: Partial<SchemaField>): SchemaField => ({
@@ -95,7 +97,11 @@ describe("jsonSchemaStringToFields", () => {
   });
 
   it("treats a missing properties block as an empty schema", () => {
-    expect(jsonSchemaStringToFields("{}")).toEqual({ fields: [], error: null });
+    expect(jsonSchemaStringToFields("{}")).toEqual({
+      fields: [],
+      error: null,
+      warnings: [],
+    });
   });
 
   it("reports invalid JSON and non-object schemas", () => {
@@ -207,20 +213,175 @@ describe("reconcileSchemaFields", () => {
   });
 });
 
-describe("jsonValueImporter", () => {
+describe("tsTypesToFields", () => {
+  const parse = (src: string) => tsTypesToFields(src);
+
+  it("parses an interface with primitives, optional, and arrays", () => {
+    const { fields, error } = parse(`
+      interface Config {
+        name: string;
+        count: number;
+        enabled?: boolean;
+        tags: string[];
+      }
+    `);
+    expect(error).toBeNull();
+    expect(fields.map((f) => [f.key, f.type, f.required])).toEqual([
+      ["name", "string", true],
+      ["count", "float", true],
+      ["enabled", "boolean", false],
+      ["tags", "string", true],
+    ]);
+    // arrays become the array preset
+    expect(JSON.parse(fields[3].jsonSchema as string)).toEqual({
+      type: "array",
+    });
+  });
+
+  it("maps a string-literal union to an enum", () => {
+    const { fields } = parse(`type T = { mode: "a" | "b" | "c" }`);
+    expect(fields[0].type).toBe("string");
+    expect(fields[0].enum).toEqual(["a", "b", "c"]);
+  });
+
+  it("lifts `| null` to nullable", () => {
+    const { fields } = parse(`interface T { x: string | null }`);
+    expect(fields[0].nullable).toBe(true);
+  });
+
+  it("treats nested objects as the object preset", () => {
+    const { fields } = parse(`interface T { addr: { city: string } }`);
+    expect(JSON.parse(fields[0].jsonSchema as string)).toEqual({
+      type: "object",
+    });
+  });
+
+  it("captures JSDoc as the field description", () => {
+    const { fields } = parse(`
+      interface T {
+        /** The shipping method */
+        ship: string;
+      }
+    `);
+    expect(fields[0].description).toBe("The shipping method");
+  });
+
+  it("handles members separated only by newlines and multi-line unions", () => {
+    const { fields } = parse(`
+      interface T {
+        a: string
+        mode:
+          | "x"
+          | "y"
+        b: number
+      }
+    `);
+    expect(fields.map((f) => f.key)).toEqual(["a", "mode", "b"]);
+    expect(fields[1].enum).toEqual(["x", "y"]);
+  });
+
+  it("degrades unknown / union types to any with a warning", () => {
+    const { fields, warnings } = parse(`interface T { weird: Foo | Bar }`);
+    expect(fields[0].jsonSchema).toBe(JSON.stringify({}));
+    expect(warnings.some((w) => w.code === "unresolved-type")).toBe(true);
+  });
+
+  it("reports a missing type definition", () => {
+    expect(parse("just some text").error).toMatch(/No type definition/);
+  });
+
+  it("warns about dropped sibling declarations and non-object roots", () => {
+    const { fields, warnings } = parse(`
+      type Node = File | Directory;
+      interface File {
+        path: string;
+      }
+      interface Directory {
+        path: string;
+      }
+    `);
+    // Only the first object type (File) is imported.
+    expect(fields.map((f) => f.key)).toEqual(["path"]);
+    // Directory is a dropped object declaration.
+    expect(
+      warnings.some(
+        (w) => w.code === "dropped-declaration" && w.path === "Directory",
+      ),
+    ).toBe(true);
+    // Node is a non-object (union) root.
+    expect(
+      warnings.some((w) => w.code === "non-object-root" && w.path === "Node"),
+    ).toBe(true);
+  });
+
+  it("does not warn for a single interface", () => {
+    const { warnings } = parse(`interface Solo { a: string }`);
+    expect(
+      warnings.filter(
+        (w) => w.code === "dropped-declaration" || w.code === "non-object-root",
+      ),
+    ).toEqual([]);
+  });
+
+  it("flags skipped members as unsupported", () => {
+    const { warnings } = parse(`interface T { [key: string]: unknown }`);
+    expect(warnings.some((w) => w.code === "unsupported-member")).toBe(true);
+  });
+});
+
+describe("fieldsToTsType", () => {
+  it("serializes fields to an interface", () => {
+    const fields = [
+      field({ key: "name", type: "string" }),
+      field({ key: "count", type: "integer", required: false }),
+      field({ key: "mode", enum: ["a", "b"] }),
+      field({ key: "host", type: "string", nullable: true }),
+    ];
+    const ts = fieldsToTsType(fields, { name: "Config" });
+    expect(ts).toContain("interface Config {");
+    expect(ts).toContain("name: string;");
+    expect(ts).toContain("count?: number;");
+    expect(ts).toContain('mode: "a" | "b";');
+    expect(ts).toContain("host: string | null;");
+  });
+
+  it("adds an index signature when extensible", () => {
+    const ts = fieldsToTsType([field({ key: "a" })], {
+      additionalProperties: true,
+    });
+    expect(ts).toContain("[key: string]: unknown;");
+  });
+
+  it("round-trips through tsTypesToFields canonically", () => {
+    const original = [
+      field({ key: "name", type: "string" }),
+      field({ key: "mode", enum: ["a", "b"] }),
+      field({ key: "host", type: "string", nullable: true }),
+    ];
+    const { fields } = tsTypesToFields(fieldsToTsType(original));
+    expect(fields.length).toBe(original.length);
+    fields.forEach((f, i) => {
+      expect(fieldsCanonicallyEqual(f, original[i])).toBe(true);
+    });
+  });
+});
+
+describe("jsonValueConverter", () => {
   it("infers fields from a JSON object", () => {
-    const { fields, warnings } = jsonValueImporter.parse('{"a":1,"b":"x"}');
+    const { fields, error, warnings } =
+      jsonValueConverter.toFields('{"a":1,"b":"x"}');
+    expect(error).toBeNull();
     expect(warnings).toEqual([]);
     expect(fields.map((f) => f.key)).toEqual(["a", "b"]);
   });
 
-  it("warns on invalid JSON", () => {
-    expect(jsonValueImporter.parse("{bad").warnings).toEqual(["Invalid JSON"]);
+  it("errors on invalid JSON", () => {
+    expect(jsonValueConverter.toFields("{bad").error).toBe("Invalid JSON");
   });
 
-  it("warns when the top level is not an object", () => {
-    expect(jsonValueImporter.parse("[1,2]").warnings).toEqual([
+  it("errors when the top level is not an object", () => {
+    expect(jsonValueConverter.toFields("[1,2]").error).toBe(
       "Expected a JSON object",
-    ]);
+    );
   });
 });
