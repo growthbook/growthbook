@@ -120,6 +120,7 @@ describe("Role permissions", () => {
     expect(p.canUpdateSavedGroup(projectsResource, updates)).toBe(false);
     expect(p.canUpdateSegment(projectsResource, updates)).toBe(false);
     expect(p.canManageSomeProjects()).toBe(false);
+    expect(p.canViewProjectsPage()).toBe(false);
     expect(p.canUpdateVisualChange(projectResource)).toBe(false);
     expect(p.canViewAttributeModal()).toBe(false);
     expect(p.canViewCreateDataSourceModal()).toBe(false);
@@ -235,6 +236,7 @@ describe("Role permissions", () => {
     expect(p.canUpdateSavedGroup(projectsResource, updates)).toBe(false);
     expect(p.canUpdateSegment(projectsResource, updates)).toBe(false);
     expect(p.canManageSomeProjects()).toBe(false);
+    expect(p.canViewProjectsPage()).toBe(true);
     expect(p.canUpdateVisualChange(projectResource)).toBe(false);
     expect(p.canViewAttributeModal()).toBe(false);
     expect(p.canViewCreateDataSourceModal()).toBe(false);
@@ -350,6 +352,7 @@ describe("Role permissions", () => {
     expect(p.canUpdateSavedGroup(projectsResource, updates)).toBe(false);
     expect(p.canUpdateSegment(projectsResource, updates)).toBe(false);
     expect(p.canManageSomeProjects()).toBe(false);
+    expect(p.canViewProjectsPage()).toBe(true);
     expect(p.canUpdateVisualChange(projectResource)).toBe(true);
     expect(p.canViewAttributeModal()).toBe(false);
     expect(p.canViewCreateDataSourceModal()).toBe(false);
@@ -465,6 +468,7 @@ describe("Role permissions", () => {
     expect(p.canUpdateSavedGroup(projectsResource, updates)).toBe(false);
     expect(p.canUpdateSegment(projectsResource, updates)).toBe(false);
     expect(p.canManageSomeProjects()).toBe(false);
+    expect(p.canViewProjectsPage()).toBe(true);
     expect(p.canUpdateVisualChange(projectResource)).toBe(false);
     expect(p.canViewAttributeModal()).toBe(false);
     expect(p.canViewCreateDataSourceModal()).toBe(false);
@@ -580,6 +584,7 @@ describe("Role permissions", () => {
     expect(p.canUpdateSavedGroup(projectsResource, updates)).toBe(true);
     expect(p.canUpdateSegment(projectsResource, updates)).toBe(false);
     expect(p.canManageSomeProjects()).toBe(false);
+    expect(p.canViewProjectsPage()).toBe(true);
     expect(p.canUpdateVisualChange(projectResource)).toBe(true);
     expect(p.canViewAttributeModal()).toBe(true);
     expect(p.canViewCreateDataSourceModal()).toBe(false);
@@ -695,6 +700,7 @@ describe("Role permissions", () => {
     expect(p.canUpdateSavedGroup(projectsResource, updates)).toBe(false);
     expect(p.canUpdateSegment(projectsResource, updates)).toBe(true);
     expect(p.canManageSomeProjects()).toBe(false);
+    expect(p.canViewProjectsPage()).toBe(true);
     expect(p.canUpdateVisualChange(projectResource)).toBe(true);
     expect(p.canViewAttributeModal()).toBe(false);
     expect(p.canViewCreateDataSourceModal()).toBe(false);
@@ -810,6 +816,7 @@ describe("Role permissions", () => {
     expect(p.canUpdateSavedGroup(projectsResource, updates)).toBe(true);
     expect(p.canUpdateSegment(projectsResource, updates)).toBe(true);
     expect(p.canManageSomeProjects()).toBe(false);
+    expect(p.canViewProjectsPage()).toBe(true);
     expect(p.canUpdateVisualChange(projectResource)).toBe(true);
     expect(p.canViewAttributeModal()).toBe(true);
     expect(p.canViewCreateDataSourceModal()).toBe(false);
@@ -925,6 +932,7 @@ describe("Role permissions", () => {
     expect(p.canUpdateSavedGroup(projectsResource, updates)).toBe(true);
     expect(p.canUpdateSegment(projectsResource, updates)).toBe(true);
     expect(p.canManageSomeProjects()).toBe(true);
+    expect(p.canViewProjectsPage()).toBe(true);
     expect(p.canUpdateVisualChange(projectResource)).toBe(true);
     expect(p.canViewAttributeModal()).toBe(true);
     expect(p.canViewCreateDataSourceModal()).toBe(true);
