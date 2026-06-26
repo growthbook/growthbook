@@ -33,7 +33,7 @@ export default function LinkedChangeVariationRows({
             gap="9"
             minHeight="24px"
           >
-            <Box flexBasis="15%" flexShrink="0" minWidth="0">
+            <Box flexBasis="20%" flexShrink="0" minWidth="0">
               <VariationLabel number={j} name={v.name} size="medium" />
             </Box>
             <Flex flexBasis="90px" flexShrink="0" justify="end">
