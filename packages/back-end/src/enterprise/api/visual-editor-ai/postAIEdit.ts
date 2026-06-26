@@ -731,8 +731,17 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
             : {}),
         };
       }),
-      ...(result.css ? { css: result.css } : {}),
-      ...(result.js ? { js: result.js } : {}),
+      // Drop css/js that's byte-identical to what's already saved. The model
+      // is told to return null when it isn't touching global CSS/JS, but
+      // stronger models (e.g. Sonnet) often re-emit the full UNCHANGED
+      // stylesheet instead — which would surface as a phantom "global CSS
+      // change" on every follow-up turn. Treat identical = no change.
+      ...(result.css && result.css !== currentChange?.css
+        ? { css: result.css }
+        : {}),
+      ...(result.js && result.js !== currentChange?.js
+        ? { js: result.js }
+        : {}),
       explanation: result.explanation,
     };
   };
