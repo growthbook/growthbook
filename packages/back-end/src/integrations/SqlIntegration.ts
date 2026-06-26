@@ -1511,7 +1511,6 @@ export default abstract class SqlIntegration
       rows: rows.map((r) => ({
         column: r.column_name + "",
         value: r.value + "",
-        count: parseFloat(r.count),
       })),
     };
   }

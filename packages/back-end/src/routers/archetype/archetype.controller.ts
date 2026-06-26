@@ -122,6 +122,7 @@ export const getArchetypeAndEval = async (
     const environments = filterEnvironmentsByFeature(allEnvironments, feature);
     const safeRolloutMap =
       await context.models.safeRollout.getAllPayloadSafeRollouts();
+    const constants = await context.models.constants.getAll();
 
     archetype.forEach((arch) => {
       try {
@@ -144,6 +145,7 @@ export const getArchetypeAndEval = async (
           safeRolloutMap,
           namespaces: namespacesToMap(org.settings?.namespaces),
           organization: org,
+          constants,
         });
 
         if (!result) return;

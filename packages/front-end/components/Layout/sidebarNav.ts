@@ -168,7 +168,7 @@ export const navlinks: SidebarLinkProps[] = [
   {
     name: "SDK Configuration",
     href: "/sdks",
-    path: /^(attributes|environments|saved-groups|sdks|archetypes)/,
+    path: /^(attributes|environments|saved-groups|constants|sdks|archetypes)/,
     autoClose: true,
     Icon: BsCodeSlash,
     subLinks: [
@@ -191,6 +191,11 @@ export const navlinks: SidebarLinkProps[] = [
         name: "Saved Groups",
         href: "/saved-groups",
         path: /^saved-groups/,
+      },
+      {
+        name: "Constants",
+        href: "/constants",
+        path: /^constants/,
       },
       {
         name: "Archetypes",
@@ -237,7 +242,7 @@ export const navlinks: SidebarLinkProps[] = [
         href: "/projects",
         path: /^project/,
         filter: ({ permissionsUtils }) =>
-          permissionsUtils.canManageSomeProjects(),
+          permissionsUtils.canViewProjectsPage(),
       },
       {
         name: "Custom Fields",
