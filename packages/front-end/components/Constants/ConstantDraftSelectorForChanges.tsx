@@ -25,6 +25,9 @@ export default function ConstantDraftSelectorForChanges({
   canAutoPublish,
   approvalRequired,
   metadataOnly = false,
+  defaultExpanded = false,
+  triggerPrefix = "Changes will be",
+  hideExisting = false,
 }: {
   constantId: string;
   openRevisions: Revision[];
@@ -36,6 +39,14 @@ export default function ConstantDraftSelectorForChanges({
   canAutoPublish: boolean;
   approvalRequired: boolean;
   metadataOnly?: boolean;
+  defaultExpanded?: boolean;
+  triggerPrefix?: string;
+  /**
+   * Hide the "add to existing draft" option (used by the revert flow, which
+   * only offers publish-now vs. create-a-new-draft — mirrors the feature
+   * DraftSelectorForChanges `hideExisting`).
+   */
+  hideExisting?: boolean;
 }) {
   const activeDrafts = useMemo(
     () => openRevisions.filter((r) => ACTIVE_DRAFT_STATUSES.has(r.status)),
@@ -71,14 +82,16 @@ export default function ConstantDraftSelectorForChanges({
 
   return (
     <DraftSelector
-      hasActiveDrafts={activeDrafts.length > 0}
+      hasActiveDrafts={hideExisting ? false : activeDrafts.length > 0}
       mode={mode}
       setMode={setMode}
       canAutoPublish={canAutoPublish}
       approvalRequired={approvalRequired}
-      triggerPrefix="Changes will be"
+      singleOption={hideExisting && !canAutoPublish}
+      defaultExpanded={defaultExpanded}
+      triggerPrefix={triggerPrefix}
       existingDraftLabel={existingDraftLabel}
-      revisionDropdown={revisionDropdown}
+      revisionDropdown={hideExisting ? undefined : revisionDropdown}
       metadataOnly={metadataOnly}
     />
   );

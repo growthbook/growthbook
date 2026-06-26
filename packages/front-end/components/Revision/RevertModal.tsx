@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { ReactNode, useMemo, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { Revision, applyTopLevelPatchOps } from "shared/enterprise";
 import { dateNoYear } from "shared/dates";
@@ -9,7 +9,7 @@ import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
-import DraftSelector, { DraftMode } from "@/components/DraftSelector";
+import { DraftMode } from "@/components/DraftSelector";
 import SharedRevisionDropdown, {
   RevisionDropdownRow,
 } from "@/components/Reviews/RevisionDropdown";
@@ -41,6 +41,14 @@ export interface Props<T extends RevertableEntity> {
   // Viewer can bypass approval (admin) — can publish a revert even when the
   // org doesn't allow reverts to bypass approval.
   canBypassApproval: boolean;
+  // Renders the entity's DraftSelectorForChanges (publish-now vs. create-draft
+  // picker). Supplied by the thin per-entity wrappers so the revert modal reuses
+  // the same component features use, instead of re-implementing the control.
+  renderDraftSelector: (opts: {
+    mode: DraftMode;
+    setMode: (m: DraftMode) => void;
+    canAutoPublish: boolean;
+  }) => ReactNode;
   close: () => void;
   onRevisionCreated: (revision: Revision) => void;
 }
@@ -61,6 +69,7 @@ export default function RevertModal<T extends RevertableEntity>({
   revertsBypassApproval,
   approvalRequired,
   canBypassApproval,
+  renderDraftSelector,
   close,
   onRevisionCreated,
 }: Props<T>) {
@@ -211,16 +220,7 @@ export default function RevertModal<T extends RevertableEntity>({
         close();
       }}
     >
-      <DraftSelector
-        hasActiveDrafts={false}
-        mode={mode}
-        setMode={setMode}
-        canAutoPublish={canPublishNow}
-        approvalRequired={approvalRequired}
-        singleOption={!canPublishNow}
-        defaultExpanded
-        triggerPrefix="Revert will be"
-      />
+      {renderDraftSelector({ mode, setMode, canAutoPublish: canPublishNow })}
 
       <Heading as="h4" size="medium" mb="3">
         Review Changes

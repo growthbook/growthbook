@@ -1,5 +1,6 @@
 import { Revision } from "shared/enterprise";
 import { SavedGroupInterface } from "shared/types/saved-group";
+import SavedGroupDraftSelectorForChanges from "@/components/SavedGroups/SavedGroupDraftSelectorForChanges";
 import { RevisionDiffConfig } from "./useRevisionDiff";
 import RevertModal from "./RevertModal";
 
@@ -33,6 +34,22 @@ export default function SavedGroupRevertModal({ savedGroup, ...rest }: Props) {
       liveEntity={savedGroup}
       revertableFields={REVERTABLE_FIELDS}
       apiPathBase="/saved-groups"
+      renderDraftSelector={({ mode, setMode, canAutoPublish }) => (
+        <SavedGroupDraftSelectorForChanges
+          savedGroup={savedGroup}
+          openRevisions={[]}
+          allRevisions={rest.allRevisions}
+          mode={mode}
+          setMode={setMode}
+          selectedDraftId={null}
+          setSelectedDraftId={() => undefined}
+          canAutoPublish={canAutoPublish}
+          approvalRequired={rest.approvalRequired}
+          hideExisting
+          defaultExpanded
+          triggerPrefix="Revert will be"
+        />
+      )}
       {...rest}
     />
   );

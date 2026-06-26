@@ -26,6 +26,7 @@ export default function SavedGroupDraftSelectorForChanges({
   defaultExpanded = false,
   triggerPrefix = "Changes will be",
   metadataOnly = false,
+  hideExisting = false,
 }: {
   savedGroup: SavedGroupInterface;
   openRevisions: Revision[];
@@ -38,6 +39,12 @@ export default function SavedGroupDraftSelectorForChanges({
   approvalRequired: boolean;
   defaultExpanded?: boolean;
   triggerPrefix?: string;
+  /**
+   * Hide the "add to existing draft" option (used by the revert flow, which
+   * only offers publish-now vs. create-a-new-draft — mirrors the feature
+   * DraftSelectorForChanges `hideExisting`).
+   */
+  hideExisting?: boolean;
   /**
    * Forwarded to the underlying DraftSelector. Set when the form is editing
    * only metadata fields and the org has saved-group metadata review off:
@@ -78,15 +85,16 @@ export default function SavedGroupDraftSelectorForChanges({
 
   return (
     <DraftSelector
-      hasActiveDrafts={activeDrafts.length > 0}
+      hasActiveDrafts={hideExisting ? false : activeDrafts.length > 0}
       mode={mode}
       setMode={setMode}
       canAutoPublish={canAutoPublish}
       approvalRequired={approvalRequired}
+      singleOption={hideExisting && !canAutoPublish}
       defaultExpanded={defaultExpanded}
       triggerPrefix={triggerPrefix}
       existingDraftLabel={existingDraftLabel}
-      revisionDropdown={revisionDropdown}
+      revisionDropdown={hideExisting ? undefined : revisionDropdown}
       metadataOnly={metadataOnly}
     />
   );

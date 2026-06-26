@@ -2,6 +2,7 @@ import { Revision } from "shared/enterprise";
 import { ConstantInterface } from "shared/types/constant";
 import RevertModal from "@/components/Revision/RevertModal";
 import { RevisionDiffConfig } from "@/components/Revision/useRevisionDiff";
+import ConstantDraftSelectorForChanges from "@/components/Constants/ConstantDraftSelectorForChanges";
 
 // Fields a constant revert can restore (mirrors the live + ops merge
 // semantics — `archived` is handled separately via an explicit opt-in).
@@ -33,6 +34,22 @@ export default function ConstantRevertModal({ constant, ...rest }: Props) {
       liveEntity={constant}
       revertableFields={REVERTABLE_FIELDS}
       apiPathBase="/constants"
+      renderDraftSelector={({ mode, setMode, canAutoPublish }) => (
+        <ConstantDraftSelectorForChanges
+          constantId={constant.id}
+          openRevisions={[]}
+          allRevisions={rest.allRevisions}
+          mode={mode}
+          setMode={setMode}
+          selectedDraftId={null}
+          setSelectedDraftId={() => undefined}
+          canAutoPublish={canAutoPublish}
+          approvalRequired={rest.approvalRequired}
+          hideExisting
+          defaultExpanded
+          triggerPrefix="Revert will be"
+        />
+      )}
       {...rest}
     />
   );
