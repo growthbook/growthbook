@@ -748,7 +748,7 @@ function ReviewAndPublishRevision<T>({
       )}
 
       {subTab === "overview" ? (
-        <Box className="appbox" p="4" mb="4">
+        <Box className="appbox" p="4" mb="0">
           <RevisionDiff
             diffs={diffs}
             badges={badges}
@@ -759,7 +759,7 @@ function ReviewAndPublishRevision<T>({
       ) : (
         // Changes tab: the feature's diff chrome (JSON/raw toggle + Copy-as),
         // fed the saved-group diff items.
-        <Box className="appbox" mb="4">
+        <Box className="appbox" mb="0">
           <RevisionDiffContent
             diffs={diffs}
             diffComments={diffComments}
@@ -1089,24 +1089,6 @@ function ReviewAndPublishRevision<T>({
             </Flex>
           )}
 
-          {/* Auto-publish / scheduled-publish arming (also works post-request) */}
-          {isActiveDraft && (
-            <ScheduledPublishControl
-              revision={revision}
-              pending={isScheduledPublishPending(revision)}
-              lockActive={isScheduledPublishLockActive(revision)}
-              schedulePublishPath={`/revision/${revision.id}/schedule-publish`}
-              toggleAutoPublishPath={`/revision/${revision.id}/toggle-auto-publish`}
-              entityNoun={entityNoun}
-              canEdit={canEditEntity}
-              canBypassApproval={canBypassApproval}
-              requiresApproval={requiresApproval}
-              autopublishOnApproval={autopublishOnApproval}
-              isReviewRequester={isAuthor}
-              mutate={mutate}
-            />
-          )}
-
           {/* Step CTA: Request Review */}
           {state.hasSubmit && state.submitAction === "request-review" && (
             <Box mt="4">
@@ -1140,13 +1122,24 @@ function ReviewAndPublishRevision<T>({
               </Box>
             )}
 
-            {/* A sibling draft's committed lock-others schedule freezes publish. */}
-            {featureLockedBySchedule && !adminPublish && (
-              <Callout status="warning" size="sm" mb="3">
-                Another draft (Revision {lockingScheduledSibling?.version}) is
-                scheduled to publish and has locked publishing of other drafts.
-                Cancel that schedule to publish this one.
-              </Callout>
+            {/* Auto-publish / scheduled-publish arming (also works post-request).
+                Mirrors the feature publish section: directly under the
+                divergence notice, above the admin-bypass + Publish button. */}
+            {isActiveDraft && (
+              <ScheduledPublishControl
+                revision={revision}
+                pending={isScheduledPublishPending(revision)}
+                lockActive={isScheduledPublishLockActive(revision)}
+                schedulePublishPath={`/revision/${revision.id}/schedule-publish`}
+                toggleAutoPublishPath={`/revision/${revision.id}/toggle-auto-publish`}
+                entityNoun={entityNoun}
+                canEdit={canEditEntity}
+                canBypassApproval={canBypassApproval}
+                requiresApproval={requiresApproval}
+                autopublishOnApproval={autopublishOnApproval}
+                isReviewRequester={isAuthor}
+                mutate={mutate}
+              />
             )}
 
             {canBypassApproval &&
@@ -1190,6 +1183,15 @@ function ReviewAndPublishRevision<T>({
             )}
 
             <Flex direction="column" gap="2" mt="3">
+              {/* A sibling draft's committed lock-others schedule freezes publish. */}
+              {featureLockedBySchedule && !adminPublish && (
+                <Callout status="warning" size="sm">
+                  Another draft (Revision {lockingScheduledSibling?.version}) is
+                  scheduled to publish and has locked publishing of other
+                  drafts. Cancel that schedule to publish this one.
+                </Callout>
+              )}
+
               {submitError && (
                 <Callout status="error" size="sm">
                   {submitError}

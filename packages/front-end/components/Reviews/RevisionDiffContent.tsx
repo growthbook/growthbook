@@ -105,6 +105,8 @@ export function RevisionDiffContent({
           b={stringifyForRawDiff(raw.after)}
           defaultOpen={true}
           styles={COMPACT_DIFF_STYLES}
+          anchorKey="raw"
+          comments={diffComments}
         />
       ) : (
         <Flex direction="column">
