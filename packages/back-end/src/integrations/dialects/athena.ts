@@ -1,6 +1,5 @@
 import type { SqlDialect } from "shared/types/sql";
 import { defaultPercentileCapSelectClause } from "back-end/src/integrations/sql/clauses/percentile-cap-select-clause";
-import { approxMostFrequentTopValuesCTEBody } from "back-end/src/integrations/sql/clauses/approx-top-values";
 import { baseDialect } from "./base";
 
 export const athenaDialect: SqlDialect = {
@@ -46,7 +45,4 @@ export const athenaDialect: SqlDialect = {
       valueExpr: "__col.value",
     };
   },
-
-  approxTopValuesCTEBody: (params) =>
-    approxMostFrequentTopValuesCTEBody(athenaDialect, params),
 };

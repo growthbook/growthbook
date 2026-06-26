@@ -86,7 +86,6 @@ const approxDialects: {
   { name: "Snowflake", dialect: snowflakeDialect, aggFn: /APPROX_TOP_K/i },
   { name: "Databricks", dialect: databricksDialect, aggFn: /approx_top_k/i },
   { name: "Presto", dialect: prestoDialect, aggFn: /approx_most_frequent/i },
-  { name: "Athena", dialect: athenaDialect, aggFn: /approx_most_frequent/i },
   { name: "ClickHouse", dialect: clickHouseDialect, aggFn: /topK/ },
 ];
 
@@ -118,6 +117,9 @@ describe("getColumnsTopValuesQuery — exact fallback path", () => {
     { name: "Postgres", dialect: postgresDialect },
     { name: "Redshift", dialect: redshiftDialect },
     { name: "MySQL", dialect: mysqlDialect },
+    // Athena v3 should support it, but v2 does not (I think)
+    // so taking the safe route for now until we can add engine version detection.
+    { name: "Athena", dialect: athenaDialect },
   ];
 
   exactDialects.forEach(({ name, dialect }) => {
@@ -140,5 +142,6 @@ describe("getColumnsTopValuesQuery — exact fallback path", () => {
     expect(postgresDialect.approxTopValuesCTEBody).toBeUndefined();
     expect(redshiftDialect.approxTopValuesCTEBody).toBeUndefined();
     expect(mysqlDialect.approxTopValuesCTEBody).toBeUndefined();
+    expect(athenaDialect.approxTopValuesCTEBody).toBeUndefined();
   });
 });
