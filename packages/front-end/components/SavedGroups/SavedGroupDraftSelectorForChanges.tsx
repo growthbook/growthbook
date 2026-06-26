@@ -1,7 +1,8 @@
 import { useMemo } from "react";
 import { SavedGroupInterface } from "shared/types/saved-group";
 import { Revision } from "shared/enterprise";
-import DraftSelector, { DraftMode } from "@/components/DraftSelector";
+import { DraftMode } from "@/components/DraftSelector";
+import SharedDraftSelectorForChanges from "@/components/DraftSelectorForChanges";
 import SavedGroupRevisionDropdown from "./SavedGroupRevisionDropdown";
 
 export type { DraftMode };
@@ -84,17 +85,19 @@ export default function SavedGroupDraftSelectorForChanges({
   );
 
   return (
-    <DraftSelector
-      hasActiveDrafts={hideExisting ? false : activeDrafts.length > 0}
+    <SharedDraftSelectorForChanges<string>
+      activeDraftKeys={activeDrafts.map((r) => r.id)}
+      selectedDraft={selectedDraftId}
+      setSelectedDraft={setSelectedDraftId}
       mode={mode}
       setMode={setMode}
       canAutoPublish={canAutoPublish}
       approvalRequired={approvalRequired}
-      singleOption={hideExisting && !canAutoPublish}
-      defaultExpanded={defaultExpanded}
-      triggerPrefix={triggerPrefix}
       existingDraftLabel={existingDraftLabel}
-      revisionDropdown={hideExisting ? undefined : revisionDropdown}
+      revisionDropdown={revisionDropdown}
+      defaultExpanded={defaultExpanded}
+      hideExisting={hideExisting}
+      triggerPrefix={triggerPrefix}
       metadataOnly={metadataOnly}
     />
   );
