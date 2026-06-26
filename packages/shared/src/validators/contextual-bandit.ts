@@ -345,6 +345,13 @@ const contextualBanditIdOnlyParam = z
   .object({ id: z.string().describe("The Contextual Bandit id") })
   .strict();
 
+const contextualBanditIdAndFeatureParam = z
+  .object({
+    id: z.string().describe("The Contextual Bandit id"),
+    featureId: z.string().describe("The linked feature id"),
+  })
+  .strict();
+
 const contextualBanditSnapshotResponseShape = z.object({
   id: z.string(),
   contextualBandit: z.string(),
@@ -566,4 +573,41 @@ export const getContextualBanditResultsValidator = {
   tags: ["contextual-bandits"],
   method: "get" as const,
   path: "/contextual-bandits/:id/results",
+};
+
+export const getContextualBanditLinkedFeaturesValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: contextualBanditIdOnlyParam,
+  responseSchema: z
+    .object({
+      // Enriched `LinkedFeatureInfo[]` (embeds the full feature doc + per-env
+      // rule state). Loose to avoid pulling the heavy feature validators into
+      // this file and bloating the OpenAPI spec; the UI consumes the typed
+      // `LinkedFeatureInfo` shape from `shared/types/experiment`.
+      linkedFeatures: z.array(z.unknown()),
+      environments: z.array(z.string()),
+    })
+    .strict(),
+  summary: "Get features linked to a Contextual Bandit",
+  description:
+    "Returns the features that reference this contextual bandit via a `contextual-bandit-ref` rule, enriched with each feature's live/draft state, per-environment rule state, and variation values. Same payload the GrowthBook UI uses to render the Linked Features section.",
+  operationId: "getContextualBanditLinkedFeatures",
+  tags: ["contextual-bandits"],
+  method: "get" as const,
+  path: "/contextual-bandits/:id/linked-features",
+};
+
+export const deleteContextualBanditLinkedFeatureValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: contextualBanditIdAndFeatureParam,
+  responseSchema: z.object({}).strict(),
+  summary: "Unlink a feature from a Contextual Bandit",
+  description:
+    "Detaches a feature from this contextual bandit by removing it from the bandit's linked-feature list and cancelling any queued draft auto-publish. The feature's `contextual-bandit-ref` rule itself is left untouched.",
+  operationId: "deleteContextualBanditLinkedFeature",
+  tags: ["contextual-bandits"],
+  method: "delete" as const,
+  path: "/contextual-bandits/:id/linked-feature/:featureId",
 };

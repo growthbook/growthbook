@@ -13683,6 +13683,93 @@ paths:
             curl -X GET
             'https://api.growthbook.io/api/v1/contextual-bandits/{id}/results' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/contextual-bandits/{id}/linked-features:
+    get:
+      operationId: getContextualBanditLinkedFeatures
+      summary: Get features linked to a Contextual Bandit
+      description: >-
+        Returns the features that reference this contextual bandit via a
+        `contextual-bandit-ref` rule, enriched with each feature's live/draft
+        state, per-environment rule state, and variation values. Same payload
+        the GrowthBook UI uses to render the Linked Features section.
+      tags:
+        - contextual-bandits
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The Contextual Bandit id
+          schema:
+            description: The Contextual Bandit id
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  linkedFeatures:
+                    type: array
+                    items: {}
+                  environments:
+                    type: array
+                    items:
+                      type: string
+                required:
+                  - linkedFeatures
+                  - environments
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/contextual-bandits/{id}/linked-features'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/contextual-bandits/{id}/linked-feature/{featureId}:
+    delete:
+      operationId: deleteContextualBanditLinkedFeature
+      summary: Unlink a feature from a Contextual Bandit
+      description: >-
+        Detaches a feature from this contextual bandit by removing it from the
+        bandit's linked-feature list and cancelling any queued draft
+        auto-publish. The feature's `contextual-bandit-ref` rule itself is left
+        untouched.
+      tags:
+        - contextual-bandits
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The Contextual Bandit id
+          schema:
+            description: The Contextual Bandit id
+            type: string
+        - name: featureId
+          in: path
+          required: true
+          description: The linked feature id
+          schema:
+            description: The linked feature id
+            type: string
+      responses:
+        '200':
+          description: Resource deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: {}
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X DELETE
+            'https://api.growthbook.io/api/v1/contextual-bandits/{id}/linked-feature/{featureId}'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/snapshots/{id}:
     get:
       operationId: getExperimentSnapshot

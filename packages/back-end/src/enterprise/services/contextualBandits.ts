@@ -16,7 +16,10 @@ import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
-import { getSettingsForSnapshotMetrics } from "back-end/src/services/experiments";
+import {
+  getRefLinkedFeatureInfo,
+  getSettingsForSnapshotMetrics,
+} from "back-end/src/services/experiments";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { getPayloadKeysForContextualBandit } from "back-end/src/services/contextualBanditChanges";
@@ -29,6 +32,40 @@ import {
   ContextualBanditResult,
   ContextualBanditStatsSettings,
 } from "./contextualBanditStats";
+
+/**
+ * Enriched info for the features that link to this Contextual Bandit (via
+ * `contextual-bandit-ref` rules). Mirrors `getLinkedFeatureInfo` for experiments
+ * so the CB detail page can reuse the same `LinkedFeatureInfo` UI shape.
+ */
+export async function getContextualBanditLinkedFeatureInfo(
+  context: ReqContext | ApiReqContext,
+  contextualBandit: ContextualBanditInterface,
+) {
+  return getRefLinkedFeatureInfo({
+    context,
+    linkedFeatureIds: contextualBandit.linkedFeatures || [],
+    refIsDraft: contextualBandit.status === "draft",
+    matchRule: (rule) =>
+      rule.type === "contextual-bandit-ref" &&
+      rule.contextualBanditId === contextualBandit.id,
+  });
+}
+
+/**
+ * Detaches a feature from a Contextual Bandit: removes it from `linkedFeatures`
+ * and cancels any queued draft auto-publish. Mirrors `unlinkFeatureFromExperiment`
+ * — the feature's `contextual-bandit-ref` rule is intentionally left in place.
+ */
+export async function unlinkFeatureFromContextualBandit(
+  context: ReqContext | ApiReqContext,
+  cbId: string,
+  featureId: string,
+): Promise<void> {
+  const cbModel = context.models.contextualBandits;
+  await cbModel.removeLinkedFeature(cbId, featureId);
+  await cbModel.removePendingFeatureDraft(cbId, featureId);
+}
 
 export type ContextualBanditResultsForUi = {
   contextualBanditSnapshot: ContextualBanditSnapshot | null;

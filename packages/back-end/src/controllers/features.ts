@@ -51,6 +51,7 @@ import {
 } from "shared/validators";
 import { FeatureUsageLookback } from "shared/types/integrations";
 import {
+  ContextualBanditRefRule,
   ExperimentRefRule,
   FeatureInterface,
   FeaturePrerequisite,
@@ -3524,6 +3525,219 @@ export async function postFeatureExperimentRefRule(
     feature.id,
     experiment,
   );
+
+  res.status(200).json({
+    status: 200,
+    version: updatedRevision.version,
+    published,
+  });
+}
+
+export async function postFeatureContextualBanditRefRule(
+  req: AuthRequest<
+    {
+      rule: ContextualBanditRefRule;
+      autoPublish?: boolean;
+      draftVersion?: number;
+      forceNewDraft?: boolean;
+    },
+    { id: string }
+  >,
+  res: Response<
+    { status: 200; version: number; published: boolean },
+    EventUserForResponseLocals
+  >,
+) {
+  const context = getContextFromReq(req);
+  const { org, environments } = context;
+  const { id } = req.params;
+  const { rule, autoPublish, draftVersion, forceNewDraft } = req.body;
+
+  if (
+    rule.type !== "contextual-bandit-ref" ||
+    !rule.contextualBanditId ||
+    !rule.variations ||
+    !rule.variations.length
+  ) {
+    throw new Error("Invalid contextual bandit rule");
+  }
+
+  if (!environments.length) {
+    throw new Error(
+      "Must have at least one environment configured to use Feature Flags",
+    );
+  }
+
+  const feature = await getFeature(context, id);
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+
+  if (
+    !context.permissions.canUpdateFeature(feature, {}) ||
+    !context.permissions.canManageFeatureDrafts(feature)
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
+  const contextualBandit = await context.models.contextualBandits.getById(
+    rule.contextualBanditId,
+  );
+  if (!contextualBandit) {
+    throw new Error("Invalid contextual bandit selected");
+  }
+
+  // allEnvironments:true strips any stale environments[]; false passes the
+  // explicit list through. Legacy callers that send neither default to every
+  // applicable org env.
+  let scopedRule: FeatureRule;
+  if (rule.allEnvironments === true) {
+    scopedRule = {
+      ...omit(rule, ["environments"]),
+      id: generateRuleId(),
+      allEnvironments: true,
+    } as FeatureRule;
+  } else if (
+    rule.allEnvironments === false &&
+    Array.isArray(rule.environments)
+  ) {
+    scopedRule = { ...rule, id: generateRuleId() } as FeatureRule;
+  } else {
+    scopedRule = stampRuleForEnvs(
+      { ...rule, id: generateRuleId() } as FeatureRule,
+      environments,
+    );
+  }
+
+  const ruleEnvFootprint = scopedRule.allEnvironments
+    ? environments
+    : (scopedRule.environments ?? []);
+
+  if (!context.permissions.canPublishFeature(feature, ruleEnvFootprint)) {
+    context.permissions.throwPermissionError();
+  }
+
+  // autoPublish always starts from live so the merge stays clean.
+  const targetVersion = autoPublish
+    ? feature.version
+    : forceNewDraft
+      ? feature.version
+      : (draftVersion ?? feature.version);
+  const revision = await getDraftRevision(context, feature, targetVersion);
+
+  // One-way: any rule-footprint env that's currently off flips on. We never
+  // turn envs off here.
+  const baseEnvEnabled: Record<string, boolean> = {
+    ...Object.fromEntries(
+      environments.map((e) => [
+        e,
+        feature.environmentSettings?.[e]?.enabled ?? false,
+      ]),
+    ),
+    ...(revision.environmentsEnabled ?? {}),
+  };
+  const envToggles: Record<string, boolean> = {};
+  for (const envId of ruleEnvFootprint) {
+    if (!environments.includes(envId)) continue;
+    if (!baseEnvEnabled[envId]) envToggles[envId] = true;
+  }
+
+  const existingRules = cloneDeep(revision.rules ?? []);
+  const nextRules = [...existingRules, scopedRule];
+
+  const combinedChanges: Partial<FeatureRevisionInterface> = {
+    rules: nextRules,
+  };
+  if (Object.keys(envToggles).length > 0) {
+    combinedChanges.environmentsEnabled = {
+      ...(revision.environmentsEnabled ?? {}),
+      ...envToggles,
+    };
+  }
+  // Title fresh drafts only — don't clobber a user's title on an existing draft.
+  const bundlingIntoExistingDraft =
+    !!draftVersion && !forceNewDraft && !autoPublish;
+  if (!bundlingIntoExistingDraft && !revision.title) {
+    combinedChanges.title = "Publish contextual bandit";
+  }
+
+  const resetReview = resetReviewOnChange({
+    feature,
+    changedEnvironments: ruleEnvFootprint,
+    defaultValueChanged: false,
+    settings: org?.settings,
+  });
+  const auditSubject = scopedRule.allEnvironments
+    ? "to all environments"
+    : `to ${ruleEnvFootprint.join(", ") || "no environments"}`;
+  const updatedRevision =
+    (await updateRevision(
+      context,
+      feature,
+      revision,
+      combinedChanges,
+      {
+        user: res.locals.eventAudit,
+        action: "add contextual bandit rule",
+        subject: auditSubject,
+        value: JSON.stringify(scopedRule),
+      },
+      resetReview,
+    )) ?? revision;
+  await recordRevisionUpdate(context, feature, updatedRevision, "rule.add", {
+    environments: ruleEnvFootprint,
+  });
+
+  let published = false;
+  if (autoPublish) {
+    await assertCanAutoPublish(context, feature, updatedRevision);
+    const { live, base } = await getLiveAndBaseRevisionsForFeature({
+      context,
+      feature,
+      revision: updatedRevision,
+    });
+    const orgEnvIds = environments;
+    const mergeResult = autoMerge(live, base, updatedRevision, orgEnvIds, {});
+    if (!mergeResult.success) {
+      throw new Error(
+        `Unable to auto-publish: please resolve conflicts on draft #${updatedRevision.version} before publishing.`,
+      );
+    }
+    const updatedFeature = await publishRevision({
+      context,
+      feature,
+      revision: updatedRevision,
+      result: mergeResult.result,
+      comment: `Add contextual bandit rule for "${contextualBandit.name}"`,
+      bypassLockdown: context.permissions.canBypassApprovalChecks(feature),
+    });
+    await req.audit({
+      event: "feature.publish",
+      entity: { object: "feature", id: feature.id },
+      details: auditDetailsUpdate(feature, updatedFeature, {
+        revision: updatedRevision.version,
+        comment: `Add contextual bandit rule for "${contextualBandit.name}"`,
+      }),
+    });
+    published = true;
+  } else {
+    // Queue the draft for auto-publish on CB `status -> running`.
+    await context.models.contextualBandits.addPendingFeatureDraft(
+      contextualBandit.id,
+      feature.id,
+      updatedRevision.version,
+    );
+  }
+
+  // Mirror the experiment-ref path's explicit linkage so the feature shows up
+  // in the CB's Linked Features list immediately (the fire-and-forget revision
+  // sync would otherwise race the response).
+  if (!contextualBandit.linkedFeatures?.includes(feature.id)) {
+    await context.models.contextualBandits.addLinkedFeature(
+      contextualBandit.id,
+      feature.id,
+    );
+  }
 
   res.status(200).json({
     status: 200,

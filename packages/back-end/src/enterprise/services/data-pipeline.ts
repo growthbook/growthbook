@@ -480,7 +480,7 @@ export function exploratoryOverallRequiresFullRefresh({
   incrementalRefreshModel,
   latestOverallSnapshotId,
 }: {
-  snapshotSettings: SnapshotMetricRequest;
+  snapshotSettings: ExperimentSnapshotSettings;
   incrementalRefreshModel: IncrementalRefreshInterface;
   latestOverallSnapshotId: string | null;
 }): boolean {

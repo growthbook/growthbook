@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { SnapshotStatusSummary } from "shared/types/experiment-snapshot";
 import type { ContextualBanditSnapshot } from "shared/types/stats";
 import type { ContextualBanditResultsView } from "shared/experiments";
+import type { LinkedFeatureInfo } from "shared/types/experiment";
 import { useAuth } from "@/services/auth";
 import useApi from "./useApi";
 
@@ -136,5 +137,29 @@ export function useContextualBanditResults(cbId: string | undefined) {
     refreshing,
     refreshError,
     setRefreshError,
+  };
+}
+
+export type ContextualBanditLinkedFeaturesResponse = {
+  linkedFeatures: LinkedFeatureInfo[];
+  environments: string[];
+};
+
+/** Fetches the features linked to a CB (enriched `LinkedFeatureInfo[]`) for the Linked Features section. */
+export function useContextualBanditLinkedFeatures(cbId: string | undefined) {
+  const { data, error, mutate } =
+    useApi<ContextualBanditLinkedFeaturesResponse>(
+      cbId
+        ? `/api/v1/contextual-bandits/${cbId}/linked-features`
+        : "/api/v1/contextual-bandits/__missing__/linked-features",
+      { shouldRun: () => !!cbId },
+    );
+
+  return {
+    loading: !!cbId && !error && !data,
+    linkedFeatures: data?.linkedFeatures ?? [],
+    environments: data?.environments ?? [],
+    error,
+    mutate,
   };
 }

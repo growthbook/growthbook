@@ -21,7 +21,7 @@ import {
 import { getScopedSettings, ScopedSettings } from "shared/settings";
 import {
   autoMerge,
-  draftHasChangesOutsideExperiment,
+  draftHasChangesOutsideTargetRef,
   DRAFT_REVISION_STATUSES,
   fillRevisionFromFeature,
   generateVariationId,
@@ -126,7 +126,11 @@ import {
   MetricSnapshotSettings,
 } from "shared/types/report";
 import { StatsEngine } from "shared/types/stats";
-import { ExperimentRefRule, FeatureRule } from "shared/types/feature";
+import {
+  ContextualBanditRefRule,
+  ExperimentRefRule,
+  FeatureRule,
+} from "shared/types/feature";
 import { ProjectInterface } from "shared/types/project";
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { ExperimentQueryMetadata } from "shared/types/query";
@@ -4615,14 +4619,26 @@ export function visualChangesetsHaveChanges({
   return false;
 }
 
-export async function getLinkedFeatureInfo(
-  context: ReqContext,
-  experiment: ExperimentInterface,
-) {
-  const linkedFeatures = experiment.linkedFeatures || [];
-  if (!linkedFeatures.length) return [];
+/**
+ * Generic linked-feature enrichment shared by Experiments and Contextual
+ * Bandits. `matchRule` selects the ref rules that point at the parent entity
+ * (experiment-ref / contextual-bandit-ref). Returns the same `LinkedFeatureInfo`
+ * shape for both, so the detail-page UI can be reused.
+ */
+export async function getRefLinkedFeatureInfo({
+  context,
+  linkedFeatureIds,
+  refIsDraft,
+  matchRule,
+}: {
+  context: ReqContext | ApiReqContext;
+  linkedFeatureIds: string[];
+  refIsDraft: boolean;
+  matchRule: (rule: FeatureRule) => boolean;
+}): Promise<LinkedFeatureInfo[]> {
+  if (!linkedFeatureIds.length) return [];
 
-  const features = await getFeaturesByIds(context, linkedFeatures);
+  const features = await getFeaturesByIds(context, linkedFeatureIds);
 
   const featuresByFeatureId = Object.fromEntries(
     features.map((f) => [f.id, f]),
@@ -4630,42 +4646,34 @@ export async function getLinkedFeatureInfo(
   const revisionsByFeatureId = await getFeatureRevisionsByFeatureIds(
     context,
     context.org.id,
-    linkedFeatures,
+    linkedFeatureIds,
     featuresByFeatureId,
   );
 
   const environments = getEnvironmentIdsFromOrg(context.org);
 
-  const filter = (rule: FeatureRule) =>
-    rule.type === "experiment-ref" && rule.experimentId === experiment.id;
+  const filter = matchRule;
 
-  // Slice the experiment-ref rules matching this experiment from a rules
-  // array (works for both feature.rules and revision.rules). Used to detect
-  // whether a draft is actually changing this experiment's rule vs. just
-  // inheriting it unchanged from live.
-  const refRulesForExperiment = (rules: unknown): FeatureRule[] =>
-    naiveFlattenV1Rules(rules).filter(
-      (r) =>
-        r.type === "experiment-ref" &&
-        (r as ExperimentRefRule).experimentId === experiment.id,
-    );
+  // Slice the ref rules matching this entity from a rules array (works for
+  // both feature.rules and revision.rules). Used to detect whether a draft is
+  // actually changing this entity's rule vs. just inheriting it from live.
+  const refRulesForEntity = (rules: unknown): FeatureRule[] =>
+    naiveFlattenV1Rules(rules).filter(matchRule);
 
   const linkedFeatureInfo = await Promise.all(
     features.map(async (feature) => {
       const revisions = revisionsByFeatureId[feature.id] || [];
 
       const liveMatches = getMatchingRules(feature, filter, environments);
-      const liveRefRules = refRulesForExperiment(feature.rules);
+      const liveRefRules = refRulesForEntity(feature.rules);
 
       // Walk draft revisions newest-first and pick:
-      //   1. (preferred) a draft whose experiment-ref rule slice DIFFERS from
-      //      live — i.e. the draft is making changes to this experiment's
-      //      rule. Used to flip state to "draft" even when live already has
-      //      a matching rule.
-      //   2. (fallback) the first draft with any experiment-ref match for
-      //      this experiment, even if unchanged from live. Preserves the
-      //      legacy path where a draft is introducing the rule for the first
-      //      time (experiment not yet started).
+      //   1. (preferred) a draft whose ref rule slice DIFFERS from live — i.e.
+      //      the draft is making changes to this entity's rule. Used to flip
+      //      state to "draft" even when live already has a matching rule.
+      //   2. (fallback) the first draft with any ref match for this entity,
+      //      even if unchanged from live. Preserves the legacy path where a
+      //      draft is introducing the rule for the first time (not yet started).
       const activeDrafts = revisions
         .filter((r) => DRAFT_REVISION_STATUSES.includes(r.status))
         .sort((a, b) => b.version - a.version);
@@ -4677,7 +4685,7 @@ export async function getLinkedFeatureInfo(
       for (const r of activeDrafts) {
         const m = getMatchingRules(feature, filter, environments, r);
         if (m.length === 0) continue;
-        const draftRefRules = refRulesForExperiment(r.rules);
+        const draftRefRules = refRulesForEntity(r.rules);
         if (liveRefRules.length > 0 && !isEqual(draftRefRules, liveRefRules)) {
           matchedDraftRevision = r;
           draftMatches = m;
@@ -4705,9 +4713,9 @@ export async function getLinkedFeatureInfo(
       let matches: MatchingRule[] = [];
       if (feature.archived) {
         state = "archived";
-      } else if (draftDiffersFromLive && experiment.status === "draft") {
-        // A draft is changing this experiment's rule and the experiment is
-        // still in draft — surface the pending change even if the rule is already live.
+      } else if (draftDiffersFromLive && refIsDraft) {
+        // A draft is changing this entity's rule and the entity is still in
+        // draft — surface the pending change even if the rule is already live.
         // Render uses draft values so the user sees what publishing will produce.
         state = "draft";
         matches = draftMatches;
@@ -4742,8 +4750,8 @@ export async function getLinkedFeatureInfo(
         }
       }
 
-      // Mirrors publishPendingFeatureDraftsForExperiment's pre-flight: same
-      // autoMerge used on the FF detail page, plus an "unrelated edits" check.
+      // Mirrors publishPendingFeatureDrafts's pre-flight: same autoMerge used
+      // on the FF detail page, plus an "unrelated edits" check.
       let hasMergeConflict: boolean | undefined;
       let hasUnrelatedDraftChanges: boolean | undefined;
       if (state === "draft" && matchedDraftRevision) {
@@ -4764,10 +4772,10 @@ export async function getLinkedFeatureInfo(
           if (!mergeResult.success) {
             hasMergeConflict = true;
           } else if (
-            draftHasChangesOutsideExperiment(
+            draftHasChangesOutsideTargetRef(
               matchedDraftRevision,
               filledLive,
-              experiment.id,
+              matchRule,
             )
           ) {
             hasUnrelatedDraftChanges = true;
@@ -4775,15 +4783,21 @@ export async function getLinkedFeatureInfo(
         } catch (e) {
           logger.warn(
             { featureId: feature.id, err: e },
-            "[getLinkedFeatureInfo] draft cleanliness check failed",
+            "[getRefLinkedFeatureInfo] draft cleanliness check failed",
           );
         }
       }
 
+      // experiment-ref and contextual-bandit-ref both expose `variations` of
+      // `{ variationId, value }`; experiment-ref additionally has `sparse`.
+      const refRuleValues = (rule: FeatureRule | undefined) =>
+        (rule as ExperimentRefRule | ContextualBanditRefRule | undefined)
+          ?.variations || [];
+
       const uniqueValues: Set<string> = new Set(
         matches.map((m) =>
           JSON.stringify(
-            [...(m.rule as ExperimentRefRule).variations].sort((a, b) =>
+            [...refRuleValues(m.rule)].sort((a, b) =>
               b.variationId.localeCompare(a.variationId),
             ),
           ),
@@ -4809,7 +4823,7 @@ export async function getLinkedFeatureInfo(
         feature,
         state,
         environmentStates,
-        values: (matches[0]?.rule as ExperimentRefRule)?.variations || [],
+        values: refRuleValues(matches[0]?.rule),
         sparse: !!(matches[0]?.rule as ExperimentRefRule)?.sparse,
         valuesFrom: matches[0]?.environmentId || "",
         rulesAbove: matches.some((m) => m.i > 0),
@@ -4832,6 +4846,19 @@ export async function getLinkedFeatureInfo(
   );
 
   return linkedFeatureInfo;
+}
+
+export async function getLinkedFeatureInfo(
+  context: ReqContext,
+  experiment: ExperimentInterface,
+) {
+  return getRefLinkedFeatureInfo({
+    context,
+    linkedFeatureIds: experiment.linkedFeatures || [],
+    refIsDraft: experiment.status === "draft",
+    matchRule: (rule) =>
+      rule.type === "experiment-ref" && rule.experimentId === experiment.id,
+  });
 }
 
 export async function getLinkedChangeEnvironmentStates(

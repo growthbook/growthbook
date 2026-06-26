@@ -1,9 +1,10 @@
 import { ReactNode, useState } from "react";
-import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { date } from "shared/dates";
 import { getMetricLink } from "shared/experiments";
 import { ApiContextualBanditInterface } from "shared/validators";
+import { LinkedFeatureInfo } from "shared/types/experiment";
 import type { RadixColor } from "@/ui/HelperText";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
@@ -28,11 +29,10 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
-import {
-  DetailSectionBox,
-  DetailSectionColumn,
-} from "@/components/DetailSectionBox";
+import { DetailSectionColumn } from "@/components/DetailSectionBox";
 import ContextualBanditResultsTable from "@/components/ContextualBandit/ContextualBanditResultsTable";
+import ContextualBanditVariations from "@/components/ContextualBandit/ContextualBanditVariations";
+import ContextualBanditLinkedFeatures from "@/components/ContextualBandit/ContextualBanditLinkedFeatures";
 import { useContextualBanditQueries } from "@/hooks/useContextualBanditQueries";
 
 const STATUS_COLOR: Record<string, RadixColor> = {
@@ -40,6 +40,35 @@ const STATUS_COLOR: Record<string, RadixColor> = {
   running: "green",
   stopped: "amber",
 };
+
+/** Experiment-style Frame section with a header + optional edit affordance. */
+function OverviewSection({
+  title,
+  onEdit,
+  editLabel = "Edit",
+  children,
+}: {
+  title: string;
+  onEdit?: (() => void) | null;
+  editLabel?: string;
+  children: ReactNode;
+}) {
+  return (
+    <Frame>
+      <Flex align="start" justify="between" mb="3" gap="3">
+        <Heading as="h4" size="small" mb="0">
+          {title}
+        </Heading>
+        {onEdit ? (
+          <Button variant="ghost" onClick={onEdit}>
+            {editLabel}
+          </Button>
+        ) : null}
+      </Flex>
+      {children}
+    </Frame>
+  );
+}
 
 /**
  * CB-native detail page. Consumes the CB API shape directly — no experiment
@@ -62,6 +91,10 @@ export default function ContextualBanditDetailPage({
   editProject,
   editDescription,
   duplicate,
+  linkedFeatures = [],
+  linkedFeaturesMutate,
+  setFeatureModal,
+  canAddFeature = false,
 }: {
   cb: ApiContextualBanditInterface;
   mutate: () => void;
@@ -75,6 +108,10 @@ export default function ContextualBanditDetailPage({
   editProject?: () => void;
   editDescription?: () => void;
   duplicate?: () => void;
+  linkedFeatures?: LinkedFeatureInfo[];
+  linkedFeaturesMutate?: () => void;
+  setFeatureModal?: (open: boolean) => void;
+  canAddFeature?: boolean;
 }) {
   const { getDatasourceById, getExperimentMetricById, projects } =
     useDefinitions();
@@ -339,39 +376,27 @@ export default function ContextualBanditDetailPage({
             </Frame>
 
             {/* Implementation */}
-            <h2 className="mt-4">Implementation</h2>
-            <DetailSectionBox
-              title="Variations & Values"
-              onEdit={editVariations}
-              editLabel="Edit Variations"
-            >
-              <Grid
-                columns={{
-                  initial: "1",
-                  sm: String(Math.max(numVariations, 1)),
-                }}
-                gap="3"
-              >
-                {cb.variations.map((v, i) => (
-                  <Box key={v.id} className="appbox" p="3" mb="0">
-                    <Text weight="medium">{v.name}</Text>
-                    <Box mt="1">
-                      <Text size="small" color="text-low">
-                        {v.key}
-                      </Text>
-                    </Box>
-                    <Box mt="2">
-                      <Text size="small" color="text-low">
-                        Initial weight: {formatWeight(weightForIndex(i))}
-                      </Text>
-                    </Box>
-                  </Box>
-                ))}
-              </Grid>
-            </DetailSectionBox>
+            <Heading as="h2" size="large" mt="5" mb="3">
+              Implementation
+            </Heading>
 
-            {/* Traffic Allocation */}
-            <DetailSectionBox title="Traffic Allocation" onEdit={editTargeting}>
+            <Frame>
+              <ContextualBanditVariations
+                cb={cb}
+                canEdit={!!editVariations}
+                editVariations={editVariations}
+              />
+            </Frame>
+
+            <ContextualBanditLinkedFeatures
+              cb={cb}
+              linkedFeatures={linkedFeatures}
+              canAddFeature={canAddFeature}
+              setFeatureModal={setFeatureModal}
+              mutate={linkedFeaturesMutate}
+            />
+
+            <OverviewSection title="Traffic Allocation" onEdit={editTargeting}>
               <div className="row">
                 <DetailSectionColumn label="Traffic">
                   {coveragePct}% included, {splitLabel} split
@@ -382,10 +407,9 @@ export default function ContextualBanditDetailPage({
                   </div>
                 </DetailSectionColumn>
               </div>
-            </DetailSectionBox>
+            </OverviewSection>
 
-            {/* Targeting */}
-            <DetailSectionBox title="Targeting" onEdit={editTargeting}>
+            <OverviewSection title="Targeting" onEdit={editTargeting}>
               <div className="row">
                 <DetailSectionColumn label="Attribute Targeting">
                   {cb.condition && cb.condition !== "{}" ? (
@@ -395,12 +419,11 @@ export default function ContextualBanditDetailPage({
                   )}
                 </DetailSectionColumn>
               </div>
-            </DetailSectionBox>
+            </OverviewSection>
 
-            <DetailSectionBox
+            <OverviewSection
               title="Analysis Configuration"
               onEdit={editAnalysisSettings}
-              editLabel="Edit"
             >
               <div className="row">
                 <DetailSectionColumn label="Data Source">
@@ -427,9 +450,9 @@ export default function ContextualBanditDetailPage({
                   </DetailSectionColumn>
                 ) : null}
               </div>
-            </DetailSectionBox>
+            </OverviewSection>
 
-            <DetailSectionBox
+            <OverviewSection
               title="Metrics"
               onEdit={editMetrics}
               editLabel="Edit Metrics"
@@ -441,7 +464,7 @@ export default function ContextualBanditDetailPage({
                   )}
                 </DetailSectionColumn>
               </div>
-            </DetailSectionBox>
+            </OverviewSection>
           </Box>
         </TabsContent>
 

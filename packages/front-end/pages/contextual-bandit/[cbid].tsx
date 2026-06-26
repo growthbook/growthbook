@@ -1,6 +1,9 @@
 import { useRouter } from "next/router";
 import React, { ReactElement, useState } from "react";
-import { useContextualBandit } from "@/hooks/useContextualBandits";
+import {
+  useContextualBandit,
+  useContextualBanditLinkedFeatures,
+} from "@/hooks/useContextualBandits";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useSwitchOrg from "@/services/useSwitchOrg";
 import { useUser } from "@/services/UserContext";
@@ -21,6 +24,7 @@ import ContextualBanditOverviewModal from "@/components/ContextualBandit/Context
 import ContextualBanditAnalysisSettingsModal from "@/components/ContextualBandit/ContextualBanditAnalysisSettingsModal";
 import ContextualBanditTargetingModal from "@/components/ContextualBandit/ContextualBanditTargetingModal";
 import ContextualBanditVariationsModal from "@/components/ContextualBandit/ContextualBanditVariationsModal";
+import LinkFeatureToContextualBanditModal from "@/components/Features/FeatureModal/LinkFeatureToContextualBanditModal";
 
 const ContextualBanditPage = (): ReactElement => {
   const permissionsUtil = usePermissionsUtil();
@@ -41,6 +45,7 @@ const ContextualBanditPage = (): ReactElement => {
   const [projectModalOpen, setProjectModalOpen] = useState(false);
   const [descriptionModalOpen, setDescriptionModalOpen] = useState(false);
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
+  const [featureModalOpen, setFeatureModalOpen] = useState(false);
 
   const rawId = typeof cbid === "string" ? cbid : "";
   const {
@@ -48,6 +53,8 @@ const ContextualBanditPage = (): ReactElement => {
     loading,
     mutate,
   } = useContextualBandit(rawId || undefined);
+  const { linkedFeatures, mutate: mutateLinkedFeatures } =
+    useContextualBanditLinkedFeatures(rawId || undefined);
 
   const orgId = organization.id ?? "";
   useSwitchOrg(cb?.id && orgId ? orgId : null);
@@ -119,6 +126,12 @@ const ContextualBanditPage = (): ReactElement => {
             canEdit ? () => setDescriptionModalOpen(true) : undefined
           }
           duplicate={canEdit ? () => setDuplicateModalOpen(true) : undefined}
+          linkedFeatures={linkedFeatures}
+          linkedFeaturesMutate={mutateLinkedFeatures}
+          canAddFeature={canEdit}
+          setFeatureModal={
+            canEdit ? (open) => setFeatureModalOpen(open) : undefined
+          }
         />
       </div>
 
@@ -201,6 +214,20 @@ const ContextualBanditPage = (): ReactElement => {
           current={cb.project}
           apiEndpoint={updateEndpoint}
           method="PUT"
+          source="cbid"
+        />
+      )}
+      {featureModalOpen && (
+        <LinkFeatureToContextualBanditModal
+          cb={cb}
+          existingLinkedFeatureIds={linkedFeatures.map(
+            (info) => info.feature.id,
+          )}
+          mutate={() => {
+            mutate();
+            mutateLinkedFeatures();
+          }}
+          close={() => setFeatureModalOpen(false)}
           source="cbid"
         />
       )}
