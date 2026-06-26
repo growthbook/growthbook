@@ -35,6 +35,8 @@ type Cases = {
   run: [string, Context, Experiment<any>, any, boolean, boolean][];
   // name, context, feature key, result
   feature: [string, Context, string, FeatureResult][];
+  // name, context, feature key, result (contextual-bandit feature rules)
+  contextualBandit: [string, Context, string, FeatureResult][];
   // name, condition, attribute, result
   evalCondition: [string, any, any, boolean, SavedGroupsValues][];
   // name, args ([numVariations, coverage, weights]), result
@@ -88,6 +90,15 @@ global.TextEncoder = TextEncoder;
 describe("json test suite", () => {
   it.each((cases as Cases).feature)(
     "feature[%#] %s",
+    (name, ctx, key, expected) => {
+      const growthbook = new GrowthBook(ctx);
+      expect(growthbook.evalFeature(key)).toEqual(expected);
+      growthbook.destroy();
+    },
+  );
+
+  it.each((cases as Cases).contextualBandit)(
+    "contextualBandit[%#] %s",
     (name, ctx, key, expected) => {
       const growthbook = new GrowthBook(ctx);
       expect(growthbook.evalFeature(key)).toEqual(expected);
