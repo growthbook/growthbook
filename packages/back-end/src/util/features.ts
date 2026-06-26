@@ -405,6 +405,9 @@ export function getSDKPayloadKeysByDiff(
     }
 
     // Otherwise, if the environment settings are not equal
+    // (this includes a change to the per-env `defaultValue` override, which
+    // lives on `environmentSettings[e]` and so invalidates ONLY this env —
+    // unlike the base `feature.defaultValue` which invalidates all envs above).
     if (!isEqual(oldSettings, newSettings)) {
       environments.add(e);
     }
@@ -574,9 +577,16 @@ export function getFeatureDefinition({
     return null;
   }
 
-  const defaultValue = revision
-    ? (revision.defaultValue ?? feature.defaultValue)
-    : feature.defaultValue;
+  // Resolution precedence (highest to lowest):
+  //   1. Draft revision's per-env override (revision.environmentDefaults[env])
+  //   2. Published per-env override (feature.environmentSettings[env].defaultValue)
+  //   3. Draft revision's base defaultValue
+  //   4. Feature's base defaultValue
+  const defaultValue =
+    revision?.environmentDefaults?.[environment] ??
+    feature.environmentSettings?.[environment]?.defaultValue ??
+    revision?.defaultValue ??
+    feature.defaultValue;
 
   // For `json` features, parse the default value once so rules flagged `sparse`
   // can merge their partial object onto it. Null when the default isn't a plain

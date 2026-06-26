@@ -1351,6 +1351,16 @@ const postFeatureRule = z.union([
 const postFeatureEnvironment = z.object({
   enabled: z.boolean(),
   rules: z.array(postFeatureRule),
+  // Optional per-environment override of the feature's base `defaultValue`.
+  // A string conforming to the feature's `valueType`. When set, it takes
+  // precedence over the base `defaultValue` for this environment (rules still
+  // take precedence over it). Omit to use the base default.
+  defaultValue: z
+    .string()
+    .describe(
+      "Per-environment override of the feature's base default value. Type must match `valueType`. When set, takes precedence over the base default for this environment (rules still win).",
+    )
+    .optional(),
   definition: z
     .string()
     .describe(
@@ -1361,6 +1371,12 @@ const postFeatureEnvironment = z.object({
     .object({
       enabled: z.boolean().optional(),
       rules: z.array(postFeatureRule),
+      defaultValue: z
+        .string()
+        .describe(
+          "Per-environment override of the feature's base default value for this draft. Type must match `valueType`.",
+        )
+        .optional(),
       definition: z
         .string()
         .describe(

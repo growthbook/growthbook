@@ -1561,18 +1561,51 @@ export function computeRevisionMergeChanges(
     hasChanges = true;
   }
 
-  if (result.environmentsEnabled) {
+  if (result.environmentsEnabled || result.environmentDefaults) {
     const envs = getEnvironmentIdsFromOrg(context.org);
-    const nextEnvSettings = cloneDeep(feature.environmentSettings || {});
+    // Start from any env settings already staged (e.g. enabled changes) so the
+    // enabled and per-env defaultValue mappings compose onto one object.
+    const nextEnvSettings = cloneDeep(
+      changes.environmentSettings || feature.environmentSettings || {},
+    );
     let envChanged = false;
-    envs.forEach((env) => {
-      const desired = result.environmentsEnabled?.[env];
-      if (desired === undefined) return;
-      const current = nextEnvSettings[env] || { enabled: false };
-      // Skip no-op writes so we don't invalidate the SDK payload cache.
-      if (current.enabled !== desired) envChanged = true;
-      nextEnvSettings[env] = { ...current, enabled: desired };
-    });
+
+    if (result.environmentsEnabled) {
+      envs.forEach((env) => {
+        const desired = result.environmentsEnabled?.[env];
+        if (desired === undefined) return;
+        const current = nextEnvSettings[env] || { enabled: false };
+        // Skip no-op writes so we don't invalidate the SDK payload cache.
+        if (current.enabled !== desired) envChanged = true;
+        nextEnvSettings[env] = { ...current, enabled: desired };
+      });
+    }
+
+    // Map per-env default value overrides onto environmentSettings[env].defaultValue.
+    // The merge result carries entries only for envs whose override changed, so
+    // we iterate its own keys (mirroring environmentsEnabled). A present value
+    // sets the override; an explicit `undefined` (override cleared in the draft)
+    // unsets the env's defaultValue.
+    if (result.environmentDefaults) {
+      Object.keys(result.environmentDefaults).forEach((env) => {
+        const desired = result.environmentDefaults?.[env];
+        const current = nextEnvSettings[env] || { enabled: false };
+        if (desired === undefined) {
+          // Override cleared in the revision — unset the env defaultValue.
+          if (current.defaultValue !== undefined) {
+            envChanged = true;
+            const next = { ...current };
+            delete next.defaultValue;
+            nextEnvSettings[env] = next;
+          }
+          return;
+        }
+        // Skip no-op writes so we don't invalidate the SDK payload cache.
+        if (current.defaultValue !== desired) envChanged = true;
+        nextEnvSettings[env] = { ...current, defaultValue: desired };
+      });
+    }
+
     if (envChanged) {
       changes.environmentSettings = nextEnvSettings;
       hasChanges = true;

@@ -31,6 +31,7 @@ import {
   namespacesToMap,
   pruneOrphanedRampActions,
   assertSchemaMatchesValueType,
+  validateFeatureValue,
 } from "shared/util";
 import { SAFE_ROLLOUT_TRACKING_KEY_PREFIX } from "shared/constants";
 import {
@@ -256,6 +257,7 @@ async function createOrUpdateDraftWithChanges(
     Pick<
       FeatureRevisionInterface,
       | "environmentsEnabled"
+      | "environmentDefaults"
       | "prerequisites"
       | "archived"
       | "metadata"
@@ -292,6 +294,12 @@ async function createOrUpdateDraftWithChanges(
       merged.environmentsEnabled = {
         ...(existingDraft.environmentsEnabled || {}),
         ...envelopeChanges.environmentsEnabled,
+      };
+    }
+    if ("environmentDefaults" in envelopeChanges) {
+      merged.environmentDefaults = {
+        ...(existingDraft.environmentDefaults || {}),
+        ...envelopeChanges.environmentDefaults,
       };
     }
     if ("prerequisites" in envelopeChanges) {
@@ -785,6 +793,17 @@ export async function postFeatures(
     ),
   );
 
+  // Validate any per-env default value override against the feature's
+  // valueType (+ jsonSchema), exactly like the base defaultValue is validated.
+  Object.values(feature.environmentSettings).forEach((settings) => {
+    if (settings.defaultValue !== undefined) {
+      settings.defaultValue = validateFeatureValue(
+        feature,
+        settings.defaultValue,
+      );
+    }
+  });
+
   if (
     !context.permissions.canPublishFeature(
       feature,
@@ -954,6 +973,13 @@ export async function postFeatureRebase(
       feature.environmentSettings?.[env]?.enabled ??
       false;
   });
+  // Sparse per-env default value overrides: start from the revision's existing
+  // overrides, then overlay any the merge result resolved. Only envs with an
+  // override are present (mirrors environmentSettings / liveRevisionFromFeature).
+  const newEnvironmentDefaults: Record<string, string> = {
+    ...(revision.environmentDefaults ?? {}),
+    ...(mergeResult.result.environmentDefaults ?? {}),
+  };
 
   // Build complete metadata snapshot: start from live feature, overlay any
   // metadata fields the merge result explicitly changed.
@@ -1005,6 +1031,7 @@ export async function postFeatureRebase(
       defaultValue: mergeResult.result.defaultValue ?? feature.defaultValue,
       rules: newRules,
       environmentsEnabled: newEnvironmentsEnabled,
+      environmentDefaults: newEnvironmentDefaults,
       prerequisites:
         mergeResult.result.prerequisites ?? feature.prerequisites ?? [],
       archived: mergeResult.result.archived ?? feature.archived ?? false,
@@ -2333,6 +2360,22 @@ export async function postFeatureRevert(
         mergeChanges.environmentsEnabled[env] = revEnabled;
       }
     }
+
+    // Per-env default value override — sparse: only revert if this revision
+    // explicitly set it. Mirrors the kill-switch handling above.
+    if (
+      revision.environmentDefaults !== undefined &&
+      env in revision.environmentDefaults
+    ) {
+      const revDefault = revision.environmentDefaults[env];
+      const liveDefault = feature.environmentSettings?.[env]?.defaultValue;
+      if (revDefault !== liveDefault) {
+        if (!changedEnvs.includes(env)) changedEnvs.push(env);
+        mergeChanges.environmentDefaults =
+          mergeChanges.environmentDefaults || {};
+        mergeChanges.environmentDefaults[env] = revDefault;
+      }
+    }
   });
   if (anyRulesChanged) {
     mergeChanges.rules = revRules;
@@ -2442,6 +2485,9 @@ export async function postFeatureRevert(
   };
   if (revision.environmentsEnabled !== undefined) {
     revisionChanges.environmentsEnabled = revision.environmentsEnabled;
+  }
+  if (revision.environmentDefaults !== undefined) {
+    revisionChanges.environmentDefaults = revision.environmentDefaults;
   }
   if (revision.prerequisites !== undefined) {
     revisionChanges.prerequisites = revision.prerequisites;
@@ -2557,6 +2603,9 @@ export async function postFeatureRevertDraft(
 
   if (revision.environmentsEnabled !== undefined) {
     changes.environmentsEnabled = revision.environmentsEnabled;
+  }
+  if (revision.environmentDefaults !== undefined) {
+    changes.environmentDefaults = revision.environmentDefaults;
   }
   if (revision.prerequisites !== undefined) {
     changes.prerequisites = revision.prerequisites;

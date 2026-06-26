@@ -646,6 +646,7 @@ const SPARSE_REVISION_PROJECTION = {
   rules: 0,
   defaultValue: 0,
   environmentsEnabled: 0,
+  environmentDefaults: 0,
   prerequisites: 0,
   archived: 0,
   metadata: 0,
@@ -865,6 +866,22 @@ export async function createRevision({
         false,
     ]),
   );
+  // Sparse mirror of `environmentsEnabled`: seed each env's per-env default
+  // override from the live feature so a new draft starts from the live state,
+  // and carry `changes.environmentDefaults` when provided. Only envs that
+  // actually have an override are included (mirrors environmentSettings).
+  const environmentDefaults: Record<string, string> = Object.fromEntries(
+    environments
+      .map((env) => {
+        const overridden =
+          changes?.environmentDefaults &&
+          env in changes.environmentDefaults
+            ? changes.environmentDefaults[env]
+            : feature.environmentSettings?.[env]?.defaultValue;
+        return [env, overridden] as const;
+      })
+      .filter(([, val]) => val !== undefined),
+  ) as Record<string, string>;
   const prerequisites = changes?.prerequisites ?? feature.prerequisites ?? [];
   const archived = changes?.archived ?? feature.archived ?? false;
   const featureMetadataSnapshot: RevisionMetadata = {
@@ -927,6 +944,7 @@ export async function createRevision({
     defaultValue,
     rules,
     environmentsEnabled,
+    environmentDefaults,
     prerequisites,
     archived,
     metadata,
@@ -987,6 +1005,7 @@ export async function createRevision({
         defaultValue,
         rules,
         environmentsEnabled,
+        environmentDefaults,
         prerequisites,
         archived,
         metadata,
@@ -1026,6 +1045,7 @@ export function computeRevisionUpdate(
     "defaultValue",
     "rules",
     "environmentsEnabled",
+    "environmentDefaults",
     "prerequisites",
     "archived",
     "metadata",

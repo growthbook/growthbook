@@ -225,6 +225,8 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
         ) {
           changedEnvEnabled[env] = settings.enabled;
           // Exclude enabled from the direct-write path to avoid applying it twice.
+          // The per-env `defaultValue` override (if any) stays on the settings
+          // object and is persisted by the final direct write below.
           updates.environmentSettings[env] = {
             ...updates.environmentSettings[env],
             enabled: feature.environmentSettings?.[env]?.enabled ?? false,

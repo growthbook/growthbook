@@ -152,6 +152,10 @@ export const updateFeatureV2 = createApiRequestHandler(
   }
 
   const changedEnvEnabled: Record<string, boolean> = {};
+  // Per-env default value overrides, tracked through the revision's sparse
+  // `environmentDefaults` map (mirrors environmentsEnabled). A provided value
+  // is validated against valueType and set as the override for that env.
+  const changedEnvDefaults: Record<string, string> = {};
   if (req.body.environments) {
     for (const [env, s] of Object.entries(req.body.environments)) {
       if (
@@ -159,6 +163,12 @@ export const updateFeatureV2 = createApiRequestHandler(
         s.enabled !== feature.environmentSettings?.[env]?.enabled
       ) {
         changedEnvEnabled[env] = s.enabled;
+      }
+      if (s.defaultValue !== undefined) {
+        const nextVal = validateFeatureValue(feature, s.defaultValue);
+        if (nextVal !== feature.environmentSettings?.[env]?.defaultValue) {
+          changedEnvDefaults[env] = nextVal;
+        }
       }
     }
   }
@@ -236,12 +246,14 @@ export const updateFeatureV2 = createApiRequestHandler(
     (inboundFlatRules != null &&
       !isEqual(inboundFlatRules, feature.rules ?? []));
   const hasEnvEnabledChanges = Object.keys(changedEnvEnabled).length > 0;
+  const hasEnvDefaultChanges = Object.keys(changedEnvDefaults).length > 0;
   const hasMetadataChanges = Object.keys(metadataChanges).length > 0;
   const hasPrereqChanges = newPrerequisites !== null;
   const hasArchivedChange = newArchived !== null;
 
   const hasRevisionChanges =
     hasEnvEnabledChanges ||
+    hasEnvDefaultChanges ||
     hasRuleChanges ||
     hasMetadataChanges ||
     hasPrereqChanges ||
@@ -252,6 +264,9 @@ export const updateFeatureV2 = createApiRequestHandler(
     const revisionChanges: Partial<FeatureRevisionInterface> = {
       ...(hasEnvEnabledChanges
         ? { environmentsEnabled: changedEnvEnabled }
+        : {}),
+      ...(hasEnvDefaultChanges
+        ? { environmentDefaults: changedEnvDefaults }
         : {}),
       ...(hasRuleChanges || hasEnvEnabledChanges
         ? {

@@ -159,6 +159,12 @@ export async function rebaseFeatureRevision(
       feature.environmentSettings?.[env]?.enabled ??
       false;
   });
+  // Sparse per-env default value overrides: start from the revision's existing
+  // overrides, then overlay any the merge result resolved.
+  const newEnvironmentDefaults: Record<string, string> = {
+    ...(revision.environmentDefaults ?? {}),
+    ...(mergeResult.result.environmentDefaults ?? {}),
+  };
 
   const featureMetadataSnapshot: RevisionMetadata = {
     description: feature.description,
@@ -209,6 +215,7 @@ export async function rebaseFeatureRevision(
       defaultValue: mergeResult.result.defaultValue ?? feature.defaultValue,
       rules: newRules,
       environmentsEnabled: newEnvironmentsEnabled,
+      environmentDefaults: newEnvironmentDefaults,
       prerequisites:
         mergeResult.result.prerequisites ?? feature.prerequisites ?? [],
       archived: mergeResult.result.archived ?? feature.archived ?? false,
