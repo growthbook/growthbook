@@ -660,15 +660,17 @@ export default function ResultsTable({
                                   </div>
                                 }
                               >
-                                {appliedPValueCorrection ? "Adj. " : ""}
-                                P-value
-                                <SortButton column="significance" />
+                                <Flex align="center">
+                                  {appliedPValueCorrection ? "Adj. " : ""}
+                                  P-value
+                                  <SortButton column="significance" />
+                                </Flex>
                               </Tooltip>
                             ) : (
-                              <>
+                              <Flex align="center">
                                 P-value
                                 <SortButton column="significance" />
-                              </>
+                              </Flex>
                             )}
                           </th>
                         )}
