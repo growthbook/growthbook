@@ -216,6 +216,16 @@ export async function provisionEventForwarderThroughLicenseServer(
       connectorName: string;
       connectorId: string;
     };
+    // The cloud/region already persisted on the config (from a prior provision).
+    // Used as a fallback when fresh derivation transiently fails, so we keep
+    // provisioning on the same cluster instead of silently flipping to default.
+    const existingCloudRegion: EventForwarderCloudRegion | null =
+      eventForwarderConfig.cloud && eventForwarderConfig.region
+        ? {
+            cloud: eventForwarderConfig.cloud,
+            region: eventForwarderConfig.region,
+          }
+        : null;
     let derivedCloudRegion: EventForwarderCloudRegion | null = null;
 
     switch (eventForwarderConfig.sinkType) {
@@ -257,13 +267,14 @@ export async function provisionEventForwarderThroughLicenseServer(
           serviceAccountKey: decrypted.serviceAccountKey,
         });
 
-        derivedCloudRegion = await deriveEventForwarderCloudRegion({
-          context,
-          datasource,
-          sinkType: "bigquery",
-          decryptedConfig: decrypted,
-          datasourceParams: bigqueryConnectionParams,
-        });
+        derivedCloudRegion =
+          (await deriveEventForwarderCloudRegion({
+            context,
+            datasource,
+            sinkType: "bigquery",
+            decryptedConfig: decrypted,
+            datasourceParams: bigqueryConnectionParams,
+          })) ?? existingCloudRegion;
 
         result = await postProvisionEventForwarderToLicenseServer({
           organizationId: context.org.id,
@@ -298,13 +309,14 @@ export async function provisionEventForwarderThroughLicenseServer(
           }),
         );
 
-        derivedCloudRegion = await deriveEventForwarderCloudRegion({
-          context,
-          datasource,
-          sinkType: "snowflake",
-          decryptedConfig: decrypted,
-          datasourceParams: datasourceParams as SnowflakeConnectionParams,
-        });
+        derivedCloudRegion =
+          (await deriveEventForwarderCloudRegion({
+            context,
+            datasource,
+            sinkType: "snowflake",
+            decryptedConfig: decrypted,
+            datasourceParams: datasourceParams as SnowflakeConnectionParams,
+          })) ?? existingCloudRegion;
 
         result = await postProvisionEventForwarderToLicenseServer({
           organizationId: context.org.id,
@@ -334,12 +346,13 @@ export async function provisionEventForwarderThroughLicenseServer(
         connectorName: result.connectorName,
         connectorId: result.connectorId,
         lastProvisioningError: "",
-        ...(derivedCloudRegion
-          ? {
-              cloud: derivedCloudRegion.cloud,
-              region: derivedCloudRegion.region,
-            }
-          : {}),
+        // Always persist the cloud/region the connector was actually provisioned
+        // with (matching the provision payload), so later status/pause/resume/
+        // teardown calls route to the same cluster. `derivedCloudRegion` already
+        // falls back to the previously stored value on transient derivation
+        // failures, so this never leaves a stale mismatch.
+        cloud: derivedCloudRegion?.cloud,
+        region: derivedCloudRegion?.region,
       });
 
     try {
