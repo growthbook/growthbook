@@ -438,18 +438,6 @@ export default function ContextualBanditDetailPage({
                     : "—"}
                 </DetailSectionColumn>
               </div>
-              <div className="row mt-3">
-                <DetailSectionColumn label="Regression Adjustment">
-                  {cb.regressionAdjustmentEnabled ? "On" : "Off"}
-                </DetailSectionColumn>
-                {cb.activationMetric ? (
-                  <DetailSectionColumn label="Activation Metric">
-                    <Link href={getMetricLink(cb.activationMetric)}>
-                      {metricName(cb.activationMetric)}
-                    </Link>
-                  </DetailSectionColumn>
-                ) : null}
-              </div>
             </OverviewSection>
 
             <OverviewSection

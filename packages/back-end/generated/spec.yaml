@@ -28533,53 +28533,6 @@ paths:
                   type: string
                 contextualBanditQueryId:
                   type: string
-                queryFilter:
-                  type: string
-                activationMetric:
-                  type: string
-                metricOverrides:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      id:
-                        type: string
-                      windowType:
-                        type: string
-                        enum:
-                          - conversion
-                          - lookback
-                          - ''
-                      windowHours:
-                        type: number
-                      delayHours:
-                        type: number
-                      winRisk:
-                        type: number
-                      loseRisk:
-                        type: number
-                      properPriorOverride:
-                        type: boolean
-                      properPriorEnabled:
-                        type: boolean
-                      properPriorMean:
-                        type: number
-                      properPriorStdDev:
-                        type: number
-                        exclusiveMinimum: 0
-                      regressionAdjustmentOverride:
-                        type: boolean
-                      regressionAdjustmentEnabled:
-                        type: boolean
-                      regressionAdjustmentDays:
-                        type: number
-                    required:
-                      - id
-                    additionalProperties: false
-                skipPartialData:
-                  type: boolean
-                regressionAdjustmentEnabled:
-                  type: boolean
                 contextualAttributes:
                   type: array
                   items:
@@ -28710,14 +28663,6 @@ paths:
                   type: string
                 contextualBanditQueryId:
                   type: string
-                skipPartialData:
-                  type: boolean
-                activationMetric:
-                  type: string
-                queryFilter:
-                  type: string
-                regressionAdjustmentEnabled:
-                  type: boolean
                 contextualAttributes:
                   type: array
                   items:
@@ -44775,14 +44720,6 @@ components:
           type: string
         contextualBanditQueryId:
           type: string
-        queryFilter:
-          type: string
-        activationMetric:
-          type: string
-        skipPartialData:
-          type: boolean
-        regressionAdjustmentEnabled:
-          type: boolean
         coverage:
           type: number
           minimum: 0

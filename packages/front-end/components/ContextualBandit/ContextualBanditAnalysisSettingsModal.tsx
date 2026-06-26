@@ -6,17 +6,11 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useContextualBanditQueries } from "@/hooks/useContextualBanditQueries";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
-import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
-import Switch from "@/ui/Switch";
 
 type FormValues = {
   datasource: string;
   contextualBanditQueryId: string;
-  regressionAdjustmentEnabled: boolean;
-  activationMetric: string;
-  queryFilter: string;
-  skipPartialData: boolean;
 };
 
 export default function ContextualBanditAnalysisSettingsModal({
@@ -29,17 +23,13 @@ export default function ContextualBanditAnalysisSettingsModal({
   close: () => void;
 }) {
   const { apiCall } = useAuth();
-  const { datasources, getDatasourceById, metrics } = useDefinitions();
+  const { datasources, getDatasourceById } = useDefinitions();
   const settings = useOrgSettings();
 
   const form = useForm<FormValues>({
     defaultValues: {
       datasource: cb.datasource ?? "",
       contextualBanditQueryId: cb.contextualBanditQueryId ?? "",
-      regressionAdjustmentEnabled: cb.regressionAdjustmentEnabled ?? false,
-      activationMetric: cb.activationMetric ?? "",
-      queryFilter: cb.queryFilter ?? "",
-      skipPartialData: cb.skipPartialData ?? false,
     },
   });
 
@@ -72,11 +62,6 @@ export default function ContextualBanditAnalysisSettingsModal({
     }
   }, [contextualBanditQueries, watchedQueryId, form]);
 
-  const metricsForDatasource = useMemo(
-    () => (metrics ?? []).filter((m) => m.datasource === watchedDatasource),
-    [metrics, watchedDatasource],
-  );
-
   return (
     <ModalStandard
       open
@@ -98,10 +83,6 @@ export default function ContextualBanditAnalysisSettingsModal({
             datasource: data.datasource || undefined,
             contextualBanditQueryId: data.contextualBanditQueryId || undefined,
             contextualAttributes,
-            regressionAdjustmentEnabled: data.regressionAdjustmentEnabled,
-            activationMetric: data.activationMetric || undefined,
-            queryFilter: data.queryFilter || undefined,
-            skipPartialData: data.skipPartialData,
           }),
         });
         mutate();
@@ -112,7 +93,6 @@ export default function ContextualBanditAnalysisSettingsModal({
         value={form.watch("datasource")}
         onChange={(v) => {
           form.setValue("datasource", v);
-          form.setValue("activationMetric", "");
         }}
         options={datasources.map((d) => ({
           value: d.id,
@@ -159,47 +139,6 @@ export default function ContextualBanditAnalysisSettingsModal({
           </small>
         </div>
       ) : null}
-
-      <hr className="my-4" />
-
-      <Switch
-        label="Use Regression Adjustment (CUPED)"
-        value={form.watch("regressionAdjustmentEnabled")}
-        onChange={(v) => form.setValue("regressionAdjustmentEnabled", v)}
-        mb="4"
-      />
-
-      <hr className="my-4" />
-
-      <SelectField
-        label="Activation Metric"
-        value={form.watch("activationMetric")}
-        onChange={(v) => form.setValue("activationMetric", v)}
-        initialOption="None"
-        options={metricsForDatasource.map((m) => ({
-          value: m.id,
-          label: m.name,
-        }))}
-        helpText="Only users who convert on this metric will be included in analysis."
-        disabled={!watchedDatasource}
-      />
-
-      <Field
-        label="Query Filter"
-        textarea
-        minRows={2}
-        {...form.register("queryFilter")}
-        placeholder="Optional SQL WHERE clause to filter the bandit assignment query"
-        helpText="Applied directly to the assignment query."
-      />
-
-      <Switch
-        label="Skip Partial Data"
-        description="Exclude rows that may have incomplete conversion data (e.g. from the end of the experiment window)."
-        value={form.watch("skipPartialData")}
-        onChange={(v) => form.setValue("skipPartialData", v)}
-        mb="2"
-      />
     </ModalStandard>
   );
 }

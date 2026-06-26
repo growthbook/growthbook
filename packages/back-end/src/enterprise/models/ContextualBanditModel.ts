@@ -151,10 +151,6 @@ export function toApiContextualBandit(
     })),
     datasource: doc.datasource,
     contextualBanditQueryId: doc.contextualBanditQueryId,
-    queryFilter: doc.queryFilter,
-    activationMetric: doc.activationMetric,
-    skipPartialData: doc.skipPartialData,
-    regressionAdjustmentEnabled: doc.regressionAdjustmentEnabled,
     coverage: doc.coverage,
     condition: doc.condition,
     seed: doc.seed,
@@ -208,7 +204,6 @@ export class ContextualBanditModel extends BaseClass {
   protected async processApiCreateBody(rawBody: unknown) {
     const body = apiCreateContextualBanditBody.parse(rawBody);
     const orgSettings = this.context.org.settings;
-    const orgPrior = orgSettings?.metricDefaults?.priorSettings;
 
     return {
       ...body,
@@ -244,12 +239,6 @@ export class ContextualBanditModel extends BaseClass {
       status: "draft" as const,
       currentLeafWeights: [],
       banditVersion: 0,
-      defaultMetricPriorSettings: orgPrior ?? {
-        override: false,
-        proper: false,
-        mean: 0,
-        stddev: 0.1,
-      },
     };
   }
 

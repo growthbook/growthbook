@@ -168,7 +168,6 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
         initialHashAttribute,
       }),
       name: initialValue?.name || "",
-      activationMetric: initialValue?.activationMetric || "",
       hashAttribute: initialHashAttribute,
       decisionMetric: initialValue?.decisionMetric ?? "",
       tags: initialValue?.tags || [],
@@ -188,8 +187,6 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
         .toISOString()
         .substring(0, 16),
       status: "draft",
-      regressionAdjustmentEnabled:
-        scopedSettings.regressionAdjustmentEnabled.value,
       banditScheduleValue: scopedSettings.banditScheduleValue.value,
       banditScheduleUnit: scopedSettings.banditScheduleUnit.value,
       banditBurnInValue: scopedSettings.banditBurnInValue.value,
@@ -430,11 +427,7 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
 
       datasource: data.datasource ?? "",
       contextualBanditQueryId: data.exposureQueryId ?? "",
-      queryFilter: data.queryFilter || undefined,
       decisionMetric: data.decisionMetric ?? "",
-      activationMetric: data.activationMetric || undefined,
-      skipPartialData: data.skipPartialData,
-      regressionAdjustmentEnabled: data.regressionAdjustmentEnabled,
 
       contextualBanditScheduleValue: data.banditScheduleValue,
       contextualBanditScheduleUnit: data.banditScheduleUnit,
