@@ -1334,6 +1334,49 @@ export function renderFeatureDefaultValueSection(
   );
 }
 
+// Per-environment default value override section. Renders one ValueChangedField
+// row per env whose `environmentSettings[env].defaultValue` override changed
+// (added, removed, or modified). Mirrors `renderFeatureDefaultValueSection` but
+// scoped to the per-env override map. Returns null when nothing changed.
+export function renderFeatureEnvironmentDefaultsSection(
+  pre: FeaturePartial,
+  post: Partial<FeatureInterface>,
+): ReactNode | null {
+  const toStr = (v: unknown): string | null =>
+    v == null ? null : typeof v === "string" ? v : JSON.stringify(v);
+
+  const preEnvs = (pre?.environmentSettings ?? {}) as Record<
+    string,
+    FeatureEnvironment
+  >;
+  const postEnvs = (post.environmentSettings ?? {}) as Record<
+    string,
+    FeatureEnvironment
+  >;
+  const envs = new Set([...Object.keys(preEnvs), ...Object.keys(postEnvs)]);
+
+  const rows: ReactNode[] = [];
+  for (const env of envs) {
+    const preStr = (toStr(preEnvs[env]?.defaultValue) ?? "").trim();
+    const postStr = (toStr(postEnvs[env]?.defaultValue) ?? "").trim();
+    if (preStr === postStr) continue;
+    rows.push(
+      <div key={`env-default-${env}`} className="mb-2">
+        <Heading as="h6" size="small" color="text-mid" mb="2">
+          {`Default value (${env})`}
+        </Heading>
+        <ValueChangedField
+          pre={preStr ? formatValue(preStr) : null}
+          post={postStr ? formatValue(postStr) : null}
+        />
+      </div>,
+    );
+  }
+
+  if (rows.length === 0) return null;
+  return <>{rows}</>;
+}
+
 // Rules section: per-env enable-toggle rows + a single rules diff off the
 // flat `feature.rules` array. Each rule card carries its env scope inline.
 function FeatureRulesSection({

@@ -50,6 +50,7 @@ import { useAuth } from "@/services/auth";
 import ForceSummary from "@/components/Features/ForceSummary";
 import track from "@/services/track";
 import EditDefaultValueModal from "@/components/Features/EditDefaultValueModal";
+import EditEnvironmentDefaultValueModal from "@/components/Features/EditEnvironmentDefaultValueModal";
 import KillSwitchModal from "@/components/Features/KillSwitchModal";
 import EditProjectForm from "@/components/Experiment/EditProjectForm";
 import {
@@ -259,6 +260,10 @@ export default function FeaturesOverview({
     desiredState?: boolean;
   } | null>(null);
   const showKillSwitchManager = killSwitchTarget !== null;
+  // Environment whose per-env default value override is being edited (null = closed).
+  const [editEnvDefaultTarget, setEditEnvDefaultTarget] = useState<
+    string | null
+  >(null);
 
   const { apiCall } = useAuth();
   const { hasCommercialFeature } = useUser();
@@ -1620,6 +1625,55 @@ export default function FeaturesOverview({
                 </Flex>
               </Box>
 
+              {environments.length > 0 && (
+                <Box mt="4">
+                  <Heading as="h6" size="small" color="text-mid" mb="2">
+                    Per-environment overrides
+                  </Heading>
+                  <Flex direction="column" gap="2">
+                    {environments.map((en) => {
+                      const override =
+                        feature.environmentSettings?.[en.id]?.defaultValue;
+                      const hasOverride = override !== undefined;
+                      return (
+                        <Flex
+                          key={en.id}
+                          align="center"
+                          justify="between"
+                          gap="2"
+                        >
+                          <Flex align="center" gap="2" wrap="wrap">
+                            <span className="font-weight-bold">{en.id}:</span>
+                            {hasOverride ? (
+                              <ForceSummary
+                                value={override as string}
+                                feature={feature}
+                              />
+                            ) : (
+                              <Text color="text-low">
+                                <em>
+                                  Inherits base default (
+                                  {getFeatureDefaultValue(feature)})
+                                </em>
+                              </Text>
+                            )}
+                          </Flex>
+                          {canEdit && canEditDrafts && !isReadOnly && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setEditEnvDefaultTarget(en.id)}
+                            >
+                              {hasOverride ? "Edit" : "Override"}
+                            </Button>
+                          )}
+                        </Flex>
+                      );
+                    })}
+                  </Flex>
+                </Box>
+              )}
+
               <Box
                 mt="6"
                 pt="4"
@@ -1696,6 +1750,16 @@ export default function FeaturesOverview({
           <EditDefaultValueModal
             close={() => setEdit(false)}
             feature={feature}
+            revisionList={revisionList || []}
+            mutate={mutate}
+            setVersion={setVersion}
+          />
+        )}
+        {editEnvDefaultTarget && (
+          <EditEnvironmentDefaultValueModal
+            close={() => setEditEnvDefaultTarget(null)}
+            feature={feature}
+            environment={editEnvDefaultTarget}
             revisionList={revisionList || []}
             mutate={mutate}
             setVersion={setVersion}

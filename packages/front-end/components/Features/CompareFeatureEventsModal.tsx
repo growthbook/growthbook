@@ -5,6 +5,7 @@ import { OVERFLOW_SECTION_LABEL } from "@/components/AuditHistoryExplorer/useAud
 import {
   normalizeFeatureSnapshot,
   renderFeatureDefaultValueSection,
+  renderFeatureEnvironmentDefaultsSection,
   renderFeatureRulesSection,
   getFeatureRulesBadges,
   renderFeatureMetadataSection,
@@ -76,6 +77,18 @@ const FEATURE_DIFF_CONFIG: AuditDiffConfig<FeatureInterface> = {
       label: "Default value",
       keys: ["defaultValue"],
       render: renderFeatureDefaultValueSection,
+    },
+    {
+      // Per-environment default value overrides live under
+      // `environmentSettings[env].defaultValue`. The "Rules" section also
+      // claims `environmentSettings` (for enable toggles), but its renderer
+      // ignores the `defaultValue` sub-key, so a per-env override change would
+      // otherwise produce no visible row. This section renders one clearly
+      // labeled "Default value ({env})" row per changed override.
+      label: "Environment default values",
+      keys: ["environmentSettings"],
+      suppressCardLabel: true,
+      render: renderFeatureEnvironmentDefaultsSection,
     },
     {
       label: "Rules",
