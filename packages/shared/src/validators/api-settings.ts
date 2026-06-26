@@ -89,6 +89,8 @@ export const apiSettingsValidator = namedSchema(
       experimentMaxLengthDays: z.coerce.number().nullable().optional(),
       preferredEnvironment: z.string().nullable().optional(),
       maxMetricSliceLevels: z.coerce.number().optional(),
+      topValuesLookbackValue: z.coerce.number().optional(),
+      topValuesLookbackUnit: z.enum(["days"]).optional(),
     })
     .strict(),
 );

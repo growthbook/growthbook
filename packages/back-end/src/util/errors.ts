@@ -173,10 +173,14 @@ export class ConcurrentIncrementalRefreshError extends Error {
   }
 }
 
-export class IncrementalUpdateRequiresFullRefreshError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "IncrementalUpdateRequiresFullRefreshError";
+export class ExperimentIncrementalPipelineRequiresFullRefreshError extends Error {
+  readonly status = 409;
+  readonly code = "requires_full_refresh";
+  readonly details: { reason: string };
+  constructor(reason: string) {
+    super(reason);
+    this.name = "ExperimentIncrementalPipelineRequiresFullRefreshError";
+    this.details = { reason };
   }
 }
 

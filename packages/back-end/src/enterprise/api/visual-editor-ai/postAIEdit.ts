@@ -9,9 +9,20 @@ import { getAISettingsForOrg } from "back-end/src/services/organizations";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { logger } from "back-end/src/util/logger";
 import { IS_CLOUD } from "back-end/src/util/secrets";
-import { requireUserAuth } from "./requireUserAuth";
-import { buildVisualEditorTools, VISUAL_EDITOR_MAX_STEPS } from "./aiTools";
-import { aiEditJobStore } from "./aiTools/clientJob";
+import { requireUserAuth } from "back-end/src/api/visual-editor-ai/requireUserAuth";
+import {
+  buildVisualEditorTools,
+  VISUAL_EDITOR_MAX_STEPS,
+} from "back-end/src/api/visual-editor-ai/aiTools";
+import { aiEditJobStore } from "back-end/src/api/visual-editor-ai/aiTools/clientJob";
+
+// Output-token cap for the edit generation. Above the 8000 parsePrompt
+// default because an edit can REPLACE the variation's entire global CSS/JS
+// (the model must re-emit all existing rules) — on a large stylesheet that
+// blows past 8000 and truncates mid-JSON (NoObjectGeneratedError). 16000
+// stays under modern model ceilings; only very old/small self-hosted models
+// (8192 cap) could over-shoot. Used for both the main and retry generations.
+const EDIT_MAX_OUTPUT_TOKENS = 16000;
 
 const elementContextSchema = z.object({
   selector: z.string(),
@@ -23,6 +34,27 @@ const elementContextSchema = z.object({
   // CURRENT styling for prompts like "make it more rounded" or "match
   // the header font". Optional for older extensions that don't send it.
   computedStyles: z.record(z.string(), z.string()).optional(),
+});
+
+// One container in the page's structural snapshot (sections, layout
+// wrappers, ancestors of catalog headings), captured client-side with a
+// durable selector precomputed per node. Carried inside domDigest but NEVER
+// rendered into the prompt (formatDigest ignores it) — the `findElements`
+// tool reads it on demand, so it costs prompt tokens only when the model
+// actually needs to locate a container the curated catalog doesn't list
+// (e.g. "move the Trusted-by section"). The tool runs server-side over this
+// in-request data, so it works on Cloud with no client round-trip.
+const structureNodeSchema = z.object({
+  selector: z.string(),
+  // Durable selector of the nearest significant ancestor — lets the model
+  // build a sibling move (parentSelector + insertBefore) from one lookup.
+  parentSelector: z.string().optional(),
+  tag: z.string(),
+  id: z.string().optional(),
+  classes: z.array(z.string()).optional(),
+  role: z.string().optional(),
+  // Short trimmed text label for matching by visible content.
+  label: z.string().optional(),
 });
 
 // Compact element catalog from visual-editor/src/content_script/pageDigest.ts —
@@ -89,6 +121,9 @@ const domDigestSchema = z.object({
       }),
     )
     .default([]),
+  // On-demand container map for the `findElements` tool — not rendered into
+  // the prompt (formatDigest ignores it).
+  pageStructure: z.array(structureNodeSchema).max(400).optional(),
 });
 
 // Capped at 12 turns + 4000 chars/turn to bound prompt size.
@@ -205,14 +240,18 @@ Allowed attribute values and what they do:
 - "class" — with action "set" replaces the className, with action "append" adds classes (space-separated).
 - "position" — moves the element into a new parent. Use action "set". value MUST be null. Set parentSelector to the destination parent (required, must be in the catalog). Set insertBeforeSelector to a sibling inside that parent to insert this element BEFORE it; omit (null) to append at the end. Example to move a CTA above the headline:
     { selector: ".cta-button", action: "set", attribute: "position", value: null, parentSelector: ".hero", insertBeforeSelector: ".hero-headline" }
-  Use moves only when the user explicitly asks to reorder, swap, or relocate elements — for purely visual ordering (e.g. "show CTA first"), a CSS "order" style on a flex container is usually safer than a real move.
+  Use moves only when the user explicitly asks to reorder, swap, or relocate elements, AND the elements involved are already direct children of their destination parent. To reorder items that sit inside wrappers (nav menus, lists, cards), prefer a CSS \`order\` rule instead of a move — see "Position-move rules" below.
 - Any real HTML attribute name: "src", "href", "alt", "title", "aria-label", "data-foo", etc.
 
 DO NOT invent attribute names. There is NO "text" attribute. To change visible text, ALWAYS use attribute "html". To hide an element use attribute "style" with value containing "display:none".
 
 Position-move rules (critical):
+- A move is applied as parentSelector.insertBefore(element, insertBeforeSelector). The hard DOM requirement is on insertBeforeSelector ONLY: it must resolve to a DIRECT CHILD of parentSelector — it's the reference node the browser inserts before, and insertBefore fails if it isn't a direct child of the parent. The moved element (selector) can live ANYWHERE in the DOM — it's detached from its current spot and re-inserted — so relocating an element into a different container is perfectly valid. The common mistake is naming a deeper descendant as insertBeforeSelector (e.g. a link nested inside a list item), which is NOT a direct child of the parent, so the insert fails.
 - parentSelector MUST be a real selector from the Page elements catalog.
-- insertBeforeSelector (when provided) MUST also be from the catalog AND must be a child of parentSelector on the page. If you can't be sure it's a child, omit it (null) — appending at the end is safer than guessing.
+- insertBeforeSelector (when provided) MUST also be from the catalog AND be a DIRECT child of parentSelector. If you can't be sure it's a direct child, omit it (null) — appending at the end is safer than guessing.
+- Reordering nav / menu / list items — do NOT use a position move on the inner link or text. These items are almost always wrapped (\`<li><a href="…">…</a></li>\`), and the catalog lists the INNER element (e.g. \`[href="#deals"]\`), which is NOT a direct child of the list container — moving it, or naming it as insertBeforeSelector, rips the link out of its \`<li>\` and breaks the nav (this is a common failure). Instead, reorder with a CSS \`order\` rule in the global \`css\` field: the \`css\` field is NOT restricted to catalog selectors, so you can target the wrapper with \`:has()\`, and \`order\` works on flex/grid containers (navs usually are one) without restructuring the DOM. Example — put "Flight Deals" before "Destinations":
+    css: \`.nav-links li:has(a[href="#deals"]) { order: -1; }\`
+- Real position moves are well-suited to relocating a block-level element into a different container (e.g. moving a <section> to before another <section> under <main>) and to reordering siblings that are themselves direct children of the parent. They're a poor fit for reordering items wrapped in <li>/<div> (nav menus, lists) — prefer the CSS \`order\` approach above for those.
 - The source selector and parentSelector must NOT match the same element — that's a no-op or, worse, a self-cycle.
 - For every move you propose, set value to null. Do not put position data in value.
 - Never combine position with action "append" or "remove". Always action "set".
@@ -220,13 +259,14 @@ Position-move rules (critical):
 SELECTOR GROUNDING — this is critical:
 - You will be given a "Page elements" catalog with the actual selectors present on the page. It includes a "Page structure" section (html, body, header, main, footer, etc.) plus catalogs of headings, buttons, links, inputs, and images.
 - You MUST pick selectors verbatim from this catalog or from the user's picked elementContext. Do NOT invent selectors like ".cta", ".hero-cta", "h1.headline" unless you can see them in the catalog.
+- PICKED ELEMENTS WIN — when the user has selected element(s) (the elementContext block, shown below as "selected the following elements … as context"), they are the DEFAULT target: apply the request to the picked element(s) or on an element inside of the context if it makes sense- unless the user's message explicitly names a different one. This takes PRECEDENCE over the keyword/semantic heuristics below. Example: the user picked an \`<div>\` that contains an \`<h2>\` and says "rewrite the heading to be funnier" → edit THAT \`<h2>\`, NOT the page's \`<h1>\`. If the user selects directly a \`<p>\` that contains text, and says to "make it shorter", it should apply directly to that text of the container. Using "this" or other pronouns in the prompt when the context or picked element is passed, refer to that picked element. Only fall back to the keyword/catalog rules when nothing relevant inside the context found or is picked.
 - EXCEPTION — selectors the USER names explicitly: when the user's own message contains a concrete class, id, or attribute selector (e.g. "elements with the \`section_bg-gradient-2\` class", "the \`#pricing\` section", "everything matching \`[data-card]\`"), treat it as ground truth and use it verbatim — even if it is NOT in the catalog. The catalog is a NON-EXHAUSTIVE sample: it only lists structural nodes (html/body/header/main/footer…) plus headings, buttons, links, inputs, and images. A class on a \`<section>\`, \`<div>\`, \`<li>\`, etc. will routinely be absent from it. Never refuse or ask for clarification just because a user-supplied class/id isn't in the catalog. The grounding rule above exists to stop you HALLUCINATING selectors from vague descriptions — not to override a selector the user handed you directly.
 - Apply any "style every element matching this class / id / attribute" request through GLOBAL CSS (the \`css\` field), not DOM mutations. A CSS rule targets any selector regardless of catalog membership, and styling a whole class of elements is exactly what global CSS is for.
 - When the user's request matches a semantic concept (e.g. "the hero CTA", "the signup button"), find the closest match by text content or position in the catalog and use that exact selector.
-- "Title" / "the title" / "page title" / "headline" → ALWAYS interpret this as the visible main heading on the page — pick the first \`h1\` from the catalog (or the most prominent heading if no h1 is present). NEVER target the \`<title>\` element in \`<head>\`, \`document.title\`, or set the HTML "title" attribute (tooltip) for these requests. Users running an A/B test want to test what readers see on the page, not the browser tab text. The same applies to "subtitle" / "subheading" → the visible \`h2\` (or first heading below the h1), not anything in \`<head>\`.
+- "Title" / "the title" / "page title" / "headline" / "heading" → when the user has NOT picked a relevant element (a picked element always wins — see "PICKED ELEMENTS WIN" above), interpret this as the visible main heading on the page — pick the first \`h1\` from the catalog (or the most prominent heading if no h1 is present). NEVER target the \`<title>\` element in \`<head>\`, \`document.title\`, or set the HTML "title" attribute (tooltip) for these requests. Users running an A/B test want to test what readers see on the page, not the browser tab text. The same applies to "subtitle" / "subheading" → the visible \`h2\` (or first heading below the h1), not anything in \`<head>\`.
 - For "the page", "the background", "the whole site", "globally", and similar broad requests, prefer "body" or "html" from the Page structure section. These are always valid targets — never refuse a global styling request because the more-specific catalogs only list components.
 - "html" and "body" are ALWAYS valid selectors even if the Page structure section is missing (e.g. older content scripts). Treat them as if they were in the catalog.
-- If no element in the catalog plausibly matches, the user named no explicit selector, AND the request isn't a global styling change, say so in the explanation and return mutations = []. Do not guess invented selectors.
+- If the target is a section or container that isn't in the catalog (e.g. "the Trusted-by section", a named wrapper), call the \`findElements\` tool (when available) to look it up by text or class BEFORE giving up — sections are deliberately absent from the catalog. Only if findElements also finds nothing, the user named no explicit selector, AND the request isn't a global styling change, say so in the explanation and return mutations = []. Do not guess invented selectors.
 - Prefer PARTIAL completion over wholesale refusal. When a request has several targets and only some are grounded, fulfill the parts you can — the global/body portion, and any user-named class via global CSS — and note any genuinely unverifiable target in the explanation. Do not refuse the entire request because one target couldn't be confirmed.
 
 Other rules:
@@ -264,6 +304,7 @@ Tools you may call before producing the final JSON output:
 - \`getDesignTokens\` — fetch the organization's brand guidelines. Call when the user asks for changes that should be "on brand", "match our style", or "use our colors". Skip for purely tactical edits.
 - \`searchPastExperiments\` — search the user's previous A/B tests by name, hypothesis, or description. Call when the user references prior work ("similar to the pricing test", "what's worked here before", "try what we did on signup"). Returns experiment names + hypotheses + ids — never raw conversion numbers or revenue. Use the results to inform DIRECTION ("similar prior tests have leaned warmer/bolder/shorter"), not as a source of quoted numeric claims.
 - \`getExperimentVariations\` — given an experimentId from searchPastExperiments, fetch the variations' actual mutations + CSS + JS. Call this when the user explicitly wants to mirror or adapt the changes from a prior experiment. Long mutation values are truncated — treat them as patterns, not as verbatim source.
+- \`findElements\` — locate a container/section that is NOT in the page-elements catalog. The catalog only lists headings, buttons, links, inputs, images, and top-level landmarks — it does NOT list \`<section>\`s or layout wrapper \`<div>\`s. When the user refers to a whole section to move, reorder, hide, or restyle (e.g. "move the Trusted-by section above the features section"), call \`findElements\` with a word from the section's visible text or class name to get its durable \`selector\` and \`parentSelector\`. Use those verbatim (they're real, captured from the live DOM). Prefer this over asking the user to click. (Not available on every deployment; if it returns nothing useful, fall back to asking the user to click.)
 
 Tool-use guidance:
 - Don't call tools just because they're available. If the user request can be fulfilled with information already in the prompt, return mutations directly without any tool calls.
@@ -430,7 +471,7 @@ const buildPrompt = ({
   const digestBlock = domDigest ? formatDigest(domDigest) : "";
 
   const contextBlock = elementContext.length
-    ? `\nThe user has selected the following elements on the page as context (prefer these targets when they fit the request):\n\`\`\`json\n${JSON.stringify(elementContext, null, 2)}\n\`\`\`\n`
+    ? `\nThe user has selected the following elements on the page as context. These are the DEFAULT target for the request — apply the change to them unless the user explicitly names a different element. They take precedence over the "title"/"heading" keyword rules (e.g. a picked <h2> + "rewrite the heading" means THAT <h2>, not the page <h1>):\n\`\`\`json\n${JSON.stringify(elementContext, null, 2)}\n\`\`\`\n`
     : !domDigest
       ? "\n(No specific elements were selected and no page catalog is available. Operate on the user's request alone.)\n"
       : "";
@@ -466,6 +507,10 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
     conversationHistory,
     locale,
   } = req.body;
+
+  // Carried inside domDigest (sent in the body, kept out of the prompt) and
+  // surfaced to the model only via the server-side findElements tool.
+  const pageStructure = domDigest?.pageStructure;
 
   const context = req.context;
   requireUserAuth(context);
@@ -525,6 +570,15 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
     for (const s of allDigestSelectors(domDigest)) trustedSelectors.add(s);
   }
   for (const e of elementContext) trustedSelectors.add(e.selector);
+  // Selectors surfaced via the findElements tool are real (the snapshot was
+  // built from the live DOM), so trust them too — otherwise a move the model
+  // discovered through the tool would be dropped by the self-correct retry.
+  if (pageStructure) {
+    for (const n of pageStructure) {
+      trustedSelectors.add(n.selector);
+      if (n.parentSelector) trustedSelectors.add(n.parentSelector);
+    }
+  }
 
   // visualEditorAIContext is the free-text brand guidelines admins set in
   // Settings → AI Settings. Appended to the system prompt (not the user
@@ -565,6 +619,7 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
       zodObjectSchema: outputSchema,
       overrideModel: visualEditorAIModel,
       cacheSystemPrompt: true,
+      maxOutputTokens: EDIT_MAX_OUTPUT_TOKENS,
       // This is itself a retry (selector self-correction), so disable
       // parsePrompt's no-object retry — otherwise one request could fan
       // out to 4 LLM calls. finalizeOutput's try/catch already keeps the
@@ -700,6 +755,7 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
   const tools = buildVisualEditorTools({
     context,
     job: useToolLoop ? job : undefined,
+    pageStructure,
   });
   // Cast through unknown — the job store is invariant in TFinal for
   // type-erasure reasons but each job is used with one schema only.
@@ -729,6 +785,11 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
     tools,
     maxSteps: VISUAL_EDITOR_MAX_STEPS,
     cacheSystemPrompt: true,
+    maxOutputTokens: EDIT_MAX_OUTPUT_TOKENS,
+    // Attach the picked-element selectors to the structured-output failure
+    // logs so we can see which selectors (e.g. hashed classes) correlate
+    // with "couldn't format a valid response" errors. Diagnostic only.
+    logContext: { pickedSelectors: elementContext.map((e) => e.selector) },
     onStepFinish: ({ toolCalls }) => {
       if (toolCalls && toolCalls.length > 0) {
         logger.debug(
