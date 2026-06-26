@@ -70,7 +70,6 @@ export default function StandardRuleFields({
   isCyclic,
   cyclicFeatureId,
   conditionKey,
-  scheduleToggleEnabled: _scheduleToggleEnabled,
   setScheduleToggleEnabled,
   ruleRampSchedule,
   rampSectionState,

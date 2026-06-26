@@ -1,7 +1,7 @@
 import type { z } from "zod";
 import type { FeatureInterface, FeatureRule } from "shared/types/feature";
 import type { postFeatureRuleV2 } from "shared/validators";
-import { validateScheduleRules } from "shared/util";
+import { validateScheduleRules, setConfigBacking } from "shared/util";
 import type { ApiReqContext } from "back-end/types/api";
 import { BadRequestError } from "back-end/src/util/errors";
 import type { ApiFeatureEnvSettings } from "./postFeature";
@@ -67,7 +67,12 @@ export function mapV2ApiRuleToFeatureRule(
       experimentId: ruleInput.experimentId,
       variations: ruleInput.variations.map((v) => ({
         variationId: v.variationId,
-        value: v.value,
+        // When `config` is supplied, `value` is an override patch; recompose it
+        // into the internal `$extends`-first value. null detaches any config.
+        value:
+          v.config !== undefined
+            ? setConfigBacking(v.config, v.value)
+            : v.value,
       })),
       ...(ruleInput.sparse !== undefined && { sparse: ruleInput.sparse }),
     };
@@ -76,7 +81,10 @@ export function mapV2ApiRuleToFeatureRule(
     return {
       ...baseRule,
       type: "rollout" as const,
-      value: ruleInput.value,
+      value:
+        ruleInput.config !== undefined
+          ? setConfigBacking(ruleInput.config, ruleInput.value)
+          : ruleInput.value,
       ...(ruleInput.sparse !== undefined && { sparse: ruleInput.sparse }),
       coverage: ruleInput.coverage ?? 1,
       hashAttribute: ruleInput.hashAttribute ?? "",
@@ -112,7 +120,10 @@ export function mapV2ApiRuleToFeatureRule(
   return {
     ...baseRule,
     type: "force" as const,
-    value: ruleInput.value,
+    value:
+      ruleInput.config !== undefined
+        ? setConfigBacking(ruleInput.config, ruleInput.value)
+        : ruleInput.value,
     ...(ruleInput.sparse !== undefined && { sparse: ruleInput.sparse }),
   };
 }

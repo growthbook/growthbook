@@ -9,7 +9,11 @@ import {
 import { ownerInputField, optionalOwnerInputField } from "./owner-field";
 import {
   apiEventUserValidator,
-  apiFeatureRuleValidator,
+  apiFeatureBaseRuleValidator,
+  apiFeatureForceRuleValidator,
+  apiFeatureRolloutRuleValidator,
+  apiFeatureExperimentRuleValidator,
+  apiFeatureSafeRolloutRuleValidator,
   apiRevisionPrerequisiteV2,
   apiRevisionMetadata,
   apiFeatureHoldout,
@@ -44,9 +48,67 @@ const apiRuleScopeExtension = z
 
 // ---- FeatureRuleV2 (schemas/FeatureRuleV2.yaml) ----
 
+// Config-backing surfaced as a discrete field instead of the internal
+// `$extends: ["@config:…"]` directive. When set, the accompanying value is a
+// JSON override patch merged on top of the config's resolved JSON (the patch's
+// own keys win). `@const:` extends are never config-backing and pass through
+// untouched inside the raw value. Force/rollout carry a single rule-level
+// config; experiment-ref carries one per variation (each variation value can
+// back a different config in the family).
+const apiRuleConfigField = z
+  .string()
+  .nullable()
+  .describe(
+    "Key of the config backing this value, or null when the value is not config-backed. The config supplies the base JSON (and its schema); the value is an override patch merged on top.",
+  )
+  .optional();
+
+const apiFeatureForceRuleV2 = z.intersection(
+  apiFeatureForceRuleValidator,
+  z.object({ config: apiRuleConfigField }),
+);
+
+const apiFeatureRolloutRuleV2 = z.intersection(
+  apiFeatureRolloutRuleValidator,
+  z.object({ config: apiRuleConfigField }),
+);
+
+// Rebuilt (rather than intersected) so each variation can carry its own
+// `config`; intersecting the v1 experiment-ref shape would leave the v1
+// variation array (without config) in place.
+const apiFeatureExperimentRefRuleV2 = z.intersection(
+  apiFeatureBaseRuleValidator,
+  z.object({
+    type: z.literal("experiment-ref"),
+    variations: z.array(
+      z.object({
+        value: z.string(),
+        variationId: z.string(),
+        config: apiRuleConfigField,
+      }),
+    ),
+    experimentId: z.string(),
+    sparse: z
+      .boolean()
+      .describe(
+        "JSON features only. When true, each variation `value` is a partial object merged onto the feature's default value instead of replacing it.",
+      )
+      .optional(),
+  }),
+);
+
 export const apiFeatureRuleV2Validator = namedSchema(
   "FeatureRuleV2",
-  z.intersection(apiFeatureRuleValidator, apiRuleScopeExtension),
+  z.intersection(
+    z.union([
+      apiFeatureForceRuleV2,
+      apiFeatureRolloutRuleV2,
+      apiFeatureExperimentRuleValidator,
+      apiFeatureExperimentRefRuleV2,
+      apiFeatureSafeRolloutRuleValidator,
+    ]),
+    apiRuleScopeExtension,
+  ),
 );
 export type ApiFeatureRuleV2 = z.infer<typeof apiFeatureRuleV2Validator>;
 
@@ -354,6 +416,17 @@ const v2SparseRuleField = z
   )
   .optional();
 
+// When set on a write, `value` is treated as a JSON override patch and stored
+// as `$extends: ["@config:<config>"]` + the patch under the hood. null/omitted
+// stores `value` verbatim (a plain value, or `@const:`-extended JSON).
+const v2RuleConfigInput = z
+  .string()
+  .nullable()
+  .optional()
+  .describe(
+    "Key of a config to back this value. When set, `value` is a JSON override patch merged on top of the config; omit or null for a plain value.",
+  );
+
 const v2RuleForceBase = z.object({
   description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   condition: z.string().optional(),
@@ -364,6 +437,7 @@ const v2RuleForceBase = z.object({
   enabled: z.boolean().optional(),
   type: z.literal("force"),
   value: z.string(),
+  config: v2RuleConfigInput,
   sparse: v2SparseRuleField,
 });
 
@@ -377,6 +451,7 @@ const v2RuleRolloutBase = z.object({
   enabled: z.boolean().optional(),
   type: z.literal("rollout"),
   value: z.string(),
+  config: v2RuleConfigInput,
   sparse: v2SparseRuleField,
   coverage: z.number(),
   hashAttribute: z.string(),
@@ -392,7 +467,13 @@ const v2RuleExperimentRefBase = z.object({
   savedGroupTargeting: z.array(postFeatureSavedGroupTargeting).optional(),
   prerequisites: z.array(postFeaturePrerequisite).optional(),
   scheduleRules: z.array(apiScheduleRule).optional(),
-  variations: z.array(z.object({ value: z.string(), variationId: z.string() })),
+  variations: z.array(
+    z.object({
+      value: z.string(),
+      variationId: z.string(),
+      config: v2RuleConfigInput,
+    }),
+  ),
   experimentId: z.string(),
   sparse: v2SparseRuleField,
 });

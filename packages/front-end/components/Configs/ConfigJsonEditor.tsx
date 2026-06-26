@@ -220,13 +220,15 @@ export default function ConfigJsonEditor({
   // (ancestor-owned) are never added; they belong to a parent. Only JSON Schema
   // is auto-grown (TS is hand-edited; reconciliation keeps saves clean).
   useEffect(() => {
-    if (!canEdit || schemaLang !== "json" || view === "preview") return;
+    if (!canEdit || view === "preview") return;
     const valueObj = parsePlainObject(valueText);
     if (!valueObj) {
       setParseError(valueText.trim() ? "Value must be a JSON object" : null);
       return;
     }
     setParseError(null);
+    // Auto-grow only applies to JSON Schema; TS schemas are hand-edited.
+    if (schemaLang !== "json") return;
     const valueKeys = Object.keys(valueObj).filter((k) => k !== "$extends");
     setSchemaText((prev) => {
       const schemaObj = parsePlainObject(prev);

@@ -199,10 +199,32 @@ describe("config-backed feature values", () => {
     expect(setConfigBacking(null, '{"a":1}')).toBe('{"a":1}');
   });
 
-  it("drops any stray $extends from the incoming patch", () => {
+  it("drops any stray @config: from the incoming patch", () => {
     expect(setConfigBacking("base", '{"$extends":["@config:x"],"a":1}')).toBe(
       '{"$extends":["@config:base"],"a":1}',
     );
+  });
+
+  it("keeps @const: refs from the patch after the config ref", () => {
+    expect(setConfigBacking("base", '{"$extends":["@const:c"],"a":1}')).toBe(
+      '{"$extends":["@config:base","@const:c"],"a":1}',
+    );
+  });
+
+  it("preserves @const: refs when detaching the config", () => {
+    expect(setConfigBacking(null, '{"$extends":["@const:c"],"a":1}')).toBe(
+      '{"$extends":["@const:c"],"a":1}',
+    );
+  });
+
+  it("returns a non-object patch verbatim when detaching", () => {
+    expect(setConfigBacking(null, "true")).toBe("true");
+  });
+
+  it("getConfigBackingPatch keeps @const: refs while dropping the config", () => {
+    expect(
+      getConfigBackingPatch('{"$extends":["@config:base","@const:c"],"a":1}'),
+    ).toBe('{"$extends":["@const:c"],"a":1}');
   });
 
   it("round-trips key + patch via the getters", () => {

@@ -1,6 +1,10 @@
 import { ConfigInterface, ConfigWithoutValue } from "shared/types/config";
 import { SimpleSchema } from "shared/types/feature";
-import { configValidator, getCyclicConstantRefs } from "shared/validators";
+import {
+  ApiConfig,
+  configValidator,
+  getCyclicConstantRefs,
+} from "shared/validators";
 import {
   getConfigParentKey,
   withParentExtends,
@@ -72,9 +76,7 @@ export class ConfigModel extends BaseClass {
     );
     if (cyclic.length) {
       throw new BadRequestError(
-        `This config references ${cyclic
-          .map((k) => `@const:${k}`)
-          .join(", ")}, which would create a reference cycle.`,
+        `This config references ${cyclic.join(", ")}, which would create a reference cycle.`,
       );
     }
   }
@@ -155,6 +157,30 @@ export class ConfigModel extends BaseClass {
     const ancestorKeys = getAncestorSchemaKeys({ parent: parentKey }, byKey);
     const kept = stripAncestorOwnedFields(schema, ancestorKeys);
     return kept ? { ...schema, fields: kept } : schema;
+  }
+
+  // Project a config into its external REST shape. `ownerEmail` is left blank
+  // here and filled in by `resolveOwnerEmail(s)` in the handler (a batched user
+  // lookup), mirroring the constant serializer. `$extends` never appears in the
+  // stored `value`, so it's safe to surface verbatim.
+  public toApiInterface(config: ConfigInterface): ApiConfig {
+    return {
+      id: config.id,
+      key: config.key,
+      name: config.name,
+      owner: config.owner,
+      ownerEmail: "",
+      parent: config.parent,
+      value: config.value,
+      environmentValues: config.environmentValues,
+      description: config.description,
+      project: config.project,
+      archived: config.archived,
+      schema: config.schema,
+      extensible: config.extensible,
+      dateCreated: config.dateCreated.toISOString(),
+      dateUpdated: config.dateUpdated.toISOString(),
+    };
   }
 
   // Value-omitted projection for the definitions context (values can be large).

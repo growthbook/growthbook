@@ -1,5 +1,10 @@
 import isEqual from "lodash/isEqual";
-import { resetReviewOnChange } from "shared/util";
+import {
+  resetReviewOnChange,
+  getConfigBackingKey,
+  getConfigBackingPatch,
+  setConfigBacking,
+} from "shared/util";
 import {
   RevisionRampCreateAction,
   RevisionRampUpdateAction,
@@ -150,6 +155,41 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
         );
       (updatedRule as FeatureRule).allEnvironments = resolvedAllEnvs;
       (updatedRule as FeatureRule).environments = resolvedEnvs;
+    }
+
+    // Recompose config-backing into the stored value(s). For force/rollout an
+    // omitted `config`/`value` is preserved from the existing rule; `config:
+    // null` detaches. Experiment-ref variations are replaced wholesale, so each
+    // variation's `config` is taken literally (omitted = plain value).
+    if (
+      (updatedRule.type === "force" || updatedRule.type === "rollout") &&
+      (oldRule.type === "force" || oldRule.type === "rollout") &&
+      (patch.config !== undefined || patch.value !== undefined)
+    ) {
+      const existingConfig = getConfigBackingKey(oldRule.value);
+      if (patch.config !== undefined || existingConfig !== null) {
+        const existingPatch =
+          existingConfig !== null
+            ? getConfigBackingPatch(oldRule.value)
+            : oldRule.value;
+        const newConfig =
+          patch.config !== undefined ? patch.config : existingConfig;
+        const newPatch =
+          patch.value !== undefined ? patch.value : existingPatch;
+        updatedRule.value = setConfigBacking(newConfig, newPatch);
+      }
+    }
+    if (
+      updatedRule.type === "experiment-ref" &&
+      patch.variations !== undefined
+    ) {
+      updatedRule.variations = patch.variations.map((v) => ({
+        variationId: v.variationId,
+        value:
+          v.config !== undefined
+            ? setConfigBacking(v.config, v.value)
+            : v.value,
+      }));
     }
 
     validateRuleConditions({

@@ -10,6 +10,7 @@ import { useUser } from "@/services/UserContext";
 import Button from "@/ui/Button";
 import Heading from "@/ui/Heading";
 import Badge from "@/ui/Badge";
+import Link from "@/ui/Link";
 import JSONSchemaDescription from "@/components/Features/JSONSchemaDescription";
 import Code from "@/components/SyntaxHighlighting/Code";
 import EditSchemaModal from "@/components/Features/EditSchemaModal";
@@ -63,9 +64,9 @@ export default function JSONValidation({
         </Flex>
         <em className="text-muted">
           This flag&apos;s default value is backed by the{" "}
-          <a href={`/configs/${configBackedKey}`}>
+          <Link href={`/configs/${configBackedKey}`}>
             <code>{configBackedKey}</code>
-          </a>{" "}
+          </Link>{" "}
           config, which supplies its own schema. The flag-level schema is
           disabled while a config is attached.
         </em>

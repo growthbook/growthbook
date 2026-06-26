@@ -185,9 +185,9 @@ export default function ConfigFieldRow({
                   );
                 })()}
                 {editError && (
-                  <Text size="small" color="text-mid">
+                  <div style={{ color: "var(--red-11)", fontSize: 12 }}>
                     {editError}
-                  </Text>
+                  </div>
                 )}
               </>
             ) : (

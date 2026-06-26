@@ -2101,11 +2101,37 @@ function decomposeConfigValue(stored: string | undefined): {
 
 export function normalizeRuleForApiV2(rule: FeatureRule): ApiFeatureRuleV2 {
   const base = normalizeRuleForApi(rule);
-  return {
+  const scoped = {
     ...base,
     allEnvironments: rule.allEnvironments ?? true,
     ...(rule.environments !== undefined && { environments: rule.environments }),
   };
+
+  // Split config-backing out of the raw value into a discrete `config` field so
+  // callers never see the internal `$extends: ["@config:…"]` directive.
+  // `@const:`-extended (non-config) values pass through untouched.
+  if (scoped.type === "force" || scoped.type === "rollout") {
+    const { value, config } = decomposeConfigValue(scoped.value);
+    return {
+      ...scoped,
+      value: value ?? "",
+      ...(config !== null && { config }),
+    };
+  }
+  if (scoped.type === "experiment-ref") {
+    return {
+      ...scoped,
+      variations: scoped.variations.map((v) => {
+        const { value, config } = decomposeConfigValue(v.value);
+        return {
+          ...v,
+          value: value ?? "",
+          ...(config !== null && { config }),
+        };
+      }),
+    };
+  }
+  return scoped;
 }
 
 // v2 exposes a flat `rules: FeatureRuleV2[]` array; each rule carries its

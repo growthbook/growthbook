@@ -133,12 +133,18 @@ export default function EditSchemaField({
                 <Field
                   label={value.type === "string" ? "Min Length" : "Minimum"}
                   value={value.min}
-                  max={value.max || undefined}
+                  max={value.max ?? undefined}
                   min={value.type === "string" ? 0 : undefined}
                   type="number"
                   step={value.type !== "float" ? 1 : "any"}
                   onChange={(e) =>
-                    onChange({ ...value, min: parseInt(e.target.value) })
+                    onChange({
+                      ...value,
+                      min:
+                        value.type === "float"
+                          ? parseFloat(e.target.value)
+                          : parseInt(e.target.value),
+                    })
                   }
                 />
               </div>
@@ -147,11 +153,17 @@ export default function EditSchemaField({
                   label={value.type === "string" ? "Max Length" : "Maximum"}
                   value={value.max}
                   type="number"
-                  min={value.min || undefined}
+                  min={value.min ?? undefined}
                   max={value.type === "string" ? 256 : undefined}
                   step={value.type !== "float" ? 1 : "any"}
                   onChange={(e) =>
-                    onChange({ ...value, max: parseInt(e.target.value) })
+                    onChange({
+                      ...value,
+                      max:
+                        value.type === "float"
+                          ? parseFloat(e.target.value)
+                          : parseInt(e.target.value),
+                    })
                   }
                 />
               </div>

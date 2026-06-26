@@ -95,38 +95,44 @@ export function getConfigBackingKey(value: string | undefined): string | null {
   return m ? m[1] : null;
 }
 
-// The override patch of a config-backed value: its own keys (everything but the
-// `$extends` directive), as a JSON string. Empty object when there is no patch.
+// The override patch of a config-backed value: its own keys plus any non-config
+// `$extends` refs (e.g. `@const:`), as a JSON string. "{}" when empty.
 export function getConfigBackingPatch(value: string | undefined): string {
-  const obj = parsePlainJSONObject(value ?? "");
-  if (!obj) return "{}";
-  const rest = { ...obj };
-  delete rest[CONSTANT_EXTENDS_KEY];
-  return JSON.stringify(rest);
+  return stripConfigExtends(value) ?? "{}";
 }
 
 // Compose a config key + an override patch into the stored value string. The
-// config ref is always the first `$extends` entry (the base layer). With no
-// config key, returns the patch unchanged (plain value). An unparseable patch is
-// treated as an empty object.
+// config ref is the first `$extends` entry (the base layer); any `@const:` refs
+// in the patch are preserved after it. With no config key, returns the patch
+// with its `@config:` ref stripped. A non-object patch (e.g. `true`) is returned
+// verbatim when detaching, so plain values aren't clobbered.
 export function setConfigBacking(
   configKey: string | null,
   patch: string | undefined,
 ): string {
-  const rest = parsePlainJSONObject(patch ?? "") ?? {};
+  const obj = parsePlainJSONObject(patch ?? "");
+  if (!obj) {
+    if (!configKey) return patch ?? "";
+    return JSON.stringify({ [CONSTANT_EXTENDS_KEY]: [`@config:${configKey}`] });
+  }
+  const prior = obj[CONSTANT_EXTENDS_KEY];
+  const constantRefs = Array.isArray(prior)
+    ? prior.filter(
+        (r): r is string => typeof r === "string" && r.startsWith("@const:"),
+      )
+    : [];
+  const rest = { ...obj };
   delete rest[CONSTANT_EXTENDS_KEY];
-  if (!configKey) return JSON.stringify(rest);
-  return JSON.stringify({
-    [CONSTANT_EXTENDS_KEY]: [`@config:${configKey}`],
-    ...rest,
-  });
+  const list = [
+    ...(configKey ? [`@config:${configKey}`] : []),
+    ...constantRefs,
+  ];
+  if (!list.length) return JSON.stringify(rest);
+  return JSON.stringify({ [CONSTANT_EXTENDS_KEY]: list, ...rest });
 }
 
-// `rootKey` plus every config that descends from it, in BFS order (root first,
-// then each level). Builds a children adjacency map once (O(N)) and walks only
-// the subtree, keyed off `getConfigParentKey` so legacy `$extends`-only data
-// still links up. Cycle-safe. Used to constrain which configs a rule may
-// override with (the feature default's config or its children) and to build the
+// `rootKey` plus every config descending from it, in BFS order. Cycle-safe.
+// Used to constrain which configs a rule may override with, and to build the
 // lineage tree on the config detail page.
 export function getConfigSubtree(
   rootKey: string,
@@ -154,11 +160,9 @@ export function getConfigSubtree(
   return ordered;
 }
 
-// Ensure a value for a config-backed feature carries a config ref. A rule (or
-// default value) that doesn't explicitly reference a config implicitly serves
-// the feature's base/default config, so we prepend it when the leading
-// `@config:` entry is missing. No-op when there's no default config key (a
-// non-config feature) or the value already references a config.
+// Ensure a config-backed feature's value carries a config ref: a rule that
+// doesn't reference one implicitly serves the feature's default config, so
+// prepend it. No-op for non-config features or already-backed values.
 export function ensureConfigBacking(
   value: string | undefined,
   defaultConfigKey: string | null,
@@ -259,7 +263,7 @@ export function resolveConfigChain(chain: ConfigChainNode[]): {
   for (const node of chain) {
     const obj = parsePlainJSONObject(node.value ?? "") ?? {};
     for (const [k, v] of Object.entries(obj)) {
-      if (k === "$extends") continue;
+      if (k === CONSTANT_EXTENDS_KEY) continue;
       valueByKey.set(k, { value: v, source: node.key });
     }
   }

@@ -1,0 +1,123 @@
+import { Revision } from "shared/enterprise";
+import {
+  archiveConfigValidator,
+  unarchiveConfigValidator,
+} from "shared/validators";
+import { ConfigInterface } from "shared/types/config";
+import { resolveOwnerEmail } from "back-end/src/services/owner";
+import { ApiReqContext } from "back-end/types/api";
+import { createApiRequestHandler } from "back-end/src/util/handler";
+import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
+import { getAdapter } from "back-end/src/revisions";
+import {
+  buildPatchOps,
+  ensureLiveRevisionExists,
+} from "back-end/src/revisions/util";
+import { assertConstantArchivable } from "back-end/src/services/constants";
+
+async function buildResponse(context: ApiReqContext, config: ConfigInterface) {
+  return {
+    config: await resolveOwnerEmail(
+      context.models.configs.toApiInterface(config),
+      context,
+    ),
+  };
+}
+
+async function setArchivedState(
+  context: ApiReqContext,
+  key: string,
+  archived: boolean,
+) {
+  const config = await context.models.configs.getByKey(key);
+  if (!config) {
+    throw new NotFoundError(`Unable to locate the config: ${key}`);
+  }
+
+  if (!context.permissions.canUpdateConfig(config, config)) {
+    context.permissions.throwPermissionError();
+  }
+
+  // Idempotent: skip the write if already in the desired state.
+  if (!!config.archived === archived) {
+    return buildResponse(context, config);
+  }
+
+  // Block archiving a still-referenced config (parity with the internal flow).
+  // Unarchiving is always allowed.
+  if (archived) {
+    await assertConstantArchivable(context, config.id, "config");
+  }
+
+  // Archiving/unarchiving is a metadata-only change. Respect the same approval
+  // gate as the dashboard flow and the REST update endpoint — otherwise these
+  // endpoints would bypass required (metadata) reviews. They take no body, so
+  // bypass is only via the org's `restApiBypassesReviews` setting or the
+  // caller's bypass permission.
+  const adapter = getAdapter("config");
+  const patchOps = buildPatchOps({ archived });
+  const approvalRequired = adapter.isApprovalRequiredForRevision
+    ? adapter.isApprovalRequiredForRevision(context, {
+        target: { snapshot: config, proposedChanges: patchOps },
+      } as unknown as Revision)
+    : adapter.isApprovalRequired(context);
+
+  if (approvalRequired) {
+    const canBypass =
+      !!context.org.settings?.restApiBypassesReviews ||
+      adapter.canBypassApproval(
+        context,
+        config as unknown as Record<string, unknown>,
+      );
+    if (!canBypass) {
+      throw new BadRequestError(
+        "This organization requires approvals for this config. " +
+          `Use \`POST /configs-revisions/${config.key}\` to ${
+            archived ? "archive" : "unarchive"
+          } it through a draft, or use a role/token with the bypass permission.`,
+      );
+    }
+    // Record the already-merged revision FIRST, then apply it to the live
+    // entity. If the apply fails, delete the just-created revision so we never
+    // leave a merged record with no corresponding live change.
+    await ensureLiveRevisionExists(
+      context,
+      "config",
+      config as unknown as Record<string, unknown> & {
+        id: string;
+        owner?: string;
+        dateCreated?: Date;
+      },
+    );
+    const merged = await context.models.revisions.createMerged({
+      type: "config",
+      id: config.id,
+      snapshot: config as unknown as Record<string, unknown>,
+      proposedChanges: patchOps,
+      bypass: true,
+    });
+    let updated: Partial<ConfigInterface>;
+    try {
+      updated = await context.models.configs.update(config, { archived });
+    } catch (e) {
+      try {
+        await context.models.revisions.deleteById(merged.id);
+      } catch {
+        // ignore — surface the original update error
+      }
+      throw e;
+    }
+    return buildResponse(context, { ...config, ...updated });
+  }
+
+  const updated = await context.models.configs.update(config, { archived });
+  return buildResponse(context, { ...config, ...updated });
+}
+
+export const archiveConfig = createApiRequestHandler(archiveConfigValidator)(
+  async (req) => setArchivedState(req.context, req.params.key, true),
+);
+
+export const unarchiveConfig = createApiRequestHandler(
+  unarchiveConfigValidator,
+)(async (req) => setArchivedState(req.context, req.params.key, false));
