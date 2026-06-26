@@ -377,6 +377,13 @@ export const postFigmaToVariant = createApiRequestHandler(validation)(async (
     zodObjectSchema: outputSchema,
     overrideModel: visionModel,
     cacheSystemPrompt: true,
+    // Figma → Variant emits a whole component's HTML + scoped CSS, the
+    // largest single artifact this codebase generates. Raise the cap well
+    // above the 8000 default so big components don't truncate mid-JSON
+    // (NoObjectGeneratedError). 16000 stays under modern model ceilings;
+    // very old/small self-hosted models (8192 cap) are the only ones this
+    // could over-shoot.
+    maxOutputTokens: 16000,
   });
 
   // The model judged the design too large for a scoped in-page component.

@@ -16,6 +16,14 @@ import {
 } from "back-end/src/api/visual-editor-ai/aiTools";
 import { aiEditJobStore } from "back-end/src/api/visual-editor-ai/aiTools/clientJob";
 
+// Output-token cap for the edit generation. Above the 8000 parsePrompt
+// default because an edit can REPLACE the variation's entire global CSS/JS
+// (the model must re-emit all existing rules) — on a large stylesheet that
+// blows past 8000 and truncates mid-JSON (NoObjectGeneratedError). 16000
+// stays under modern model ceilings; only very old/small self-hosted models
+// (8192 cap) could over-shoot. Used for both the main and retry generations.
+const EDIT_MAX_OUTPUT_TOKENS = 16000;
+
 const elementContextSchema = z.object({
   selector: z.string(),
   tagName: z.string(),
@@ -611,6 +619,7 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
       zodObjectSchema: outputSchema,
       overrideModel: visualEditorAIModel,
       cacheSystemPrompt: true,
+      maxOutputTokens: EDIT_MAX_OUTPUT_TOKENS,
       // This is itself a retry (selector self-correction), so disable
       // parsePrompt's no-object retry — otherwise one request could fan
       // out to 4 LLM calls. finalizeOutput's try/catch already keeps the
@@ -776,6 +785,7 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
     tools,
     maxSteps: VISUAL_EDITOR_MAX_STEPS,
     cacheSystemPrompt: true,
+    maxOutputTokens: EDIT_MAX_OUTPUT_TOKENS,
     // Attach the picked-element selectors to the structured-output failure
     // logs so we can see which selectors (e.g. hashed classes) correlate
     // with "couldn't format a valid response" errors. Diagnostic only.
