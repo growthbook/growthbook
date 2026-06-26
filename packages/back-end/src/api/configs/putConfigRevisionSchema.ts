@@ -6,6 +6,7 @@ import {
   createOrUpdateRevision,
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
+import { assertConfigValueValid } from "back-end/src/services/configValidation";
 import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
 import {
   applyRevisionToSnapshot,
@@ -73,6 +74,20 @@ export const putConfigRevisionSchema = createApiRequestHandler(
         { key: config.key, parent: draft.parent, value: draft.value },
         schema,
       );
+
+    // The new schema must still admit the draft's value(s) (opt out with
+    // ?skipSchemaValidation=true).
+    await assertConfigValueValid(
+      req.context,
+      {
+        key: config.key,
+        name: config.name,
+        value: draft.value,
+        schema: normalizedSchema,
+        parent: draft.parent,
+      },
+      { value: draft.value, environmentValues: draft.environmentValues },
+    );
 
     const updated = await createOrUpdateRevision(
       req.context,

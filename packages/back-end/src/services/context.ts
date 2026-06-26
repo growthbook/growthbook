@@ -336,6 +336,17 @@ export class ReqContextClass {
     return stringToBoolean(v);
   }
 
+  // Opt-in escape hatch to skip JSON-schema / value-shape conformance checks on
+  // write paths (`?skipSchemaValidation=true`). Validation is enforced by
+  // default; this only relaxes it when a caller explicitly asks. Background jobs
+  // (no req) never skip — they must produce conforming data.
+  public get skipSchemaValidation(): boolean {
+    if (!this.req) return false;
+    const v = this.req.query?.skipSchemaValidation;
+    if (typeof v !== "string") return false;
+    return stringToBoolean(v);
+  }
+
   public throwBadRequestError(message: string): never {
     throw new BadRequestError(message);
   }

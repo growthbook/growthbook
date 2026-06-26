@@ -208,6 +208,20 @@ export default function FeatureSettings() {
           </Box>
 
           <Box mb="6" width="100%">
+            <Checkbox
+              id="toggle-blockPublishOnSchemaError"
+              label="Block publishing on JSON schema errors"
+              description="When publishing a revision, re-check feature and config values against their JSON schema and block the publish if they don't match. Disable to surface a bypassable warning instead. Per-request edits are always validated unless ?skipSchemaValidation=true is passed."
+              value={form.watch("blockPublishOnSchemaError") ?? true}
+              setValue={(value) =>
+                form.setValue("blockPublishOnSchemaError", value, {
+                  shouldDirty: true,
+                })
+              }
+            />
+          </Box>
+
+          <Box mb="6" width="100%">
             {/* TODO(UI): move to a neutral org-level "Revisions" section once
                 saved groups & others enforce this cap (it's not feature-only). */}
             <Checkbox

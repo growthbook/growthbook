@@ -9,6 +9,7 @@ import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError } from "back-end/src/util/errors";
 import { assertKeyAvailableAcrossNamespace } from "back-end/src/services/constants";
+import { assertConfigValueValid } from "back-end/src/services/configValidation";
 import { getAdapter } from "back-end/src/revisions";
 import {
   buildPatchOps,
@@ -62,6 +63,22 @@ export const postConfig = createApiRequestHandler(postConfigValidator)(async (
       { key, parent: parent || undefined, value },
       schema,
     );
+
+  // Enforce the value against the (effective) schema. Opt out with
+  // ?skipSchemaValidation=true.
+  const storedValue = stripConfigExtends(value);
+  await assertConfigValueValid(
+    req.context,
+    {
+      key,
+      name,
+      value: storedValue,
+      schema: normalizedSchema,
+      parent: parent || undefined,
+      extensible,
+    },
+    { value: storedValue, environmentValues },
+  );
 
   // Cycle rejection is enforced in ConfigModel (covers every write path).
 

@@ -4,6 +4,7 @@ import {
   normalizeProposedChanges,
 } from "shared/enterprise";
 import { postConfigRevisionPublishValidator } from "shared/validators";
+import { SimpleSchema } from "shared/types/feature";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
   BadRequestError,
@@ -13,6 +14,7 @@ import {
 } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
 import { buildMergeDesiredState } from "back-end/src/revisions/util";
+import { assertConfigValueValidForPublish } from "back-end/src/services/configValidation";
 import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
 import { loadRevisionByVersion } from "./validations";
 import { toApiConfigRevision } from "./toApiConfigRevision";
@@ -143,6 +145,31 @@ export const postConfigRevisionPublish = createApiRequestHandler(
     });
     return { revision: await toApiConfigRevision(merged, req.context) };
   }
+
+  // Publish-time safety net (org-configurable strictness): the post-publish
+  // value must still conform to its effective schema (catches ancestor-schema
+  // changes and skip-flag stages).
+  const postValue = (desiredState.value as string | undefined) ?? config.value;
+  await assertConfigValueValidForPublish(
+    req.context,
+    {
+      key: config.key,
+      name: config.name,
+      value: postValue,
+      schema:
+        (desiredState.schema as SimpleSchema | undefined) ?? config.schema,
+      parent: (desiredState.parent as string | undefined) ?? config.parent,
+      extensible:
+        (desiredState.extensible as boolean | undefined) ?? config.extensible,
+    },
+    {
+      value: postValue,
+      environmentValues:
+        (desiredState.environmentValues as
+          | Record<string, string>
+          | undefined) ?? config.environmentValues,
+    },
+  );
 
   // Claim the merge BEFORE applying to the live entity. `merge` is CAS-guarded,
   // so a concurrent discard either already lost or will lose its `close` CAS.

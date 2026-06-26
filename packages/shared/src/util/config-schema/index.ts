@@ -78,3 +78,4 @@ export * from "./json-value";
 export * from "./json-schema";
 export * from "./typescript";
 export * from "./registry";
+export * from "./validate";

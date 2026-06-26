@@ -17,6 +17,7 @@ import { getLatestPhaseVariations } from "shared/experiments";
 import {
   toApiRevisionV2,
   addIdsToFlatRules,
+  assertFeatureValuesValid,
 } from "back-end/src/services/features";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -201,6 +202,12 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
     // Backfill seed for rollout rules to ensure ramp-monitored payload
     // stability — consistent with the write-time backfill in addIdsToFlatRules.
     addIdsToFlatRules([rule as FeatureRule], feature.id);
+
+    // Enforce the feature's JSON schema on the new rule's values (no-op for
+    // config-backed values). Opt out with ?skipSchemaValidation=true.
+    assertFeatureValuesValid(req.context, feature, {
+      rules: [rule as FeatureRule],
+    });
 
     validateRuleConditions(rule);
     // Opt-in registered-attribute check before any side effects (safe-rollout

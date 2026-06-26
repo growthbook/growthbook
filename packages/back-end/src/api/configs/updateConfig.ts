@@ -15,6 +15,7 @@ import {
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
 import { reconcileConfigDescendants } from "back-end/src/services/configReconcile";
+import { assertConfigValueValid } from "back-end/src/services/configValidation";
 import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
 
 export const updateConfig = createApiRequestHandler(updateConfigValidator)(
@@ -136,6 +137,35 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
           req.context,
         ),
       };
+    }
+
+    // Re-validate the post-update value against the post-update effective
+    // schema whenever anything that affects conformance changed. Opt out with
+    // ?skipSchemaValidation=true.
+    if (
+      fieldsToUpdate.value !== undefined ||
+      fieldsToUpdate.schema !== undefined ||
+      fieldsToUpdate.environmentValues !== undefined ||
+      fieldsToUpdate.extensible !== undefined ||
+      parentChanged
+    ) {
+      const postValue = fieldsToUpdate.value ?? config.value;
+      await assertConfigValueValid(
+        req.context,
+        {
+          key: config.key,
+          name: config.name,
+          value: postValue,
+          schema: fieldsToUpdate.schema ?? config.schema,
+          parent: effectiveParent || undefined,
+          extensible: fieldsToUpdate.extensible ?? config.extensible,
+        },
+        {
+          value: postValue,
+          environmentValues:
+            fieldsToUpdate.environmentValues ?? config.environmentValues,
+        },
+      );
     }
 
     // A schema change or a parent move both shift the subtree's effective

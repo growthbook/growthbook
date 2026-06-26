@@ -1,6 +1,6 @@
 import type { OrganizationInterface } from "shared/types/organization";
 import { putFeatureRevisionDefaultValueValidator } from "shared/validators";
-import { resetReviewOnChange } from "shared/util";
+import { resetReviewOnChange, validateFeatureValue } from "shared/util";
 import type { ApiReqContext } from "back-end/types/api";
 import { toApiRevision } from "back-end/src/services/features";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
@@ -52,9 +52,18 @@ export async function setRevisionDefaultValue(
       );
     }
 
+    // Always normalize; enforce the schema unless ?skipSchemaValidation=true.
+    const defaultValue = validateFeatureValue(
+      context.skipSchemaValidation
+        ? { ...feature, jsonSchema: undefined }
+        : feature,
+      body.defaultValue,
+      "Default value",
+    );
+
     const currentDefaultValue =
       revision.defaultValue ?? feature.defaultValue ?? "";
-    if (currentDefaultValue === body.defaultValue) {
+    if (currentDefaultValue === defaultValue) {
       await discardIfJustCreated(context, revision, created);
       return { feature, revision };
     }
@@ -63,12 +72,12 @@ export async function setRevisionDefaultValue(
       context,
       feature,
       revision,
-      { defaultValue: body.defaultValue },
+      { defaultValue },
       {
         user: context.auditUser,
         action: "edit default value",
         subject: "",
-        value: body.defaultValue,
+        value: defaultValue,
       },
       resetReviewOnChange({
         feature,

@@ -116,6 +116,7 @@ import { getEnabledEnvironments as getEnabledHoldoutEnvironments } from "back-en
 import { getApplicableEnvIds } from "back-end/src/util/flattenRules";
 import { bucketRulesByEnv } from "back-end/src/util/toLegacy";
 import { ReqContext } from "back-end/types/request";
+import { BadRequestError, SoftWarningError } from "back-end/src/util/errors";
 import { getSDKPayloadCacheLocation } from "back-end/src/models/SdkConnectionCacheModel";
 import { logger } from "back-end/src/util/logger";
 import { Counter, Histogram, metrics } from "back-end/src/util/metrics";
@@ -2756,13 +2757,111 @@ export function sha256(str: string, salt: string): string {
     .digest("hex");
 }
 
+// Validate every value a single rule carries against the feature's JSON schema
+// (no-op when schema validation is disabled on the feature). Mirrors the
+// per-type value fields the front-end `validateFeatureRule` covers.
+export function validateFeatureRuleValues(
+  feature: Pick<FeatureInterface, "valueType" | "jsonSchema">,
+  rule: FeatureRule,
+): void {
+  switch (rule.type) {
+    case "force":
+    case "rollout":
+      validateFeatureValue(feature, rule.value, "Value");
+      break;
+    case "experiment":
+      (rule.values ?? []).forEach((v, i) =>
+        validateFeatureValue(feature, v.value, `Variation ${i + 1}`),
+      );
+      break;
+    case "experiment-ref":
+      (rule.variations ?? []).forEach((v, i) =>
+        validateFeatureValue(feature, v.value, `Variation ${i + 1}`),
+      );
+      break;
+    case "safe-rollout":
+      validateFeatureValue(feature, rule.controlValue, "Control value");
+      validateFeatureValue(feature, rule.variationValue, "Variation value");
+      break;
+  }
+}
+
+// Enforce JSON-schema validation for a feature's default value and/or rule
+// values. Validation is on by default; an explicit `?skipSchemaValidation=true`
+// opts out (see context.skipSchemaValidation). Pass the EFFECTIVE feature —
+// i.e. one already carrying the inbound/draft `jsonSchema`, `valueType`, so a
+// request that changes the schema validates against the new schema.
+export function assertFeatureValuesValid(
+  context: ReqContext | ApiReqContext,
+  feature: Pick<FeatureInterface, "valueType" | "jsonSchema">,
+  values: { defaultValue?: string; rules?: FeatureRule[] },
+): void {
+  if (context.skipSchemaValidation) return;
+  if (values.defaultValue !== undefined) {
+    validateFeatureValue(feature, values.defaultValue, "Default value");
+  }
+  for (const rule of values.rules ?? []) {
+    validateFeatureRuleValues(feature, rule);
+  }
+}
+
+// Publish-time safety net: re-validate the values a revision is about to make
+// live. Per-write validation already covers normal edits; this catches values
+// that became invalid after the fact (staged with ?skipSchemaValidation, or
+// before a schema change). When the org's `blockPublishOnSchemaError` is true
+// (default) a mismatch blocks the publish; when false it's a bypassable soft
+// warning.
+export function assertFeatureValuesValidForPublish(
+  context: ReqContext | ApiReqContext,
+  feature: Pick<FeatureInterface, "valueType" | "jsonSchema">,
+  values: { defaultValue?: string; rules?: FeatureRule[] },
+): void {
+  if (context.skipSchemaValidation) return;
+
+  const errors: string[] = [];
+  const collect = (fn: () => void) => {
+    try {
+      fn();
+    } catch (e) {
+      errors.push(e instanceof Error ? e.message : String(e));
+    }
+  };
+  if (values.defaultValue !== undefined) {
+    collect(() =>
+      validateFeatureValue(feature, values.defaultValue!, "Default value"),
+    );
+  }
+  for (const rule of values.rules ?? []) {
+    collect(() => validateFeatureRuleValues(feature, rule));
+  }
+  if (!errors.length) return;
+
+  // Default to blocking when the setting is absent.
+  if (context.org.settings?.blockPublishOnSchemaError === false) {
+    // Warn mode: a bypassable soft warning (?ignoreWarnings=true), consistent
+    // with the rest of the publish flow.
+    if (context.ignoreWarnings) return;
+    throw new SoftWarningError(
+      "Publishing values that don't match the feature's JSON schema:\n" +
+        errors.join("\n"),
+      errors,
+    );
+  }
+  throw new BadRequestError(errors.join(", "));
+}
+
 export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
   context: ReqContext,
   feature: FeatureInterface,
   rules: ApiFeatureEnvSettingsRules,
   existingRules?: FeatureRule[],
-): FeatureRule[] =>
-  rules.map((r) => {
+): FeatureRule[] => {
+  // Honor the opt-in `?skipSchemaValidation=true` escape hatch: drop the schema
+  // so values are still normalized (parse / dirty-json) but not schema-checked.
+  const valFeature = context.skipSchemaValidation
+    ? { ...feature, jsonSchema: undefined }
+    : feature;
+  return rules.map((r) => {
     const conditionRes = validateCondition(r.condition);
     if (!conditionRes.success) {
       throw new Error(
@@ -2812,7 +2911,7 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
           experimentId: r.experimentId,
           variations: r.variations.map((v) => ({
             variationId: v.variationId,
-            value: validateFeatureValue(feature, v.value),
+            value: validateFeatureValue(valFeature, v.value),
           })),
           ...(r.sparse !== undefined && { sparse: r.sparse }),
           ...(r.prerequisites && { prerequisites: r.prerequisites }),
@@ -2824,6 +2923,12 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
         const values = r.values || r.value;
         if (!values) {
           throw new Error("Missing values");
+        }
+        // Validate each variation value against the schema (previously skipped).
+        if (Array.isArray(values)) {
+          values.forEach((v: { value: string }, i) =>
+            validateFeatureValue(valFeature, v.value, `Variation ${i + 1}`),
+          );
         }
         const experimentRule: ExperimentRule = {
           // missing id will be filled in by addIdsToRules
@@ -2849,7 +2954,7 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
           allEnvironments: false,
           type: r.type,
           description: r.description ?? "",
-          value: validateFeatureValue(feature, r.value),
+          value: validateFeatureValue(valFeature, r.value),
           condition: r.condition,
           savedGroups: (r.savedGroupTargeting || []).map((s) => ({
             ids: s.savedGroups,
@@ -2871,7 +2976,7 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
           coverage: r.coverage,
           description: r.description ?? "",
           hashAttribute: r.hashAttribute,
-          value: validateFeatureValue(feature, r.value),
+          value: validateFeatureValue(valFeature, r.value),
           condition: r.condition,
           savedGroups: (r.savedGroupTargeting || []).map((s) => ({
             ids: s.savedGroups,
@@ -2892,6 +2997,7 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
       }
     }
   });
+};
 
 // In v2, rules live exclusively on `feature.rules` (flat). The env-settings
 // reducer only emits `{ enabled }`; rule construction (and the registered-

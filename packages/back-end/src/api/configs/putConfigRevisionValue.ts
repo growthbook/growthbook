@@ -13,6 +13,7 @@ import {
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
 import { assertNoReferenceCycle } from "back-end/src/services/constants";
+import { assertConfigValueValid } from "back-end/src/services/configValidation";
 import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
 import {
   assertValidConfigValueEdit,
@@ -88,6 +89,22 @@ export const putConfigRevisionValue = createApiRequestHandler(
         inferred,
       );
   }
+
+  // Enforce the staged value against the config's effective schema. Uses the
+  // proposed (inferred) schema when this request also sets one, so a value-first
+  // import validates against the schema it derives. Opt out with
+  // ?skipSchemaValidation=true.
+  await assertConfigValueValid(
+    req.context,
+    {
+      key: config.key,
+      name: config.name,
+      value: strippedValue ?? config.value,
+      schema: (fieldsToUpdate.schema as typeof config.schema) ?? config.schema,
+      parent: config.parent,
+    },
+    { value: strippedValue, environmentValues: strippedEnv },
+  );
 
   await ensureLiveRevisionExists(
     req.context,

@@ -6,8 +6,10 @@ import {
   createOrUpdateRevision,
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
+import { assertConfigValueValid } from "back-end/src/services/configValidation";
 import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
 import {
+  applyRevisionToSnapshot,
   discardIfJustCreated,
   isDraftStatus,
   pickNewDraftMetadata,
@@ -84,6 +86,26 @@ export const putConfigRevisionMetadata = createApiRequestHandler(
       const closed =
         (await req.context.models.revisions.getById(revision.id)) ?? revision;
       return { revision: await toApiConfigRevision(closed, req.context) };
+    }
+
+    // Reparenting or toggling extensibility changes the effective ancestor
+    // schema; the draft's existing value(s) must still conform (opt out with
+    // ?skipSchemaValidation=true).
+    if (typeof parent !== "undefined" || typeof extensible !== "undefined") {
+      const draft = applyRevisionToSnapshot(revision);
+      await assertConfigValueValid(
+        req.context,
+        {
+          key: config.key,
+          name: config.name,
+          value: draft.value,
+          schema: draft.schema,
+          parent: typeof parent !== "undefined" ? parent : draft.parent,
+          extensible:
+            typeof extensible !== "undefined" ? extensible : draft.extensible,
+        },
+        { value: draft.value, environmentValues: draft.environmentValues },
+      );
     }
 
     const updated = await createOrUpdateRevision(

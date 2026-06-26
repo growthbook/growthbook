@@ -13,6 +13,7 @@ import {
   createOrUpdateRevision,
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
+import { assertConfigValueValid } from "back-end/src/services/configValidation";
 import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
 import { loadRevisionByVersion } from "./validations";
 import { toApiConfigRevision } from "./toApiConfigRevision";
@@ -65,6 +66,28 @@ export const postConfigRevisionRevert = createApiRequestHandler(
       `Revision #${req.params.version} matches the current config — nothing to revert.`,
     );
   }
+
+  // A historical value may predate the current schema; ensure the post-revert
+  // state still conforms (against current ancestors). Opt out with
+  // ?skipSchemaValidation=true.
+  const revertedValue =
+    (fieldsToUpdate.value as string | undefined) ?? config.value;
+  const revertedEnv =
+    (fieldsToUpdate.environmentValues as Record<string, string> | undefined) ??
+    config.environmentValues;
+  await assertConfigValueValid(
+    req.context,
+    {
+      key: config.key,
+      name: config.name,
+      value: revertedValue,
+      schema: (fieldsToUpdate.schema as typeof config.schema) ?? config.schema,
+      parent: (fieldsToUpdate.parent as string | undefined) ?? config.parent,
+      extensible:
+        (fieldsToUpdate.extensible as boolean | undefined) ?? config.extensible,
+    },
+    { value: revertedValue, environmentValues: revertedEnv },
+  );
 
   const revertsBypassApproval =
     !!req.organization.settings?.revertsBypassApproval;

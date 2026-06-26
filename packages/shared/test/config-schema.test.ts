@@ -9,6 +9,7 @@ import {
   jsonValueConverter,
   reconcileSchemaFields,
   tsTypesToFields,
+  validateConfigValue,
 } from "../src/util/config-schema";
 
 const field = (over: Partial<SchemaField>): SchemaField => ({
@@ -383,5 +384,127 @@ describe("jsonValueConverter", () => {
     expect(jsonValueConverter.toFields("[1,2]").error).toBe(
       "Expected a JSON object",
     );
+  });
+});
+
+describe("validateConfigValue", () => {
+  const fields: SchemaField[] = [
+    field({ key: "timeout", type: "integer", required: true }),
+    field({ key: "name", type: "string", required: false }),
+  ];
+
+  it("accepts a value whose present fields match the schema", () => {
+    expect(
+      validateConfigValue({
+        value: { timeout: 30, name: "x" },
+        fields,
+        additionalProperties: false,
+      }).valid,
+    ).toBe(true);
+  });
+
+  it("rejects a wrong field type", () => {
+    const res = validateConfigValue({
+      value: { timeout: "not-a-number" },
+      fields,
+      additionalProperties: false,
+    });
+    expect(res.valid).toBe(false);
+    expect(res.errors.length).toBeGreaterThan(0);
+  });
+
+  it("is sparse by default (does not require inherited/unset fields)", () => {
+    expect(
+      validateConfigValue({
+        value: { name: "only-optional-set" },
+        fields,
+        additionalProperties: false,
+      }).valid,
+    ).toBe(true);
+  });
+
+  it("enforces required fields when requireAll is set", () => {
+    expect(
+      validateConfigValue({
+        value: { name: "missing-timeout" },
+        fields,
+        additionalProperties: false,
+        requireAll: true,
+      }).valid,
+    ).toBe(false);
+  });
+
+  it("rejects extra keys when not extensible", () => {
+    expect(
+      validateConfigValue({
+        value: { timeout: 1, extra: true },
+        fields,
+        additionalProperties: false,
+      }).valid,
+    ).toBe(false);
+  });
+
+  it("allows extra keys when extensible", () => {
+    expect(
+      validateConfigValue({
+        value: { timeout: 1, extra: true },
+        fields,
+        additionalProperties: true,
+      }).valid,
+    ).toBe(true);
+  });
+
+  it("ignores the $extends merge directive", () => {
+    expect(
+      validateConfigValue({
+        value: { $extends: ["@config:base"], timeout: 5 },
+        fields,
+        additionalProperties: false,
+      }).valid,
+    ).toBe(true);
+  });
+
+  it("with no schema, rejects keys only when not extensible", () => {
+    expect(
+      validateConfigValue({
+        value: { anything: 1 },
+        fields: [],
+        additionalProperties: true,
+      }).valid,
+    ).toBe(true);
+    expect(
+      validateConfigValue({
+        value: { anything: 1 },
+        fields: [],
+        additionalProperties: false,
+      }).valid,
+    ).toBe(false);
+  });
+
+  it("skips type-checking reference-backed field values", () => {
+    // A bare `@const:`/`@config:` ref or a `{{ @const: }}` interpolation resolves
+    // dynamically, so it must not be rejected against a static field type.
+    expect(
+      validateConfigValue({
+        value: { timeout: "@const:default-timeout" },
+        fields,
+        additionalProperties: false,
+      }).valid,
+    ).toBe(true);
+    expect(
+      validateConfigValue({
+        value: { timeout: "{{ @const:default-timeout }}" },
+        fields,
+        additionalProperties: false,
+      }).valid,
+    ).toBe(true);
+    // Nested reference inside an object value is also exempt.
+    expect(
+      validateConfigValue({
+        value: { timeout: { nested: "@config:other" } },
+        fields,
+        additionalProperties: false,
+      }).valid,
+    ).toBe(true);
   });
 });

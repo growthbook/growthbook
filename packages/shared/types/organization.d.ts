@@ -271,6 +271,14 @@ export interface OrganizationSettings {
   // base configs allow child configs / feature rules to add extra keys unless
   // a config explicitly opts out via its own `extensible` flag.
   configsExtensibleByDefault?: boolean;
+  // Whether publishing a revision is BLOCKED when its values don't match the
+  // JSON schema (features and configs). Per-write validation always runs (opt
+  // out per request with ?skipSchemaValidation=true); this governs the re-check
+  // at publish, which catches values that became invalid after the fact (e.g. a
+  // schema change, an ancestor-config change, or a value staged with the skip
+  // flag). true (default) blocks the publish; false surfaces a bypassable soft
+  // warning instead. Absent = true.
+  blockPublishOnSchemaError?: boolean;
   // When enabled, a feature draft whose base version is behind the current
   // live version (or whose approval has gone stale) must be rebased
   // ("Rebase with live") before it can be published.

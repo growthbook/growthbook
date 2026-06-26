@@ -235,6 +235,7 @@ export async function createOrganization({
       requireRebaseBeforePublish: false,
       revertsBypassApproval: false,
       configsExtensibleByDefault: true,
+      blockPublishOnSchemaError: true,
       requireReviews: [
         {
           requireReviewOn: false,

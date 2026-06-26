@@ -15,7 +15,10 @@ import {
   RulePatchInputV2,
 } from "shared/validators";
 import { RevisionChanges } from "shared/types/feature-revision";
-import { toApiRevisionV2 } from "back-end/src/services/features";
+import {
+  assertFeatureValuesValid,
+  toApiRevisionV2,
+} from "back-end/src/services/features";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -191,6 +194,13 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
             : v.value,
       }));
     }
+
+    // Enforce the feature's JSON schema on the patched rule values (no-op for
+    // config-backed values, whose schema lives on the config). Opt out with
+    // ?skipSchemaValidation=true.
+    assertFeatureValuesValid(req.context, feature, {
+      rules: [updatedRule as FeatureRule],
+    });
 
     validateRuleConditions({
       condition:
