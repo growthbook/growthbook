@@ -77,13 +77,98 @@ function fitDimensions(
   };
 }
 
-async function krakenOptimize(source: RawImage): Promise<OptimizedImage> {
+// Parse a "W:H" aspect string (e.g. "16:9", "800:600") into a width/height
+// ratio. Returns null for anything malformed so callers fall back to "fit".
+function parseAspectRatio(s: string | undefined): number | null {
+  if (!s) return null;
+  const m = /^\s*(\d+(?:\.\d+)?)\s*:\s*(\d+(?:\.\d+)?)\s*$/.exec(s);
+  if (!m) return null;
+  const w = parseFloat(m[1]);
+  const h = parseFloat(m[2]);
+  if (!(w > 0) || !(h > 0)) return null;
+  return w / h;
+}
+
+// Largest box at `ratio` (w/h) that fits INSIDE the source — so the crop only
+// ever downscales, never upscales — then capped to the longest-edge limit.
+function cropDimensions(
+  sourceWidth: number,
+  sourceHeight: number,
+  ratio: number,
+): { width: number; height: number } {
+  let width = sourceWidth;
+  let height = Math.round(width / ratio);
+  if (height > sourceHeight) {
+    height = sourceHeight;
+    width = Math.round(height * ratio);
+  }
+  const longest = Math.max(width, height);
+  if (longest > MAX_LONGEST_EDGE_PX) {
+    const scale = MAX_LONGEST_EDGE_PX / longest;
+    width = Math.round(width * scale);
+    height = Math.round(height * scale);
+  }
+  return { width: Math.max(1, width), height: Math.max(1, height) };
+}
+
+// Resolve the Kraken resize block + the resulting output dimensions.
+// When `cropToAspect` is a valid ratio that differs from the source, use
+// Kraken's "crop" strategy (resize-to-cover then center-crop) so the output
+// matches the target aspect EXACTLY — the generated image then drops into the
+// page's <img> slot without the browser center-cropping/zooming it. Downscale
+// only (the box fits inside the source). Otherwise fall back to plain "fit".
+function resolveResize(
+  source: RawImage,
+  cropToAspect: string | undefined,
+): {
+  resize: Record<string, unknown>;
+  width: number;
+  height: number;
+} {
+  const ratio = parseAspectRatio(cropToAspect);
+  if (ratio) {
+    const { width, height } = cropDimensions(
+      source.width,
+      source.height,
+      ratio,
+    );
+    return {
+      resize: { strategy: "crop", width, height },
+      width,
+      height,
+    };
+  }
+  const fit = fitDimensions(source.width, source.height);
+  return {
+    resize: {
+      strategy: "fit",
+      width: MAX_LONGEST_EDGE_PX,
+      height: MAX_LONGEST_EDGE_PX,
+    },
+    ...fit,
+  };
+}
+
+async function krakenOptimize(
+  source: RawImage,
+  cropToAspect?: string,
+): Promise<OptimizedImage> {
   // Bound the whole round-trip; abort both requests if it runs long.
   const controller = new AbortController();
   const timer = setTimeout(
     () => controller.abort(),
     AI_IMAGE_OPTIMIZATION_TIMEOUT_MS,
   );
+
+  // "crop" to the original slot's aspect (downscale-only) when we know it, so
+  // the result drops in without the browser center-cropping it; otherwise a
+  // plain "fit" downscale. Output dims are derived here (Kraken doesn't return
+  // them and we don't decode the bytes).
+  const {
+    resize,
+    width: outWidth,
+    height: outHeight,
+  } = resolveResize(source, cropToAspect);
 
   try {
     const form = new FormData();
@@ -95,13 +180,9 @@ async function krakenOptimize(source: RawImage): Promise<OptimizedImage> {
         wait: true,
         lossy: true,
         quality: WEBP_QUALITY,
-        // Convert to WebP and fit within the box without upscaling.
+        // Convert to WebP and resize per resolveResize (crop or fit).
         webp: true,
-        resize: {
-          strategy: "fit",
-          width: MAX_LONGEST_EDGE_PX,
-          height: MAX_LONGEST_EDGE_PX,
-        },
+        resize,
       }),
     );
     form.append("upload", source.buffer, {
@@ -132,13 +213,12 @@ async function krakenOptimize(source: RawImage): Promise<OptimizedImage> {
       throw new Error(`Kraken result download returned HTTP ${imgRes.status}`);
     }
     const buffer = Buffer.from(await imgRes.arrayBuffer());
-    const { width, height } = fitDimensions(source.width, source.height);
     return {
       buffer,
       contentType: "image/webp",
       ext: "webp",
-      width,
-      height,
+      width: outWidth,
+      height: outHeight,
       optimized: true,
     };
   } finally {
@@ -151,13 +231,20 @@ async function krakenOptimize(source: RawImage): Promise<OptimizedImage> {
 // rather than failing image generation outright.
 export async function optimizeAIImage(
   source: RawImage,
+  opts?: {
+    // "W:H" of the slot the image will fill (the original <img>'s natural
+    // dimensions). When set, the result is cropped to this exact aspect so it
+    // drops into the slot without browser-side cropping/zooming. Omit for
+    // inserts / background-image targets where there's no fixed slot aspect.
+    cropToAspect?: string;
+  },
 ): Promise<OptimizedImage> {
   if (DISABLE_AI_IMAGE_OPTIMIZATION || !KRAKEN_API_KEY || !KRAKEN_API_SECRET) {
     return passthrough(source);
   }
 
   try {
-    return await krakenOptimize(source);
+    return await krakenOptimize(source, opts?.cropToAspect);
   } catch (err) {
     logger.warn(
       { err },
