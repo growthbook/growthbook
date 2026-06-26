@@ -34,7 +34,12 @@ export default function ConstantRevertModal({ constant, ...rest }: Props) {
       liveEntity={constant}
       revertableFields={REVERTABLE_FIELDS}
       apiPathBase="/constants"
-      renderDraftSelector={({ mode, setMode, canAutoPublish }) => (
+      renderDraftSelector={({
+        mode,
+        setMode,
+        canAutoPublish,
+        approvalRequired,
+      }) => (
         <ConstantDraftSelectorForChanges
           constantId={constant.id}
           openRevisions={[]}
@@ -44,7 +49,7 @@ export default function ConstantRevertModal({ constant, ...rest }: Props) {
           selectedDraftId={null}
           setSelectedDraftId={() => undefined}
           canAutoPublish={canAutoPublish}
-          approvalRequired={rest.approvalRequired}
+          approvalRequired={approvalRequired}
           hideExisting
           defaultExpanded
           triggerPrefix="Revert will be"

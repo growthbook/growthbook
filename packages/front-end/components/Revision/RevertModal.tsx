@@ -48,6 +48,7 @@ export interface Props<T extends RevertableEntity> {
     mode: DraftMode;
     setMode: (m: DraftMode) => void;
     canAutoPublish: boolean;
+    approvalRequired: boolean;
   }) => ReactNode;
   close: () => void;
   onRevisionCreated: (revision: Revision) => void;
@@ -145,6 +146,11 @@ export default function RevertModal<T extends RevertableEntity>({
   // `canAutoPublish` gate.
   const canPublishNow =
     !approvalRequired || revertsBypassApproval || canBypassApproval;
+  // Effective approval requirement for THIS revert. When the org lets reverts
+  // bypass approval, publishing the revert isn't bypassing anything — so the
+  // picker shows a plain "Publish now" instead of the red "Bypass approvals and
+  // publish now". Mirrors the feature revert's `effectiveApprovalsRequired`.
+  const effectiveApprovalRequired = approvalRequired && !revertsBypassApproval;
   const [mode, setMode] = useState<DraftMode>(
     canPublishNow ? "publish" : "new",
   );
@@ -220,7 +226,12 @@ export default function RevertModal<T extends RevertableEntity>({
         close();
       }}
     >
-      {renderDraftSelector({ mode, setMode, canAutoPublish: canPublishNow })}
+      {renderDraftSelector({
+        mode,
+        setMode,
+        canAutoPublish: canPublishNow,
+        approvalRequired: effectiveApprovalRequired,
+      })}
 
       <Heading as="h4" size="medium" mb="3">
         Review Changes

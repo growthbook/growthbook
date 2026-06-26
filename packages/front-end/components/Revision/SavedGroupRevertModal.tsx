@@ -34,7 +34,12 @@ export default function SavedGroupRevertModal({ savedGroup, ...rest }: Props) {
       liveEntity={savedGroup}
       revertableFields={REVERTABLE_FIELDS}
       apiPathBase="/saved-groups"
-      renderDraftSelector={({ mode, setMode, canAutoPublish }) => (
+      renderDraftSelector={({
+        mode,
+        setMode,
+        canAutoPublish,
+        approvalRequired,
+      }) => (
         <SavedGroupDraftSelectorForChanges
           savedGroup={savedGroup}
           openRevisions={[]}
@@ -44,7 +49,7 @@ export default function SavedGroupRevertModal({ savedGroup, ...rest }: Props) {
           selectedDraftId={null}
           setSelectedDraftId={() => undefined}
           canAutoPublish={canAutoPublish}
-          approvalRequired={rest.approvalRequired}
+          approvalRequired={approvalRequired}
           hideExisting
           defaultExpanded
           triggerPrefix="Revert will be"
