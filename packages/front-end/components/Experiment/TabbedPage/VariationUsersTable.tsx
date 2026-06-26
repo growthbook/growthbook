@@ -1,6 +1,7 @@
 import { ExperimentReportVariation } from "shared/types/report";
 import { pValueFormatter } from "@/services/experiments";
 import VariationLabel from "@/ui/VariationLabel";
+import Text from "@/ui/Text";
 
 export interface Props {
   variations: ExperimentReportVariation[];
@@ -76,7 +77,9 @@ export default function VariationUsersTable({
               <tr key={v.id}>
                 <td className={"border-right"}>
                   {hideVariationIndex ? (
-                    v.name
+                    <Text color="text-mid" weight="medium">
+                      {v.name}
+                    </Text>
                   ) : (
                     <VariationLabel number={v.index} name={v.name} />
                   )}
