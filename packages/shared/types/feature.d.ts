@@ -159,6 +159,10 @@ export type FeatureMetaInfo = Pick<
   | "neverStale"
 > & {
   defaultValue?: string;
+  // The key of the config a JSON flag's default value is backed by (the
+  // `@config:<key>` base layer), or null. Derived server-side so the feature
+  // list can show the backing config without shipping every default value.
+  configBackingKey?: string | null;
   hasPrerequisites?: boolean;
   hasSavedGroups?: boolean;
   revision?: {
