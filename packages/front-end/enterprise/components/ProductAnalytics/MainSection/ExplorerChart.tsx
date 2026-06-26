@@ -861,14 +861,9 @@ export default function ExplorerChart({
                     value={card.value}
                     formatter={formatNumber}
                     label={card.label}
-                    compact
+                    fillContainer
                     compareSlot={
-                      trend ? (
-                        <ComparisonTrendLabel
-                          trend={trend}
-                          priorValueScale={0.5}
-                        />
-                      ) : undefined
+                      trend ? <ComparisonTrendLabel trend={trend} /> : undefined
                     }
                   />
                 </Box>
