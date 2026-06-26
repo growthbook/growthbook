@@ -219,7 +219,7 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
     const validAttributes = attributeSchema
       .filter((s) => !hasHashAttributes || s.hashAttribute)
       .map((s) => s.property);
-    if (hashAttribute && !validAttributes.includes(hashAttribute)) {
+    if (!hashAttribute || !validAttributes.includes(hashAttribute)) {
       form.setValue("hashAttribute", defaultHashAttribute);
     }
   }, [selectedProject]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -320,6 +320,9 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
 
     const project = rawValue.project || "";
     const hashAttribute = rawValue.hashAttribute;
+    if (!hashAttribute) {
+      throw new Error("You must select an assignment attribute");
+    }
 
     const datasource = getAutoDatasourceId({
       datasources,
