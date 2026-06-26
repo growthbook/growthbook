@@ -293,7 +293,7 @@ export type ColumnTopValuesParams = {
   factTable: Pick<FactTableInterface, "sql" | "eventName">;
   columns: ColumnInterface[];
   limit?: number;
-  lookbackDays?: number;
+  lookbackDays: number;
   maxValueLength?: number;
 };
 export type ColumnTopValuesResponseRow = {

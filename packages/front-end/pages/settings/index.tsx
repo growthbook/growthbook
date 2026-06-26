@@ -18,7 +18,10 @@ import {
   DEFAULT_POST_STRATIFICATION_ENABLED,
   DEFAULT_REVISION_CONFIGURATION,
 } from "shared/constants";
-import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/settings";
+import {
+  DEFAULT_MAX_METRIC_SLICE_LEVELS,
+  DEFAULT_TOP_VALUES_LOOKBACK_VALUE,
+} from "shared/settings";
 import { OrganizationSettings } from "shared/types/organization";
 import { Box, Flex, Heading } from "@radix-ui/themes";
 import { PRESET_DECISION_CRITERIA } from "shared/enterprise";
@@ -236,6 +239,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
       preferredEnvironment: settings.preferredEnvironment || "",
       maxMetricSliceLevels:
         settings.maxMetricSliceLevels ?? DEFAULT_MAX_METRIC_SLICE_LEVELS,
+      topValuesLookbackValue:
+        settings.topValuesLookbackValue ?? DEFAULT_TOP_VALUES_LOOKBACK_VALUE,
       savedGroupSizeLimit: undefined,
       postStratificationEnabled:
         settings.postStratificationEnabled ??
@@ -302,6 +307,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     defaultFeatureRulesInAllEnvs: form.watch("defaultFeatureRulesInAllEnvs"),
     preferredEnvironment: form.watch("preferredEnvironment") || "",
     maxMetricSliceLevels: form.watch("maxMetricSliceLevels"),
+    topValuesLookbackValue: form.watch("topValuesLookbackValue"),
     savedGroupSizeLimit: form.watch("savedGroupSizeLimit"),
     approvalFlows: form.watch("approvalFlows"),
     requireRegisteredAttributes: form.watch("requireRegisteredAttributes"),
