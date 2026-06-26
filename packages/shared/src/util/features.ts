@@ -1042,11 +1042,38 @@ export interface MergeConflict {
   revision: string;
 }
 export type MergeStrategy = "" | "overwrite" | "discard";
+// Resolves a merge result's per-env default overrides (which may carry
+// `undefined` tombstones for cleared overrides) onto a base sparse map,
+// producing a clean sparse `Record<string, string>` where cleared envs are
+// ABSENT (the storage convention for revision/feature `environmentDefaults`).
+// Use this when materializing a merge result into a revision or feature doc.
+export function applyEnvironmentDefaultsResult(
+  base: Record<string, string> | undefined,
+  result: Record<string, string | undefined> | undefined,
+): Record<string, string> {
+  const next: Record<string, string> = { ...(base ?? {}) };
+  if (result) {
+    for (const env of Object.keys(result)) {
+      const val = result[env];
+      if (val === undefined) {
+        delete next[env];
+      } else {
+        next[env] = val;
+      }
+    }
+  }
+  return next;
+}
+
 export type MergeResultChanges = {
   defaultValue?: string;
   rules?: FeatureRule[];
   environmentsEnabled?: Record<string, boolean>;
-  environmentDefaults?: Record<string, string>;
+  // Per-env default value overrides. A present string sets/updates the env's
+  // override; an explicit `undefined` value is a tombstone signaling the
+  // override was cleared in the draft, so publishing unsets the env's
+  // defaultValue (see computeRevisionMergeChanges).
+  environmentDefaults?: Record<string, string | undefined>;
   prerequisites?: FeaturePrerequisite[];
   archived?: boolean;
   metadata?: RevisionMetadata;
@@ -1921,6 +1948,15 @@ export function autoMerge(
           result.environmentDefaults[env] = revVal;
         }
       }
+      // Cleared overrides: an env present in base but dropped from the draft's
+      // sparse map means the override was removed. Emit an explicit `undefined`
+      // so the publish path unsets the env's defaultValue (inherit base again).
+      for (const env of Object.keys(base.environmentDefaults ?? {})) {
+        if (!(env in revision.environmentDefaults)) {
+          result.environmentDefaults = result.environmentDefaults || {};
+          result.environmentDefaults[env] = undefined;
+        }
+      }
     }
 
     // prerequisites
@@ -2062,8 +2098,20 @@ export function autoMerge(
 
   // environmentDefaults (per-env default value override)
   if (revision.environmentDefaults) {
-    for (const env of Object.keys(revision.environmentDefaults)) {
-      const revVal = revision.environmentDefaults[env];
+    // The draft's sparse map carries set/changed overrides as present keys and
+    // represents a cleared override as an ABSENT key. To cover both, walk the
+    // union of the revision's keys and any base/live keys the draft dropped; a
+    // dropped key resolves to `undefined` (override removed → inherit base).
+    const envKeys = new Set<string>([
+      ...Object.keys(revision.environmentDefaults),
+      ...Object.keys(base.environmentDefaults ?? {}),
+      ...Object.keys(live.environmentDefaults ?? {}),
+    ]);
+    for (const env of envKeys) {
+      const revVal =
+        env in revision.environmentDefaults
+          ? revision.environmentDefaults[env]
+          : undefined;
       const baseVal = base.environmentDefaults?.[env];
       const liveVal = live.environmentDefaults?.[env];
       if (revVal === baseVal || revVal === liveVal) continue;
@@ -3045,7 +3093,8 @@ export function getDraftAffectedEnvironments(
     // sparse maps directly so setting/clearing an override marks the env.
     if (
       revision.environmentDefaults?.[env] !== undefined &&
-      revision.environmentDefaults[env] !== baseRevision.environmentDefaults?.[env]
+      revision.environmentDefaults[env] !==
+        baseRevision.environmentDefaults?.[env]
     ) {
       envs.add(env);
     }

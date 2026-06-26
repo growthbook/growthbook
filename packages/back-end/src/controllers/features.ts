@@ -7,6 +7,7 @@ import {
   SDKLanguage,
 } from "shared/types/sdk-connection";
 import {
+  applyEnvironmentDefaultsResult,
   autoMerge,
   filterEnvironmentsByFeature,
   filterProjectsByEnvironmentWithNull,
@@ -976,10 +977,12 @@ export async function postFeatureRebase(
   // Sparse per-env default value overrides: start from the revision's existing
   // overrides, then overlay any the merge result resolved. Only envs with an
   // override are present (mirrors environmentSettings / liveRevisionFromFeature).
-  const newEnvironmentDefaults: Record<string, string> = {
-    ...(revision.environmentDefaults ?? {}),
-    ...(mergeResult.result.environmentDefaults ?? {}),
-  };
+  // Cleared overrides arrive as `undefined` tombstones and are removed.
+  const newEnvironmentDefaults: Record<string, string> =
+    applyEnvironmentDefaultsResult(
+      revision.environmentDefaults,
+      mergeResult.result.environmentDefaults,
+    );
 
   // Build complete metadata snapshot: start from live feature, overlay any
   // metadata fields the merge result explicitly changed.
@@ -1929,6 +1932,13 @@ export async function postFeaturePublish(
         ...filledLive,
         ...mergeResult.result,
         rules: mergeResult.result.rules ?? filledLive.rules ?? [],
+        // Resolve per-env override tombstones onto the live baseline so this
+        // revision-shaped object keeps the sparse `Record<string, string>`
+        // convention (cleared envs absent) for the review gate check.
+        environmentDefaults: applyEnvironmentDefaultsResult(
+          filledLive.environmentDefaults,
+          mergeResult.result.environmentDefaults,
+        ),
         // rampActions live on the draft; autoMerge doesn't carry them through
         // MergeResultChanges, so re-attach them for the review gate check.
         rampActions: revision.rampActions,
@@ -3736,6 +3746,95 @@ export async function postFeatureDefaultValue(
     feature,
     updatedRevisionAfterDefaultValue ?? revision,
     "defaultValue",
+  );
+
+  res.status(200).json({
+    status: 200,
+    version: revision.version,
+  });
+}
+
+export async function postFeatureEnvironmentDefault(
+  req: AuthRequest<
+    { environment: string; defaultValue: string | null },
+    { id: string; version: string }
+  >,
+  res: Response<{ status: 200; version: number }, EventUserForResponseLocals>,
+) {
+  const context = getContextFromReq(req);
+  const { org } = context;
+  const { id, version } = req.params;
+  const { environment, defaultValue } = req.body;
+
+  const feature = await getFeature(context, id);
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+
+  if (
+    !context.permissions.canUpdateFeature(feature, {}) ||
+    !context.permissions.canManageFeatureDrafts(feature)
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
+  const environments = getEnvironmentIdsFromOrg(context.org);
+  if (!environments.includes(environment)) {
+    throw new Error(`Unknown environment: ${environment}`);
+  }
+
+  const revision = await getDraftRevision(context, feature, parseInt(version));
+
+  // Per-env default overrides live in the revision's sparse `environmentDefaults`
+  // map (mirrors `environmentsEnabled`). `updateRevision` $sets the whole field,
+  // so build the complete next map from the draft's current overrides. Setting
+  // an override adds/updates the env's key; clearing it (defaultValue == null)
+  // removes the key so the env inherits the base default again.
+  const nextEnvironmentDefaults: Record<string, string> = {
+    ...(revision.environmentDefaults ?? {}),
+  };
+  let auditValue: string | null;
+  if (defaultValue === null || defaultValue === undefined) {
+    delete nextEnvironmentDefaults[environment];
+    auditValue = null;
+  } else {
+    const validatedDefaultValue = validateFeatureValue(
+      feature,
+      defaultValue,
+      "Value",
+    );
+    nextEnvironmentDefaults[environment] = validatedDefaultValue;
+    auditValue = validatedDefaultValue;
+  }
+
+  const resetReview = resetReviewOnChange({
+    feature,
+    changedEnvironments: [environment],
+    defaultValueChanged: true,
+    settings: org?.settings,
+  });
+  const updatedRevision =
+    (await updateRevision(
+      context,
+      feature,
+      revision,
+      { environmentDefaults: nextEnvironmentDefaults },
+      {
+        user: res.locals.eventAudit,
+        action: "edit environment default value",
+        subject: `in ${environment}`,
+        value: JSON.stringify({ environment, defaultValue: auditValue }),
+      },
+      resetReview,
+    )) ?? revision;
+  await recordRevisionUpdate(
+    context,
+    feature,
+    updatedRevision,
+    "defaultValue",
+    {
+      environments: [environment],
+    },
   );
 
   res.status(200).json({

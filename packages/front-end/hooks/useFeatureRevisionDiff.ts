@@ -3,6 +3,7 @@ import isEqual from "lodash/isEqual";
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { RevisionMetadata } from "shared/validators";
+import { applyEnvironmentDefaultsResult } from "shared/util";
 import type { MergeResultChanges } from "shared/util";
 import {
   renderFeatureDefaultValue,
@@ -52,8 +53,7 @@ export const revisionToFeatureRevisionDiffInput = (
     defaultValue: r.defaultValue,
     rules: Array.isArray(r.rules) ? r.rules : [],
     environmentsEnabled: r.environmentsEnabled ?? fallback?.environmentsEnabled,
-    environmentDefaults:
-      r.environmentDefaults ?? fallback?.environmentDefaults,
+    environmentDefaults: r.environmentDefaults ?? fallback?.environmentDefaults,
     prerequisites: r.prerequisites ?? fallback?.prerequisites,
     archived: r.archived ?? fallback?.archived,
     holdout: r.holdout !== undefined ? r.holdout : (fallback?.holdout ?? null),
@@ -491,7 +491,15 @@ export function mergeResultToDiffInput(
       ? { environmentsEnabled: result.environmentsEnabled }
       : {}),
     ...(result.environmentDefaults !== undefined
-      ? { environmentDefaults: result.environmentDefaults }
+      ? {
+          // Resolve `undefined` tombstones (cleared overrides) against the
+          // current state so the post-state map stays sparse (cleared envs
+          // absent), letting the diff render the override removal correctly.
+          environmentDefaults: applyEnvironmentDefaultsResult(
+            current.environmentDefaults,
+            result.environmentDefaults,
+          ),
+        }
       : {}),
     ...(result.prerequisites !== undefined
       ? { prerequisites: result.prerequisites }

@@ -71,7 +71,12 @@ export async function revertFeatureCore(
     throw new Error("Can only revert to previously published revisions");
   }
 
-  const changes: MergeResultChanges = {};
+  // Revert copies concrete values from a published target revision, so per-env
+  // default overrides here are always present strings (never the `undefined`
+  // tombstones the auto-merge result can carry); narrow to the storage shape.
+  const changes: Omit<MergeResultChanges, "environmentDefaults"> & {
+    environmentDefaults?: Record<string, string>;
+  } = {};
 
   if (revision.defaultValue !== feature.defaultValue) {
     if (

@@ -10,6 +10,7 @@ import {
   RevisionLog,
 } from "shared/types/feature-revision";
 import {
+  applyEnvironmentDefaultsResult,
   autoMerge,
   fillRevisionFromFeature,
   liveRevisionFromFeature,
@@ -1729,6 +1730,12 @@ export default function ReviewAndPublish({
         ...filledLive,
         ...mergeResult.result,
         rules: mergeResult.result.rules ?? filledLive.rules,
+        // Resolve per-env override tombstones onto live so this revision-shaped
+        // object keeps the sparse `Record<string, string>` storage convention.
+        environmentDefaults: applyEnvironmentDefaultsResult(
+          filledLive.environmentDefaults,
+          mergeResult.result.environmentDefaults,
+        ),
         rampActions: revision.rampActions,
       };
       effectiveBase = filledLive;

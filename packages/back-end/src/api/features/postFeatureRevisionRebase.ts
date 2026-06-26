@@ -1,6 +1,7 @@
 import type { AuditInterfaceInput } from "shared/types/audit";
 import type { OrganizationInterface } from "shared/types/organization";
 import {
+  applyEnvironmentDefaultsResult,
   autoMerge,
   fillRevisionFromFeature,
   filterEnvironmentsByFeature,
@@ -160,11 +161,13 @@ export async function rebaseFeatureRevision(
       false;
   });
   // Sparse per-env default value overrides: start from the revision's existing
-  // overrides, then overlay any the merge result resolved.
-  const newEnvironmentDefaults: Record<string, string> = {
-    ...(revision.environmentDefaults ?? {}),
-    ...(mergeResult.result.environmentDefaults ?? {}),
-  };
+  // overrides, then overlay any the merge result resolved. Cleared overrides
+  // arrive as `undefined` tombstones and are removed (env inherits base).
+  const newEnvironmentDefaults: Record<string, string> =
+    applyEnvironmentDefaultsResult(
+      revision.environmentDefaults,
+      mergeResult.result.environmentDefaults,
+    );
 
   const featureMetadataSnapshot: RevisionMetadata = {
     description: feature.description,

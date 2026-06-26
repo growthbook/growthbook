@@ -90,6 +90,9 @@ const mergeResultChangesSchema = z
     defaultValue: z.string().optional(),
     rules: z.array(z.any()).optional(),
     environmentsEnabled: z.record(z.string(), z.boolean()).optional(),
+    // Per-env default value overrides. An explicit `undefined` value is a
+    // tombstone for a cleared override, so the value is `.optional()`.
+    environmentDefaults: z.record(z.string(), z.string().optional()).optional(),
     prerequisites: z.array(featurePrerequisite).optional(),
     archived: z.boolean().optional(),
     metadata: z
