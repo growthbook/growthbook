@@ -47,7 +47,7 @@ export type SimpleNewExperimentFormProps = {
 
 // Auto-select a datasource only when the choice is unambiguous, and never the
 // sample/demo datasource.
-function getAutoDatasourceId({
+export function getAutoDatasourceId({
   datasources,
   demoDataSourceId,
   defaultDataSource,
@@ -82,7 +82,7 @@ function getAutoDatasourceId({
 }
 
 // Auto-select an experiment assignment query only when the choice is unambiguous.
-function getAutoExposureQueryId({
+export function getAutoExposureQueryId({
   dsSettings,
   hashAttribute,
   templateExposureQueryId,
