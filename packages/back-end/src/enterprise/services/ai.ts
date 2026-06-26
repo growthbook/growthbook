@@ -6,6 +6,7 @@ import {
   tool as aiTool,
   stepCountIs,
   NoObjectGeneratedError,
+  NoOutputGeneratedError,
 } from "ai";
 import type { ToolSet, ModelMessage } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
@@ -461,8 +462,8 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
     ? undefined
     : temperature;
 
-  const generateOnce = () =>
-    generateText({
+  const generateOnce = async () => {
+    const result = await generateText({
       model: aiProvider(model) as Parameters<typeof generateText>[0]["model"],
       messages: messages,
       output: Output.object({
@@ -475,6 +476,15 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
       ...(tools ? { tools, stopWhen: stepCountIs(maxSteps) } : {}),
       ...(onStepFinish ? { onStepFinish } : {}),
     });
+    // Read the lazy `output` getter HERE, inside this awaited function, so the
+    // try/catch below catches BOTH generation failures. generateText only
+    // parses the object (and throws NoObjectGeneratedError) when the run ends
+    // on "stop"; when it ends on a tool call it RESOLVES normally with no
+    // output, and the getter throws NoOutputGeneratedError only on access.
+    // Touching it here routes that lazy throw through the same retry path
+    // instead of letting it escape at the call site as an opaque error.
+    return { output: result.output, usage: result.usage };
+  };
 
   // Output.object steers the model toward the schema but doesn't
   // grammar-constrain it, so conformance is probabilistic: a complex
@@ -485,40 +495,63 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
   // rate is a simpler schema or a stronger model; this is just a cheap
   // backstop. A failed attempt still bills tokens (the error carries its
   // usage), so track them or the retry under-counts on Cloud.
-  // Pull the useful diagnostics off a NoObjectGeneratedError so prod logs
-  // show WHY it failed: finishReason ("length" = truncated mid-JSON vs
-  // "stop" = model produced invalid/prose output), the underlying Zod cause,
-  // and a bounded sample of the raw text the model actually returned.
-  const noObjectDiag = (e: NoObjectGeneratedError) => ({
-    // Spread caller context FIRST so the authoritative error fields below
-    // always win — a colliding logContext key can't mask the real signal.
-    ...(logContext ?? {}),
-    finishReason: e.finishReason,
-    cause: e.cause instanceof Error ? e.cause.message : String(e.cause ?? ""),
-    textSample: (e.text ?? "").slice(0, 2000),
-  });
+  // Two distinct generation failures share this retry path:
+  //   - NoObjectGeneratedError: the model produced text that didn't validate
+  //     against the schema (truncated mid-JSON, or invalid/prose output).
+  //   - NoOutputGeneratedError: with tools + multi-step, the run ENDED without
+  //     ever emitting the output object (e.g. it stopped on a tool call, or
+  //     returned only prose). The SDK surfaces this as a bare error with no
+  //     finishReason/text/usage. Left unhandled it escaped as an opaque
+  //     "No output generated." 400 — no retry, no friendly message, no log.
+  const isGenerationFailure = (
+    e: unknown,
+  ): e is NoObjectGeneratedError | NoOutputGeneratedError =>
+    NoObjectGeneratedError.isInstance(e) ||
+    NoOutputGeneratedError.isInstance(e);
+
+  // Pull whatever diagnostics the error carries so prod logs show WHY it
+  // failed. Only NoObjectGeneratedError has finishReason ("length" =
+  // truncated mid-JSON vs "stop" = invalid/prose) and the raw text sample;
+  // NoOutputGeneratedError carries just a cause, so guard those reads.
+  const noOutputDiag = (e: NoObjectGeneratedError | NoOutputGeneratedError) => {
+    const objErr = NoObjectGeneratedError.isInstance(e) ? e : undefined;
+    return {
+      // Spread caller context FIRST so the authoritative error fields below
+      // always win — a colliding logContext key can't mask the real signal.
+      ...(logContext ?? {}),
+      errorType: objErr ? "no-object" : "no-output",
+      finishReason: objErr?.finishReason,
+      cause: e.cause instanceof Error ? e.cause.message : String(e.cause ?? ""),
+      textSample: (objErr?.text ?? "").slice(0, 2000),
+    };
+  };
+
+  // usage is only present on NoObjectGeneratedError; NoOutputGeneratedError
+  // bills nothing extra to track.
+  const failureTokens = (e: NoObjectGeneratedError | NoOutputGeneratedError) =>
+    NoObjectGeneratedError.isInstance(e) ? (e.usage?.totalTokens ?? 0) : 0;
 
   let retriedTokens = 0;
   let response: Awaited<ReturnType<typeof generateOnce>>;
   try {
     response = await generateOnce();
   } catch (err) {
-    if (!NoObjectGeneratedError.isInstance(err)) throw err;
+    if (!isGenerationFailure(err)) throw err;
     // Don't stack retries when the caller is already a retry path.
     if (!retryOnNoObject) throw err;
-    retriedTokens += err.usage?.totalTokens ?? 0;
+    retriedTokens += failureTokens(err);
     logger.warn(
-      { type, model, ...noObjectDiag(err) },
-      "parsePrompt: model returned no schema-valid object; retrying once",
+      { type, model, ...noOutputDiag(err) },
+      "parsePrompt: model returned no usable output; retrying once",
     );
     try {
       response = await generateOnce();
     } catch (retryErr) {
-      if (!NoObjectGeneratedError.isInstance(retryErr)) throw retryErr;
-      retriedTokens += retryErr.usage?.totalTokens ?? 0;
+      if (!isGenerationFailure(retryErr)) throw retryErr;
+      retriedTokens += failureTokens(retryErr);
       logger.warn(
-        { type, model, ...noObjectDiag(retryErr) },
-        "parsePrompt: model returned no schema-valid object after retry; giving up",
+        { type, model, ...noOutputDiag(retryErr) },
+        "parsePrompt: model returned no usable output after retry; giving up",
       );
       // Bill both failed attempts before surfacing the error so Cloud
       // rate-limiting doesn't under-count a double failure.
@@ -532,7 +565,10 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
       // cut off mid-stream — a generic "try again" won't help an inherently
       // too-large response, so point the user at narrowing the request.
       const truncated =
-        err.finishReason === "length" || retryErr.finishReason === "length";
+        (NoObjectGeneratedError.isInstance(err) &&
+          err.finishReason === "length") ||
+        (NoObjectGeneratedError.isInstance(retryErr) &&
+          retryErr.finishReason === "length");
       throw new Error(
         truncated
           ? "Your request produced a response too large to return in one piece. Try a more focused request — for example, edit one section or a few elements at a time, then layer on more."
