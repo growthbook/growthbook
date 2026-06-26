@@ -9,7 +9,7 @@ import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
-import RadioGroup from "@/ui/RadioGroup";
+import DraftSelector, { DraftMode } from "@/components/DraftSelector";
 import SharedRevisionDropdown, {
   RevisionDropdownRow,
 } from "@/components/Reviews/RevisionDropdown";
@@ -136,7 +136,7 @@ export default function RevertModal<T extends RevertableEntity>({
   // `canAutoPublish` gate.
   const canPublishNow =
     !approvalRequired || revertsBypassApproval || canBypassApproval;
-  const [mode, setMode] = useState<"publish" | "new">(
+  const [mode, setMode] = useState<DraftMode>(
     canPublishNow ? "publish" : "new",
   );
 
@@ -211,31 +211,16 @@ export default function RevertModal<T extends RevertableEntity>({
         close();
       }}
     >
-      {canPublishNow ? (
-        <Box mb="4">
-          <RadioGroup
-            value={mode}
-            setValue={(v) => setMode(v as "publish" | "new")}
-            options={[
-              {
-                value: "publish",
-                label: "Publish now",
-                description: "Restore the entity to this revision immediately.",
-              },
-              {
-                value: "new",
-                label: "Create a revert draft",
-                description: "Create a draft to review before it goes live.",
-              },
-            ]}
-          />
-        </Box>
-      ) : (
-        <Callout status="info" mb="4">
-          Reverting will create a draft that needs to be reviewed and published
-          before it goes live.
-        </Callout>
-      )}
+      <DraftSelector
+        hasActiveDrafts={false}
+        mode={mode}
+        setMode={setMode}
+        canAutoPublish={canPublishNow}
+        approvalRequired={approvalRequired}
+        singleOption={!canPublishNow}
+        defaultExpanded
+        triggerPrefix="Revert will be"
+      />
 
       <Heading as="h4" size="medium" mb="3">
         Review Changes
