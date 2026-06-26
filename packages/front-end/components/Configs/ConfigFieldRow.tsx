@@ -85,13 +85,18 @@ export default function ConfigFieldRow({
   const sourceName = f.source
     ? (getConfigByKey(f.source)?.name ?? f.source)
     : "default";
+  // Editing a JSON value shows a code editor whose "Insert constant" button
+  // floats just above it; give the row extra headroom so it doesn't crowd the
+  // row above.
+  const hasJsonEditor = editing && fieldValueType(nf) === "json";
 
   return (
     <Grid
       columns={FIELD_GRID_TEMPLATE}
       gapX="5"
       align="start"
-      py="2"
+      pt={hasJsonEditor ? "6" : "2"}
+      pb="2"
       px="3"
       style={{ borderBottom: "1px solid var(--slate-a3)" }}
     >

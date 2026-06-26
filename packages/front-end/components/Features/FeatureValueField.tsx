@@ -582,7 +582,9 @@ export default function FeatureValueField({
     const isSparse = !!sparse;
 
     // Cursor-aware insertion targets the Ace editor (the code-editor path, or the
-    // sparse Edit tab — both Ace). It sits right-aligned on the label row.
+    // sparse Edit tab — both Ace). Rendered as a small text button on its own row
+    // above the editor (matching the feature value editors) — even in inline
+    // contexts — so the multi-line JSON editor keeps the full width.
     const insertConstantButton =
       showConstantPicker &&
       (isSparse || (useCodeInput && codeEditorToggledOn)) ? (
@@ -592,12 +594,18 @@ export default function FeatureValueField({
           excludeKeys={pickerExcludeKeys}
           onInsert={insertJsonConstant}
           disabled={disabled}
-          iconOnly={inlineConstantButton}
         />
       ) : null;
 
     const sparseHeader = showSparseToggle ? (
-      <Flex align="center" justify="between" gap="3" mb="1" width="100%">
+      <Flex
+        align="center"
+        justify="between"
+        gap="3"
+        mb="1"
+        width="100%"
+        style={{ minHeight: "var(--space-6)" }}
+      >
         {label !== undefined ? (
           <Text as="label" weight="semibold" mb="0">
             {label}
@@ -650,16 +658,23 @@ export default function FeatureValueField({
     }
 
     // When the picker shows (or the sparse toggle owns the row), render the
-    // label row ourselves so the picker sits beside the label text rather than
-    // nested inside the editor's <label> element. Otherwise let the editor
-    // render its own label.
+    // label row ourselves so the button sits on its own row above the editor
+    // rather than nested inside the editor's <label> element. Otherwise let the
+    // editor render its own label.
     const editorLabel =
-      showSparseToggle || (insertConstantButton && !inlineConstantButton)
-        ? undefined
-        : label;
+      showSparseToggle || insertConstantButton ? undefined : label;
     const jsonLabelRow =
-      !showSparseToggle && insertConstantButton && !inlineConstantButton ? (
-        <Flex align="center" justify="between" gap="3" width="100%" mb="1">
+      !showSparseToggle && insertConstantButton ? (
+        <Flex
+          align="center"
+          justify="between"
+          gap="3"
+          width="100%"
+          mb="1"
+          // Consistent row height so a label paired with a code editor lines up
+          // with sibling columns (e.g. the config JSON value/schema editors).
+          style={{ minHeight: "var(--space-6)" }}
+        >
           {label !== undefined ? (
             <Text as="label" weight="semibold" mb="0">
               {label}
@@ -671,16 +686,6 @@ export default function FeatureValueField({
         </Flex>
       ) : null;
 
-    // Inline layout: the picker rides to the right of the editor, top-aligned.
-    const withInlineButton = (editor: ReactNode): ReactNode =>
-      inlineConstantButton && insertConstantButton ? (
-        <Flex align="start" gap="2" width="100%">
-          <Box style={{ flex: 1, minWidth: 0 }}>{editor}</Box>
-          <Box style={{ flexShrink: 0 }}>{insertConstantButton}</Box>
-        </Flex>
-      ) : (
-        editor
-      );
     const formatted = formatJSON(value);
 
     const codeEditorToggleButton = useCodeInput ? (
@@ -717,40 +722,65 @@ export default function FeatureValueField({
       </a>
     );
 
+    // Stack the editor CTAs (right-aligned, own row) above the help text + used-
+    // constant tags (full width). Side-by-side overlapped in narrow columns
+    // (e.g. the config JSON editor's two-column layout); stacking also gives the
+    // tags the full width to wrap into.
     const combinedHelpText = (
-      <Flex align="start" gap="3" width="100%">
-        <Box flexGrow="1" style={{ minWidth: 0 }}>
-          {helpText}
-          {usedConstantTags}
-        </Box>
-        <Flex gap="3" flexShrink="0">
+      <Box width="100%">
+        <Flex gap="3" justify="end" wrap="wrap" width="100%">
           {codeEditorToggleButton}
           {formatJSONButton}
         </Flex>
-      </Flex>
+        {(helpText || usedConstantTags) && (
+          <Box mt="1" style={{ minWidth: 0 }}>
+            {helpText}
+            {usedConstantTags}
+          </Box>
+        )}
+      </Box>
     );
 
     if (useCodeInput && codeEditorToggledOn) {
+      // In tabular/inline layouts, float the insert-constant button just above
+      // the editor (out of flow) so the editor's top lines up with the sibling
+      // grid cells (type select, actions) instead of being pushed down by the
+      // button row. Elsewhere the label row sits in flow above the editor.
+      const floatInsertButton = inlineConstantButton && !!insertConstantButton;
       return (
-        <Box mb="3">
+        <Box
+          mb="3"
+          style={floatInsertButton ? { position: "relative" } : undefined}
+        >
           {sparseHeader}
-          {jsonLabelRow}
-          {withInlineButton(
-            <CodeTextArea
-              label={editorLabel}
-              language="json"
-              value={value}
-              setValue={setValue}
-              helpText={combinedHelpText}
-              placeholder={placeholder}
-              disabled={disabled}
-              resizable={true}
-              defaultHeight={codeInputDefaultHeight}
-              showCopyButton={!copyHidden}
-              showFullscreenButton={showFullscreenButton}
-              onEditorLoad={(e) => (jsonEditorRef.current = e)}
-            />,
+          {floatInsertButton ? (
+            <Box
+              style={{
+                position: "absolute",
+                bottom: "100%",
+                right: 0,
+                marginBottom: 2,
+              }}
+            >
+              {insertConstantButton}
+            </Box>
+          ) : (
+            jsonLabelRow
           )}
+          <CodeTextArea
+            label={editorLabel}
+            language="json"
+            value={value}
+            setValue={setValue}
+            helpText={combinedHelpText}
+            placeholder={placeholder}
+            disabled={disabled}
+            resizable={true}
+            defaultHeight={codeInputDefaultHeight}
+            showCopyButton={!copyHidden}
+            showFullscreenButton={showFullscreenButton}
+            onEditorLoad={(e) => (jsonEditorRef.current = e)}
+          />
         </Box>
       );
     }
@@ -758,19 +788,18 @@ export default function FeatureValueField({
     return (
       <Box mb="3">
         {sparseHeader}
-        {withInlineButton(
-          <JSONTextEditor
-            label={editorLabel}
-            value={value}
-            setValue={setValue}
-            helpText={combinedHelpText}
-            placeholder={placeholder}
-            disabled={disabled}
-            showCopyButton={!copyHidden}
-            performCopy={performCopy}
-            copySuccess={copySuccess}
-          />,
-        )}
+        {jsonLabelRow}
+        <JSONTextEditor
+          label={editorLabel}
+          value={value}
+          setValue={setValue}
+          helpText={combinedHelpText}
+          placeholder={placeholder}
+          disabled={disabled}
+          showCopyButton={!copyHidden}
+          performCopy={performCopy}
+          copySuccess={copySuccess}
+        />
       </Box>
     );
   }

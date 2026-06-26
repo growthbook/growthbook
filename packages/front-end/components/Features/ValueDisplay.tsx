@@ -79,6 +79,7 @@ export default function ValueDisplay({
   defaultValue,
   fullscreenHeader = "Feature Value",
   linkify,
+  fontSize,
 }: {
   value: string;
   type: FeatureValueType;
@@ -103,6 +104,8 @@ export default function ValueDisplay({
   // as links to the referenced constant). Rarely needed — pass to customize or,
   // with a no-op getHref, effectively disable linking.
   linkify?: LinkifyConfig;
+  // Override the rendered code font size (passed through to InlineCode).
+  fontSize?: string;
 }) {
   // Link `@const:` references to their constant by default on every surface that
   // renders a value, unless the caller supplies its own linkify config.
@@ -216,6 +219,7 @@ export default function ValueDisplay({
             code={formatted}
             boldLines={sparseMerge ? boldLines : undefined}
             linkify={resolvedLinkify}
+            fontSize={fontSize}
           />
         </Box>
         {!isFullscreen && (
@@ -307,6 +311,7 @@ export default function ValueDisplay({
             sparse={sparse}
             defaultValue={defaultValue}
             linkify={resolvedLinkify}
+            fontSize={fontSize}
           />
         </Modal>
       )}

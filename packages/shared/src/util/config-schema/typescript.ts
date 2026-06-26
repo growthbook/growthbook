@@ -293,7 +293,7 @@ function parseSingleTsType(t: string, nullable: boolean): ParsedTsType {
     nullable,
     enum: [],
     jsonSchema: ANY_SCHEMA,
-    warning: `unresolved type "${t}" mapped to any`,
+    warning: `unresolved type "${t}"`,
   };
 }
 
@@ -318,12 +318,19 @@ function parseTsType(rawExpr: string): ParsedTsType {
     return { type: "string", nullable, enum: nonNull.map(unquote) };
   }
   if (nonNull.length === 1) return parseSingleTsType(nonNull[0], nullable);
+  // A union mixing string/number literals with bare members is almost always a
+  // forgotten quote (e.g. `"red" | yellow`); call that out specifically.
+  const hasLiteral = nonNull.some(
+    (p) => STRING_LITERAL_RE.test(p) || /^-?\d+(?:\.\d+)?$/.test(p),
+  );
   return {
     type: "string",
     nullable,
     enum: [],
     jsonSchema: ANY_SCHEMA,
-    warning: `union type "${expr}" mapped to any`,
+    warning: hasLiteral
+      ? `union "${expr}" mixes literal and non-literal members — quote literal values (e.g. "yellow") or use a single type`
+      : `union type "${expr}" can't be represented as a single field type`,
   };
 }
 

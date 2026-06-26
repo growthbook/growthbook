@@ -17,12 +17,14 @@ import {
 import { formatJSON } from "@/services/features";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import ValueDisplay from "@/components/Features/ValueDisplay";
+import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
 import Field from "@/components/Forms/Field";
 import Button from "@/ui/Button";
-import SplitButton from "@/ui/SplitButton";
+import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
+import Link from "@/ui/Link";
 import { ResolvedField } from "@/components/Configs/fieldSchema";
 
 // The schema editor speaks JSON Schema or TypeScript; both compile to the same
@@ -50,6 +52,10 @@ type Props = {
   // editor no longer carries its own Edit/Preview tabs. "preview" is read-only
   // and driven entirely by props (resolved value + effective schema).
   view?: "edit" | "preview";
+  // Parent config (when this is a child), used to clarify the empty-schema state
+  // ("inherits base schema from …") rather than the bare "No schema defined."
+  parentKey?: string | null;
+  parentName?: string | null;
   onSave: (
     value: Record<string, unknown>,
     fields: SchemaField[],
@@ -170,6 +176,8 @@ export default function ConfigJsonEditor({
   constantContext,
   canEdit,
   view = "edit",
+  parentKey,
+  parentName,
   onSave,
 }: Props) {
   const [valueText, setValueText] = useState<string>(() =>
@@ -187,6 +195,10 @@ export default function ConfigJsonEditor({
   // Active schema language. Held in a ref too so the reseed effect (which must
   // not re-run on a language switch) can read the current language.
   const [schemaLang, setSchemaLang] = useState<SchemaLang>("json");
+  // Display-only language for the read-only (off-draft / Resolved) schema views,
+  // kept separate from the editable buffer's language so viewing as TS never
+  // desyncs the JSON-seeded edit buffer.
+  const [readonlyLang, setReadonlyLang] = useState<SchemaLang>("json");
   const schemaLangRef = useRef<SchemaLang>(schemaLang);
   useEffect(() => {
     schemaLangRef.current = schemaLang;
@@ -289,13 +301,31 @@ export default function ConfigJsonEditor({
     [fields, ancestorOwned],
   );
 
+  // The config's own stored fields, independent of the editable buffer /
+  // language toggle — drives the read-only (off-draft) schema display so the
+  // language toggle there can flip purely the rendering, not the parse.
+  const ownFields = useMemo(() => parseFields(schemaJson), [schemaJson]);
   const ownSchemaString = useMemo(
-    () => schemaToJsonString(schemaType, fields, extensible),
-    [schemaType, fields, extensible],
+    () => schemaToJsonString(schemaType, ownFields, extensible),
+    [schemaType, ownFields, extensible],
   );
   const effectiveSchemaString = useMemo(
     () => schemaToJsonString(schemaType, effectiveSchema, extensible),
     [schemaType, effectiveSchema, extensible],
+  );
+
+  // TS that degrades to `any` (unresolved/unrepresentable types, e.g. a typo'd
+  // union like `"red" | yellow`) blocks the save instead of silently saving a
+  // weaker schema. The JSON Schema converter never emits this code, so this only
+  // bites in TypeScript mode. Other warnings (dropped siblings, index sigs) are
+  // informational.
+  const blockingWarnings = useMemo(
+    () => schemaWarnings.filter((w) => w.code === "unresolved-type"),
+    [schemaWarnings],
+  );
+  const infoWarnings = useMemo(
+    () => schemaWarnings.filter((w) => w.code !== "unresolved-type"),
+    [schemaWarnings],
   );
   const resolvedValueString = useMemo(() => {
     const obj: Record<string, unknown> = {};
@@ -303,12 +333,36 @@ export default function ConfigJsonEditor({
     return JSON.stringify(obj);
   }, [resolvedFields]);
 
+  // The value/schema exactly as they exist on this revision, in the active
+  // schema language — what Cancel reverts the buffers to. A clean language
+  // switch round-trips to the same text, so it doesn't read as a change.
+  const pristineValue = prettyValue(valueJson);
+  const pristineSchema = seedSchemaText(
+    schemaJson,
+    schemaType,
+    extensible,
+    schemaLang,
+  );
+  const dirty = valueText !== pristineValue || schemaText !== pristineSchema;
+
+  // Save mirrors Cancel: both only apply when there are unsaved edits. With
+  // nothing changed there's nothing to save (or cancel).
   const canSave =
     canEdit &&
+    dirty &&
     !parseError &&
     !schemaError &&
     conflictKeys.length === 0 &&
+    blockingWarnings.length === 0 &&
     !saving;
+
+  const handleCancel = () => {
+    setValueText(pristineValue);
+    setSchemaText(pristineSchema);
+    seededKeys.current = new Set();
+    setParseError(null);
+    setSaveError(null);
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -335,19 +389,83 @@ export default function ConfigJsonEditor({
 
   // A read-only JSON panel rendered with the same formatter feature flag rules
   // use (json-stringify-pretty-compact + constant linkify + copy/fullscreen).
-  const readonlySchema = (jsonString: string | null): ReactNode =>
-    jsonString ? (
-      <ValueDisplay
-        value={jsonString}
-        type="json"
-        showFullscreenButton
-        fullStyle={{ maxHeight: 320, overflowY: "auto", maxWidth: "100%" }}
+  const readonlyJsonSchema = (jsonString: string): ReactNode => (
+    <ValueDisplay
+      value={jsonString}
+      type="json"
+      showFullscreenButton
+      fullStyle={{ maxHeight: 320, overflowY: "auto", maxWidth: "100%" }}
+      fontSize="0.75rem"
+    />
+  );
+
+  // Read-only TypeScript rendering of a field set, using the standard syntax
+  // highlighter (the same renderer ValueDisplay uses for JSON) rather than a
+  // disabled code editor.
+  const readonlyTsSchema = (schemaFields: SchemaField[]): ReactNode => (
+    <Box style={{ maxHeight: 320, overflowY: "auto", maxWidth: "100%" }}>
+      <InlineCode
+        language="typescript"
+        code={fieldsToTsType(schemaFields, {
+          additionalProperties: extensible,
+        })}
+        fontSize="0.75rem"
       />
-    ) : (
+    </Box>
+  );
+
+  // A child config with no own schema still inherits its parent's; say so rather
+  // than the bare "No schema defined." (which reads as "no schema at all").
+  const ownSchemaEmptyState: ReactNode =
+    parentKey && parentName ? (
       <Text size="medium" color="text-low" as="div">
-        No schema defined.
+        No additional schema defined — inherits the base schema from{" "}
+        <Link href={`/configs/${parentKey}`}>{parentName}</Link>.
       </Text>
-    );
+    ) : undefined;
+
+  // A JSON Schema / TypeScript toggle, rendered as a small tab bar. `onSelect`
+  // differs by context: editing recompiles the buffer (switchSchemaLang),
+  // read-only just flips what's shown.
+  const langToggle = (
+    active: SchemaLang,
+    onSelect: (lang: SchemaLang) => void,
+  ): ReactNode => (
+    <Tabs value={active} onValueChange={(v) => onSelect(v as SchemaLang)}>
+      <TabsList size="1">
+        <TabsTrigger value="json">JSON Schema</TabsTrigger>
+        <TabsTrigger value="typescript">TypeScript</TabsTrigger>
+      </TabsList>
+    </Tabs>
+  );
+
+  // Read-only schema column: heading + language toggle + the schema rendered in
+  // the chosen language. Used off-draft (own schema) and on the Resolved tab
+  // (effective schema), so either can be viewed as JSON Schema or TypeScript.
+  const readonlySchemaColumn = (
+    schemaFields: SchemaField[],
+    jsonString: string | null,
+    heading: string,
+    emptyState?: ReactNode,
+  ): ReactNode => (
+    <>
+      <Flex justify="between" align="center" mb="1" gap="3">
+        <Text weight="semibold" size="medium" as="div">
+          {heading}
+        </Text>
+        {schemaFields.length > 0 && langToggle(readonlyLang, setReadonlyLang)}
+      </Flex>
+      {schemaFields.length === 0 || jsonString === null
+        ? (emptyState ?? (
+            <Text size="medium" color="text-low" as="div">
+              No schema defined.
+            </Text>
+          ))
+        : readonlyLang === "typescript"
+          ? readonlyTsSchema(schemaFields)
+          : readonlyJsonSchema(jsonString)}
+    </>
+  );
 
   const readonlyValue = (jsonString: string): ReactNode => (
     <ValueDisplay
@@ -404,30 +522,20 @@ export default function ConfigJsonEditor({
     </Flex>
   );
 
-  // Small split toggle that sets the schema language. Gray (not the primary
-  // accent) so it reads as a subordinate, editor-local control.
-  const schemaLangToggle = (
-    <SplitButton variant="outline">
-      {(["json", "typescript"] as const).map((lang) => (
-        <Button
-          key={lang}
-          size="xs"
-          color="gray"
-          variant={schemaLang === lang ? "solid" : "outline"}
-          onClick={() => switchSchemaLang(lang)}
-        >
-          {lang === "json" ? "JSON Schema" : "TypeScript"}
-        </Button>
-      ))}
-    </SplitButton>
-  );
-
   const schemaHeader = (
-    <Flex justify="between" align="center" mb="1" gap="3">
+    <Flex
+      justify="between"
+      align="center"
+      mb="1"
+      gap="3"
+      // Match the value column's label row height (the language tabs are taller
+      // than the Insert-constant link) so both editors start at the same y.
+      style={{ minHeight: "var(--space-6)" }}
+    >
       <Text weight="semibold" size="medium" as="div">
         Schema
       </Text>
-      {schemaLangToggle}
+      {langToggle(schemaLang, switchSchemaLang)}
     </Flex>
   );
 
@@ -468,7 +576,11 @@ export default function ConfigJsonEditor({
         <>
           {schemaHeader}
           {schemaCodeMode ? (
+            // Remount on language switch: swapping Ace's mode in place can leave
+            // the session in a state where keystrokes don't register (TS most
+            // often), so a fresh editor per language keeps it reliably editable.
             <CodeTextArea
+              key={schemaLang}
               language={schemaLang === "typescript" ? "typescript" : "json"}
               value={schemaText}
               setValue={setSchemaText}
@@ -491,11 +603,16 @@ export default function ConfigJsonEditor({
               {schemaError}
             </div>
           )}
-          {schemaWarnings.length > 0 && (
+          {blockingWarnings.length > 0 && (
+            <div style={{ color: "var(--red-11)", fontSize: 12, marginTop: 4 }}>
+              {blockingWarnings.map((w) => w.message).join("; ")}
+            </div>
+          )}
+          {infoWarnings.length > 0 && (
             <div
               style={{ color: "var(--amber-11)", fontSize: 12, marginTop: 4 }}
             >
-              {schemaWarnings.map((w) => w.message).join("; ")}
+              {infoWarnings.map((w) => w.message).join("; ")}
             </div>
           )}
         </>,
@@ -508,10 +625,11 @@ export default function ConfigJsonEditor({
       {columnHeader("Resolved value")}
       {readonlyValue(resolvedValueString)}
     </>,
-    <>
-      {columnHeader("Effective schema")}
-      {readonlySchema(effectiveSchemaString)}
-    </>,
+    readonlySchemaColumn(
+      effectiveSchema,
+      effectiveSchemaString,
+      "Effective schema",
+    ),
   );
 
   // Resolved (read-only) view — resolved value + effective schema. Available on
@@ -531,10 +649,12 @@ export default function ConfigJsonEditor({
             {columnHeader("Value")}
             {readonlyValue(prettyValue(valueJson))}
           </>,
-          <>
-            {columnHeader("Schema")}
-            {readonlySchema(ownSchemaString)}
-          </>,
+          readonlySchemaColumn(
+            ownFields,
+            ownSchemaString,
+            "Schema",
+            ownSchemaEmptyState,
+          ),
         )}
       </Box>
     );
@@ -543,9 +663,22 @@ export default function ConfigJsonEditor({
   // Editable value + schema, with Save anchored top-right.
   return (
     <Box mt="3">
-      <Flex justify="end" mb="3">
-        <Button onClick={handleSave} disabled={!canSave} loading={saving}>
+      <Flex justify="end" gap="2" mb="3">
+        <Button
+          size="sm"
+          onClick={handleSave}
+          disabled={!canSave}
+          loading={saving}
+        >
           Save
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={handleCancel}
+          disabled={!dirty || saving}
+        >
+          Cancel
         </Button>
       </Flex>
       {editContent}

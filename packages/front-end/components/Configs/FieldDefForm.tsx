@@ -482,8 +482,15 @@ export default function FieldDefForm({
         borderRadius: "var(--radius-3)",
       }}
     >
-      {/* Same grid template as the header/rows so the columns line up. */}
-      <Grid columns={FIELD_GRID_TEMPLATE} gapX="5" align="start">
+      {/* Same grid template as the header/rows so the columns line up. The JSON
+          value editor floats its "Insert constant" button just above itself, so
+          add headroom to keep it inside the panel. */}
+      <Grid
+        columns={FIELD_GRID_TEMPLATE}
+        gapX="5"
+        align="start"
+        pt={withValue && valueIsJson && !valueIsNull ? "6" : "0"}
+      >
         <Box style={{ minWidth: 0 }}>
           <Flex align="center" style={{ minHeight: 32 }}>
             <Box style={{ width: "100%" }}>

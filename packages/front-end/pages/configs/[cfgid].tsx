@@ -14,6 +14,8 @@ import {
   parsePlainJSONObject,
   resolveConfigChain,
   ConfigChainNode,
+  simpleToJSONSchema,
+  fieldsToTsType,
 } from "shared/util";
 import {
   buildConstantValueMap,
@@ -22,8 +24,10 @@ import {
 } from "shared/sdk-versioning";
 import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import { PiPlusBold } from "react-icons/pi";
+import { PiPlusBold, PiCaretDown, PiCheckBold, PiCopy } from "react-icons/pi";
 import useApi from "@/hooks/useApi";
+import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
+import Button from "@/ui/Button";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
@@ -107,6 +111,93 @@ type ResolvedResponse = {
   > & { source: ConstantSource })[];
 };
 
+// The strings the Export menu copies. All are derived from the displayed
+// revision, so the export is revision-sensitive (drafts export their proposed
+// state, the live revision exports live).
+type ConfigExportPayloads = {
+  ownValue: string;
+  resolvedValue: string;
+  ownSchemaJson: string;
+  ownSchemaTs: string;
+  effectiveSchemaJson: string;
+  effectiveSchemaTs: string;
+};
+
+// Export-as dropdown, modeled on the review "Copy as" widget: copies the
+// config's value/schema to the clipboard in the chosen shape. "Resolved"
+// variants walk the inheritance tree (and resolve constants for the value).
+function ConfigExportMenu({ payloads }: { payloads: ConfigExportPayloads }) {
+  const { performCopy, copySuccess, copySupported } = useCopyToClipboard({
+    timeout: 2000,
+  });
+  if (!copySupported) return null;
+
+  const item = (label: string, description: string | null, text: string) => (
+    <DropdownMenuItem
+      onClick={() => performCopy(text)}
+      style={{ height: "auto" }}
+    >
+      <Flex direction="column" gap="0" py="1">
+        <Text weight="medium">{label}</Text>
+        {description && (
+          <Box
+            as="span"
+            style={{
+              fontSize: "var(--font-size-1)",
+              color: "currentColor",
+              opacity: 0.7,
+            }}
+          >
+            {description}
+          </Box>
+        )}
+      </Flex>
+    </DropdownMenuItem>
+  );
+
+  return (
+    <DropdownMenu
+      menuPlacement="end"
+      menuWidth={280}
+      variant="soft"
+      color="violet"
+      trigger={
+        <Button variant="ghost" size="sm">
+          <Flex align="center" gap="1">
+            {copySuccess ? <PiCheckBold /> : <PiCopy />}
+            {/* Fixed width so swapping "Copy Config..." ↔ "Copied!" doesn't
+                shift the surrounding layout. */}
+            <Box
+              style={{ width: 92, textAlign: "center", whiteSpace: "nowrap" }}
+            >
+              {copySuccess ? "Copied!" : "Copy Config"}
+            </Box>
+            <PiCaretDown />
+          </Flex>
+        </Button>
+      }
+    >
+      <DropdownMenuGroup label="Value">
+        {item("Config", "This config's own value", payloads.ownValue)}
+        {item(
+          "Resolved config",
+          "Inheritance + constants resolved",
+          payloads.resolvedValue,
+        )}
+      </DropdownMenuGroup>
+      <DropdownMenuSeparator />
+      <DropdownMenuGroup label="Schema">
+        {item("JSON Schema", null, payloads.ownSchemaJson)}
+        {item("TypeScript", null, payloads.ownSchemaTs)}
+      </DropdownMenuGroup>
+      <DropdownMenuGroup label="Resolved schema">
+        {item("JSON Schema", null, payloads.effectiveSchemaJson)}
+        {item("TypeScript", null, payloads.effectiveSchemaTs)}
+      </DropdownMenuGroup>
+    </DropdownMenu>
+  );
+}
+
 export default function ConfigDetailPage(): React.ReactElement {
   const router = useRouter();
   const { cfgid } = router.query;
@@ -153,6 +244,17 @@ export default function ConfigDetailPage(): React.ReactElement {
     setSchemaEdit(null);
     setShowCreateChild(false);
     setShowOverrides(false);
+    // The reused page instance can otherwise carry a modal open from the
+    // previous config (e.g. the review/publish dialog popping up after a
+    // lineage/tag link lands on a different config).
+    setShowChangesModal(false);
+    setCompareOpen(false);
+    setConflictOpen(false);
+    setShowArchiveModal(false);
+    setShowAuditModal(false);
+    setEditInfoOpen(false);
+    setConfirmDelete(false);
+    setMenuOpen(false);
   }, [configKey]);
 
   // Addressed by `key`; the resolved endpoint returns the config plus its
@@ -270,6 +372,18 @@ export default function ConfigDetailPage(): React.ReactElement {
     return resolveConfigChain(chain);
   }, [data, displayedConfig]);
 
+  // Resolved fields with `@const:`/`@config:` refs squashed to their values, for
+  // the read-only Resolved tab (which shows the fully-resolved value: inheritance
+  // *and* constants). The Form tab squashes per-row separately.
+  const resolvedFieldsResolved = useMemo(
+    () =>
+      resolved.fields.map((f) => ({
+        ...f,
+        value: f.value === undefined ? undefined : squashConstants(f.value),
+      })),
+    [resolved.fields, squashConstants],
+  );
+
   const mergeResult = useConstantMergeResult(
     config,
     selectedRevision,
@@ -313,6 +427,75 @@ export default function ConfigDetailPage(): React.ReactElement {
     }
     return map;
   }, [data, displayedConfig, parentKey]);
+
+  // Clipboard-export strings for the Export menu, derived from the displayed
+  // revision (so drafts export their proposed state). Schemas are pretty-printed
+  // JSON Schema or TS; the empty schema still emits a valid object schema. Kept
+  // above the loading guard so the hook order stays stable.
+  const exportPayloads = useMemo<ConfigExportPayloads>(() => {
+    const prettyJSON = (text: string): string => {
+      try {
+        return JSON.stringify(JSON.parse(text || "{}"), null, 2);
+      } catch {
+        return text || "{}";
+      }
+    };
+    const schemaToJson = (fields: SchemaField[]): string => {
+      if (!fields.length) {
+        return JSON.stringify(
+          {
+            type: "object",
+            properties: {},
+            additionalProperties: effectiveExtensible,
+          },
+          null,
+          2,
+        );
+      }
+      try {
+        return JSON.stringify(
+          JSON.parse(
+            simpleToJSONSchema({
+              type: "object",
+              fields,
+              additionalProperties: effectiveExtensible,
+            }),
+          ),
+          null,
+          2,
+        );
+      } catch {
+        return JSON.stringify({ type: "object" }, null, 2);
+      }
+    };
+
+    // Resolved value = inheritance-merged fields (constants squashed), excluding
+    // fields with no value set anywhere.
+    const resolvedObj: Record<string, unknown> = {};
+    for (const f of resolved.fields) {
+      if (f.value !== undefined) resolvedObj[f.key] = f.value;
+    }
+
+    const ownFields = displayedConfig?.schema?.fields ?? [];
+    return {
+      ownValue: prettyJSON(displayedConfig?.value ?? "{}"),
+      resolvedValue: JSON.stringify(squashConstants(resolvedObj), null, 2),
+      ownSchemaJson: schemaToJson(ownFields),
+      ownSchemaTs: fieldsToTsType(ownFields, {
+        additionalProperties: effectiveExtensible,
+      }),
+      effectiveSchemaJson: schemaToJson(resolved.effectiveSchema),
+      effectiveSchemaTs: fieldsToTsType(resolved.effectiveSchema, {
+        additionalProperties: effectiveExtensible,
+      }),
+    };
+  }, [
+    displayedConfig?.value,
+    displayedConfig?.schema,
+    resolved,
+    effectiveExtensible,
+    squashConstants,
+  ]);
 
   if (error) {
     return (
@@ -846,26 +1029,30 @@ export default function ConfigDetailPage(): React.ReactElement {
                 {/* Single tab bar with consistent meanings on every revision:
                     Form/JSON show this config's own definition (editable only on
                     a draft); Resolved is the read-only resolved value + effective
-                    schema after inheritance/constants. */}
-                <Flex justify="between" align="center" gap="3" pt="4" mb="4">
-                  <TabsList>
+                    schema after inheritance/constants. The right-hand controls
+                    live inside the (full-width) TabsList so its underline runs
+                    the whole width of the appbox and sits under them too. */}
+                <Box pt="4" mb="4">
+                  <TabsList style={{ width: "100%" }}>
                     <TabsTrigger value="form">Form</TabsTrigger>
                     <TabsTrigger value="json">JSON</TabsTrigger>
                     <TabsTrigger value="resolved">Resolved</TabsTrigger>
+                    {/* stopPropagation so the interactive controls don't feed
+                        the TabsList's arrow-key roving focus. */}
+                    <Flex
+                      align="center"
+                      gap="5"
+                      ml="auto"
+                      pl="4"
+                      onKeyDown={(e) => e.stopPropagation()}
+                    >
+                      <Text color="text-mid" size="small">
+                        {statusText}
+                      </Text>
+                      <ConfigExportMenu payloads={exportPayloads} />
+                    </Flex>
                   </TabsList>
-                  <Flex align="center" gap="5">
-                    <Text color="text-mid" size="small">
-                      {statusText}
-                    </Text>
-                    {overrideCount > 0 && activeTab === "form" && (
-                      <Switch
-                        value={showOverrides}
-                        onChange={setShowOverrides}
-                        label="Show overrides"
-                      />
-                    )}
-                  </Flex>
-                </Flex>
+                </Box>
 
                 {/* Form — per-field resolved values (override / reset). */}
                 <TabsContent value="form">
@@ -889,8 +1076,9 @@ export default function ConfigDetailPage(): React.ReactElement {
                       </Callout>
                     )}
                     <Box style={{ minWidth: 800 }}>
-                      {/* Column header — same grid template as the rows so it aligns.
-                      The 5th (actions) column is intentionally left empty. */}
+                      {/* Column header — same grid template as the rows so it
+                      aligns. The 5th (actions) column holds the right-aligned
+                      "Show overrides" toggle. */}
                       <Grid
                         columns={FIELD_GRID_TEMPLATE}
                         gapX="5"
@@ -914,6 +1102,19 @@ export default function ConfigDetailPage(): React.ReactElement {
                             </Flex>
                           </Box>
                         ))}
+                        <Flex
+                          align="center"
+                          justify="end"
+                          style={{ minHeight: 24 }}
+                        >
+                          {overrideCount > 0 && (
+                            <Switch
+                              value={showOverrides}
+                              onChange={setShowOverrides}
+                              label="Show overrides"
+                            />
+                          )}
+                        </Flex>
                       </Grid>
 
                       {resolved.fields.map((f) => {
@@ -1017,13 +1218,15 @@ export default function ConfigDetailPage(): React.ReactElement {
                     valueJson={displayedConfig.value ?? "{}"}
                     schemaJson={JSON.stringify(ownSchema().fields)}
                     ancestorOwnedKeys={ancestorOwnedKeys}
-                    resolvedFields={resolved.fields}
+                    resolvedFields={resolvedFieldsResolved}
                     effectiveSchema={resolved.effectiveSchema}
                     schemaType={ownSchema().type}
                     extensible={effectiveExtensible}
                     constantContext={constantContext}
                     canEdit={canEditInline}
                     view={activeTab === "resolved" ? "preview" : "edit"}
+                    parentKey={parentKey}
+                    parentName={parentName}
                     onSave={(value, fields) => saveSchema(fields, value)}
                   />
                 )}

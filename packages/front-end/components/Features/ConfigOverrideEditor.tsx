@@ -35,7 +35,9 @@ type ResolvedResponse = {
   extensible?: boolean;
 };
 
-const GRID_TEMPLATE = "minmax(120px, 220px) minmax(160px, 1fr) 110px 90px";
+// Key / Value / Type / action. Key and Type are fixed so the Value column
+// (1fr) absorbs the remaining width.
+const GRID_TEMPLATE = "200px minmax(160px, 1fr) 110px 90px";
 
 function parseOverrides(value: string): Record<string, unknown> | null {
   try {
@@ -203,14 +205,19 @@ function OverrideRow({
   const nullable = fieldIsNullable(nf);
   const description = nf?.description?.trim();
   const isNull = overridden && value === null;
+  // A JSON override renders a code editor whose "Insert constant" button floats
+  // just above it; give the row extra headroom so the button doesn't crowd the
+  // row above.
+  const hasJsonEditor = overridden && !isNull && vt === "json";
 
   return (
     <Grid
       columns={GRID_TEMPLATE}
       align="start"
-      gapX="4"
+      gapX="5"
       gapY="0"
-      py="2"
+      pt={hasJsonEditor ? "6" : "2"}
+      pb="2"
       style={{ borderTop: "1px solid var(--slate-a4)" }}
     >
       <Flex align="center" gap="1" style={{ minHeight: 32, minWidth: 0 }}>
@@ -447,7 +454,7 @@ export default function ConfigOverrideEditor({
                 p="3"
                 style={{ background: "var(--color-panel-solid)" }}
               >
-                <Grid columns={GRID_TEMPLATE} gapX="4" pb="1" align="center">
+                <Grid columns={GRID_TEMPLATE} gapX="5" pb="1" align="center">
                   {["Key", "Value", "Type"].map((l) => (
                     <Box key={l} style={{ minWidth: 0 }}>
                       <Text
