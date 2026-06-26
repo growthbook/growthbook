@@ -14126,6 +14126,7 @@ paths:
         - $ref: '#/components/parameters/endDate'
       responses:
         '200':
+          description: Successful response
           content:
             application/json:
               schema:
@@ -48226,35 +48227,6 @@ components:
         - id
         - name
       additionalProperties: false
-    savedGroups:
-      type: object
-      properties:
-        id:
-          type: string
-        groupName:
-          type: string
-        projects:
-          type: array
-          items:
-            type: string
-      required:
-        - id
-      additionalProperties: false
-    constants:
-      type: object
-      properties:
-        id:
-          type: string
-        key:
-          type: string
-        name:
-          type: string
-        project:
-          type: string
-      required:
-        - id
-        - key
-        - name
     experimentResults:
       type: object
       properties:
@@ -48310,6 +48282,36 @@ components:
         - date
         - datasourceId
         - variations
+      additionalProperties: false
+    savedGroups:
+      type: object
+      properties:
+        id:
+          type: string
+        groupName:
+          type: string
+        projects:
+          type: array
+          items:
+            type: string
+      required:
+        - id
+      additionalProperties: false
+    constants:
+      type: object
+      properties:
+        id:
+          type: string
+        key:
+          type: string
+        name:
+          type: string
+        project:
+          type: string
+      required:
+        - id
+        - key
+        - name
       additionalProperties: false
     updatedMember:
       type: object
