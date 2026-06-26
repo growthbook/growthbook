@@ -874,8 +874,7 @@ export async function createRevision({
     environments
       .map((env) => {
         const overridden =
-          changes?.environmentDefaults &&
-          env in changes.environmentDefaults
+          changes?.environmentDefaults && env in changes.environmentDefaults
             ? changes.environmentDefaults[env]
             : feature.environmentSettings?.[env]?.defaultValue;
         return [env, overridden] as const;

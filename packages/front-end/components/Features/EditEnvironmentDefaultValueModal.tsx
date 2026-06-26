@@ -123,7 +123,10 @@ export default function EditEnvironmentDefaultValueModal({
           `/feature/${feature.id}/${targetVersion}/environmentdefault`,
           {
             method: "POST",
-            body: JSON.stringify({ environment, defaultValue: newDefaultValue }),
+            body: JSON.stringify({
+              environment,
+              defaultValue: newDefaultValue,
+            }),
           },
         );
         await mutate();
@@ -150,7 +153,9 @@ export default function EditEnvironmentDefaultValueModal({
           value={override}
           onChange={(on) => setOverride(on)}
         />
-        <Text weight="semibold">Override the default value in {environment}</Text>
+        <Text weight="semibold">
+          Override the default value in {environment}
+        </Text>
       </Flex>
 
       {override ? (
