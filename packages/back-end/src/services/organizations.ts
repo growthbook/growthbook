@@ -304,9 +304,16 @@ export function getAISettingsForOrg(
       context.org.settings?.openAIDefaultModel ||
       "gpt-5.4-mini";
 
-  // Per-surface override outranks the cloud-managed default — intentional.
+  // Visual editor AI. An explicit per-surface override always wins.
+  // Otherwise: on Cloud, default to Sonnet — the visual editor's
+  // structured-output + vision workload (mutations schema, figma-to-
+  // variant) needs more capability than the cheap managed default
+  // (Haiku), which fails schema adherence too often here. Self-hosted
+  // keeps falling back to the org's general default model so admins stay
+  // in control of cost/model.
   const visualEditorAIModel: AIModel =
-    context.org.settings?.visualEditorAIModel || defaultAIModel;
+    context.org.settings?.visualEditorAIModel ||
+    (IS_CLOUD ? "claude-sonnet-4-5-20250929" : defaultAIModel);
   const visualEditorImageModel: string =
     context.org.settings?.visualEditorImageModel || GEMINI_IMAGE_MODEL;
 

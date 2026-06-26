@@ -473,7 +473,22 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
       ...(effectiveTemperature != null
         ? { temperature: effectiveTemperature }
         : {}),
-      ...(tools ? { tools, stopWhen: stepCountIs(maxSteps) } : {}),
+      ...(tools
+        ? {
+            tools,
+            stopWhen: stepCountIs(maxSteps),
+            // Force a final answer on the last allowed step. Otherwise a model
+            // that keeps calling tools until it exhausts maxSteps ends ON a
+            // tool call (finishReason !== "stop"), so no output object is
+            // produced and the run fails with NoOutputGeneratedError (observed
+            // with claude-haiku-4-5 on visual-editor moves). Forbidding tools
+            // on the final step makes it commit to the structured output using
+            // whatever it has gathered. Only fires on a runaway loop — a model
+            // that answers within budget never reaches this step.
+            prepareStep: ({ stepNumber }: { stepNumber: number }) =>
+              stepNumber >= maxSteps - 1 ? { toolChoice: "none" as const } : {},
+          }
+        : {}),
       ...(onStepFinish ? { onStepFinish } : {}),
     });
     // Read the lazy `output` getter HERE, inside this awaited function, so the
