@@ -332,7 +332,7 @@ export default function FactTableModal({
                   Automatically update Auto Slice levels based on top column
                   values (
                   <Link
-                    href="/settings#metrics"
+                    href="/settings#metrics/top-values-lookback"
                     target="_blank"
                     rel="noreferrer"
                   >

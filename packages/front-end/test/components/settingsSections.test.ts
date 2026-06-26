@@ -11,6 +11,13 @@ describe("parseSettingsHash", () => {
     });
   });
 
+  it("derives the metrics tab from the top-values-lookback section", () => {
+    expect(parseSettingsHash("metrics/top-values-lookback")).toEqual({
+      tab: "metrics",
+      section: "top-values-lookback",
+    });
+  });
+
   it("parses a tab-only hash", () => {
     expect(parseSettingsHash("feature")).toEqual({
       tab: "feature",

@@ -19,6 +19,7 @@ function isSettingsTab(value: string | undefined): value is SettingsTabValue {
 
 const SETTINGS_SECTIONS = {
   "data-source-settings": SETTINGS_TAB.metrics,
+  "top-values-lookback": SETTINGS_TAB.metrics,
 } as const satisfies Record<string, SettingsTabValue>;
 
 type SettingsSectionId = keyof typeof SETTINGS_SECTIONS;
