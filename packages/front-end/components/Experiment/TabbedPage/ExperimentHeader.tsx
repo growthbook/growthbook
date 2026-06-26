@@ -364,6 +364,8 @@ export default function ExperimentHeader({
     track("Start experiment", {
       source: "experiment-start-banner",
       action: "main CTA",
+      hasDatasource: !!dataSource,
+      hasExperimentAssignmentQuery: !!experiment.exposureQueryId,
     });
     setTab("results");
   }
