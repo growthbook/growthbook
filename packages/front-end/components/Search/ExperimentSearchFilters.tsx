@@ -142,12 +142,7 @@ const ExperimentSearchFilters: FC<
   ];
 
   return (
-    <Flex
-      gapX="5"
-      gapY="3"
-      align="center"
-      wrap={wrap ? "wrap" : "nowrap"}
-    >
+    <Flex gapX="5" gapY="3" align="center" wrap={wrap ? "wrap" : "nowrap"}>
       {!project && projects.length > 0 && (
         <FilterDropdown
           filter="project"

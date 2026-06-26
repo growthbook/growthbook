@@ -24,7 +24,9 @@ describe("parseExperimentSearchString", () => {
 
   it("parses comma-separated and quoted values", () => {
     expect(
-      parseExperimentSearchString('owner:"Jane Doe",john status:running,stopped'),
+      parseExperimentSearchString(
+        'owner:"Jane Doe",john status:running,stopped',
+      ),
     ).toEqual({
       owners: ["Jane Doe", "john"],
       statuses: ["running", "stopped"],

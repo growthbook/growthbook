@@ -4,7 +4,8 @@ import {
   differenceTypes,
 } from "shared/enterprise";
 import React, { ChangeEvent, useMemo } from "react";
-import { Box, Flex, Text } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
+import Text from "@/ui/Text";
 import { useExperiments } from "@/hooks/useExperiments";
 import { transformQuery } from "@/services/search";
 import ExperimentSearchFilters from "@/components/Search/ExperimentSearchFilters";
@@ -67,7 +68,7 @@ export default function MetricExperimentsSettings({
     <Flex direction="column" gap="5">
       <Box>
         <Box mb="2">
-          <Text weight="bold">Metric</Text>
+          <Text weight="semibold">Metric</Text>
         </Box>
         <MetricSelector
           value={block.metricId}
@@ -80,7 +81,7 @@ export default function MetricExperimentsSettings({
 
       <Box>
         <Box mb="2">
-          <Text weight="bold">Filter Experiments</Text>
+          <Text weight="semibold">Filter Experiments</Text>
         </Box>
         <Flex gap="3" align="center" mb="2">
           <Box flexGrow="1">
@@ -111,7 +112,7 @@ export default function MetricExperimentsSettings({
 
       <Box>
         <Box mb="2">
-          <Text weight="bold">Difference Type</Text>
+          <Text weight="semibold">Difference Type</Text>
         </Box>
         <SelectField
           value={block.differenceType}

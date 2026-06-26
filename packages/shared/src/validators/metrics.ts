@@ -815,13 +815,14 @@ export const listMetricExperimentsValidator = {
         .string()
         .describe("Filter by comma-separated project ids or names")
         .optional(),
-      owner: z
-        .string()
+      owner: ownerInputField
         .describe("Filter by comma-separated owner ids, names, or emails")
         .optional(),
       status: z
         .string()
-        .describe("Filter by comma-separated statuses (draft, running, stopped)")
+        .describe(
+          "Filter by comma-separated statuses (draft, running, stopped)",
+        )
         .optional(),
       result: z
         .string()
@@ -848,7 +849,9 @@ export const listMetricExperimentsValidator = {
         .optional(),
       endDate: z
         .string()
-        .describe("Only include experiments whose last phase ended on or before")
+        .describe(
+          "Only include experiments whose last phase ended on or before",
+        )
         .optional(),
     })
     .strict(),
