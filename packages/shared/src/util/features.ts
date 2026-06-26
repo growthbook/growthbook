@@ -175,6 +175,10 @@ export function mergeRevision(
     if (revision.environmentsEnabled && env in revision.environmentsEnabled) {
       envSettings[env].enabled = revision.environmentsEnabled[env];
     }
+
+    if (revision.environmentDefaults && env in revision.environmentDefaults) {
+      envSettings[env].defaultValue = revision.environmentDefaults[env];
+    }
   });
 
   if (revision.prerequisites !== undefined) {
@@ -1042,6 +1046,7 @@ export type MergeResultChanges = {
   defaultValue?: string;
   rules?: FeatureRule[];
   environmentsEnabled?: Record<string, boolean>;
+  environmentDefaults?: Record<string, string>;
   prerequisites?: FeaturePrerequisite[];
   archived?: boolean;
   metadata?: RevisionMetadata;
@@ -1064,6 +1069,7 @@ export type RevisionFields = Pick<
   | "rules"
   | "version"
   | "environmentsEnabled"
+  | "environmentDefaults"
   | "prerequisites"
   | "archived"
   | "metadata"
@@ -1086,6 +1092,17 @@ const revisionFieldFillers: Partial<{
         env,
         !!val.enabled,
       ]),
+    ),
+    ...(current ?? {}),
+  }),
+  // Fill missing envs from the live feature's per-env default overrides so new
+  // envs don't produce false diffs. Only envs that actually have an override
+  // set are included (a sparse map mirroring `environmentSettings`).
+  environmentDefaults: (feature, current) => ({
+    ...Object.fromEntries(
+      Object.entries(feature.environmentSettings ?? {})
+        .filter(([, val]) => val.defaultValue !== undefined)
+        .map(([env, val]) => [env, val.defaultValue as string]),
     ),
     ...(current ?? {}),
   }),
@@ -1142,6 +1159,13 @@ export function liveRevisionFromFeature(
         !!val.enabled,
       ]),
     ),
+    // Sparse mirror of `environmentsEnabled` — only envs with an explicit
+    // per-env default override are included.
+    environmentDefaults: Object.fromEntries(
+      Object.entries(feature.environmentSettings ?? {})
+        .filter(([, val]) => val.defaultValue !== undefined)
+        .map(([env, val]) => [env, val.defaultValue as string]),
+    ),
     archived: feature.archived ?? false,
     prerequisites: feature.prerequisites ?? [],
     holdout:
@@ -1171,6 +1195,9 @@ export function buildEffectiveDraft(
     rules: draftRevision.rules,
     ...(draftRevision.environmentsEnabled !== undefined && {
       environmentsEnabled: draftRevision.environmentsEnabled,
+    }),
+    ...(draftRevision.environmentDefaults !== undefined && {
+      environmentDefaults: draftRevision.environmentDefaults,
     }),
     ...(draftRevision.prerequisites !== undefined && {
       prerequisites: draftRevision.prerequisites,
@@ -1215,6 +1242,14 @@ export function draftDiffersFromLive(
   )
     return true;
   if (
+    envIds.some(
+      (env) =>
+        (draft.environmentDefaults?.[env] ?? undefined) !==
+        (filledLive.environmentDefaults?.[env] ?? undefined),
+    )
+  )
+    return true;
+  if (
     JSON.stringify(draft.prerequisites ?? []) !==
     JSON.stringify(filledLive.prerequisites ?? [])
   )
@@ -1248,6 +1283,7 @@ export function mergeResultHasChanges(mergeResult: AutoMergeResult): boolean {
   // (including an explicit `[]` meaning "all rules deleted") is meaningful.
   if (r.rules !== undefined) return true;
   if (Object.keys(r.environmentsEnabled || {}).length > 0) return true;
+  if (Object.keys(r.environmentDefaults || {}).length > 0) return true;
   if (r.prerequisites !== undefined) return true;
   if (r.archived !== undefined) return true;
   if ("holdout" in r) return true;
@@ -1295,6 +1331,17 @@ export function getLiveChangesSinceBase(
       changes.push({
         key: `environmentsEnabled.${env}`,
         name: `Env Enabled - ${env}`,
+      });
+    }
+  }
+
+  for (const env of environments) {
+    const liveVal = live.environmentDefaults?.[env];
+    const baseVal = base.environmentDefaults?.[env];
+    if (!isEqual(liveVal, baseVal)) {
+      changes.push({
+        key: `environmentDefaults.${env}`,
+        name: `Env Default Value - ${env}`,
       });
     }
   }
@@ -1865,6 +1912,17 @@ export function autoMerge(
       }
     }
 
+    // environmentDefaults (per-env default value override)
+    if (revision.environmentDefaults) {
+      for (const env of Object.keys(revision.environmentDefaults)) {
+        const revVal = revision.environmentDefaults[env];
+        if (revVal !== base.environmentDefaults?.[env]) {
+          result.environmentDefaults = result.environmentDefaults || {};
+          result.environmentDefaults[env] = revVal;
+        }
+      }
+    }
+
     // prerequisites
     if (
       revision.prerequisites !== undefined &&
@@ -1998,6 +2056,39 @@ export function autoMerge(
       } else {
         result.environmentsEnabled = result.environmentsEnabled || {};
         result.environmentsEnabled[env] = revVal;
+      }
+    }
+  }
+
+  // environmentDefaults (per-env default value override)
+  if (revision.environmentDefaults) {
+    for (const env of Object.keys(revision.environmentDefaults)) {
+      const revVal = revision.environmentDefaults[env];
+      const baseVal = base.environmentDefaults?.[env];
+      const liveVal = live.environmentDefaults?.[env];
+      if (revVal === baseVal || revVal === liveVal) continue;
+
+      if (liveVal !== baseVal && !isEqual(liveVal, revVal)) {
+        const conflictInfo: MergeConflict = {
+          name: `Env Default Value - ${env}`,
+          key: `environmentDefaults.${env}`,
+          base: JSON.stringify(baseVal),
+          live: JSON.stringify(liveVal),
+          revision: JSON.stringify(revVal),
+          resolved: false,
+        };
+        const strategy = strategies[conflictInfo.key];
+        if (strategy === "overwrite") {
+          conflictInfo.resolved = true;
+          result.environmentDefaults = result.environmentDefaults || {};
+          result.environmentDefaults[env] = revVal;
+        } else if (strategy === "discard") {
+          conflictInfo.resolved = true;
+        }
+        conflicts.push(conflictInfo);
+      } else {
+        result.environmentDefaults = result.environmentDefaults || {};
+        result.environmentDefaults[env] = revVal;
       }
     }
   }
@@ -2950,6 +3041,14 @@ export function getDraftAffectedEnvironments(
     ) {
       envs.add(env);
     }
+    // Per-env default value override. Missing means "no override"; compare the
+    // sparse maps directly so setting/clearing an override marks the env.
+    if (
+      revision.environmentDefaults?.[env] !== undefined &&
+      revision.environmentDefaults[env] !== baseRevision.environmentDefaults?.[env]
+    ) {
+      envs.add(env);
+    }
   }
   // rampActions target a specific rule by ruleId; the environments that rule
   // is active in are affected by the ramp. Step patches can also widen the
@@ -3110,7 +3209,16 @@ export function checkIfRevisionNeedsReview({
     const baseRules = getRulesForEnvironment(baseRulesAll, env).map(
       normalizeRuleForDiff,
     );
-    return !isEqual(revRules, baseRules);
+    if (!isEqual(revRules, baseRules)) return true;
+    // A per-env default value override is a served-value change, so it gates
+    // like a rule/value change (not like a kill switch).
+    if (
+      revision.environmentDefaults?.[env] !== undefined &&
+      revision.environmentDefaults[env] !==
+        baseRevision.environmentDefaults?.[env]
+    )
+      return true;
+    return false;
   });
   const envKillSwitchChanges = affected.filter(
     (env) =>

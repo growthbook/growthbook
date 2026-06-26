@@ -221,6 +221,11 @@ export const featureEnvironment = z
   .object({
     enabled: z.boolean(),
     prerequisites: z.array(featurePrerequisite).optional(),
+    // Optional per-environment override of the feature's base `defaultValue`.
+    // A string conforming to the feature's `valueType`. When set, it takes
+    // precedence over the base `defaultValue` for this environment (but rules
+    // still take precedence over it).
+    defaultValue: z.string().optional(),
   })
   .strict();
 
@@ -577,6 +582,10 @@ const featureRevisionInterface = minimalFeatureRevisionInterface
     rules: revisionRulesSchema,
     // Revision envelopes — only present when explicitly changed
     environmentsEnabled: z.record(z.string(), z.boolean()).optional(),
+    // Sparse map of per-environment default value overrides (env name ->
+    // override value). Mirrors `environmentsEnabled`; only present when
+    // explicitly changed in the draft.
+    environmentDefaults: z.record(z.string(), z.string()).optional(),
     prerequisites: z.array(featurePrerequisite).optional(),
     archived: z.boolean().optional(),
     metadata: revisionMetadataSchema.optional(),
@@ -640,6 +649,7 @@ export const revisionChangesSchema = featureRevisionInterface
     rules: true,
     baseVersion: true,
     environmentsEnabled: true,
+    environmentDefaults: true,
     prerequisites: true,
     archived: true,
     metadata: true,

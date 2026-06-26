@@ -92,6 +92,7 @@ const featureRevisionSchema = new mongoose.Schema({
   rules: {},
   // Revision envelopes — only present when explicitly changed
   environmentsEnabled: {},
+  environmentDefaults: {},
   prerequisites: [{}],
   archived: Boolean,
   metadata: {},
