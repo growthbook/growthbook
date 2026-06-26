@@ -293,13 +293,14 @@ export type ColumnTopValuesParams = {
   factTable: Pick<FactTableInterface, "sql" | "eventName">;
   columns: ColumnInterface[];
   limit?: number;
-  lookbackDays?: number;
+  lookbackDays: number;
   maxValueLength?: number;
 };
+
+/** Rows are returned most-frequent-first per column. */
 export type ColumnTopValuesResponseRow = {
   column: string;
   value: string;
-  count: number;
 };
 
 interface ExperimentBaseQueryParams {
@@ -448,9 +449,13 @@ export interface InsertAggregatedFactTableDataQueryParams {
   metrics: FactMetricInterface[];
   tableFullName: string;
   // Lower bound on event timestamp: incremental uses the watermark with
-  // exclusiveStart=true; restate uses the window start with exclusiveStart=false.
+  // exclusiveStart=true; restate uses the chunk start with exclusiveStart=false.
   windowStartDate: Date;
   exclusiveStart: boolean;
+  // Exclusive upper bound on event timestamp. Set for all but the last chunk
+  // of a chunked restate so chunks tile [windowStart, now) half-open; null for
+  // incremental, the final restate chunk, and unchunked restates (open to "now").
+  windowEndDate: Date | null;
 }
 
 export interface AggregatedFactTableMaxTimestampQueryParams {

@@ -32,6 +32,8 @@ const openApiTags = [
   "visual-changesets",
   "saved-groups",
   "saved-group-revisions",
+  "constants",
+  "constant-revisions",
   "organizations",
   "members",
   "code-references",
@@ -145,6 +147,16 @@ const tags: Record<OpenApiTag, { display: string; description: string }> = {
     display: "Saved Group Revisions",
     description:
       'Draft revisions for saved groups, including pending changes, approvals, and lifecycle (publish, discard, revert).\n\nMost callers can interact with these endpoints via shorthand actions (`/items/add`, `/items/remove`, single-field PUTs) instead of authoring JSON Patch ops directly. Pass `version: "new"` on edit endpoints to auto-create a draft.',
+  },
+  constants: {
+    display: "Constants",
+    description:
+      "Reusable named values referenced from feature flag values as `@const:key` and resolved into the SDK payload at build time. String constants are interpolated via `{{ @const:key }}`; JSON (object) constants are composed via an `$extends` array.",
+  },
+  "constant-revisions": {
+    display: "Constant Revisions",
+    description:
+      'Draft revisions for constants, including pending changes, approvals, and lifecycle (publish, discard, revert). Pass `version: "new"` on edit endpoints to auto-create a draft.',
   },
   members: {
     display: "Members",

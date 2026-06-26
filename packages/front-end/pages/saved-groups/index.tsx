@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { SavedGroupWithoutValues } from "shared/types/saved-group";
 import { PiArrowSquareOut } from "react-icons/pi";
-import { Box, Flex, Heading, Text } from "@radix-ui/themes";
+import { Flex, Heading, Text } from "@radix-ui/themes";
 import IdLists from "@/components/SavedGroups/IdLists";
 import ConditionGroups from "@/components/SavedGroups/ConditionGroups";
 import SavedGroupReviews from "@/components/SavedGroups/SavedGroupReviews";
@@ -11,8 +11,6 @@ import { useAuth } from "@/services/auth";
 import { useAttributeSchema } from "@/services/features";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Modal from "@/components/Modal";
-import HistoryTable from "@/components/HistoryTable";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useApi from "@/hooks/useApi";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
@@ -23,8 +21,6 @@ import HelperText from "@/ui/HelperText";
 export default function SavedGroupsPage() {
   const router = useRouter();
   const { mutateDefinitions, savedGroups, error } = useDefinitions();
-
-  const [auditModal, setAuditModal] = useState(false);
 
   const { refreshOrganization } = useUser();
 
@@ -130,17 +126,6 @@ export default function SavedGroupsPage() {
         <Heading size="7" as="h1">
           Saved Groups
         </Heading>
-        <Box>
-          <Link
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
-              setAuditModal(true);
-            }}
-          >
-            View Audit Logs
-          </Link>
-        </Box>
       </Flex>
       <Text as="p" mb="3" color="gray">
         Create reusable user groups as targets for feature flags or experiments.
@@ -222,19 +207,6 @@ export default function SavedGroupsPage() {
             </TabsContent>
           </Tabs>
         </>
-      )}
-
-      {auditModal && (
-        <Modal
-          trackingEventModalType=""
-          open={true}
-          header="Audit Log"
-          close={() => setAuditModal(false)}
-          size="max"
-          closeCta="Close"
-        >
-          <HistoryTable type="savedGroup" showName={true} showType={false} />
-        </Modal>
       )}
     </div>
   );
