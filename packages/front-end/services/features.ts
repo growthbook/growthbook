@@ -33,6 +33,7 @@ import {
   categorizeUnregisteredAttributes,
   extractConditionAttributeKeys,
   getRequireRegisteredAttributesSettings,
+  formatJsonMultilineObjects,
   type RequireRegisteredAttributesSettings,
 } from "shared/util";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
@@ -398,12 +399,12 @@ export function formatJSON(value: string): string | undefined {
     // Use dirty-json for small files to handle malformed JSON
     try {
       const parsed = dJSON.parse(value);
-      formatted = stringify(parsed);
+      formatted = formatJsonMultilineObjects(parsed);
     } catch (e) {
       // Fallback to native JSON.parse if dirty-json fails
       try {
         const parsed = JSON.parse(value);
-        formatted = stringify(parsed);
+        formatted = formatJsonMultilineObjects(parsed);
       } catch (e2) {
         // Ignore
       }
@@ -412,7 +413,7 @@ export function formatJSON(value: string): string | undefined {
     // For medium+ files, only use native JSON.parse (much faster)
     try {
       const parsed = JSON.parse(value);
-      formatted = stringify(parsed);
+      formatted = formatJsonMultilineObjects(parsed);
     } catch (e) {
       // Invalid JSON - skip formatting to avoid blocking UI
     }
