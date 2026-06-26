@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { Revision, applyTopLevelPatchOps } from "shared/enterprise";
 import { SavedGroupInterface } from "shared/types/saved-group";
+import { dateNoYear } from "shared/dates";
 import { useAuth } from "@/services/auth";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
@@ -10,7 +11,11 @@ import Heading from "@/ui/Heading";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import RadioGroup from "@/ui/RadioGroup";
-import { Select, SelectItem } from "@/ui/Select";
+import SharedRevisionDropdown, {
+  RevisionDropdownRow,
+} from "@/components/Reviews/RevisionDropdown";
+import { getStatusBadge } from "@/components/Revision/revisionUtils";
+import { useUser } from "@/services/UserContext";
 import { useRevisionDiff, RevisionDiffConfig } from "./useRevisionDiff";
 import { RevisionDiff } from "./RevisionDiff";
 
@@ -59,6 +64,7 @@ export default function SavedGroupRevertModal({
   onRevisionCreated,
 }: Props) {
   const { apiCall } = useAuth();
+  const { getUserDisplay } = useUser();
 
   // Revision-number map (stored version, else position by creation date) so
   // the dropdown and revert title read like the rest of the page.
@@ -133,13 +139,19 @@ export default function SavedGroupRevertModal({
   const [comment, setComment] = useState("");
 
   const targetNumber = revisionNumberById.get(targetRevision.id);
-  const targetOptions = targetRevisions.map((r) => {
-    const num = revisionNumberById.get(r.id);
-    return {
-      value: r.id,
-      label: r.title?.trim() || `Revision ${num ?? ""}`.trim(),
-    };
-  });
+
+  const targetRows: RevisionDropdownRow[] = targetRevisions.map((r) => ({
+    key: r.id,
+    version: revisionNumberById.get(r.id) ?? 1,
+    title: r.title,
+    meta: (
+      <Text size="small" color="text-low" whiteSpace="nowrap">
+        {getUserDisplay(r.authorId)}
+        {r.dateUpdated && <> &middot; {dateNoYear(r.dateUpdated)}</>}
+      </Text>
+    ),
+    badge: getStatusBadge(r.status),
+  }));
 
   const publishNow = mode === "publish";
 
@@ -228,17 +240,15 @@ export default function SavedGroupRevertModal({
       <Flex align="center" gap="2" mb="3" wrap="wrap">
         <Text weight="medium">Reverting to:</Text>
         <Box style={{ flex: 1, minWidth: 200, maxWidth: 480 }}>
-          <Select
-            value={targetId}
-            setValue={(value) => setTargetId(value)}
-            style={{ width: "100%", maxWidth: "100%" }}
-          >
-            {targetOptions.map((o) => (
-              <SelectItem key={o.value} value={o.value}>
-                {o.label}
-              </SelectItem>
-            ))}
-          </Select>
+          <SharedRevisionDropdown
+            rows={targetRows}
+            selectedKey={targetId}
+            onSelect={(key) => setTargetId(key)}
+            selectedBadge={getStatusBadge(targetRevision.status)}
+            triggerPlaceholder="Select revision"
+            triggerNumbered={false}
+            menuPlacement="start"
+          />
         </Box>
       </Flex>
 

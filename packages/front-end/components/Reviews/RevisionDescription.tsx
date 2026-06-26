@@ -131,7 +131,9 @@ export default function RevisionDescription({
               }
             >
               <Box ref={notesContentRef}>
-                <Markdown className="speech-bubble">{comment}</Markdown>
+                <Markdown className="speech-bubble" highlightCode>
+                  {comment}
+                </Markdown>
               </Box>
               {!notesExpanded && notesOverflow && (
                 <Box

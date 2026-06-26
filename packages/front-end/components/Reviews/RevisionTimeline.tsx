@@ -439,7 +439,7 @@ export function RevisionLogRow({
             ) : undefined
           }
           body={
-            <MarkdownWithDiffRefs className="speech-bubble">
+            <MarkdownWithDiffRefs className="speech-bubble" highlightCode>
               {comment ?? ""}
             </MarkdownWithDiffRefs>
           }
