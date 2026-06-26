@@ -151,7 +151,23 @@ export function revisionTimelineLogs(
       timestamp: iso(a.dateCreated),
       action,
       subject: "",
-      // No raw-JSON Details for saved-group activity (diffs out of scope).
+      // No "Details" JSON disclosure for generic (saved-group / constant)
+      // activity entries. Features populate `value` with a clean domain
+      // snapshot per entry (FeatureRevisionModel: the "new revision" log bakes
+      // defaultValue/rules/environmentsEnabled/prerequisites at creation time),
+      // but the generic model persists no equivalent:
+      //   - "new revision" (created): only `proposedChangesSnapshot` (a raw
+      //     JSON-Patch op array) + an entity-specific `targetSnapshot` baseline
+      //     are available — i.e. the diff/raw-JSON the disclosure was scoped to
+      //     exclude, not a domain payload.
+      //   - "schedule publish": the backend writes a static
+      //     description: "Scheduled publish" string (RevisionModel.armSchedule)
+      //     and stores the date/lock targets/bypass flags only on the revision's
+      //     current top-level fields, with no per-entry snapshot. Reconstructing
+      //     them from current state would misattribute the latest schedule to
+      //     superseded historical entries.
+      // Populating `value` here would require backend changes (persist a
+      // per-entry snapshot) rather than guesswork, so it's deferred.
       value: "",
     });
   }

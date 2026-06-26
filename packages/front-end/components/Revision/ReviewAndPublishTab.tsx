@@ -313,7 +313,7 @@ function ReviewAndPublishRevision<T>({
 
   // ── Diffs: live + proposed ops for active drafts ("what publish would
   // do"); base snapshot + ops for merged/discarded ("what this revision
-  // changed"). Same semantics as RevisionDetail. ──
+  // changed"). ──
   const baseSnapshot = isActiveDraft
     ? currentState
     : (revision.target.snapshot as T);
@@ -970,63 +970,64 @@ function ReviewAndPublishRevision<T>({
         </Heading>
       </Flex>
 
-      {isActiveDraft && canEditEntity && (
-        <Box ml="auto" style={{ marginRight: -6 }}>
-          <DropdownMenu
-            trigger={
-              <IconButton
-                variant="ghost"
-                color="gray"
-                radius="full"
-                size="2"
-                highContrast
-                style={{ margin: 0 }}
-              >
-                <BsThreeDotsVertical size={16} />
-              </IconButton>
-            }
-            open={actionsDropdownOpen}
-            onOpenChange={setActionsDropdownOpen}
-            menuPlacement="end"
-            variant="soft"
-          >
-            <DropdownMenuGroup>
-              {state.canRecallReview && (
+      {isActiveDraft &&
+        (state.canRecallReview || state.canUndoReview || canEditEntity) && (
+          <Box ml="auto" style={{ marginRight: -6 }}>
+            <DropdownMenu
+              trigger={
+                <IconButton
+                  variant="ghost"
+                  color="gray"
+                  radius="full"
+                  size="2"
+                  highContrast
+                  style={{ margin: 0 }}
+                >
+                  <BsThreeDotsVertical size={16} />
+                </IconButton>
+              }
+              open={actionsDropdownOpen}
+              onOpenChange={setActionsDropdownOpen}
+              menuPlacement="end"
+              variant="soft"
+            >
+              <DropdownMenuGroup>
+                {state.canRecallReview && (
+                  <DropdownMenuItem
+                    disabled={submitting}
+                    onClick={() => {
+                      setActionsDropdownOpen(false);
+                      doRecallReview();
+                    }}
+                  >
+                    Return to draft state
+                  </DropdownMenuItem>
+                )}
+                {state.canUndoReview && (
+                  <DropdownMenuItem
+                    disabled={submitting}
+                    onClick={() => {
+                      setActionsDropdownOpen(false);
+                      doUndoReview();
+                    }}
+                  >
+                    Retract review
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem
+                  color="red"
                   disabled={submitting}
                   onClick={() => {
                     setActionsDropdownOpen(false);
-                    doRecallReview();
+                    setConfirmDiscard(true);
                   }}
                 >
-                  Return to draft state
+                  Discard draft
                 </DropdownMenuItem>
-              )}
-              {state.canUndoReview && (
-                <DropdownMenuItem
-                  disabled={submitting}
-                  onClick={() => {
-                    setActionsDropdownOpen(false);
-                    doUndoReview();
-                  }}
-                >
-                  Retract my review
-                </DropdownMenuItem>
-              )}
-              <DropdownMenuItem
-                color="red"
-                disabled={submitting}
-                onClick={() => {
-                  setActionsDropdownOpen(false);
-                  setConfirmDiscard(true);
-                }}
-              >
-                Discard draft
-              </DropdownMenuItem>
-            </DropdownMenuGroup>
-          </DropdownMenu>
-        </Box>
-      )}
+              </DropdownMenuGroup>
+            </DropdownMenu>
+          </Box>
+        )}
     </CardHeader>
   );
 
