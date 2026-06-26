@@ -133,13 +133,7 @@ export function getChecklistItems({
       display: (
         <>
           {setAnalysisModal ? (
-            <a
-              className="a link-purple"
-              role="button"
-              onClick={() => setAnalysisModal(true)}
-            >
-              Select
-            </a>
+            <Link onClick={() => setAnalysisModal(true)}>Select</Link>
           ) : (
             "Select"
           )}{" "}
@@ -156,13 +150,7 @@ export function getChecklistItems({
       display: (
         <>
           {setAnalysisModal ? (
-            <a
-              className="a link-purple"
-              role="button"
-              onClick={() => setAnalysisModal(true)}
-            >
-              Select
-            </a>
+            <Link onClick={() => setAnalysisModal(true)}>Select</Link>
           ) : (
             "Select"
           )}{" "}
@@ -181,13 +169,7 @@ export function getChecklistItems({
         display: (
           <>
             {setAnalysisModal ? (
-              <a
-                className="a link-purple"
-                role="button"
-                onClick={() => setAnalysisModal(true)}
-              >
-                Add
-              </a>
+              <Link onClick={() => setAnalysisModal(true)}>Add</Link>
             ) : (
               "Add"
             )}{" "}
@@ -214,9 +196,9 @@ export function getChecklistItems({
           {openSetupTab &&
           ((isBandit && !hasLiveLinkedChanges) ||
             (!isBandit && hasLinkedChanges)) ? (
-            <a className="a link-purple" role="button" onClick={openSetupTab}>
+            <Link onClick={openSetupTab}>
               Linked Feature or Visual Editor change
-            </a>
+            </Link>
           ) : (
             "Linked Feature, Visual Editor change, or URL Redirect"
           )}
@@ -235,13 +217,7 @@ export function getChecklistItems({
         display: (
           <>
             {setAnalysisModal ? (
-              <a
-                className="a link-purple"
-                role="button"
-                onClick={() => setAnalysisModal(true)}
-              >
-                Choose
-              </a>
+              <Link onClick={() => setAnalysisModal(true)}>Choose</Link>
             ) : (
               "Choose"
             )}{" "}
@@ -397,9 +373,7 @@ export function getChecklistItems({
           <>
             Add changes in the{" "}
             {openSetupTab ? (
-              <a className="a link-purple" role="button" onClick={openSetupTab}>
-                Visual Editor
-              </a>
+              <Link onClick={openSetupTab}>Visual Editor</Link>
             ) : (
               "Visual Editor"
             )}
@@ -419,16 +393,14 @@ export function getChecklistItems({
     display: (
       <>
         {editTargeting ? (
-          <a
-            className="a link-purple"
-            role="button"
+          <Link
             onClick={() => {
               editTargeting();
               track("Edit targeting", { source: "experiment-start-banner" });
             }}
           >
             Configure
-          </a>
+          </Link>
         ) : (
           "Configure"
         )}{" "}
@@ -451,13 +423,7 @@ export function getChecklistItems({
         {!setShowSdkForm && !verifiedConnections ? (
           <Link href="/sdks">Manage SDK Connections</Link>
         ) : connections.length === 0 && setShowSdkForm ? (
-          <a
-            className="a link-purple"
-            role="button"
-            onClick={() => setShowSdkForm(true)}
-          >
-            Add SDK Connection
-          </a>
+          <Link onClick={() => setShowSdkForm(true)}>Add SDK Connection</Link>
         ) : null}
       </>
     ),
@@ -500,13 +466,9 @@ export function getChecklistItems({
             item.propertyKey === "schedule" ? (
               <>
                 {setShowScheduleModal ? (
-                  <a
-                    className="a link-purple"
-                    role="button"
-                    onClick={() => setShowScheduleModal(true)}
-                  >
+                  <Link onClick={() => setShowScheduleModal(true)}>
                     Add scheduled start date
-                  </a>
+                  </Link>
                 ) : (
                   "Add scheduled start date"
                 )}{" "}

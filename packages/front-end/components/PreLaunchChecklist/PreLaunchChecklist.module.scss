@@ -84,16 +84,12 @@
   }
 }
 
-// Toggle row revealing the collapsed list of completed checklist items.
-.completedToggle {
-  cursor: pointer;
-  user-select: none;
-  margin-top: 12px;
-  font-weight: 600;
-  color: var(--violet-11);
+.completedLabel {
+  text-decoration: line-through;
 
-  &:hover {
-    color: var(--violet-12);
+  :global(a),
+  :global(button) {
+    text-decoration: line-through;
   }
 }
 

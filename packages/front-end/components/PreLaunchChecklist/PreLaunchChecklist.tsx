@@ -135,10 +135,9 @@ function PreLaunchChecklistUI({
           })}
           label={
             <span
-              style={{
-                textDecoration:
-                  item.status === "complete" ? "line-through" : "none",
-              }}
+              className={clsx({
+                [styles.completedLabel]: item.status === "complete",
+              })}
             >
               {item.display}
               {!item.required && (
@@ -169,23 +168,21 @@ function PreLaunchChecklistUI({
       {incompleteItems.map((item, i) => renderItem(item, i))}
       {completeItems.length > 0 && (
         <Box mt="4">
-          <Flex
-            align="center"
-            gap="1"
-            className={styles.completedToggle}
-            role="button"
+          <Link
             onClick={(e) => {
               e.stopPropagation();
               setShowCompleted((prev) => !prev);
             }}
           >
-            <span>View completed items</span>
-            {showCompleted ? (
-              <PiCaretDownFill size={13} />
-            ) : (
-              <PiCaretRightFill size={13} />
-            )}
-          </Flex>
+            <Flex as="span" align="center" gap="1">
+              View completed items
+              {showCompleted ? (
+                <PiCaretDownFill size={13} />
+              ) : (
+                <PiCaretRightFill size={13} />
+              )}
+            </Flex>
+          </Link>
           {showCompleted && (
             <Box mt="2">
               {completeItems.map((item, i) =>
