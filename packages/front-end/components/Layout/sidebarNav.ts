@@ -249,7 +249,7 @@ export const navlinks: SidebarLinkProps[] = [
         href: "/projects",
         path: /^project/,
         filter: ({ permissionsUtils }) =>
-          permissionsUtils.canManageSomeProjects(),
+          permissionsUtils.canViewProjectsPage(),
       },
       {
         name: "Custom Fields",
