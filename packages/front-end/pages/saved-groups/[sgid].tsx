@@ -7,8 +7,11 @@ import {
   isSavedGroupRevisionMetadataOnly,
 } from "shared/enterprise";
 import { REVIEW_REQUESTED_STATUSES } from "shared/validators";
-import { FaPlusCircle } from "react-icons/fa";
-import { PiArrowsDownUp, PiPencilSimpleFill } from "react-icons/pi";
+import {
+  PiArrowsDownUp,
+  PiPencilSimpleFill,
+  PiPlusCircleBold,
+} from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { isIdListSupportedAttribute } from "shared/util";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
@@ -1307,7 +1310,7 @@ export default function EditSavedGroupPage() {
                       <Button
                         variant="outline"
                         disabled={!!(isMerged || isDiscarded)}
-                        icon={<FaPlusCircle />}
+                        icon={<PiPlusCircleBold />}
                         onClick={() => {
                           // When viewing live, switch to/create draft first
                           if (!selectedRevision && userOpenRevision) {

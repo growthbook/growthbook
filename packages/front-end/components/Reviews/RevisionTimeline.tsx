@@ -1,14 +1,15 @@
 import { RevisionLog } from "shared/types/feature-revision";
-import { FaCodeCommit } from "react-icons/fa6";
-import { FaAngleDown, FaAngleRight } from "react-icons/fa";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import {
   PiArrowCounterClockwiseFill,
+  PiCaretDown,
+  PiCaretRight,
   PiChatCircleTextFill,
   PiCheckBold,
   PiClockFill,
   PiGearFill,
   PiFilePlus,
+  PiGitCommit,
   PiPencilSimpleFill,
   PiPlusMinusBold,
   PiProhibitFill,
@@ -489,7 +490,7 @@ export function RevisionLogRow({
             size="xs"
             mt="0"
             mb="0"
-            icon={open ? <FaAngleDown /> : <FaAngleRight />}
+            icon={open ? <PiCaretDown /> : <PiCaretRight />}
             onClick={() => setOpen((o) => !o)}
           >
             Details
@@ -694,7 +695,7 @@ export default function RevisionTimeline({
           display: "flex",
         }}
       >
-        <FaCodeCommit />
+        <PiGitCommit />
       </Box>
       <Text size="small" weight="semibold" color="text-mid" mb="3" as="div">
         {group.date}
@@ -733,7 +734,7 @@ export default function RevisionTimeline({
                     size="xs"
                     mt="0"
                     mb="0"
-                    icon={isOpen ? <FaAngleDown /> : <FaAngleRight />}
+                    icon={isOpen ? <PiCaretDown /> : <PiCaretRight />}
                     onClick={() =>
                       setExpandedRuns((prev) => {
                         const next = new Set(prev);

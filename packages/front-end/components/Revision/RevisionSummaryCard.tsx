@@ -7,8 +7,8 @@ import {
   PiProhibit,
   PiLockSimple,
   PiPencilSimpleFill,
+  PiArrowRightBold,
 } from "react-icons/pi";
-import { FaArrowRight } from "react-icons/fa";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
 import Frame from "@/ui/Frame";
@@ -358,7 +358,7 @@ export default function RevisionSummaryCard({
             )}
             {hasRevisions && isDraft && onReviewPublish && (
               <Button
-                icon={<FaArrowRight />}
+                icon={<PiArrowRightBold />}
                 iconPosition="right"
                 onClick={onReviewPublish}
                 style={{ whiteSpace: "nowrap" }}
