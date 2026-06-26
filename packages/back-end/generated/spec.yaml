@@ -2945,6 +2945,8 @@ paths:
                               - description
                               - enum
                             additionalProperties: false
+                        additionalProperties:
+                          type: boolean
                       required:
                         - type
                         - fields
@@ -7842,6 +7844,8 @@ paths:
                               - description
                               - enum
                             additionalProperties: false
+                        additionalProperties:
+                          type: boolean
                       required:
                         - type
                         - fields

@@ -27,6 +27,10 @@ export const configValidator = z
     archived: z.boolean().optional(),
     // Defines each field and its type for the Configuration UI.
     schema: simpleSchemaValidator.optional(),
+    // Whether this config family permits extension (extra keys) by child configs,
+    // feature rules, and ad-hoc overrides. Only the root config's value applies.
+    // Absent = inherit the org default (`configsExtensibleByDefault`).
+    extensible: z.boolean().optional(),
     dateCreated: z.date(),
     dateUpdated: z.date(),
   })
@@ -43,6 +47,7 @@ export const configUpdatableFieldsSchema = configValidator.pick({
   project: true,
   archived: true,
   schema: true,
+  extensible: true,
 });
 
 const keyField = z
@@ -63,6 +68,7 @@ export const postConfigBodyValidator = z.object({
   description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   project: z.string().optional(),
   schema: simpleSchemaValidator.optional(),
+  extensible: z.boolean().optional(),
 });
 
 export const putConfigBodyValidator = z.object({
@@ -75,4 +81,5 @@ export const putConfigBodyValidator = z.object({
   project: z.string().optional(),
   archived: z.boolean().optional(),
   schema: simpleSchemaValidator.optional(),
+  extensible: z.boolean().optional(),
 });

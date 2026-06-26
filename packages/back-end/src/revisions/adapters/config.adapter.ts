@@ -12,6 +12,7 @@ import {
 } from "shared/validators";
 import type { Context } from "back-end/src/models/BaseModel";
 import { EntityRevisionAdapter } from "back-end/src/revisions/EntityRevisionAdapter";
+import { reconcileConfigDescendants } from "back-end/src/services/configReconcile";
 
 // Mirrors constant.adapter.ts (see it for rationale); only model + permissions differ.
 const SNAPSHOT_ALLOWED_KEYS = Object.keys(configValidator.shape) as Array<
@@ -149,9 +150,31 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
 
     if (Object.keys(filteredChanges).length === 0) return;
 
+    // Publish-time "base wins" reconciliation: strip any field this config
+    // declares whose key a published ancestor now owns (ancestors may have
+    // changed since the draft was authored), then apply.
+    if (filteredChanges.schema) {
+      filteredChanges.schema =
+        await context.models.configs.normalizeSchemaAgainstAncestors(
+          {
+            key: entity.key,
+            parent:
+              (filteredChanges.parent as string | undefined) ?? entity.parent,
+            value:
+              (filteredChanges.value as string | undefined) ?? entity.value,
+          },
+          filteredChanges.schema as ConfigInterface["schema"],
+        );
+    }
+
     await context.models.configs.update(
       entity,
       filteredChanges as Parameters<typeof context.models.configs.update>[1],
     );
+
+    // Cascade the change down to descendants when the schema changed.
+    if (filteredChanges.schema !== undefined) {
+      await reconcileConfigDescendants(context, entity.key);
+    }
   },
 };

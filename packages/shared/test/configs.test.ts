@@ -7,7 +7,24 @@ import {
   setConfigBacking,
   getConfigSubtree,
   ensureConfigBacking,
+  getAncestorSchemaKeys,
+  stripAncestorOwnedFields,
+  configIsExtensible,
 } from "../src/util/configs";
+import { SimpleSchema, SchemaField } from "../types/feature";
+
+const field = (key: string): SchemaField => ({
+  key,
+  type: "string",
+  required: true,
+  default: "",
+  description: "",
+  enum: [],
+});
+const objSchema = (...keys: string[]): SimpleSchema => ({
+  type: "object",
+  fields: keys.map(field),
+});
 
 describe("ensureConfigBacking", () => {
   it("prepends the default config when the value has no config ref", () => {
@@ -168,5 +185,72 @@ describe("config-backed feature values", () => {
     expect(
       getConfigBackingKey('{"$extends":["@const:c","@config:base"]}'),
     ).toBeNull();
+  });
+});
+
+describe("getAncestorSchemaKeys", () => {
+  const byKey = new Map([
+    ["base", { schema: objSchema("color", "size") }],
+    ["child", { parent: "base", schema: objSchema("weight") }],
+    ["grandchild", { parent: "child", schema: objSchema("price") }],
+  ]);
+
+  it("unions every ancestor's own schema field keys", () => {
+    expect(
+      [...getAncestorSchemaKeys(byKey.get("grandchild")!, byKey)].sort(),
+    ).toEqual(["color", "size", "weight"]);
+  });
+
+  it("returns an empty set for a root config", () => {
+    expect(getAncestorSchemaKeys(byKey.get("base")!, byKey).size).toBe(0);
+  });
+
+  it("is cycle-safe when parents form a loop", () => {
+    const looped = new Map([
+      ["a", { parent: "b", schema: objSchema("x") }],
+      ["b", { parent: "a", schema: objSchema("y") }],
+    ]);
+    expect([...getAncestorSchemaKeys(looped.get("a")!, looped)].sort()).toEqual(
+      ["x", "y"],
+    );
+  });
+});
+
+describe("stripAncestorOwnedFields", () => {
+  it("drops fields whose key an ancestor owns (base wins)", () => {
+    const kept = stripAncestorOwnedFields(
+      objSchema("color", "weight"),
+      new Set(["color"]),
+    );
+    expect(kept?.map((f) => f.key)).toEqual(["weight"]);
+  });
+
+  it("returns null when there are no collisions", () => {
+    expect(
+      stripAncestorOwnedFields(objSchema("weight"), new Set(["color"])),
+    ).toBeNull();
+  });
+
+  it("returns null for an empty schema or no ancestor keys", () => {
+    expect(
+      stripAncestorOwnedFields(objSchema(), new Set(["color"])),
+    ).toBeNull();
+    expect(stripAncestorOwnedFields(objSchema("color"), new Set())).toBeNull();
+  });
+});
+
+describe("configIsExtensible", () => {
+  it("prefers the root config's explicit flag", () => {
+    expect(configIsExtensible({ extensible: false }, true)).toBe(false);
+    expect(configIsExtensible({ extensible: true }, false)).toBe(true);
+  });
+
+  it("falls back to the org default when unset", () => {
+    expect(configIsExtensible({}, false)).toBe(false);
+    expect(configIsExtensible(undefined, true)).toBe(true);
+  });
+
+  it("defaults to permissive when nothing is set", () => {
+    expect(configIsExtensible(undefined, undefined)).toBe(true);
   });
 });

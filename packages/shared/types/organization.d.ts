@@ -267,6 +267,10 @@ export interface OrganizationSettings {
   /** @deprecated */
   killswitchConfirmation?: boolean;
   requireReviews?: boolean | RequireReview[];
+  // Default extensibility for newly authored configs. When true (default),
+  // base configs allow child configs / feature rules to add extra keys unless
+  // a config explicitly opts out via its own `extensible` flag.
+  configsExtensibleByDefault?: boolean;
   // When enabled, a feature draft whose base version is behind the current
   // live version (or whose approval has gone stale) must be rebased
   // ("Rebase with live") before it can be published.

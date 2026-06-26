@@ -3381,7 +3381,7 @@ export function simpleToJSONSchema(simple: SimpleSchema): string {
           },
           {} as Record<string, unknown>,
         ),
-        additionalProperties: false,
+        additionalProperties: simple.additionalProperties ?? false,
       });
     case "object[]":
       if (fields.some((f) => !f.key)) {
@@ -3399,7 +3399,7 @@ export function simpleToJSONSchema(simple: SimpleSchema): string {
             },
             {} as Record<string, unknown>,
           ),
-          additionalProperties: false,
+          additionalProperties: simple.additionalProperties ?? false,
         },
       });
     case "primitive[]":

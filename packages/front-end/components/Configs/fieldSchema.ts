@@ -13,6 +13,9 @@ export type LineageNode = {
   name: string;
   parentKey: string | null;
   fieldCount: number;
+  // Own schema field keys (the fields this config declares itself). Used to
+  // preview "base wins" reconciliation in the editor.
+  fieldKeys?: string[];
 };
 
 // Always `required`: children are value-patches, not optional fields.

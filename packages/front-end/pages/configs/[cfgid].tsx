@@ -76,7 +76,6 @@ import ConstantArchiveModal from "@/components/Constants/ConstantArchiveModal";
 import { ConstantRevisionContext } from "@/components/Constants/useConstantDraftTarget";
 import ConfigModal from "@/components/Configs/ConfigModal";
 import LineageTree from "@/components/Configs/LineageTree";
-import ConfigIcon from "@/components/Configs/ConfigIcon";
 import ConfigFeatureReferences from "@/components/Configs/ConfigFeatureReferences";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import FieldDefForm from "@/components/Configs/FieldDefForm";
@@ -98,6 +97,8 @@ type ResolvedResponse = {
   // proposed value shows in the field table.
   chain: ConfigChainNode[];
   effectiveSchema: SchemaField[];
+  // Whether this config family permits extra keys (root policy / org default).
+  extensible?: boolean;
   fields: ResolvedField[];
   lineage: LineageNode[];
   // Project-scoped value-map inputs so the field table can squash `@const:`
@@ -445,6 +446,39 @@ export default function ConfigDetailPage(): React.ReactElement {
     displayedConfig.schema ?? { type: "object", fields: [] };
   const ownSchemaKeys = ownSchema().fields.map((sf) => sf.key);
 
+  // Descendants that currently declare a field key this config also declares.
+  // Publishing makes this config the owner of those keys, so the cascade strips
+  // the redundant definitions from each descendant ("base wins"). Surfaced as an
+  // informational Callout so the author knows what publishing will do.
+  const reconciliationPreview = (() => {
+    if (!ownSchemaKeys.length) return [] as { name: string; keys: string[] }[];
+    const childrenOf = new Map<string, string[]>();
+    for (const n of data.lineage) {
+      if (!n.parentKey) continue;
+      const list = childrenOf.get(n.parentKey);
+      if (list) list.push(n.key);
+      else childrenOf.set(n.parentKey, [n.key]);
+    }
+    const descKeys: string[] = [];
+    const seen = new Set<string>();
+    const queue = [...(childrenOf.get(config.key) ?? [])];
+    while (queue.length) {
+      const k = queue.shift() as string;
+      if (seen.has(k)) continue;
+      seen.add(k);
+      descKeys.push(k);
+      for (const c of childrenOf.get(k) ?? []) queue.push(c);
+    }
+    const ownKeys = new Set(ownSchemaKeys);
+    const hits: { name: string; keys: string[] }[] = [];
+    for (const k of descKeys) {
+      const node = data.lineage.find((n) => n.key === k);
+      const collide = (node?.fieldKeys ?? []).filter((fk) => ownKeys.has(fk));
+      if (collide.length) hits.push({ name: node?.name ?? k, keys: collide });
+    }
+    return hits;
+  })();
+
   // Persist the appended schema (optionally with a value override in the same write).
   const saveSchema = async (
     fields: SchemaField[],
@@ -548,7 +582,6 @@ export default function ConfigDetailPage(): React.ReactElement {
     ? data.lineage.find((n) => n.key === parentKey)
     : null;
   const parentName = parentKey ? (parentNode?.name ?? parentKey) : null;
-  const parentIsBase = (parentNode?.parentKey ?? null) === null;
   const fieldLabel = (n: number) => `${n} field${n === 1 ? "" : "s"}`;
   const statusParts: string[] = [];
   if (parentKey) {
@@ -661,17 +694,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                     label="Extends"
                     style={{ marginTop: "var(--space-1)" }}
                     value={
-                      <Link
-                        href={`/configs/${parentKey}`}
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 4,
-                        }}
-                      >
-                        <ConfigIcon isBase={parentIsBase} size={13} />
-                        {parentName}
-                      </Link>
+                      <Link href={`/configs/${parentKey}`}>{parentName}</Link>
                     }
                   />
                 )}
@@ -832,6 +855,24 @@ export default function ConfigDetailPage(): React.ReactElement {
               {/* Form — per-field resolved values (override / reset). */}
               {activeTab === "form" && (
                 <Box style={{ overflowX: "auto" }}>
+                  {canEditInline && reconciliationPreview.length > 0 && (
+                    <Callout status="info" mt="3">
+                      Publishing will remove{" "}
+                      {reconciliationPreview
+                        .map(
+                          (h) =>
+                            `${h.keys.map((k) => `"${k}"`).join(", ")} from ${h.name}`,
+                        )
+                        .join("; ")}{" "}
+                      — this config now defines{" "}
+                      {reconciliationPreview.length === 1 &&
+                      reconciliationPreview[0].keys.length === 1
+                        ? "that field"
+                        : "those fields"}
+                      , so the descendant keeps only a value override (base
+                      wins).
+                    </Callout>
+                  )}
                   <Box style={{ minWidth: 800 }}>
                     {/* Column header — same grid template as the rows so it aligns.
                       The 5th (actions) column is intentionally left empty. */}

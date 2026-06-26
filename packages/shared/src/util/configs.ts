@@ -138,6 +138,54 @@ export function ensureConfigBacking(
   return setConfigBacking(defaultConfigKey, value);
 }
 
+// Schema field keys owned by a config's ancestors (the closest base wins on a
+// key collision). Walks the parent chain via `getConfigParentKey`; cycle-safe.
+// Used to enforce "base wins": a descendant may re-value an inherited field but
+// must not re-declare its schema, so these keys are stripped from child schemas.
+export function getAncestorSchemaKeys(
+  config: { parent?: string; value?: string },
+  byKey: Map<
+    string,
+    { parent?: string; value?: string; schema?: SimpleSchema }
+  >,
+): Set<string> {
+  const keys = new Set<string>();
+  const seen = new Set<string>();
+  let parentKey = getConfigParentKey(config);
+  while (parentKey && !seen.has(parentKey)) {
+    seen.add(parentKey);
+    const parent = byKey.get(parentKey);
+    if (!parent) break;
+    for (const f of parent.schema?.fields ?? []) keys.add(f.key);
+    parentKey = getConfigParentKey(parent);
+  }
+  return keys;
+}
+
+// Remove schema fields whose key is owned by an ancestor (base wins). Returns
+// the reconciled field list, or null when nothing changes (no collisions).
+export function stripAncestorOwnedFields(
+  schema: SimpleSchema | undefined,
+  ancestorKeys: Set<string>,
+): SchemaField[] | null {
+  const fields = schema?.fields ?? [];
+  if (!fields.length || !ancestorKeys.size) return null;
+  const kept = fields.filter((f) => !ancestorKeys.has(f.key));
+  return kept.length === fields.length ? null : kept;
+}
+
+// Effective extensibility for a config family. Only the root (base) config's
+// explicit `extensible` flag matters; when absent it inherits the org default
+// (`configsExtensibleByDefault`), which itself defaults to permissive (true).
+// An extensible family permits child configs / feature rules / overrides to add
+// keys beyond the declared schema; a non-extensible family is strict.
+export function configIsExtensible(
+  rootConfig: { extensible?: boolean } | undefined | null,
+  orgDefault: boolean | undefined,
+): boolean {
+  return rootConfig?.extensible ?? orgDefault ?? true;
+}
+
 // A single config in a lineage chain (base → … → leaf). `value` is the config's
 // JSON-encoded object of its own field values; `schema` is the fields this
 // config *appends* (the base owns inherited fields).

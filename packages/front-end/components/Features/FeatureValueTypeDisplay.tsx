@@ -1,9 +1,8 @@
 import React from "react";
 import { FeatureValueType } from "shared/types/feature";
-import { getConfigBackingKey, getConfigParentKey } from "shared/util";
+import { getConfigBackingKey } from "shared/util";
 import { Flex } from "@radix-ui/themes";
 import Link from "@/ui/Link";
-import ConfigIcon from "@/components/Configs/ConfigIcon";
 import { useDefinitions } from "@/services/DefinitionsContext";
 
 const VALUE_TYPE_LABELS: Record<FeatureValueType, string> = {
@@ -35,12 +34,6 @@ export default function FeatureValueTypeDisplay({
 
   if (!backingKey) return <>{label}</>;
 
-  const icon = (
-    <ConfigIcon
-      isBase={config ? getConfigParentKey(config) === null : true}
-      size={18}
-    />
-  );
   const name = config?.name ?? backingKey;
 
   return (
@@ -52,16 +45,11 @@ export default function FeatureValueTypeDisplay({
           className="hover-underline"
           title={`View config: ${name}`}
           onClick={(e) => e.stopPropagation()}
-          style={{ display: "inline-flex", alignItems: "center", gap: 4 }}
         >
-          {icon}
           {name}
         </Link>
       ) : (
-        <Flex as="span" align="center" gap="1" display="inline-flex">
-          {icon}
-          {name}
-        </Flex>
+        <span>{name}</span>
       )}
     </Flex>
   );

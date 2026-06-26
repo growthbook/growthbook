@@ -1,11 +1,10 @@
 import React from "react";
 import { useRouter } from "next/router";
 import { Box, Flex } from "@radix-ui/themes";
-import { PiFlag } from "react-icons/pi";
+import { PiFlag, PiDotOutline } from "react-icons/pi";
 import { LineageNode } from "@/components/Configs/fieldSchema";
 import { ConfigFamilyReferences } from "@/hooks/useConstantReferences";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import ConfigIcon from "@/components/Configs/ConfigIcon";
 
 const ROW_HEIGHT = 30;
 const GUIDE_COLOR = "var(--slate-a6)";
@@ -91,7 +90,6 @@ export default function ConfigFeatureReferences({
   const configRow = (key: string) => {
     const node = nodeOf(key);
     const isCurrent = key === currentKey;
-    const isRoot = (node?.parentKey ?? null) === null;
     return (
       <Flex
         key={key}
@@ -120,7 +118,7 @@ export default function ConfigFeatureReferences({
             color: isCurrent ? "var(--violet-11)" : "var(--slate-11)",
           }}
         >
-          <ConfigIcon isBase={isRoot} size={13} />
+          <PiDotOutline size={20} />
         </Flex>
         <span
           title={node?.name ?? key}

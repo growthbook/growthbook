@@ -51,7 +51,6 @@ import Modal from "@/components/Modal";
 import { GBAddCircle } from "@/components/Icons";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import RadioGroup from "@/ui/RadioGroup";
-import ConfigIcon from "@/components/Configs/ConfigIcon";
 import ConfigOverrideEditor from "@/components/Features/ConfigOverrideEditor";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
@@ -473,14 +472,7 @@ export default function FeatureValueField({
                 Based on config:
               </Text>
               {disabled ? (
-                <Flex as="span" align="center" gap="1">
-                  {selectedConfig && (
-                    <ConfigIcon
-                      isBase={getConfigParentKey(selectedConfig) === null}
-                    />
-                  )}
-                  <Text>{selectedConfig?.name ?? "None"}</Text>
-                </Flex>
+                <Text>{selectedConfig?.name ?? "None"}</Text>
               ) : (
                 <DropdownMenu
                   trigger={
@@ -489,11 +481,6 @@ export default function FeatureValueField({
                       style={{ color: "var(--color-text-high)" }}
                     >
                       <Flex as="span" align="center" gap="1">
-                        {selectedConfig && (
-                          <ConfigIcon
-                            isBase={getConfigParentKey(selectedConfig) === null}
-                          />
-                        )}
                         <Text>{selectedConfig?.name ?? "None"}</Text>
                         <PiCaretDownFill />
                       </Flex>
@@ -514,7 +501,6 @@ export default function FeatureValueField({
                         onClick={() => selectConfig(c.key)}
                       >
                         <Flex as="span" align="center" gap="2" width="100%">
-                          <ConfigIcon isBase={getConfigParentKey(c) === null} />
                           <span>{c.name}</span>
                           <code
                             style={{

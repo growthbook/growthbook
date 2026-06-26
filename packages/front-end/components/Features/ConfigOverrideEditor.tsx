@@ -32,6 +32,7 @@ import {
 type ResolvedResponse = {
   effectiveSchema: SchemaField[];
   fields: ResolvedField[];
+  extensible?: boolean;
 };
 
 const GRID_TEMPLATE = "minmax(120px, 220px) minmax(160px, 1fr) 110px 90px";
@@ -368,6 +369,8 @@ export default function ConfigOverrideEditor({
   // view so users add fields from the picker instead of scrolling.
   const [showAll, setShowAll] = useState(false);
   const sparse = !showAll;
+  // Extensible families tolerate override keys beyond the declared schema.
+  const extensible = data?.extensible ?? true;
   const overrideKeys = new Set(Object.keys(overrides ?? {}));
   const visibleRows = sparse
     ? rows.filter((r) => overrideKeys.has(r.key))
@@ -451,11 +454,20 @@ export default function ConfigOverrideEditor({
                   );
                 })}
               </Box>
-              {sparse && addableFields.length > 0 && (
+              {sparse && (addableFields.length > 0 || extensible) && (
                 <Box mt="2" style={{ maxWidth: 260 }}>
                   <SelectField
                     value=""
-                    placeholder="Add field to override…"
+                    placeholder={
+                      extensible
+                        ? "Add or create a field…"
+                        : "Add field to override…"
+                    }
+                    // Extensible families tolerate keys beyond the declared
+                    // schema, so allow free-form new keys; strict families are
+                    // limited to declared fields.
+                    createable={extensible}
+                    formatCreateLabel={(v) => `Add "${v}"`}
                     options={addableFields.map((f) => ({
                       value: f.key,
                       label: f.key,

@@ -1,6 +1,12 @@
 import { ConfigInterface, ConfigWithoutValue } from "shared/types/config";
+import { SimpleSchema } from "shared/types/feature";
 import { configValidator, getCyclicConstantRefs } from "shared/validators";
-import { getConfigParentKey, withParentExtends } from "shared/util";
+import {
+  getConfigParentKey,
+  withParentExtends,
+  getAncestorSchemaKeys,
+  stripAncestorOwnedFields,
+} from "shared/util";
 import { UpdateProps } from "shared/types/base-model";
 import { BadRequestError } from "back-end/src/util/errors";
 import { resolvableValueChanged } from "back-end/src/services/constants";
@@ -123,6 +129,32 @@ export class ConfigModel extends BaseClass {
 
   public getByKey(key: string) {
     return this._findOne({ key });
+  }
+
+  // Every config in the org, ignoring per-config read permissions. Used by the
+  // schema-reconciliation pass, which must see the whole lineage (ancestors and
+  // descendants may live in projects the acting user can't read) to enforce
+  // "base wins" on field collisions.
+  public getAllForReconcile(): Promise<ConfigInterface[]> {
+    return this._find({}, { bypassReadPermissionChecks: true });
+  }
+
+  // Strip from a config's appended schema any field key already owned by a
+  // published ancestor (closest base wins). Returns the reconciled schema, or
+  // the input unchanged when there are no collisions. Call before every schema
+  // write so a child can never re-declare an inherited field.
+  public async normalizeSchemaAgainstAncestors(
+    config: { key?: string; parent?: string; value?: string },
+    schema: SimpleSchema | undefined,
+  ): Promise<SimpleSchema | undefined> {
+    if (!schema?.fields?.length) return schema;
+    const parentKey = config.parent || getConfigParentKey(config);
+    if (!parentKey) return schema;
+    const all = await this.getAllForReconcile();
+    const byKey = new Map(all.map((c) => [c.key, c]));
+    const ancestorKeys = getAncestorSchemaKeys({ parent: parentKey }, byKey);
+    const kept = stripAncestorOwnedFields(schema, ancestorKeys);
+    return kept ? { ...schema, fields: kept } : schema;
   }
 
   // Value-omitted projection for the definitions context (values can be large).

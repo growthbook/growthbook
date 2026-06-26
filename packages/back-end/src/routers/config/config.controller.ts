@@ -21,6 +21,7 @@ import {
   ConfigChainNode,
   getConfigParentKey,
   getConfigSubtree,
+  configIsExtensible,
   stripExtends,
 } from "shared/util";
 import { CONSTANT_EXTENDS_KEY } from "shared/constants";
@@ -43,6 +44,7 @@ import {
   assertKeyAvailableAcrossNamespace,
 } from "back-end/src/services/constants";
 import { getResolvableValues } from "back-end/src/services/resolvableValues";
+import { reconcileConfigDescendants } from "back-end/src/services/configReconcile";
 
 type PostConfigBody = z.infer<typeof postConfigBodyValidator>;
 type PutConfigBody = z.infer<typeof putConfigBodyValidator>;
@@ -156,8 +158,10 @@ export const getConfigResolved = async (
   const chain: ConfigChainNode[] = [];
   const visited = new Set<string>();
   let cur: typeof config | null = config;
+  let rootConfig: typeof config = config;
   while (cur && !visited.has(cur.key)) {
     visited.add(cur.key);
+    rootConfig = cur;
     chain.unshift({
       key: cur.key,
       name: cur.name,
@@ -169,6 +173,12 @@ export const getConfigResolved = async (
   }
 
   const { effectiveSchema, fields } = resolveConfigChain(chain);
+
+  // Whether the family allows extra keys (root config's policy / org default).
+  const extensible = configIsExtensible(
+    rootConfig,
+    context.org.settings?.configsExtensibleByDefault,
+  );
 
   // Scoped to this config's project + globals so cross-project values never leak.
   const configProject = config.project || "";
@@ -196,6 +206,10 @@ export const getConfigResolved = async (
         name: node.name,
         parentKey: getConfigParentKey(node),
         fieldCount: configOwnFieldCount(node.value),
+        // Own schema field keys, so the editor can preview "base wins"
+        // reconciliation (a descendant's field is stripped when an ancestor
+        // declares the same key).
+        fieldKeys: (node.schema?.fields ?? []).map((f) => f.key),
       },
     ];
   });
@@ -205,6 +219,7 @@ export const getConfigResolved = async (
     config,
     chain,
     effectiveSchema,
+    extensible,
     fields,
     lineage,
     constants,
@@ -236,6 +251,14 @@ export const postConfig = async (
   // Inheritance lives on `parent`; never persist `$extends` in the value.
   const parent = body.parent || getConfigParentKey({ value: body.value }) || "";
 
+  // A child created under a base can't re-declare an inherited field ("base
+  // wins"); strip any colliding keys from its appended schema up front.
+  const normalizedSchema =
+    await context.models.configs.normalizeSchemaAgainstAncestors(
+      { key: body.key, parent: parent || undefined, value: body.value },
+      body.schema,
+    );
+
   // Permission is enforced by the model's canCreate.
   const config = await context.models.configs.create({
     key: body.key,
@@ -246,7 +269,8 @@ export const postConfig = async (
     environmentValues: body.environmentValues,
     description: body.description,
     project: body.project,
-    schema: body.schema,
+    schema: normalizedSchema,
+    extensible: body.extensible,
   });
 
   // Backfill an initial "live" revision so the history view has a baseline.
@@ -294,6 +318,7 @@ export const putConfig = async (
     project,
     archived,
     schema,
+    extensible,
   } = req.body;
   const { id } = req.params;
 
@@ -387,6 +412,27 @@ export const putConfig = async (
   // `schema` (config field definitions) is a content change like `value`.
   if (hasChanged(schema, comparisonBase.schema)) {
     fieldsToUpdate.schema = schema;
+  }
+  if (
+    extensible !== undefined &&
+    !!extensible !== !!comparisonBase.extensible
+  ) {
+    fieldsToUpdate.extensible = extensible;
+  }
+
+  // Enforce "base wins": never let a child config persist a schema field whose
+  // key a published ancestor already owns. The publish path (adapter) re-runs
+  // this against ancestors-at-publish; doing it here keeps drafts honest too.
+  if (fieldsToUpdate.schema) {
+    fieldsToUpdate.schema =
+      await context.models.configs.normalizeSchemaAgainstAncestors(
+        {
+          key: existing.key,
+          parent: fieldsToUpdate.parent ?? existing.parent,
+          value: fieldsToUpdate.value ?? existing.value,
+        },
+        fieldsToUpdate.schema,
+      );
   }
 
   // Block the archive transition when the config is still referenced.
@@ -487,6 +533,12 @@ export const putConfig = async (
           // ignore — surface the original update error
         }
         throw e;
+      }
+
+      // A schema change can introduce a field a descendant already declares;
+      // cascade "base wins" down the subtree (system-normalized live writes).
+      if (fieldsToUpdate.schema !== undefined) {
+        await reconcileConfigDescendants(context, existing.key);
       }
 
       return res.status(200).json({ status: 200, revision });

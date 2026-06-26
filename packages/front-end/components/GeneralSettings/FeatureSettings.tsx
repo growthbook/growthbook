@@ -194,6 +194,20 @@ export default function FeatureSettings() {
           </Box>
 
           <Box mb="6" width="100%">
+            <Checkbox
+              id="toggle-configsExtensibleByDefault"
+              label="Allow configs to be extended by default"
+              description="New base configs permit child configs and feature rules to add keys beyond the declared schema. Each config can override this from its own settings."
+              value={!!form.watch("configsExtensibleByDefault")}
+              setValue={(value) =>
+                form.setValue("configsExtensibleByDefault", value, {
+                  shouldDirty: true,
+                })
+              }
+            />
+          </Box>
+
+          <Box mb="6" width="100%">
             {/* TODO(UI): move to a neutral org-level "Revisions" section once
                 saved groups & others enforce this cap (it's not feature-only). */}
             <Checkbox

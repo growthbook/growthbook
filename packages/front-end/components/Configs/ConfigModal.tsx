@@ -10,13 +10,14 @@ import { PiPlus } from "react-icons/pi";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
-import ConfigIcon from "@/components/Configs/ConfigIcon";
 import SelectOwner from "@/components/Owner/SelectOwner";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import Callout from "@/ui/Callout";
+import Checkbox from "@/ui/Checkbox";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import { useAuth } from "@/services/auth";
+import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ConstantDraftSelectorForChanges from "@/components/Constants/ConstantDraftSelectorForChanges";
 import {
@@ -41,6 +42,7 @@ type FormValues = {
   owner: string;
   description: string;
   project: string;
+  extensible: boolean;
 };
 
 // Create a config or edit its info. Configs are JSON objects referenced via
@@ -63,6 +65,7 @@ export default function ConfigModal({
 }) {
   const router = useRouter();
   const { apiCall } = useAuth();
+  const { organization } = useUser();
   const {
     configs,
     projects,
@@ -73,6 +76,13 @@ export default function ConfigModal({
   } = useDefinitions();
 
   const editing = !!existing;
+  const orgExtensibleDefault =
+    organization?.settings?.configsExtensibleByDefault ?? true;
+  // Extensibility is a base-config policy: it only applies to the root of a
+  // lineage (children inherit it). Hidden for child configs.
+  const isBaseConfig = editing
+    ? getConfigParentKey(existing ?? {}) === null
+    : !(parentKey ?? "");
   const [error, setError] = useState<string | null>(null);
 
   // Description is opt-in behind a "+ Add a description" link, expanded by
@@ -92,8 +102,12 @@ export default function ConfigModal({
       owner: existing?.owner ?? "",
       description: existing?.description ?? "",
       project: existing?.project ?? project ?? "",
+      extensible: existing?.extensible ?? orgExtensibleDefault,
     },
   });
+
+  // For create, the base/child distinction follows the selected parent.
+  const isBaseSelection = editing ? isBaseConfig : !form.watch("parent");
 
   const parentOptions = configs
     .filter((c) => !c.archived && c.key !== existing?.key)
@@ -140,6 +154,7 @@ export default function ConfigModal({
                   owner: values.owner,
                   description: values.description || undefined,
                   project: values.project,
+                  ...(isBaseConfig ? { extensible: values.extensible } : {}),
                 }),
               },
             );
@@ -156,6 +171,7 @@ export default function ConfigModal({
                 parent: values.parent || undefined,
                 description: values.description || undefined,
                 project: values.project || undefined,
+                ...(values.parent ? {} : { extensible: values.extensible }),
               }),
             });
             await mutateDefinitions();
@@ -193,12 +209,6 @@ export default function ConfigModal({
       <Field
         label="Key"
         required
-        helpText={
-          <>
-            Referenced as{" "}
-            <code>{`"$extends": ["@const:${form.watch("key") || "key"}"]`}</code>
-          </>
-        }
         disabled={editing}
         {...form.register("key", {
           onChange: () => {
@@ -247,13 +257,6 @@ export default function ConfigModal({
           formatOptionLabel={({ value, label }) =>
             value ? (
               <Flex as="span" align="center" gap="1" width="100%">
-                <ConfigIcon
-                  isBase={
-                    getConfigParentKey(
-                      configs.find((c) => c.key === value) ?? {},
-                    ) === null
-                  }
-                />
                 <span>{label}</span>
                 <code style={{ marginLeft: "auto", color: "var(--slate-12)" }}>
                   {value}
@@ -283,6 +286,22 @@ export default function ConfigModal({
           value={form.watch("owner")}
           onChange={(v) => form.setValue("owner", v)}
         />
+      )}
+
+      {isBaseSelection && (
+        <Box mt="3">
+          <Checkbox
+            label="Allow extra fields in extensions"
+            description={
+              <Text weight="regular" color="text-high">
+                Child configs and feature flag rules can add keys beyond this
+                Config&apos;s schema.
+              </Text>
+            }
+            value={form.watch("extensible")}
+            setValue={(v) => form.setValue("extensible", v)}
+          />
+        </Box>
       )}
 
       {error && (

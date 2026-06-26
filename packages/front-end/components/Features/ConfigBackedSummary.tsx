@@ -4,7 +4,6 @@ import {
   getConfigBackingPatch,
   setConfigBacking,
   validateJSONFeatureValue,
-  getConfigParentKey,
 } from "shared/util";
 import {
   buildConstantValueMap,
@@ -19,20 +18,17 @@ import { useUser } from "@/services/UserContext";
 import useApi from "@/hooks/useApi";
 import Text from "@/ui/Text";
 import Callout from "@/ui/Callout";
-import ConfigIcon from "@/components/Configs/ConfigIcon";
 import ValueDisplay from "./ValueDisplay";
 
-// Shared "SERVE <icon> ConfigName" header. The name links to the config detail
-// page; the internal `@config:` directive is never surfaced.
+// Shared "SERVE ConfigName" header. The name links to the config detail page;
+// the internal `@config:` directive is never surfaced.
 function ServeConfigHeader({
   configKey,
   name,
-  isBase,
   suffix,
 }: {
   configKey: string;
   name: string;
-  isBase: boolean;
   suffix?: string;
 }) {
   return (
@@ -40,10 +36,7 @@ function ServeConfigHeader({
       <Text weight="medium">SERVE</Text>
       <Flex as="span" align="center" gap="2">
         <a href={`/configs/${configKey}`} target="_blank" rel="noreferrer">
-          <Flex as="span" align="center" gap="1">
-            <ConfigIcon isBase={isBase} />
-            {name}
-          </Flex>
+          {name}
         </a>
         {suffix && <Text>{suffix}</Text>}
       </Flex>
@@ -92,6 +85,7 @@ export default function ConfigBackedSummary({
   const { data } = useApi<{
     constants: ResolvableInput[];
     effectiveSchema?: SchemaField[];
+    extensible?: boolean;
   }>(`/configs/${configKey}/resolved`);
 
   const resolved = useMemo(() => {
@@ -156,7 +150,11 @@ export default function ConfigBackedSummary({
       {
         jsonSchema: {
           schemaType: "simple",
-          simple: { type: "object", fields },
+          simple: {
+            type: "object",
+            fields,
+            additionalProperties: data?.extensible ?? true,
+          },
           schema: "",
           date: new Date(),
           enabled: true,
@@ -165,7 +163,7 @@ export default function ConfigBackedSummary({
     );
     if (!enabled || valid) return null;
     return errors;
-  }, [hasJsonValidator, resolved, data?.effectiveSchema]);
+  }, [hasJsonValidator, resolved, data?.effectiveSchema, data?.extensible]);
 
   const fullStyle = {
     maxHeight: maxHeight ?? 150,
@@ -178,7 +176,6 @@ export default function ConfigBackedSummary({
       <ServeConfigHeader
         configKey={configKey}
         name={config?.name ?? configKey}
-        isBase={config ? getConfigParentKey(config) === null : false}
         suffix={resolved?.diffKeys?.size ? "with overrides" : undefined}
       />
       {resolved !== null && (

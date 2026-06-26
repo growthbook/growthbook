@@ -3,7 +3,6 @@ import { useRouter } from "next/router";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiCaretDown, PiCaretRight, PiDotOutline } from "react-icons/pi";
 import { LineageNode } from "@/components/Configs/fieldSchema";
-import ConfigIcon from "@/components/Configs/ConfigIcon";
 
 const ROW_HEIGHT = 30;
 const GUIDE_COLOR = "var(--slate-a6)";
@@ -94,15 +93,6 @@ export default function LineageTree({
               ) : (
                 <PiDotOutline size={20} />
               )}
-            </Flex>
-            <Flex
-              align="center"
-              style={{
-                flexShrink: 0,
-                color: isCurrent ? "var(--violet-11)" : "var(--slate-11)",
-              }}
-            >
-              <ConfigIcon isBase={n.parentKey === null} size={14} />
             </Flex>
             <span
               title={n.name}
