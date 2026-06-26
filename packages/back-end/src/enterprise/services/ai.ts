@@ -462,8 +462,8 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
     ? undefined
     : temperature;
 
-  const generateOnce = () =>
-    generateText({
+  const generateOnce = async () => {
+    const result = await generateText({
       model: aiProvider(model) as Parameters<typeof generateText>[0]["model"],
       messages: messages,
       output: Output.object({
@@ -476,6 +476,15 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
       ...(tools ? { tools, stopWhen: stepCountIs(maxSteps) } : {}),
       ...(onStepFinish ? { onStepFinish } : {}),
     });
+    // Read the lazy `output` getter HERE, inside this awaited function, so the
+    // try/catch below catches BOTH generation failures. generateText only
+    // parses the object (and throws NoObjectGeneratedError) when the run ends
+    // on "stop"; when it ends on a tool call it RESOLVES normally with no
+    // output, and the getter throws NoOutputGeneratedError only on access.
+    // Touching it here routes that lazy throw through the same retry path
+    // instead of letting it escape at the call site as an opaque error.
+    return { output: result.output, usage: result.usage };
+  };
 
   // Output.object steers the model toward the schema but doesn't
   // grammar-constrain it, so conformance is probabilistic: a complex
