@@ -261,6 +261,53 @@ export const apiConfigReferencesValidator = namedSchema(
     .strict(),
 );
 
+// One config in the family tree returned by the lineage endpoint.
+const apiConfigLineageNodeValidator = z
+  .object({
+    key: z.string(),
+    name: z.string(),
+    parent: z
+      .string()
+      .nullable()
+      .describe("The lineage parent's key, or null for the family root."),
+    project: z.string().optional(),
+    archived: z.boolean(),
+    depth: z
+      .number()
+      .int()
+      .describe("Distance from the family root (the root is 0)."),
+    isTarget: z.boolean().describe("True for the requested config."),
+  })
+  .strict();
+
+// The full family tree for a config: traversed up to the root and down through
+// every descendant, so the whole lineage is returned regardless of which member
+// was requested. Not revision-aware — always reflects the live configs.
+const apiConfigLineageValidator = namedSchema(
+  "ConfigLineage",
+  z
+    .object({
+      root: z
+        .string()
+        .describe("The key of the family root (the topmost ancestor)."),
+      target: z.string().describe("The requested config's key."),
+      ancestors: z
+        .array(z.string())
+        .describe(
+          "The target's ancestor keys, root-first, ending at its immediate parent.",
+        ),
+      descendants: z
+        .array(z.string())
+        .describe("Keys of every config that descends from the target."),
+      nodes: z
+        .array(apiConfigLineageNodeValidator)
+        .describe(
+          "Every config in the family (root plus all descendants), breadth-first.",
+        ),
+    })
+    .strict(),
+);
+
 // Schema export: the config's own (or, with `effective=true`, the lineage's
 // accumulated) field schema, rendered in the requested format. Not
 // revision-aware — always reflects the live config.
@@ -398,6 +445,19 @@ export const getConfigReferencesValidator = {
   tags: ["configs"],
   method: "get" as const,
   path: "/configs/:key/references",
+  exampleRequest: { params: { key: "checkout-flow" } },
+};
+
+export const getConfigLineageValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: configKeyParams,
+  responseSchema: apiConfigLineageValidator,
+  summary: "Get the full lineage (family tree) for a config",
+  operationId: "getConfigLineage",
+  tags: ["configs"],
+  method: "get" as const,
+  path: "/configs/:key/lineage",
   exampleRequest: { params: { key: "checkout-flow" } },
 };
 

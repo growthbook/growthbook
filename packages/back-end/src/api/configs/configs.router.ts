@@ -6,6 +6,7 @@ import { updateConfig } from "./updateConfig";
 import { archiveConfig, unarchiveConfig } from "./archiveConfig";
 import { deleteConfig } from "./deleteConfig";
 import { getConfigReferences } from "./getConfigReferences";
+import { getConfigLineage } from "./getConfigLineage";
 import { getConfigSchema } from "./getConfigSchema";
 
 // Revision routes
@@ -32,6 +33,7 @@ export const configsRoutes: OpenApiRoute[] = [
   postConfig,
   listConfigRevisions,
   getConfigReferences,
+  getConfigLineage,
   getConfigSchema,
   getConfig,
   updateConfig,

@@ -68,6 +68,20 @@ import {
   constantRevisionRevertedPayload,
   constantRevisionReopenedPayload,
 } from "./constant-revision-notifications";
+import { apiConfigValidator } from "./config";
+import {
+  configRevisionCreatedPayload,
+  configRevisionUpdatedPayload,
+  configRevisionReviewRequestedPayload,
+  configRevisionApprovedPayload,
+  configRevisionChangesRequestedPayload,
+  configRevisionCommentedPayload,
+  configRevisionDiscardedPayload,
+  configRevisionRebasedPayload,
+  configRevisionPublishedPayload,
+  configRevisionRevertedPayload,
+  configRevisionReopenedPayload,
+} from "./config-revision-notifications";
 
 // Re-export for consumers of shared/validators
 export { eventUser } from "./event-user";
@@ -377,6 +391,71 @@ export const notificationEvents = {
     },
     "revision.reopened": {
       schema: constantRevisionReopenedPayload,
+      description: "Triggered when a discarded revision is reopened",
+    },
+  },
+  config: {
+    created: {
+      schema: apiConfigValidator,
+      description: "Triggered when a config is created",
+    },
+    updated: {
+      schema: apiConfigValidator,
+      description: "Triggered when a config is updated",
+      isDiff: true,
+    },
+    deleted: {
+      schema: apiConfigValidator,
+      description: "Triggered when a config is deleted",
+    },
+    "revision.created": {
+      schema: configRevisionCreatedPayload,
+      description:
+        "Triggered when a new draft revision is created for a config",
+    },
+    "revision.updated": {
+      schema: configRevisionUpdatedPayload,
+      description:
+        "Triggered when a draft revision's proposed changes are modified (value, schema, archive, or metadata). The `change` field indicates the kind of mutation.",
+    },
+    "revision.reviewRequested": {
+      schema: configRevisionReviewRequestedPayload,
+      description: "Triggered when a draft revision is submitted for review",
+    },
+    "revision.approved": {
+      schema: configRevisionApprovedPayload,
+      description: "Triggered when a draft revision is approved by a reviewer",
+    },
+    "revision.changesRequested": {
+      schema: configRevisionChangesRequestedPayload,
+      description:
+        "Triggered when a reviewer requests changes on a draft revision",
+    },
+    "revision.commented": {
+      schema: configRevisionCommentedPayload,
+      description: "Triggered when a comment is added to a draft revision",
+    },
+    "revision.discarded": {
+      schema: configRevisionDiscardedPayload,
+      description: "Triggered when a draft revision is discarded",
+    },
+    "revision.rebased": {
+      schema: configRevisionRebasedPayload,
+      description:
+        "Triggered when a draft revision is rebased onto the latest live state",
+    },
+    "revision.published": {
+      schema: configRevisionPublishedPayload,
+      description:
+        "Triggered when a draft revision is published. Overlaps with `config.updated` but provides revision-specific context.",
+    },
+    "revision.reverted": {
+      schema: configRevisionRevertedPayload,
+      description:
+        "Triggered when a config is reverted to a previous published revision",
+    },
+    "revision.reopened": {
+      schema: configRevisionReopenedPayload,
       description: "Triggered when a discarded revision is reopened",
     },
   },

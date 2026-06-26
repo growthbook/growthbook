@@ -40,7 +40,8 @@ import {
   ConfigFamilyFeatureRef,
   loadConstantReferences,
   loadConfigFamilyFeatureReferences,
-  assertConstantArchivable,
+  assertConfigArchivable,
+  assertConfigDeletable,
   assertKeyAvailableAcrossNamespace,
 } from "back-end/src/services/constants";
 import { getResolvableValues } from "back-end/src/services/resolvableValues";
@@ -435,9 +436,10 @@ export const putConfig = async (
       );
   }
 
-  // Block the archive transition when the config is still referenced.
+  // Block the archive transition when the config is still referenced or has
+  // live child configs inheriting from it.
   if (fieldsToUpdate.archived === true && !comparisonBase.archived) {
-    await assertConstantArchivable(context, existing.id, "config");
+    await assertConfigArchivable(context, existing);
   }
 
   const forceCreateRevision = req.query.forceCreateRevision === "1";
@@ -566,6 +568,9 @@ export const deleteConfig = async (
   if (!existing.archived) {
     throw new Error("Config must be archived before it can be deleted");
   }
+  // A config others inherit from can't be deleted — it would dangle their
+  // parent pointer.
+  await assertConfigDeletable(context, existing);
   await context.models.configs.delete(existing);
   return res.status(200).json({ status: 200 });
 };

@@ -2,6 +2,7 @@ import { deleteConfigValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
+import { assertConfigDeletable } from "back-end/src/services/constants";
 
 export const deleteConfig = createApiRequestHandler(deleteConfigValidator)(
   async (req) => {
@@ -26,6 +27,10 @@ export const deleteConfig = createApiRequestHandler(deleteConfigValidator)(
           "Archive the config first (POST /configs/{key}/archive), or enable the bypass setting in organization settings.",
       );
     }
+
+    // Deleting a config that others inherit from would dangle their parent
+    // pointer; require those children be removed or re-parented first.
+    await assertConfigDeletable(req.context, config);
 
     await req.context.models.configs.delete(config);
 

@@ -1,10 +1,38 @@
 import type { z } from "zod";
 import type { FeatureInterface, FeatureRule } from "shared/types/feature";
 import type { postFeatureRuleV2 } from "shared/validators";
-import { validateScheduleRules, setConfigBacking } from "shared/util";
+import {
+  validateScheduleRules,
+  setConfigBacking,
+  getConfigBackingKey,
+} from "shared/util";
 import type { ApiReqContext } from "back-end/types/api";
 import { BadRequestError } from "back-end/src/util/errors";
 import type { ApiFeatureEnvSettings } from "./postFeature";
+
+// A flag can't carry its own JSON schema while its default value is backed by a
+// config — the config's schema is authoritative, so the two would conflict.
+// Guards both directions: enabling a schema with a config-backed value, and
+// pointing the default value at a config while a schema is enabled. Pass the
+// *effective* post-update values (new value falling back to the existing one).
+export function assertConfigSchemaCompat({
+  jsonSchemaEnabled,
+  defaultValue,
+}: {
+  jsonSchemaEnabled: boolean | undefined;
+  defaultValue: string | undefined;
+}): void {
+  if (
+    jsonSchemaEnabled &&
+    defaultValue !== undefined &&
+    getConfigBackingKey(defaultValue) !== null
+  ) {
+    throw new BadRequestError(
+      "A flag cannot define its own JSON schema while its default value is backed by a config. " +
+        "The config's schema is authoritative — detach the config from the default value or remove the flag's jsonSchema.",
+    );
+  }
+}
 
 export type ApiRuleV2Input = z.infer<typeof postFeatureRuleV2>;
 

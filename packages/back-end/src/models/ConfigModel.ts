@@ -12,9 +12,15 @@ import {
   stripAncestorOwnedFields,
 } from "shared/util";
 import { UpdateProps } from "shared/types/base-model";
+import { isEqual, omit } from "lodash";
 import { BadRequestError } from "back-end/src/util/errors";
 import { resolvableValueChanged } from "back-end/src/services/constants";
 import { getResolvableValues } from "back-end/src/services/resolvableValues";
+import {
+  logConfigCreatedEvent,
+  logConfigUpdatedEvent,
+  logConfigDeletedEvent,
+} from "back-end/src/services/configEvents";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
@@ -99,10 +105,15 @@ export class ConfigModel extends BaseClass {
     }
   }
 
+  protected async afterCreate(doc: ConfigInterface) {
+    await logConfigCreatedEvent(this.context, this.toApiInterface(doc));
+  }
+
   // Refresh SDK payloads when a change alters the resolved value.
   protected async afterUpdate(
-    _existing: ConfigInterface,
+    existing: ConfigInterface,
     updates: UpdateProps<ConfigInterface>,
+    newDoc: ConfigInterface,
   ) {
     if (
       updates.parent !== undefined ||
@@ -118,15 +129,25 @@ export class ConfigModel extends BaseClass {
         );
       });
     }
+
+    // Skip the webhook event when only `dateUpdated` changed.
+    const previous = this.toApiInterface(existing);
+    const current = this.toApiInterface(newDoc);
+    if (
+      !isEqual(omit(previous, ["dateUpdated"]), omit(current, ["dateUpdated"]))
+    ) {
+      await logConfigUpdatedEvent(this.context, previous, current);
+    }
   }
 
-  protected async afterDelete() {
+  protected async afterDelete(doc: ConfigInterface) {
     resolvableValueChanged(this.context, "deleted", "config").catch((e) => {
       this.context.logger.error(
         e,
         "Error refreshing SDK Payload on config delete",
       );
     });
+    await logConfigDeletedEvent(this.context, this.toApiInterface(doc));
   }
 
   public getByKey(key: string) {

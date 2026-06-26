@@ -6,6 +6,7 @@ import {
   createOrUpdateRevision,
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
+import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
 import {
   discardIfJustCreated,
   isDraftStatus,
@@ -91,6 +92,12 @@ export const putConfigRevisionMetadata = createApiRequestHandler(
       config as unknown as Record<string, unknown> & { id: string },
       buildPatchOps(fieldsToUpdate),
       { revisionId: revision.id },
+    );
+
+    await dispatchConfigRevisionEvent(
+      req.context,
+      updated,
+      created ? { type: "created" } : { type: "updated", change: "metadata" },
     );
 
     return { revision: await toApiConfigRevision(updated, req.context) };

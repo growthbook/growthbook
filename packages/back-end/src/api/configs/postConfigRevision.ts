@@ -5,6 +5,7 @@ import {
   createOrUpdateRevision,
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
+import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
 import { toApiConfigRevision } from "./toApiConfigRevision";
 
 export const postConfigRevision = createApiRequestHandler(
@@ -38,6 +39,10 @@ export const postConfigRevision = createApiRequestHandler(
     [],
     { forceCreate: true, title: req.body.title, comment: req.body.comment },
   );
+
+  await dispatchConfigRevisionEvent(req.context, revision, {
+    type: "created",
+  });
 
   return { revision: await toApiConfigRevision(revision, req.context) };
 });

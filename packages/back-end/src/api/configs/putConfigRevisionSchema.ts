@@ -6,6 +6,7 @@ import {
   createOrUpdateRevision,
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
+import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
 import {
   applyRevisionToSnapshot,
   discardIfJustCreated,
@@ -79,6 +80,12 @@ export const putConfigRevisionSchema = createApiRequestHandler(
       config as unknown as Record<string, unknown> & { id: string },
       buildPatchOps({ schema: normalizedSchema }),
       { revisionId: revision.id },
+    );
+
+    await dispatchConfigRevisionEvent(
+      req.context,
+      updated,
+      created ? { type: "created" } : { type: "updated", change: "schema" },
     );
 
     return {

@@ -23,7 +23,11 @@ import { parseApiJsonSchema } from "back-end/src/util/feature-json-schema";
 import type { ApiFeatureEnvSettings } from "./postFeature";
 import { validateCustomFields, validateRuleAttributes } from "./validations";
 import { validateEnvKeys } from "./postFeature";
-import { assertValidProjectId, mapV2ApiRuleToFeatureRule } from "./v2Shared";
+import {
+  assertConfigSchemaCompat,
+  assertValidProjectId,
+  mapV2ApiRuleToFeatureRule,
+} from "./v2Shared";
 
 export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
   async (req) => {
@@ -120,6 +124,11 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
     );
     feature.jsonSchema = jsonSchema;
     feature.defaultValue = validateFeatureValue(feature, feature.defaultValue);
+
+    assertConfigSchemaCompat({
+      jsonSchemaEnabled: feature.jsonSchema?.enabled,
+      defaultValue: feature.defaultValue,
+    });
 
     if (
       !req.context.permissions.canPublishFeature(

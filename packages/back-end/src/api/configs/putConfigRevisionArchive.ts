@@ -6,7 +6,8 @@ import {
   createOrUpdateRevision,
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
-import { assertConstantArchivable } from "back-end/src/services/constants";
+import { assertConfigArchivable } from "back-end/src/services/constants";
+import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
 import {
   discardIfJustCreated,
   isDraftStatus,
@@ -29,10 +30,10 @@ export const putConfigRevisionArchive = createApiRequestHandler(
 
   const { archived } = req.body;
 
-  // Block staging an archive while the config is still referenced (parity with
-  // the direct archive endpoint). Unarchiving is always allowed.
+  // Block staging an archive while the config is still referenced or has live
+  // children (parity with the direct archive endpoint). Unarchiving is allowed.
   if (archived && !config.archived) {
-    await assertConstantArchivable(req.context, config.id, "config");
+    await assertConfigArchivable(req.context, config);
   }
 
   await ensureLiveRevisionExists(
@@ -65,6 +66,12 @@ export const putConfigRevisionArchive = createApiRequestHandler(
       config as unknown as Record<string, unknown> & { id: string },
       buildPatchOps({ archived }),
       { revisionId: revision.id },
+    );
+
+    await dispatchConfigRevisionEvent(
+      req.context,
+      updated,
+      created ? { type: "created" } : { type: "updated", change: "archive" },
     );
 
     return { revision: await toApiConfigRevision(updated, req.context) };

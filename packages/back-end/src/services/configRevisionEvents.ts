@@ -1,5 +1,5 @@
 import { Revision, JsonPatchOperation } from "shared/enterprise";
-import { SavedGroupInterface } from "shared/types/saved-group";
+import { ConfigInterface } from "shared/types/config";
 import {
   ResourceEvents,
   NotificationEventPayloadSchemaType,
@@ -7,65 +7,62 @@ import {
 import { Context } from "back-end/src/models/BaseModel";
 import { ApiReqContext } from "back-end/types/api";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
-import { toApiSavedGroupRevision } from "back-end/src/api/saved-groups/toApiSavedGroupRevision";
+import { toApiConfigRevision } from "back-end/src/api/configs/toApiConfigRevision";
 import type { RevisionLifecycleAction } from "back-end/src/events/revisionWebhookAdapters";
 import { logger } from "back-end/src/util/logger";
 
-type SavedGroupRevisionEvent = Extract<
-  ResourceEvents<"savedGroup">,
+type ConfigRevisionEvent = Extract<
+  ResourceEvents<"config">,
   `revision.${string}`
 >;
 
 // Map a revision's proposed-changes patch ops to the `change` discriminator on
-// the `revision.updated` event. Both the front-end (generic /revision
-// controller) and the public API funnel through `updateProposedChanges`, which
-// carries the cumulative ops, so we report the most significant category
-// touched rather than a per-edit delta.
+// the `revision.updated` event. Configs add "schema" on top of the constant set.
 export function deriveChange(
   proposedChanges: JsonPatchOperation[],
-): "metadata" | "condition" | "values" | "archive" {
+): "metadata" | "value" | "schema" | "archive" {
   const paths = proposedChanges.map((op) => op.path);
-  if (paths.some((p) => p.startsWith("/condition"))) return "condition";
-  if (paths.some((p) => p.startsWith("/values"))) return "values";
   if (paths.some((p) => p.startsWith("/archived"))) return "archive";
+  if (paths.some((p) => p.startsWith("/schema"))) return "schema";
+  if (
+    paths.some(
+      (p) => p.startsWith("/value") || p.startsWith("/environmentValues"),
+    )
+  ) {
+    return "value";
+  }
   return "metadata";
 }
 
-/**
- * Dispatch a `savedGroup.revision.*` webhook event for a revision lifecycle
- * transition. Called directly from the saved-group REST handlers and the
- * generic /revision controller after they persist each state change (the same
- * call-site pattern features use with dispatchFeatureRevisionEvent), so it
- * fires for both the front-end and the public REST API. Failures are logged and
- * swallowed — events are fire-and-forget and must never break the write.
- *
- * Self-guards on target type so the generic /revision controller can call it
- * unconditionally for any entity (no-op for non-saved-group revisions).
- */
-export async function dispatchSavedGroupRevisionEvent(
+// Dispatch a `config.revision.*` webhook event for a revision lifecycle
+// transition. Called from the config REST handlers and (via the
+// revisionWebhookAdapters registry) the generic /revision controller. Self-
+// guards on target type so it's a no-op for non-config revisions.
+// Fire-and-forget.
+export async function dispatchConfigRevisionEvent(
   context: Context,
   revision: Revision,
   action: RevisionLifecycleAction,
 ): Promise<void> {
-  if (revision.target.type !== "saved-group") return;
+  if (revision.target.type !== "config") return;
   try {
-    const apiRevision = await toApiSavedGroupRevision(
+    const apiRevision = await toApiConfigRevision(
       revision,
       context as ApiReqContext,
     );
-    const snapshot = revision.target.snapshot as SavedGroupInterface;
-    const projects = snapshot.projects ?? [];
+    const snapshot = revision.target.snapshot as ConfigInterface;
+    const projects = snapshot.project ? [snapshot.project] : [];
 
-    const emit = async <T extends SavedGroupRevisionEvent>(
+    const emit = async <T extends ConfigRevisionEvent>(
       event: T,
-      object: NotificationEventPayloadSchemaType<"savedGroup", T>,
+      object: NotificationEventPayloadSchemaType<"config", T>,
     ): Promise<void> => {
-      await createEvent<"savedGroup", T>({
+      await createEvent<"config", T>({
         context,
-        object: "savedGroup",
+        object: "config",
         objectId: revision.target.id,
         event,
-        data: { object } as CreateEventData<"savedGroup", T>,
+        data: { object } as CreateEventData<"config", T>,
         projects,
         tags: [],
         environments: [],
@@ -80,14 +77,10 @@ export async function dispatchSavedGroupRevisionEvent(
       case "updated":
         await emit("revision.updated", {
           ...apiRevision,
-          // Field-specific handlers pass the exact change; the generic
-          // /revision controller omits it, so derive from the proposed changes.
-          // The cross-entity `change` union includes kinds saved groups never
-          // emit (constant "value", config "schema"); ignore those and re-derive.
           change:
-            action.change &&
-            action.change !== "value" &&
-            action.change !== "schema"
+            action.change === "metadata" ||
+            action.change === "schema" ||
+            action.change === "archive"
               ? action.change
               : deriveChange(revision.target.proposedChanges),
         });
@@ -96,8 +89,6 @@ export async function dispatchSavedGroupRevisionEvent(
         await emit("revision.reviewRequested", apiRevision);
         break;
       case "reviewed": {
-        // Resolve the reviewer's name/email (best-effort) so Slack/webhook
-        // payloads aren't just an opaque id.
         const [user] = await context.getUsersByIds([action.userId]);
         const reviewer = {
           id: action.userId,
@@ -117,7 +108,6 @@ export async function dispatchSavedGroupRevisionEvent(
             reviewComment: action.comment ?? null,
           });
         } else {
-          // Empty comments are no-ops — don't emit an empty event.
           if (!action.comment) break;
           await emit("revision.commented", {
             ...apiRevision,
@@ -140,9 +130,6 @@ export async function dispatchSavedGroupRevisionEvent(
         await emit("revision.reopened", apiRevision);
         break;
       case "reverted": {
-        // `revertedFrom` is the id of the revision being reverted to; surface
-        // its version so subscribers know the target. Best-effort: a failed
-        // lookup must not suppress the event, since the version is optional.
         const source = revision.revertedFrom
           ? await context.models.revisions
               .getById(revision.revertedFrom)
@@ -150,7 +137,7 @@ export async function dispatchSavedGroupRevisionEvent(
           : null;
         await emit("revision.reverted", {
           ...apiRevision,
-          ...(source?.version != null
+          ...(source && source.version !== undefined
             ? { revertedToVersion: source.version }
             : {}),
         });
@@ -158,6 +145,6 @@ export async function dispatchSavedGroupRevisionEvent(
       }
     }
   } catch (e) {
-    logger.error(e, "Error dispatching saved group revision event");
+    logger.error(e, "Error dispatching config revision event");
   }
 }

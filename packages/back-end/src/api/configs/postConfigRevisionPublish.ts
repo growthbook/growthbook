@@ -13,6 +13,7 @@ import {
 } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
 import { buildMergeDesiredState } from "back-end/src/revisions/util";
+import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
 import { loadRevisionByVersion } from "./validations";
 import { toApiConfigRevision } from "./toApiConfigRevision";
 
@@ -137,6 +138,9 @@ export const postConfigRevisionPublish = createApiRequestHandler(
       req.context.userId,
       { bypass: isBypass },
     );
+    await dispatchConfigRevisionEvent(req.context, merged, {
+      type: merged.revertedFrom ? "reverted" : "published",
+    });
     return { revision: await toApiConfigRevision(merged, req.context) };
   }
 
@@ -167,6 +171,10 @@ export const postConfigRevisionPublish = createApiRequestHandler(
     }
     throw e;
   }
+
+  await dispatchConfigRevisionEvent(req.context, merged, {
+    type: merged.revertedFrom ? "reverted" : "published",
+  });
 
   return { revision: await toApiConfigRevision(merged, req.context) };
 });

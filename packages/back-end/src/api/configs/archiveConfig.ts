@@ -13,7 +13,8 @@ import {
   buildPatchOps,
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
-import { assertConstantArchivable } from "back-end/src/services/constants";
+import { assertConfigArchivable } from "back-end/src/services/constants";
+import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
 
 async function buildResponse(context: ApiReqContext, config: ConfigInterface) {
   return {
@@ -43,10 +44,10 @@ async function setArchivedState(
     return buildResponse(context, config);
   }
 
-  // Block archiving a still-referenced config (parity with the internal flow).
-  // Unarchiving is always allowed.
+  // Block archiving a still-referenced config or one with live children (parity
+  // with the internal flow). Unarchiving is always allowed.
   if (archived) {
-    await assertConstantArchivable(context, config.id, "config");
+    await assertConfigArchivable(context, config);
   }
 
   // Archiving/unarchiving is a metadata-only change. Respect the same approval
@@ -107,6 +108,7 @@ async function setArchivedState(
       }
       throw e;
     }
+    await dispatchConfigRevisionEvent(context, merged, { type: "published" });
     return buildResponse(context, { ...config, ...updated });
   }
 

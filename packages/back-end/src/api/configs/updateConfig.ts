@@ -15,6 +15,7 @@ import {
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
 import { reconcileConfigDescendants } from "back-end/src/services/configReconcile";
+import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
 
 export const updateConfig = createApiRequestHandler(updateConfigValidator)(
   async (req) => {
@@ -210,6 +211,9 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
       if (needsDescendantReconcile) {
         await reconcileConfigDescendants(req.context, config.key);
       }
+      await dispatchConfigRevisionEvent(req.context, merged, {
+        type: "published",
+      });
       return {
         config: await resolveOwnerEmail(
           req.context.models.configs.toApiInterface({ ...config, ...updated }),

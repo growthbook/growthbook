@@ -13,6 +13,7 @@ import {
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
 import { assertNoReferenceCycle } from "back-end/src/services/constants";
+import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
 import {
   assertValidConfigValueEdit,
   discardIfJustCreated,
@@ -118,6 +119,12 @@ export const putConfigRevisionValue = createApiRequestHandler(
       config as unknown as Record<string, unknown> & { id: string },
       buildPatchOps(fieldsToUpdate),
       { revisionId: revision.id },
+    );
+
+    await dispatchConfigRevisionEvent(
+      req.context,
+      updated,
+      created ? { type: "created" } : { type: "updated", change: "value" },
     );
 
     return { revision: await toApiConfigRevision(updated, req.context) };

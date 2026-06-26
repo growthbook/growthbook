@@ -12,6 +12,7 @@ import {
   NotFoundError,
 } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
+import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
 import { isDraftStatus, loadRevisionByVersion } from "./validations";
 import { toApiConfigRevision } from "./toApiConfigRevision";
 
@@ -109,6 +110,10 @@ export const postConfigRevisionRebase = createApiRequestHandler(
     newOps,
     req.context.userId,
   );
+
+  await dispatchConfigRevisionEvent(req.context, updated, {
+    type: "rebased",
+  });
 
   return { revision: await toApiConfigRevision(updated, req.context) };
 });

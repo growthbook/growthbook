@@ -2,6 +2,7 @@ import { postConfigRevisionDiscardValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
+import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
 import { loadRevisionByVersion } from "./validations";
 import { toApiConfigRevision } from "./toApiConfigRevision";
 
@@ -42,6 +43,10 @@ export const postConfigRevisionDiscard = createApiRequestHandler(
     req.context.userId,
     req.body.reason,
   );
+
+  await dispatchConfigRevisionEvent(req.context, closed, {
+    type: "discarded",
+  });
 
   return { revision: await toApiConfigRevision(closed, req.context) };
 });

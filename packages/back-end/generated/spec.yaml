@@ -335,6 +335,9 @@ tags:
   - name: Config_model
     x-displayName: Config
     description: <SchemaDefinition schemaRef="#/components/schemas/Config" />
+  - name: ConfigLineage_model
+    x-displayName: Config Lineage
+    description: <SchemaDefinition schemaRef="#/components/schemas/ConfigLineage" />
   - name: ConfigReferences_model
     x-displayName: Config References
     description: <SchemaDefinition schemaRef="#/components/schemas/ConfigReferences" />
@@ -19163,6 +19166,67 @@ paths:
             curl -X GET
             'https://api.growthbook.io/api/v1/configs/checkout-flow/references'
             \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/configs/{key}/lineage:
+    get:
+      operationId: getConfigLineage
+      summary: Get the full lineage (family tree) for a config
+      tags:
+        - configs
+      parameters:
+        - name: key
+          in: path
+          required: true
+          description: The key of the config
+          schema:
+            description: The key of the config
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                id: ConfigLineage
+                type: object
+                properties:
+                  root:
+                    description: The key of the family root (the topmost ancestor).
+                    type: string
+                  target:
+                    description: The requested config's key.
+                    type: string
+                  ancestors:
+                    description: >-
+                      The target's ancestor keys, root-first, ending at its
+                      immediate parent.
+                    type: array
+                    items:
+                      type: string
+                  descendants:
+                    description: Keys of every config that descends from the target.
+                    type: array
+                    items:
+                      type: string
+                  nodes:
+                    description: >-
+                      Every config in the family (root plus all descendants),
+                      breadth-first.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/nodes'
+                required:
+                  - root
+                  - target
+                  - ancestors
+                  - descendants
+                  - nodes
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/configs/checkout-flow/lineage' \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/configs/{key}/schema:
     get:
@@ -48319,6 +48383,71 @@ components:
         - features
         - constants
       additionalProperties: false
+    ConfigLineage:
+      type: object
+      properties:
+        root:
+          description: The key of the family root (the topmost ancestor).
+          type: string
+        target:
+          description: The requested config's key.
+          type: string
+        ancestors:
+          description: >-
+            The target's ancestor keys, root-first, ending at its immediate
+            parent.
+          type: array
+          items:
+            type: string
+        descendants:
+          description: Keys of every config that descends from the target.
+          type: array
+          items:
+            type: string
+        nodes:
+          description: >-
+            Every config in the family (root plus all descendants),
+            breadth-first.
+          type: array
+          items:
+            type: object
+            properties:
+              key:
+                type: string
+              name:
+                type: string
+              parent:
+                description: The lineage parent's key, or null for the family root.
+                anyOf:
+                  - type: string
+                  - type: 'null'
+              project:
+                type: string
+              archived:
+                type: boolean
+              depth:
+                description: Distance from the family root (the root is 0).
+                type: integer
+                minimum: -9007199254740991
+                maximum: 9007199254740991
+              isTarget:
+                description: True for the requested config.
+                type: boolean
+            required:
+              - key
+              - name
+              - parent
+              - archived
+              - depth
+              - isTarget
+            additionalProperties: false
+      required:
+        - root
+        - target
+        - ancestors
+        - descendants
+        - nodes
+      additionalProperties: false
     ConfigSchemaExport:
       type: object
       properties:
@@ -50444,6 +50573,36 @@ components:
         - key
         - name
       additionalProperties: false
+    nodes:
+      type: object
+      properties:
+        key:
+          type: string
+        name:
+          type: string
+        parent:
+          description: The lineage parent's key, or null for the family root.
+          anyOf:
+            - type: string
+            - type: 'null'
+        project:
+          type: string
+        archived:
+          type: boolean
+        depth:
+          description: Distance from the family root (the root is 0).
+          type: integer
+        isTarget:
+          description: True for the requested config.
+          type: boolean
+      required:
+        - key
+        - name
+        - parent
+        - archived
+        - depth
+        - isTarget
+      additionalProperties: false
     updatedMember:
       type: object
       properties:
@@ -51058,6 +51217,7 @@ x-tagGroups:
       - Attribute_model
       - CodeRef_model
       - Config_model
+      - ConfigLineage_model
       - ConfigReferences_model
       - ConfigRevision_model
       - ConfigRevisionActivityLogEntry_model

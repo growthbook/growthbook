@@ -34,6 +34,7 @@ import { validateEnvKeys } from "./postFeature";
 import { validateCustomFields, validateRuleAttributes } from "./validations";
 import { canBypassReviewChecks } from "./reviewBypass";
 import {
+  assertConfigSchemaCompat,
   assertValidHoldout,
   assertValidProjectId,
   extractRevisionMetadata,
@@ -132,6 +133,14 @@ export const updateFeatureV2 = createApiRequestHandler(
           feature.valueType,
         )
       : null;
+
+  // Block a config-backed default value coexisting with an enabled JSON schema
+  // (either inbound or already on the flag), using the effective post-update
+  // values.
+  assertConfigSchemaCompat({
+    jsonSchemaEnabled: (jsonSchema ?? feature.jsonSchema)?.enabled,
+    defaultValue: defaultValue ?? feature.defaultValue,
+  });
 
   let inboundFlatRules: FeatureRule[] | null = null;
   if (req.body.rules != null) {

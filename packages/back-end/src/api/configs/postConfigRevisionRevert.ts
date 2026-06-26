@@ -13,6 +13,7 @@ import {
   createOrUpdateRevision,
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
+import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
 import { loadRevisionByVersion } from "./validations";
 import { toApiConfigRevision } from "./toApiConfigRevision";
 
@@ -117,6 +118,9 @@ export const postConfigRevisionRevert = createApiRequestHandler(
       patchOps,
       { forceCreate: true, title, revertedFrom: targetRevision.id },
     );
+    await dispatchConfigRevisionEvent(req.context, draft, {
+      type: "created",
+    });
     return { revision: await toApiConfigRevision(draft, req.context) };
   }
 
@@ -149,6 +153,10 @@ export const postConfigRevisionRevert = createApiRequestHandler(
     }
     throw e;
   }
+
+  await dispatchConfigRevisionEvent(req.context, merged, {
+    type: "reverted",
+  });
 
   return { revision: await toApiConfigRevision(merged, req.context) };
 });

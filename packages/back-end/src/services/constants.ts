@@ -1,4 +1,5 @@
 import { FeatureInterface } from "shared/types/feature";
+import { ConfigInterface } from "shared/types/config";
 import {
   getConstantReferenceKeys,
   getCyclicConstantRefs,
@@ -285,4 +286,53 @@ export async function assertConstantArchivable(
       ", ",
     )}. Remove these references first.`,
   );
+}
+
+// Configs whose lineage parent is `configKey`. Uses the unfiltered set so a
+// child in an unreadable project still blocks the guard (lineage is global).
+async function getChildConfigs(
+  context: ReqContext | ApiReqContext,
+  configKey: string,
+): Promise<ConfigInterface[]> {
+  const all = await context.models.configs.getAllForReconcile();
+  return all.filter(
+    (c) => c.key !== configKey && getConfigParentKey(c) === configKey,
+  );
+}
+
+// Block archiving a config that is still referenced (value-embedded refs) OR
+// that has live child configs inheriting from it — archiving the base would
+// break the children's resolution. Unarchiving is always allowed.
+export async function assertConfigArchivable(
+  context: ReqContext | ApiReqContext,
+  config: { id: string; key: string },
+): Promise<void> {
+  await assertConstantArchivable(context, config.id, "config");
+
+  const liveChildren = (await getChildConfigs(context, config.key)).filter(
+    (c) => !c.archived,
+  );
+  if (liveChildren.length) {
+    throw new BadRequestError(
+      `Cannot archive config: ${liveChildren.length} live child config(s) inherit from it (${liveChildren
+        .map((c) => c.key)
+        .join(", ")}). Archive or re-parent them first.`,
+    );
+  }
+}
+
+// Block deleting a config that any other config still inherits from (archived
+// or not) — deletion would dangle their `parent` pointer.
+export async function assertConfigDeletable(
+  context: ReqContext | ApiReqContext,
+  config: { id: string; key: string },
+): Promise<void> {
+  const children = await getChildConfigs(context, config.key);
+  if (children.length) {
+    throw new BadRequestError(
+      `Cannot delete config: ${children.length} child config(s) inherit from it (${children
+        .map((c) => c.key)
+        .join(", ")}). Delete or re-parent them first.`,
+    );
+  }
 }
