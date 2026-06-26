@@ -1680,6 +1680,11 @@ export const postSchedulePublish = async (
         .status(400)
         .json({ message: "Invalid scheduledPublishAt date" });
     }
+    if (parsedDate.getTime() <= Date.now()) {
+      return res
+        .status(400)
+        .json({ message: "scheduledPublishAt must be in the future" });
+    }
   }
 
   // Canceling needs publish authority; arming additionally needs the

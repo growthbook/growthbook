@@ -629,6 +629,17 @@ function ReviewAndPublishRevision<T>({
     governanceCanPublish: !mustRebase,
   });
 
+  // The publish controls (admin-bypass checkbox + Publish button) show only when
+  // the revision is publishable or an admin can bypass — mirrors the feature's
+  // showPublishSection, so a disabled Publish button isn't shown prematurely on a
+  // not-yet-approved draft.
+  const adminBypassAvailable =
+    canBypassApproval &&
+    requiresApproval &&
+    mergeSuccess &&
+    hasChanges &&
+    (revision.status !== "approved" || adminPublish);
+
   const doSubmit = async () => {
     if (state.submitAction === "request-review") return doRequestReview();
     if (state.submitAction === "publish") return doPublish();
@@ -1142,45 +1153,42 @@ function ReviewAndPublishRevision<T>({
               />
             )}
 
-            {canBypassApproval &&
-              requiresApproval &&
-              mergeSuccess &&
-              hasChanges &&
-              (revision.status !== "approved" || adminPublish) && (
-                <Box mb="3">
-                  <Checkbox
-                    label={
-                      <span style={{ color: "var(--red-11)" }}>
-                        Admin: bypass approval and publish now
-                      </span>
-                    }
-                    weight="regular"
-                    value={adminPublish}
-                    setValue={(val) => setAdminPublish(!!val)}
-                  />
-                </Box>
-              )}
-
-            {!scheduleBlocksPublish && (
-              <Button
-                onClick={
-                  state.submitAction === "publish" &&
-                  state.ctaEnabled &&
-                  canEditEntity
-                    ? doSubmit
-                    : undefined
-                }
-                loading={submitting && state.submitAction === "publish"}
-                disabled={
-                  state.submitAction !== "publish" ||
-                  !state.ctaEnabled ||
-                  !canEditEntity
-                }
-                style={{ width: "100%" }}
-              >
-                Publish
-              </Button>
+            {adminBypassAvailable && (
+              <Box mb="3">
+                <Checkbox
+                  label={
+                    <span style={{ color: "var(--red-11)" }}>
+                      Admin: bypass approval and publish now
+                    </span>
+                  }
+                  weight="regular"
+                  value={adminPublish}
+                  setValue={(val) => setAdminPublish(!!val)}
+                />
+              </Box>
             )}
+
+            {!scheduleBlocksPublish &&
+              (state.submitAction === "publish" || adminBypassAvailable) && (
+                <Button
+                  onClick={
+                    state.submitAction === "publish" &&
+                    state.ctaEnabled &&
+                    canEditEntity
+                      ? doSubmit
+                      : undefined
+                  }
+                  loading={submitting && state.submitAction === "publish"}
+                  disabled={
+                    state.submitAction !== "publish" ||
+                    !state.ctaEnabled ||
+                    !canEditEntity
+                  }
+                  style={{ width: "100%" }}
+                >
+                  Publish
+                </Button>
+              )}
 
             <Flex direction="column" gap="2" mt="3">
               {/* A sibling draft's committed lock-others schedule freezes publish. */}

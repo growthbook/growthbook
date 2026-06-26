@@ -190,11 +190,15 @@ export default function ScheduledPublishControl({
     !requiresApproval ||
     (canBypassScheduleApproval && bypass);
 
+  // Lock-target wording mirrors the feature card ("feature and draft"), with the
+  // entity noun substituted: lockOthers = the whole {entityNoun}, lockEdits = this draft.
   const lockTargets = (() => {
-    const parts: string[] = [];
-    if (revision.scheduledPublishLockEdits) parts.push("edits to this draft");
-    if (revision.scheduledPublishLockOthers) parts.push("other drafts");
-    return parts.join(" and ");
+    const lockEdits = !!revision.scheduledPublishLockEdits;
+    const lockOthers = !!revision.scheduledPublishLockOthers;
+    if (lockOthers && lockEdits) return `${entityNoun} and draft`;
+    if (lockOthers) return entityNoun;
+    if (lockEdits) return "draft";
+    return "";
   })();
 
   // ── Persistence ──
@@ -429,8 +433,25 @@ export default function ScheduledPublishControl({
     );
   }
 
-  // Nothing to manage and nothing scheduled → render nothing.
-  if (!canManageAutoPublish) return null;
+  // A non-manager viewing a revision armed to "publish when approved" (no date)
+  // gets a disabled read-only indicator, mirroring the feature flow; a dated
+  // schedule already rendered its card above. Otherwise there's nothing to show.
+  if (!canManageAutoPublish) {
+    if (persistedArmed) {
+      return (
+        <Box mb="5">
+          <Checkbox
+            label="Automatically publish when approved"
+            weight="regular"
+            disabled
+            value={true}
+            setValue={() => {}}
+          />
+        </Box>
+      );
+    }
+    return null;
+  }
 
   // ── Editable form (auto-saves on change; no explicit schedule button) ──
   // Unified arming: one checkbox + an inline mode dropdown ("when approved" vs
