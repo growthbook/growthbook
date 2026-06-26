@@ -63,7 +63,7 @@ export default function VariationLabelStories() {
           Number-only (very limited space)
         </Text>
         <Flex direction="column" gap="2">
-          {([60, 40, 30] as const).map((width) => (
+          {([60, 40] as const).map((width) => (
             <Flex key={width} gap="2" align="center">
               <Text size="1" style={{ width: 64, color: "var(--gray-9)" }}>
                 {width}px

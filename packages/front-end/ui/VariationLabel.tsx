@@ -34,14 +34,10 @@ export default function VariationLabel({
     if (!slot) return;
 
     const measure = () => {
-      // clientWidth is 0 when the label is in a hidden container (e.g. an
-      // inactive tab kept mounted via display:none). Don't collapse in that
-      // case, otherwise it gets stuck showing only the number when revealed.
-      setHideName(slot.clientWidth > 0 && slot.clientWidth < MIN_NAME_WIDTH_PX);
+      const width = slot.clientWidth;
+      setHideName(width > 0 && width < MIN_NAME_WIDTH_PX);
       const text = textRef.current;
-      if (text) {
-        setIsTruncated(text.scrollWidth > text.clientWidth);
-      }
+      setIsTruncated(!!text && text.scrollWidth > text.clientWidth);
     };
 
     measure();
@@ -49,19 +45,13 @@ export default function VariationLabel({
     const observer = new ResizeObserver(measure);
     observer.observe(slot);
     return () => observer.disconnect();
-  }, [name, size]);
+  }, [name, size, hideName]);
 
-  // Re-measure truncation once the name is (re)mounted after a visibility flip.
-  useEffect(() => {
-    const text = textRef.current;
-    if (text) {
-      setIsTruncated(text.scrollWidth > text.clientWidth);
-    }
-  }, [hideName]);
+  const variationNumber = <VariationNumber number={number} />;
 
   const content = (
     <Flex align="center" gap="1" minWidth="0">
-      <VariationNumber number={number} />
+      {variationNumber}
       <Box ref={slotRef} minWidth="0" flexGrow="1" overflow="hidden">
         {!hideName ? (
           <Text
@@ -85,10 +75,9 @@ export default function VariationLabel({
     <Tooltip
       body={name}
       shouldDisplay={hideName || isTruncated}
-      style={{ display: "block", minWidth: 0 }}
       tipPosition="top"
     >
-      {content}
+      {hideName ? variationNumber : content}
     </Tooltip>
   );
 }
