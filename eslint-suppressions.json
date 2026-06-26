@@ -760,7 +760,7 @@
   },
   "packages/front-end/components/HealthTab/SRMCard.tsx": {
     "local/no-alert-classname": {
-      "count": 2
+      "count": 1
     }
   },
   "packages/front-end/components/HistoryTable.tsx": {

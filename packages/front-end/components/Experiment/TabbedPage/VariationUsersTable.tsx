@@ -1,5 +1,6 @@
 import { ExperimentReportVariation } from "shared/types/report";
 import { pValueFormatter } from "@/services/experiments";
+import VariationLabel from "@/ui/VariationLabel";
 
 export interface Props {
   variations: ExperimentReportVariation[];
@@ -39,31 +40,31 @@ export default function VariationUsersTable({
           <tr>
             <th
               className="border-top-0"
-              style={{ whiteSpace: "nowrap", width: "20%" }}
+              style={{ whiteSpace: "nowrap", width: "30%" }}
             >
               Variation
             </th>
             <th
               className="border-top-0"
-              style={{ whiteSpace: "nowrap", width: "20%" }}
+              style={{ whiteSpace: "nowrap", width: "17.5%" }}
             >
               Actual Units
             </th>
             <th
               className="border-top-0"
-              style={{ whiteSpace: "nowrap", width: "20%" }}
+              style={{ whiteSpace: "nowrap", width: "17.5%" }}
             >
               Expected Units
             </th>
             <th
               className="border-top-0"
-              style={{ whiteSpace: "nowrap", width: "20%" }}
+              style={{ whiteSpace: "nowrap", width: "17.5%" }}
             >
               Actual %
             </th>
             <th
               className="border-top-0"
-              style={{ whiteSpace: "nowrap", width: "20%" }}
+              style={{ whiteSpace: "nowrap", width: "17.5%" }}
             >
               Expected %
             </th>
@@ -73,24 +74,11 @@ export default function VariationUsersTable({
           {variations.map((v, i) => {
             return (
               <tr key={v.id}>
-                <td
-                  className={`border-right${hideVariationIndex ? "" : ` variation with-variation-label variation${v.index}`}`}
-                >
+                <td className={"border-right"}>
                   {hideVariationIndex ? (
                     v.name
                   ) : (
-                    <div className="d-flex align-items-center">
-                      <span
-                        className="label"
-                        style={{
-                          width: 20,
-                          height: 20,
-                        }}
-                      >
-                        {v.index}
-                      </span>{" "}
-                      {v.name}
-                    </div>
+                    <VariationLabel number={v.index} name={v.name} />
                   )}
                 </td>
                 <td>
