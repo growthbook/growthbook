@@ -882,7 +882,7 @@ export abstract class BaseModel<
       generatedIds.uid = this._generateUid();
     }
 
-    const doc = {
+    let doc = {
       ...generatedIds,
       ...props,
       organization: this.context.org.id,
@@ -906,7 +906,11 @@ export abstract class BaseModel<
 
     await this.beforeCreate(doc, writeOptions);
 
+    // insertOne mutates `doc` in place to add Mongo's `_id`. Scrub it (and the
+    // mongoose version key) with the same helper reads use, so these internals
+    // don't leak into the return value, audit log details, or hooks.
     await this._dangerousGetCollection().insertOne(doc);
+    doc = this._removeMongooseFields(doc) as z.infer<T>;
 
     if (this._auditLogger) {
       await this._auditLogger.logCreate(this.context, doc);

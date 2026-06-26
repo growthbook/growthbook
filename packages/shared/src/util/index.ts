@@ -38,6 +38,7 @@ export * from "./errors";
 export * from "./namespaces";
 export * from "./custom-fields";
 export * from "./diffFormats";
+export * from "./format-json";
 export * from "./datasource";
 export * from "./event-forwarder-fact-table";
 export * from "./event-forwarder-warehouse-queries";
