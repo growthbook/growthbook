@@ -538,6 +538,10 @@ export default function FeatureValueField({
                       configKey={configKey}
                       patch={patch}
                       setPatch={emitPatch}
+                      constantContext={{
+                        project: pickerProject,
+                        excludeKeys: pickerExcludeKeys,
+                      }}
                       disabled={disabled}
                     />
                   </>

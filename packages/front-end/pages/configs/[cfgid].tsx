@@ -42,7 +42,7 @@ import Link from "@/ui/Link";
 import Metadata from "@/ui/Metadata";
 import Callout from "@/ui/Callout";
 import ConfirmDialog from "@/ui/ConfirmDialog";
-import Code from "@/components/SyntaxHighlighting/Code";
+import ConfigJsonEditor from "@/components/Configs/ConfigJsonEditor";
 import SplitButton from "@/ui/SplitButton";
 import Switch from "@/ui/Switch";
 import {
@@ -254,16 +254,6 @@ export default function ConfigDetailPage(): React.ReactElement {
     ) as ConfigInterface;
   }, [selectedRevision, config]);
 
-  // Raw stored value (this config's own fields only; lineage lives on `parent`).
-  const jsonReadout = useMemo(() => {
-    const raw = displayedConfig?.value || "{}";
-    try {
-      return JSON.stringify(JSON.parse(raw), null, 2);
-    } catch {
-      return raw;
-    }
-  }, [displayedConfig?.value]);
-
   // Re-resolve the chain with this node's displayed (possibly draft) value
   // substituted in, so the field table reflects the revision in view.
   const resolved = useMemo(() => {
@@ -291,6 +281,16 @@ export default function ConfigDetailPage(): React.ReactElement {
     const self = data?.lineage.find((n) => n.key === config?.key);
     return self?.parentKey ?? null;
   }, [data?.lineage, config?.key]);
+
+  // Family extensibility ("Allow extra fields"). The flag lives on the root, so
+  // a root config reads it draft-aware off the displayed revision; a child uses
+  // the server-computed (live) family value. Drives schema `additionalProperties`.
+  const effectiveExtensible =
+    parentKey === null
+      ? (displayedConfig?.extensible ??
+        settings.configsExtensibleByDefault ??
+        true)
+      : (data?.extensible ?? settings.configsExtensibleByDefault ?? true);
 
   // Per-field value as resolved by the parent chain (this config excluded), so
   // an override row can show the inherited value it replaces.
@@ -445,6 +445,12 @@ export default function ConfigDetailPage(): React.ReactElement {
   const ownSchema = (): SimpleSchema =>
     displayedConfig.schema ?? { type: "object", fields: [] };
   const ownSchemaKeys = ownSchema().fields.map((sf) => sf.key);
+
+  // Effective-schema keys this config does NOT declare itself — owned by an
+  // ancestor. Declaring one is a "base wins" collision; valuing one is an override.
+  const ancestorOwnedKeys = resolved.effectiveSchema
+    .map((sf) => sf.key)
+    .filter((k) => !ownSchemaKeys.includes(k));
 
   // Descendants that currently declare a field key this config also declares.
   // Publishing makes this config the owner of those keys, so the cascade strips
@@ -982,11 +988,21 @@ export default function ConfigDetailPage(): React.ReactElement {
                 </Box>
               )}
 
-              {/* JSON — raw stored value (read-only; paste-to-import is future work). */}
+              {/* JSON — code-only value + schema. Read-only off-draft; an
+                  editable, sparse surface (with a resolved preview) while drafting. */}
               {activeTab === "json" && (
-                <Box mt="3">
-                  <Code language="json" code={jsonReadout} expandable={false} />
-                </Box>
+                <ConfigJsonEditor
+                  valueJson={displayedConfig.value ?? "{}"}
+                  schemaJson={JSON.stringify(ownSchema().fields)}
+                  ancestorOwnedKeys={ancestorOwnedKeys}
+                  resolvedFields={resolved.fields}
+                  effectiveSchema={resolved.effectiveSchema}
+                  schemaType={ownSchema().type}
+                  extensible={effectiveExtensible}
+                  constantContext={constantContext}
+                  canEdit={canEditInline}
+                  onSave={(value, fields) => saveSchema(fields, value)}
+                />
               )}
             </Box>
           </Box>

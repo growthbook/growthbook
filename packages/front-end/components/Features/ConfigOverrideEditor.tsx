@@ -18,7 +18,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
-import CodeTextArea from "@/components/Forms/CodeTextArea";
+import FeatureValueField from "@/components/Features/FeatureValueField";
 import {
   ResolvedField,
   fieldIsNullable,
@@ -60,13 +60,17 @@ function textForValue(value: unknown, vt: string): string {
 // each time an override starts.
 function OverrideValueInput({
   field,
+  fieldKey,
   value,
   onChange,
+  constantContext,
   disabled,
 }: {
   field: SchemaField | null;
+  fieldKey: string;
   value: unknown;
   onChange: (value: unknown) => void;
+  constantContext?: { project?: string; excludeKeys?: string[] };
   disabled?: boolean;
 }): React.ReactElement {
   const nf = field ? normalizeField(field) : null;
@@ -107,8 +111,8 @@ function OverrideValueInput({
   if (vt === "json") {
     return (
       <Box>
-        <CodeTextArea
-          language="json"
+        <FeatureValueField
+          id={`override-val-${fieldKey}`}
           value={text}
           setValue={(t) => {
             setText(t);
@@ -119,8 +123,12 @@ function OverrideValueInput({
               setJsonError("Invalid JSON");
             }
           }}
-          minLines={3}
-          maxLines={12}
+          valueType="json"
+          useCodeInput
+          showFullscreenButton
+          codeInputDefaultHeight={120}
+          constantContext={constantContext}
+          inlineConstantButton
           disabled={disabled}
         />
         {jsonError && (
@@ -132,21 +140,35 @@ function OverrideValueInput({
     );
   }
 
-  return (
-    <Field
-      type={vt === "number" ? "number" : "text"}
-      value={text}
-      disabled={disabled}
-      onChange={(e) => {
-        const t = e.target.value;
-        setText(t);
-        if (vt === "number") {
+  // Numbers can't carry a `@const:` ref, so they stay a plain numeric input.
+  if (vt === "number") {
+    return (
+      <Field
+        type="number"
+        value={text}
+        disabled={disabled}
+        onChange={(e) => {
+          const t = e.target.value;
+          setText(t);
           const n = Number(t);
           onChange(t.trim() !== "" && Number.isFinite(n) ? n : t);
-        } else {
-          onChange(t);
-        }
+        }}
+      />
+    );
+  }
+
+  return (
+    <FeatureValueField
+      id={`override-val-${fieldKey}`}
+      value={text}
+      setValue={(t) => {
+        setText(t);
+        onChange(t);
       }}
+      valueType="string"
+      constantContext={constantContext}
+      inlineConstantButton
+      disabled={disabled}
     />
   );
 }
@@ -161,6 +183,7 @@ function OverrideRow({
   onSet,
   onRemove,
   sparse,
+  constantContext,
   disabled,
 }: {
   field: SchemaField | null;
@@ -172,6 +195,7 @@ function OverrideRow({
   onSet: (value: unknown) => void;
   onRemove: () => void;
   sparse: boolean;
+  constantContext?: { project?: string; excludeKeys?: string[] };
   disabled?: boolean;
 }): React.ReactElement {
   const nf = field ? normalizeField(field) : null;
@@ -218,8 +242,10 @@ function OverrideRow({
             ) : (
               <OverrideValueInput
                 field={field}
+                fieldKey={fieldKey}
                 value={value}
                 onChange={onSet}
+                constantContext={constantContext}
                 disabled={disabled}
               />
             )}
@@ -313,11 +339,13 @@ export default function ConfigOverrideEditor({
   configKey,
   patch,
   setPatch,
+  constantContext,
   disabled,
 }: {
   configKey: string;
   patch: string;
   setPatch: (value: string) => void;
+  constantContext?: { project?: string; excludeKeys?: string[] };
   disabled?: boolean;
 }): React.ReactElement {
   const { data, error } = useApi<ResolvedResponse>(
@@ -449,6 +477,7 @@ export default function ConfigOverrideEditor({
                       onSet={(v) => setOverride(key, v)}
                       onRemove={() => removeOverride(key)}
                       sparse={sparse}
+                      constantContext={constantContext}
                       disabled={disabled}
                     />
                   );
@@ -490,12 +519,14 @@ export default function ConfigOverrideEditor({
 
       <TabsContent value="json">
         <Box mt="2">
-          <CodeTextArea
-            language="json"
+          <FeatureValueField
+            id={`${configKey}-override-json`}
             value={patch}
             setValue={setPatch}
-            minLines={3}
-            maxLines={16}
+            valueType="json"
+            useCodeInput
+            showFullscreenButton
+            constantContext={constantContext}
             disabled={disabled}
           />
         </Box>

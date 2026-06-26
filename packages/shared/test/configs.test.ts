@@ -10,6 +10,7 @@ import {
   getAncestorSchemaKeys,
   stripAncestorOwnedFields,
   configIsExtensible,
+  stripConfigExtends,
 } from "../src/util/configs";
 import { SimpleSchema, SchemaField } from "../types/feature";
 
@@ -140,7 +141,7 @@ describe("withParentExtends", () => {
     );
   });
 
-  it("replaces any pre-existing $extends with the parent ref", () => {
+  it("replaces any pre-existing @config ref with the parent ref", () => {
     expect(
       withParentExtends('{"$extends":["@config:old"],"a":1}', "base"),
     ).toBe('{"$extends":["@config:base"],"a":1}');
@@ -150,6 +151,40 @@ describe("withParentExtends", () => {
     expect(withParentExtends('{"$extends":["@config:old"],"a":1}', null)).toBe(
       '{"a":1}',
     );
+  });
+
+  it("preserves @const refs, prepending the parent as the first entry", () => {
+    expect(
+      withParentExtends('{"$extends":["@const:flags"],"a":1}', "base"),
+    ).toBe('{"$extends":["@config:base","@const:flags"],"a":1}');
+  });
+
+  it("keeps @const refs even with no parent", () => {
+    expect(withParentExtends('{"$extends":["@const:flags"],"a":1}', null)).toBe(
+      '{"$extends":["@const:flags"],"a":1}',
+    );
+  });
+});
+
+describe("stripConfigExtends", () => {
+  it("drops @config refs but keeps @const refs", () => {
+    expect(
+      stripConfigExtends('{"$extends":["@config:base","@const:flags"],"a":1}'),
+    ).toBe('{"$extends":["@const:flags"],"a":1}');
+  });
+
+  it("removes $extends entirely when only @config refs remain", () => {
+    expect(stripConfigExtends('{"$extends":["@config:base"],"a":1}')).toBe(
+      '{"a":1}',
+    );
+  });
+
+  it("leaves a value without $extends unchanged", () => {
+    expect(stripConfigExtends('{"a":1}')).toBe('{"a":1}');
+  });
+
+  it("passes through undefined", () => {
+    expect(stripConfigExtends(undefined)).toBeUndefined();
   });
 });
 

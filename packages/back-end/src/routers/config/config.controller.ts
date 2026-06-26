@@ -22,7 +22,7 @@ import {
   getConfigParentKey,
   getConfigSubtree,
   configIsExtensible,
-  stripExtends,
+  stripConfigExtends,
 } from "shared/util";
 import { CONSTANT_EXTENDS_KEY } from "shared/constants";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
@@ -265,7 +265,7 @@ export const postConfig = async (
     name: body.name,
     owner: body.owner || context.userId,
     parent: parent || undefined,
-    value: stripExtends(body.value),
+    value: stripConfigExtends(body.value),
     environmentValues: body.environmentValues,
     description: body.description,
     project: body.project,
@@ -325,7 +325,7 @@ export const putConfig = async (
   // Inheritance lives on `parent`; strip any `$extends` from the value and
   // migrate a legacy in-value ref into `parent` when the caller didn't set one.
   const normalizedValue =
-    typeof value !== "undefined" ? stripExtends(value) : undefined;
+    typeof value !== "undefined" ? stripConfigExtends(value) : undefined;
   const incomingParent =
     parent !== undefined
       ? parent

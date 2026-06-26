@@ -31,20 +31,50 @@ export function stripExtends(value: string | undefined): string | undefined {
   return JSON.stringify(rest);
 }
 
-// Synthesize the resolution value for a config: inject `$extends: ["@config:parent"]`
-// so it merges its parent as the base (own keys still win). With no parent, just
-// strip any stray `$extends`.
+// Drop only the `@config:` directives from a JSON-encoded config value, keeping
+// any `@const:` refs (a config may merge a constant as a base layer; config
+// lineage lives on `parent`, never in the stored value). Returns non-object
+// values unchanged; drops `$extends` entirely if nothing is left.
+export function stripConfigExtends(
+  value: string | undefined,
+): string | undefined {
+  if (value === undefined) return value;
+  const obj = parsePlainJSONObject(value);
+  if (!obj || !(CONSTANT_EXTENDS_KEY in obj)) return value;
+  const rest = { ...obj };
+  const list = obj[CONSTANT_EXTENDS_KEY];
+  const kept = Array.isArray(list)
+    ? list.filter((r) => !(typeof r === "string" && r.startsWith("@config:")))
+    : [];
+  if (kept.length) rest[CONSTANT_EXTENDS_KEY] = kept;
+  else delete rest[CONSTANT_EXTENDS_KEY];
+  return JSON.stringify(rest);
+}
+
+// Synthesize the resolution value for a config: prepend `@config:parent` as the
+// first `$extends` entry (the base layer; own keys still win) while preserving
+// any `@const:` refs the value declares. Config lineage is owned by `parent`, so
+// pre-existing `@config:` entries are dropped. With no parent and no constant
+// refs, this strips `$extends` entirely.
 export function withParentExtends(
   value: string | undefined,
   parentKey: string | null,
 ): string | undefined {
-  if (!parentKey) return stripExtends(value);
-  const rest = parsePlainJSONObject(value ?? "") ?? {};
+  const obj = parsePlainJSONObject(value ?? "") ?? {};
+  const prior = obj[CONSTANT_EXTENDS_KEY];
+  const constantRefs = Array.isArray(prior)
+    ? prior.filter(
+        (r): r is string => typeof r === "string" && r.startsWith("@const:"),
+      )
+    : [];
+  const rest = { ...obj };
   delete rest[CONSTANT_EXTENDS_KEY];
-  return JSON.stringify({
-    [CONSTANT_EXTENDS_KEY]: [`@config:${parentKey}`],
-    ...rest,
-  });
+  const list = [
+    ...(parentKey ? [`@config:${parentKey}`] : []),
+    ...constantRefs,
+  ];
+  if (!list.length) return JSON.stringify(rest);
+  return JSON.stringify({ [CONSTANT_EXTENDS_KEY]: list, ...rest });
 }
 
 // A feature value can be "backed by a config": stored as

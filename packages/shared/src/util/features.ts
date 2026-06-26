@@ -3268,6 +3268,28 @@ export function getDisallowedProjects(
 export function simpleSchemaFieldToJSONSchema(
   field: SchemaField,
 ): Record<string, unknown> {
+  // A raw per-field schema (config-only) supersedes the simple type. Emit it
+  // directly so object/array/nullable/advanced fields compile faithfully (the
+  // simple-type path below can't represent them). Layer on the simple-mode
+  // description/default only when the raw schema omits them.
+  if (field.jsonSchema !== undefined) {
+    try {
+      const raw = JSON.parse(field.jsonSchema);
+      if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+        const merged = { ...(raw as Record<string, unknown>) };
+        if (field.description && merged.description === undefined) {
+          merged.description = field.description;
+        }
+        if (field.default && merged.default === undefined) {
+          merged.default = field.default;
+        }
+        return merged;
+      }
+    } catch {
+      // Malformed raw schema — fall back to the simple-type compilation.
+    }
+  }
+
   const getValue = (value: string): string | number | boolean => {
     const type = field.type;
     // Validation

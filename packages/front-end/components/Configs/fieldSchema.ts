@@ -1,4 +1,24 @@
 import { FeatureValueType, SchemaField } from "shared/types/feature";
+import {
+  JSON_SCHEMA_PRESETS,
+  PresetKey,
+  blankField,
+  normalizeField,
+  presetKeyFromField,
+  presetSchemaString,
+} from "shared/util";
+
+// The schema/value conversion core lives in `shared/util/config-schema` so the
+// REST API can reuse it. Re-exported here so existing editor imports of
+// `@/components/Configs/fieldSchema` keep resolving to one place.
+export {
+  blankField,
+  JSON_SCHEMA_PRESETS,
+  normalizeField,
+  presetKeyFromField,
+  presetSchemaString,
+};
+export type { PresetKey };
 
 // `source` is the lineage config that set the value.
 export type ResolvedField = {
@@ -18,16 +38,6 @@ export type LineageNode = {
   fieldKeys?: string[];
 };
 
-// Always `required`: children are value-patches, not optional fields.
-export const blankField = (): SchemaField => ({
-  key: "",
-  type: "string",
-  required: true,
-  default: "",
-  description: "",
-  enum: [],
-});
-
 export const FIELD_TYPE_OPTIONS = [
   { value: "string", label: "String" },
   { value: "integer", label: "Integer" },
@@ -43,59 +53,11 @@ export const FIELD_TYPE_OPTIONS = [
 export const FIELD_GRID_TEMPLATE =
   "minmax(110px, 200px) minmax(120px, 1fr) 110px 150px 150px";
 
-const JSON_SCHEMA_SIMPLE_TYPES: Record<string, SchemaField["type"]> = {
-  string: "string",
-  integer: "integer",
-  number: "float",
-  boolean: "boolean",
-};
-
-// Non-primitive type picks, each backed by a canonical raw JSON Schema.
-export const JSON_SCHEMA_PRESETS = {
-  json: { type: "object" },
-  array: { type: "array" },
-  any: {},
-} as const;
-export type PresetKey = keyof typeof JSON_SCHEMA_PRESETS;
-
 const PRESET_LABELS: Record<PresetKey, string> = {
   json: "JSON",
   array: "array",
   any: "any",
 };
-
-// Sorted-key stringify so preset detection ignores key order.
-function canonicalJSON(v: unknown): string {
-  return JSON.stringify(v, (_k, val) =>
-    val && typeof val === "object" && !Array.isArray(val)
-      ? Object.fromEntries(
-          Object.entries(val as Record<string, unknown>).sort(([a], [b]) =>
-            a.localeCompare(b),
-          ),
-        )
-      : val,
-  );
-}
-
-export function presetKeyFromField(f: SchemaField | null): PresetKey | null {
-  if (!f || f.jsonSchema === undefined) return null;
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(f.jsonSchema);
-  } catch {
-    return null;
-  }
-  const target = canonicalJSON(parsed);
-  return (
-    (Object.keys(JSON_SCHEMA_PRESETS) as PresetKey[]).find(
-      (key) => canonicalJSON(JSON_SCHEMA_PRESETS[key]) === target,
-    ) ?? null
-  );
-}
-
-export function presetSchemaString(key: PresetKey): string {
-  return JSON.stringify(JSON_SCHEMA_PRESETS[key], null, 2);
-}
 
 // Read-only dropdown option for a schema no standard type can represent.
 export const OTHER_TYPE_VALUE = "other";
@@ -152,97 +114,6 @@ export function fieldIsNullable(f: SchemaField | null): boolean {
   } catch {
     return false;
   }
-}
-
-// Keys a simple-mode field can faithfully round-trip through JSON Schema (the
-// inverse of `simpleSchemaFieldToJSONSchema`). A raw schema using only these can
-// be collapsed back to simple form; anything else stays "advanced".
-const SIMPLE_SCHEMA_KEYS = new Set([
-  "type",
-  "description",
-  "default",
-  "enum",
-  "minLength",
-  "maxLength",
-  "minimum",
-  "maximum",
-  "multipleOf",
-  "format",
-]);
-
-// Collapse a raw schema back to its canonical simple/preset form. Handles a bare
-// `{type:"string"}`, a `T | null` union (lifted to the `nullable` flag), a
-// nullable object/array preset, and a primitive carrying only simple-mode
-// constraints (description, default, enum, bounds). Anything else (nested
-// shapes, real unions, unknown keywords) is left untouched so it stays
-// "advanced".
-export function normalizeField(f: SchemaField): SchemaField {
-  if (f.jsonSchema === undefined) return f;
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(f.jsonSchema);
-  } catch {
-    return f;
-  }
-  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return f;
-  const obj = parsed as Record<string, unknown>;
-  const keys = Object.keys(obj);
-
-  const rawType = obj.type;
-  const arr = Array.isArray(rawType) ? rawType : [rawType];
-  const hasNull = arr.includes("null");
-  const nonNull = arr.filter((t) => t !== "null");
-  if (nonNull.length !== 1) return f;
-  const base = nonNull[0];
-  const nullable = f.nullable === true || hasNull;
-
-  if (base === "object" || base === "array") {
-    // Only a bare preset (optionally `| null`) reduces; structural keys are kept.
-    if (keys.length !== 1) return f;
-    return {
-      ...f,
-      jsonSchema: presetSchemaString(base === "object" ? "json" : "array"),
-      nullable,
-    };
-  }
-
-  const simple =
-    typeof base === "string" ? JSON_SCHEMA_SIMPLE_TYPES[base] : undefined;
-  if (simple === undefined) return f;
-  // Reduce a primitive only when every keyword maps to a simple-mode control,
-  // and the integer markers are exactly what we emit (else we'd lose meaning).
-  if (!keys.every((k) => SIMPLE_SCHEMA_KEYS.has(k))) return f;
-  if (obj.multipleOf !== undefined && obj.multipleOf !== 1) return f;
-  if (obj.format !== undefined && obj.format !== "number") return f;
-  // `{type:"number"}` with an integer marker is really an integer.
-  const type: SchemaField["type"] =
-    simple === "float" && (obj.multipleOf === 1 || obj.format === "number")
-      ? "integer"
-      : simple;
-
-  const enumValues = Array.isArray(obj.enum)
-    ? obj.enum.map((v) => (typeof v === "string" ? v : JSON.stringify(v)))
-    : f.enum;
-  const minRaw = type === "string" ? obj.minLength : obj.minimum;
-  const maxRaw = type === "string" ? obj.maxLength : obj.maximum;
-
-  return {
-    ...f,
-    type,
-    nullable,
-    enum: enumValues,
-    min: typeof minRaw === "number" ? minRaw : f.min,
-    max: typeof maxRaw === "number" ? maxRaw : f.max,
-    description:
-      typeof obj.description === "string" ? obj.description : f.description,
-    default:
-      obj.default === undefined
-        ? f.default
-        : typeof obj.default === "string"
-          ? obj.default
-          : JSON.stringify(obj.default),
-    jsonSchema: undefined,
-  };
 }
 
 // Base-type label for a raw schema, ignoring validation keywords (min/max,

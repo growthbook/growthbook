@@ -192,6 +192,9 @@ export type Props = CodeTextAreaFieldProps & {
   setCursorData?: (data: CursorData) => void;
   minLines?: number;
   maxLines?: number;
+  // Editor font size (Ace accepts px number or any CSS size). Smaller values
+  // also shrink line height, so a fixed line count takes less vertical space.
+  fontSize?: string | number;
   fullHeight?: boolean;
   onCtrlEnter?: () => void;
   wrapperClassName?: string;
@@ -218,6 +221,7 @@ export default function CodeTextArea({
   placeholder,
   minLines = 10,
   maxLines = 50,
+  fontSize = "1em",
   setCursorData,
   fullHeight,
   onCtrlEnter,
@@ -423,7 +427,7 @@ export default function CodeTextArea({
                   value={value}
                   onChange={(newValue) => setValue(newValue)}
                   placeholder={placeholder}
-                  fontSize="1em"
+                  fontSize={fontSize}
                   completions={completions}
                   {...heightProps}
                   setOptions={{
