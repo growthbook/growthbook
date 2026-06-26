@@ -25,6 +25,27 @@ const elementContextSchema = z.object({
   computedStyles: z.record(z.string(), z.string()).optional(),
 });
 
+// One container in the page's structural snapshot (sections, layout
+// wrappers, ancestors of catalog headings), captured client-side with a
+// durable selector precomputed per node. Carried inside domDigest but NEVER
+// rendered into the prompt (formatDigest ignores it) — the `findElements`
+// tool reads it on demand, so it costs prompt tokens only when the model
+// actually needs to locate a container the curated catalog doesn't list
+// (e.g. "move the Trusted-by section"). The tool runs server-side over this
+// in-request data, so it works on Cloud with no client round-trip.
+const structureNodeSchema = z.object({
+  selector: z.string(),
+  // Durable selector of the nearest significant ancestor — lets the model
+  // build a sibling move (parentSelector + insertBefore) from one lookup.
+  parentSelector: z.string().optional(),
+  tag: z.string(),
+  id: z.string().optional(),
+  classes: z.array(z.string()).optional(),
+  role: z.string().optional(),
+  // Short trimmed text label for matching by visible content.
+  label: z.string().optional(),
+});
+
 // Compact element catalog from visual-editor/src/content_script/pageDigest.ts —
 // gives the LLM real selectors to pick from rather than guessing.
 const domDigestSchema = z.object({
@@ -89,6 +110,9 @@ const domDigestSchema = z.object({
       }),
     )
     .default([]),
+  // On-demand container map for the `findElements` tool — not rendered into
+  // the prompt (formatDigest ignores it).
+  pageStructure: z.array(structureNodeSchema).max(400).optional(),
 });
 
 // Capped at 12 turns + 4000 chars/turn to bound prompt size.
@@ -231,7 +255,7 @@ SELECTOR GROUNDING — this is critical:
 - "Title" / "the title" / "page title" / "headline" / "heading" → when the user has NOT picked a relevant element (a picked element always wins — see "PICKED ELEMENTS WIN" above), interpret this as the visible main heading on the page — pick the first \`h1\` from the catalog (or the most prominent heading if no h1 is present). NEVER target the \`<title>\` element in \`<head>\`, \`document.title\`, or set the HTML "title" attribute (tooltip) for these requests. Users running an A/B test want to test what readers see on the page, not the browser tab text. The same applies to "subtitle" / "subheading" → the visible \`h2\` (or first heading below the h1), not anything in \`<head>\`.
 - For "the page", "the background", "the whole site", "globally", and similar broad requests, prefer "body" or "html" from the Page structure section. These are always valid targets — never refuse a global styling request because the more-specific catalogs only list components.
 - "html" and "body" are ALWAYS valid selectors even if the Page structure section is missing (e.g. older content scripts). Treat them as if they were in the catalog.
-- If no element in the catalog plausibly matches, the user named no explicit selector, AND the request isn't a global styling change, say so in the explanation and return mutations = []. Do not guess invented selectors.
+- If the target is a section or container that isn't in the catalog (e.g. "the Trusted-by section", a named wrapper), call the \`findElements\` tool (when available) to look it up by text or class BEFORE giving up — sections are deliberately absent from the catalog. Only if findElements also finds nothing, the user named no explicit selector, AND the request isn't a global styling change, say so in the explanation and return mutations = []. Do not guess invented selectors.
 - Prefer PARTIAL completion over wholesale refusal. When a request has several targets and only some are grounded, fulfill the parts you can — the global/body portion, and any user-named class via global CSS — and note any genuinely unverifiable target in the explanation. Do not refuse the entire request because one target couldn't be confirmed.
 
 Other rules:
@@ -269,6 +293,7 @@ Tools you may call before producing the final JSON output:
 - \`getDesignTokens\` — fetch the organization's brand guidelines. Call when the user asks for changes that should be "on brand", "match our style", or "use our colors". Skip for purely tactical edits.
 - \`searchPastExperiments\` — search the user's previous A/B tests by name, hypothesis, or description. Call when the user references prior work ("similar to the pricing test", "what's worked here before", "try what we did on signup"). Returns experiment names + hypotheses + ids — never raw conversion numbers or revenue. Use the results to inform DIRECTION ("similar prior tests have leaned warmer/bolder/shorter"), not as a source of quoted numeric claims.
 - \`getExperimentVariations\` — given an experimentId from searchPastExperiments, fetch the variations' actual mutations + CSS + JS. Call this when the user explicitly wants to mirror or adapt the changes from a prior experiment. Long mutation values are truncated — treat them as patterns, not as verbatim source.
+- \`findElements\` — locate a container/section that is NOT in the page-elements catalog. The catalog only lists headings, buttons, links, inputs, images, and top-level landmarks — it does NOT list \`<section>\`s or layout wrapper \`<div>\`s. When the user refers to a whole section to move, reorder, hide, or restyle (e.g. "move the Trusted-by section above the features section"), call \`findElements\` with a word from the section's visible text or class name to get its durable \`selector\` and \`parentSelector\`. Use those verbatim (they're real, captured from the live DOM). Prefer this over asking the user to click. (Not available on every deployment; if it returns nothing useful, fall back to asking the user to click.)
 
 Tool-use guidance:
 - Don't call tools just because they're available. If the user request can be fulfilled with information already in the prompt, return mutations directly without any tool calls.
@@ -472,6 +497,10 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
     locale,
   } = req.body;
 
+  // Carried inside domDigest (sent in the body, kept out of the prompt) and
+  // surfaced to the model only via the server-side findElements tool.
+  const pageStructure = domDigest?.pageStructure;
+
   const context = req.context;
   requireUserAuth(context);
 
@@ -530,6 +559,15 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
     for (const s of allDigestSelectors(domDigest)) trustedSelectors.add(s);
   }
   for (const e of elementContext) trustedSelectors.add(e.selector);
+  // Selectors surfaced via the findElements tool are real (the snapshot was
+  // built from the live DOM), so trust them too — otherwise a move the model
+  // discovered through the tool would be dropped by the self-correct retry.
+  if (pageStructure) {
+    for (const n of pageStructure) {
+      trustedSelectors.add(n.selector);
+      if (n.parentSelector) trustedSelectors.add(n.parentSelector);
+    }
+  }
 
   // visualEditorAIContext is the free-text brand guidelines admins set in
   // Settings → AI Settings. Appended to the system prompt (not the user
@@ -705,6 +743,7 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
   const tools = buildVisualEditorTools({
     context,
     job: useToolLoop ? job : undefined,
+    pageStructure,
   });
   // Cast through unknown — the job store is invariant in TFinal for
   // type-erasure reasons but each job is used with one schema only.
