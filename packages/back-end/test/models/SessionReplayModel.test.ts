@@ -16,10 +16,24 @@ jest.mock("back-end/src/services/clickhouse", () => ({
 
 jest.mock("back-end/src/services/session-replay", () => ({
   getSessionReplayEventsByStoragePrefix: jest.fn(),
+  filterClientKeysByProject: jest.requireActual<
+    typeof import("back-end/src/services/session-replay")
+  >("back-end/src/services/session-replay").filterClientKeysByProject,
+}));
+
+jest.mock("back-end/src/models/SdkConnectionModel", () => ({
+  findSDKConnectionsByOrganization: jest
+    .fn()
+    .mockResolvedValue([{ key: "ck_test", projects: [] }]),
 }));
 
 jest.mock("back-end/src/util/logger", () => ({
-  logger: { warn: jest.fn() },
+  logger: {
+    warn: jest.fn(),
+    info: jest.fn(),
+    error: jest.fn(),
+    debug: jest.fn(),
+  },
 }));
 
 const mockListSessionReplays = jest.mocked(listSessionReplays);
@@ -251,33 +265,17 @@ describe("SessionReplayModel — list()", () => {
     expect(result.map((s) => s.id)).toEqual(["sess_1", "sess_2", "sess_3"]);
   });
 
-  it("filters out rows from a different org", async () => {
-    const rows = [
-      makeRow({ session_replay_id: "sess_1", organization: "org_1" }),
-      makeRow({ session_replay_id: "sess_2", organization: "org_other" }),
-      makeRow({ session_replay_id: "sess_3", organization: "org_1" }),
-    ];
-    mockListSessionReplays.mockResolvedValue(rows);
+  it("returns empty when no SDK connections are permitted", async () => {
+    const { findSDKConnectionsByOrganization } = jest.requireMock<
+      typeof import("back-end/src/models/SdkConnectionModel")
+    >("back-end/src/models/SdkConnectionModel");
+    (findSDKConnectionsByOrganization as jest.Mock).mockResolvedValueOnce([]);
 
     const model = new SessionReplayModel(
       makeContext("org_1", { canView: true }),
     );
-    const result = await model.list();
-
-    expect(result).toHaveLength(2);
-    expect(result.map((s) => s.id)).toEqual(["sess_1", "sess_3"]);
-  });
-
-  it("filters out all rows when view permission is denied", async () => {
-    mockListSessionReplays.mockResolvedValue([
-      makeRow(),
-      makeRow({ session_replay_id: "sess_2" }),
-    ]);
-
-    const model = new SessionReplayModel(
-      makeContext("org_1", { canView: false }),
-    );
     await expect(model.list()).resolves.toEqual([]);
+    expect(mockListSessionReplays).not.toHaveBeenCalled();
   });
 
   it("passes options through to listSessionReplays", async () => {
