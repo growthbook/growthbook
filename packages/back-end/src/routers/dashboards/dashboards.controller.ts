@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { Request, Response } from "express";
 import {
   blockHasFieldOfType,
   dashboardBlockHasIds,
@@ -17,7 +18,10 @@ import {
   AuthRequest,
   ResponseWithStatusAndError,
 } from "back-end/src/types/AuthRequest";
-import { getContextFromReq } from "back-end/src/services/organizations";
+import {
+  getContextForAgendaJobByOrgId,
+  getContextFromReq,
+} from "back-end/src/services/organizations";
 import {
   createExperimentSnapshot,
   createExperimentSnapshotFromPlan,
@@ -27,12 +31,15 @@ import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { findSnapshotsByIds } from "back-end/src/models/ExperimentSnapshotModel";
 import {
+  generateDashboardSSRData,
+  getPublicDashboardBlockData,
   updateDashboardMetricAnalyses,
   updateDashboardExplorations,
   updateDashboardSavedQueries,
   updateNonExperimentDashboard,
 } from "back-end/src/enterprise/services/dashboards";
 import {
+  DashboardModel,
   generateDashboardBlockIds,
   migrateBlock,
 } from "back-end/src/enterprise/models/DashboardModel";
@@ -45,6 +52,66 @@ interface SingleDashboardResponse {
 interface MultiDashboardResponse {
   status: number;
   dashboards: DashboardInterface[];
+}
+
+// Looks up a public dashboard by uid and enforces the shareLevel === "public"
+// gate, sending the 404/401 response itself. Returns null when it has already
+// responded, so callers should `if (!dashboard) return;`.
+async function loadPublicDashboardOrRespond(
+  uid: string,
+  res: Response,
+): Promise<DashboardInterface | null> {
+  const dashboard = await DashboardModel.dangerousGetByUid(uid);
+  if (!dashboard) {
+    res.status(404).json({ status: 404, message: "Dashboard not found" });
+    return null;
+  }
+  if (dashboard.shareLevel !== "public") {
+    res.status(401).json({ status: 401, message: "Unauthorized" });
+    return null;
+  }
+  return dashboard;
+}
+
+// Unauthenticated endpoints for publicly-shared dashboards. Registered before
+// the JWT middleware in app.ts with permissive CORS. shareLevel === "public"
+// is the sole authorization gate.
+//
+// The payload is split into a lightweight shell (this endpoint) and the heavy
+// block result data (getDashboardPublicBlocks). The shell is small enough to
+// SSR into the page; block data (snapshots, query results) is fetched
+// client-side so it never bloats the document (__NEXT_DATA__).
+
+// Shell: dashboard config/layout + ssrData (definitions/labels polyfill for the
+// no-DefinitionsContext public page). ssrData is server-redacted (see
+// generateDashboardSSRData).
+export async function getDashboardPublic(
+  req: Request<{ uid: string }>,
+  res: Response,
+) {
+  const dashboard = await loadPublicDashboardOrRespond(req.params.uid, res);
+  if (!dashboard) return;
+
+  const context = await getContextForAgendaJobByOrgId(dashboard.organization);
+  const ssrData = await generateDashboardSSRData({ context, dashboard });
+
+  return res.status(200).json({ status: 200, dashboard, ssrData });
+}
+
+// Block result data (snapshots, saved-query results, metric analyses,
+// explorations), each redacted through allow-list serializers. Fetched
+// client-side by the public page.
+export async function getDashboardPublicBlocks(
+  req: Request<{ uid: string }>,
+  res: Response,
+) {
+  const dashboard = await loadPublicDashboardOrRespond(req.params.uid, res);
+  if (!dashboard) return;
+
+  const context = await getContextForAgendaJobByOrgId(dashboard.organization);
+  const blockData = await getPublicDashboardBlockData({ context, dashboard });
+
+  return res.status(200).json({ status: 200, blockData });
 }
 
 export async function getAllDashboards(

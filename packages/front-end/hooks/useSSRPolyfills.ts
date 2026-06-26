@@ -5,7 +5,8 @@ import {
 } from "shared/constants";
 import { ExperimentReportSSRData } from "shared/types/report";
 import { ExperimentMetricInterface } from "shared/experiments";
-import { CommercialFeature } from "shared/enterprise";
+import { CommercialFeature, DashboardSSRData } from "shared/enterprise";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { FactTableInterface } from "shared/types/fact-table";
 import { DimensionInterface } from "shared/types/dimension";
@@ -36,10 +37,15 @@ export interface SSRPolyfills {
   dimensions: DimensionInterface[];
   getDimensionById: (id: string) => null | DimensionInterface;
   hasCommercialFeature: (feature: CommercialFeature) => boolean;
+  // Dashboard SSR only: experiments referenced by blocks. Reports/experiments
+  // pass their single experiment as a separate prop, so this is null there.
+  getExperimentById: (
+    id: string,
+  ) => null | Partial<ExperimentInterfaceStringDates>;
 }
 
 export default function useSSRPolyfills(
-  ssrData: ExperimentReportSSRData | null,
+  ssrData: ExperimentReportSSRData | DashboardSSRData | null,
 ): SSRPolyfills {
   const {
     getExperimentMetricById,
@@ -76,7 +82,13 @@ export default function useSSRPolyfills(
 
   const useOrgSettingsSSR = () => {
     const orgSettings = useOrgSettings();
-    return hasCsrSettings ? orgSettings : ssrData?.settings || {};
+    // Merge ssrData as the base so SSR-provided org settings survive even when
+    // an anonymous viewer has a non-empty stub (useOrgSettings returns e.g.
+    // { requireReviews: [] }) that trips the hasCsrSettings check. Real
+    // client-side settings still take precedence when present.
+    return hasCsrSettings
+      ? { ...(ssrData?.settings || {}), ...orgSettings }
+      : ssrData?.settings || {};
   };
   const getProjectByIdSSR = useCallback(
     (id: string) => getProjectById(id) || ssrData?.projects?.[id] || null,
@@ -151,6 +163,13 @@ export default function useSSRPolyfills(
     [ssrCommercialFeatures],
   );
 
+  const ssrExperiments =
+    ssrData && "experiments" in ssrData ? ssrData.experiments : undefined;
+  const getExperimentByIdSSR = useCallback(
+    (id: string) => ssrExperiments?.[id] ?? null,
+    [ssrExperiments],
+  );
+
   return {
     getExperimentMetricById: getExperimentMetricByIdSSR,
     metricGroups: metricGroupsSSR,
@@ -165,5 +184,6 @@ export default function useSSRPolyfills(
     dimensions: dimensionsSSR,
     getDimensionById: getDimensionByIdSSR,
     hasCommercialFeature: hasCommercialFeatureSSR,
+    getExperimentById: getExperimentByIdSSR,
   };
 }

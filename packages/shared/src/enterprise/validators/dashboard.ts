@@ -1,4 +1,19 @@
 import { z } from "zod";
+import type {
+  ExperimentMetricInterface,
+  SliceLevelsData,
+} from "shared/experiments";
+import type { CommercialFeature } from "shared/enterprise";
+import type { MetricGroupInterface } from "shared/types/metric-groups";
+import type { FactTableInterface } from "shared/types/fact-table";
+import type { DimensionInterface } from "shared/types/dimension";
+import type { ProjectInterface } from "shared/types/project";
+import type { OrganizationSettings } from "shared/types/organization";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import type { MetricAnalysisInterface } from "shared/types/metric-analysis";
+import type { SavedQuery } from "../../validators/saved-queries";
+import type { ProductAnalyticsExploration } from "../../validators/product-analytics";
 import { namedSchema } from "../../validators/openapi-helpers";
 
 import {
@@ -10,7 +25,12 @@ import {
 } from "./dashboard-block";
 
 export const dashboardEditLevel = z.enum(["published", "private"]);
-export const dashboardShareLevel = z.enum(["published", "private"]);
+// NOTE: "published" and "public" are distinct and easy to confuse.
+//   - "published" = visible to organization members (with read access)
+//   - "public"    = visible to ANYONE with the share URL, no authentication
+//   - "private"   = visible to the owner only
+// Treat any `shareLevel === "public"` check as a public-exposure boundary.
+export const dashboardShareLevel = z.enum(["published", "private", "public"]);
 export const dashboardUpdateSchedule = z.discriminatedUnion("type", [
   z
     .object({
@@ -99,11 +119,9 @@ export const apiCreateDashboardBody = z
       .describe(
         'Dashboards that are "published" are editable by organization members with appropriate permissions',
       ),
-    shareLevel: z
-      .enum(["published", "private"])
-      .describe(
-        'General Dashboards only. Dashboards that are "published" are viewable by organization members with appropriate permissions',
-      ),
+    shareLevel: dashboardShareLevel.describe(
+      'General Dashboards only. "published" dashboards are viewable by organization members with appropriate permissions; "public" dashboards are viewable by anyone with the share URL (no authentication); "private" dashboards are viewable only by the owner.',
+    ),
     enableAutoUpdates: z
       .boolean()
       .describe(
@@ -160,3 +178,41 @@ export type ApiDashboardInterface = z.infer<typeof apiDashboardInterface>;
 export type DashboardEditLevel = z.infer<typeof dashboardEditLevel>;
 export type DashboardShareLevel = z.infer<typeof dashboardShareLevel>;
 export type DashboardUpdateSchedule = z.infer<typeof dashboardUpdateSchedule>;
+
+// Definitions/labels polyfill for the unauthenticated public dashboard page,
+// which has no DefinitionsContext. Mirrors ExperimentReportSSRData but is
+// collected across all of a dashboard's blocks, plus an `experiments` map for
+// experiment-block labels. Values are server-redacted before being sent (see
+// generateDashboardSSRData). This is NOT block result data.
+export type DashboardSSRData = {
+  metrics: Record<string, ExperimentMetricInterface>;
+  metricGroups: MetricGroupInterface[];
+  factTables: Record<string, FactTableInterface>;
+  factMetricSlices: Record<
+    string,
+    Array<{
+      id: string;
+      name: string;
+      description: string;
+      baseMetricId: string;
+      sliceLevels: SliceLevelsData[];
+      allSliceLevels: string[];
+    }>
+  >;
+  dimensions: DimensionInterface[];
+  projects: Record<string, ProjectInterface>;
+  settings: OrganizationSettings;
+  experiments: Record<string, Partial<ExperimentInterfaceStringDates>>;
+  commercialFeatures?: CommercialFeature[];
+};
+
+// Block result data for the public dashboard page, AFTER server-side redaction
+// (raw SQL stripped from snapshots + saved queries, adhoc SQL filters stripped
+// from metric analyses). Same shapes as the authenticated endpoint with the
+// sensitive fields blanked — see getPublicDashboardBlockData.
+export type DashboardPublicBlockData = {
+  snapshots: ExperimentSnapshotInterface[];
+  savedQueries: SavedQuery[];
+  metricAnalyses: MetricAnalysisInterface[];
+  explorations: ProductAnalyticsExploration[];
+};

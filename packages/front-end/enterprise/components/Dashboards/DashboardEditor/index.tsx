@@ -325,6 +325,7 @@ interface Props {
   title: string;
   blocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
   id: string;
+  uid: string;
   isEditing: boolean;
   projects: string[];
   enableAutoUpdates: boolean;
@@ -360,6 +361,7 @@ function DashboardEditor({
   initialEditLevel,
   initialShareLevel,
   id,
+  uid,
   dashboardOwnerId,
   nextUpdate,
   dashboardLastUpdated,
@@ -556,6 +558,7 @@ function DashboardEditor({
         }}
         isGeneralDashboard={isGeneralDashboard}
         dashboardId={id}
+        uid={uid}
       />
       <div className="mb-3">
         <Flex align="center" height={DASHBOARD_TOPBAR_HEIGHT} gap="1">
@@ -823,7 +826,7 @@ function DashboardEditor({
   );
 }
 
-interface DashboardGridProps {
+export interface DashboardGridProps {
   blocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
   isEditing: boolean;
   editSidebarDirty: boolean;
@@ -839,7 +842,7 @@ interface DashboardGridProps {
 // Drag/resize are disabled outside edit mode and while a staged block is being
 // added/edited. We only persist layout changes from the canonical (lg)
 // breakpoint; smaller breakpoints are auto-derived for responsive viewing only.
-function DashboardGrid({
+export function DashboardGrid({
   blocks,
   isEditing,
   editSidebarDirty,

@@ -57,6 +57,9 @@ export type Props = {
   ) => ReactNode | undefined;
   paddingTop?: number;
   showNoRowsWarning?: boolean;
+  // Hides the rendered-SQL tab entirely (e.g. the public dashboard page, where
+  // the SQL is stripped server-side). Also suppresses forcing the SQL tab.
+  hideSql?: boolean;
 };
 
 export default function DisplayTestQueryResults({
@@ -78,13 +81,14 @@ export default function DisplayTestQueryResults({
   renderCell,
   paddingTop = 0,
   showNoRowsWarning = true,
+  hideSql = false,
 }: Props) {
   const [downloadError, setDownloadError] = useState<string | null>(null);
   const cols = orderedColumnKeys ?? Object.keys(results?.[0] || {});
   const labels = columnLabels ?? cols;
   const useTwoRowHeader = headerStructure != null && orderedColumnKeys != null;
 
-  const forceShowSql = error || !results.length;
+  const forceShowSql = !hideSql && (error || !results.length);
 
   const [page, setPage] = useState(1);
   const pageSize = 100;
@@ -183,7 +187,9 @@ export default function DisplayTestQueryResults({
             {!forceShowSql && (
               <TabsTrigger value="results">Results</TabsTrigger>
             )}
-            <TabsTrigger value="sql">{renderedSQLLabel}</TabsTrigger>
+            {!hideSql && (
+              <TabsTrigger value="sql">{renderedSQLLabel}</TabsTrigger>
+            )}
             <div className="flex-grow-1">
               {close ? (
                 <button
@@ -365,44 +371,46 @@ export default function DisplayTestQueryResults({
           </TabsContent>
         )}
 
-        <TabsContent
-          value="sql"
-          style={{ display: "flex", flexDirection: "column", height: "100%" }}
-        >
-          <div
-            style={{
-              overflowY: "auto",
-              height: "100%",
-              paddingLeft: "12px",
-              paddingRight: "12px",
-            }}
-            className="mt-3"
+        {!hideSql && (
+          <TabsContent
+            value="sql"
+            style={{ display: "flex", flexDirection: "column", height: "100%" }}
           >
-            {error ? (
-              isManagedWarehousePendingQueryError(error) ? (
-                <div className="mb-3 mr-auto" style={{ maxWidth: 720 }}>
-                  <ManagedWarehouseNoEventsCallout />
-                </div>
+            <div
+              style={{
+                overflowY: "auto",
+                height: "100%",
+                paddingLeft: "12px",
+                paddingRight: "12px",
+              }}
+              className="mt-3"
+            >
+              {error ? (
+                isManagedWarehousePendingQueryError(error) ? (
+                  <div className="mb-3 mr-auto" style={{ maxWidth: 720 }}>
+                    <ManagedWarehouseNoEventsCallout />
+                  </div>
+                ) : (
+                  <div className="alert alert-danger mr-auto">{error}</div>
+                )
               ) : (
-                <div className="alert alert-danger mr-auto">{error}</div>
-              )
-            ) : (
-              showNoRowsWarning &&
-              !results.length && (
-                <div className="alert alert-warning mr-auto">
-                  <FaExclamationTriangle /> No rows returned, could not verify
-                  result
-                </div>
-              )
-            )}
-            <Code
-              code={sql}
-              language="sql"
-              errorLine={errorLine}
-              expandable={expandable}
-            />
-          </div>
-        </TabsContent>
+                showNoRowsWarning &&
+                !results.length && (
+                  <div className="alert alert-warning mr-auto">
+                    <FaExclamationTriangle /> No rows returned, could not verify
+                    result
+                  </div>
+                )
+              )}
+              <Code
+                code={sql}
+                language="sql"
+                errorLine={errorLine}
+                expandable={expandable}
+              />
+            </div>
+          </TabsContent>
+        )}
       </AreaWithHeader>
     </Tabs>
   );

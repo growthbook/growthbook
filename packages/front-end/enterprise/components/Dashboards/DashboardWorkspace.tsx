@@ -386,7 +386,7 @@ export default function DashboardWorkspace({
                 </Button>
               </Tooltip>
             )}
-            <Flex align="center" gap="2">
+            <Flex align="center" gap="4">
               {dashboardFirstSave && (
                 <Link
                   onClick={() => close()}
@@ -428,6 +428,7 @@ export default function DashboardWorkspace({
             <DashboardEditor
               isTabActive={isTabActive}
               id={dashboard.id}
+              uid={dashboard.uid}
               ownerId={dashboard.userId}
               initialEditLevel={dashboard.editLevel}
               updateSchedule={dashboard.updateSchedule || undefined}

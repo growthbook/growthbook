@@ -1,13 +1,21 @@
-import { isEqual, uniqWith } from "lodash";
-import { isString } from "shared/util";
-import { ExperimentMetricInterface } from "shared/experiments";
+import { isEqual, omit, pick, uniq, uniqWith } from "lodash";
+import { isDefined, isString } from "shared/util";
+import {
+  ExperimentMetricInterface,
+  expandMetricGroups,
+} from "shared/experiments";
 import { getScopedSettings } from "shared/settings";
 import {
+  accountFeatures,
   blockHasFieldOfType,
   BlockSnapshotSettings,
+  CommercialFeature,
+  DashboardPublicBlockData,
+  DashboardSSRData,
   getBlockAnalysisSettings,
   getBlockSnapshotAnalysis,
   getBlockSnapshotSettings,
+  resolveExperimentBlockMetricIds,
   snapshotSatisfiesBlock,
   DashboardInterface,
   MetricExplorerBlockInterface,
@@ -16,21 +24,41 @@ import {
   resolveBlockComparison,
   resolveComparisonPreviousTimeFrame,
 } from "shared/enterprise";
-import { ExplorationConfig } from "shared/validators";
+import {
+  ExplorationConfig,
+  ProductAnalyticsExploration,
+  SavedQuery,
+} from "shared/validators";
 import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
 } from "shared/types/experiment-snapshot";
 
-import { ExperimentInterface } from "shared/types/experiment";
+import {
+  ExperimentInterface,
+  ExperimentInterfaceStringDates,
+} from "shared/types/experiment";
+import { FactTableInterface } from "shared/types/fact-table";
+import { ProjectInterface } from "shared/types/project";
+import { OrganizationSettings } from "shared/types/organization";
 import { MetricSnapshotSettings } from "shared/types/report";
 import { StatsEngine } from "shared/types/stats";
-import { MetricAnalysisSettings } from "shared/types/metric-analysis";
+import {
+  MetricAnalysisInterface,
+  MetricAnalysisSettings,
+} from "shared/types/metric-analysis";
 import { findSnapshotsByIds } from "back-end/src/models/ExperimentSnapshotModel";
 
 import { ReqContext } from "back-end/types/request";
 
-import { FactTableMap } from "back-end/src/models/FactTableModel";
+import {
+  FactTableMap,
+  getFactTablesByIds,
+} from "back-end/src/models/FactTableModel";
+import { getMetricsByIds } from "back-end/src/models/MetricModel";
+import { findDimensionsByOrganization } from "back-end/src/models/DimensionModel";
+import { getExperimentById } from "back-end/src/models/ExperimentModel";
+import { getEffectiveAccountPlan } from "back-end/src/enterprise";
 import { ApiReqContext } from "back-end/types/api";
 import { getDataSourcesByIds } from "back-end/src/models/DataSourceModel";
 import { executeAndSaveQuery } from "back-end/src/routers/saved-queries/saved-queries.controller";
@@ -487,4 +515,390 @@ export async function updateDashboardSavedQueries(
       }
     }),
   );
+}
+
+// Org settings exposed to the public dashboard page (stat config needed to
+// render results). Mirrors the allow-list used by generateExperimentReportSSRData.
+const PUBLIC_SSR_SETTINGS_KEYS: Array<keyof OrganizationSettings> = [
+  "confidenceLevel",
+  "metricDefaults",
+  "multipleExposureMinPercent",
+  "statsEngine",
+  "pValueThreshold",
+  "pValueCorrection",
+  "regressionAdjustmentEnabled",
+  "regressionAdjustmentDays",
+  "srmThreshold",
+  "attributionModel",
+  "sequentialTestingEnabled",
+  "sequentialTestingTuningParameter",
+  "displayCurrency",
+  // Needed by ExperimentTrafficBlock's health timeseries gate on the public page.
+  "runHealthTrafficQuery",
+];
+
+// Metric fields that carry query/SQL/schema details. Stripped before a metric
+// is exposed to anonymous viewers. Matches generateExperimentReportSSRData.
+const SENSITIVE_METRIC_FIELDS = [
+  "queries",
+  "runStarted",
+  "analysis",
+  "analysisError",
+  "table",
+  "column",
+  "timestampColumn",
+  "conditions",
+  "queryFormat",
+] as const;
+
+// Builds the definitions/labels polyfill for the unauthenticated public
+// dashboard page (which has no DefinitionsContext), collected across all of a
+// dashboard's blocks. Values are redacted via allow-list (settings/projects)
+// or by stripping sensitive fields (metrics). This is NOT block result data.
+//
+// NOTE: factMetricSlices is deferred (returned empty) for the first cut — it's
+// a display enhancement, not a leak vector. See generateExperimentReportSSRData
+// for the slice-generation logic to port if/when needed.
+export async function generateDashboardSSRData({
+  context,
+  dashboard,
+}: {
+  context: ReqContext;
+  dashboard: DashboardInterface;
+}): Promise<DashboardSSRData> {
+  const experimentIds = new Set<string>();
+  const referencedMetricIds = new Set<string>();
+  const dimensionIds = new Set<string>();
+
+  for (const block of dashboard.blocks) {
+    if (
+      blockHasFieldOfType(block, "experimentId", isString) &&
+      block.experimentId
+    ) {
+      experimentIds.add(block.experimentId);
+    }
+    if ("metricIds" in block && Array.isArray(block.metricIds)) {
+      block.metricIds.forEach((id) => {
+        if (id) referencedMetricIds.add(id);
+      });
+    }
+    if (
+      blockHasFieldOfType(block, "factMetricId", isString) &&
+      block.factMetricId
+    ) {
+      referencedMetricIds.add(block.factMetricId);
+    }
+    if (
+      blockHasFieldOfType(block, "dimensionId", isString) &&
+      block.dimensionId
+    ) {
+      dimensionIds.add(block.dimensionId);
+    }
+  }
+
+  const metricGroups = await context.models.metricGroups.getAll();
+
+  // Fetch referenced experiments up front: needed both for the experiments map
+  // (below) and to resolve selector-based metric blocks into the actual metrics
+  // that must appear in ssrData.metrics.
+  const experimentsById = new Map<string, ExperimentInterface>();
+  for (const experimentId of experimentIds) {
+    const experiment = await getExperimentById(context, experimentId);
+    if (experiment) experimentsById.set(experimentId, experiment);
+  }
+
+  // A metric block's metricIds may be selector tokens (experiment-goal etc.)
+  // rather than real ids; resolve them via the experiment's metric lists so the
+  // metrics behind the selectors are included in ssrData.metrics.
+  for (const block of dashboard.blocks) {
+    if (
+      "metricIds" in block &&
+      Array.isArray(block.metricIds) &&
+      blockHasFieldOfType(block, "experimentId", isString)
+    ) {
+      resolveExperimentBlockMetricIds({
+        blockMetricIds: block.metricIds,
+        experiment: experimentsById.get(block.experimentId),
+        metricGroups,
+      }).forEach((id) => referencedMetricIds.add(id));
+    }
+  }
+
+  const metricIds = expandMetricGroups([...referencedMetricIds], metricGroups);
+
+  const metrics = await getMetricsByIds(
+    context,
+    metricIds.filter((m) => m.startsWith("met_")),
+  );
+  const factMetrics = await context.models.factMetrics.getByIds(
+    metricIds.filter((m) => m.startsWith("fact__")),
+  );
+
+  // Pull in denominator metrics referenced by ratio metrics (mirrors report SSR)
+  const denominatorMetricIds = uniq(
+    metrics
+      .map((m) => m.denominator)
+      .filter((id): id is string => !!id && !metricIds.includes(id)),
+  );
+  const denominatorMetrics = await getMetricsByIds(
+    context,
+    denominatorMetricIds,
+  );
+
+  const metricMap: Record<string, ExperimentMetricInterface> = {};
+  [...metrics, ...factMetrics, ...denominatorMetrics].forEach((metric) => {
+    metricMap[metric.id] = omit(
+      metric,
+      SENSITIVE_METRIC_FIELDS,
+    ) as ExperimentMetricInterface;
+  });
+
+  const factTableIds = uniq(
+    factMetrics.flatMap((m) =>
+      [m?.numerator?.factTableId, m?.denominator?.factTableId].filter(
+        (id): id is string => !!id,
+      ),
+    ),
+  );
+  const factTables = await getFactTablesByIds(context, factTableIds);
+  const factTableMap: Record<string, FactTableInterface> = {};
+  factTables.forEach((ft) => {
+    factTableMap[ft.id] = ft;
+  });
+
+  const allDimensions = await findDimensionsByOrganization(context.org.id);
+  const dimensions = allDimensions.filter((d) => dimensionIds.has(d.id));
+
+  // Experiments: expose only display fields, matching the public experiment page
+  const experiments: Record<
+    string,
+    Partial<ExperimentInterfaceStringDates>
+  > = {};
+  const projectIds = new Set<string>(dashboard.projects ?? []);
+  for (const [experimentId, experiment] of experimentsById) {
+    if (experiment.project) projectIds.add(experiment.project);
+    experiments[experimentId] = pick(experiment, [
+      "id",
+      "name",
+      "type",
+      "hypothesis",
+      "description",
+      "variations",
+      "phases",
+      "status",
+      "project",
+      // Metric-result blocks resolve their metrics from the experiment's metric
+      // lists + per-metric overrides/slices.
+      "goalMetrics",
+      "secondaryMetrics",
+      "guardrailMetrics",
+      "metricOverrides",
+      "customMetricSlices",
+      // Lets the public page fall back to the experiment's default snapshot for
+      // blocks with no per-block snapshotId (mirrors useDashboardSnapshot).
+      "analysisSummary",
+      // Dates (phases) are serialized to ISO strings by res.json before reaching
+      // the client, matching ExperimentInterfaceStringDates on the wire.
+    ]) as unknown as Partial<ExperimentInterfaceStringDates>;
+  }
+
+  const projects: Record<string, ProjectInterface> = {};
+  for (const projectId of projectIds) {
+    const project = await context.models.projects.getById(projectId);
+    if (project) {
+      projects[projectId] = pick(project, [
+        "name",
+        "id",
+        "settings",
+      ]) as ProjectInterface;
+    }
+  }
+
+  const settings: OrganizationSettings = pick(
+    context.org.settings,
+    PUBLIC_SSR_SETTINGS_KEYS,
+  );
+
+  // Check commercial features against the org (not a user) for public pages
+  const publicRelevantFeatures: CommercialFeature[] = ["metric-slices"];
+  const allFeatures = accountFeatures[getEffectiveAccountPlan(context.org)];
+  const commercialFeatures = publicRelevantFeatures.filter((f) =>
+    allFeatures.has(f),
+  );
+
+  return {
+    metrics: metricMap,
+    metricGroups,
+    factTables: factTableMap,
+    factMetricSlices: {},
+    dimensions,
+    projects,
+    settings,
+    experiments,
+    commercialFeatures,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Public block result data + redaction
+//
+// Resolves the data referenced by a public dashboard's blocks (snapshots,
+// saved-query results, metric analyses, explorations) and redacts each through
+// per-type serializers before it leaves for an anonymous viewer. Every fetch
+// here bypasses per-resource permission checks (agenda-job context), so these
+// serializers ARE the authorization boundary for block data.
+// ---------------------------------------------------------------------------
+
+// Snapshots embed raw SQL inside `settings` (metric SQL, dimension SQL, and the
+// authored queryFilter). Blank those while keeping the analyses/results the UI
+// renders. Targeted strip rather than a full allow-list: settings has ~40
+// nested fields and allow-listing it would be brittle and break rendering. The
+// `queries` field is only QueryPointer[] (id/status/name) — no SQL.
+export function redactSnapshotForPublic(
+  snapshot: ExperimentSnapshotInterface,
+): ExperimentSnapshotInterface {
+  return {
+    ...snapshot,
+    settings: {
+      ...snapshot.settings,
+      queryFilter: "",
+      metricSettings: snapshot.settings.metricSettings.map((m) =>
+        m.settings ? { ...m, settings: { ...m.settings, sql: "" } } : m,
+      ),
+      dimensions: snapshot.settings.dimensions.map((d) =>
+        d.settings ? { ...d, settings: { ...d.settings, sql: "" } } : d,
+      ),
+    },
+  };
+}
+
+// sql-explorer blocks: strip the raw SQL (top-level and the copy nested in
+// results) and keep the result rows + viz config the author chose to display.
+export function redactSavedQueryForPublic(query: SavedQuery): SavedQuery {
+  return {
+    ...query,
+    sql: "",
+    results: { ...query.results, sql: undefined },
+  };
+}
+
+// Metric analyses carry no inline SQL, but settings can hold adhoc SQL filter
+// expressions — strip those; keep the result + display settings.
+export function redactMetricAnalysisForPublic(
+  analysis: MetricAnalysisInterface,
+): MetricAnalysisInterface {
+  return {
+    ...analysis,
+    settings: {
+      ...analysis.settings,
+      additionalNumeratorFilters: undefined,
+      additionalDenominatorFilters: undefined,
+    },
+  };
+}
+
+// Explorations are structured builder specs (no raw SQL, no credentials;
+// datasource is an id) that the author intentionally publishes, so config +
+// result are returned as-is. NOTE: this does expose the analytics query
+// structure (dimensions, filter values). Tighten here if that's not desired.
+export function redactExplorationForPublic(
+  exploration: ProductAnalyticsExploration,
+): ProductAnalyticsExploration {
+  return exploration;
+}
+
+export async function getPublicDashboardBlockData({
+  context,
+  dashboard,
+}: {
+  context: ReqContext;
+  dashboard: DashboardInterface;
+}): Promise<DashboardPublicBlockData> {
+  // Snapshots only exist for experiment dashboards
+  let snapshots: ExperimentSnapshotInterface[] = [];
+  if (dashboard.experimentId) {
+    const experiment = await getExperimentById(context, dashboard.experimentId);
+    const snapshotIds = [
+      ...new Set([
+        experiment?.analysisSummary?.snapshotId,
+        ...dashboard.blocks.map((block) => block.snapshotId),
+      ]),
+    ].filter((id): id is string => isDefined(id) && id.length > 0);
+    snapshots = await findSnapshotsByIds(context, snapshotIds);
+  }
+
+  const savedQueryIds = [
+    ...new Set(
+      dashboard.blocks
+        .filter(
+          (
+            block,
+          ): block is Extract<
+            DashboardBlockInterface,
+            { savedQueryId: string }
+          > =>
+            blockHasFieldOfType(block, "savedQueryId", isString) &&
+            block.savedQueryId.length > 0,
+        )
+        .map((block) => block.savedQueryId),
+    ),
+  ];
+  const savedQueries =
+    await context.models.savedQueries.getByIds(savedQueryIds);
+
+  const metricAnalysisIds = [
+    ...new Set(
+      dashboard.blocks
+        .filter(
+          (
+            block,
+          ): block is Extract<
+            DashboardBlockInterface,
+            { metricAnalysisId: string }
+          > =>
+            blockHasFieldOfType(block, "metricAnalysisId", isString) &&
+            block.metricAnalysisId.length > 0,
+        )
+        .map((block) => block.metricAnalysisId),
+    ),
+  ];
+  const metricAnalyses =
+    await context.models.metricAnalysis.getByIds(metricAnalysisIds);
+
+  const explorerAnalysisIds = [
+    ...new Set(
+      dashboard.blocks
+        .filter(
+          (
+            block,
+          ): block is DashboardBlockInterface & {
+            explorerAnalysisId: string;
+          } =>
+            (block.type === "metric-exploration" ||
+              block.type === "fact-table-exploration" ||
+              block.type === "data-source-exploration") &&
+            "explorerAnalysisId" in block &&
+            typeof (block as { explorerAnalysisId?: string })
+              .explorerAnalysisId === "string" &&
+            (block as { explorerAnalysisId: string }).explorerAnalysisId
+              .length > 0,
+        )
+        .map((block) => block.explorerAnalysisId),
+    ),
+  ];
+  const explorations: ProductAnalyticsExploration[] =
+    explorerAnalysisIds.length > 0
+      ? (
+          await context.models.analyticsExplorations.getByIds(
+            explorerAnalysisIds,
+          )
+        ).filter((e): e is ProductAnalyticsExploration => e != null)
+      : [];
+
+  return {
+    snapshots: snapshots.map(redactSnapshotForPublic),
+    savedQueries: savedQueries.map(redactSavedQueryForPublic),
+    metricAnalyses: metricAnalyses.map(redactMetricAnalysisForPublic),
+    explorations: explorations.map(redactExplorationForPublic),
+  };
 }

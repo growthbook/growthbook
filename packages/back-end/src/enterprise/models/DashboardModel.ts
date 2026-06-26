@@ -154,6 +154,14 @@ export class DashboardModel extends BaseClass {
   }
 
   protected canCreate(doc: DashboardInterface): boolean {
+    // Public sharing (anyone with the URL, no auth) is gated for both
+    // experiment and general dashboards.
+    if (
+      doc.shareLevel === "public" &&
+      !this.context.hasPremiumFeature("share-product-analytics-dashboards")
+    ) {
+      throw new Error("Your plan does not support public dashboards.");
+    }
     if (doc.experimentId) {
       if (!this.context.hasPremiumFeature("dashboards")) {
         throw new Error("Your plan does not support creating dashboards.");
@@ -225,6 +233,16 @@ export class DashboardModel extends BaseClass {
       }
     }
 
+    // Public sharing (anyone with the URL, no auth) is gated for both
+    // experiment and general dashboards. Mirrors the editLevel gating below:
+    // gate while the dashboard is (or is becoming) public.
+    if (
+      (existing.shareLevel === "public" || updates.shareLevel === "public") &&
+      !this.context.hasPremiumFeature("share-product-analytics-dashboards")
+    ) {
+      throw new Error("Your plan does not support public dashboards.");
+    }
+
     if (existing.experimentId) {
       // Check that the org has the commerical feature
       if (!this.context.hasPremiumFeature("dashboards")) {
@@ -279,7 +297,9 @@ export class DashboardModel extends BaseClass {
     }
   }
 
-  protected migrate(orig: LegacyDashboardDocument): DashboardInterface {
+  protected static migrateDoc(
+    orig: LegacyDashboardDocument,
+  ): DashboardInterface {
     return toInterface({
       ...orig,
       blocks: orig.blocks.map(migrateBlock),
@@ -288,6 +308,25 @@ export class DashboardModel extends BaseClass {
       shareLevel: orig.shareLevel || "private",
       updateSchedule: orig.updateSchedule || undefined,
     });
+  }
+
+  protected migrate(orig: LegacyDashboardDocument): DashboardInterface {
+    return DashboardModel.migrateDoc(orig);
+  }
+
+  // Cross-org lookup by globally-unique uid for the unauthenticated public
+  // dashboard endpoint. This bypasses org scoping and permission checks, so
+  // the caller MUST verify shareLevel === "public" before returning any data.
+  public static async dangerousGetByUid(
+    uid: string,
+  ): Promise<DashboardInterface | null> {
+    const doc = await getCollection(COLLECTION_NAME).findOne({
+      uid,
+      isDefault: false,
+      isDeleted: false,
+    });
+    if (!doc) return null;
+    return DashboardModel.migrateDoc(doc as unknown as LegacyDashboardDocument);
   }
 
   protected async customValidation(toSave: DashboardDocument) {
