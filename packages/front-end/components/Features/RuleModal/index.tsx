@@ -14,6 +14,8 @@ import {
   isProjectListValidForProject,
   getReviewSetting,
   stemRuleId,
+  parsePlainJSONObject,
+  stripDefaultsForSparse,
 } from "shared/util";
 import { PiCaretRight } from "react-icons/pi";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
@@ -745,6 +747,46 @@ export default function RuleModal({
     if (existingSeed) {
       (newVal as Record<string, unknown>).seed = existingSeed;
     }
+    // Org opt-in: new JSON rules start in sparse mode with a clean-slate value
+    // (strip keys equal to the default) so the editor isn't pre-filled with the
+    // whole default object. Only for eligible JSON features; new rules only.
+    // Sparse is supported only on force/rollout/experiment-ref rules (and the
+    // "experiment-ref-new" form type that becomes one). Legacy inline
+    // "experiment" and safe-rollout have no sparse field, so skip them.
+    const nv = newVal as Record<string, unknown>;
+    const sparseSupportedType =
+      nv.type === "force" ||
+      nv.type === "rollout" ||
+      nv.type === "experiment-ref" ||
+      nv.type === "experiment-ref-new";
+    if (
+      mode === "create" &&
+      !rule &&
+      settings?.sparseJSONRulesByDefault &&
+      sparseSupportedType
+    ) {
+      const def = getFeatureDefaultValue(feature);
+      if (feature.valueType === "json" && parsePlainJSONObject(def) !== null) {
+        nv.sparse = true;
+        if (typeof nv.value === "string") {
+          nv.value = stripDefaultsForSparse(nv.value, def);
+        }
+        // `values` = experiment-ref-new; `variations` = experiment-ref / bandit.
+        // Both carry a per-entry `value` string.
+        if (Array.isArray(nv.values)) {
+          nv.values = (nv.values as { value: string }[]).map((v) => ({
+            ...v,
+            value: stripDefaultsForSparse(v.value, def),
+          }));
+        }
+        if (Array.isArray(nv.variations)) {
+          nv.variations = (nv.variations as { value: string }[]).map((v) => ({
+            ...v,
+            value: stripDefaultsForSparse(v.value, def),
+          }));
+        }
+      }
+    }
     form.reset(newVal);
     // Preserve the pre-generated rule ID so ramp patches stay in sync with
     // the rule after a type switch. getDefaultRuleValue returns id:"" which
@@ -1074,6 +1116,7 @@ export default function RuleModal({
             variationId: getAllVariations(res.experiment)[i]?.id || "",
           })),
           scheduleRules: values.scheduleRules || [],
+          ...(form.watch("sparse") ? { sparse: true } : {}),
         };
         mutateExperiments();
       } else if (values.type === "experiment-ref") {
@@ -1125,12 +1168,17 @@ export default function RuleModal({
           safeRolloutFields.maxDuration.unit = "days";
         }
       } else if (values.type === "force") {
-        // Force rules don't support hashAttribute or seed; strip them from the form
-        // They're only in the form state to be ready if converted to rollout
+        // Force rules don't support hashAttribute, seed, or hashVersion; strip
+        // them from the form. They're only in the form state to be ready if
+        // converted to rollout. hashVersion in particular is computed for the
+        // hashing widget regardless of rule type, so without this a force-rule
+        // edit (e.g. just changing a schedule's cutoff date) shows a spurious
+        // "Hash Version: unset → 2" change in the draft.
         // eslint-disable-next-line
         delete (values as any).hashAttribute;
         // eslint-disable-next-line
         delete (values as any).seed;
+        delete (values as { hashVersion?: number }).hashVersion;
       }
       if (
         values.scheduleRules &&
@@ -1313,7 +1361,12 @@ export default function RuleModal({
                 !isNoOpSchedule &&
                 rampState.mode === "edit" &&
                 ruleRampSchedule?.id &&
-                ruleRampSchedule.status !== "running"
+                // Multi-step ramps can't be edited once running (re-capturing
+                // steps/startDate mid-ramp is unsafe). Simple schedules have no
+                // step machinery — editing a running one only changes its
+                // cutoffDate/name, which the publish-time applier handles safely
+                // (FeatureModel.createRampSchedulesForRevision) — so allow it.
+                (isScheduleMode || ruleRampSchedule.status !== "running")
               ) {
                 rampScheduleInline = {
                   mode: "update",
@@ -1860,6 +1913,7 @@ export default function RuleModal({
               attributeSchema={attributeSchema}
               ruleId={form.watch("id") as string}
               featureId={feature.id}
+              sparse={!!form.watch("sparse")}
             />
           </Page>
         )}

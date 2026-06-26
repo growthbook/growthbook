@@ -50,8 +50,10 @@ export default function RampScheduleBadge({
   // startDate is stale UI noise.
   const preStart = rs.status === "pending" || rs.status === "ready";
 
+  // `key` matters when rows are rendered as an array (tooltipRows /
+  // timingTooltipRows); the label is unique within each list.
   const dateRow = (label: string, d: Date) => (
-    <div>
+    <div key={label}>
       <span className="text-muted">{label}: </span>
       {datetime(d)}
     </div>

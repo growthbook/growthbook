@@ -32,12 +32,17 @@ import {
 } from "shared/types/organization";
 import { ProjectInterface } from "shared/types/project";
 import { GroupMap } from "shared/types/saved-group";
+// Direct file import (not the `shared/validators` barrel) to avoid a runtime
+// import cycle: the barrel pulls safe-rollout-snapshot → enterprise → util.
+import { assertValidExtendsEntries } from "../validators/constant";
 import { RampScheduleInterface } from "../validators/ramp-schedule";
 import { getValidDate } from "../dates";
 import {
   conditionHasSavedGroupErrors,
   expandNestedSavedGroups,
+  EXTENDS_KEY,
 } from "../sdk-versioning";
+import { formatJsonMultilineObjects } from "./format-json";
 import { stemRuleId } from "./ruleId";
 import {
   getMatchingRules,
@@ -324,6 +329,12 @@ export function validateFeatureValue(
     if (!valid) {
       throw new Error(prefix + errors.join(", "));
     }
+    // Reject malformed `$extends` entries (the resolver silently drops them).
+    // Inline objects are allowed (advanced escape hatch); loose junk isn't.
+    // Lenient for features: only enforce on arrays already used as a merge
+    // directive (≥1 ref/inline object), so a pre-existing flag that used
+    // `$extends` as a plain data key still saves.
+    assertValidExtendsEntries(parsedValue, prefix, true);
     // If the JSON was invalid but could be parsed by 'dirty-json', return the fixed JSON
     if (!validJSON) {
       return stringify(parsedValue);
@@ -331,6 +342,175 @@ export function validateFeatureValue(
   }
 
   return value;
+}
+
+// Parses a string into a plain JSON object. Returns null when it doesn't parse
+// or isn't a plain key/val object (array, null, primitive). The null result is
+// how callers detect a feature whose default value can't support sparse rules.
+export function parsePlainJSONObject(
+  value: string,
+): Record<string, unknown> | null {
+  try {
+    const parsed = JSON.parse(value);
+    if (
+      parsed !== null &&
+      !Array.isArray(parsed) &&
+      typeof parsed === "object"
+    ) {
+      return parsed as Record<string, unknown>;
+    }
+  } catch {
+    // ignore
+  }
+  return null;
+}
+
+// Merges a sparse `json` rule value onto the feature's default object. Only the
+// keys present in the rule value override the default; the rest fall back to
+// the default at evaluation time.
+//
+// The merge is TOP-LEVEL ONLY (a shallow spread) — it is not a deep merge. A key
+// in the rule value replaces the default's value for that key wholesale, so a
+// nested object in the patch overwrites the default's entire object for that key
+// rather than merging into it. E.g. default `{"theme":{"a":1,"b":2}}` patched
+// with `{"theme":{"a":9}}` resolves to `{"theme":{"a":9}}` ("b" is dropped).
+//
+// If either side isn't a plain object the rule value is returned parsed as-is, so
+// a misconfigured sparse flag degrades to normal (full-value) behavior rather
+// than producing surprising output.
+export function resolveSparseJSONValue(
+  ruleValueStr: string,
+  defaultObj: Record<string, unknown> | null,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+): any {
+  const sparse = parsePlainJSONObject(ruleValueStr);
+  if (!defaultObj || sparse === null) {
+    try {
+      return JSON.parse(ruleValueStr);
+    } catch {
+      return null;
+    }
+  }
+  return { ...defaultObj, ...sparse };
+}
+
+// Reads the `$extends` constant-reference list off a parsed JSON object,
+// ignoring non-string entries. Returns [] when absent or not an array.
+function getExtendsRefs(obj: Record<string, unknown>): string[] {
+  const list = obj[EXTENDS_KEY];
+  return Array.isArray(list)
+    ? list.filter((r): r is string => typeof r === "string")
+    : [];
+}
+
+// The raw `$extends` array (string references plus any inline-object literals).
+function getExtendsEntries(obj: Record<string, unknown>): unknown[] {
+  const list = obj[EXTENDS_KEY];
+  return Array.isArray(list) ? list : [];
+}
+
+// True when `$extends` carries an inline-object literal (the advanced escape
+// hatch). Those entries are positional, so the string-ref diff/union below
+// can't safely reorder them — we preserve the array verbatim instead.
+function hasInlineExtendsObject(obj: Record<string, unknown>): boolean {
+  return getExtendsEntries(obj).some(
+    (e) => e !== null && typeof e === "object",
+  );
+}
+
+// Rebuilds a JSON object string with `$extends` first (when non-empty) followed
+// by the given own keys, one key per line.
+function serializeExtendsObject(
+  extendsEntries: unknown[],
+  ownKeys: Record<string, unknown>,
+): string {
+  return formatJsonMultilineObjects(
+    extendsEntries.length
+      ? { [EXTENDS_KEY]: extendsEntries, ...ownKeys }
+      : ownKeys,
+  );
+}
+
+// Strips top-level keys from a full JSON value that are deep-equal to the
+// feature default's value for that key, leaving the minimal sparse patch. Used
+// when switching a JSON rule INTO sparse mode so the editor starts from a clean
+// diff (often `{}`) instead of the full, default-laden object the rule was
+// seeded with. Returns the input unchanged when either side isn't a plain
+// object (no meaningful patch can be computed).
+//
+// `$extends` is a merge directive, not data: the patch keeps only the refs not
+// already pulled in by the default's `$extends` (set difference), so the layered
+// resolution doesn't double-apply them.
+export function stripDefaultsForSparse(
+  valueStr: string,
+  defaultValueStr: string,
+): string {
+  const value = parsePlainJSONObject(valueStr);
+  const defaultObj = parsePlainJSONObject(defaultValueStr);
+  if (!value || !defaultObj) return valueStr;
+
+  const patch: Record<string, unknown> = {};
+  for (const [key, v] of Object.entries(value)) {
+    if (key === EXTENDS_KEY) continue;
+    if (!(key in defaultObj) || !isEqual(v, defaultObj[key])) {
+      patch[key] = v;
+    }
+  }
+
+  // Inline-object `$extends` entries are positional and can't be ref-diffed
+  // safely, so preserve the value's `$extends` array verbatim (lossless, just
+  // not minimal). Only the all-string case gets the minimal set-difference.
+  if (hasInlineExtendsObject(value) || hasInlineExtendsObject(defaultObj)) {
+    return serializeExtendsObject(getExtendsEntries(value), patch);
+  }
+
+  const defaultRefs = new Set(getExtendsRefs(defaultObj));
+  const patchRefs = getExtendsRefs(value).filter((r) => !defaultRefs.has(r));
+  return serializeExtendsObject(patchRefs, patch);
+}
+
+// Expands a sparse patch back into the full value by merging it onto the feature
+// default (the inverse of stripDefaultsForSparse). Used when switching a JSON
+// rule OUT of sparse mode so the editor shows the whole object again. Returns
+// the input unchanged when either side isn't a plain object.
+//
+// `$extends` arrays from the default and the patch are unioned (default's refs
+// first) rather than letting the patch's array clobber the default's. Note: the
+// flattened form can't perfectly reproduce the layered precedence when a
+// patch-extended constant overrides one of the default's own keys (the resolver
+// applies patch-`$extends` above default keys; the flattened object applies all
+// `$extends` below them) — an accepted edge case for this editor convenience.
+export function expandSparseToFull(
+  valueStr: string,
+  defaultValueStr: string,
+): string {
+  const patch = parsePlainJSONObject(valueStr);
+  const defaultObj = parsePlainJSONObject(defaultValueStr);
+  if (!patch || !defaultObj) return valueStr;
+
+  const ownKeys: Record<string, unknown> = {};
+  for (const [key, v] of Object.entries(defaultObj)) {
+    if (key !== EXTENDS_KEY) ownKeys[key] = v;
+  }
+  for (const [key, v] of Object.entries(patch)) {
+    if (key !== EXTENDS_KEY) ownKeys[key] = v;
+  }
+
+  // With inline-object `$extends` entries the patch already carries the full
+  // intended `$extends` (stripDefaultsForSparse preserved it verbatim), so use
+  // it as-is rather than union-ing string refs.
+  if (hasInlineExtendsObject(patch) || hasInlineExtendsObject(defaultObj)) {
+    const entries = getExtendsEntries(patch).length
+      ? getExtendsEntries(patch)
+      : getExtendsEntries(defaultObj);
+    return serializeExtendsObject(entries, ownKeys);
+  }
+
+  const mergedRefs = [...getExtendsRefs(defaultObj)];
+  for (const ref of getExtendsRefs(patch)) {
+    if (!mergedRefs.includes(ref)) mergedRefs.push(ref);
+  }
+  return serializeExtendsObject(mergedRefs, ownKeys);
 }
 
 // Validate the values a revert restores against the value type / JSON schema
@@ -1251,6 +1431,105 @@ export function evaluatePublishGovernance({
     canPublish,
     blockReason,
   };
+}
+
+// ── Scheduled / deferred publish ────────────────────────────────────────────
+// A revision is "armed" (autoPublishOnApproval) when it should publish itself as
+// soon as governance allows; `scheduledPublishAt` defers that to a target date.
+// These pure helpers are shared by the UI, the lockdown gates, and the poller.
+
+const SCHEDULE_PENDING_STATUSES = new Set<FeatureRevisionInterface["status"]>([
+  "draft",
+  "pending-review",
+  "approved",
+  "changes-requested",
+]);
+
+type ScheduledRevisionFields = Pick<
+  FeatureRevisionInterface,
+  | "version"
+  | "status"
+  | "autoPublishOnApproval"
+  | "scheduledPublishAt"
+  | "scheduledPublishLockEdits"
+  | "scheduledPublishLockOthers"
+>;
+
+// A schedule is "pending" when the revision is armed, has a date, and is still
+// an active draft.
+export function isScheduledPublishPending(
+  revision: Pick<
+    ScheduledRevisionFields,
+    "status" | "autoPublishOnApproval" | "scheduledPublishAt"
+  >,
+): boolean {
+  return (
+    !!revision.autoPublishOnApproval &&
+    (revision.scheduledPublishAt ?? null) !== null &&
+    SCHEDULE_PENDING_STATUSES.has(revision.status)
+  );
+}
+
+// True once a pending schedule's date has arrived. Coerces the date so it works
+// on both Date (back-end) and ISO-string (front-end) shapes.
+export function isScheduledPublishDue(
+  revision: Pick<
+    ScheduledRevisionFields,
+    "status" | "autoPublishOnApproval" | "scheduledPublishAt"
+  >,
+  now: Date = new Date(),
+): boolean {
+  if (!isScheduledPublishPending(revision)) return false;
+  const at = new Date(revision.scheduledPublishAt as Date | string);
+  return at.getTime() <= now.getTime();
+}
+
+// Locks (and the publish) take effect once the schedule is committed and no
+// longer awaiting approval: status "approved" (approval flow) or "draft"
+// (no-approval flow). "pending-review"/"changes-requested" stay editable.
+export function isScheduledPublishLockActive(
+  revision: Pick<
+    ScheduledRevisionFields,
+    "status" | "autoPublishOnApproval" | "scheduledPublishAt"
+  >,
+): boolean {
+  return (
+    isScheduledPublishPending(revision) &&
+    revision.status !== "pending-review" &&
+    revision.status !== "changes-requested"
+  );
+}
+
+// Content edits to this draft are frozen while a lock-edits schedule is active
+// (armed AND approved). Pending-approval drafts remain editable.
+export function isRevisionEditLockedBySchedule(
+  revision: Pick<
+    ScheduledRevisionFields,
+    | "status"
+    | "autoPublishOnApproval"
+    | "scheduledPublishAt"
+    | "scheduledPublishLockEdits"
+  >,
+): boolean {
+  return (
+    !!revision.scheduledPublishLockEdits &&
+    isScheduledPublishLockActive(revision)
+  );
+}
+
+// Among a feature's revisions, find one (other than `excludeVersion`) whose
+// active (armed AND approved) schedule blocks publishing sibling drafts.
+export function findPublishLockingScheduledRevision<
+  T extends ScheduledRevisionFields,
+>(revisions: T[], excludeVersion?: number): T | null {
+  return (
+    revisions.find(
+      (r) =>
+        r.version !== excludeVersion &&
+        !!r.scheduledPublishLockOthers &&
+        isScheduledPublishLockActive(r),
+    ) ?? null
+  );
 }
 
 // True if publishing the draft would change anything outside the target
@@ -2385,13 +2664,15 @@ export type ResetReviewOnChange = {
 };
 export function getReviewSetting(
   requireReviewSettings: RequireReview[],
-  feature: FeatureInterface,
+  // Any project-scoped entity (features, and constants which mirror the feature
+  // `project` field) — matched by its single project.
+  entity: { project?: string },
 ): RequireReview | undefined {
   // check projects
   for (const reviewSetting of requireReviewSettings) {
     // match first value found empty means all projects
     if (
-      (feature?.project && reviewSetting.projects.includes(feature?.project)) ||
+      (entity?.project && reviewSetting.projects.includes(entity?.project)) ||
       reviewSetting.projects.length === 0
     ) {
       return reviewSetting;
@@ -2399,12 +2680,15 @@ export function getReviewSetting(
   }
 }
 
+// `entity` is any project-scoped entity (a feature, or a constant which mirrors
+// the feature `project` field) — matched by its single project via
+// `getReviewSetting`. Constants reuse this via `constantAutopublishOnApproval`.
 export function getFeatureAutopublishOnApproval(
   requireReviews: boolean | RequireReview[] | undefined,
-  feature: FeatureInterface,
+  entity: { project?: string },
 ): boolean {
   if (!Array.isArray(requireReviews)) return false;
-  return !!getReviewSetting(requireReviews, feature)?.autopublishOnApproval;
+  return !!getReviewSetting(requireReviews, entity)?.autopublishOnApproval;
 }
 
 export function checkEnvironmentsMatch(
@@ -2442,6 +2726,120 @@ export function featureRequiresReview(
     return true;
   }
   return checkEnvironmentsMatch(changedEnvironments, reviewSetting);
+}
+
+// Constants are a drop-in for feature config and borrow the exact same
+// `requireReviews` org settings. The generic `value` affects every environment,
+// so a value change is the least-permissive case (always requires review, like
+// a feature's defaultValue); per-environment overrides only require review when
+// the changed environment is in the matched rule's scope. A pure-metadata edit
+// follows the rule's `featureRequireMetadataReview` toggle.
+export function constantRequiresReview(
+  constant: { project?: string },
+  {
+    valueChanged,
+    changedEnvironments,
+    metadataOnly,
+  }: {
+    valueChanged: boolean;
+    changedEnvironments: string[];
+    metadataOnly: boolean;
+  },
+  settings?: OrganizationSettings,
+): boolean {
+  const requiresReviewSettings = settings?.requireReviews;
+  if (
+    requiresReviewSettings === undefined ||
+    requiresReviewSettings === true ||
+    requiresReviewSettings === false
+  ) {
+    return !!requiresReviewSettings;
+  }
+  const reviewSetting = getReviewSetting(requiresReviewSettings, constant);
+  if (!reviewSetting || !reviewSetting.requireReviewOn) {
+    return false;
+  }
+  // value affects all environments → always requires review
+  if (valueChanged) {
+    return true;
+  }
+  // an in-scope environment override changed
+  if (
+    changedEnvironments.length > 0 &&
+    checkEnvironmentsMatch(changedEnvironments, reviewSetting)
+  ) {
+    return true;
+  }
+  // only metadata changed → governed by the metadata-review toggle
+  if (metadataOnly) {
+    return reviewSetting.featureRequireMetadataReview ?? true;
+  }
+  return false;
+}
+
+// Constant analogue of `resetReviewOnChange` + `getFeatureAutopublishOnApproval`
+// — constants borrow the feature `requireReviews` model rather than the
+// saved-group `approvalFlows` config, so they need their own accessors keyed off
+// the matched review rule's project scope.
+
+// Whether an approved constant revision should reset to pending-review when its
+// proposed changes are subsequently modified. A `value` change affects every
+// environment (always in scope); a per-environment override only counts when the
+// changed environment is within the matched rule's scope.
+export function constantResetReviewOnChange(
+  constant: { project?: string },
+  {
+    valueChanged,
+    changedEnvironments,
+  }: { valueChanged: boolean; changedEnvironments: string[] },
+  settings?: OrganizationSettings,
+): boolean {
+  const requiresReviewSettings = settings?.requireReviews;
+  if (
+    requiresReviewSettings === undefined ||
+    typeof requiresReviewSettings === "boolean"
+  ) {
+    return false;
+  }
+  const reviewSetting = getReviewSetting(requiresReviewSettings, constant);
+  if (
+    !reviewSetting ||
+    !reviewSetting.requireReviewOn ||
+    !reviewSetting.resetReviewOnChange
+  ) {
+    return false;
+  }
+  if (valueChanged) {
+    return true;
+  }
+  return (
+    changedEnvironments.length > 0 &&
+    checkEnvironmentsMatch(changedEnvironments, reviewSetting)
+  );
+}
+
+// Whether auto-publish-on-approval may be armed for a constant, per the matched
+// review rule. Constants share the feature `requireReviews` model, so this is a
+// thin wrapper over `getFeatureAutopublishOnApproval` (single source of truth).
+export function constantAutopublishOnApproval(
+  constant: { project?: string },
+  settings?: OrganizationSettings,
+): boolean {
+  return getFeatureAutopublishOnApproval(settings?.requireReviews, constant);
+}
+
+// Whether self-approval is blocked for a constant, per the matched review rule
+// (mirrors the feature blockSelfApproval gate). Constants borrow the feature
+// `requireReviews` model rather than the saved-group `approvalFlows` config, so
+// the generic `isUserBlockedFromApproving` (which reads approvalFlows) is inert
+// for them — callers must use this instead.
+export function constantBlockSelfApproval(
+  constant: { project?: string },
+  settings?: OrganizationSettings,
+): boolean {
+  const requireReviews = settings?.requireReviews;
+  if (!Array.isArray(requireReviews)) return false;
+  return !!getReviewSetting(requireReviews, constant)?.blockSelfApproval;
 }
 
 export function resetReviewOnChange({

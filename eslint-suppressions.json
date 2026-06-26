@@ -318,11 +318,6 @@
       "count": 3
     }
   },
-  "packages/front-end/components/Experiment/TabbedPage/AnalysisSettingsSummary.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Experiment/TabbedPage/BanditUpdateStatus.tsx": {
     "local/no-alert-classname": {
       "count": 1
@@ -1064,11 +1059,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/SavedGroups/CompareSavedGroupRevisionsModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/SavedGroups/IdListItemInput.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -1107,11 +1097,6 @@
   "packages/front-end/components/SchemaBrowser/BuildInformationSchemaCard.tsx": {
     "local/no-alert-classname": {
       "count": 2
-    }
-  },
-  "packages/front-end/components/SchemaBrowser/DatasourceTableData.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
     }
   },
   "packages/front-end/components/SchemaBrowser/EditSqlModal.tsx": {
@@ -1768,7 +1753,7 @@
   },
   "packages/front-end/pages/saved-groups/index.tsx": {
     "no-restricted-imports": {
-      "count": 3
+      "count": 2
     }
   },
   "packages/front-end/pages/sdks/index.tsx": {

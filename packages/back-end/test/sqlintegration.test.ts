@@ -285,6 +285,44 @@ describe("bigquery integration", () => {
     );
   });
 
+  describe("ClickHouse jsonExtract JSON path quoting", () => {
+    it("backtick-quotes a native-JSON key that isn't a safe identifier", () => {
+      const sql = clickHouseDialect.jsonExtract(
+        "attributes",
+        "company id",
+        false,
+      );
+      expect(sql).toContain("attributes.`company id`::Nullable(String)");
+      // Fallback (String column) branch still passes the raw key as a literal.
+      expect(sql).toContain("JSONExtractString(attributes, 'company id')");
+    });
+
+    it("leaves a safe identifier key unquoted", () => {
+      const sql = clickHouseDialect.jsonExtract(
+        "attributes",
+        "company_id",
+        false,
+      );
+      expect(sql).toContain("attributes.company_id::Nullable(String)");
+    });
+
+    it("quotes the key in the numeric branch too", () => {
+      const sql = clickHouseDialect.jsonExtract(
+        "attributes",
+        "company id",
+        true,
+      );
+      expect(sql).toContain(
+        "toFloat64OrNull(attributes.`company id`::Nullable(String))",
+      );
+    });
+
+    it("escapes backticks within a key", () => {
+      const sql = clickHouseDialect.jsonExtract("attributes", "a`b", false);
+      expect(sql).toContain("attributes.`a``b`::Nullable(String)");
+    });
+  });
+
   describe("LIKE row filters with real dialects", () => {
     const factTable = factTableFactory.build({
       columns: [

@@ -20,6 +20,7 @@ function base(overrides: Partial<RnPStateInput> = {}): RnPStateInput {
     onlyScheduledSelected: false,
     experimentsStep: false,
     featureLockedByRamp: false,
+    featureLockedBySchedule: false,
     checklistBlocked: false,
     governanceCanPublish: true,
     ...overrides,
@@ -136,6 +137,19 @@ describe("getReviewAndPublishState", () => {
 
       const bypassed = getReviewAndPublishState(
         base({ featureLockedByRamp: true, adminPublish: true }),
+      );
+      expect(bypassed.ctaEnabled).toBe(true);
+    });
+
+    it("locks publish when a sibling draft's scheduled publish locks others", () => {
+      const locked = getReviewAndPublishState(
+        base({ featureLockedBySchedule: true }),
+      );
+      expect(locked.ctaEnabled).toBe(false);
+      expect(locked.ctaLocked).toBe(true);
+
+      const bypassed = getReviewAndPublishState(
+        base({ featureLockedBySchedule: true, adminPublish: true }),
       );
       expect(bypassed.ctaEnabled).toBe(true);
     });

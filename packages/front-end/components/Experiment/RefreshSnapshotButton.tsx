@@ -1,17 +1,16 @@
-import { FC, useState } from "react";
+import { FC } from "react";
 import { BsArrowRepeat } from "react-icons/bs";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { Text } from "@radix-ui/themes";
 import { PiArrowClockwise } from "react-icons/pi";
-import { isDimensionPrecomputed } from "shared/experiments";
-import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { useUser } from "@/services/UserContext";
-import { getHonoredPrecomputedUnitDimensionIds } from "@/services/experiments";
-import { trackSnapshot } from "@/services/track";
 import Button from "@/components/Button";
 import RadixButton from "@/ui/Button";
+import {
+  type SnapshotRefreshBlocker,
+  useExperimentSnapshotUpdate,
+} from "@/hooks/useExperimentSnapshotUpdate";
+import FullRefreshRequiredDialog from "@/components/Experiment/FullRefreshRequiredDialog";
 
 const RefreshSnapshotButton: FC<{
   mutate: () => void;
@@ -23,6 +22,15 @@ const RefreshSnapshotButton: FC<{
   setError: (e: string | undefined) => void;
   // Return false to abort the refresh
   customValidation?: () => boolean | Promise<boolean>;
+  onSuccess?: () => void;
+  onSnapshotRefreshBlocked?: (blocker: SnapshotRefreshBlocker) => void;
+  experimentSnapshotTrackingProps?: {
+    trackingSource: string;
+    datasourceType: string | null;
+  };
+  fullRefreshRequired?: boolean;
+  fullRefreshReasons?: string[];
+  disabled?: boolean;
 }> = ({
   mutate,
   experiment,
@@ -32,51 +40,41 @@ const RefreshSnapshotButton: FC<{
   radixVariant = "outline",
   setError,
   customValidation,
+  onSuccess,
+  onSnapshotRefreshBlocked,
+  experimentSnapshotTrackingProps,
+  fullRefreshRequired = false,
+  fullRefreshReasons = [],
+  disabled = false,
 }) => {
-  const [loading, setLoading] = useState(false);
-  const [longResult, setLongResult] = useState(false);
   const { getDatasourceById } = useDefinitions();
-  const { hasCommercialFeature } = useUser();
 
-  const { apiCall } = useAuth();
-
-  const refreshSnapshot = async () => {
-    if (customValidation && !(await customValidation())) {
-      return;
-    }
-    // Precomputed dimensions are computed as part of a standard snapshot,
-    // so we don't need to pass them to the backend for a new snapshot query
-    const snapshotDimension = isDimensionPrecomputed(
-      dimension,
-      getHonoredPrecomputedUnitDimensionIds(
-        experiment.precomputedUnitDimensionIds,
-        getDatasourceById(experiment.datasource),
-        hasCommercialFeature("pipeline-mode"),
-      ),
-    )
-      ? undefined
-      : dimension;
-    const res = await apiCall<{
-      status: number;
-      message: string;
-      snapshot: ExperimentSnapshotInterface;
-    }>(`/experiment/${experiment.id}/snapshot`, {
-      method: "POST",
-      body: JSON.stringify({
-        phase,
-        dimension: snapshotDimension,
-      }),
-    });
-    trackSnapshot(
-      "create",
-      "RefreshSnapshotButton",
-      getDatasourceById(experiment.datasource)?.type || null,
-      res.snapshot,
-    );
+  const trackingProps = experimentSnapshotTrackingProps ?? {
+    trackingSource: "RefreshSnapshotButton",
+    datasourceType: getDatasourceById(experiment.datasource)?.type || null,
   };
+
+  const { submitUpdate, loading, longResult, fullRefreshConfirm } =
+    useExperimentSnapshotUpdate({
+      experiment,
+      phase,
+      dimension,
+      mutate,
+      setRefreshError: (error) => setError(error),
+      onSuccess,
+      customValidation,
+      onSnapshotRefreshBlocked,
+      experimentSnapshotTrackingProps: trackingProps,
+    });
+
+  const label = fullRefreshRequired ? "Full Refresh" : "Update";
+  const handleClick = fullRefreshRequired
+    ? () => submitUpdate({ force: true, fullRefreshReasons })
+    : () => submitUpdate();
 
   return (
     <>
+      <FullRefreshRequiredDialog controller={fullRefreshConfirm} />
       {useRadixButton ? (
         <>
           {loading && longResult && (
@@ -87,30 +85,15 @@ const RefreshSnapshotButton: FC<{
           <RadixButton
             variant={radixVariant}
             size="sm"
-            disabled={loading}
+            disabled={loading || disabled}
             setError={(error) => setError(error ?? undefined)}
-            onClick={async () => {
-              setLoading(true);
-              setLongResult(false);
-
-              const timer = setTimeout(() => {
-                setLongResult(true);
-              }, 5000);
-
-              try {
-                await refreshSnapshot();
-              } finally {
-                setLoading(false);
-                clearTimeout(timer);
-                mutate();
-              }
-            }}
+            onClick={handleClick}
             style={{
               minWidth: 110,
             }}
             icon={<PiArrowClockwise />}
           >
-            Update
+            {label}
           </RadixButton>
         </>
       ) : (
@@ -123,24 +106,10 @@ const RefreshSnapshotButton: FC<{
           <Button
             color="outline-primary"
             setErrorText={setError}
-            onClick={async () => {
-              setLoading(true);
-              setLongResult(false);
-
-              const timer = setTimeout(() => {
-                setLongResult(true);
-              }, 5000);
-
-              try {
-                await refreshSnapshot();
-              } finally {
-                setLoading(false);
-                clearTimeout(timer);
-                mutate();
-              }
-            }}
+            onClick={handleClick}
+            disabled={loading || disabled}
           >
-            <BsArrowRepeat /> Update
+            <BsArrowRepeat /> {label}
           </Button>
         </>
       )}

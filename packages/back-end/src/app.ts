@@ -105,7 +105,12 @@ import { isEmailEnabled } from "./services/email";
 import { init } from "./init";
 import { aiRouter } from "./routers/ai/ai.router";
 import { getCustomLogProps, httpLogger, logger } from "./util/logger";
-import { ApiError, shouldSkipErrorLog, SoftWarningError } from "./util/errors";
+import {
+  ApiError,
+  ExperimentIncrementalPipelineRequiresFullRefreshError,
+  shouldSkipErrorLog,
+  SoftWarningError,
+} from "./util/errors";
 import { usersRouter } from "./routers/users/users.router";
 import { organizationsRouter } from "./routers/organizations/organizations.router";
 import { uploadRouter } from "./routers/upload/upload.router";
@@ -116,6 +121,10 @@ import { savedGroupRouter } from "./routers/saved-group/saved-group.router";
 import { ArchetypeRouter } from "./routers/archetype/archetype.router";
 import { AttributeRouter } from "./routers/attributes/attributes.router";
 import { customFieldsRouter } from "./routers/custom-fields/custom-fields.router";
+import {
+  constantsRouter,
+  constantDraftStatesRouter,
+} from "./routers/constant/constant.router";
 import { segmentRouter } from "./routers/segment/segment.router";
 import { dimensionRouter } from "./routers/dimension/dimension.router";
 import { sdkConnectionRouter } from "./routers/sdk-connection/sdk-connection.router";
@@ -297,7 +306,15 @@ app.use((req, res, next) => {
     );
   const isVisualEditorImageGen =
     req.method === "POST" && req.path === "/api/v1/visual-editor/ai/image-gen";
-  const needsLargeBody = isScreenshotUpload || isVisualEditorImageGen;
+  // Figma → Variant's mockup-image path carries a base64-encoded design
+  // image (the Figma-link path fetches server-side, so it's small).
+  const isVisualEditorFigmaToVariant =
+    req.method === "POST" &&
+    req.path === "/api/v1/visual-editor/ai/figma-to-variant";
+  const needsLargeBody =
+    isScreenshotUpload ||
+    isVisualEditorImageGen ||
+    isVisualEditorFigmaToVariant;
   bodyParser.json({ limit: needsLargeBody ? "10mb" : "2mb" })(req, res, next);
 });
 
@@ -609,6 +626,9 @@ app.use("/attribute", AttributeRouter);
 
 app.use("/custom-fields", customFieldsRouter);
 
+app.use("/constants", constantsRouter);
+app.use("/constants-draft-states", constantDraftStatesRouter);
+
 // Ideas
 app.get("/ideas", ideasController.getIdeas);
 app.post("/ideas", ideasController.postIdeas);
@@ -904,6 +924,10 @@ app.post(
 app.post(
   "/feature/:id/:version/toggle-auto-publish",
   featuresController.postFeatureToggleAutoPublish,
+);
+app.post(
+  "/feature/:id/:version/schedule-publish",
+  featuresController.postFeatureScheduledPublish,
 );
 app.post(
   "/feature/:id/:version/recall-review",
@@ -1273,9 +1297,12 @@ const errorHandler: ErrorRequestHandler = (
   if (err instanceof SoftWarningError) {
     body.warnings = err.warnings;
   }
-  // Structured errors carry a machine-readable code + details (same contract
-  // the REST API exposes) so the front-end can render richer error states.
-  if (err instanceof ApiError) {
+  // Structured errors carry a machine-readable code + details so the front-end
+  // can render richer error states.
+  if (
+    err instanceof ApiError ||
+    err instanceof ExperimentIncrementalPipelineRequiresFullRefreshError
+  ) {
     body.code = err.code;
     body.details = err.details;
   }

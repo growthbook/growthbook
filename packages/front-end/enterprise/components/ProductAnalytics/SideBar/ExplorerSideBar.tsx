@@ -15,14 +15,18 @@ import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/Exp
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import GraphTypeSelector from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/GraphTypeSelector";
-import DateRangePicker from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/DateRangePicker";
+import DateRangePicker, {
+  ComparisonDateControls,
+} from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/DateRangePicker";
 import GranularitySelector from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/GranularitySelector";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Callout from "@/ui/Callout";
 import DataSourceDropdown from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/DataSourceDropdown";
+import Switch from "@/ui/Switch";
 import {
   createEmptyValue,
   showAsAppliesTo,
+  stripExplorerDraftFields,
 } from "@/enterprise/components/ProductAnalytics/util";
 import SaveToDashboardModal from "@/enterprise/components/ProductAnalytics/SaveToDashboardModal";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
@@ -48,12 +52,18 @@ export default function ExplorerSideBar({
     draftExploreState,
     setDraftExploreState,
     exploration,
+    compareEnabled,
+    setCompareEnabled,
+    comparisonExploration,
     loading,
     handleSubmit,
     isSubmittable,
     isStale,
+    needsFetch,
     error,
     trackingSource,
+    submittedExploreState,
+    managedWarehouseAwaitingProvisioning,
   } = useExplorerContext();
   const { factTables, getFactMetricById, project } = useDefinitions();
   const { hasCommercialFeature, permissionsUtil } = useUser();
@@ -72,7 +82,9 @@ export default function ExplorerSideBar({
       ? "You do not have permission to create or edit dashboards in this project."
       : !isSubmittable
         ? "Configure a valid exploration before saving."
-        : undefined;
+        : loading || isStale || needsFetch
+          ? "Run the updated exploration before saving to a dashboard."
+          : undefined;
 
   const dataset = draftExploreState.dataset;
   const activeType: DatasetType = dataset?.type ?? "metric";
@@ -80,6 +92,14 @@ export default function ExplorerSideBar({
     activeType === "fact_table" && dataset?.type === "fact_table"
       ? dataset
       : null;
+  const showComparisonDateControls =
+    compareEnabled &&
+    draftExploreState.dateRange.predefined === "customDateRange" &&
+    Boolean(draftExploreState.dateRange.startDate) &&
+    Boolean(draftExploreState.dateRange.endDate);
+  const isTimeSeriesChart = ["line", "area", "timeseries-table"].includes(
+    draftExploreState.chartType,
+  );
 
   return (
     <Flex
@@ -90,8 +110,11 @@ export default function ExplorerSideBar({
       {showSaveToDashboardModal && (
         <SaveToDashboardModal
           close={() => setShowSaveToDashboardModal(false)}
-          config={draftExploreState}
+          config={stripExplorerDraftFields(draftExploreState)}
           exploration={exploration}
+          compareEnabled={compareEnabled}
+          previousTimeFrame={draftExploreState.previousTimeFrame ?? null}
+          comparisonExplorationId={comparisonExploration?.id ?? null}
           trackingSource={trackingSource}
         />
       )}
@@ -213,23 +236,33 @@ export default function ExplorerSideBar({
           }}
         >
           <Flex direction="column" gap="2">
-            <Text weight="medium">Chart Type</Text>
+            <Flex direction="row" align="center" justify="between" width="100%">
+              <Text weight="medium">Chart Type</Text>
+              <Switch
+                label="Compare"
+                value={compareEnabled}
+                onChange={setCompareEnabled}
+                disabled={
+                  !submittedExploreState || managedWarehouseAwaitingProvisioning
+                }
+              />
+            </Flex>
             <GraphTypeSelector />
           </Flex>
-          <Flex gap="2" wrap="wrap">
-            <Flex direction="column" gap="2" style={{ minWidth: 0 }}>
-              <Text weight="medium">Date Range</Text>
-              <DateRangePicker shouldWrap />
-            </Flex>
-            {["line", "area", "timeseries-table"].includes(
-              draftExploreState.chartType,
-            ) && (
-              <Flex direction="column" gap="2">
-                <Text weight="medium">Date Granularity</Text>
-                <GranularitySelector />
-              </Flex>
+          <Flex direction="column" gap="2" width="100%" style={{ minWidth: 0 }}>
+            <Text weight="medium">Date Range</Text>
+            {showComparisonDateControls ? (
+              <ComparisonDateControls fullWidth />
+            ) : (
+              <DateRangePicker fullWidth />
             )}
           </Flex>
+          {isTimeSeriesChart && (
+            <Flex direction="column" gap="2" width="100%">
+              <Text weight="medium">Date Granularity</Text>
+              <GranularitySelector />
+            </Flex>
+          )}
         </Flex>
       )}
 

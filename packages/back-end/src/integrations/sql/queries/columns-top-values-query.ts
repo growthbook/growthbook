@@ -10,7 +10,7 @@ export function getColumnsTopValuesQuery(
     factTable,
     columns,
     limit = 50,
-    lookbackDays = 14,
+    lookbackDays,
     maxValueLength,
   }: ColumnTopValuesParams,
 ): string {

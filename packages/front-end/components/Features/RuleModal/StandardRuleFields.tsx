@@ -251,17 +251,21 @@ export default function StandardRuleFields({
 
       <RuleEnvironmentScopeField {...envScope} my="5" />
 
-      <FeatureValueField
-        label={`Value to ${ruleType === "rollout" ? "roll out" : "force"}`}
-        id="value"
-        value={form.watch("value")}
-        setValue={(v) => form.setValue("value", v)}
-        valueType={feature.valueType}
-        feature={feature}
-        renderJSONInline={true}
-        useCodeInput={true}
-        showFullscreenButton={true}
-      />
+      <Box mb="5">
+        <FeatureValueField
+          label={`Value to ${ruleType === "rollout" ? "roll out" : "force"}`}
+          id="value"
+          value={form.watch("value")}
+          setValue={(v) => form.setValue("value", v)}
+          valueType={feature.valueType}
+          feature={feature}
+          renderJSONInline={true}
+          useCodeInput={true}
+          showFullscreenButton={true}
+          sparse={!!form.watch("sparse")}
+          setSparse={(v) => form.setValue("sparse", v)}
+        />
+      </Box>
 
       <div className="mb-3">
         <Heading as="h3" size="small" mb="2">
@@ -377,12 +381,20 @@ export default function StandardRuleFields({
                       ruleRampSchedule.status,
                     );
                   const isPendingRemoval = rampSectionState.mode === "off";
+                  // A running simple schedule's start has already passed, so the
+                  // back-end ignores startDate edits — lock the Start row while
+                  // still allowing the end date to be changed.
+                  const isRunningSimple =
+                    !!ruleRampSchedule &&
+                    isSimpleSchedule &&
+                    ruleRampSchedule.status === "running";
                   return (
                     <>
                       <ScheduleInputs
                         state={rampSectionState}
                         setState={setRampSectionState}
                         disabled={isTerminal || isPendingRemoval}
+                        disableStart={isRunningSimple}
                       />
                       {isTerminal && !isPendingRemoval && (
                         <Callout status="info" mt="3" size="sm">

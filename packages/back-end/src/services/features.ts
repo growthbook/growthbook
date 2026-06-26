@@ -34,7 +34,11 @@ import {
   getPayloadAllowedKeys,
   replaceSavedGroups,
   SDKCapability,
+  buildConstantValueMap,
+  resolveConstantRefs,
+  ConstantValueMap,
 } from "shared/sdk-versioning";
+import { ConstantInterface } from "shared/types/constant";
 import { getLatestPhaseVariations } from "shared/experiments";
 import cloneDeep from "lodash/cloneDeep";
 import pickBy from "lodash/pickBy";
@@ -132,11 +136,50 @@ import {
   getEnvironmentIdsFromOrg,
 } from "./organizations";
 
+// Substitute `@const:` references in a feature definition's values (default,
+// rule force values, and experiment variations) using the per-environment
+// constant map. Mutates the definition in place. `onCycle` is invoked with any
+// constant key left unresolved due to a reference cycle.
+function resolveConstantsInDefinition(
+  def: FeatureDefinition,
+  map: ConstantValueMap,
+  onCycle: (key: string) => void,
+  featureProject: string,
+): void {
+  if (def.defaultValue !== undefined) {
+    def.defaultValue = resolveConstantRefs(
+      def.defaultValue,
+      map,
+      new Set(),
+      onCycle,
+      featureProject,
+    );
+  }
+  def.rules?.forEach((rule) => {
+    if (rule.force !== undefined) {
+      rule.force = resolveConstantRefs(
+        rule.force,
+        map,
+        new Set(),
+        onCycle,
+        featureProject,
+      );
+    }
+    if (rule.variations !== undefined) {
+      rule.variations = rule.variations.map((v) =>
+        resolveConstantRefs(v, map, new Set(), onCycle, featureProject),
+      );
+    }
+  });
+}
+
 export function generateFeaturesPayload({
   features,
   experimentMap,
   environment,
   groupMap,
+  constants,
+  constantMap: providedConstantMap,
   prereqStateCache = {},
   safeRolloutMap,
   holdoutsMap,
@@ -158,6 +201,10 @@ export function generateFeaturesPayload({
   experimentMap: Map<string, ExperimentInterface>;
   environment: string;
   groupMap: GroupMap;
+  constants?: ConstantInterface[];
+  // Optional pre-built per-environment constant map (see SDKPayloadRawData).
+  // When omitted, it's built here from `constants` + `environment`.
+  constantMap?: ConstantValueMap | null;
   prereqStateCache?: Record<string, PrerequisiteStateResult>;
   safeRolloutMap: Map<string, SafeRolloutInterface>;
   holdoutsMap: Map<
@@ -185,6 +232,17 @@ export function generateFeaturesPayload({
     prereqStateCache,
   );
 
+  // Resolve `@const:` references at payload-build time (per environment). Use a
+  // caller-provided map when present (the bulk refresh builds it once per env);
+  // otherwise build it here. Skip entirely when the org has no constants — zero
+  // overhead for the common case.
+  const constantMap =
+    providedConstantMap !== undefined
+      ? providedConstantMap
+      : constants?.length
+        ? buildConstantValueMap(constants, environment)
+        : null;
+
   newFeatures.forEach((feature) => {
     const def = getFeatureDefinition({
       feature,
@@ -208,8 +266,32 @@ export function generateFeaturesPayload({
         includeTagsInMetadata,
       },
       projectsMap,
+      // Resolves sparse rule values against resolved constants (sparse fields
+      // win); the post-build pass below resolves all other values.
+      constantMap: constantMap ?? undefined,
     });
     if (def) {
+      if (constantMap && constantMap.size) {
+        const reported = new Set<string>();
+        resolveConstantsInDefinition(
+          def,
+          constantMap,
+          (key) => {
+            if (reported.has(key)) return;
+            reported.add(key);
+            logger.warn(
+              {
+                organization: organization?.id,
+                feature: feature.id,
+                environment,
+                constant: key,
+              },
+              "Cyclic constant reference detected during SDK payload generation; left unresolved",
+            );
+          },
+          feature.project || "",
+        );
+      }
       defs[feature.id] = def;
     }
   });
@@ -722,6 +804,7 @@ export async function refreshSDKPayloadCache({
   const savedGroups = await context.models.savedGroups.getAll();
   const groupMap = await getSavedGroupMap(context, savedGroups);
   const allFeatures = await getAllFeatures(context);
+  const constants = await context.models.constants.getAll();
   const rampMonitoredRuleMap =
     await context.models.rampSchedules.getPayloadRampMonitoredRuleMap();
 
@@ -739,6 +822,7 @@ export async function refreshSDKPayloadCache({
     visualExperiments: allVisualExperiments,
     urlRedirectExperiments: allURLRedirectExperiments,
     rampMonitoredRuleMap,
+    constants,
   };
 
   const payloadKeyEnvironments = new Set(payloadKeys.map((k) => k.environment));
@@ -756,9 +840,16 @@ export async function refreshSDKPayloadCache({
       { holdout: HoldoutInterface; holdoutExperiment: ExperimentInterface }
     >
   > = {};
+  // Build the constant value map once per environment (parsing each JSON
+  // constant once), shared across every connection in that env — rather than
+  // rebuilding it inside generateFeaturesPayload per connection.
+  const constantMapByEnv: Record<string, ConstantValueMap | null> = {};
   for (const environment of allEnvironmentsToUpdate) {
     holdoutsMapByEnv[environment] =
       await context.models.holdout.getAllPayloadHoldouts(environment);
+    constantMapByEnv[environment] = constants.length
+      ? buildConstantValueMap(constants, environment)
+      : null;
   }
 
   const sdkConnections = payloadKeys.length
@@ -831,7 +922,7 @@ export async function refreshSDKPayloadCache({
               connection.allowedCustomFieldsInMetadata,
             includeTagsInMetadata: connection.includeTagsInMetadata,
           },
-          data: { ...rawData, holdoutsMap },
+          data: { ...rawData, holdoutsMap, constantMap: constantMapByEnv[env] },
         });
 
         const auditContext: SdkConnectionCacheAuditContext | undefined =
@@ -1079,6 +1170,12 @@ export type SDKPayloadRawData = {
   urlRedirectExperiments?: URLRedirectExperiment[];
   projectsMap?: Map<string, ProjectInterface>;
   rampMonitoredRuleMap?: Map<string, RampMonitoredRuleInfo>;
+  constants?: ConstantInterface[];
+  // Pre-built per-environment constant value map. Hoisted out of
+  // generateFeaturesPayload so the bulk refresh builds it once per env (next to
+  // holdoutsMapByEnv) instead of re-parsing every JSON constant for every
+  // connection. When omitted, generateFeaturesPayload builds it from `constants`.
+  constantMap?: ConstantValueMap | null;
 };
 
 // Payload-relevant subset of SDK connection (plus derived capabilities). Pass through encryptPayload + encryptionKey; effective key is derived inside buildSDKPayloadForConnection.
@@ -1208,6 +1305,8 @@ export async function buildSDKPayloadForConnection(
     features: filteredFeatures,
     environment,
     groupMap: data.groupMap,
+    constants: data.constants,
+    constantMap: data.constantMap,
     experimentMap: filteredExperimentMap,
     prereqStateCache,
     safeRolloutMap: data.safeRolloutMap,
@@ -1359,6 +1458,7 @@ export async function getFeatureDefinitions(
       savedGroups: allSavedGroups,
       holdoutsMap,
       rampMonitoredRuleMap,
+      constants: await context.models.constants.getAll(),
     },
   });
 }
@@ -1376,6 +1476,7 @@ export function evaluateFeature({
   safeRolloutMap,
   namespaces,
   organization,
+  constants,
 }: {
   feature: FeatureInterface;
   attributes: ArchetypeAttributeValues;
@@ -1394,6 +1495,9 @@ export function evaluateFeature({
   // Drives project-scoping intersect inside `getFeatureDefinition`; omitting
   // it leaks `allEnvironments: true` rules into project-scoped-out envs.
   organization?: OrganizationInterface;
+  // When provided, `@const:` references are resolved so preview/test results
+  // match what the SDK payload actually serves (same as generateFeaturesPayload).
+  constants?: ConstantInterface[];
 }) {
   const results: FeatureTestResult[] = [];
   const savedGroups = getSavedGroupsValuesFromGroupMap(groupMap);
@@ -1419,6 +1523,9 @@ export function evaluateFeature({
     const settings = feature.environmentSettings[env.id] ?? null;
     if (settings) {
       thisEnvResult.enabled = settings.enabled;
+      const envConstantMap = constants?.length
+        ? buildConstantValueMap(constants, env.id)
+        : null;
       const definition = getFeatureDefinition({
         feature,
         groupMap,
@@ -1429,9 +1536,24 @@ export function evaluateFeature({
         safeRolloutMap,
         namespaces: namespaces,
         organization,
+        // Sparse rule values resolve against resolved constants here (sparse
+        // wins); other values resolve in the post-build pass below.
+        constantMap: envConstantMap ?? undefined,
       });
 
       if (definition) {
+        // Resolve `@const:` references so the preview matches the served
+        // payload. Cycles are left unresolved (rendered as-is), same as payload
+        // generation — no logging needed in this preview-only path.
+        if (envConstantMap) {
+          resolveConstantsInDefinition(
+            definition,
+            envConstantMap,
+            () => undefined,
+            feature.project || "",
+          );
+        }
+
         // Prerequisite scrubbing:
         const rulesWithPrereqs: FeatureDefinitionRule[] = [];
         if (scrubPrerequisites) {
@@ -1516,6 +1638,7 @@ export async function evaluateAllFeatures({
   const savedGroups = getSavedGroupsValuesFromGroupMap(groupMap);
 
   const allFeaturesRaw = await getAllFeatures(context);
+  const constants = await context.models.constants.getAll();
   const allFeatures: Record<string, FeatureDefinition> = {};
   if (allFeaturesRaw.length) {
     allFeaturesRaw.map((f) => {
@@ -1556,6 +1679,7 @@ export async function evaluateAllFeatures({
       environment: env.id,
       experimentMap,
       groupMap,
+      constants,
       prereqStateCache: {},
       safeRolloutMap,
       holdoutsMap,
@@ -1840,12 +1964,13 @@ export function normalizeRuleForApi(rule: FeatureRule): ApiFeatureRule {
   };
   switch (rule.type) {
     case "force":
-      return { ...base, type: "force", value: rule.value };
+      return { ...base, type: "force", value: rule.value, sparse: rule.sparse };
     case "rollout":
       return {
         ...base,
         type: "rollout",
         value: rule.value,
+        sparse: rule.sparse,
         coverage: rule.coverage ?? 1,
         hashAttribute: rule.hashAttribute,
         seed: rule.seed,
@@ -1870,6 +1995,7 @@ export function normalizeRuleForApi(rule: FeatureRule): ApiFeatureRule {
         type: "experiment-ref",
         variations: rule.variations,
         experimentId: rule.experimentId,
+        sparse: rule.sparse,
       };
     case "safe-rollout":
       return {
@@ -2025,6 +2151,26 @@ export function revisionToApiInterfaceV2(
     ...(rev.rampActions !== undefined && {
       rampActions: rev.rampActions,
     }),
+    ...(rev.autoPublishOnApproval !== undefined && {
+      autoPublishOnApproval: rev.autoPublishOnApproval,
+    }),
+    ...((rev.scheduledPublishAt ?? null) !== null && {
+      scheduledPublishAt: new Date(
+        rev.scheduledPublishAt as Date,
+      ).toISOString(),
+    }),
+    ...(rev.scheduledPublishLockEdits !== undefined && {
+      scheduledPublishLockEdits: rev.scheduledPublishLockEdits,
+    }),
+    ...(rev.scheduledPublishLockOthers !== undefined && {
+      scheduledPublishLockOthers: rev.scheduledPublishLockOthers,
+    }),
+    ...(rev.scheduledPublishBypassApproval !== undefined && {
+      scheduledPublishBypassApproval: rev.scheduledPublishBypassApproval,
+    }),
+    ...(rev.scheduledPublishLastError !== undefined && {
+      scheduledPublishLastError: rev.scheduledPublishLastError,
+    }),
     ...(rev.reviews !== undefined && {
       reviews: rev.reviews.map((r) => {
         const user = eventUserToApiEventUser(r.user);
@@ -2059,6 +2205,14 @@ export function revisionToDiffableV2(
     "publishedBy",
     "definitions",
     "reviews",
+    // Scheduling/auto-publish state isn't feature content — excluded so arming,
+    // canceling, or a poller failure doesn't surface as a false diff.
+    "autoPublishOnApproval",
+    "scheduledPublishAt",
+    "scheduledPublishLockEdits",
+    "scheduledPublishLockOthers",
+    "scheduledPublishBypassApproval",
+    "scheduledPublishLastError",
   ]);
   const content: Record<string, unknown> = {};
   for (const [key, val] of Object.entries(api)) {
@@ -2613,6 +2767,7 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
             variationId: v.variationId,
             value: validateFeatureValue(feature, v.value),
           })),
+          ...(r.sparse !== undefined && { sparse: r.sparse }),
           ...(r.prerequisites && { prerequisites: r.prerequisites }),
           ...(r.scheduleRules && { scheduleRules: r.scheduleRules }),
         };
@@ -2654,6 +2809,7 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
             match: s.matchType,
           })),
           enabled: r.enabled != null ? r.enabled : true,
+          ...(r.sparse !== undefined && { sparse: r.sparse }),
           ...(r.prerequisites && { prerequisites: r.prerequisites }),
           ...(r.scheduleRules && { scheduleRules: r.scheduleRules }),
         };
@@ -2675,6 +2831,7 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
             match: s.matchType,
           })),
           enabled: r.enabled != null ? r.enabled : true,
+          ...(r.sparse !== undefined && { sparse: r.sparse }),
           ...(r.prerequisites && { prerequisites: r.prerequisites }),
           ...(r.scheduleRules && { scheduleRules: r.scheduleRules }),
         };
@@ -3167,14 +3324,20 @@ async function collectHoldoutAffectedEnvs(
   return [...envs];
 }
 
-// Throws if the draft requires approval and the caller cannot bypass.
-export async function assertCanAutoPublish(
-  context: ReqContext,
+// Whether a draft requires approval before publishing (org review settings, env
+// scoping, license). When the base can't be resolved the answer is ambiguous:
+// the default treats it as a no-approval change (false), but pass
+// `treatUnresolvedBaseAsReview` to fail closed (true) for flows that commit
+// locks/schedules and must not engage them on a draft that can't be evaluated.
+export async function revisionRequiresReview(
+  context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   draft: FeatureRevisionInterface,
-): Promise<void> {
-  const { org } = context;
-  const allEnvironments = getEnvironmentIdsFromOrg(org);
+  {
+    treatUnresolvedBaseAsReview = false,
+  }: { treatUnresolvedBaseAsReview?: boolean } = {},
+): Promise<boolean> {
+  const allEnvironments = getEnvironmentIdsFromOrg(context.org);
 
   const baseRevision = await getRevision({
     context,
@@ -3183,16 +3346,25 @@ export async function assertCanAutoPublish(
     feature,
     version: draft.baseVersion,
   });
-  if (!baseRevision) return; // can't determine — allow (legacy/missing base)
+  if (!baseRevision) return treatUnresolvedBaseAsReview;
 
-  const requiresReview = checkIfRevisionNeedsReview({
+  return checkIfRevisionNeedsReview({
     feature,
     baseRevision,
     revision: draft,
     allEnvironments,
-    settings: org.settings,
+    settings: context.org.settings,
     requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
   });
+}
+
+// Throws if the draft requires approval and the caller cannot bypass.
+export async function assertCanAutoPublish(
+  context: ReqContext,
+  feature: FeatureInterface,
+  draft: FeatureRevisionInterface,
+): Promise<void> {
+  const requiresReview = await revisionRequiresReview(context, feature, draft);
 
   if (requiresReview && !context.permissions.canBypassApprovalChecks(feature)) {
     context.permissions.throwPermissionError();
