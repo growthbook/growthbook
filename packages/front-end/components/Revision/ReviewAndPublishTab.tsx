@@ -1097,7 +1097,7 @@ function ReviewAndPublishRevision<T>({
               lockActive={isScheduledPublishLockActive(revision)}
               schedulePublishPath={`/revision/${revision.id}/schedule-publish`}
               toggleAutoPublishPath={`/revision/${revision.id}/toggle-auto-publish`}
-              entityNoun="saved group"
+              entityNoun={entityNoun}
               canEdit={canEditEntity}
               canBypassApproval={canBypassApproval}
               requiresApproval={requiresApproval}

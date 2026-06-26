@@ -923,7 +923,6 @@ export default function EditSavedGroupPage() {
               allRevisions={allRevisions}
               selectedRevisionId={selectedRevisionId}
               onSelectRevision={selectFlow}
-              requiresApproval={approvalRequired}
               context="header"
             />
             <DropdownMenu

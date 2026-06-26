@@ -1,161 +1,35 @@
-import { ReactNode } from "react";
 import { Revision } from "shared/enterprise";
-import { dateNoYear } from "shared/dates";
-import { Flex } from "@radix-ui/themes";
-import { useLocalStorage } from "@/hooks/useLocalStorage";
-import Switch from "@/ui/Switch";
-import Text from "@/ui/Text";
-import { DropdownMenuLabel } from "@/ui/DropdownMenu";
-import { useUser } from "@/services/UserContext";
-import { getStatusBadge } from "@/components/Revision/revisionUtils";
-import SharedRevisionDropdown, {
-  RevisionDropdownRow,
-} from "@/components/Reviews/RevisionDropdown";
+import RevisionDropdown from "@/components/Revision/RevisionDropdown";
 
 export interface Props {
   savedGroupId: string;
   allRevisions: Revision[];
   selectedRevisionId: string | null;
   onSelectRevision: (revision: Revision | null) => void;
-  requiresApproval?: boolean;
   draftsOnly?: boolean;
   context?: "header";
 }
 
-// Saved-group wrapper around the shared <RevisionDropdown>: resolves the live
-// (latest merged) revision, computes display version numbers, applies the
-// drafts-only / discarded filtering, and renders the author/date metadata and
-// the generic status badge. The shared component owns open/scroll/pagination/menu.
+// Thin saved-group wrapper around the shared Revision-model <RevisionDropdown>:
+// it simply scopes the "show discarded" preference by the saved-group id (via
+// entityId). All mapping/rendering lives in the one shared component so the two
+// can't drift — kept only so saved-group call sites read in their own vocabulary.
 export default function SavedGroupRevisionDropdown({
   savedGroupId,
   allRevisions,
   selectedRevisionId,
   onSelectRevision,
-  draftsOnly = false,
+  draftsOnly,
   context,
 }: Props) {
-  const { getUserDisplay } = useUser();
-
-  const [showDiscarded, setShowDiscarded] = useLocalStorage(
-    `savedGroupRevisionDropdown__showDiscarded__${savedGroupId}`,
-    false,
-  );
-
-  // Latest merged revision is "Live".
-  const liveRevision = [...allRevisions]
-    .filter((r) => r.status === "merged")
-    .sort(
-      (a, b) =>
-        new Date(b.dateUpdated).getTime() - new Date(a.dateUpdated).getTime(),
-    )[0];
-
-  // Map revision id → display version (stored version, else position by creation).
-  const sortedAllRevisions = [...allRevisions].sort(
-    (a, b) =>
-      new Date(a.dateCreated).getTime() - new Date(b.dateCreated).getTime(),
-  );
-  const revisionNumberById = new Map<string, number>(
-    allRevisions.map((revision) => {
-      const version =
-        revision.version ??
-        sortedAllRevisions.findIndex((r) => r.id === revision.id) + 1;
-      return [revision.id, version];
-    }),
-  );
-
-  const allSorted = [...allRevisions].sort(
-    (a, b) =>
-      (revisionNumberById.get(b.id) ?? 0) - (revisionNumberById.get(a.id) ?? 0),
-  );
-
-  const filteredForDrafts = draftsOnly
-    ? allSorted.filter(
-        (r) =>
-          r.status === "draft" ||
-          r.status === "pending-review" ||
-          r.status === "changes-requested" ||
-          r.status === "approved",
-      )
-    : allSorted;
-
-  const displayList = showDiscarded
-    ? filteredForDrafts
-    : filteredForDrafts.filter(
-        (r) => r.status !== "discarded" || r.id === selectedRevisionId,
-      );
-
-  // Viewing live (selectedRevisionId null) selects the live revision in the list.
-  const effectiveSelectedId = selectedRevisionId ?? liveRevision?.id ?? null;
-
-  const buildMeta = (r: Revision): ReactNode => (
-    <Text size="small" color="text-low" whiteSpace="nowrap">
-      {getUserDisplay(r.authorId)}
-      {r.dateUpdated && <> &middot; {dateNoYear(r.dateUpdated)}</>}
-    </Text>
-  );
-
-  const rows: RevisionDropdownRow[] = displayList.map((r) => {
-    const isLive = r.id === liveRevision?.id;
-    return {
-      key: r.id,
-      version: revisionNumberById.get(r.id) ?? 1,
-      title: r.title,
-      meta: buildMeta(r),
-      badge: getStatusBadge(isLive ? "live" : r.status),
-    };
-  });
-
-  const discardedCount = allSorted.filter(
-    (r) => r.status === "discarded",
-  ).length;
-
-  const selectedRevision =
-    effectiveSelectedId !== null
-      ? (displayList.find((r) => r.id === effectiveSelectedId) ??
-        allSorted.find((r) => r.id === effectiveSelectedId))
-      : null;
-
-  const toggles =
-    discardedCount > 0 ? (
-      <DropdownMenuLabel>
-        <Flex align="center" gap="2" justify="end" style={{ width: "100%" }}>
-          <Text size="small" color="text-low">
-            Show discarded ({discardedCount})
-          </Text>
-          <Switch size="1" value={showDiscarded} onChange={setShowDiscarded} />
-        </Flex>
-      </DropdownMenuLabel>
-    ) : undefined;
-
-  const handleSelect = (key: string) => {
-    const revision = allRevisions.find((r) => r.id === key) ?? null;
-    // Selecting the live revision views the live state (null).
-    if (revision?.id === liveRevision?.id) {
-      onSelectRevision(null);
-    } else {
-      onSelectRevision(revision);
-    }
-  };
-
   return (
-    <SharedRevisionDropdown
-      rows={rows}
-      selectedKey={effectiveSelectedId}
-      onSelect={handleSelect}
-      toggles={toggles}
-      selectedBadge={
-        selectedRevision
-          ? getStatusBadge(
-              selectedRevision.id === liveRevision?.id
-                ? "live"
-                : selectedRevision.status,
-            )
-          : undefined
-      }
-      triggerPlaceholder="Select revision"
-      triggerNumbered={false}
+    <RevisionDropdown
+      entityId={savedGroupId}
+      allRevisions={allRevisions}
+      selectedRevisionId={selectedRevisionId}
+      onSelectRevision={onSelectRevision}
+      draftsOnly={draftsOnly}
       context={context}
-      menuPlacement="end"
     />
   );
 }

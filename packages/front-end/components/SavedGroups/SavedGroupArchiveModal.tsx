@@ -164,7 +164,6 @@ export default function SavedGroupArchiveModal({
             selectedRevisionId={selectedDraftId}
             onSelectRevision={(rev) => setSelectedDraftId(rev?.id ?? null)}
             draftsOnly
-            requiresApproval={false}
           />
         }
       />

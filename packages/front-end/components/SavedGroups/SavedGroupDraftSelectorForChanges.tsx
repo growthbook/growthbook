@@ -73,7 +73,6 @@ export default function SavedGroupDraftSelectorForChanges({
       selectedRevisionId={selectedDraftId}
       onSelectRevision={(rev) => setSelectedDraftId(rev?.id ?? null)}
       draftsOnly
-      requiresApproval={false}
     />
   );
 
