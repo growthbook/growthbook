@@ -18,12 +18,16 @@ import {
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 
 export async function postExperimentLaunchChecklist(
-  req: AuthRequest<{ tasks: ChecklistTask[]; projectId?: string }>,
+  req: AuthRequest<{
+    tasks: ChecklistTask[];
+    projectId?: string;
+    hideDefaultTasks?: boolean;
+  }>,
   res: Response,
 ) {
   const context = getContextFromReq(req);
   const { org, userId } = context;
-  const { tasks, projectId } = req.body;
+  const { tasks, projectId, hideDefaultTasks } = req.body;
 
   if (!orgHasPremiumFeature(org, "custom-launch-checklist")) {
     context.throwPlanDoesNotAllowError(
@@ -68,6 +72,7 @@ export async function postExperimentLaunchChecklist(
     userId,
     tasks,
     projectId || "",
+    hideDefaultTasks,
   );
 
   return res.status(200).json({
@@ -150,12 +155,15 @@ export async function getExperimentCheckList(
 }
 
 export async function putExperimentLaunchChecklist(
-  req: AuthRequest<{ tasks: ChecklistTask[] }, { id: string }>,
+  req: AuthRequest<
+    { tasks: ChecklistTask[]; hideDefaultTasks?: boolean },
+    { id: string }
+  >,
   res: Response,
 ) {
   const context = getContextFromReq(req);
   const { org, userId } = context;
-  const { tasks } = req.body;
+  const { tasks, hideDefaultTasks } = req.body;
 
   const { id } = req.params;
 
@@ -186,7 +194,13 @@ export async function putExperimentLaunchChecklist(
     }
   }
 
-  await updateExperimentLaunchChecklist(org.id, userId, id, tasks);
+  await updateExperimentLaunchChecklist(
+    org.id,
+    userId,
+    id,
+    tasks,
+    hideDefaultTasks,
+  );
 
   return res.status(200).json({
     status: 200,
