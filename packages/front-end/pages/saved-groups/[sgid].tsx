@@ -17,6 +17,7 @@ import { isIdListSupportedAttribute } from "shared/util";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import Link from "@/ui/Link";
 import Field from "@/components/Forms/Field";
+import Markdown from "@/components/Markdown/Markdown";
 import PageHead from "@/components/Layout/PageHead";
 import Pagination from "@/components/Pagination";
 import Frame from "@/ui/Frame";
@@ -271,6 +272,9 @@ export default function EditSavedGroupPage() {
   const valuesPage = sortedValues.slice(start, end);
   const { user } = useUser();
   const permissionsUtil = usePermissionsUtil();
+  const canUpdate = savedGroup
+    ? permissionsUtil.canUpdateSavedGroup(savedGroup, savedGroup)
+    : false;
 
   const canAdminPublish =
     !!approvalRequired &&
@@ -923,6 +927,7 @@ export default function EditSavedGroupPage() {
               allRevisions={allRevisions}
               selectedRevisionId={selectedRevisionId}
               onSelectRevision={selectFlow}
+              requiresApproval={approvalRequired}
               context="header"
             />
             <DropdownMenu
@@ -1128,9 +1133,9 @@ export default function EditSavedGroupPage() {
               </Flex>
             </Flex>
             {displayedSavedGroup?.description && (
-              <Text as="p" mb="3">
-                {displayedSavedGroup.description}
-              </Text>
+              <Box mb="3">
+                <Markdown>{displayedSavedGroup.description}</Markdown>
+              </Box>
             )}
             {savedGroup.type === "list" &&
               !isIdListSupportedAttribute(attr) && (
@@ -1149,8 +1154,8 @@ export default function EditSavedGroupPage() {
               selectedRevision={selectedRevision}
               entityNoun="saved group"
               hasRevisions={hasRevisions}
-              metadataReviewRequired={metadataReviewRequired}
-              currentUserId={user?.id}
+              canEditTitle={canUpdate}
+              canEditDescription={canUpdate}
               fallbackOwnerId={savedGroup.owner}
               fallbackDateCreated={savedGroup.dateCreated}
               onSelectRevision={selectFlow}

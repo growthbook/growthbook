@@ -888,12 +888,15 @@ export default function ReviewAndPublish({
     const lockEdits = !!revision.scheduledPublishLockEdits;
     const lockOthers = !!revision.scheduledPublishLockOthers;
     const hasLocks = lockEdits || lockOthers;
+    // Entity-agnostic, explicit wording shared with ScheduledPublishControl so
+    // both surfaces read identically: lockEdits freezes this draft's edits,
+    // lockOthers freezes publishing of the feature's other drafts.
     const lockTargets =
       lockOthers && lockEdits
-        ? "feature and draft"
+        ? "this draft and other drafts of this feature"
         : lockOthers
-          ? "feature"
-          : "draft";
+          ? "other drafts of this feature"
+          : "this draft";
     return (
       <NoticeBanner
         icon={<PiClockFill />}

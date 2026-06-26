@@ -57,6 +57,7 @@ import ConstantValueModal from "@/components/Constants/ConstantValueModal";
 import ConstantArchiveModal from "@/components/Constants/ConstantArchiveModal";
 import ConstantReferencesList from "@/components/Constants/ConstantReferencesList";
 import CompareRevisionsModal from "@/components/Revision/CompareRevisionsModal";
+import ConstantRevertModal from "@/components/Constants/ConstantRevertModal";
 import EditRevisionDescriptionModal from "@/components/Reviews/EditRevisionDescriptionModal";
 import ReferencesLink from "@/components/References/ReferencesLink";
 import { useConstantReferences } from "@/hooks/useConstantReferences";
@@ -108,7 +109,7 @@ export default function ConstantDetailPage(): React.ReactElement {
 
   const { apiCall } = useAuth();
   const { projects, mutateDefinitions } = useDefinitions();
-  const { organization, userId, hasCommercialFeature } = useUser();
+  const { organization, hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
 
   const [editInfoOpen, setEditInfoOpen] = useState(false);
@@ -119,6 +120,10 @@ export default function ConstantDetailPage(): React.ReactElement {
   const [showAuditModal, setShowAuditModal] = useState(false);
   const [showReferencesModal, setShowReferencesModal] = useState(false);
   const [compareOpen, setCompareOpen] = useState(false);
+  const [confirmRevert, setConfirmRevert] = useState(false);
+  const [revisionToRevert, setRevisionToRevert] = useState<Revision | null>(
+    null,
+  );
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -192,6 +197,7 @@ export default function ConstantDetailPage(): React.ReactElement {
     (references?.features.length ?? 0) + (references?.constants.length ?? 0);
 
   const settings = organization.settings || {};
+  const revertsBypassApproval = !!settings.revertsBypassApproval;
   const hasApprovalsFeature = hasCommercialFeature("require-approvals");
 
   // Constants inherit the feature `requireReviews` settings (drop-in for feature
@@ -450,8 +456,8 @@ export default function ConstantDetailPage(): React.ReactElement {
               selectedRevision={selectedRevision}
               entityNoun="constant"
               hasRevisions={allRevisions.length > 0}
-              metadataReviewRequired={metadataReviewRequired}
-              currentUserId={userId}
+              canEditTitle={canUpdate}
+              canEditDescription={canUpdate}
               fallbackOwnerId={constant.owner}
               fallbackDateCreated={constant.dateCreated}
               onSelectRevision={selectRevision}
@@ -527,6 +533,10 @@ export default function ConstantDetailPage(): React.ReactElement {
             onPublish={handlePublish}
             onDiscard={handleDiscard}
             onReopen={handleReopen}
+            onRevert={(rev) => {
+              setRevisionToRevert(rev);
+              setConfirmRevert(true);
+            }}
             onCompareRevisions={
               allRevisions.length >= 2 ? () => setCompareOpen(true) : undefined
             }
@@ -587,6 +597,27 @@ export default function ConstantDetailPage(): React.ReactElement {
           onSaved={onRevisionCreated}
           selectFlow={selectRevision}
           close={() => setShowArchiveModal(false)}
+        />
+      )}
+
+      {confirmRevert && revisionToRevert && (
+        <ConstantRevertModal
+          constant={constant}
+          revision={revisionToRevert}
+          allRevisions={allRevisions}
+          diffConfig={REVISION_CONSTANT_DIFF_CONFIG}
+          revertsBypassApproval={revertsBypassApproval}
+          approvalRequired={approvalRequired}
+          canBypassApproval={canBypassApproval}
+          close={() => {
+            setConfirmRevert(false);
+            setRevisionToRevert(null);
+          }}
+          onRevisionCreated={async (rev) => {
+            await onRevisionCreated(rev);
+            setConfirmRevert(false);
+            setRevisionToRevert(null);
+          }}
         />
       )}
 

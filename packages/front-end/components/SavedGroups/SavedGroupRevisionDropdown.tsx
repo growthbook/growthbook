@@ -6,6 +6,7 @@ export interface Props {
   allRevisions: Revision[];
   selectedRevisionId: string | null;
   onSelectRevision: (revision: Revision | null) => void;
+  requiresApproval?: boolean;
   draftsOnly?: boolean;
   context?: "header";
 }
@@ -19,6 +20,7 @@ export default function SavedGroupRevisionDropdown({
   allRevisions,
   selectedRevisionId,
   onSelectRevision,
+  requiresApproval,
   draftsOnly,
   context,
 }: Props) {
@@ -28,6 +30,7 @@ export default function SavedGroupRevisionDropdown({
       allRevisions={allRevisions}
       selectedRevisionId={selectedRevisionId}
       onSelectRevision={onSelectRevision}
+      requiresApproval={requiresApproval}
       draftsOnly={draftsOnly}
       context={context}
     />

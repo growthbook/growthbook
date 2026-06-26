@@ -190,14 +190,17 @@ export default function ScheduledPublishControl({
     !requiresApproval ||
     (canBypassScheduleApproval && bypass);
 
-  // Lock-target wording mirrors the feature card ("feature and draft"), with the
-  // entity noun substituted: lockOthers = the whole {entityNoun}, lockEdits = this draft.
+  // Lock-target wording: entity-agnostic and explicit about what each lock
+  // covers — lockEdits freezes this draft's edits, lockOthers freezes publishing
+  // of the other drafts of this {entityNoun}. Single source of truth for both the
+  // feature flow and the generic revision flow.
   const lockTargets = (() => {
     const lockEdits = !!revision.scheduledPublishLockEdits;
     const lockOthers = !!revision.scheduledPublishLockOthers;
-    if (lockOthers && lockEdits) return `${entityNoun} and draft`;
-    if (lockOthers) return entityNoun;
-    if (lockEdits) return "draft";
+    if (lockOthers && lockEdits)
+      return `this draft and other drafts of this ${entityNoun}`;
+    if (lockOthers) return `other drafts of this ${entityNoun}`;
+    if (lockEdits) return "this draft";
     return "";
   })();
 

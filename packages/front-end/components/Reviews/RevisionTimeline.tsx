@@ -483,6 +483,14 @@ export function RevisionLogRow({
             on {datetime(log.timestamp)}
           </Text>
         </Text>
+        {retraction && (
+          <Badge
+            color="gray"
+            variant="solid"
+            label={retraction.label}
+            size="xs"
+          />
+        )}
         {showDetails && (
           <Button
             variant="ghost"

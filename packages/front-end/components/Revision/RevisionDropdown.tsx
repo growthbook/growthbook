@@ -33,6 +33,7 @@ export default function RevisionDropdown({
   allRevisions,
   selectedRevisionId,
   onSelectRevision,
+  requiresApproval = true,
   draftsOnly = false,
   context,
 }: RevisionDropdownProps) {
@@ -103,7 +104,7 @@ export default function RevisionDropdown({
       version: revisionNumberById.get(r.id) ?? 1,
       title: r.title,
       meta: buildMeta(r),
-      badge: getStatusBadge(isLive ? "live" : r.status),
+      badge: getStatusBadge(isLive ? "live" : r.status, requiresApproval),
     };
   });
 
@@ -151,6 +152,7 @@ export default function RevisionDropdown({
               selectedRevision.id === liveRevision?.id
                 ? "live"
                 : selectedRevision.status,
+              requiresApproval,
             )
           : undefined
       }

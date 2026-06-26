@@ -1,20 +1,27 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Revision } from "shared/enterprise";
+import {
+  Revision,
+  isScheduledPublishPending,
+  isScheduledPublishLockActive,
+} from "shared/enterprise";
 import { datetime, ago } from "shared/dates";
 import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";
 import {
   PiPencil,
   PiProhibit,
   PiLockSimple,
+  PiClockFill,
   PiPencilSimpleFill,
   PiArrowRightBold,
 } from "react-icons/pi";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
 import Frame from "@/ui/Frame";
-import Link from "@/ui/Link";
-import Markdown from "@/components/Markdown/Markdown";
 import CoAuthorsList from "@/components/Reviews/CoAuthorsList";
+import InlineRevisionDescription from "@/components/Reviews/InlineRevisionDescription";
+import RevisionLabel, {
+  revisionLabelText,
+} from "@/components/Reviews/RevisionLabel";
 import Field from "@/components/Forms/Field";
 import Metadata from "@/ui/Metadata";
 import EventUser from "@/components/Avatar/EventUser";
@@ -32,8 +39,11 @@ export interface RevisionSummaryCardProps {
   // Singular entity noun for banner copy, e.g. "saved group" / "constant".
   entityNoun: string;
   hasRevisions: boolean;
-  metadataReviewRequired: boolean;
-  currentUserId?: string;
+  // Whether the viewer may edit a draft revision's title/description. Gated by
+  // the entity's update permission (NOT by draft authorship); `isDraft` still
+  // applies so only drafts are editable.
+  canEditTitle: boolean;
+  canEditDescription: boolean;
   // Used for the "Created by" / "Created" fields before any real revision exists.
   fallbackOwnerId: string;
   fallbackDateCreated: Date;
@@ -54,8 +64,8 @@ export default function RevisionSummaryCard({
   selectedRevision,
   entityNoun,
   hasRevisions,
-  metadataReviewRequired,
-  currentUserId,
+  canEditTitle: canEditTitleProp,
+  canEditDescription: canEditDescriptionProp,
   fallbackOwnerId,
   fallbackDateCreated,
   onSelectRevision,
@@ -112,8 +122,6 @@ export default function RevisionSummaryCard({
     setTitleDraft(selectedRevision?.title || "");
   }, [selectedRevision?.id, selectedRevision?.title]);
 
-  const [commentExpanded, setCommentExpanded] = useState(false);
-
   const commitTitleEdit = async () => {
     if (!selectedRevision) return;
     setEditingTitle(false);
@@ -123,8 +131,7 @@ export default function RevisionSummaryCard({
     }
   };
 
-  const canEditTitle =
-    isDraft && !!currentUserId && selectedRevision?.authorId === currentUserId;
+  const canEditTitle = isDraft && canEditTitleProp;
 
   const activeDrafts = useMemo(
     () =>
@@ -138,19 +145,61 @@ export default function RevisionSummaryCard({
     [allRevisions],
   );
 
+  const isPendingReview =
+    status === "pending-review" || status === "changes-requested";
+  const scheduledPublishPending =
+    !!selectedRevision && isScheduledPublishPending(selectedRevision);
+
   const bannerProps = isDraft
-    ? {
-        icon: <PiPencil size={18} />,
-        color: "var(--amber-11)",
-        bgColor: "var(--amber-a3)",
-        message: (
-          <>
-            Viewing a <strong>draft</strong> — changes will not go live until
-            published
-          </>
-        ),
-      }
-    : metadataReviewRequired && isDiscarded
+    ? scheduledPublishPending && selectedRevision
+      ? (() => {
+          // Mirrors a ramp lockdown, naming the target date. Locks engage only
+          // once approved; while in review we say "once approved" and omit the
+          // lock clauses (editing stays open).
+          const lockActive = isScheduledPublishLockActive(selectedRevision);
+          const awaitingApproval = isPendingReview;
+          const lockEditsActive =
+            lockActive && !!selectedRevision.scheduledPublishLockEdits;
+          const lockOthersActive =
+            lockActive && !!selectedRevision.scheduledPublishLockOthers;
+          const lockClauses = [
+            lockEditsActive ? "edits are locked" : null,
+            lockOthersActive ? "publishing other drafts is locked" : null,
+          ].filter((c): c is string => c !== null);
+          return {
+            icon: lockClauses.length ? (
+              <PiLockSimple size={18} />
+            ) : (
+              <PiClockFill size={18} />
+            ),
+            color: "var(--amber-11)",
+            bgColor: "var(--amber-a3)",
+            message: (
+              <>
+                This <strong>draft</strong> is scheduled to publish on{" "}
+                <strong>
+                  {datetime(selectedRevision.scheduledPublishAt as Date)}
+                </strong>
+                {awaitingApproval ? " once approved" : ""}
+                {lockClauses.length ? ` — ${lockClauses.join(" and ")}` : ""}
+              </>
+            ),
+          };
+        })()
+      : {
+          icon: <PiPencil size={18} />,
+          color: "var(--amber-11)",
+          bgColor: "var(--amber-a3)",
+          message: (
+            <>
+              Viewing a <strong>draft</strong> —{" "}
+              {isPendingReview
+                ? "changes will not go live until approved and published"
+                : "changes will not go live until published"}
+            </>
+          ),
+        }
+    : isDiscarded
       ? {
           icon: <PiProhibit size={18} />,
           color: "var(--gray-11)",
@@ -162,7 +211,7 @@ export default function RevisionSummaryCard({
             </>
           ),
         }
-      : metadataReviewRequired && isMerged
+      : isMerged
         ? {
             icon: <PiLockSimple size={18} />,
             color: "var(--gray-11)",
@@ -320,11 +369,16 @@ export default function RevisionSummaryCard({
                     <Text weight="semibold" size="large">
                       <OverflowText
                         maxWidth={250}
-                        title={
-                          displayRevision?.title || `Revision ${revisionNumber}`
-                        }
+                        title={revisionLabelText(
+                          revisionNumber,
+                          displayRevision?.title,
+                        )}
                       >
-                        {displayRevision?.title || `Revision ${revisionNumber}`}
+                        <RevisionLabel
+                          version={revisionNumber}
+                          title={displayRevision?.title}
+                          numbered={false}
+                        />
                       </OverflowText>
                     </Text>
                   )}
@@ -434,78 +488,13 @@ export default function RevisionSummaryCard({
               if (coAuthorIds.length === 0) return null;
               return <CoAuthorsList coAuthorIds={coAuthorIds} mt="3" mb="3" />;
             })()}
-          {hasRevisions &&
-            displayRevision &&
-            (() => {
-              const canEditDescription =
-                !!isDraft && displayRevision.authorId === currentUserId;
-              const editDescriptionButton =
-                canEditDescription && onEditDescription ? (
-                  <IconButton
-                    variant="ghost"
-                    color="violet"
-                    size="2"
-                    radius="full"
-                    onClick={onEditDescription}
-                    style={{
-                      flexShrink: 0,
-                      marginTop: -2,
-                      marginBottom: -2,
-                      marginLeft: 4,
-                      marginRight: 0,
-                    }}
-                  >
-                    <PiPencilSimpleFill />
-                  </IconButton>
-                ) : null;
-              return (
-                <Flex align="start" gap="2" style={{ width: "fit-content" }}>
-                  <Text weight="semibold" color="text-high">
-                    Revision description:
-                  </Text>{" "}
-                  {displayRevision.comment ? (
-                    <Flex align="start" gap="1">
-                      <Box>
-                        <Box
-                          style={
-                            !commentExpanded
-                              ? {
-                                  display: "-webkit-box",
-                                  WebkitLineClamp: 2,
-                                  WebkitBoxOrient: "vertical",
-                                  overflow: "hidden",
-                                }
-                              : undefined
-                          }
-                        >
-                          <Markdown className="speech-bubble" highlightCode>
-                            {displayRevision.comment}
-                          </Markdown>
-                        </Box>
-                        {displayRevision.comment.length > 80 && (
-                          <Box mt={commentExpanded ? "1" : "0"}>
-                            <Link
-                              onClick={() => setCommentExpanded((v) => !v)}
-                              style={{ whiteSpace: "nowrap" }}
-                            >
-                              {commentExpanded ? "show less" : "show more"}
-                            </Link>
-                          </Box>
-                        )}
-                      </Box>
-                      {editDescriptionButton}
-                    </Flex>
-                  ) : (
-                    <>
-                      <Text as="span" color="text-mid">
-                        none
-                      </Text>
-                      {editDescriptionButton}
-                    </>
-                  )}
-                </Flex>
-              );
-            })()}
+          {hasRevisions && displayRevision && (
+            <InlineRevisionDescription
+              comment={displayRevision.comment}
+              canEdit={!!isDraft && canEditDescriptionProp}
+              onEdit={onEditDescription}
+            />
+          )}
         </Flex>
       </Frame>
     </>

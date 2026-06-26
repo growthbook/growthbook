@@ -40089,6 +40089,8 @@ components:
             - approved
             - requested-changes
             - commented
+            - review-requested
+            - review-retracted
             - merged
             - discarded
             - reopened
@@ -40448,6 +40450,8 @@ components:
             - approved
             - requested-changes
             - commented
+            - review-requested
+            - review-retracted
             - merged
             - discarded
             - reopened

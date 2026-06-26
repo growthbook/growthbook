@@ -178,7 +178,7 @@ export function DiffFormatToggle({
 // Height-capped wrapper with a fade-out and a "Show more"/"Show less" toggle
 // (same affordance as the Notes panel). Only collapses when the content
 // actually overflows; a ResizeObserver re-checks as content reflows.
-function CollapsedSection({
+export function CollapsedSection({
   maxHeight,
   children,
 }: {
@@ -1451,7 +1451,7 @@ export function RevisionCommentSection({
 }
 
 // Section-title humanizer shared by the formatted render.
-function formatSectionTitle(title: string): string {
+export function formatSectionTitle(title: string): string {
   if (title === "Default Value") return "Default value";
   if (title.startsWith("Rules - ")) {
     const env = title.slice("Rules - ".length);
@@ -1460,17 +1460,28 @@ function formatSectionTitle(title: string): string {
   return title;
 }
 
+// Minimal section shape the formatted render needs. Both the feature
+// (FeatureRevisionDiff) and the generic (DiffItem-derived) flows produce this,
+// so FormattedChanges is entity-agnostic and shared across both surfaces.
+export type FormattedChangeItem = {
+  title: string;
+  a: string;
+  b: string;
+  customRender?: React.ReactNode;
+  titleSuffix?: React.ReactNode;
+};
+
 // The human-readable "Formatted changes" view: one card per changed section
 // using its rich customRender, falling back to a JSON diff when a section has
 // no human render. Extracted so it can be rendered both visibly and in a hidden
 // node whose innerText powers the "Copy as → Formatted changes" action.
 // `jsonFallback={false}` (the review Conversation tab) swaps that fallback for a
 // link to the Changes tab, keeping this view strictly human-readable.
-function FormattedChanges({
+export function FormattedChanges({
   diffs,
   jsonFallback = true,
 }: {
-  diffs: FeatureRevisionDiff[];
+  diffs: FormattedChangeItem[];
   jsonFallback?: boolean;
 }) {
   return (

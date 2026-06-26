@@ -26,6 +26,13 @@ const VALID_ACTIVITY_LOG_ACTIONS: ReadonlySet<ActivityLogEntry["action"]> =
 
 export const COLLECTION_NAME = "revisions";
 
+// Activity actions that start a new review cycle, invalidating any prior
+// verdicts: submit-for-review, recall, approval-reset-on-edit, and reopen all
+// log one of these. Verdicts dated before the most recent such entry are
+// history, not active approvals/blocks.
+const REVIEW_CYCLE_START_ACTIONS: ReadonlySet<ActivityLogEntry["action"]> =
+  new Set(["reopened", "review-requested"]);
+
 // Name of the partial-unique index that enforces "at most one armed lock-others
 // schedule per entity" (see additionalIndexes below). Used to recognize the
 // duplicate-key error it raises.
@@ -648,12 +655,11 @@ export class RevisionModel extends BaseClass {
         {
           id: uniqid("act_"),
           userId,
-          // "reopened" is the closest semantic match in the existing action
-          // enum for "transitioned back into review". Using "created" here
-          // surfaces a confusing "created" row in the timeline. If a
-          // dedicated "submitted" action is added to the enum later, swap
-          // this over.
-          action: "reopened",
+          // Dedicated action so the timeline renders a "Review Requested" event
+          // (mirrors FeatureRevisionModel.markRevisionAsReviewRequested) rather
+          // than a confusing "reopened"/"created" row. Recognized as a review
+          // cycle-start marker by addReview/undoReview.
+          action: "review-requested",
           description: "Submitted for review",
           dateCreated: new Date(),
         },
@@ -730,12 +736,12 @@ export class RevisionModel extends BaseClass {
 
         // Verdicts only stand for the current review cycle. Transitions that
         // invalidate prior verdicts (submit for review, approval reset on
-        // content edit, reopen) log a "reopened" activity entry, so reviews
+        // content edit, reopen) log a cycle-start activity entry, so reviews
         // before the latest one are history, not active approvals/blocks.
         let cycleStart: Date | null = null;
         for (const entry of existing.activityLog) {
           if (
-            entry.action === "reopened" &&
+            REVIEW_CYCLE_START_ACTIONS.has(entry.action) &&
             (cycleStart === null || entry.dateCreated > cycleStart)
           ) {
             cycleStart = entry.dateCreated;
@@ -856,18 +862,11 @@ export class RevisionModel extends BaseClass {
   /**
    * Retract the calling user's own active verdict in the current review cycle.
    * Unlike recall, this must NOT reset the cycle — other reviewers' verdicts
-   * survive — so it logs an "updated" entry (never "reopened") and recomputes
-   * status from the remaining active verdicts. CAS-guarded like addReview.
+   * survive — so it logs a "review-retracted" entry (not a cycle-start action)
+   * and recomputes status from the remaining active verdicts. CAS-guarded like
+   * addReview.
    */
   async undoReview(id: string, userId: string) {
-    const activityEntry: ActivityLogEntry = {
-      id: uniqid("act_"),
-      userId,
-      action: "updated",
-      description: "Retracted review",
-      dateCreated: new Date(),
-    };
-
     const updated = await this.updateWithCas(
       id,
       ["reviews", "status", "activityLog"],
@@ -884,7 +883,7 @@ export class RevisionModel extends BaseClass {
         let cycleStart: Date | null = null;
         for (const entry of existing.activityLog) {
           if (
-            entry.action === "reopened" &&
+            REVIEW_CYCLE_START_ACTIONS.has(entry.action) &&
             (cycleStart === null || entry.dateCreated > cycleStart)
           ) {
             cycleStart = entry.dateCreated;
@@ -901,9 +900,35 @@ export class RevisionModel extends BaseClass {
           throw new Error("You have no active review verdict to retract");
         }
 
+        // The verdict(s) being retracted — kept only to record their decision
+        // in the activity entry below (the timeline reconstructs a muted
+        // "Retracted" verdict card from it, mirroring how features soft-retain
+        // the verdict log entry).
+        const retracted = existing.reviews.filter(isCallerVerdict);
+
         // Drop the caller's active verdict(s); keep comments and other
         // reviewers' verdicts.
         const newReviews = existing.reviews.filter((r) => !isCallerVerdict(r));
+
+        // Build inside the closure so a CAS retry re-derives the decision from
+        // the (re-read) reviews rather than reusing a stale one. The retracted
+        // decision + original timestamp are encoded so the timeline can render
+        // the original verdict card with a "Retracted" badge even though the
+        // verdict is no longer in reviews[].
+        const retractedVerdict = retracted[retracted.length - 1];
+        const activityEntry: ActivityLogEntry = {
+          id: uniqid("act_"),
+          userId,
+          action: "review-retracted",
+          description: JSON.stringify({
+            decision: retractedVerdict?.decision,
+            verdictDate: retractedVerdict?.dateCreated.toISOString(),
+            ...(retractedVerdict?.comment
+              ? { comment: retractedVerdict.comment }
+              : {}),
+          }),
+          dateCreated: new Date(),
+        };
 
         // Recompute status from the remaining active verdicts.
         const verdictByReviewer = new Map<string, ReviewDecision>();

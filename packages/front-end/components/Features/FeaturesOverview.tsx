@@ -73,6 +73,7 @@ import {
   useFeatureUsage,
 } from "@/components/Features/FeatureUsageGraph";
 import EditRevisionDescriptionModal from "@/components/Reviews/EditRevisionDescriptionModal";
+import InlineRevisionDescription from "@/components/Reviews/InlineRevisionDescription";
 import RevisionStatusBadge from "@/components/Reviews/RevisionStatusBadge";
 import RevisionLabel, {
   revisionLabelText,
@@ -249,10 +250,6 @@ export default function FeaturesOverview({
   const permissionsUtil = usePermissionsUtil();
 
   const [editCommentModel, setEditCommentModal] = useState(false);
-  const [commentExpanded, setCommentExpanded] = useState(false);
-  useEffect(() => {
-    setCommentExpanded(false);
-  }, [revision?.version]);
   const [showDescriptionModal, setShowDescriptionModal] = useState(false);
   const [killSwitchTarget, setKillSwitchTarget] = useState<{
     envId?: string;
@@ -619,83 +616,11 @@ export default function FeaturesOverview({
           </Flex>
         </Flex>
         <CoAuthors rev={revision} mt="3" mb="3" />
-        <Flex align="start" gap="2" style={{ width: "fit-content" }}>
-          <Text weight="semibold" color="text-high">
-            Revision description:
-          </Text>{" "}
-          {revision.comment ? (
-            <Flex align="start" gap="1">
-              <Box>
-                <Box
-                  style={
-                    !commentExpanded
-                      ? {
-                          display: "-webkit-box",
-                          WebkitLineClamp: 2,
-                          WebkitBoxOrient: "vertical",
-                          overflow: "hidden",
-                        }
-                      : undefined
-                  }
-                >
-                  <Markdown className="speech-bubble">
-                    {revision.comment}
-                  </Markdown>
-                </Box>
-                {revision.comment.length > 80 && (
-                  <Box mt={commentExpanded ? "1" : "0"}>
-                    <Link
-                      onClick={() => setCommentExpanded((v) => !v)}
-                      style={{ whiteSpace: "nowrap" }}
-                    >
-                      {commentExpanded ? "show less" : "show more"}
-                    </Link>
-                  </Box>
-                )}
-              </Box>
-              {canEditDrafts && (
-                <IconButton
-                  variant="ghost"
-                  color="violet"
-                  size="2"
-                  radius="full"
-                  onClick={() => setEditCommentModal(true)}
-                  style={{
-                    flexShrink: 0,
-                    marginTop: -2,
-                    marginBottom: -2,
-                    marginLeft: 4,
-                    marginRight: 0,
-                  }}
-                >
-                  <PiPencilSimpleFill />
-                </IconButton>
-              )}
-            </Flex>
-          ) : (
-            <>
-              <em style={{ color: "var(--color-text-mid)" }}>none</em>
-              {canEditDrafts && (
-                <IconButton
-                  variant="ghost"
-                  color="violet"
-                  size="2"
-                  radius="full"
-                  onClick={() => setEditCommentModal(true)}
-                  style={{
-                    flexShrink: 0,
-                    marginTop: -2,
-                    marginBottom: -2,
-                    marginLeft: 4,
-                    marginRight: 0,
-                  }}
-                >
-                  <PiPencilSimpleFill />
-                </IconButton>
-              )}
-            </>
-          )}
-        </Flex>
+        <InlineRevisionDescription
+          comment={revision.comment}
+          canEdit={canEditDrafts}
+          onEdit={() => setEditCommentModal(true)}
+        />
       </Flex>
     );
   };

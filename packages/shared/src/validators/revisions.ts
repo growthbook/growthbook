@@ -71,6 +71,15 @@ export const activityLogEntryValidator = z.object({
     "approved",
     "requested-changes",
     "commented",
+    // Author submitted (or re-submitted) the revision for review. Starts a new
+    // review cycle, invalidating any prior verdicts. Distinct from "reopened"
+    // (which returns a revision to draft) so the timeline can render it as a
+    // dedicated "Review Requested" event.
+    "review-requested",
+    // A reviewer retracted their own verdict via undo-review. The verdict is
+    // removed from reviews[], so this entry preserves a visible trace (and the
+    // retracted decision) for the timeline. Does NOT reset the review cycle.
+    "review-retracted",
     "merged",
     "discarded",
     "reopened",

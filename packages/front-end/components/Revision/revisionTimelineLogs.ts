@@ -16,6 +16,7 @@ const ACTIVITY_ACTION_MAP: Record<string, string> = {
   merged: "publish",
   discarded: "discard",
   reopened: "reopen",
+  "review-requested": "Review Requested",
   "scheduled-publish": "schedule publish",
   "scheduled-publish-updated": "update scheduled publish",
   "scheduled-publish-canceled": "cancel scheduled publish",
@@ -28,6 +29,43 @@ const REVIEW_DUPLICATE_ACTIONS = new Set([
   "approved",
   "requested-changes",
 ]);
+
+// Shape encoded into a "review-retracted" activity entry's description by the
+// backend (RevisionModel.undoReview). The verdict is hard-deleted from
+// reviews[], so the timeline reconstructs the original verdict card + a follow
+// -up "Undo Review" marker from this so the shared retraction scan can render
+// the muted "Retracted" badge (parity with feature soft-retain).
+type RetractedVerdictPayload = {
+  decision?: "approve" | "request-changes" | "comment";
+  verdictDate?: string;
+  comment?: string;
+};
+
+function parseRetractedVerdict(
+  description: string | null | undefined,
+): RetractedVerdictPayload | null {
+  if (!description) return null;
+  try {
+    const parsed: unknown = JSON.parse(description);
+    if (typeof parsed !== "object" || parsed === null) return null;
+    const { decision, verdictDate, comment } = parsed as Record<
+      string,
+      unknown
+    >;
+    return {
+      decision:
+        decision === "approve" ||
+        decision === "request-changes" ||
+        decision === "comment"
+          ? decision
+          : undefined,
+      verdictDate: typeof verdictDate === "string" ? verdictDate : undefined,
+      comment: typeof comment === "string" ? comment : undefined,
+    };
+  } catch {
+    return null;
+  }
+}
 
 export function revisionTimelineLogs(
   revision: Revision,
@@ -68,6 +106,43 @@ export function revisionTimelineLogs(
 
   for (const a of revision.activityLog) {
     if (REVIEW_DUPLICATE_ACTIONS.has(a.action)) continue;
+
+    // A retracted verdict: hard-deleted from reviews[], so reconstruct the
+    // original verdict row (so the shared scan can mark it "Retracted") plus
+    // the "Undo Review" marker the scan looks for.
+    if (a.action === "review-retracted") {
+      const payload = parseRetractedVerdict(a.description);
+      const verdictAction =
+        payload?.decision === "approve"
+          ? "Approved"
+          : payload?.decision === "request-changes"
+            ? "Requested Changes"
+            : null;
+      if (verdictAction && payload?.verdictDate) {
+        // Rendered inline (no comment body) so it never offers an Edit/Delete
+        // affordance pointing at a now-deleted reviews[] entry. The shared
+        // retraction scan still pairs it with the "Undo Review" row below to
+        // mark it "Retracted".
+        logs.push({
+          id: `${a.id}-verdict`,
+          user: toUser(a.userId),
+          timestamp: iso(payload.verdictDate),
+          action: verdictAction,
+          subject: "",
+          value: "",
+        });
+      }
+      logs.push({
+        id: a.id,
+        user: toUser(a.userId),
+        timestamp: iso(a.dateCreated),
+        action: "Undo Review",
+        subject: "",
+        value: "",
+      });
+      continue;
+    }
+
     const action = ACTIVITY_ACTION_MAP[a.action];
     if (!action) continue;
     logs.push({

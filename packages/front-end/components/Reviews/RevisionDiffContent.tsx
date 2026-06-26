@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import Text from "@/ui/Text";
 import {
@@ -5,10 +6,13 @@ import {
   DiffCommentsProps,
   DiffFormatToggle,
   CopyAsButton,
+  FormattedChanges,
   useDiffFormat,
   stringifyForRawDiff,
   type DiffFormat,
+  type FormattedChangeItem,
 } from "@/components/Reviews/Feature/RevisionDiffUtils";
+import { capitalizeFirstLetter } from "@/services/utils";
 import { COMPACT_DIFF_STYLES } from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
 import { DiffItem } from "@/components/Revision/useRevisionDiff";
 import { diffSectionAnchorKey } from "@/components/Revision/RevisionDiff";
@@ -65,6 +69,18 @@ export function RevisionDiffContent({
     a: d.a,
     b: d.b,
   }));
+  // FormattedChanges shape for the offscreen render that powers "Copy as →
+  // Formatted changes" (matches the feature flow's exact on-screen rich text).
+  const formattedItems: FormattedChangeItem[] = diffsWithChanges.map((d) => ({
+    title: d.label,
+    a: d.a,
+    b: d.b,
+    customRender: d.customRender ?? null,
+  }));
+
+  // Always-mounted, offscreen copy of the formatted render so "Copy as →
+  // Formatted changes" reads its innerText regardless of the active view.
+  const formattedRef = useRef<HTMLDivElement>(null);
 
   if (diffsWithChanges.length === 0) {
     return (
@@ -92,15 +108,35 @@ export function RevisionDiffContent({
                 entityNoun={entityNoun}
                 diffs={copyDiffs}
                 raw={raw}
+                formattedRef={formattedRef}
               />
             </Box>
           )}
         </Flex>
       )}
 
+      {/* Offscreen render used purely as the source for "Copy as → Formatted
+          changes" innerText; kept mounted in every view (mirrors the feature
+          DiffContent). */}
+      {showCopyAs && (
+        <Box
+          ref={formattedRef}
+          aria-hidden
+          style={{
+            position: "absolute",
+            left: -99999,
+            top: 0,
+            width: 800,
+            pointerEvents: "none",
+          }}
+        >
+          <FormattedChanges diffs={formattedItems} />
+        </Box>
+      )}
+
       {effective === "raw" && raw ? (
         <ExpandableDiff
-          title={raw.title ?? "Full revision"}
+          title={raw.title ?? `${capitalizeFirstLetter(entityNoun)} revision`}
           a={stringifyForRawDiff(raw.before)}
           b={stringifyForRawDiff(raw.after)}
           defaultOpen={true}

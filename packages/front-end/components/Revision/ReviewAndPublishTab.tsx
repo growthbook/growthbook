@@ -13,7 +13,7 @@ import {
 import type { PublishGovernanceResult } from "shared/util";
 import { datetime } from "shared/dates";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import { PiCaretDownBold, PiGitMergeBold } from "react-icons/pi";
+import { PiCaretDownBold, PiGitMergeBold, PiLockSimple } from "react-icons/pi";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import useURLHash from "@/hooks/useURLHash";
@@ -436,6 +436,48 @@ function ReviewAndPublishRevision<T>({
   }, [revision.activityLog, revision.reviews]);
   const isReviewer = !!userId && reviewers.some((r) => r.id === userId);
 
+  // For the stale-approval banner: when the surviving approval was given (the
+  // latest non-stale "approved" verdict in the current cycle). A revisions-since
+  // count can't be passed — generic revisions track no base version
+  // (approvedBaseVersion is feature-only), so DivergenceNotice falls back to its
+  // unquantified "changes were published since" phrasing for that dimension.
+  const approvedAt = useMemo<string | null>(() => {
+    const approvals = reviewers
+      .filter((r) => r.status === "approved")
+      .map((r) => r.timestamp)
+      .sort();
+    return approvals[approvals.length - 1] ?? null;
+  }, [reviewers]);
+
+  // ── Review requester: whoever submitted the revision for review, for the
+  // header's "<name> requested review to merge …" line. Attribute it to the
+  // latest "review-requested" activity entry (the dedicated submit-for-review
+  // action); older revisions predating that action fall back to the legacy
+  // "reopened" stopgap, then to the author. Resolved through the same
+  // members/getUserDisplay path the reviewers section uses. ──
+  const reviewRequesterId = useMemo<string | undefined>(() => {
+    const sorted = [...revision.activityLog].sort(
+      (a, b) =>
+        new Date(b.dateCreated).getTime() - new Date(a.dateCreated).getTime(),
+    );
+    const requested = sorted.find((e) => e.action === "review-requested");
+    if (requested) return requested.userId;
+    const reopened = sorted.find((e) => e.action === "reopened");
+    return reopened?.userId;
+  }, [revision.activityLog]);
+  const reviewRequested =
+    requiresApproval &&
+    (revision.status === "pending-review" ||
+      revision.status === "approved" ||
+      revision.status === "changes-requested");
+  const reviewRequesterName = reviewRequested
+    ? (() => {
+        const id = reviewRequesterId ?? revision.authorId;
+        const u = users.get(id);
+        return u?.name || u?.email || getUserDisplay(id) || "";
+      })()
+    : "";
+
   const isBlockedContributor =
     !!userId &&
     hasCommercialFeature("require-approvals") &&
@@ -696,6 +738,7 @@ function ReviewAndPublishRevision<T>({
       badgeStatus={statusForBadge}
       version={revision.version ?? 0}
       liveVersion={liveVersion}
+      reviewRequesterName={reviewRequesterName || undefined}
       lifecycle={
         revision.status === "merged"
           ? "merged"
@@ -765,6 +808,7 @@ function ReviewAndPublishRevision<T>({
             badges={badges}
             customRenderGroups={customRenderGroups}
             variant="formatted"
+            collapsedMaxHeight={250}
           />
         </Box>
       ) : (
@@ -785,6 +829,7 @@ function ReviewAndPublishRevision<T>({
       <Box mb="4">
         <RevisionTimeline
           logs={timelineLogs}
+          onRetractVerdict={state.canUndoReview ? doUndoReview : undefined}
           collapseFilter={
             subTab === "overview"
               ? (l) => REVIEW_ACTIVITY_ACTIONS.has(l.action)
@@ -869,7 +914,7 @@ function ReviewAndPublishRevision<T>({
         </Box>
       )}
 
-      {reviewers.length > 0 && (
+      {requiresApproval && reviewers.length > 0 && (
         <Box mb="3">
           <Text size="medium" weight="medium" color="text-high" as="div" mb="2">
             Reviewers
@@ -877,7 +922,11 @@ function ReviewAndPublishRevision<T>({
           <Flex direction="column" gap="2">
             {reviewers.map(({ id, status, timestamp, stale }) => {
               const u = users.get(id);
-              const name = u?.name || "";
+              // The generic revision's reviews[] carries only userId (no baked
+              // event-user name/email like features). For reviewers absent from
+              // the members map (API key / SCIM-removed users) fall back to
+              // getUserDisplay so PersonRow shows the id rather than "Unknown".
+              const name = u?.name || getUserDisplay(id) || "";
               const email = u?.email || "";
               return (
                 <PersonRow
@@ -1129,6 +1178,7 @@ function ReviewAndPublishRevision<T>({
                   updating={submitting}
                   onResolveConflicts={() => setShowFixConflicts(true)}
                   onUpdateFromLive={doRebase}
+                  approvedAt={approvedAt}
                 />
               </Box>
             )}
@@ -1184,9 +1234,10 @@ function ReviewAndPublishRevision<T>({
                     !state.ctaEnabled ||
                     !canEditEntity
                   }
+                  icon={state.ctaLocked ? <PiLockSimple /> : undefined}
                   style={{ width: "100%" }}
                 >
-                  Publish
+                  {state.ctaLabel}
                 </Button>
               )}
 
