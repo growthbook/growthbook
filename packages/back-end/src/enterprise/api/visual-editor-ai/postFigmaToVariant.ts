@@ -17,8 +17,8 @@ import {
   parseFigmaFrameUrl,
   renderFigmaNodeImage,
 } from "back-end/src/services/figma";
-import { requireUserAuth } from "./requireUserAuth";
-import { scopeCss } from "./scopeCss";
+import { requireUserAuth } from "back-end/src/api/visual-editor-ai/requireUserAuth";
+import { scopeCss } from "back-end/src/api/visual-editor-ai/scopeCss";
 
 // Reuse the reference-image shape from image-gen: plain base64, mimeType
 // enum, 8 MB cap. No `data:` URL → no SSRF on the mockup-image path.

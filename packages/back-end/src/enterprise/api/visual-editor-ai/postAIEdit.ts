@@ -9,9 +9,12 @@ import { getAISettingsForOrg } from "back-end/src/services/organizations";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { logger } from "back-end/src/util/logger";
 import { IS_CLOUD } from "back-end/src/util/secrets";
-import { requireUserAuth } from "./requireUserAuth";
-import { buildVisualEditorTools, VISUAL_EDITOR_MAX_STEPS } from "./aiTools";
-import { aiEditJobStore } from "./aiTools/clientJob";
+import { requireUserAuth } from "back-end/src/api/visual-editor-ai/requireUserAuth";
+import {
+  buildVisualEditorTools,
+  VISUAL_EDITOR_MAX_STEPS,
+} from "back-end/src/api/visual-editor-ai/aiTools";
+import { aiEditJobStore } from "back-end/src/api/visual-editor-ai/aiTools/clientJob";
 
 const elementContextSchema = z.object({
   selector: z.string(),
