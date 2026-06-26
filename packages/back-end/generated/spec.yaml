@@ -1030,6 +1030,13 @@ paths:
                                 - condition
                                 - type
                               additionalProperties: false
+                      defaultValue:
+                        description: >-
+                          Per-environment override of the feature's base default
+                          value. Type must match `valueType`. When set, takes
+                          precedence over the base default for this environment
+                          (rules still win).
+                        type: string
                       definition:
                         description: >-
                           A JSON stringified
@@ -1382,6 +1389,12 @@ paths:
                                     - condition
                                     - type
                                   additionalProperties: false
+                          defaultValue:
+                            description: >-
+                              Per-environment override of the feature's base
+                              default value for this draft. Type must match
+                              `valueType`.
+                            type: string
                           definition:
                             description: >-
                               A JSON stringified
@@ -1869,6 +1882,13 @@ paths:
                                 - condition
                                 - type
                               additionalProperties: false
+                      defaultValue:
+                        description: >-
+                          Per-environment override of the feature's base default
+                          value. Type must match `valueType`. When set, takes
+                          precedence over the base default for this environment
+                          (rules still win).
+                        type: string
                       definition:
                         description: >-
                           A JSON stringified
@@ -2221,6 +2241,12 @@ paths:
                                     - condition
                                     - type
                                   additionalProperties: false
+                          defaultValue:
+                            description: >-
+                              Per-environment override of the feature's base
+                              default value for this draft. Type must match
+                              `valueType`.
+                            type: string
                           definition:
                             description: >-
                               A JSON stringified
@@ -6377,6 +6403,13 @@ paths:
                     properties:
                       enabled:
                         type: boolean
+                      defaultValue:
+                        description: >-
+                          Per-environment override of the feature's base default
+                          value. Type must match `valueType`. When set, takes
+                          precedence over the base default for this environment
+                          (rules still win).
+                        type: string
                     additionalProperties: false
                 prerequisites:
                   description: Feature IDs. Each feature must evaluate to `true`
@@ -6925,6 +6958,13 @@ paths:
                     properties:
                       enabled:
                         type: boolean
+                      defaultValue:
+                        description: >-
+                          Per-environment override of the feature's base default
+                          value. Type must match `valueType`. When set, takes
+                          precedence over the base default for this environment
+                          (rules still win).
+                        type: string
                     additionalProperties: false
                 prerequisites:
                   description: Feature IDs. Each feature must evaluate to `true`
@@ -10613,6 +10653,12 @@ paths:
                           type: string
                         additionalProperties:
                           type: boolean
+                      environmentDefaults:
+                        type: object
+                        propertyNames:
+                          type: string
+                        additionalProperties:
+                          type: string
                       prerequisites:
                         type: array
                         items:
@@ -10775,6 +10821,12 @@ paths:
                           type: string
                         additionalProperties:
                           type: boolean
+                      environmentDefaults:
+                        type: object
+                        propertyNames:
+                          type: string
+                        additionalProperties:
+                          type: string
                       prerequisites:
                         type: array
                         items:
@@ -47692,6 +47744,12 @@ components:
             type: string
           additionalProperties:
             type: boolean
+        environmentDefaults:
+          type: object
+          propertyNames:
+            type: string
+          additionalProperties:
+            type: string
         prerequisites:
           type: array
           items:
