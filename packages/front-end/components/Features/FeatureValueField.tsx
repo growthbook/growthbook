@@ -28,7 +28,19 @@ import stringify from "json-stringify-pretty-compact";
 import { BsBoxArrowUpRight } from "react-icons/bs";
 import clsx from "clsx";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
-import { PiCheck, PiCopy, PiBracketsCurly } from "react-icons/pi";
+import {
+  PiCheck,
+  PiCopy,
+  PiBracketsCurly,
+  PiCaretDownFill,
+} from "react-icons/pi";
+import Link from "@/ui/Link";
+import Callout from "@/ui/Callout";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  DropdownMenuGroup,
+} from "@/ui/DropdownMenu";
 import { formatJSON, LARGE_FILE_SIZE } from "@/services/features";
 import Field from "@/components/Forms/Field";
 import { useUser } from "@/services/UserContext";
@@ -40,6 +52,7 @@ import { GBAddCircle } from "@/components/Icons";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import RadioGroup from "@/ui/RadioGroup";
 import ConfigIcon from "@/components/Configs/ConfigIcon";
+import ConfigOverrideEditor from "@/components/Features/ConfigOverrideEditor";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import Text from "@/ui/Text";
@@ -340,118 +353,233 @@ export default function FeatureValueField({
         (!optionKeySet || optionKeySet.has(c.key)),
     );
     const backedKey = getConfigBackingKey(value);
-    // When locked (rules), always resolve to a config: fall back to the first
-    // eligible (the feature default's config, which getConfigSubtree lists first).
-    const configKey =
-      backedKey ??
-      (lockConfigBacking ? (eligibleConfigs[0]?.key ?? null) : null);
-    const isBacked = configKey !== null;
-    // When backed, the value's own keys are an override patch on the config;
-    // otherwise the whole value is authored directly (and becomes the patch if a
-    // config is later attached). The extracted patch is compact JSON (storage
-    // form) — expand it for the editor so objects don't collapse onto one line.
-    const rawStoredPatch =
-      backedKey !== null ? getConfigBackingPatch(value) : value;
-    const storedPatch =
-      valueType === "json"
-        ? (formatJSON(rawStoredPatch) ?? rawStoredPatch)
-        : rawStoredPatch;
-    // Prefer the local draft while editing (preserves raw text through the
-    // recompose round-trip); fall back to the stored patch when the value
-    // changed from outside this editor.
-    const patch =
-      configPatchDraft !== null && value === lastComposedValueRef.current
-        ? configPatchDraft
-        : storedPatch;
-    // Compose the patch back with the config ref and emit, buffering raw text.
-    const emitPatch = (p: string) => {
-      setConfigPatchDraft(p);
-      const composed = isBacked ? setConfigBacking(configKey, p) : p;
-      lastComposedValueRef.current = composed;
-      setValue(composed);
-    };
-    // Rule mode keeps the patch editor visible alongside the config picker;
-    // default-value mode hides it once a config is chosen.
-    const showPatchEditor = configBackingShowPatch || !isBacked;
+    // No live configs in scope (and not already backed) → skip the picker
+    // entirely and fall through to the plain JSON editor below.
+    if (eligibleConfigs.length > 0 || backedKey !== null) {
+      // When locked (rules), always resolve to a config: fall back to the first
+      // eligible (the feature default's config, which getConfigSubtree lists first).
+      const configKey =
+        backedKey ??
+        (lockConfigBacking ? (eligibleConfigs[0]?.key ?? null) : null);
+      const isBacked = configKey !== null;
+      // When backed, the value's own keys are an override patch on the config;
+      // otherwise the whole value is authored directly (and becomes the patch if a
+      // config is later attached). The extracted patch is compact JSON (storage
+      // form) — expand it for the editor so objects don't collapse onto one line.
+      const rawStoredPatch =
+        backedKey !== null ? getConfigBackingPatch(value) : value;
+      const storedPatch =
+        valueType === "json"
+          ? (formatJSON(rawStoredPatch) ?? rawStoredPatch)
+          : rawStoredPatch;
+      // Prefer the local draft while editing (preserves raw text through the
+      // recompose round-trip); fall back to the stored patch when the value
+      // changed from outside this editor.
+      const patch =
+        configPatchDraft !== null && value === lastComposedValueRef.current
+          ? configPatchDraft
+          : storedPatch;
+      // Compose the patch back with the config ref and emit, buffering raw text.
+      const emitPatch = (p: string) => {
+        setConfigPatchDraft(p);
+        const composed = isBacked ? setConfigBacking(configKey, p) : p;
+        lastComposedValueRef.current = composed;
+        setValue(composed);
+      };
+      // Rule mode keeps the patch editor visible alongside the config picker;
+      // default-value mode hides it once a config is chosen.
+      const showPatchEditor = configBackingShowPatch || !isBacked;
 
-    return (
-      <Box mb="3">
-        {label !== undefined && (
-          <Box mb="1" mt="3">
-            <Text as="label" weight="semibold">
-              {label}
-            </Text>
-          </Box>
-        )}
-        <SelectField
-          label="Reference a config"
-          value={configKey ?? ""}
-          initialOption={lockConfigBacking ? undefined : "None"}
-          options={eligibleConfigs.map((c) => ({
-            label: c.name,
-            value: c.key,
-          }))}
-          onChange={(key) => {
-            // Selecting a config wraps the current patch as the override; clearing
-            // it (unlocked only) unwraps the patch back into a plain value. In
-            // default-value mode (no patch editor) the config serves as-is, so
-            // drop any prior keys rather than stranding them as a hidden patch.
-            const nextPatch = key && !configBackingShowPatch ? "{}" : patch;
-            const composed = key ? setConfigBacking(key, nextPatch) : patch;
-            lastComposedValueRef.current = composed;
-            setValue(composed);
-          }}
-          formatOptionLabel={({ value, label }) =>
-            value ? (
-              <Flex as="span" align="center" gap="1" width="100%">
-                <ConfigIcon
-                  isBase={
-                    getConfigParentKey(
-                      eligibleConfigs.find((c) => c.key === value) ?? {},
-                    ) === null
+      // Selecting a config wraps the current patch as the override; clearing it
+      // (unlocked only) unwraps the patch back into a plain value. In default-value
+      // mode (no patch editor) the config serves as-is, so drop any prior keys
+      // rather than stranding them as a hidden patch.
+      const selectConfig = (key: string | null) => {
+        const nextPatch = key && !configBackingShowPatch ? "{}" : patch;
+        const composed = key ? setConfigBacking(key, nextPatch) : patch;
+        lastComposedValueRef.current = composed;
+        setValue(composed);
+      };
+      const selectedConfig =
+        eligibleConfigs.find((c) => c.key === configKey) ?? null;
+
+      // Once a default value is linked to a config, warn/error when the choice
+      // drifts: removing it or switching to an unrelated lineage is an error;
+      // switching within the same lineage is a (non-blocking) warning. Only the
+      // default value carries this notion of an "original" config (rules are
+      // locked to the default's subtree).
+      const configByKey = new Map(configs.map((c) => [c.key, c]));
+      const rootOf = (key: string): string => {
+        let cur = key;
+        const seen = new Set<string>();
+        while (!seen.has(cur)) {
+          seen.add(cur);
+          const parent = getConfigParentKey(configByKey.get(cur) ?? {});
+          if (!parent) break;
+          cur = parent;
+        }
+        return cur;
+      };
+      const originalConfigKey = getConfigBackingKey(
+        feature?.defaultValue ?? "",
+      );
+      const originalName =
+        (originalConfigKey && configByKey.get(originalConfigKey)?.name) ||
+        originalConfigKey;
+      let configChangeNotice: {
+        status: "error" | "warning";
+        message: string;
+      } | null = null;
+      if (
+        originalConfigKey &&
+        !configBackingShowPatch &&
+        configKey !== originalConfigKey
+      ) {
+        if (configKey === null) {
+          configChangeNotice = {
+            status: "error",
+            message: `This value is linked to config "${originalName}". Removing it drops that config's values and schema.`,
+          };
+        } else if (rootOf(configKey) === rootOf(originalConfigKey)) {
+          configChangeNotice = {
+            status: "warning",
+            message: `Switching from "${originalName}" to another config in the same lineage — overrides may resolve differently.`,
+          };
+        } else {
+          configChangeNotice = {
+            status: "error",
+            message: `"${selectedConfig?.name ?? configKey}" isn't in the same lineage as "${originalName}". Its schema and fields may differ.`,
+          };
+        }
+      }
+
+      return (
+        <Box mb="4">
+          {label !== undefined && (
+            <Box mb="1" mt="3">
+              <Text as="label" weight="semibold">
+                {label}
+              </Text>
+            </Box>
+          )}
+          <Box
+            className={
+              configBackingShowPatch ? "bg-highlight rounded" : undefined
+            }
+            p={configBackingShowPatch ? "3" : undefined}
+          >
+            <Flex align="center" gap="2">
+              <Text as="label" weight="medium" mb="0">
+                Based on config:
+              </Text>
+              {disabled ? (
+                <Flex as="span" align="center" gap="1">
+                  {selectedConfig && (
+                    <ConfigIcon
+                      isBase={getConfigParentKey(selectedConfig) === null}
+                    />
+                  )}
+                  <Text>{selectedConfig?.name ?? "None"}</Text>
+                </Flex>
+              ) : (
+                <DropdownMenu
+                  trigger={
+                    <Link
+                      type="button"
+                      style={{ color: "var(--color-text-high)" }}
+                    >
+                      <Flex as="span" align="center" gap="1">
+                        {selectedConfig && (
+                          <ConfigIcon
+                            isBase={getConfigParentKey(selectedConfig) === null}
+                          />
+                        )}
+                        <Text>{selectedConfig?.name ?? "None"}</Text>
+                        <PiCaretDownFill />
+                      </Flex>
+                    </Link>
                   }
-                />
-                <span>{label}</span>
-                <code style={{ marginLeft: "auto", color: "var(--slate-12)" }}>
-                  {value}
-                </code>
-              </Flex>
-            ) : (
-              <span className="text-muted">{label}</span>
-            )
-          }
-          helpText={
-            lockConfigBacking
-              ? "Serve the feature's config or a compatible child. Add overrides below."
-              : configBackingShowPatch
-                ? "Override with a config that extends the feature's default. Leave as None to patch the default directly."
-                : "A config supplies the base JSON and its schema for this value."
-          }
-          disabled={disabled}
-        />
-        {showPatchEditor && (
-          <Box mt="2">
-            <FeatureValueField
-              valueType={valueType}
-              value={patch}
-              setValue={emitPatch}
-              id={id}
-              placeholder={placeholder}
-              feature={feature}
-              project={project}
-              constantContext={constantContext}
-              renderJSONInline={renderJSONInline}
-              disabled={disabled}
-              useCodeInput={useCodeInput}
-              showFullscreenButton={showFullscreenButton}
-              codeInputDefaultHeight={codeInputDefaultHeight}
-              sparse={configBackingShowPatch ? sparse : undefined}
-            />
+                  menuPlacement="start"
+                  variant="soft"
+                >
+                  <DropdownMenuGroup>
+                    {!lockConfigBacking && (
+                      <DropdownMenuItem onClick={() => selectConfig(null)}>
+                        None
+                      </DropdownMenuItem>
+                    )}
+                    {eligibleConfigs.map((c) => (
+                      <DropdownMenuItem
+                        key={c.key}
+                        onClick={() => selectConfig(c.key)}
+                      >
+                        <Flex as="span" align="center" gap="2" width="100%">
+                          <ConfigIcon isBase={getConfigParentKey(c) === null} />
+                          <span>{c.name}</span>
+                          <code
+                            style={{
+                              marginLeft: "auto",
+                              paddingLeft: "var(--space-5)",
+                              color: "var(--slate-12)",
+                            }}
+                          >
+                            {c.key}
+                          </code>
+                        </Flex>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuGroup>
+                </DropdownMenu>
+              )}
+            </Flex>
+            {configChangeNotice && (
+              <Box mt="2">
+                <Callout status={configChangeNotice.status}>
+                  {configChangeNotice.message}
+                </Callout>
+              </Box>
+            )}
+            {showPatchEditor && (
+              <Box mt="3">
+                {isBacked && configKey && valueType === "json" ? (
+                  <>
+                    <Box mb="1">
+                      <Text as="label" weight="medium">
+                        Additional overrides
+                      </Text>
+                    </Box>
+                    <ConfigOverrideEditor
+                      configKey={configKey}
+                      patch={patch}
+                      setPatch={emitPatch}
+                      disabled={disabled}
+                    />
+                  </>
+                ) : (
+                  <FeatureValueField
+                    valueType={valueType}
+                    value={patch}
+                    setValue={emitPatch}
+                    id={id}
+                    placeholder={placeholder}
+                    feature={feature}
+                    project={project}
+                    constantContext={constantContext}
+                    renderJSONInline={renderJSONInline}
+                    disabled={disabled}
+                    useCodeInput={useCodeInput}
+                    showFullscreenButton={showFullscreenButton}
+                    codeInputDefaultHeight={codeInputDefaultHeight}
+                    sparse={configBackingShowPatch ? sparse : undefined}
+                  />
+                )}
+              </Box>
+            )}
           </Box>
-        )}
-        {helpText && <small className="text-muted">{helpText}</small>}
-      </Box>
-    );
+          {helpText && <small className="text-muted">{helpText}</small>}
+        </Box>
+      );
+    }
   }
 
   if (valueType === "json") {
