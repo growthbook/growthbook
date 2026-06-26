@@ -27,6 +27,7 @@ import WatchButton from "@/components/WatchButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
 import FeatureStatusBadge from "@/components/Features/FeatureStatusBadge";
+import FeatureValueTypeDisplay from "@/components/Features/FeatureValueTypeDisplay";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
@@ -97,18 +98,6 @@ const FEATURE_TABLE_COLUMN_WIDTH = {
   DATA_TYPE_MIN: 80,
   RECENT_USAGE: 170,
 } as const;
-
-function valueTypeLabel(
-  valueType: "boolean" | "string" | "number" | "json",
-): string {
-  const labels: Record<string, string> = {
-    boolean: "Boolean",
-    string: "String",
-    number: "Number",
-    json: "JSON",
-  };
-  return labels[valueType] ?? valueType;
-}
 
 export default function FeaturesPage() {
   const router = useRouter();
@@ -499,7 +488,11 @@ export default function FeaturesPage() {
                         minWidth: FEATURE_TABLE_COLUMN_WIDTH.DATA_TYPE_MIN,
                       }}
                     >
-                      {valueTypeLabel(feature.valueType)}
+                      <FeatureValueTypeDisplay
+                        valueType={feature.valueType}
+                        defaultValue={feature.defaultValue}
+                        link={false}
+                      />
                     </TableCell>
                     <TableCell>
                       {draftEntry
