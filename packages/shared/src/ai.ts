@@ -32,6 +32,7 @@ export const AI_PROVIDER_MODEL_MAP = {
     "o1",
   ],
   anthropic: [
+    "claude-sonnet-4-6",
     "claude-haiku-4-5-20251001",
     "claude-sonnet-4-5-20250929",
     "claude-opus-4-1-20250805",
