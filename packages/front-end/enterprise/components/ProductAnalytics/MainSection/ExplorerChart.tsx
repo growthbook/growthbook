@@ -861,7 +861,7 @@ export default function ExplorerChart({
                     value={card.value}
                     formatter={formatNumber}
                     label={card.label}
-                    compact
+                    fillContainer
                     compareSlot={
                       trend ? (
                         <ComparisonTrendLabel
