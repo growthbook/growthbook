@@ -2057,6 +2057,9 @@ export function revisionToApiInterface(
     ...(rev.environmentsEnabled !== undefined && {
       environmentsEnabled: rev.environmentsEnabled,
     }),
+    ...(rev.environmentDefaults !== undefined && {
+      environmentDefaults: rev.environmentDefaults,
+    }),
     ...(rev.prerequisites !== undefined && {
       prerequisites: rev.prerequisites,
     }),
@@ -2128,6 +2131,9 @@ export function revisionToApiInterfaceV2(
     rules,
     ...(rev.environmentsEnabled !== undefined && {
       environmentsEnabled: rev.environmentsEnabled,
+    }),
+    ...(rev.environmentDefaults !== undefined && {
+      environmentDefaults: rev.environmentDefaults,
     }),
     ...(rev.prerequisites !== undefined && {
       // Strip internal condition field — v2 only exposes the flag ID.
@@ -2470,6 +2476,9 @@ export function getApiFeatureObj({
       defaultValue: rev.defaultValue,
       ...(rev.environmentsEnabled !== undefined && {
         environmentsEnabled: rev.environmentsEnabled,
+      }),
+      ...(rev.environmentDefaults !== undefined && {
+        environmentDefaults: rev.environmentDefaults,
       }),
       ...(rev.prerequisites !== undefined && {
         prerequisites: rev.prerequisites,
@@ -2866,7 +2875,10 @@ export const createInterfaceEnvSettingsFromApiEnvSettings = (
         enabled: incomingEnvs?.[e.id]?.enabled ?? !!e.defaultState,
         // Carry an optional per-env default value override, validated against
         // the feature's valueType (+ jsonSchema) exactly like the base default.
-        ...(incomingEnvs?.[e.id]?.defaultValue !== undefined
+        // At create, an absent override (undefined) — and a `null` clear, which
+        // only makes sense on update — both mean "inherit the base default", so
+        // neither sets an override here.
+        ...(incomingEnvs?.[e.id]?.defaultValue != null
           ? {
               defaultValue: validateFeatureValue(
                 feature,
@@ -2885,12 +2897,16 @@ export const updateInterfaceEnvSettingsFromApiEnvSettings = (
 ): FeatureInterface["environmentSettings"] => {
   const existing = feature.environmentSettings;
   return Object.keys(incomingEnvs).reduce((acc, k) => {
-    // Per-env default value override: a provided value is validated against the
-    // feature's valueType (+ jsonSchema) and set; omitting it leaves the
-    // current override in place. (Empty string is a valid value for string
-    // features, so it is NOT treated as a clear signal here.)
+    // Per-env default value override: a provided string value is validated
+    // against the feature's valueType (+ jsonSchema) and set; omitting it (or
+    // passing `null`, the clear sentinel) leaves the current override in place
+    // here. (Empty string is a valid value for string features, so it is NOT
+    // treated as a clear signal.) Note: callers that route per-env defaults
+    // through the revision (the v1 `updateFeature` handler) strip/re-sync the
+    // value afterwards, so this value is only authoritative for callers that
+    // write `environmentSettings` directly.
     let defaultValue = existing[k]?.defaultValue;
-    if (incomingEnvs[k].defaultValue !== undefined) {
+    if (incomingEnvs[k].defaultValue != null) {
       defaultValue = validateFeatureValue(
         feature,
         incomingEnvs[k].defaultValue as string,

@@ -153,9 +153,13 @@ export const updateFeatureV2 = createApiRequestHandler(
 
   const changedEnvEnabled: Record<string, boolean> = {};
   // Per-env default value overrides, tracked through the revision's sparse
-  // `environmentDefaults` map (mirrors environmentsEnabled). A provided value
-  // is validated against valueType and set as the override for that env.
-  const changedEnvDefaults: Record<string, string> = {};
+  // `environmentDefaults` map (mirrors environmentsEnabled). Distinguish three
+  // cases per env:
+  //   undefined/absent  -> no change
+  //   null              -> clear (emit an `undefined` tombstone; the merge/
+  //                        publish path deletes the override)
+  //   string ("" incl.) -> set (validated against valueType)
+  const changedEnvDefaults: Record<string, string | undefined> = {};
   if (req.body.environments) {
     for (const [env, s] of Object.entries(req.body.environments)) {
       if (
@@ -165,9 +169,18 @@ export const updateFeatureV2 = createApiRequestHandler(
         changedEnvEnabled[env] = s.enabled;
       }
       if (s.defaultValue !== undefined) {
-        const nextVal = validateFeatureValue(feature, s.defaultValue);
-        if (nextVal !== feature.environmentSettings?.[env]?.defaultValue) {
-          changedEnvDefaults[env] = nextVal;
+        const liveValue = feature.environmentSettings?.[env]?.defaultValue;
+        if (s.defaultValue === null) {
+          // Explicit clear. Only emit a tombstone when there is a live override
+          // to remove, so a no-op clear doesn't create a spurious change.
+          if (liveValue !== undefined) {
+            changedEnvDefaults[env] = undefined;
+          }
+        } else {
+          const nextVal = validateFeatureValue(feature, s.defaultValue);
+          if (nextVal !== liveValue) {
+            changedEnvDefaults[env] = nextVal;
+          }
         }
       }
     }
@@ -261,7 +274,12 @@ export const updateFeatureV2 = createApiRequestHandler(
     hasHoldoutChange;
 
   if (hasRevisionChanges) {
-    const revisionChanges: Partial<FeatureRevisionInterface> = {
+    const revisionChanges: Omit<
+      Partial<FeatureRevisionInterface>,
+      "environmentDefaults"
+    > & {
+      environmentDefaults?: Record<string, string | undefined>;
+    } = {
       ...(hasEnvEnabledChanges
         ? { environmentsEnabled: changedEnvEnabled }
         : {}),

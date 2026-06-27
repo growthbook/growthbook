@@ -115,6 +115,12 @@ export const apiFeatureRevisionV2Validator = namedSchema(
           "Per-environment enabled state captured in this revision (only present when kill-switch gating is enabled)",
         )
         .optional(),
+      environmentDefaults: z
+        .record(z.string(), z.string())
+        .describe(
+          "Per-environment default value overrides captured in this revision (only present when a per-environment override is set)",
+        )
+        .optional(),
       envPrerequisites: z
         .record(z.string(), z.array(apiRevisionPrerequisiteV2))
         .describe(
@@ -425,8 +431,9 @@ const postFeatureEnvironmentV2 = z.object({
   // precedence over the base default for this environment (rules still win).
   defaultValue: z
     .string()
+    .nullable()
     .describe(
-      "Per-environment override of the feature's base default value. Type must match `valueType`. When set, takes precedence over the base default for this environment (rules still win).",
+      "Per-environment override of the feature's base default value. Type must match `valueType`. When set, takes precedence over the base default for this environment (rules still win). On update, `null` clears the override so the environment falls back to the base default.",
     )
     .optional(),
 });
