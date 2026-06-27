@@ -126,7 +126,12 @@ export class ConstantModel extends BaseClass {
       updates.project !== undefined ||
       updates.archived !== undefined
     ) {
-      resolvableValueChanged(this.context).catch((e) => {
+      resolvableValueChanged(
+        this.context,
+        "updated",
+        "constant",
+        newDoc.key,
+      ).catch((e) => {
         this.context.logger.error(
           e,
           "Error refreshing SDK Payload on constant update",
@@ -146,12 +151,14 @@ export class ConstantModel extends BaseClass {
 
   // A delete leaves references unresolved, changing the payload.
   protected async afterDelete(doc: ConstantInterface) {
-    resolvableValueChanged(this.context, "deleted").catch((e) => {
-      this.context.logger.error(
-        e,
-        "Error refreshing SDK Payload on constant delete",
-      );
-    });
+    resolvableValueChanged(this.context, "deleted", "constant", doc.key).catch(
+      (e) => {
+        this.context.logger.error(
+          e,
+          "Error refreshing SDK Payload on constant delete",
+        );
+      },
+    );
     await logConstantDeletedEvent(this.context, this.toApiInterface(doc));
   }
 

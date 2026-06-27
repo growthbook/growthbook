@@ -215,7 +215,12 @@ export class ConfigModel extends BaseClass {
       updates.project !== undefined ||
       updates.archived !== undefined
     ) {
-      resolvableValueChanged(this.context, "updated", "config").catch((e) => {
+      resolvableValueChanged(
+        this.context,
+        "updated",
+        "config",
+        newDoc.key,
+      ).catch((e) => {
         this.context.logger.error(
           e,
           "Error refreshing SDK Payload on config update",
@@ -234,12 +239,14 @@ export class ConfigModel extends BaseClass {
   }
 
   protected async afterDelete(doc: ConfigInterface) {
-    resolvableValueChanged(this.context, "deleted", "config").catch((e) => {
-      this.context.logger.error(
-        e,
-        "Error refreshing SDK Payload on config delete",
-      );
-    });
+    resolvableValueChanged(this.context, "deleted", "config", doc.key).catch(
+      (e) => {
+        this.context.logger.error(
+          e,
+          "Error refreshing SDK Payload on config delete",
+        );
+      },
+    );
     await logConfigDeletedEvent(this.context, this.toApiInterface(doc));
   }
 

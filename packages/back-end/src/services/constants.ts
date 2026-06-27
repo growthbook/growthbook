@@ -15,19 +15,53 @@ import { ApiReqContext } from "back-end/types/api";
 import { BadRequestError } from "back-end/src/util/errors";
 import { getPayloadKeysForAllEnvs } from "back-end/src/models/ExperimentModel";
 import { getAllFeatures } from "back-end/src/models/FeatureModel";
-import { getResolvableValues } from "./resolvableValues";
+import { getAffectedSDKPayloadKeys } from "back-end/src/util/features";
+import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
+import { getResolvableValues, ResolvableValue } from "./resolvableValues";
 import { queueSDKPayloadRefresh } from "./features";
 import { getContextForAgendaJobByOrgObject } from "./organizations";
 
 // A constant/config change alters the SDK payload, so refresh it (and fire SDK
-// webhooks). Refs cross project/env, so we refresh everything for now.
-// TODO: scope to the actual references once reference tracking lands.
+// webhooks). When we know which resolvable changed (`changedKey`), we scope the
+// refresh to only the connections serving features that actually depend on it —
+// directly, or transitively through other constants/configs (constant `@const:`
+// chains and config lineage, both surfaced as tokens by `getResolvableValues`).
+// When nothing references it, the refresh is skipped entirely. Without a key we
+// fall back to the org-wide refresh (matches the historical behavior).
+//
+// Saved groups deliberately keep the org-wide refresh (`savedGroupUpdated`):
+// their reference graph is condition-string based, recursively nested, and spans
+// experiments as well as features, so it doesn't share this token machinery.
 export async function resolvableValueChanged(
   baseContext: ReqContext | ApiReqContext,
   event: "updated" | "deleted" = "updated",
   model: "constant" | "config" = "constant",
+  changedKey?: string,
 ) {
   const context = getContextForAgendaJobByOrgObject(baseContext.org);
+
+  if (changedKey) {
+    const features = await getFeaturesAffectedByResolvable(
+      context,
+      model,
+      changedKey,
+    );
+    const payloadKeys = getAffectedSDKPayloadKeys(
+      features,
+      getEnvironmentIdsFromOrg(context.org),
+    );
+    // No feature depends on this value — nothing to rebuild or notify.
+    if (!payloadKeys.length) return;
+    queueSDKPayloadRefresh({
+      context,
+      payloadKeys,
+      auditContext: {
+        event,
+        model,
+      },
+    });
+    return;
+  }
 
   queueSDKPayloadRefresh({
     context,
@@ -38,6 +72,90 @@ export async function resolvableValueChanged(
       model,
     },
   });
+}
+
+type ResolvableRef = { source: ConstantSource; key: string };
+
+// The full set of namespaced tokens that transitively embed `(source, key)`,
+// including the seed itself. Edges come from resolvable→resolvable references and
+// unify two mechanisms: constant `@const:` chains and config lineage —
+// `getResolvableValues` synthesizes a config's `parent`/`extends` bases into
+// `@config:` `$extends` tokens on its value, so both are extracted identically.
+// We walk the graph in reverse (everything that transitively embeds the seed
+// would re-resolve when it changes). Pure + exported for unit testing.
+export function resolvableDependencyClosure(
+  resolvables: ResolvableValue[],
+  source: ConstantSource,
+  key: string,
+): Set<string> {
+  // Reverse edges: token -> resolvables that directly reference that token.
+  const referencedBy = new Map<string, ResolvableRef[]>();
+  for (const r of resolvables) {
+    for (const ns of ["constant", "config"] as const) {
+      for (const refKey of getConstantReferenceKeys(
+        r.value,
+        r.environmentValues,
+        ns,
+      )) {
+        const token = refToken(ns, refKey);
+        const entry: ResolvableRef = { source: r.source, key: r.key };
+        const list = referencedBy.get(token);
+        if (list) list.push(entry);
+        else referencedBy.set(token, [entry]);
+      }
+    }
+  }
+
+  const seed = refToken(source, key);
+  const affected = new Set<string>([seed]);
+  const queue = [seed];
+  while (queue.length) {
+    const token = queue.shift() as string;
+    for (const dep of referencedBy.get(token) ?? []) {
+      const depToken = refToken(dep.source, dep.key);
+      if (!affected.has(depToken)) {
+        affected.add(depToken);
+        queue.push(depToken);
+      }
+    }
+  }
+  return affected;
+}
+
+// Every feature whose resolved SDK payload depends on the given resolvable
+// (constant or config), directly or transitively. Pure + exported for unit
+// testing; `getFeaturesAffectedByResolvable` adds the data loading.
+//
+// On delete the changed entity is already gone from `resolvables`, but features
+// referencing it directly are still matched (their refs now dangle), and delete
+// is blocked while other resolvables depend on it, so the closure stays correct.
+export function featuresAffectedByResolvable(
+  resolvables: ResolvableValue[],
+  features: FeatureInterface[],
+  source: ConstantSource,
+  key: string,
+): FeatureInterface[] {
+  const affected = resolvableDependencyClosure(resolvables, source, key);
+  return features.filter((f) => {
+    // A feature usually holds only a handful of reference tokens, so probe those
+    // against the (possibly large) affected set rather than the other way round.
+    for (const t of featureReferenceTokens(f)) {
+      if (affected.has(t)) return true;
+    }
+    return false;
+  });
+}
+
+async function getFeaturesAffectedByResolvable(
+  context: ReqContext | ApiReqContext,
+  source: ConstantSource,
+  key: string,
+): Promise<FeatureInterface[]> {
+  const [resolvables, features] = await Promise.all([
+    getResolvableValues(context),
+    getAllFeatures(context, {}),
+  ]);
+  return featuresAffectedByResolvable(resolvables, features, source, key);
 }
 
 // Reject cyclic values at write time — a stored cycle leaks raw reference
@@ -132,11 +250,17 @@ function featureRuleValueStrings(feature: FeatureInterface): string[] {
   return out;
 }
 
-// Every value string a feature can hold (default value + all rule values).
+// Every value string a feature can hold (default value + all rule values). The
+// holdout value is included because the payload builder injects it as a `force`
+// rule (`getFeatureDefinition`) that the constant resolver then processes, so a
+// reference there is a real payload dependency just like any other rule value.
 function featureValueStrings(feature: FeatureInterface): string[] {
   const out: string[] = [];
   if (typeof feature.defaultValue === "string") out.push(feature.defaultValue);
   out.push(...featureRuleValueStrings(feature));
+  if (typeof feature.holdout?.value === "string") {
+    out.push(feature.holdout.value);
+  }
   return out;
 }
 
@@ -146,8 +270,8 @@ const refToken = (source: ConstantSource, key: string): string =>
   `${source}:${key}`;
 
 // The set of namespaced reference tokens a feature's values hold (both
-// `@const:` and `@config:` references).
-function featureReferenceTokens(feature: FeatureInterface): Set<string> {
+// `@const:` and `@config:` references). Exported for unit testing.
+export function featureReferenceTokens(feature: FeatureInterface): Set<string> {
   const tokens = new Set<string>();
   for (const value of featureValueStrings(feature)) {
     for (const key of getConstantReferenceKeys(value, undefined, "constant")) {
