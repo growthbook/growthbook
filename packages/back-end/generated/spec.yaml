@@ -40064,6 +40064,13 @@ components:
             - comment
         comment:
           type: string
+        stale:
+          description: >-
+            True if a later review cycle (re-submit, approval reset, recall, or
+            reopen) superseded this verdict. Stale verdicts are kept for
+            attribution but no longer count as an active approval or
+            change-request.
+          type: boolean
         dateCreated:
           format: date-time
           type: string
@@ -40425,6 +40432,13 @@ components:
             - comment
         comment:
           type: string
+        stale:
+          description: >-
+            True if a later review cycle (re-submit, approval reset, recall, or
+            reopen) superseded this verdict. Stale verdicts are kept for
+            attribution but no longer count as an active approval or
+            change-request.
+          type: boolean
         dateCreated:
           format: date-time
           type: string

@@ -26,13 +26,6 @@ const VALID_ACTIVITY_LOG_ACTIONS: ReadonlySet<ActivityLogEntry["action"]> =
 
 export const COLLECTION_NAME = "revisions";
 
-// Activity actions that start a new review cycle, invalidating any prior
-// verdicts: submit-for-review, recall, approval-reset-on-edit, and reopen all
-// log one of these. Verdicts dated before the most recent such entry are
-// history, not active approvals/blocks.
-const REVIEW_CYCLE_START_ACTIONS: ReadonlySet<ActivityLogEntry["action"]> =
-  new Set(["reopened", "review-requested"]);
-
 // Name of the partial-unique index that enforces "at most one armed lock-others
 // schedule per entity" (see additionalIndexes below). Used to recognize the
 // duplicate-key error it raises.
@@ -81,6 +74,26 @@ const BaseClass = MakeModelClass({
     deleteEvent: "revision.delete",
   },
   globallyUniquePrimaryKeys: true,
+  // Operational / scheduling fields are timeline-tracked via the activity log
+  // (and explicit revision webhooks), not the audit log. Don't emit a
+  // `revision.update` audit entry when one of these is the only thing that
+  // changed — e.g. the poller arming/disarming a schedule or recording an
+  // attempt. Mirrors FeatureRevisionModel keeping these out of its log/event path.
+  skipAuditLogFields: [
+    "autoPublishOnApproval",
+    "autoPublishEnabledBy",
+    "scheduledPublishAt",
+    "scheduledPublishLockEdits",
+    "scheduledPublishLockOthers",
+    "scheduledPublishBypassApproval",
+    "scheduledPublishAttempts",
+    "scheduledPublishLastError",
+  ],
+  // Poller bookkeeping must not bump the user-facing "last update" time.
+  skipDateUpdatedFields: [
+    "scheduledPublishAttempts",
+    "scheduledPublishLastError",
+  ],
   additionalIndexes: [
     {
       fields: {
@@ -232,6 +245,16 @@ export class RevisionModel extends BaseClass {
     };
   }
 
+  // Demote the current cycle's active verdicts to stale (mirrors the feature
+  // flow's "-stale" variants). Called at every cycle reset so verdict activeness
+  // is persisted on the record rather than recomputed from the activity log.
+  // Comments and already-stale entries are left untouched.
+  private staleVerdicts(reviews: Revision["reviews"]): Revision["reviews"] {
+    return reviews.map((r) =>
+      r.decision !== "comment" && !r.stale ? { ...r, stale: true } : r,
+    );
+  }
+
   /**
    * Delegate read permission to the underlying target entity's read check via adapter.
    */
@@ -293,11 +316,36 @@ export class RevisionModel extends BaseClass {
   }
 
   protected migrate(legacyDoc: unknown): Revision {
-    const doc = legacyDoc as Revision;
+    let doc = legacyDoc as Revision;
     // Clear the legacy synthetic `Revision N` title so it's treated as
     // uncustomized (the UI falls back to "Revision N" on its own).
     if (doc.title && doc.title === `Revision ${doc.version}`) {
-      return { ...doc, title: undefined };
+      doc = { ...doc, title: undefined };
+    }
+    // Backfill verdict staleness for revisions written before the `stale` flag.
+    // Only genuine multi-cycle legacy docs need it: a verdict predating the
+    // latest cycle-start entry (review-requested / reopened) belongs to an
+    // earlier cycle. New docs already carry the flag on demoted verdicts, and a
+    // single-cycle doc has no prior cycle — both are skipped, so this never runs
+    // on the normal read path.
+    const reviews = doc.reviews ?? [];
+    const cycleStarts = (doc.activityLog ?? [])
+      .filter((e) => e.action === "review-requested" || e.action === "reopened")
+      .map((e) => e.dateCreated);
+    const isLegacyMultiCycle =
+      cycleStarts.length > 1 &&
+      reviews.some((r) => r.decision !== "comment") &&
+      reviews.every((r) => r.stale === undefined);
+    if (isLegacyMultiCycle) {
+      const cs = cycleStarts.reduce((a, b) => (b > a ? b : a));
+      doc = {
+        ...doc,
+        reviews: reviews.map((r) =>
+          r.decision !== "comment" && r.dateCreated < cs
+            ? { ...r, stale: true }
+            : r,
+        ),
+      };
     }
     return doc;
   }
@@ -650,6 +698,9 @@ export class RevisionModel extends BaseClass {
 
     return this.update(existing, {
       status: "pending-review",
+      // Submitting (or re-submitting from changes-requested) starts a fresh
+      // review cycle — demote any prior verdicts.
+      reviews: this.staleVerdicts(existing.reviews),
       autoPublishOnApproval: !!autoPublishOnApproval,
       // The auto-publish runs with the arming user's authority. A stale
       // value from a previous cycle is harmless — `autoPublishOnApproval`
@@ -709,8 +760,7 @@ export class RevisionModel extends BaseClass {
       (existing.autoPublishOnApproval ||
         (existing.scheduledPublishAt ?? null) !== null)
     ) {
-      await this.disarmScheduledPublish(id);
-      const refreshed = await this.getById(id);
+      const refreshed = await this.disarmScheduledPublish(id);
       if (refreshed) return refreshed;
     }
 
@@ -733,7 +783,7 @@ export class RevisionModel extends BaseClass {
     };
 
     // Build these once so CAS retries re-base the same entry, not a duplicate.
-    const review = {
+    const review: Revision["reviews"][number] = {
       id: uniqid("rev_"),
       userId,
       decision,
@@ -759,25 +809,12 @@ export class RevisionModel extends BaseClass {
           throw new Error(`Cannot review a ${existing.status} revision`);
         }
 
-        // Verdicts only stand for the current review cycle. Transitions that
-        // invalidate prior verdicts (submit for review, approval reset on
-        // content edit, reopen) log a cycle-start activity entry, so reviews
-        // before the latest one are history, not active approvals/blocks.
-        let cycleStart: Date | null = null;
-        for (const entry of existing.activityLog) {
-          if (
-            REVIEW_CYCLE_START_ACTIONS.has(entry.action) &&
-            (cycleStart === null || entry.dateCreated > cycleStart)
-          ) {
-            cycleStart = entry.dateCreated;
-          }
-        }
-
-        // Latest verdict per reviewer within the cycle; comments carry none.
+        // Latest active (non-stale) verdict per reviewer; comments carry none.
+        // Prior cycles' verdicts were demoted to stale at the reset (see
+        // staleVerdicts), so they're history, not active approvals/blocks.
         const verdictByReviewer = new Map<string, ReviewDecision>();
         for (const r of [...existing.reviews, review]) {
-          if (r.decision === "comment") continue;
-          if (cycleStart !== null && r.dateCreated < cycleStart) continue;
+          if (r.decision === "comment" || r.stale) continue;
           verdictByReviewer.set(r.userId, r.decision);
         }
         const verdicts = Array.from(verdictByReviewer.values());
@@ -814,8 +851,8 @@ export class RevisionModel extends BaseClass {
     ) {
       // Clear the whole schedule (not just the armed flag) so a later
       // "when approved" re-arm can't fire the stale dated schedule.
-      await this.disarmScheduledPublish(id);
-      updated.autoPublishOnApproval = false;
+      const refreshed = await this.disarmScheduledPublish(id);
+      if (refreshed) return refreshed;
     }
 
     return updated;
@@ -825,7 +862,9 @@ export class RevisionModel extends BaseClass {
   // (this.update can't $unset). Used by the disarm paths (changes-requested,
   // recall) so a later "when approved" re-arm can't resurrect a stale dated
   // schedule and fire it without a fresh approval.
-  private async disarmScheduledPublish(id: string): Promise<void> {
+  // Returns the refreshed revision so callers don't hand back a doc that still
+  // carries the now-cleared scheduledPublishAt / lock fields.
+  private async disarmScheduledPublish(id: string): Promise<Revision | null> {
     await this._dangerousGetCollection().updateOne(
       { organization: this.context.org.id, id },
       {
@@ -833,6 +872,7 @@ export class RevisionModel extends BaseClass {
         $unset: { ...SCHEDULED_PUBLISH_UNSET, autoPublishEnabledBy: 1 },
       },
     );
+    return this.getById(id);
   }
 
   // Recall / undo / comment-edit (review lifecycle)
@@ -879,7 +919,8 @@ export class RevisionModel extends BaseClass {
       existing.autoPublishOnApproval ||
       (existing.scheduledPublishAt ?? null) !== null
     ) {
-      await this.disarmScheduledPublish(id);
+      const refreshed = await this.disarmScheduledPublish(id);
+      if (refreshed) return refreshed;
     }
     return updated;
   }
@@ -903,23 +944,8 @@ export class RevisionModel extends BaseClass {
           throw new Error("No active review verdict to retract");
         }
 
-        // Cycle start: the most recent transition that invalidated prior
-        // verdicts (mirrors addReview).
-        let cycleStart: Date | null = null;
-        for (const entry of existing.activityLog) {
-          if (
-            REVIEW_CYCLE_START_ACTIONS.has(entry.action) &&
-            (cycleStart === null || entry.dateCreated > cycleStart)
-          ) {
-            cycleStart = entry.dateCreated;
-          }
-        }
-
-        const inCycle = (d: Date) => cycleStart === null || d >= cycleStart;
         const isCallerVerdict = (r: Revision["reviews"][number]) =>
-          r.userId === userId &&
-          r.decision !== "comment" &&
-          inCycle(r.dateCreated);
+          r.userId === userId && r.decision !== "comment" && !r.stale;
 
         if (!existing.reviews.some(isCallerVerdict)) {
           throw new Error("You have no active review verdict to retract");
@@ -958,8 +984,7 @@ export class RevisionModel extends BaseClass {
         // Recompute status from the remaining active verdicts.
         const verdictByReviewer = new Map<string, ReviewDecision>();
         for (const r of newReviews) {
-          if (r.decision === "comment") continue;
-          if (!inCycle(r.dateCreated)) continue;
+          if (r.decision === "comment" || r.stale) continue;
           verdictByReviewer.set(r.userId, r.decision);
         }
         const verdicts = Array.from(verdictByReviewer.values());
@@ -1073,7 +1098,10 @@ export class RevisionModel extends BaseClass {
         proposedChanges,
       },
       contributors: this.withContributor(existing.contributors, userId),
-      ...(status ? { status } : {}),
+      // An approval reset starts a new cycle — demote the prior verdicts.
+      ...(status
+        ? { status, reviews: this.staleVerdicts(existing.reviews) }
+        : {}),
       activityLog: [
         ...this.cleanActivityLog(existing.activityLog),
         {
@@ -1114,7 +1142,10 @@ export class RevisionModel extends BaseClass {
         proposedChanges: newProposedChanges,
       },
       contributors: this.withContributor(existing.contributors, userId),
-      ...(status ? { status } : {}),
+      // An approval reset starts a new cycle — demote the prior verdicts.
+      ...(status
+        ? { status, reviews: this.staleVerdicts(existing.reviews) }
+        : {}),
       activityLog: [
         ...this.cleanActivityLog(existing.activityLog),
         {
@@ -1182,7 +1213,8 @@ export class RevisionModel extends BaseClass {
     // Fully scrub the schedule fields on publish (this.update can't $unset),
     // matching the feature flow's markRevisionAsPublished.
     if (hadSchedule) {
-      await this.disarmScheduledPublish(id);
+      const refreshed = await this.disarmScheduledPublish(id);
+      if (refreshed) return refreshed;
     }
     return merged;
   }
@@ -1224,7 +1256,8 @@ export class RevisionModel extends BaseClass {
     // Fully scrub the schedule fields on discard (this.update can't $unset),
     // matching the feature flow.
     if (hadSchedule) {
-      await this.disarmScheduledPublish(id);
+      const refreshed = await this.disarmScheduledPublish(id);
+      if (refreshed) return refreshed;
     }
     return closed;
   }
@@ -1240,6 +1273,8 @@ export class RevisionModel extends BaseClass {
       return {
         status: "draft",
         resolution: undefined,
+        // Reopening restarts the lifecycle — demote any pre-discard verdicts.
+        reviews: this.staleVerdicts(existing.reviews),
         activityLog: [
           ...this.cleanActivityLog(existing.activityLog),
           {

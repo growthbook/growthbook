@@ -25,6 +25,14 @@ export const reviewValidator = z.object({
   decision: z.enum(reviewDecision),
   comment: z.string().optional(),
   dateCreated: z.date(),
+  // A verdict demoted by a later cycle reset (re-submit, approval reset on edit,
+  // recall, reopen) — kept for attribution but no longer an active approval or
+  // block. Mirrors the feature flow's "-stale" verdict variants; verdict
+  // activeness is read from this flag, not recomputed from the activity log.
+  stale: z.boolean().optional().meta({
+    description:
+      "True if a later review cycle (re-submit, approval reset, recall, or reopen) superseded this verdict. Stale verdicts are kept for attribution but no longer count as an active approval or change-request.",
+  }),
 });
 export type Review = z.infer<typeof reviewValidator>;
 

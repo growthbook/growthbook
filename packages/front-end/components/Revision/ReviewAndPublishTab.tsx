@@ -387,19 +387,13 @@ function ReviewAndPublishRevision<T>({
   const scheduleBlocksPublish =
     scheduledPending && (!adminPublish || scheduleArmedByAdmin);
 
-  // ── Reviewers: latest verdict per user within the current review cycle.
-  // Mirrors RevisionModel.addReview — "reopened" activity entries (submit
-  // for review, return to draft, approval reset, reopen) start a new cycle
-  // that invalidates earlier verdicts. A verdict older than the last content
-  // edit is stale: still attributable, but not vouching for the current
-  // draft. ──
+  // ── Reviewers: latest active verdict per user. Cycle membership is persisted
+  // on each review (`stale` is set by the model at every cycle reset — submit,
+  // approval-reset, recall, reopen), so we read it directly rather than
+  // recomputing cycle boundaries from the activity log. The separate
+  // content-edit `stale` flag below is a display hint (a current-cycle verdict
+  // that predates the last edit), not cycle membership. ──
   const reviewers = useMemo(() => {
-    let cycleStart: number | null = null;
-    for (const e of revision.activityLog) {
-      if (e.action !== "reopened") continue;
-      const t = new Date(e.dateCreated).getTime();
-      if (cycleStart === null || t > cycleStart) cycleStart = t;
-    }
     let lastContentEditAt: number | null = null;
     for (const e of revision.activityLog) {
       if (e.action !== "updated") continue;
@@ -417,9 +411,7 @@ function ReviewAndPublishRevision<T>({
         new Date(a.dateCreated).getTime() - new Date(b.dateCreated).getTime(),
     );
     for (const r of sorted) {
-      if (r.decision === "comment") continue;
-      const t = new Date(r.dateCreated).getTime();
-      if (cycleStart !== null && t < cycleStart) continue;
+      if (r.decision === "comment" || r.stale) continue;
       byUser.set(r.userId, {
         status: r.decision === "approve" ? "approved" : "changes-requested",
         timestamp: new Date(r.dateCreated).toISOString(),
