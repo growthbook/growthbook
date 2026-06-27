@@ -1,4 +1,12 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { createPortal } from "react-dom";
 import {
   Revision,
   isScheduledPublishPending,
@@ -16,6 +24,7 @@ import {
 } from "react-icons/pi";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
+import Link from "@/ui/Link";
 import Frame from "@/ui/Frame";
 import CoAuthorsList from "@/components/Reviews/CoAuthorsList";
 import InlineRevisionDescription from "@/components/Reviews/InlineRevisionDescription";
@@ -27,7 +36,6 @@ import Metadata from "@/ui/Metadata";
 import EventUser from "@/components/Avatar/EventUser";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import { getStatusBadge } from "@/components/Revision/revisionUtils";
-import { useScrollPosition } from "@/hooks/useScrollPosition";
 import { useUser } from "@/services/UserContext";
 
 const DRAFT_STATUSES = ["draft", "pending-review", "changes-requested"];
@@ -75,13 +83,45 @@ export default function RevisionSummaryCard({
   onEditDescription,
 }: RevisionSummaryCardProps) {
   const { getOwnerDisplay } = useUser();
-  const bannerRef = useRef<HTMLDivElement>(null);
   const [bannerPinned, setBannerPinned] = useState(false);
-  const { scrollY } = useScrollPosition();
-  useEffect(() => {
-    if (!bannerRef.current) return;
-    setBannerPinned(bannerRef.current.getBoundingClientRect().top <= 110);
-  }, [scrollY]);
+  // Pinned once a sentinel above the banner scrolls past the 110px sticky offset
+  // (more reliable than getBoundingClientRect). Ref callback so the observer
+  // re-attaches if the sentinel mounts later (e.g. a draft created on a bare page).
+  const bannerSentinelObserver = useRef<IntersectionObserver | null>(null);
+  const bannerSentinelRef = useCallback((el: HTMLDivElement | null) => {
+    if (bannerSentinelObserver.current) {
+      bannerSentinelObserver.current.disconnect();
+      bannerSentinelObserver.current = null;
+    }
+    if (!el) {
+      setBannerPinned(false);
+      return;
+    }
+    const observer = new IntersectionObserver(
+      ([entry]) => setBannerPinned(!entry.isIntersecting),
+      { rootMargin: "-110px 0px 0px 0px", threshold: 0 },
+    );
+    observer.observe(el);
+    bannerSentinelObserver.current = observer;
+  }, []);
+
+  // The "Review and Publish" CTA portals between the card slot and the banner
+  // slot so it stays reachable when pinned (mirrors the feature flow).
+  const ctaSlotRef = useRef<HTMLDivElement>(null);
+  const bannerCtaSlotRef = useRef<HTMLDivElement>(null);
+  const [draftCtaPortalHost] = useState<HTMLDivElement | null>(() => {
+    if (typeof document === "undefined") return null;
+    const div = document.createElement("div");
+    div.style.display = "contents";
+    return div;
+  });
+  // No deps: ctaSlotRef starts null and populates after the full render.
+  // appendChild is idempotent when the host is already in the target slot.
+  useLayoutEffect(() => {
+    if (!draftCtaPortalHost) return;
+    const target = bannerPinned ? bannerCtaSlotRef.current : ctaSlotRef.current;
+    if (target) target.appendChild(draftCtaPortalHost);
+  });
 
   const isLive = !selectedRevision;
   const status = selectedRevision?.status;
@@ -219,17 +259,9 @@ export default function RevisionSummaryCard({
             message: (
               <>
                 Viewing a previously <strong>published</strong> revision.{" "}
-                <span
-                  style={{
-                    cursor: "pointer",
-                    color: "var(--accent-11)",
-                    fontWeight: 600,
-                    textUnderlineOffset: 2,
-                  }}
-                  onClick={() => onSelectRevision(null)}
-                >
-                  Switch to live
-                </span>
+                <Link onClick={() => onSelectRevision(null)}>
+                  <strong>Switch to live</strong>
+                </Link>
               </>
             ),
           }
@@ -249,17 +281,9 @@ export default function RevisionSummaryCard({
                   {activeDrafts.length === 1 && (
                     <>
                       {". "}
-                      <span
-                        style={{
-                          cursor: "pointer",
-                          color: "var(--accent-11)",
-                          fontWeight: 600,
-                          textUnderlineOffset: 2,
-                        }}
-                        onClick={() => onSelectRevision(activeDrafts[0])}
-                      >
-                        Switch to draft
-                      </span>
+                      <Link onClick={() => onSelectRevision(activeDrafts[0])}>
+                        <strong>Switch to draft</strong>
+                      </Link>
                     </>
                   )}
                 </>
@@ -267,53 +291,88 @@ export default function RevisionSummaryCard({
             }
           : null;
 
+  // Rendered via the portal host above; pure navigation into the review surface.
+  const reviewPublishCta =
+    hasRevisions && isDraft && onReviewPublish ? (
+      <Box>
+        <Button
+          icon={<PiArrowRightBold />}
+          iconPosition="right"
+          onClick={onReviewPublish}
+          style={{ whiteSpace: "nowrap" }}
+        >
+          Review and Publish
+        </Button>
+      </Box>
+    ) : null;
+
   return (
     <>
       {bannerProps && (
-        <div
-          ref={bannerRef}
-          style={{
-            position: "sticky",
-            top: 110,
-            zIndex: 920,
-            marginBottom: 12,
-            display: "flex",
-            justifyContent: "center",
-            pointerEvents: "none",
-          }}
-        >
+        <>
+          <div ref={bannerSentinelRef} aria-hidden style={{ height: 0 }} />
           <div
             style={{
-              width: "100%",
-              backgroundColor: "var(--color-background)",
-              borderRadius: "var(--radius-3)",
-              overflow: "hidden",
-              maxWidth: bannerPinned ? "580px" : "2000px",
-              boxShadow: bannerPinned ? "var(--shadow-3)" : undefined,
-              transition: "all 200ms ease",
-              pointerEvents: "auto",
+              position: "sticky",
+              top: 110,
+              zIndex: 920,
+              marginBottom: 12,
+              display: "flex",
+              justifyContent: "center",
+              pointerEvents: "none",
             }}
           >
-            <Flex
-              align="center"
-              justify="center"
-              gap="2"
-              px="4"
-              py="3"
+            <div
               style={{
-                color: bannerProps.color,
-                backgroundColor: bannerProps.bgColor,
+                width: "100%",
+                backgroundColor: "var(--color-background)",
+                borderRadius: "var(--radius-3)",
+                overflow: "hidden",
+                maxWidth: bannerPinned ? 1280 : 1500,
+                boxShadow: bannerPinned ? "var(--shadow-3)" : undefined,
+                transition: "all 200ms ease",
+                pointerEvents: "auto",
               }}
             >
-              <span style={{ display: "flex", flexGrow: 0, flexShrink: 0 }}>
-                {bannerProps.icon}
-              </span>
-              <span style={{ fontSize: "var(--font-size-2)" }}>
-                {bannerProps.message}
-              </span>
-            </Flex>
+              <Box
+                px="4"
+                py="3"
+                style={{
+                  color: bannerProps.color,
+                  backgroundColor: bannerProps.bgColor,
+                  display: "grid",
+                  gridTemplateColumns: "1fr auto 1fr",
+                  alignItems: "center",
+                  gap: "12px",
+                }}
+              >
+                <span />
+                <Flex
+                  align="center"
+                  justify="center"
+                  gap="2"
+                  style={{ gridColumn: 2 }}
+                >
+                  <span style={{ display: "flex", flexGrow: 0, flexShrink: 0 }}>
+                    {bannerProps.icon}
+                  </span>
+                  <span style={{ fontSize: "var(--font-size-2)" }}>
+                    {bannerProps.message}
+                  </span>
+                </Flex>
+                <Flex
+                  align="center"
+                  gap="2"
+                  justify="end"
+                  style={{ flexShrink: 0, gridColumn: 3 }}
+                >
+                  {/* Slot: reviewPublishCta portal mounts here when pinned */}
+                  <div ref={bannerCtaSlotRef} />
+                </Flex>
+              </Box>
+            </div>
           </div>
-        </div>
+        </>
       )}
       <Frame mt="2" mb="4" px="6" py="4">
         <Flex align="start" justify="between" mb="2" wrap="wrap" gap="2">
@@ -410,16 +469,8 @@ export default function RevisionSummaryCard({
                 New Draft
               </Button>
             )}
-            {hasRevisions && isDraft && onReviewPublish && (
-              <Button
-                icon={<PiArrowRightBold />}
-                iconPosition="right"
-                onClick={onReviewPublish}
-                style={{ whiteSpace: "nowrap" }}
-              >
-                Review and Publish
-              </Button>
-            )}
+            {/* Slot: reviewPublishCta portal mounts here when not pinned */}
+            {isDraft && <div ref={ctaSlotRef} />}
           </Flex>
         </Flex>
         <Separator size="4" my="3" />
@@ -497,6 +548,8 @@ export default function RevisionSummaryCard({
           )}
         </Flex>
       </Frame>
+      {/* Portal: renders reviewPublishCta into whichever slot is active */}
+      {draftCtaPortalHost && createPortal(reviewPublishCta, draftCtaPortalHost)}
     </>
   );
 }

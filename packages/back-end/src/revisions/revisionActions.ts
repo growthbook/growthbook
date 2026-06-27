@@ -89,7 +89,12 @@ export async function publishRevision(
 ): Promise<Revision> {
   const adapter = getAdapter(revision.target.type);
 
-  if (!adapter.canUpdate(context, entity)) {
+  // Publish authority may be narrower than update (e.g. environment-scoped);
+  // honor the adapter override when present, like the schedule controller does.
+  const canPublish = adapter.canPublishRevision
+    ? adapter.canPublishRevision(context, entity)
+    : adapter.canUpdate(context, entity);
+  if (!canPublish) {
     context.permissions.throwPermissionError();
   }
 

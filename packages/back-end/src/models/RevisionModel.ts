@@ -292,6 +292,16 @@ export class RevisionModel extends BaseClass {
     );
   }
 
+  protected migrate(legacyDoc: unknown): Revision {
+    const doc = legacyDoc as Revision;
+    // Clear the legacy synthetic `Revision N` title so it's treated as
+    // uncustomized (the UI falls back to "Revision N" on its own).
+    if (doc.title && doc.title === `Revision ${doc.version}`) {
+      return { ...doc, title: undefined };
+    }
+    return doc;
+  }
+
   protected async beforeCreate(doc: Revision) {
     // Calculate and set the version number
     const allRevisions = await this._find({
@@ -308,10 +318,8 @@ export class RevisionModel extends BaseClass {
     // Set version to the next sequential number
     doc.version = sortedRevisions.length + 1;
 
-    // Set default title if not provided
-    if (!doc.title) {
-      doc.title = `Revision ${doc.version}`;
-    }
+    // No default title — an uncustomized revision has none, and the UI falls back
+    // to "Revision N" (matching the feature flow).
 
     if (!doc.activityLog || doc.activityLog.length === 0) {
       const activityLog: ActivityLogEntry[] = [
@@ -1278,6 +1286,14 @@ export class RevisionModel extends BaseClass {
     const now = new Date();
 
     if (scheduledPublishAt === null) {
+      // Nothing armed → no-op, so we don't stamp a misleading "canceled" entry
+      // on an already-disarmed or terminal revision.
+      if (
+        !existing.autoPublishOnApproval &&
+        (existing.scheduledPublishAt ?? null) === null
+      ) {
+        return existing;
+      }
       await coll.updateOne(filter, {
         $set: { autoPublishOnApproval: false, dateUpdated: now },
         $unset: { ...SCHEDULED_PUBLISH_UNSET, autoPublishEnabledBy: 1 },

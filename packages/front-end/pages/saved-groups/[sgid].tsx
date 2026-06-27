@@ -148,7 +148,6 @@ export default function EditSavedGroupPage() {
     referencingExperiments.length +
     referencingSavedGroups.length;
 
-  const values = useMemo(() => savedGroup?.values ?? [], [savedGroup]);
   const [currentPage, setCurrentPage] = useState(1);
   const [filter, setFilter] = useState("");
 
@@ -266,7 +265,7 @@ export default function EditSavedGroupPage() {
 
   const filteredValues = displayedValues.filter((v) => v.match(filter));
   const sortedValues = sortNewestFirst
-    ? filteredValues.reverse()
+    ? [...filteredValues].reverse()
     : filteredValues;
 
   const start = (currentPage - 1) * NUM_PER_PAGE;
@@ -309,9 +308,10 @@ export default function EditSavedGroupPage() {
   const listAboveSizeLimit = useMemo(
     () =>
       savedGroupSizeLimit
-        ? [...new Set(itemsToAdd.concat(values))].length > savedGroupSizeLimit
+        ? [...new Set(itemsToAdd.concat(displayedValues))].length >
+          savedGroupSizeLimit
         : false,
-    [savedGroupSizeLimit, itemsToAdd, values],
+    [savedGroupSizeLimit, itemsToAdd, displayedValues],
   );
   const displayRevision = useMemo(
     // For live (no explicit selection), use the latest merged revision.
@@ -328,16 +328,16 @@ export default function EditSavedGroupPage() {
     [selectedRevision, userOpenRevision, displayRevision, allRevisions],
   );
 
-  if (!data || !savedGroup) {
-    return <LoadingOverlay />;
-  }
-
   if (error) {
     return (
       <Callout status="error" mt="4">
         An error occurred: {error.message}
       </Callout>
     );
+  }
+
+  if (!data || !savedGroup) {
+    return <LoadingOverlay />;
   }
 
   return (

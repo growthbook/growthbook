@@ -69,7 +69,7 @@ export function RevisionDiff({
   }));
 
   return (
-    <Box mb="6">
+    <Box>
       {diffs.length === 0 ? (
         <Text size="medium" color="text-low">
           No changes to display.

@@ -1,5 +1,27 @@
+import { isEqual } from "lodash";
 import type { Revision } from "shared/enterprise";
 import type { Context } from "back-end/src/models/BaseModel";
+
+/**
+ * Narrow a proposed-changes object to the fields an adapter may write, dropping
+ * undefined or unchanged values. Shared by adapters' `applyChanges`. Lives in
+ * this leaf module (not revisions/util) to avoid an adapter→util→index cycle.
+ */
+export function filterUpdatableChanges(
+  changes: Record<string, unknown>,
+  entity: Record<string, unknown>,
+  updatableFields: ReadonlySet<string>,
+): Record<string, unknown> {
+  const filtered: Record<string, unknown> = {};
+  for (const key of Object.keys(changes)) {
+    if (!updatableFields.has(key)) continue;
+    const newVal = changes[key];
+    if (newVal !== undefined && !isEqual(newVal, entity[key])) {
+      filtered[key] = newVal;
+    }
+  }
+  return filtered;
+}
 
 /**
  * Adapter interface that each entity type must implement to participate in the
