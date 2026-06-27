@@ -1175,7 +1175,10 @@ describe("SDK Payloads", () => {
     ];
 
     const constantMap = new Map([
-      ["cfg", { type: "json" as const, value: JSON.stringify({ a: 1, b: 2 }) }],
+      [
+        "constant:cfg",
+        { type: "json" as const, value: JSON.stringify({ a: 1, b: 2 }) },
+      ],
     ]);
 
     const def = getFeatureDefinition({
@@ -1211,7 +1214,7 @@ describe("SDK Payloads", () => {
 
     const constantMap = new Map([
       [
-        "base",
+        "constant:base",
         { type: "json" as const, value: JSON.stringify({ a: 1, b: 2 }) },
       ],
     ]);
@@ -1253,8 +1256,8 @@ describe("SDK Payloads", () => {
     ];
 
     const constantMap = new Map([
-      ["config-snippet", { type: "json" as const, value: '{"x":1}' }],
-      ["my-json", { type: "json" as const, value: '{"y":2}' }],
+      ["constant:config-snippet", { type: "json" as const, value: '{"x":1}' }],
+      ["constant:my-json", { type: "json" as const, value: '{"y":2}' }],
     ]);
 
     const def = getFeatureDefinition({
@@ -1558,7 +1561,9 @@ describe("SDK Payloads", () => {
       experimentMap,
       safeRolloutMap,
       capabilities: ["looseUnmarshalling"],
-      constantMap: new Map([["name", { type: "string", value: "world" }]]),
+      constantMap: new Map([
+        ["constant:name", { type: "string", value: "world" }],
+      ]),
     });
     expect(def?.rules).toEqual([{ force: { greeting: "hi world" } }]);
   });
@@ -1585,7 +1590,10 @@ describe("SDK Payloads", () => {
       safeRolloutMap,
       capabilities: ["looseUnmarshalling"],
       constantMap: new Map([
-        ["cfg", { type: "json", value: JSON.stringify({ nested: [1, 2] }) }],
+        [
+          "constant:cfg",
+          { type: "json", value: JSON.stringify({ nested: [1, 2] }) },
+        ],
       ]),
     });
     expect(def?.rules).toEqual([{ force: { a: 0, nested: [1, 2], x: 1 } }]);
