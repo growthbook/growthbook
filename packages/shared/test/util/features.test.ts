@@ -12,6 +12,7 @@ import {
   getValidation,
   validateJSONFeatureValue,
   autoMerge,
+  mergeRevision,
   getLiveChangesSinceBase,
   evaluatePublishGovernance,
   isScheduledPublishPending,
@@ -873,6 +874,261 @@ describe("autoMerge", () => {
         expect(result.result.environmentDefaults).toEqual({});
       }
     });
+
+    it("3-way merges a new override added only on the draft side (diverged)", () => {
+      // live advanced a DIFFERENT env's override; the draft added prod's. The
+      // merged complete snapshot must contain both.
+      const base: RevisionFields = {
+        defaultValue: "base",
+        rules: [],
+        version: 4,
+        environmentDefaults: {},
+      };
+      const live: RevisionFields = {
+        defaultValue: "base",
+        rules: [],
+        version: 6,
+        environmentDefaults: { dev: "live-dev" },
+      };
+      const revision: RevisionFields = {
+        defaultValue: "base",
+        rules: [],
+        version: 5,
+        environmentDefaults: { prod: "draft-prod" },
+      };
+      const result = autoMerge(live, base, revision, ["dev", "prod"], {});
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.result.environmentDefaults).toEqual({
+          dev: "live-dev",
+          prod: "draft-prod",
+        });
+      }
+    });
+
+    it("detects a conflict when base, live, and draft each set the same env differently", () => {
+      const base: RevisionFields = {
+        defaultValue: "base",
+        rules: [],
+        version: 4,
+        environmentDefaults: { prod: "base-prod" },
+      };
+      const live: RevisionFields = {
+        defaultValue: "base",
+        rules: [],
+        version: 6,
+        environmentDefaults: { prod: "live-prod" },
+      };
+      const revision: RevisionFields = {
+        defaultValue: "base",
+        rules: [],
+        version: 5,
+        environmentDefaults: { prod: "draft-prod" },
+      };
+      const result = autoMerge(live, base, revision, ["dev", "prod"], {});
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.conflicts).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              key: "environmentDefaults.prod",
+              resolved: false,
+            }),
+          ]),
+        );
+      }
+    });
+
+    it("conflicts when live clears an override the draft modified (clear vs set)", () => {
+      const base: RevisionFields = {
+        defaultValue: "base",
+        rules: [],
+        version: 4,
+        environmentDefaults: { prod: "base-prod" },
+      };
+      // live cleared prod (absent in its complete snapshot)...
+      const live: RevisionFields = {
+        defaultValue: "base",
+        rules: [],
+        version: 6,
+        environmentDefaults: {},
+      };
+      // ...while the draft changed prod's value — a genuine clear-vs-set clash.
+      const revision: RevisionFields = {
+        defaultValue: "base",
+        rules: [],
+        version: 5,
+        environmentDefaults: { prod: "draft-prod" },
+      };
+      const result = autoMerge(live, base, revision, ["dev", "prod"], {});
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.conflicts).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ key: "environmentDefaults.prod" }),
+          ]),
+        );
+      }
+    });
+
+    it("resolves an env-default conflict in either direction", () => {
+      const base: RevisionFields = {
+        defaultValue: "base",
+        rules: [],
+        version: 4,
+        environmentDefaults: { prod: "base-prod" },
+      };
+      const live: RevisionFields = {
+        defaultValue: "base",
+        rules: [],
+        version: 6,
+        environmentDefaults: { prod: "live-prod" },
+      };
+      const revision: RevisionFields = {
+        defaultValue: "base",
+        rules: [],
+        version: 5,
+        environmentDefaults: { prod: "draft-prod" },
+      };
+      const keepDraft = autoMerge(live, base, revision, ["dev", "prod"], {
+        "environmentDefaults.prod": "overwrite",
+      });
+      expect(keepDraft.success).toBe(true);
+      if (keepDraft.success) {
+        expect(keepDraft.result.environmentDefaults).toEqual({
+          prod: "draft-prod",
+        });
+      }
+
+      const keepLive = autoMerge(live, base, revision, ["dev", "prod"], {
+        "environmentDefaults.prod": "discard",
+      });
+      expect(keepLive.success).toBe(true);
+      if (keepLive.success) {
+        // Discarding keeps live's value; the resolved snapshot equals live, so
+        // no environmentDefaults delta is emitted (publishing is a no-op for it).
+        expect(keepLive.result.environmentDefaults).toBeUndefined();
+      }
+    });
+
+    it("never leaks undefined values into the merged snapshot when an env is cleared", () => {
+      const base: RevisionFields = {
+        defaultValue: "base",
+        rules: [],
+        version: 4,
+        environmentDefaults: { dev: "d", prod: "p" },
+      };
+      const live: RevisionFields = {
+        defaultValue: "base",
+        rules: [],
+        version: 6,
+        environmentDefaults: { dev: "d", prod: "p" },
+      };
+      // draft cleared prod.
+      const revision: RevisionFields = {
+        defaultValue: "base",
+        rules: [],
+        version: 5,
+        environmentDefaults: { dev: "d" },
+      };
+      const result = autoMerge(live, base, revision, ["dev", "prod"], {});
+      expect(result.success).toBe(true);
+      if (result.success && result.result.environmentDefaults) {
+        expect(
+          Object.values(result.result.environmentDefaults).every(
+            (v) => v !== undefined,
+          ),
+        ).toBe(true);
+        expect("prod" in result.result.environmentDefaults).toBe(false);
+        expect(result.result.environmentDefaults).toEqual({ dev: "d" });
+      }
+    });
+  });
+});
+
+describe("mergeRevision per-environment default overrides", () => {
+  const baseFeature: FeatureInterface = {
+    dateCreated: new Date("2020-04-20"),
+    dateUpdated: new Date("2020-04-20"),
+    defaultValue: "base",
+    environmentSettings: {
+      dev: { enabled: true },
+      prod: { enabled: true },
+    },
+    id: "feature-merge",
+    organization: "123",
+    owner: "adnan",
+    valueType: "string",
+    version: 1,
+  };
+
+  const makeRevision = (
+    over: Partial<FeatureRevisionInterface>,
+  ): FeatureRevisionInterface => ({
+    featureId: baseFeature.id,
+    organization: baseFeature.organization,
+    baseVersion: 0,
+    version: 2,
+    dateCreated: new Date(),
+    dateUpdated: new Date(),
+    datePublished: null,
+    publishedBy: null,
+    createdBy: null,
+    comment: "",
+    status: "draft",
+    defaultValue: "base",
+    rules: [],
+    ...over,
+  });
+
+  it("full-replaces env defaults from the revision's complete snapshot", () => {
+    const feature: FeatureInterface = {
+      ...baseFeature,
+      environmentSettings: {
+        dev: { enabled: true, defaultValue: "old-dev" },
+        prod: { enabled: true },
+      },
+    };
+    const revision = makeRevision({
+      environmentDefaults: { prod: "new-prod" },
+    });
+    const merged = mergeRevision(feature, revision, ["dev", "prod"]);
+    // prod's override is set; dev's prior override is cleared (absent in snapshot).
+    expect(merged.environmentSettings.prod.defaultValue).toBe("new-prod");
+    expect(merged.environmentSettings.dev.defaultValue).toBeUndefined();
+  });
+
+  it("clears all env overrides for an empty complete snapshot", () => {
+    const feature: FeatureInterface = {
+      ...baseFeature,
+      environmentSettings: {
+        dev: { enabled: true, defaultValue: "old-dev" },
+        prod: { enabled: true, defaultValue: "old-prod" },
+      },
+    };
+    const merged = mergeRevision(
+      feature,
+      makeRevision({ environmentDefaults: {} }),
+      ["dev", "prod"],
+    );
+    expect(merged.environmentSettings.dev.defaultValue).toBeUndefined();
+    expect(merged.environmentSettings.prod.defaultValue).toBeUndefined();
+    // enabled flags survive.
+    expect(merged.environmentSettings.dev.enabled).toBe(true);
+    expect(merged.environmentSettings.prod.enabled).toBe(true);
+  });
+
+  it("leaves env overrides untouched when the revision omits the field (legacy)", () => {
+    const feature: FeatureInterface = {
+      ...baseFeature,
+      environmentSettings: {
+        dev: { enabled: true, defaultValue: "keep-dev" },
+        prod: { enabled: true },
+      },
+    };
+    // Legacy revision without environmentDefaults.
+    const merged = mergeRevision(feature, makeRevision({}), ["dev", "prod"]);
+    expect(merged.environmentSettings.dev.defaultValue).toBe("keep-dev");
   });
 });
 

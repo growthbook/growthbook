@@ -140,6 +140,96 @@ describe("computeRevisionMergeChanges", () => {
     expect(changes.environmentSettings?.dev.enabled).toBe(false);
   });
 
+  it("updates an existing per-env override from the complete snapshot", () => {
+    const { changes, hasChanges } = computeRevisionMergeChanges(
+      mockContext(),
+      makeFeature({
+        environmentSettings: {
+          production: { enabled: true, defaultValue: "old-prod" },
+          dev: { enabled: false },
+        },
+      }),
+      REVISION,
+      { environmentDefaults: { production: "new-prod" } },
+    );
+
+    expect(hasChanges).toBe(true);
+    expect(changes.environmentSettings?.production.defaultValue).toBe(
+      "new-prod",
+    );
+  });
+
+  it("clears all per-env overrides for an empty complete snapshot ({})", () => {
+    const { changes, hasChanges } = computeRevisionMergeChanges(
+      mockContext(),
+      makeFeature({
+        environmentSettings: {
+          production: { enabled: true, defaultValue: "live-prod" },
+          dev: { enabled: true, defaultValue: "live-dev" },
+        },
+      }),
+      REVISION,
+      { environmentDefaults: {} },
+    );
+
+    expect(hasChanges).toBe(true);
+    expect(
+      "defaultValue" in (changes.environmentSettings?.production ?? {}),
+    ).toBe(false);
+    expect("defaultValue" in (changes.environmentSettings?.dev ?? {})).toBe(
+      false,
+    );
+    // enabled flags survive the clear.
+    expect(changes.environmentSettings?.production.enabled).toBe(true);
+    expect(changes.environmentSettings?.dev.enabled).toBe(true);
+  });
+
+  it("composes a per-env override with an enabled toggle without clobbering either", () => {
+    const { changes, hasChanges } = computeRevisionMergeChanges(
+      mockContext(),
+      makeFeature(),
+      REVISION,
+      {
+        environmentDefaults: { production: "false" },
+        environmentsEnabled: { dev: true },
+      },
+    );
+
+    expect(hasChanges).toBe(true);
+    // The enabled toggle landed on dev.
+    expect(changes.environmentSettings?.dev.enabled).toBe(true);
+    // The per-env override landed on production, and production stays enabled.
+    expect(changes.environmentSettings?.production.defaultValue).toBe("false");
+    expect(changes.environmentSettings?.production.enabled).toBe(true);
+    // dev has no override (absent from snapshot).
+    expect("defaultValue" in (changes.environmentSettings?.dev ?? {})).toBe(
+      false,
+    );
+  });
+
+  it("leaves an untouched env's override intact when it is present in the snapshot", () => {
+    const { changes, hasChanges } = computeRevisionMergeChanges(
+      mockContext(),
+      makeFeature({
+        environmentSettings: {
+          production: { enabled: true, defaultValue: "keep-prod" },
+          dev: { enabled: false },
+        },
+      }),
+      REVISION,
+      // Complete snapshot still carries production's existing override and adds dev.
+      { environmentDefaults: { production: "keep-prod", dev: "new-dev" } },
+    );
+
+    expect(hasChanges).toBe(true);
+    // production's override is unchanged.
+    expect(changes.environmentSettings?.production.defaultValue).toBe(
+      "keep-prod",
+    );
+    // dev's new override landed.
+    expect(changes.environmentSettings?.dev.defaultValue).toBe("new-dev");
+  });
+
   it("clears a per-env override absent from the complete snapshot", () => {
     const { changes, hasChanges } = computeRevisionMergeChanges(
       mockContext(),
