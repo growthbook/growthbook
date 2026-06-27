@@ -10,9 +10,11 @@ import {
 
 // AI-generated images are optimized via the Kraken.io API (resize + WebP),
 
-// Downscale to a sane longest-edge cap and re-encode as WebP. Gemini returns
-// ~1 MB lossless PNGs; this yields ~80–150 KB WebP with no perceptible loss.
-const MAX_LONGEST_EDGE_PX = 1280;
+// Downscale to a sane longest-edge cap and re-encode as WebP. 1920 covers
+// full-width hero slots at 1x; aspect-honoring/high-res models (Gemini 3 Pro
+// Image) can fill it, smaller models are only ever downscaled toward it.
+// WebP @82 keeps a 1920px image to a few hundred KB.
+const MAX_LONGEST_EDGE_PX = 1920;
 const WEBP_QUALITY = 82;
 const KRAKEN_UPLOAD_URL = "https://api.kraken.io/v1/upload";
 
@@ -111,14 +113,81 @@ function cropDimensions(
   return { width: Math.max(1, width), height: Math.max(1, height) };
 }
 
-// Resolve the Kraken resize block + the resulting output dimensions.
-// When `cropToAspect` is a valid ratio that differs from the source, use
-// Kraken's "crop" strategy (resize-to-cover then center-crop) so the output
-// matches the target aspect EXACTLY — the generated image then drops into the
-// page's <img> slot without the browser center-cropping/zooming it. Downscale
-// only (the box fits inside the source). Otherwise fall back to plain "fit".
+// Read pixel dimensions straight from the image header (no full decode, zero
+// dependency). The provider tags generated images with NOMINAL dims (a coarse
+// aspect hint, longest edge ~1024), not the real output size, so without this
+// the crop/cap would size against 1024 and silently downscale a higher-res
+// model's output. Returns null for headers we can't parse; callers fall back
+// to the nominal dims. Generated images are PNG (most providers) or JPEG.
+function readImageDimensions(
+  buffer: Buffer,
+): { width: number; height: number } | null {
+  if (buffer.length < 24) return null;
+
+  // PNG: 8-byte signature, then the IHDR chunk with width/height as big-endian
+  // uint32 at byte offsets 16 and 20.
+  if (
+    buffer[0] === 0x89 &&
+    buffer[1] === 0x50 &&
+    buffer[2] === 0x4e &&
+    buffer[3] === 0x47
+  ) {
+    const width = buffer.readUInt32BE(16);
+    const height = buffer.readUInt32BE(20);
+    return width > 0 && height > 0 ? { width, height } : null;
+  }
+
+  // JPEG: walk the marker segments to the Start-Of-Frame, which carries dims.
+  if (buffer[0] === 0xff && buffer[1] === 0xd8) {
+    let offset = 2;
+    while (offset + 9 < buffer.length) {
+      if (buffer[offset] !== 0xff) {
+        offset++;
+        continue;
+      }
+      const marker = buffer[offset + 1];
+      // SOF0-SOF15 carry frame dimensions; DHT(c4)/JPG(c8)/DAC(cc) don't.
+      if (
+        marker >= 0xc0 &&
+        marker <= 0xcf &&
+        marker !== 0xc4 &&
+        marker !== 0xc8 &&
+        marker !== 0xcc
+      ) {
+        const height = buffer.readUInt16BE(offset + 5);
+        const width = buffer.readUInt16BE(offset + 7);
+        return width > 0 && height > 0 ? { width, height } : null;
+      }
+      // Standalone markers (SOI/EOI/RSTn/TEM) have no length field.
+      if (
+        marker === 0xd8 ||
+        marker === 0xd9 ||
+        marker === 0x01 ||
+        (marker >= 0xd0 && marker <= 0xd7)
+      ) {
+        offset += 2;
+        continue;
+      }
+      const segLen = buffer.readUInt16BE(offset + 2);
+      if (segLen < 2) return null;
+      offset += 2 + segLen;
+    }
+    return null;
+  }
+
+  return null;
+}
+
+// Resolve the Kraken resize block + the resulting output dimensions, sizing
+// against the source's REAL pixel dimensions (srcWidth/srcHeight).
+// When `cropToAspect` is a valid ratio, use Kraken's "crop" strategy
+// (resize-to-cover then center-crop) so the output matches the target aspect
+// EXACTLY — the generated image then drops into the page's <img> slot without
+// the browser center-cropping/zooming it. Downscale only (the box fits inside
+// the source). Otherwise fall back to plain "fit".
 function resolveResize(
-  source: RawImage,
+  srcWidth: number,
+  srcHeight: number,
   cropToAspect: string | undefined,
 ): {
   resize: Record<string, unknown>;
@@ -127,18 +196,14 @@ function resolveResize(
 } {
   const ratio = parseAspectRatio(cropToAspect);
   if (ratio) {
-    const { width, height } = cropDimensions(
-      source.width,
-      source.height,
-      ratio,
-    );
+    const { width, height } = cropDimensions(srcWidth, srcHeight, ratio);
     return {
       resize: { strategy: "crop", width, height },
       width,
       height,
     };
   }
-  const fit = fitDimensions(source.width, source.height);
+  const fit = fitDimensions(srcWidth, srcHeight);
   return {
     resize: {
       strategy: "fit",
@@ -160,15 +225,20 @@ async function krakenOptimize(
     AI_IMAGE_OPTIMIZATION_TIMEOUT_MS,
   );
 
+  // Size against the REAL generated pixels (the provider only tags nominal
+  // ~1024 dims), falling back to those nominal dims if the header won't parse.
   // "crop" to the original slot's aspect (downscale-only) when we know it, so
   // the result drops in without the browser center-cropping it; otherwise a
   // plain "fit" downscale. Output dims are derived here (Kraken doesn't return
-  // them and we don't decode the bytes).
+  // them).
+  const actual = readImageDimensions(source.buffer);
+  const srcWidth = actual?.width ?? source.width;
+  const srcHeight = actual?.height ?? source.height;
   const {
     resize,
     width: outWidth,
     height: outHeight,
-  } = resolveResize(source, cropToAspect);
+  } = resolveResize(srcWidth, srcHeight, cropToAspect);
 
   try {
     const form = new FormData();
