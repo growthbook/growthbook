@@ -10,7 +10,6 @@ import {
   RevisionLog,
 } from "shared/types/feature-revision";
 import {
-  applyEnvironmentDefaultsResult,
   autoMerge,
   fillRevisionFromFeature,
   liveRevisionFromFeature,
@@ -1730,12 +1729,12 @@ export default function ReviewAndPublish({
         ...filledLive,
         ...mergeResult.result,
         rules: mergeResult.result.rules ?? filledLive.rules,
-        // Resolve per-env override tombstones onto live so this revision-shaped
-        // object keeps the sparse `Record<string, string>` storage convention.
-        environmentDefaults: applyEnvironmentDefaultsResult(
+        // `mergeResult.result.environmentDefaults`, when present, is the
+        // complete authoritative snapshot of per-env overrides; otherwise the
+        // overrides are unchanged from live.
+        environmentDefaults:
+          mergeResult.result.environmentDefaults ??
           filledLive.environmentDefaults,
-          mergeResult.result.environmentDefaults,
-        ),
         rampActions: revision.rampActions,
       };
       effectiveBase = filledLive;

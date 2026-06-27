@@ -236,12 +236,18 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     }
 
     // 1b. per-env default value overrides (mirrors environmentsEnabled).
-    // Route these through the revision's sparse `environmentDefaults` map
-    // instead of writing them directly to `environmentSettings`, so the
-    // override is both applied to live (via the auto-published revision) and
-    // revision-tracked. A provided value is validated against the feature's
-    // valueType and diffed against the current live override; an absent value
-    // (env omitted, or env present without `defaultValue`) means no change.
+    // Route these through the revision's `environmentDefaults` map, which is a
+    // COMPLETE snapshot (full-map-replace). A provided value is validated and
+    // MERGED onto the live overrides so envs the caller didn't mention keep
+    // their existing override. This SET/UPDATE-only path never removes an
+    // override (removal is via the dedicated unset endpoint). `mergedEnvDefaults`
+    // is the full snapshot to publish; `changedEnvDefaults` tracks whether any
+    // env actually changed (so we only route through a revision when needed).
+    const mergedEnvDefaults: Record<string, string> = Object.fromEntries(
+      Object.entries(feature.environmentSettings ?? {})
+        .filter(([, val]) => val?.defaultValue !== undefined)
+        .map(([env, val]) => [env, val.defaultValue as string]),
+    );
     const changedEnvDefaults: Record<string, string> = {};
     for (const [env, envSettings] of Object.entries(
       req.body.environments ?? {},
@@ -249,6 +255,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       const requested = envSettings.defaultValue;
       if (requested === undefined) continue;
       const nextVal = validateFeatureValue(feature, requested);
+      mergedEnvDefaults[env] = nextVal;
       if (nextVal !== feature.environmentSettings?.[env]?.defaultValue) {
         changedEnvDefaults[env] = nextVal;
       }
@@ -481,7 +488,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
           ? { environmentsEnabled: changedEnvEnabled }
           : {}),
         ...(hasEnvDefaultChanges
-          ? { environmentDefaults: changedEnvDefaults }
+          ? { environmentDefaults: mergedEnvDefaults }
           : {}),
         ...(hasRuleChanges || hasEnvEnabledChanges
           ? {

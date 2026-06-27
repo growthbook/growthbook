@@ -92,14 +92,31 @@ export default function EditEnvironmentDefaultValueModal({
       header={`Edit Default Value — ${environment}`}
       cta="Save to draft"
       submit={form.handleSubmit(async (value) => {
-        // Clearing the override: send null so the back end drops the per-env
-        // entry and this environment inherits the base default value again.
+        // The endpoint takes the COMPLETE desired set of per-env overrides
+        // (full-map-replace). Build it from the feature's current overrides,
+        // then set or clear this environment's entry. (The dedicated per-env
+        // modal will be replaced by a Constants-style full-map modal; this is a
+        // minimal adaptation to the new contract — see the UI rework worker.)
+        const nextEnvironmentDefaults: Record<string, string> = {};
+        for (const [env, s] of Object.entries(
+          feature.environmentSettings ?? {},
+        )) {
+          if (s?.defaultValue !== undefined) {
+            nextEnvironmentDefaults[env] = s.defaultValue;
+          }
+        }
+
+        // Clearing the override: drop this env's entry so it inherits the base
+        // default value again.
         if (!override) {
+          delete nextEnvironmentDefaults[environment];
           const res = await apiCall<{ version: number }>(
             `/feature/${feature.id}/${targetVersion}/environmentdefault`,
             {
               method: "POST",
-              body: JSON.stringify({ environment, defaultValue: null }),
+              body: JSON.stringify({
+                environmentDefaults: nextEnvironmentDefaults,
+              }),
             },
           );
           await mutate();
@@ -119,13 +136,13 @@ export default function EditEnvironmentDefaultValueModal({
           );
         }
 
+        nextEnvironmentDefaults[environment] = newDefaultValue;
         const res = await apiCall<{ version: number }>(
           `/feature/${feature.id}/${targetVersion}/environmentdefault`,
           {
             method: "POST",
             body: JSON.stringify({
-              environment,
-              defaultValue: newDefaultValue,
+              environmentDefaults: nextEnvironmentDefaults,
             }),
           },
         );

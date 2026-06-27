@@ -152,9 +152,18 @@ export const updateFeatureV2 = createApiRequestHandler(
   }
 
   const changedEnvEnabled: Record<string, boolean> = {};
-  // Per-env default value overrides, tracked through the revision's sparse
-  // `environmentDefaults` map (mirrors environmentsEnabled). A provided value
-  // is validated against valueType and set as the override for that env.
+  // Per-env default value overrides, tracked through the revision's
+  // `environmentDefaults` map, which is a COMPLETE snapshot (full-map-replace).
+  // A provided value is validated and MERGED onto the live overrides so envs
+  // the caller didn't mention keep their existing override. This SET/UPDATE-only
+  // path never removes an override (removal is via the dedicated unset endpoint).
+  // `mergedEnvDefaults` is the full snapshot to publish; `changedEnvDefaults`
+  // tracks whether any env actually changed.
+  const mergedEnvDefaults: Record<string, string> = Object.fromEntries(
+    Object.entries(feature.environmentSettings ?? {})
+      .filter(([, val]) => val?.defaultValue !== undefined)
+      .map(([env, val]) => [env, val.defaultValue as string]),
+  );
   const changedEnvDefaults: Record<string, string> = {};
   if (req.body.environments) {
     for (const [env, s] of Object.entries(req.body.environments)) {
@@ -166,6 +175,7 @@ export const updateFeatureV2 = createApiRequestHandler(
       }
       if (s.defaultValue !== undefined) {
         const nextVal = validateFeatureValue(feature, s.defaultValue);
+        mergedEnvDefaults[env] = nextVal;
         if (nextVal !== feature.environmentSettings?.[env]?.defaultValue) {
           changedEnvDefaults[env] = nextVal;
         }
@@ -266,7 +276,7 @@ export const updateFeatureV2 = createApiRequestHandler(
         ? { environmentsEnabled: changedEnvEnabled }
         : {}),
       ...(hasEnvDefaultChanges
-        ? { environmentDefaults: changedEnvDefaults }
+        ? { environmentDefaults: mergedEnvDefaults }
         : {}),
       ...(hasRuleChanges || hasEnvEnabledChanges
         ? {

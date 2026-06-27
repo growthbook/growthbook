@@ -825,13 +825,12 @@ export async function createRevision({
   user: EventUser;
   environments: string[];
   baseVersion?: number;
-  // `environmentDefaults` accepts `undefined` per-env values as clear
-  // tombstones: the env is dropped from the stored snapshot (see the filter
-  // below) so the new revision records "no override" for that env. The stored
-  // FeatureRevisionInterface shape itself never holds undefined values.
-  changes?: Omit<Partial<FeatureRevisionInterface>, "environmentDefaults"> & {
-    environmentDefaults?: Record<string, string | undefined>;
-  };
+  // `environmentDefaults` is a COMPLETE snapshot of per-env overrides. When
+  // provided, it is authoritative and REPLACES the live feature's overrides for
+  // the new draft (a present key is an override; an absent key means "no
+  // override"). When omitted, the draft is seeded from the live feature's
+  // current overrides. No tombstone/undefined values.
+  changes?: Partial<FeatureRevisionInterface>;
   publish?: boolean;
   comment?: string;
   title?: string;
@@ -872,21 +871,27 @@ export async function createRevision({
         false,
     ]),
   );
-  // Sparse mirror of `environmentsEnabled`: seed each env's per-env default
-  // override from the live feature so a new draft starts from the live state,
-  // and carry `changes.environmentDefaults` when provided. Only envs that
-  // actually have an override are included (mirrors environmentSettings).
+  // Complete snapshot of per-env default overrides. When the caller provides
+  // `changes.environmentDefaults`, it is authoritative and REPLACES the live
+  // overrides wholesale (full-map-replace semantics — a present key is an
+  // override, an absent key means "no override"). Otherwise seed the draft
+  // from the live feature's current overrides so it starts at the live state.
+  // Only envs applicable to this revision are considered; only real string
+  // values are stored (no undefined).
+  const environmentDefaultsSource: Record<string, string | undefined> =
+    changes?.environmentDefaults !== undefined
+      ? changes.environmentDefaults
+      : Object.fromEntries(
+          environments.map((env) => [
+            env,
+            feature.environmentSettings?.[env]?.defaultValue,
+          ]),
+        );
   const environmentDefaults: Record<string, string> = Object.fromEntries(
     environments
-      .map((env) => {
-        const overridden =
-          changes?.environmentDefaults && env in changes.environmentDefaults
-            ? changes.environmentDefaults[env]
-            : feature.environmentSettings?.[env]?.defaultValue;
-        return [env, overridden] as const;
-      })
-      .filter(([, val]) => val !== undefined),
-  ) as Record<string, string>;
+      .filter((env) => environmentDefaultsSource[env] !== undefined)
+      .map((env) => [env, environmentDefaultsSource[env] as string]),
+  );
   const prerequisites = changes?.prerequisites ?? feature.prerequisites ?? [];
   const archived = changes?.archived ?? feature.archived ?? false;
   const featureMetadataSnapshot: RevisionMetadata = {

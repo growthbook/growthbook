@@ -116,27 +116,31 @@ export async function revertFeatureCore(
       if (!changedEnvs.includes(env)) changedEnvs.push(env);
     }
 
-    // Per-env default value override — sparse mirror of the kill switch above.
-    // Restore the target revision's override where it had one, and CLEAR it
-    // (emit an `undefined` tombstone) where the revision had none but the live
-    // feature still does. The tombstone flows through createRevision (which
-    // drops it from the stored snapshot so the new revision records "no
-    // override") and through autoMerge -> computeRevisionMergeChanges (which
-    // unsets environmentSettings[env].defaultValue). Only acts when the
-    // revision carries the field; legacy revisions that predate it are left
-    // untouched.
+    // Per-env default value override — complete snapshot. Track which envs
+    // differ from live for permission gating; the actual full-map-replace
+    // snapshot is assembled below. Only acts when the revision carries the
+    // field; legacy revisions that predate it are left untouched.
     if (revision.environmentDefaults !== undefined) {
       const revDefault = revision.environmentDefaults[env];
       const liveDefault = feature.environmentSettings?.[env]?.defaultValue;
       if (revDefault !== liveDefault) {
-        changes.environmentDefaults = changes.environmentDefaults || {};
-        // revDefault is `undefined` when the revision had no override for this
-        // env — the tombstone that clears the live override on publish.
-        changes.environmentDefaults[env] = revDefault;
         if (!changedEnvs.includes(env)) changedEnvs.push(env);
       }
     }
   });
+  // Full-map-replace per-env defaults: when the target snapshot differs from
+  // the live overrides, carry the COMPLETE target snapshot so createRevision
+  // records exactly it (envs the target didn't override are absent → cleared).
+  if (revision.environmentDefaults !== undefined) {
+    const liveDefaults: Record<string, string> = Object.fromEntries(
+      Object.entries(feature.environmentSettings ?? {})
+        .filter(([, val]) => val?.defaultValue !== undefined)
+        .map(([env, val]) => [env, val.defaultValue as string]),
+    );
+    if (!isEqual(revision.environmentDefaults, liveDefaults)) {
+      changes.environmentDefaults = { ...revision.environmentDefaults };
+    }
+  }
   if (anyRulesChanged) {
     changes.rules = targetRulesFlat;
   }

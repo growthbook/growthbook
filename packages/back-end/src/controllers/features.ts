@@ -7,7 +7,6 @@ import {
   SDKLanguage,
 } from "shared/types/sdk-connection";
 import {
-  applyEnvironmentDefaultsResult,
   autoMerge,
   filterEnvironmentsByFeature,
   filterProjectsByEnvironmentWithNull,
@@ -974,15 +973,13 @@ export async function postFeatureRebase(
       feature.environmentSettings?.[env]?.enabled ??
       false;
   });
-  // Sparse per-env default value overrides: start from the revision's existing
-  // overrides, then overlay any the merge result resolved. Only envs with an
-  // override are present (mirrors environmentSettings / liveRevisionFromFeature).
-  // Cleared overrides arrive as `undefined` tombstones and are removed.
+  // Per-env default overrides — complete snapshot. The merge result, when
+  // present, IS the authoritative complete snapshot (full-map-replace); when
+  // absent, keep the revision's existing complete snapshot.
   const newEnvironmentDefaults: Record<string, string> =
-    applyEnvironmentDefaultsResult(
-      revision.environmentDefaults,
-      mergeResult.result.environmentDefaults,
-    );
+    mergeResult.result.environmentDefaults ??
+    revision.environmentDefaults ??
+    {};
 
   // Build complete metadata snapshot: start from live feature, overlay any
   // metadata fields the merge result explicitly changed.
@@ -1932,13 +1929,12 @@ export async function postFeaturePublish(
         ...filledLive,
         ...mergeResult.result,
         rules: mergeResult.result.rules ?? filledLive.rules ?? [],
-        // Resolve per-env override tombstones onto the live baseline so this
-        // revision-shaped object keeps the sparse `Record<string, string>`
-        // convention (cleared envs absent) for the review gate check.
-        environmentDefaults: applyEnvironmentDefaultsResult(
+        // `mergeResult.result.environmentDefaults`, when present, is the
+        // complete authoritative snapshot (full-map-replace); when absent, the
+        // overrides are unchanged from live.
+        environmentDefaults:
+          mergeResult.result.environmentDefaults ??
           filledLive.environmentDefaults,
-          mergeResult.result.environmentDefaults,
-        ),
         // rampActions live on the draft; autoMerge doesn't carry them through
         // MergeResultChanges, so re-attach them for the review gate check.
         rampActions: revision.rampActions,
@@ -2371,26 +2367,31 @@ export async function postFeatureRevert(
       }
     }
 
-    // Per-env default value override — sparse mirror of the kill switch above.
-    // Restore the target revision's override for this env: set it where the
-    // revision had one, and CLEAR it (emit an `undefined` tombstone so the
-    // publish path unsets environmentSettings[env].defaultValue) where the
-    // revision had none but the live feature still does. Only acts when the
-    // revision actually carries the `environmentDefaults` field; truly legacy
-    // revisions that predate the field are left untouched.
+    // Per-env default value override — complete snapshot. Track which envs
+    // differ from live for permission gating; the actual full-map-replace is
+    // applied below. Only acts when the revision carries the field; truly
+    // legacy revisions that predate it are left untouched.
     if (revision.environmentDefaults !== undefined) {
       const revDefault = revision.environmentDefaults[env];
       const liveDefault = feature.environmentSettings?.[env]?.defaultValue;
       if (revDefault !== liveDefault) {
         if (!changedEnvs.includes(env)) changedEnvs.push(env);
-        mergeChanges.environmentDefaults =
-          mergeChanges.environmentDefaults || {};
-        // revDefault is `undefined` when the revision had no override for this
-        // env — that's the tombstone computeRevisionMergeChanges deletes on.
-        mergeChanges.environmentDefaults[env] = revDefault;
       }
     }
   });
+  // Full-map-replace per-env defaults: when the target snapshot differs from
+  // the live overrides, publish the COMPLETE target snapshot so envs the target
+  // didn't override get their live override cleared (inherit base again).
+  if (revision.environmentDefaults !== undefined) {
+    const liveDefaults: Record<string, string> = Object.fromEntries(
+      Object.entries(feature.environmentSettings ?? {})
+        .filter(([, val]) => val?.defaultValue !== undefined)
+        .map(([env, val]) => [env, val.defaultValue as string]),
+    );
+    if (!isEqual(revision.environmentDefaults, liveDefaults)) {
+      mergeChanges.environmentDefaults = { ...revision.environmentDefaults };
+    }
+  }
   if (anyRulesChanged) {
     mergeChanges.rules = revRules;
   }
@@ -2493,12 +2494,7 @@ export async function postFeatureRevert(
 
   // Build the full state of the target revision for the new revision document.
   // Sparse legacy revisions fall back to the feature's own rules.
-  const revisionChanges: Omit<
-    Partial<FeatureRevisionInterface>,
-    "environmentDefaults"
-  > & {
-    environmentDefaults?: Record<string, string | undefined>;
-  } = {
+  const revisionChanges: Partial<FeatureRevisionInterface> = {
     defaultValue: revision.defaultValue,
     rules: revision.rules ?? feature.rules ?? [],
   };
@@ -2506,24 +2502,11 @@ export async function postFeatureRevert(
     revisionChanges.environmentsEnabled = revision.environmentsEnabled;
   }
   if (revision.environmentDefaults !== undefined) {
-    // Carry the target revision's per-env default overrides into the stored
-    // snapshot, plus an explicit `undefined` tombstone for every env the live
-    // feature currently overrides but the target did not. Without the
-    // tombstone, createRevision would fall back to the live override for that
-    // env and the new revision would record a stale per-env default that the
-    // revert is meant to clear.
-    const restoredDefaults: Record<string, string | undefined> = {
-      ...revision.environmentDefaults,
-    };
-    Object.entries(feature.environmentSettings ?? {}).forEach(([env, val]) => {
-      if (
-        val?.defaultValue !== undefined &&
-        !(env in revision.environmentDefaults!)
-      ) {
-        restoredDefaults[env] = undefined;
-      }
-    });
-    revisionChanges.environmentDefaults = restoredDefaults;
+    // The target revision's per-env overrides are a COMPLETE snapshot. Pass it
+    // through verbatim; createRevision treats it as authoritative (full-replace)
+    // so envs the target didn't override are absent and the new revision records
+    // "no override" for them (publish then clears the live override).
+    revisionChanges.environmentDefaults = { ...revision.environmentDefaults };
   }
   if (revision.prerequisites !== undefined) {
     revisionChanges.prerequisites = revision.prerequisites;
@@ -3780,9 +3763,14 @@ export async function postFeatureDefaultValue(
   });
 }
 
+// Full-map-replace endpoint for per-env default value overrides on a draft
+// revision. The body carries the COMPLETE desired set of overrides (Constants-
+// style): every env the caller wants overridden is present; any env that should
+// have no override is simply absent; `{}` clears all overrides. This sets the
+// draft's `environmentDefaults` to exactly the provided (validated) snapshot.
 export async function postFeatureEnvironmentDefault(
   req: AuthRequest<
-    { environment: string; defaultValue: string | null },
+    { environmentDefaults: Record<string, string> },
     { id: string; version: string }
   >,
   res: Response<{ status: 200; version: number }, EventUserForResponseLocals>,
@@ -3790,7 +3778,15 @@ export async function postFeatureEnvironmentDefault(
   const context = getContextFromReq(req);
   const { org } = context;
   const { id, version } = req.params;
-  const { environment, defaultValue } = req.body;
+  const { environmentDefaults } = req.body;
+
+  if (
+    typeof environmentDefaults !== "object" ||
+    environmentDefaults === null ||
+    Array.isArray(environmentDefaults)
+  ) {
+    throw new Error("`environmentDefaults` must be an object");
+  }
 
   const feature = await getFeature(context, id);
   if (!feature) {
@@ -3805,37 +3801,33 @@ export async function postFeatureEnvironmentDefault(
   }
 
   const environments = getEnvironmentIdsFromOrg(context.org);
-  if (!environments.includes(environment)) {
-    throw new Error(`Unknown environment: ${environment}`);
+
+  // Validate every value and build the complete next snapshot. Unknown envs are
+  // rejected so a typo can't silently store a dead override.
+  const nextEnvironmentDefaults: Record<string, string> = {};
+  for (const [environment, value] of Object.entries(environmentDefaults)) {
+    if (!environments.includes(environment)) {
+      throw new Error(`Unknown environment: ${environment}`);
+    }
+    nextEnvironmentDefaults[environment] = validateFeatureValue(
+      feature,
+      value,
+      "Value",
+    );
   }
 
   const revision = await getDraftRevision(context, feature, parseInt(version));
 
-  // Per-env default overrides live in the revision's sparse `environmentDefaults`
-  // map (mirrors `environmentsEnabled`). `updateRevision` $sets the whole field,
-  // so build the complete next map from the draft's current overrides. Setting
-  // an override adds/updates the env's key; clearing it (defaultValue == null)
-  // removes the key so the env inherits the base default again.
-  const nextEnvironmentDefaults: Record<string, string> = {
-    ...(revision.environmentDefaults ?? {}),
-  };
-  let auditValue: string | null;
-  if (defaultValue === null || defaultValue === undefined) {
-    delete nextEnvironmentDefaults[environment];
-    auditValue = null;
-  } else {
-    const validatedDefaultValue = validateFeatureValue(
-      feature,
-      defaultValue,
-      "Value",
-    );
-    nextEnvironmentDefaults[environment] = validatedDefaultValue;
-    auditValue = validatedDefaultValue;
-  }
+  // Envs whose override changed vs the draft's current complete snapshot —
+  // covers sets, updates, and clears (present in current, absent in next).
+  const currentDefaults = revision.environmentDefaults ?? {};
+  const changedEnvironments = environments.filter(
+    (env) => currentDefaults[env] !== nextEnvironmentDefaults[env],
+  );
 
   const resetReview = resetReviewOnChange({
     feature,
-    changedEnvironments: [environment],
+    changedEnvironments,
     defaultValueChanged: true,
     settings: org?.settings,
   });
@@ -3847,9 +3839,9 @@ export async function postFeatureEnvironmentDefault(
       { environmentDefaults: nextEnvironmentDefaults },
       {
         user: res.locals.eventAudit,
-        action: "edit environment default value",
-        subject: `in ${environment}`,
-        value: JSON.stringify({ environment, defaultValue: auditValue }),
+        action: "edit environment default values",
+        subject: "",
+        value: JSON.stringify({ environmentDefaults: nextEnvironmentDefaults }),
       },
       resetReview,
     )) ?? revision;
@@ -3859,7 +3851,7 @@ export async function postFeatureEnvironmentDefault(
     updatedRevision,
     "defaultValue",
     {
-      environments: [environment],
+      environments: changedEnvironments,
     },
   );
 

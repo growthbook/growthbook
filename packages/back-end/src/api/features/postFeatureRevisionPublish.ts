@@ -1,6 +1,5 @@
 import { postFeatureRevisionPublishValidator } from "shared/validators";
 import {
-  applyEnvironmentDefaultsResult,
   autoMerge,
   checkIfRevisionNeedsReview,
   draftDiffersFromLive,
@@ -147,14 +146,11 @@ export async function publishFeatureRevision(
   const effectiveRevision = {
     ...filledLive,
     ...mergeResult.result,
-    // The merge result may carry `undefined` tombstones for cleared per-env
-    // overrides; resolve them onto the live baseline so this revision-shaped
-    // object keeps the sparse `Record<string, string>` storage convention
-    // (cleared envs absent) instead of leaking tombstones into review checks.
-    environmentDefaults: applyEnvironmentDefaultsResult(
-      filledLive.environmentDefaults,
-      mergeResult.result.environmentDefaults,
-    ),
+    // `mergeResult.result.environmentDefaults`, when present, is the complete
+    // authoritative snapshot of per-env overrides (full-map-replace); when
+    // absent, the overrides are unchanged from live.
+    environmentDefaults:
+      mergeResult.result.environmentDefaults ?? filledLive.environmentDefaults,
     // rampActions live on the draft revision; autoMerge doesn't carry them
     // through MergeResultChanges, so we must re-attach them explicitly so
     // that checkIfRevisionNeedsReview can inspect the ramp-schedule changes.

@@ -60,6 +60,24 @@ export const postConstantRevisionRevert = createApiRequestHandler(
     }
   }
 
+  // Full-map-replace clear for per-env overrides: when the target revision had
+  // NO `environmentValues` (undefined/absent) but the live constant currently
+  // has overrides, reverting must CLEAR them so the live state matches the
+  // target. The generic loop above skips `undefined` target values, so handle
+  // this explicitly by replacing with an empty map. (Mirrors the per-env
+  // default-value full-map-replace semantics on features.)
+  const targetEnvValues = (targetState as Record<string, unknown>)
+    .environmentValues;
+  const liveEnvValues = (constant as unknown as Record<string, unknown>)
+    .environmentValues as Record<string, unknown> | undefined;
+  if (
+    targetEnvValues === undefined &&
+    liveEnvValues !== undefined &&
+    Object.keys(liveEnvValues).length > 0
+  ) {
+    fieldsToUpdate.environmentValues = {};
+  }
+
   if (Object.keys(fieldsToUpdate).length === 0) {
     throw new BadRequestError(
       `Revision #${req.params.version} matches the current constant — nothing to revert.`,

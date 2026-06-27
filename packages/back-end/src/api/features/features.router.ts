@@ -32,6 +32,10 @@ import { putFeatureRevisionArchive } from "./putFeatureRevisionArchive";
 import { putFeatureRevisionHoldout } from "./putFeatureRevisionHoldout";
 import { postFeatureRevisionRevert } from "./postFeatureRevisionRevert";
 import { listRevisions } from "./listRevisions";
+import {
+  setFeatureEnvironmentDefault,
+  unsetFeatureEnvironmentDefault,
+} from "./setFeatureEnvironmentDefault";
 
 export const featureRoutes: OpenApiRoute[] = [
   // Feature CRUD
@@ -42,6 +46,8 @@ export const featureRoutes: OpenApiRoute[] = [
   deleteFeatureById,
   toggleFeature,
   revertFeature,
+  setFeatureEnvironmentDefault,
+  unsetFeatureEnvironmentDefault,
   getFeatureKeys,
   getFeatureStale,
 

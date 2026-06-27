@@ -124,6 +124,43 @@ describe("computeRevisionMergeChanges", () => {
     expect(changes.environmentSettings?.production.enabled).toBe(true);
   });
 
+  it("full-replaces per-env default overrides from the complete snapshot", () => {
+    const { changes, hasChanges } = computeRevisionMergeChanges(
+      mockContext(),
+      makeFeature(),
+      REVISION,
+      // Complete snapshot: only production has an override.
+      { environmentDefaults: { production: "false" } },
+    );
+
+    expect(hasChanges).toBe(true);
+    expect(changes.environmentSettings?.production.defaultValue).toBe("false");
+    // dev is absent from the snapshot — no override set, enabled preserved.
+    expect(changes.environmentSettings?.dev.defaultValue).toBeUndefined();
+    expect(changes.environmentSettings?.dev.enabled).toBe(false);
+  });
+
+  it("clears a per-env override absent from the complete snapshot", () => {
+    const { changes, hasChanges } = computeRevisionMergeChanges(
+      mockContext(),
+      makeFeature({
+        environmentSettings: {
+          production: { enabled: true, defaultValue: "live-prod" },
+          dev: { enabled: false },
+        },
+      }),
+      REVISION,
+      // Empty complete snapshot — production's override must be cleared.
+      { environmentDefaults: {} },
+    );
+
+    expect(hasChanges).toBe(true);
+    expect(
+      "defaultValue" in (changes.environmentSettings?.production ?? {}),
+    ).toBe(false);
+    expect(changes.environmentSettings?.production.enabled).toBe(true);
+  });
+
   it("flags holdout removal without setting changes.holdout", () => {
     const { changes, hasChanges, removeHoldout } = computeRevisionMergeChanges(
       mockContext(),

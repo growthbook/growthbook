@@ -3,7 +3,6 @@ import isEqual from "lodash/isEqual";
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { RevisionMetadata } from "shared/validators";
-import { applyEnvironmentDefaultsResult } from "shared/util";
 import type { MergeResultChanges } from "shared/util";
 import {
   renderFeatureDefaultValue,
@@ -492,13 +491,10 @@ export function mergeResultToDiffInput(
       : {}),
     ...(result.environmentDefaults !== undefined
       ? {
-          // Resolve `undefined` tombstones (cleared overrides) against the
-          // current state so the post-state map stays sparse (cleared envs
-          // absent), letting the diff render the override removal correctly.
-          environmentDefaults: applyEnvironmentDefaultsResult(
-            current.environmentDefaults,
-            result.environmentDefaults,
-          ),
+          // `result.environmentDefaults` is the complete authoritative snapshot
+          // of per-env overrides (full-map-replace), so use it directly as the
+          // post-state map (cleared envs are simply absent).
+          environmentDefaults: result.environmentDefaults,
         }
       : {}),
     ...(result.prerequisites !== undefined

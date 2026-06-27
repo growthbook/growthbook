@@ -1582,16 +1582,19 @@ export function computeRevisionMergeChanges(
     }
 
     // Map per-env default value overrides onto environmentSettings[env].defaultValue.
-    // The merge result carries entries only for envs whose override changed, so
-    // we iterate its own keys (mirroring environmentsEnabled). A present value
-    // sets the override; an explicit `undefined` (override cleared in the draft)
-    // unsets the env's defaultValue.
+    // `result.environmentDefaults` is the AUTHORITATIVE COMPLETE snapshot of the
+    // draft's overrides, so we FULL-REPLACE across every org/feature env: set
+    // the override where the env has a key in the snapshot, and DELETE it where
+    // the env is absent (inherit base again). This composes onto nextEnvSettings
+    // alongside the enabled mapping above and never touches other env settings
+    // (enabled, prerequisites, rules).
     if (result.environmentDefaults) {
-      Object.keys(result.environmentDefaults).forEach((env) => {
-        const desired = result.environmentDefaults?.[env];
+      const snapshot = result.environmentDefaults;
+      envs.forEach((env) => {
+        const desired = snapshot[env];
         const current = nextEnvSettings[env] || { enabled: false };
         if (desired === undefined) {
-          // Override cleared in the revision — unset the env defaultValue.
+          // Absent from the complete snapshot — unset the env defaultValue.
           if (current.defaultValue !== undefined) {
             envChanged = true;
             const next = { ...current };
@@ -2551,15 +2554,13 @@ export async function createAndPublishRevision({
 
   // Synthetic revision for the review check; caller-supplied rules replace
   // the live array wholesale (same as autoMerge). `changes.environmentDefaults`
-  // can carry `undefined` clear tombstones (e.g. on revert); they're harmless
-  // for the value-diff the review check performs, so narrow to the stored shape.
+  // is a complete snapshot when provided; otherwise fall back to live's.
   const syntheticRevision: FeatureRevisionInterface = {
     ...liveBase,
     ...(changes ?? {}),
     rules: changes?.rules ?? liveBase.rules ?? [],
-    environmentDefaults: changes?.environmentDefaults
-      ? (changes.environmentDefaults as Record<string, string>)
-      : liveBase.environmentDefaults,
+    environmentDefaults:
+      changes?.environmentDefaults ?? liveBase.environmentDefaults,
   } as FeatureRevisionInterface;
   const requiresReview = checkIfRevisionNeedsReview({
     feature,

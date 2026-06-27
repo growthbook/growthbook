@@ -200,10 +200,10 @@ describe("revertFeatureCore empty-diff guard", () => {
     });
   });
 
-  it("clears an override the target revision did not have (tombstone)", async () => {
+  it("clears an override the target revision did not have (full-map-replace)", async () => {
     // Live feature has prod overridden, but the target revision had no override
-    // for prod. Revert must emit an `undefined` tombstone so publishing unsets
-    // the env's defaultValue (inherit the base default again).
+    // for prod. Revert carries the COMPLETE target snapshot ({}), so publishing
+    // full-replaces and clears prod's override (inherit the base default again).
     mockGetFeature.mockResolvedValue(
       makeFeature({
         environmentSettings: {
@@ -237,16 +237,15 @@ describe("revertFeatureCore empty-diff guard", () => {
 
     expect(mockCreateAndPublish).toHaveBeenCalledTimes(1);
     const passedChanges = mockCreateAndPublish.mock.calls[0][0].changes;
+    // The complete (empty) snapshot — no tombstone keys.
     expect(passedChanges).toEqual({
-      environmentDefaults: { production: undefined },
+      environmentDefaults: {},
     });
-    // The tombstone must be an explicit own-key (so autoMerge/createRevision
-    // can detect the clear), not merely an absent key.
     expect(
       Object.prototype.hasOwnProperty.call(
         passedChanges?.environmentDefaults ?? {},
         "production",
       ),
-    ).toBe(true);
+    ).toBe(false);
   });
 });

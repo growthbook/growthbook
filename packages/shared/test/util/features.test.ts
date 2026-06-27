@@ -7,7 +7,6 @@ import {
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { OrganizationSettings, RequireReview } from "shared/types/organization";
 import {
-  applyEnvironmentDefaultsResult,
   validateFeatureValue,
   assertSchemaMatchesValueType,
   getValidation,
@@ -802,9 +801,10 @@ describe("autoMerge", () => {
       });
     });
 
-    it("emits an undefined tombstone when a per-env override is cleared (no divergence)", () => {
-      // base/live carry an override on prod; the draft's sparse map drops the
-      // prod key -> the override was cleared and should be unset on publish.
+    it("emits the complete empty snapshot when a per-env override is cleared (no divergence)", () => {
+      // base/live carry an override on prod; the draft's complete snapshot drops
+      // the prod key -> the override was cleared. The result is the full draft
+      // snapshot ({}), so publishing full-replaces and clears prod's override.
       const base: RevisionFields = {
         defaultValue: "base",
         rules: [],
@@ -820,12 +820,34 @@ describe("autoMerge", () => {
       const result = autoMerge(base, base, revision, ["dev", "prod"], {});
       expect(result.success).toBe(true);
       if (result.success) {
-        expect(result.result.environmentDefaults).toEqual({ prod: undefined });
-        expect("prod" in (result.result.environmentDefaults ?? {})).toBe(true);
+        // Present (signals a change) and an empty complete snapshot.
+        expect(result.result.environmentDefaults).toEqual({});
+        expect("prod" in (result.result.environmentDefaults ?? {})).toBe(false);
       }
     });
 
-    it("emits an undefined tombstone when a per-env override is cleared (diverged)", () => {
+    it("preserves other envs' overrides when one is cleared (full snapshot, no divergence)", () => {
+      const base: RevisionFields = {
+        defaultValue: "base",
+        rules: [],
+        version: 4,
+        environmentDefaults: { dev: "d", prod: "p" },
+      };
+      const revision: RevisionFields = {
+        defaultValue: "base",
+        rules: [],
+        version: 5,
+        // Complete snapshot keeps dev, drops prod.
+        environmentDefaults: { dev: "d" },
+      };
+      const result = autoMerge(base, base, revision, ["dev", "prod"], {});
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.result.environmentDefaults).toEqual({ dev: "d" });
+      }
+    });
+
+    it("emits the complete snapshot clearing an override (diverged)", () => {
       const base: RevisionFields = {
         defaultValue: "base",
         rules: [],
@@ -847,32 +869,9 @@ describe("autoMerge", () => {
       const result = autoMerge(live, base, revision, ["dev", "prod"], {});
       expect(result.success).toBe(true);
       if (result.success) {
-        expect(result.result.environmentDefaults).toEqual({ prod: undefined });
+        // Resolved complete snapshot has prod's override cleared.
+        expect(result.result.environmentDefaults).toEqual({});
       }
-    });
-  });
-});
-
-describe("applyEnvironmentDefaultsResult", () => {
-  it("adds and updates overrides from the merge result", () => {
-    expect(
-      applyEnvironmentDefaultsResult({ dev: "d" }, { prod: "p", dev: "d2" }),
-    ).toEqual({ dev: "d2", prod: "p" });
-  });
-
-  it("removes envs cleared via undefined tombstones (sparse convention)", () => {
-    const out = applyEnvironmentDefaultsResult(
-      { dev: "d", prod: "p" },
-      { prod: undefined },
-    );
-    expect(out).toEqual({ dev: "d" });
-    expect("prod" in out).toBe(false);
-  });
-
-  it("handles missing base / result", () => {
-    expect(applyEnvironmentDefaultsResult(undefined, undefined)).toEqual({});
-    expect(applyEnvironmentDefaultsResult({ a: "1" }, undefined)).toEqual({
-      a: "1",
     });
   });
 });
