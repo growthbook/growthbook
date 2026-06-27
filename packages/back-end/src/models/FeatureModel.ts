@@ -2550,12 +2550,17 @@ export async function createAndPublishRevision({
   } as FeatureRevisionInterface;
 
   // Synthetic revision for the review check; caller-supplied rules replace
-  // the live array wholesale (same as autoMerge).
+  // the live array wholesale (same as autoMerge). `changes.environmentDefaults`
+  // can carry `undefined` clear tombstones (e.g. on revert); they're harmless
+  // for the value-diff the review check performs, so narrow to the stored shape.
   const syntheticRevision: FeatureRevisionInterface = {
     ...liveBase,
     ...(changes ?? {}),
     rules: changes?.rules ?? liveBase.rules ?? [],
-  };
+    environmentDefaults: changes?.environmentDefaults
+      ? (changes.environmentDefaults as Record<string, string>)
+      : liveBase.environmentDefaults,
+  } as FeatureRevisionInterface;
   const requiresReview = checkIfRevisionNeedsReview({
     feature,
     baseRevision: liveBase,

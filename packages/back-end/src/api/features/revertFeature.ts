@@ -71,12 +71,12 @@ export async function revertFeatureCore(
     throw new Error("Can only revert to previously published revisions");
   }
 
-  // Revert copies concrete values from a published target revision, so per-env
-  // default overrides here are always present strings (never the `undefined`
-  // tombstones the auto-merge result can carry); narrow to the storage shape.
-  const changes: Omit<MergeResultChanges, "environmentDefaults"> & {
-    environmentDefaults?: Record<string, string>;
-  } = {};
+  // Revert copies concrete values from a published target revision. Per-env
+  // default overrides are present strings where the target overrode the env,
+  // and `undefined` tombstones where the target had no override but the live
+  // feature does (so publishing the revert clears that override). Use the
+  // full MergeResultChanges shape, which already allows the undefined values.
+  const changes: MergeResultChanges = {};
 
   if (revision.defaultValue !== feature.defaultValue) {
     if (
@@ -114,6 +114,27 @@ export async function revertFeatureCore(
       changes.environmentsEnabled = changes.environmentsEnabled || {};
       changes.environmentsEnabled[env] = revision.environmentsEnabled[env];
       if (!changedEnvs.includes(env)) changedEnvs.push(env);
+    }
+
+    // Per-env default value override — sparse mirror of the kill switch above.
+    // Restore the target revision's override where it had one, and CLEAR it
+    // (emit an `undefined` tombstone) where the revision had none but the live
+    // feature still does. The tombstone flows through createRevision (which
+    // drops it from the stored snapshot so the new revision records "no
+    // override") and through autoMerge -> computeRevisionMergeChanges (which
+    // unsets environmentSettings[env].defaultValue). Only acts when the
+    // revision carries the field; legacy revisions that predate it are left
+    // untouched.
+    if (revision.environmentDefaults !== undefined) {
+      const revDefault = revision.environmentDefaults[env];
+      const liveDefault = feature.environmentSettings?.[env]?.defaultValue;
+      if (revDefault !== liveDefault) {
+        changes.environmentDefaults = changes.environmentDefaults || {};
+        // revDefault is `undefined` when the revision had no override for this
+        // env — the tombstone that clears the live override on publish.
+        changes.environmentDefaults[env] = revDefault;
+        if (!changedEnvs.includes(env)) changedEnvs.push(env);
+      }
     }
   });
   if (anyRulesChanged) {

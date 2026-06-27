@@ -2371,18 +2371,22 @@ export async function postFeatureRevert(
       }
     }
 
-    // Per-env default value override — sparse: only revert if this revision
-    // explicitly set it. Mirrors the kill-switch handling above.
-    if (
-      revision.environmentDefaults !== undefined &&
-      env in revision.environmentDefaults
-    ) {
+    // Per-env default value override — sparse mirror of the kill switch above.
+    // Restore the target revision's override for this env: set it where the
+    // revision had one, and CLEAR it (emit an `undefined` tombstone so the
+    // publish path unsets environmentSettings[env].defaultValue) where the
+    // revision had none but the live feature still does. Only acts when the
+    // revision actually carries the `environmentDefaults` field; truly legacy
+    // revisions that predate the field are left untouched.
+    if (revision.environmentDefaults !== undefined) {
       const revDefault = revision.environmentDefaults[env];
       const liveDefault = feature.environmentSettings?.[env]?.defaultValue;
       if (revDefault !== liveDefault) {
         if (!changedEnvs.includes(env)) changedEnvs.push(env);
         mergeChanges.environmentDefaults =
           mergeChanges.environmentDefaults || {};
+        // revDefault is `undefined` when the revision had no override for this
+        // env — that's the tombstone computeRevisionMergeChanges deletes on.
         mergeChanges.environmentDefaults[env] = revDefault;
       }
     }
@@ -2489,7 +2493,12 @@ export async function postFeatureRevert(
 
   // Build the full state of the target revision for the new revision document.
   // Sparse legacy revisions fall back to the feature's own rules.
-  const revisionChanges: Partial<FeatureRevisionInterface> = {
+  const revisionChanges: Omit<
+    Partial<FeatureRevisionInterface>,
+    "environmentDefaults"
+  > & {
+    environmentDefaults?: Record<string, string | undefined>;
+  } = {
     defaultValue: revision.defaultValue,
     rules: revision.rules ?? feature.rules ?? [],
   };
@@ -2497,7 +2506,24 @@ export async function postFeatureRevert(
     revisionChanges.environmentsEnabled = revision.environmentsEnabled;
   }
   if (revision.environmentDefaults !== undefined) {
-    revisionChanges.environmentDefaults = revision.environmentDefaults;
+    // Carry the target revision's per-env default overrides into the stored
+    // snapshot, plus an explicit `undefined` tombstone for every env the live
+    // feature currently overrides but the target did not. Without the
+    // tombstone, createRevision would fall back to the live override for that
+    // env and the new revision would record a stale per-env default that the
+    // revert is meant to clear.
+    const restoredDefaults: Record<string, string | undefined> = {
+      ...revision.environmentDefaults,
+    };
+    Object.entries(feature.environmentSettings ?? {}).forEach(([env, val]) => {
+      if (
+        val?.defaultValue !== undefined &&
+        !(env in revision.environmentDefaults!)
+      ) {
+        restoredDefaults[env] = undefined;
+      }
+    });
+    revisionChanges.environmentDefaults = restoredDefaults;
   }
   if (revision.prerequisites !== undefined) {
     revisionChanges.prerequisites = revision.prerequisites;

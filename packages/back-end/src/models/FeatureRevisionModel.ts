@@ -825,7 +825,13 @@ export async function createRevision({
   user: EventUser;
   environments: string[];
   baseVersion?: number;
-  changes?: Partial<FeatureRevisionInterface>;
+  // `environmentDefaults` accepts `undefined` per-env values as clear
+  // tombstones: the env is dropped from the stored snapshot (see the filter
+  // below) so the new revision records "no override" for that env. The stored
+  // FeatureRevisionInterface shape itself never holds undefined values.
+  changes?: Omit<Partial<FeatureRevisionInterface>, "environmentDefaults"> & {
+    environmentDefaults?: Record<string, string | undefined>;
+  };
   publish?: boolean;
   comment?: string;
   title?: string;
