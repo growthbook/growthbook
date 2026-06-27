@@ -47,6 +47,8 @@ export const DEFAULT_POST_STRATIFICATION_ENABLED = true;
 // Lookback Override:
 export const DEFAULT_LOOKBACK_OVERRIDE_VALUE_UNIT = "days";
 export const DEFAULT_LOOKBACK_OVERRIDE_VALUE_DAYS = 14;
+export const DEFAULT_TOP_VALUES_LOOKBACK_VALUE = 14;
+export const DEFAULT_TOP_VALUES_LOOKBACK_UNIT = "days";
 
 // Query settings
 export const DEFAULT_TEST_QUERY_DAYS = 30;

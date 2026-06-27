@@ -18,7 +18,10 @@ import {
   DEFAULT_POST_STRATIFICATION_ENABLED,
   DEFAULT_REVISION_CONFIGURATION,
 } from "shared/constants";
-import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/settings";
+import {
+  DEFAULT_MAX_METRIC_SLICE_LEVELS,
+  DEFAULT_TOP_VALUES_LOOKBACK_VALUE,
+} from "shared/settings";
 import { OrganizationSettings } from "shared/types/organization";
 import { Box, Flex, Heading } from "@radix-ui/themes";
 import { PRESET_DECISION_CRITERIA } from "shared/enterprise";
@@ -35,6 +38,7 @@ import {
 } from "@/hooks/useOrganizationMetricDefaults";
 import { useUser } from "@/services/UserContext";
 import { useCurrency } from "@/hooks/useCurrency";
+import useURLHash from "@/hooks/useURLHash";
 import OrganizationAndLicenseSettings from "@/components/GeneralSettings/OrganizationAndLicenseSettings";
 import ImportSettings from "@/components/GeneralSettings/ImportSettings";
 import NorthStarMetricSettings from "@/components/GeneralSettings/NorthStarMetricSettings";
@@ -46,6 +50,10 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import DatasourceSettings from "@/components/GeneralSettings/DatasourceSettings";
 import BanditSettings from "@/components/GeneralSettings/BanditSettings";
 import AISettings from "@/components/GeneralSettings/AISettings";
+import {
+  SETTINGS_TAB,
+  parseSettingsHash,
+} from "@/components/GeneralSettings/settingsSections";
 import HelperText from "@/ui/HelperText";
 import { StickyTabsList, Tabs, TabsContent, TabsTrigger } from "@/ui/Tabs";
 import Frame from "@/ui/Frame";
@@ -106,6 +114,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
 
   const promptForm = useForm();
 
+  const [urlHash, setUrlHash] = useURLHash();
+  const { tab: activeTab, section: deepLinkSection } =
+    parseSettingsHash(urlHash);
   const { metricDefaults } = useOrganizationMetricDefaults();
   const form = useForm<OrganizationSettingsWithMetricDefaults>({
     defaultValues: {
@@ -230,6 +241,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
       preferredEnvironment: settings.preferredEnvironment || "",
       maxMetricSliceLevels:
         settings.maxMetricSliceLevels ?? DEFAULT_MAX_METRIC_SLICE_LEVELS,
+      topValuesLookbackValue:
+        settings.topValuesLookbackValue ?? DEFAULT_TOP_VALUES_LOOKBACK_VALUE,
       savedGroupSizeLimit: undefined,
       postStratificationEnabled:
         settings.postStratificationEnabled ??
@@ -296,6 +309,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     defaultFeatureRulesInAllEnvs: form.watch("defaultFeatureRulesInAllEnvs"),
     preferredEnvironment: form.watch("preferredEnvironment") || "",
     maxMetricSliceLevels: form.watch("maxMetricSliceLevels"),
+    topValuesLookbackValue: form.watch("topValuesLookbackValue"),
     savedGroupSizeLimit: form.watch("savedGroupSizeLimit"),
     approvalFlows: form.watch("approvalFlows"),
     requireRegisteredAttributes: form.watch("requireRegisteredAttributes"),
@@ -399,6 +413,16 @@ const GeneralSettingsPage = (): React.ReactElement => {
     );
   }, [codeRefsBranchesToFilterStr]);
 
+  useEffect(() => {
+    if (!deepLinkSection) return;
+    const frame = window.requestAnimationFrame(() => {
+      document
+        .getElementById(deepLinkSection)
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [deepLinkSection]);
+
   // I Don't think this works as intended - the hasChanges(value, originalValue) always seems to return true.
   const ctaEnabled =
     hasChanges(value, originalValue) || promptForm.formState.isDirty;
@@ -494,32 +518,42 @@ const GeneralSettingsPage = (): React.ReactElement => {
           />
         </Box>
 
-        <Tabs defaultValue="experiment" persistInURL={true}>
+        <Tabs value={activeTab} onValueChange={setUrlHash}>
           <StickyTabsList>
-            <TabsTrigger value="experiment">Experiment Settings</TabsTrigger>
-            <TabsTrigger value="feature">Feature Settings</TabsTrigger>
-            <TabsTrigger value="metrics">Metrics &amp; Data</TabsTrigger>
-            <TabsTrigger value="approval-flow">
+            <TabsTrigger value={SETTINGS_TAB.experiment}>
+              Experiment Settings
+            </TabsTrigger>
+            <TabsTrigger value={SETTINGS_TAB.feature}>
+              Feature Settings
+            </TabsTrigger>
+            <TabsTrigger value={SETTINGS_TAB.metrics}>
+              Metrics &amp; Data
+            </TabsTrigger>
+            <TabsTrigger value={SETTINGS_TAB["approval-flow"]}>
               {/* TODO: Check if we want to reuse this feature flag or not */}
               <PremiumTooltip commercialFeature="require-approvals">
                 Approval Flows
               </PremiumTooltip>
             </TabsTrigger>
-            <TabsTrigger value="sdk">SDK Configuration</TabsTrigger>
-            <TabsTrigger value="import">Import &amp; Export</TabsTrigger>
-            <TabsTrigger value="custom">
+            <TabsTrigger value={SETTINGS_TAB.sdk}>
+              SDK Configuration
+            </TabsTrigger>
+            <TabsTrigger value={SETTINGS_TAB.import}>
+              Import &amp; Export
+            </TabsTrigger>
+            <TabsTrigger value={SETTINGS_TAB.custom}>
               <PremiumTooltip commercialFeature="custom-markdown">
                 Custom Markdown
               </PremiumTooltip>
             </TabsTrigger>
-            <TabsTrigger value="ai">
+            <TabsTrigger value={SETTINGS_TAB.ai}>
               <PremiumTooltip commercialFeature="ai-suggestions">
                 AI Settings
               </PremiumTooltip>
             </TabsTrigger>
           </StickyTabsList>
           <Box mt="4">
-            <TabsContent value="experiment">
+            <TabsContent value={SETTINGS_TAB.experiment}>
               <ExperimentSettings
                 cronString={cronString}
                 updateCronString={updateCronString}
@@ -529,12 +563,12 @@ const GeneralSettingsPage = (): React.ReactElement => {
               </Frame>
             </TabsContent>
 
-            <TabsContent value="feature">
+            <TabsContent value={SETTINGS_TAB.feature}>
               <FeatureSettings />
               <RampScheduleTemplates />
             </TabsContent>
 
-            <TabsContent value="metrics">
+            <TabsContent value={SETTINGS_TAB.metrics}>
               <>
                 <MetricsSettings />
                 <DatasourceSettings />
@@ -542,7 +576,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
               </>
             </TabsContent>
 
-            <TabsContent value="import">
+            <TabsContent value={SETTINGS_TAB.import}>
               <ImportSettings
                 hasFileConfig={hasFileConfig()}
                 isCloud={isCloud()}
@@ -551,7 +585,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
               />
             </TabsContent>
 
-            <TabsContent value="custom">
+            <TabsContent value={SETTINGS_TAB.custom}>
               <Frame>
                 <Flex>
                   <Box width="300px">
@@ -573,17 +607,17 @@ const GeneralSettingsPage = (): React.ReactElement => {
                 </Flex>
               </Frame>
             </TabsContent>
-            <TabsContent value="ai">
+            <TabsContent value={SETTINGS_TAB.ai}>
               <AISettings promptForm={promptForm} />
             </TabsContent>
-            <TabsContent value="sdk">
+            <TabsContent value={SETTINGS_TAB.sdk}>
               <>
                 <SDKConnectionSettings />
                 <SavedGroupSettings />
                 <TargetingAttributesSettings />
               </>
             </TabsContent>
-            <TabsContent value="approval-flow">
+            <TabsContent value={SETTINGS_TAB["approval-flow"]}>
               <ApprovalFlowSettings />
             </TabsContent>
           </Box>

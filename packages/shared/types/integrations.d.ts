@@ -293,13 +293,14 @@ export type ColumnTopValuesParams = {
   factTable: Pick<FactTableInterface, "sql" | "eventName">;
   columns: ColumnInterface[];
   limit?: number;
-  lookbackDays?: number;
+  lookbackDays: number;
   maxValueLength?: number;
 };
+
+/** Rows are returned most-frequent-first per column. */
 export type ColumnTopValuesResponseRow = {
   column: string;
   value: string;
-  count: number;
 };
 
 interface ExperimentBaseQueryParams {
