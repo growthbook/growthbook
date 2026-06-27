@@ -1363,9 +1363,8 @@ const postFeatureEnvironment = z.object({
   // take precedence over it). Omit to use the base default.
   defaultValue: z
     .string()
-    .nullable()
     .describe(
-      "Per-environment override of the feature's base default value. Type must match `valueType`. When set, takes precedence over the base default for this environment (rules still win). On update, `null` clears the override so the environment falls back to the base default.",
+      "Per-environment override of the feature's base default value. Type must match `valueType`. When set, takes precedence over the base default for this environment (rules still win).",
     )
     .optional(),
   definition: z
@@ -1380,9 +1379,8 @@ const postFeatureEnvironment = z.object({
       rules: z.array(postFeatureRule),
       defaultValue: z
         .string()
-        .nullable()
         .describe(
-          "Per-environment override of the feature's base default value for this draft. Type must match `valueType`. On update, `null` clears the override.",
+          "Per-environment override of the feature's base default value for this draft. Type must match `valueType`.",
         )
         .optional(),
       definition: z

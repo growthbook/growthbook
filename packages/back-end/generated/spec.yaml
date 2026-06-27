@@ -1035,12 +1035,8 @@ paths:
                           Per-environment override of the feature's base default
                           value. Type must match `valueType`. When set, takes
                           precedence over the base default for this environment
-                          (rules still win). On update, `null` clears the
-                          override so the environment falls back to the base
-                          default.
-                        anyOf:
-                          - type: string
-                          - type: 'null'
+                          (rules still win).
+                        type: string
                       definition:
                         description: >-
                           A JSON stringified
@@ -1397,11 +1393,8 @@ paths:
                             description: >-
                               Per-environment override of the feature's base
                               default value for this draft. Type must match
-                              `valueType`. On update, `null` clears the
-                              override.
-                            anyOf:
-                              - type: string
-                              - type: 'null'
+                              `valueType`.
+                            type: string
                           definition:
                             description: >-
                               A JSON stringified
@@ -1894,12 +1887,8 @@ paths:
                           Per-environment override of the feature's base default
                           value. Type must match `valueType`. When set, takes
                           precedence over the base default for this environment
-                          (rules still win). On update, `null` clears the
-                          override so the environment falls back to the base
-                          default.
-                        anyOf:
-                          - type: string
-                          - type: 'null'
+                          (rules still win).
+                        type: string
                       definition:
                         description: >-
                           A JSON stringified
@@ -2256,11 +2245,8 @@ paths:
                             description: >-
                               Per-environment override of the feature's base
                               default value for this draft. Type must match
-                              `valueType`. On update, `null` clears the
-                              override.
-                            anyOf:
-                              - type: string
-                              - type: 'null'
+                              `valueType`.
+                            type: string
                           definition:
                             description: >-
                               A JSON stringified
@@ -6422,12 +6408,8 @@ paths:
                           Per-environment override of the feature's base default
                           value. Type must match `valueType`. When set, takes
                           precedence over the base default for this environment
-                          (rules still win). On update, `null` clears the
-                          override so the environment falls back to the base
-                          default.
-                        anyOf:
-                          - type: string
-                          - type: 'null'
+                          (rules still win).
+                        type: string
                     additionalProperties: false
                 prerequisites:
                   description: Feature IDs. Each feature must evaluate to `true`
@@ -6981,12 +6963,8 @@ paths:
                           Per-environment override of the feature's base default
                           value. Type must match `valueType`. When set, takes
                           precedence over the base default for this environment
-                          (rules still win). On update, `null` clears the
-                          override so the environment falls back to the base
-                          default.
-                        anyOf:
-                          - type: string
-                          - type: 'null'
+                          (rules still win).
+                        type: string
                     additionalProperties: false
                 prerequisites:
                   description: Feature IDs. Each feature must evaluate to `true`

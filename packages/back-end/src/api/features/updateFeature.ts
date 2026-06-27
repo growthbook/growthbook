@@ -239,41 +239,29 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     // Route these through the revision's sparse `environmentDefaults` map
     // instead of writing them directly to `environmentSettings`, so the
     // override is both applied to live (via the auto-published revision) and
-    // revision-tracked. Read raw request values (not the collapsed
-    // `environmentSettings`) to distinguish the three cases per env:
-    //   undefined/absent -> no change
-    //   null             -> clear (emit an `undefined` tombstone)
-    //   string ("" incl.)-> set (validated against valueType)
-    const changedEnvDefaults: Record<string, string | undefined> = {};
+    // revision-tracked. A provided value is validated against the feature's
+    // valueType and diffed against the current live override; an absent value
+    // (env omitted, or env present without `defaultValue`) means no change.
+    const changedEnvDefaults: Record<string, string> = {};
     for (const [env, envSettings] of Object.entries(
       req.body.environments ?? {},
     )) {
       const requested = envSettings.defaultValue;
       if (requested === undefined) continue;
-      const liveValue = feature.environmentSettings?.[env]?.defaultValue;
-      if (requested === null) {
-        // Explicit clear. Only emit a tombstone when there is a live override
-        // to remove, so a no-op clear doesn't create a spurious revision change.
-        if (liveValue !== undefined) {
-          changedEnvDefaults[env] = undefined;
-        }
-        continue;
-      }
       const nextVal = validateFeatureValue(feature, requested);
-      if (nextVal !== liveValue) {
+      if (nextVal !== feature.environmentSettings?.[env]?.defaultValue) {
         changedEnvDefaults[env] = nextVal;
       }
     }
     // Strip per-env defaultValue from the direct-write path so it is no longer
     // double-written; the published revision applies the override to live.
+    // Envs the caller didn't change keep their existing override (frozen to the
+    // live value here); changed envs are re-synced from the published feature
+    // state after the revision publishes (see post-publish block).
     if (updates.environmentSettings) {
       for (const env of Object.keys(updates.environmentSettings)) {
         const settings = updates.environmentSettings[env];
         if (settings.defaultValue !== undefined) {
-          // Preserve the live override on the direct-write object so envs the
-          // caller didn't change keep their existing value; envs that did
-          // change get the new value re-synced from the published feature
-          // state after the revision publishes (see post-publish block).
           const liveValue = feature.environmentSettings?.[env]?.defaultValue;
           if (liveValue === undefined) {
             const { defaultValue: _omit, ...rest } = settings;
@@ -488,12 +476,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       hasHoldoutChange;
 
     if (hasRevisionChanges) {
-      const revisionChanges: Omit<
-        Partial<FeatureRevisionInterface>,
-        "environmentDefaults"
-      > & {
-        environmentDefaults?: Record<string, string | undefined>;
-      } = {
+      const revisionChanges: Partial<FeatureRevisionInterface> = {
         ...(hasEnvEnabledChanges
           ? { environmentsEnabled: changedEnvEnabled }
           : {}),
@@ -544,20 +527,14 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
         }
         // Same for per-env defaultValue overrides: they were stripped from the
         // direct-write path and applied via the revision publish, so re-sync
-        // the published value (set or cleared) onto the direct-write object.
+        // the published value onto the direct-write object.
         for (const env of Object.keys(changedEnvDefaults)) {
-          const publishedValue =
-            feature.environmentSettings?.[env]?.defaultValue;
-          if (publishedValue === undefined) {
-            const settings = updates.environmentSettings[env];
-            if (settings && settings.defaultValue !== undefined) {
-              const { defaultValue: _omit, ...rest } = settings;
-              updates.environmentSettings[env] = rest;
-            }
-          } else if (updates.environmentSettings[env]) {
+          if (updates.environmentSettings[env]) {
             updates.environmentSettings[env] = {
               ...updates.environmentSettings[env],
-              defaultValue: publishedValue,
+              defaultValue:
+                feature.environmentSettings?.[env]?.defaultValue ??
+                changedEnvDefaults[env],
             };
           }
         }
