@@ -736,6 +736,14 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
       // stronger models (e.g. Sonnet) often re-emit the full UNCHANGED
       // stylesheet instead — which would surface as a phantom "global CSS
       // change" on every follow-up turn. Treat identical = no change.
+      //
+      // The leading truthiness check ALSO drops a falsy result (""/null), so
+      // CLEARING global CSS/JS via the AI is intentionally not supported: the
+      // schema instructs the model never to return an empty string when CSS
+      // exists (it would wipe the variation), and we'd rather no-op than risk
+      // an accidental wipe. To delete all global CSS/JS, use the manual
+      // CSS/JS editor. If deliberate AI clearing is ever wanted, gate it on an
+      // explicit signal (e.g. an `intent: "clear"` field) rather than ""/null.
       ...(result.css && result.css !== currentChange?.css
         ? { css: result.css }
         : {}),
