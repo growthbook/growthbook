@@ -10,6 +10,7 @@ import {
   normalizeProposedChanges,
   isUserBlockedFromApproving,
 } from "shared/enterprise";
+import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
 import { ConflictError, MergeConflictError } from "back-end/src/util/errors";
@@ -694,11 +695,16 @@ export const patchTitle = async (
     return res.status(404).json({ message: "Revision not found" });
   }
 
-  // Only the author can update the title
-  if (existingRevision.authorId !== context.userId) {
-    return res.status(403).json({
-      message: "Only the revision author can update the title",
-    });
+  // Anyone who can update the underlying entity may edit a draft's title — not
+  // just the author. Matches the other revision-edit endpoints and the UI, which
+  // gate the title/description pencil on entity update permission, not authorship.
+  if (
+    !getAdapter(existingRevision.target.type).canUpdate(
+      context,
+      existingRevision.target.snapshot as Record<string, unknown>,
+    )
+  ) {
+    context.permissions.throwPermissionError();
   }
 
   // Cannot update title of merged/discarded revisions
@@ -758,11 +764,16 @@ export const patchDescription = async (
     return res.status(404).json({ message: "Revision not found" });
   }
 
-  // Only the author can update the description
-  if (existingRevision.authorId !== context.userId) {
-    return res.status(403).json({
-      message: "Only the revision author can update the description",
-    });
+  // Anyone who can update the underlying entity may edit a draft's description —
+  // not just the author. Matches the other revision-edit endpoints and the UI,
+  // which gate the title/description pencil on entity update permission.
+  if (
+    !getAdapter(existingRevision.target.type).canUpdate(
+      context,
+      existingRevision.target.snapshot as Record<string, unknown>,
+    )
+  ) {
+    context.permissions.throwPermissionError();
   }
 
   // Cannot update description of merged/discarded revisions
@@ -1633,13 +1644,6 @@ type PostSchedulePublishResponse = {
   revision: Revision;
 };
 
-const SCHEDULABLE_STATUSES = [
-  "draft",
-  "pending-review",
-  "changes-requested",
-  "approved",
-];
-
 /**
  * POST /revision/:id/schedule-publish
  * Arm (date set) or cancel (date null) a deferred publish.
@@ -1661,7 +1665,11 @@ export const postSchedulePublish = async (
     return res.status(404).json({ message: "Revision not found" });
   }
 
-  if (!SCHEDULABLE_STATUSES.includes(existingRevision.status)) {
+  if (
+    !(ACTIVE_DRAFT_STATUSES as readonly string[]).includes(
+      existingRevision.status,
+    )
+  ) {
     return res.status(400).json({
       message: "This revision can no longer be scheduled",
     });
