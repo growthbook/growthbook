@@ -132,7 +132,8 @@ export default function ReviewHeader({
       </DropdownMenu>
     ) : null;
 
-  const staleBase = baseVersion != null && baseVersion !== liveVersion;
+  const staleBase =
+    (baseVersion ?? null) !== null && baseVersion !== liveVersion;
 
   return (
     <Box>
@@ -162,7 +163,7 @@ export default function ReviewHeader({
               {lifecycle === "merged" ? (
                 <>
                   Revision <strong>{version}</strong>
-                  {mergedIntoVersion != null ? (
+                  {(mergedIntoVersion ?? null) !== null ? (
                     <>
                       {" "}
                       was merged into revision{" "}
@@ -176,10 +177,10 @@ export default function ReviewHeader({
                     : ""}
                 </>
               ) : lifecycle === "discarded" ? (
-                baseVersion != null || discardedDate ? (
+                (baseVersion ?? null) !== null || discardedDate ? (
                   <>
                     Revision <strong>{version}</strong>
-                    {baseVersion != null ? (
+                    {(baseVersion ?? null) !== null ? (
                       <> (based on revision {baseVersion})</>
                     ) : null}{" "}
                     was discarded

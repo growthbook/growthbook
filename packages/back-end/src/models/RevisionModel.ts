@@ -686,10 +686,27 @@ export class RevisionModel extends BaseClass {
     // Auto-publish runs with the arming user's authority. A stale
     // autoPublishEnabledBy left behind when disabling is harmless —
     // autoPublishOnApproval gates everything.
-    return this.update(existing, {
+    const updated = await this.update(existing, {
       autoPublishOnApproval: enabled,
       ...(enabled && userId ? { autoPublishEnabledBy: userId } : {}),
     } as UpdateProps<Revision>);
+
+    // Disabling: this.update can only flip the flag, leaving scheduledPublishAt
+    // and the locks set on the document. Scrub the whole schedule so a later
+    // re-arm can't resurrect a stale dated schedule and fire it (or re-block
+    // siblings via the lock-others index) without fresh confirmation. Mirrors
+    // recallReview / addReview's changes-requested disarm.
+    if (
+      !enabled &&
+      (existing.autoPublishOnApproval ||
+        (existing.scheduledPublishAt ?? null) !== null)
+    ) {
+      await this.disarmScheduledPublish(id);
+      const refreshed = await this.getById(id);
+      if (refreshed) return refreshed;
+    }
+
+    return updated;
   }
 
   async addReview(

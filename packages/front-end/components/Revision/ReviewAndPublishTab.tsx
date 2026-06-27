@@ -492,6 +492,9 @@ function ReviewAndPublishRevision<T>({
     isAutopublishOnApprovalEnabled(
       organization?.settings,
       revision.target.type,
+      // Constants match their per-project `requireReviews` rule, so the
+      // entity's project must be passed; ignored for approvalFlows entities.
+      (revision.target.snapshot as { project?: string }).project,
     ) && hasCommercialFeature("require-approvals");
   const revisionAutoPublishArmed = !!revision.autoPublishOnApproval;
 

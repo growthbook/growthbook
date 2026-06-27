@@ -456,3 +456,60 @@ export function checkMergeConflicts(
     mergedChanges: conflicts.length === 0 ? mergedChanges : undefined,
   };
 }
+
+// ── Revision display helpers ─────────────────────────────────────────────────
+// Shared by the revision dropdown, the revert modal, and the entity pages so the
+// "which revision is live" rule and the display version-number fallback can't
+// drift between surfaces.
+
+const byDateCreatedAsc = <T extends Pick<Revision, "dateCreated">>(
+  a: T,
+  b: T,
+): number =>
+  new Date(a.dateCreated).getTime() - new Date(b.dateCreated).getTime();
+
+/**
+ * The "live" revision is the most-recently-published (merged) one. Returns
+ * `undefined` when nothing has been published yet.
+ */
+export function getLiveRevision<
+  T extends Pick<Revision, "status" | "dateUpdated">,
+>(revisions: T[]): T | undefined {
+  return [...revisions]
+    .filter((r) => r.status === "merged")
+    .sort(
+      (a, b) =>
+        new Date(b.dateUpdated).getTime() - new Date(a.dateUpdated).getTime(),
+    )[0];
+}
+
+/**
+ * Display version number for a single revision: the stored `version` when
+ * present, otherwise its 1-based position by creation date (for legacy
+ * revisions saved before `version` existed). When `revision` is undefined
+ * (e.g. "live" with no published revision yet) returns the total count.
+ */
+export function getRevisionNumber<
+  T extends Pick<Revision, "id" | "version" | "dateCreated">,
+>(revisions: T[], revision: T | undefined): number {
+  if ((revision?.version ?? null) !== null) return revision!.version as number;
+  const sorted = [...revisions].sort(byDateCreatedAsc);
+  if (revision) return sorted.findIndex((r) => r.id === revision.id) + 1;
+  return sorted.length;
+}
+
+/**
+ * Map of revision id → display version number (see `getRevisionNumber`).
+ * Builds the creation-date sort once for the whole set.
+ */
+export function getRevisionNumberById<
+  T extends Pick<Revision, "id" | "version" | "dateCreated">,
+>(revisions: T[]): Map<string, number> {
+  const sorted = [...revisions].sort(byDateCreatedAsc);
+  return new Map<string, number>(
+    revisions.map((r) => [
+      r.id,
+      r.version ?? sorted.findIndex((s) => s.id === r.id) + 1,
+    ]),
+  );
+}

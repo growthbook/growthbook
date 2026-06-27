@@ -1,5 +1,9 @@
 import { ReactNode } from "react";
-import { Revision } from "shared/enterprise";
+import {
+  Revision,
+  getLiveRevision,
+  getRevisionNumberById,
+} from "shared/enterprise";
 import { dateNoYear } from "shared/dates";
 import { Flex } from "@radix-ui/themes";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
@@ -45,26 +49,10 @@ export default function RevisionDropdown({
   );
 
   // Latest merged revision is "Live".
-  const liveRevision = [...allRevisions]
-    .filter((r) => r.status === "merged")
-    .sort(
-      (a, b) =>
-        new Date(b.dateUpdated).getTime() - new Date(a.dateUpdated).getTime(),
-    )[0];
+  const liveRevision = getLiveRevision(allRevisions);
 
   // Map revision id → display version (stored version, else position by creation).
-  const sortedAllRevisions = [...allRevisions].sort(
-    (a, b) =>
-      new Date(a.dateCreated).getTime() - new Date(b.dateCreated).getTime(),
-  );
-  const revisionNumberById = new Map<string, number>(
-    allRevisions.map((revision) => {
-      const version =
-        revision.version ??
-        sortedAllRevisions.findIndex((r) => r.id === revision.id) + 1;
-      return [revision.id, version];
-    }),
-  );
+  const revisionNumberById = getRevisionNumberById(allRevisions);
 
   const allSorted = [...allRevisions].sort(
     (a, b) =>

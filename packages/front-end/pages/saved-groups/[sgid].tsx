@@ -5,6 +5,8 @@ import {
   Revision,
   applyTopLevelPatchOps,
   isSavedGroupRevisionMetadataOnly,
+  getLiveRevision,
+  getRevisionNumber,
 } from "shared/enterprise";
 import { REVIEW_REQUESTED_STATUSES } from "shared/validators";
 import {
@@ -311,42 +313,20 @@ export default function EditSavedGroupPage() {
         : false,
     [savedGroupSizeLimit, itemsToAdd, values],
   );
-  const displayRevision = useMemo(() => {
-    if (selectedRevision) return selectedRevision;
-    // For live, find the latest merged revision
-    return [...allRevisions]
-      .filter((r) => r.status === "merged")
-      .sort(
-        (a, b) =>
-          new Date(b.dateUpdated).getTime() - new Date(a.dateUpdated).getTime(),
-      )[0];
-  }, [selectedRevision, allRevisions]);
+  const displayRevision = useMemo(
+    // For live (no explicit selection), use the latest merged revision.
+    () => selectedRevision ?? getLiveRevision(allRevisions),
+    [selectedRevision, allRevisions],
+  );
 
-  const revisionNumber = useMemo(() => {
-    const getRevisionNumber = (revision: Revision | undefined) => {
-      // If version is stored, use it
-      if (revision?.version) return revision.version;
-
-      // Fall back to calculating based on position (for old revisions without version)
-      const sortedAllRevisions = [...allRevisions].sort(
-        (a, b) =>
-          new Date(a.dateCreated).getTime() - new Date(b.dateCreated).getTime(),
-      );
-      if (revision) {
-        return sortedAllRevisions.findIndex((f) => f.id === revision.id) + 1;
-      }
-      return sortedAllRevisions.length;
-    };
-
-    if (selectedRevision) {
-      return getRevisionNumber(selectedRevision);
-    }
-    if (userOpenRevision) {
-      return getRevisionNumber(userOpenRevision);
-    }
-    // For live revision, use the latest merged revision
-    return getRevisionNumber(displayRevision);
-  }, [selectedRevision, userOpenRevision, displayRevision, allRevisions]);
+  const revisionNumber = useMemo(
+    () =>
+      getRevisionNumber(
+        allRevisions,
+        selectedRevision ?? userOpenRevision ?? displayRevision,
+      ),
+    [selectedRevision, userOpenRevision, displayRevision, allRevisions],
+  );
 
   if (!data || !savedGroup) {
     return <LoadingOverlay />;

@@ -1,6 +1,11 @@
 import { ReactNode, useMemo, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { Revision, applyTopLevelPatchOps } from "shared/enterprise";
+import {
+  Revision,
+  applyTopLevelPatchOps,
+  getLiveRevision,
+  getRevisionNumberById,
+} from "shared/enterprise";
 import { dateNoYear } from "shared/dates";
 import { useAuth } from "@/services/auth";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
@@ -79,30 +84,21 @@ export default function RevertModal<T extends RevertableEntity>({
 
   // Revision-number map (stored version, else position by creation date) so
   // the dropdown and revert title read like the rest of the page.
-  const revisionNumberById = useMemo(() => {
-    const sorted = [...allRevisions].sort(
-      (a, b) =>
-        new Date(a.dateCreated).getTime() - new Date(b.dateCreated).getTime(),
-    );
-    return new Map<string, number>(
-      allRevisions.map((r) => [
-        r.id,
-        r.version ?? sorted.findIndex((s) => s.id === r.id) + 1,
-      ]),
-    );
-  }, [allRevisions]);
+  const revisionNumberById = useMemo(
+    () => getRevisionNumberById(allRevisions),
+    [allRevisions],
+  );
 
   // Published (merged) revisions you can revert to, newest-published first.
   // The live revision (latest merged) is excluded — reverting to it is a no-op.
   const targetRevisions = useMemo(() => {
-    const merged = [...allRevisions]
-      .filter((r) => r.status === "merged")
+    const liveId = getLiveRevision(allRevisions)?.id;
+    return [...allRevisions]
+      .filter((r) => r.status === "merged" && r.id !== liveId)
       .sort(
         (a, b) =>
           new Date(b.dateUpdated).getTime() - new Date(a.dateUpdated).getTime(),
       );
-    const liveId = merged[0]?.id;
-    return merged.filter((r) => r.id !== liveId);
   }, [allRevisions]);
 
   const [targetId, setTargetId] = useState<string>(() => {

@@ -56,7 +56,10 @@ export function RevisionDiff({
   // flag; map by label so the rendered render survives.
   const renderByLabel = new Map<string, React.ReactNode>();
   for (const g of customRenderGroups) {
-    renderByLabel.set(g.label, g.renders.find((r) => r != null) ?? null);
+    renderByLabel.set(
+      g.label,
+      g.renders.find((r) => (r ?? null) !== null) ?? null,
+    );
   }
   const formattedItems: FormattedChangeItem[] = diffs.map((d) => ({
     title: d.label,
