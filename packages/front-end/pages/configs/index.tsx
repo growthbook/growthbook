@@ -9,6 +9,7 @@ import { useUser } from "@/services/UserContext";
 import Field from "@/components/Forms/Field";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import LinkButton from "@/ui/LinkButton";
 import Link from "@/ui/Link";
 import Badge from "@/ui/Badge";
@@ -51,8 +52,9 @@ export default function ConfigsPage(): React.ReactElement {
     projects,
     _configsIncludingArchived: allConfigs,
   } = useDefinitions();
-  const { getOwnerDisplay } = useUser();
+  const { getOwnerDisplay, hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
+  const hasConfigsFeature = hasCommercialFeature("feature-configs");
 
   // Rows navigate to the detail page; the modal is create-only.
   const [modalOpen, setModalOpen] = useState(false);
@@ -192,10 +194,16 @@ export default function ConfigsPage(): React.ReactElement {
   // (and its `is:archived` facet) rather than the empty state.
   const hasConfigs = allConfigs.length > 0;
 
-  const addButton = (
+  // Creating configs is a premium feature (existing configs stay editable when a
+  // license lapses — only creation is gated). Show an upsell tooltip when absent.
+  const addButton = hasConfigsFeature ? (
     <Button disabled={!canAdd} onClick={() => setModalOpen(true)}>
       Add Config
     </Button>
+  ) : (
+    <PremiumTooltip commercialFeature="feature-configs">
+      <Button disabled>Add Config</Button>
+    </PremiumTooltip>
   );
 
   return (

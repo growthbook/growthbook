@@ -7,7 +7,10 @@ import { ConfigInterface } from "shared/types/config";
 import { stripConfigExtends } from "shared/util";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { BadRequestError } from "back-end/src/util/errors";
+import {
+  BadRequestError,
+  PlanDoesNotAllowError,
+} from "back-end/src/util/errors";
 import { assertKeyAvailable } from "back-end/src/services/constants";
 import { assertConfigValueValid } from "back-end/src/services/configValidation";
 import { getAdapter } from "back-end/src/revisions";
@@ -35,6 +38,15 @@ export const postConfig = createApiRequestHandler(postConfigValidator)(async (
 
   if (!req.context.permissions.canCreateConfig({ project: project || "" })) {
     req.context.permissions.throwPermissionError();
+  }
+
+  // Configs are a premium feature. Creation is gated; updating/deleting existing
+  // configs is intentionally NOT, so a lapsed license can still manage what it
+  // already has (it just can't create new ones).
+  if (!req.context.hasPremiumFeature("feature-configs")) {
+    throw new PlanDoesNotAllowError(
+      "Creating configs requires a plan that includes feature configs.",
+    );
   }
 
   if (project) {

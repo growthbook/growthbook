@@ -242,6 +242,12 @@ function resolveValue(
         }
       }
       const resolved = resolveValue(parsed, new Set([...visited, mk]), ctx);
+      // Memoize per pass. Caveat: if this node is first resolved while sitting
+      // beneath a cycle edge, the back-reference was cut (→ null) and the cached
+      // value is truncated; an independent, non-cyclic referrer in the same pass
+      // would then reuse that truncated value. Accepted: cycles are rejected at
+      // write time (assertNoReferenceCycle / ConfigModel.assertNoCycle), so a
+      // stored graph can't actually contain one. See resolveConstants.test.ts.
       ctx.cache.set(mk, resolved);
       return isPlainObject(resolved) ? resolved : null;
     };

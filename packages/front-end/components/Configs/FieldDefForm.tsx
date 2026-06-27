@@ -240,6 +240,9 @@ export default function FieldDefForm({
       await onSave(normalizeField({ ...field, key: trimmedKey }), value);
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Failed to save field");
+    } finally {
+      // Reset even on success: callers normally unmount the form after save, but
+      // don't leave Save/Cancel permanently disabled if one keeps it mounted.
       setSaving(false);
     }
   };

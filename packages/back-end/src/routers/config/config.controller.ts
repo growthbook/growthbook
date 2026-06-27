@@ -51,6 +51,11 @@ import {
   reconcileConfigDescendants,
   assertConfigDescendantsReconcilable,
 } from "back-end/src/services/configReconcile";
+import {
+  assertConfigValueValid,
+  assertConfigValueValidForPublish,
+} from "back-end/src/services/configValidation";
+import { PlanDoesNotAllowError } from "back-end/src/util/errors";
 
 type PostConfigBody = z.infer<typeof postConfigBodyValidator>;
 type PutConfigBody = z.infer<typeof putConfigBodyValidator>;
@@ -236,11 +241,6 @@ export const getConfigResolved = async (
     const nodeFields = resolveConfigChain(
       linearizeConfigDag(nodeKey, byKey),
     ).effectiveSchema;
-    const nodeSpineRoot = byKey.get(getConfigSpineRootKey(nodeKey, byKey));
-    const nodeExtensible = configIsExtensible(
-      nodeSpineRoot,
-      context.org.settings?.configsExtensibleByDefault,
-    );
     // Union over the default value AND every environment override — a stale prod
     // value must get the "must fix" flag even when the default conforms.
     const incompatible = new Set<string>();
@@ -253,7 +253,6 @@ export const getConfigResolved = async (
       for (const k of findIncompatibleConfigValueKeys({
         value: obj,
         fields: nodeFields,
-        additionalProperties: nodeExtensible,
       })) {
         incompatible.add(k);
       }
@@ -350,6 +349,14 @@ export const postConfig = async (
     !context.permissions.canCreateConfig({ project: body.project || undefined })
   ) {
     context.permissions.throwPermissionError();
+  }
+
+  // Configs are a premium feature, gated on creation only — existing configs
+  // stay editable/deletable after a license lapses (err permissive).
+  if (!context.hasPremiumFeature("feature-configs")) {
+    throw new PlanDoesNotAllowError(
+      "Creating configs requires a plan that includes feature configs.",
+    );
   }
 
   if (body.project) {
@@ -602,6 +609,33 @@ export const putConfig = async (
     await assertConfigArchivable(context, existing);
   }
 
+  // The proposed (merged) config state, used to validate the staged value(s)
+  // against the effective schema — same check the REST write path enforces, so
+  // the UI can't save/publish a schema-violating value.
+  const proposed = { ...existing, ...fieldsToUpdate } as ConfigInterface;
+  const proposedLeaf = {
+    key: proposed.key,
+    name: proposed.name,
+    value: proposed.value,
+    schema: proposed.schema,
+    parent: proposed.parent,
+    extends: proposed.extends,
+    extensible: proposed.extensible,
+  };
+  const proposedValues = {
+    value: proposed.value,
+    environmentValues: proposed.environmentValues,
+  };
+  const valueAffectingChange =
+    fieldsToUpdate.value !== undefined ||
+    fieldsToUpdate.environmentValues !== undefined ||
+    fieldsToUpdate.schema !== undefined ||
+    fieldsToUpdate.parent !== undefined ||
+    "extends" in fieldsToUpdate;
+  if (valueAffectingChange) {
+    await assertConfigValueValid(context, proposedLeaf, proposedValues);
+  }
+
   const forceCreateRevision = req.query.forceCreateRevision === "1";
   const bypassApproval = req.query.bypassApproval === "1";
   const autoPublish = req.query.autoPublish === "1";
@@ -691,6 +725,16 @@ export const putConfig = async (
         } as ConfigInterface);
       }
 
+      // Publish-time safety net (adds required-field enforcement on top of the
+      // per-write conformance check): block publishing a value that doesn't
+      // match the effective schema. Runs before the merge claim so nothing is
+      // persisted on failure.
+      await assertConfigValueValidForPublish(
+        context,
+        proposedLeaf,
+        proposedValues,
+      );
+
       // Claim the merge first (CAS-guarded) so a concurrent discard can't orphan
       // a half-applied change; reopen if the live write then fails.
       revision = await context.models.revisions.merge(
@@ -743,6 +787,11 @@ export const deleteConfig = async (
   const existing = await context.models.configs.getById(req.params.id);
   if (!existing) {
     return context.throwNotFoundError("Config not found");
+  }
+  // Check delete permission before the (DB-scanning) dependency assertion, so a
+  // reader without manage access gets a clean 403 rather than a dependency error.
+  if (!context.permissions.canDeleteConfig(existing)) {
+    context.permissions.throwPermissionError();
   }
   // Require the config to be archived first (mirrors constants): archive is
   // reversible and flows through approvals; delete isn't.

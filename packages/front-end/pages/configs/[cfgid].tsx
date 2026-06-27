@@ -79,6 +79,7 @@ import { useConfigFamilyReferences } from "@/hooks/useConstantReferences";
 import ConstantArchiveModal from "@/components/Constants/ConstantArchiveModal";
 import { ConstantRevisionContext } from "@/components/Constants/useConstantDraftTarget";
 import ConfigModal from "@/components/Configs/ConfigModal";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import LineageTree from "@/components/Configs/LineageTree";
 import ConfigFeatureReferences from "@/components/Configs/ConfigFeatureReferences";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
@@ -339,6 +340,9 @@ export default function ConfigDetailPage(): React.ReactElement {
 
   const settings = organization.settings || {};
   const hasApprovalsFeature = hasCommercialFeature("require-approvals");
+  // Creating configs (incl. child override configs) is premium-gated; editing
+  // existing ones is not (permissive on license lapse).
+  const hasConfigsFeature = hasCommercialFeature("feature-configs");
 
   // Configs inherit the feature `requireReviews` settings. This rule drives the
   // coarse "is approval configured" gate; per-revision uses constantRequiresReview.
@@ -645,38 +649,44 @@ export default function ConfigDetailPage(): React.ReactElement {
 
   const submitOverride = async () => {
     if (!editKey) return;
-    if (editKind === "null") {
-      await saveValue({ ...ownValue(), [editKey]: null });
-      setEditKey(null);
-      return;
-    }
-    const field = resolved.fields.find((f) => f.key === editKey)?.field ?? null;
-    const vt = fieldValueType(field);
     let parsed: unknown;
-    if (vt === "json") {
-      try {
-        parsed = JSON.parse(editText);
-      } catch (e) {
-        setEditError(e instanceof Error ? e.message : "Invalid JSON");
-        return;
-      }
-    } else if (vt === "boolean") {
-      parsed = editText === "true";
-    } else if (vt === "number") {
-      const n =
-        field?.type === "integer"
-          ? parseInt(editText, 10)
-          : parseFloat(editText);
-      if (Number.isNaN(n)) {
-        setEditError("Value must be a number");
-        return;
-      }
-      parsed = n;
+    if (editKind === "null") {
+      parsed = null;
     } else {
-      parsed = editText;
+      const field =
+        resolved.fields.find((f) => f.key === editKey)?.field ?? null;
+      const vt = fieldValueType(field);
+      if (vt === "json") {
+        try {
+          parsed = JSON.parse(editText);
+        } catch (e) {
+          setEditError(e instanceof Error ? e.message : "Invalid JSON");
+          return;
+        }
+      } else if (vt === "boolean") {
+        parsed = editText === "true";
+      } else if (vt === "number") {
+        const n =
+          field?.type === "integer"
+            ? parseInt(editText, 10)
+            : parseFloat(editText);
+        if (Number.isNaN(n)) {
+          setEditError("Value must be a number");
+          return;
+        }
+        parsed = n;
+      } else {
+        parsed = editText;
+      }
     }
-    await saveValue({ ...ownValue(), [editKey]: parsed });
-    setEditKey(null);
+    // Surface backend rejections (schema violation, conflict) inline — the Save
+    // button has no setError, so an unhandled rejection would be swallowed.
+    try {
+      await saveValue({ ...ownValue(), [editKey]: parsed });
+      setEditKey(null);
+    } catch (e) {
+      setEditError(e instanceof Error ? e.message : "Failed to save value");
+    }
   };
 
   // The fields this config appends (its own schema); inherited fields aren't editable here.
@@ -794,6 +804,7 @@ export default function ConfigDetailPage(): React.ReactElement {
         <Box mt="2" py="1">
           <Link
             size="2"
+            weight="medium"
             onClick={() => {
               setEditKey(null);
               setSchemaEdit("add");
@@ -990,7 +1001,7 @@ export default function ConfigDetailPage(): React.ReactElement {
       </Box>
     ) : (
       <Box mt="2" py="1">
-        <Link size="2" onClick={() => setComposeAdding(true)}>
+        <Link size="2" weight="medium" onClick={() => setComposeAdding(true)}>
           <PiPlusBold style={{ marginRight: 3, verticalAlign: "middle" }} />
           Add config mixin
         </Link>
@@ -1006,44 +1017,15 @@ export default function ConfigDetailPage(): React.ReactElement {
     );
   };
 
-  // Lineage status line: a parent config reports what it defines and how many
-  // configs extend it; a child reports what it inherits and overrides. A hybrid
-  // (both) shows all parts.
-  const totalFields = resolved.effectiveSchema.length;
   // An override = an inherited field re-valued by this config (not one of its
   // own schema fields).
   const isOverrideField = (f: ResolvedField) =>
     f.source === config.key && !ownSchemaKeys.includes(f.key);
   const overrideCount = resolved.fields.filter(isOverrideField).length;
-  const overriddenHere = resolved.fields.filter(
-    (f) => f.source === config.key,
-  ).length;
-  const inheritedFields = totalFields - overriddenHere;
-  const childConfigCount = data.lineage.filter(
-    (n) => n.parentKey === config.key,
-  ).length;
   const parentNode = parentKey
     ? data.lineage.find((n) => n.key === parentKey)
     : null;
   const parentName = parentKey ? (parentNode?.name ?? parentKey) : null;
-  const fieldLabel = (n: number) => `${n} field${n === 1 ? "" : "s"}`;
-  const statusParts: string[] = [];
-  if (parentKey) {
-    statusParts.push(
-      `Inherits ${fieldLabel(inheritedFields)} from ${parentName}`,
-    );
-    statusParts.push(`${overriddenHere} overridden`);
-  } else {
-    statusParts.push(`${fieldLabel(totalFields)} defined`);
-  }
-  if (childConfigCount > 0) {
-    statusParts.push(
-      childConfigCount === 1
-        ? "1 config extends this"
-        : `${childConfigCount} configs extend this`,
-    );
-  }
-  const statusText = statusParts.join(" · ");
 
   return (
     <>
@@ -1078,6 +1060,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                       color="gray"
                       radius="full"
                       label={`${data.lineage.length}`}
+                      style={{ justifyContent: "center", textAlign: "center" }}
                     />
                   </Flex>
                 </TabsTrigger>
@@ -1089,6 +1072,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                       color="gray"
                       radius="full"
                       label={`${familyReferences?.features.length ?? 0}`}
+                      style={{ justifyContent: "center", textAlign: "center" }}
                     />
                   </Flex>
                 </TabsTrigger>
@@ -1108,12 +1092,27 @@ export default function ConfigDetailPage(): React.ReactElement {
                 </Box>
                 {canUpdate && (
                   <Box mt="3" pl="1">
-                    <Link size="2" onClick={() => setShowCreateChild(true)}>
-                      <PiPlusBold
-                        style={{ marginRight: 3, verticalAlign: "middle" }}
-                      />
-                      Add override config
-                    </Link>
+                    {hasConfigsFeature ? (
+                      <Link
+                        size="2"
+                        weight="medium"
+                        onClick={() => setShowCreateChild(true)}
+                      >
+                        <PiPlusBold
+                          style={{ marginRight: 3, verticalAlign: "middle" }}
+                        />
+                        Add override config
+                      </Link>
+                    ) : (
+                      <PremiumTooltip commercialFeature="feature-configs">
+                        <Link size="2" weight="medium" color="gray">
+                          <PiPlusBold
+                            style={{ marginRight: 3, verticalAlign: "middle" }}
+                          />
+                          Add override config
+                        </Link>
+                      </PremiumTooltip>
+                    )}
                   </Box>
                 )}
                 {!!data.composerFamilies?.length && (
@@ -1340,9 +1339,6 @@ export default function ConfigDetailPage(): React.ReactElement {
                       pl="4"
                       onKeyDown={(e) => e.stopPropagation()}
                     >
-                      <Text color="text-mid" size="small">
-                        {statusText}
-                      </Text>
                       <ConfigExportMenu payloads={exportPayloads} />
                     </Flex>
                   </TabsList>
@@ -1350,12 +1346,7 @@ export default function ConfigDetailPage(): React.ReactElement {
 
                 {/* Form — per-field resolved values (override / reset). */}
                 <TabsContent value="form">
-                  <Box
-                    style={{
-                      overflow: "auto",
-                      maxHeight: "calc(100vh - 56px)",
-                    }}
-                  >
+                  <Box>
                     {canEditInline && reconciliationPreview.length > 0 && (
                       <Callout status="info" mt="3">
                         Publishing will remove{" "}
@@ -1388,7 +1379,10 @@ export default function ConfigDetailPage(): React.ReactElement {
                         style={{
                           borderBottom: "1px solid var(--slate-a4)",
                           position: "sticky",
-                          top: 0,
+                          // Pin just below the fixed 56px top nav (.topbar) — the
+                          // page scrolls the document, so top:0 would hide the
+                          // header behind the nav.
+                          top: 56,
                           zIndex: 2,
                           background: "var(--color-panel-solid)",
                         }}

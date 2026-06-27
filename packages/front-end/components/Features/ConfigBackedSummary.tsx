@@ -18,6 +18,7 @@ import { useUser } from "@/services/UserContext";
 import useApi from "@/hooks/useApi";
 import Text from "@/ui/Text";
 import Callout from "@/ui/Callout";
+import Link from "@/ui/Link";
 import ValueDisplay from "./ValueDisplay";
 
 // Shared "SERVE ConfigName" header. The name links to the config detail page;
@@ -35,9 +36,9 @@ function ServeConfigHeader({
     <Flex direction="row" gap="4" align="center">
       <Text weight="medium">SERVE</Text>
       <Flex as="span" align="center" gap="2">
-        <a href={`/configs/${configKey}`} target="_blank" rel="noreferrer">
+        <Link href={`/configs/${configKey}`} target="_blank" rel="noreferrer">
           {name}
-        </a>
+        </Link>
         {suffix && <Text>{suffix}</Text>}
       </Flex>
     </Flex>

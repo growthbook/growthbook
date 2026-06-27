@@ -15,7 +15,11 @@ import {
 import { UpdateProps } from "shared/types/base-model";
 import { isEqual, omit } from "lodash";
 import { BadRequestError } from "back-end/src/util/errors";
-import { resolvableValueChanged } from "back-end/src/services/constants";
+import {
+  resolvableValueChanged,
+  assertConfigDeletable,
+  assertConfigArchivable,
+} from "back-end/src/services/constants";
 import { configToResolvable } from "back-end/src/services/resolvableValues";
 import {
   logConfigCreatedEvent,
@@ -99,10 +103,16 @@ export class ConfigModel extends BaseClass {
   }
 
   protected async beforeUpdate(
-    _existing: ConfigInterface,
+    existing: ConfigInterface,
     updates: UpdateProps<ConfigInterface>,
     newDoc: ConfigInterface,
   ) {
+    // Model-level backstop (handlers also check, for earlier/friendlier errors):
+    // block archiving a config that's still referenced or has live descendants,
+    // so no write path — including a future cascade — can orphan lineage.
+    if (updates.archived === true && !existing.archived) {
+      await assertConfigArchivable(this.context, existing);
+    }
     if (
       updates.parent !== undefined ||
       updates.extends !== undefined ||
@@ -197,7 +207,23 @@ export class ConfigModel extends BaseClass {
     }
   }
 
+  // Model-level backstop (handlers also check): block deleting a config that's
+  // still referenced or has live descendants inheriting from it.
+  protected async beforeDelete(doc: ConfigInterface) {
+    await assertConfigDeletable(this.context, doc);
+  }
+
   protected async afterCreate(doc: ConfigInterface) {
+    // A new config can satisfy a `@config:` ref that a feature already embeds
+    // (e.g. an imported/dangling reference), so refresh the SDK payload.
+    resolvableValueChanged(this.context, "updated", "config", doc.key).catch(
+      (e) => {
+        this.context.logger.error(
+          e,
+          "Error refreshing SDK Payload on config create",
+        );
+      },
+    );
     await logConfigCreatedEvent(this.context, this.toApiInterface(doc));
   }
 

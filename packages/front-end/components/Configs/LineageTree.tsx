@@ -10,6 +10,7 @@ import {
 } from "react-icons/pi";
 import { LineageNode } from "@/components/Configs/fieldSchema";
 import Tooltip from "@/ui/Tooltip";
+import Badge from "@/ui/Badge";
 
 const ROW_HEIGHT = 30;
 const GUIDE_COLOR = "var(--slate-a6)";
@@ -59,6 +60,27 @@ export default function LineageTree({
 
   const childrenOf = (parentKey: string | null) =>
     childrenByParent.get(parentKey) ?? [];
+
+  // Field-count pill, matching the counter badges on the Configs/Features tabs.
+  // Center the digit (the badge's min-width otherwise left-aligns it) and keep it
+  // from shrinking when a deeply-nested row gets tight in the narrow sidebar.
+  const countBadge = (count: number) => (
+    <Tooltip
+      content={`${count} field${count === 1 ? "" : "s"} defined in this config`}
+    >
+      <Badge
+        size="xs"
+        color="gray"
+        radius="full"
+        label={`${count}`}
+        style={{
+          flexShrink: 0,
+          justifyContent: "center",
+          textAlign: "center",
+        }}
+      />
+    </Tooltip>
+  );
 
   const toggle = (key: string) =>
     setCollapsed((prev) => {
@@ -151,18 +173,7 @@ export default function LineageTree({
               />
             </Tooltip>
           )}
-          {count !== undefined && (
-            <span
-              style={{
-                flexShrink: 0,
-                fontSize: "var(--font-size-1)",
-                color: "var(--slate-10)",
-                fontVariantNumeric: "tabular-nums",
-              }}
-            >
-              {count}
-            </span>
-          )}
+          {count !== undefined && countBadge(count)}
         </Flex>
       </Box>
     );
@@ -294,16 +305,7 @@ export default function LineageTree({
                 style={{ flexShrink: 0, color: "var(--amber-11)" }}
               />
             )}
-            <span
-              style={{
-                flexShrink: 0,
-                fontSize: "var(--font-size-1)",
-                color: "var(--slate-10)",
-                fontVariantNumeric: "tabular-nums",
-              }}
-            >
-              {n.fieldCount}
-            </span>
+            {n.fieldCount !== undefined && countBadge(n.fieldCount)}
           </Flex>
           {expandable &&
             expanded &&

@@ -1,5 +1,6 @@
 import { SchemaField } from "../types/feature";
 import {
+  collectInvalidConfigValueKeys,
   fieldsCanonicallyEqual,
   fieldsToTsType,
   inferFieldFromValue,
@@ -7,10 +8,12 @@ import {
   inferJsonSchemaForValue,
   jsonSchemaStringToFields,
   jsonValueConverter,
+  normalizeField,
   reconcileSchemaFields,
   tsTypesToFields,
   validateConfigValue,
 } from "../src/util/config-schema";
+import { simpleSchemaFieldToJSONSchema } from "../src/util/features";
 
 const field = (over: Partial<SchemaField>): SchemaField => ({
   key: "k",
@@ -506,5 +509,106 @@ describe("validateConfigValue", () => {
         additionalProperties: false,
       }).valid,
     ).toBe(true);
+  });
+});
+
+describe("nullable-enum JSON Schema round-trip", () => {
+  // JSON Schema is the canonical pivot: `simpleSchemaFieldToJSONSchema` emits it
+  // and `normalizeField` reduces it back. A nullable enum carries `null` via the
+  // type union + an enum member while in JSON Schema, but the reduced SchemaField
+  // must NOT regain a literal "null" enum entry — `null` lives on the `nullable`
+  // flag instead. Regression test for that just-fixed bug.
+  const reduceViaJSONSchema = (f: SchemaField): SchemaField =>
+    normalizeField({
+      ...f,
+      jsonSchema: JSON.stringify(simpleSchemaFieldToJSONSchema(f)),
+    });
+
+  it("emits enum + null and type [string,null] for a nullable enum", () => {
+    const schema = simpleSchemaFieldToJSONSchema(
+      field({ key: "mode", enum: ["a", "b"], nullable: true }),
+    );
+    expect(schema.type).toEqual(["string", "null"]);
+    expect(schema.enum).toEqual(["a", "b", null]);
+  });
+
+  it("reduces a nullable enum back without a literal null member", () => {
+    const reduced = reduceViaJSONSchema(
+      field({ key: "mode", enum: ["a", "b"], nullable: true }),
+    );
+    expect(reduced.enum).toEqual(["a", "b"]);
+    expect(reduced.enum).not.toContain("null");
+    expect(reduced.enum).not.toContain(null);
+    expect(reduced.nullable).toBe(true);
+  });
+
+  it("reduces a non-nullable enum unchanged (control)", () => {
+    const schema = simpleSchemaFieldToJSONSchema(
+      field({ key: "mode", enum: ["a", "b"] }),
+    );
+    expect(schema.type).toBe("string");
+    expect(schema.enum).toEqual(["a", "b"]);
+
+    const reduced = reduceViaJSONSchema(
+      field({ key: "mode", enum: ["a", "b"] }),
+    );
+    expect(reduced.enum).toEqual(["a", "b"]);
+    expect("nullable" in reduced).toBe(false);
+  });
+});
+
+describe("collectInvalidConfigValueKeys", () => {
+  const intField = (key: string): SchemaField =>
+    field({ key, type: "integer", required: false });
+
+  it("returns a key whose value type mismatches its declared field", () => {
+    expect(
+      collectInvalidConfigValueKeys({
+        value: { count: "not-a-number" },
+        fields: [intField("count")],
+        additionalProperties: false,
+      }),
+    ).toEqual(["count"]);
+  });
+
+  it("returns [] when all present values conform", () => {
+    expect(
+      collectInvalidConfigValueKeys({
+        value: { count: 3 },
+        fields: [intField("count")],
+        additionalProperties: false,
+      }),
+    ).toEqual([]);
+  });
+
+  it("exempts reference-backed values", () => {
+    expect(
+      collectInvalidConfigValueKeys({
+        value: { count: "{{ @const:x }}" },
+        fields: [intField("count")],
+        additionalProperties: false,
+      }),
+    ).toEqual([]);
+  });
+
+  it("attributes a mismatch to a key containing JSON-Pointer special chars", () => {
+    // `/` and `~` are escaped in Ajv's instancePath as ~1 and ~0 respectively
+    // (RFC 6901); the error-path must un-escape them to recover the real key.
+    const slashKey = "a/b";
+    const tildeKey = "c~d";
+    expect(
+      collectInvalidConfigValueKeys({
+        value: { [slashKey]: "nope" },
+        fields: [intField(slashKey)],
+        additionalProperties: false,
+      }),
+    ).toEqual([slashKey]);
+    expect(
+      collectInvalidConfigValueKeys({
+        value: { [tildeKey]: "nope" },
+        fields: [intField(tildeKey)],
+        additionalProperties: false,
+      }),
+    ).toEqual([tildeKey]);
   });
 });

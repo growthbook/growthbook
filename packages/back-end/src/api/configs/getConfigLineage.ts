@@ -3,10 +3,8 @@ import {
   getConfigParentKey,
   getConfigSubtree,
   getConfigSpineSubtree,
-  getConfigSpineRootKey,
   linearizeConfigDag,
   resolveConfigChain,
-  configIsExtensible,
   findIncompatibleConfigValueKeys,
   parsePlainJSONObject,
 } from "shared/util";
@@ -40,11 +38,6 @@ export const getConfigLineage = createApiRequestHandler(
     const fields = resolveConfigChain(
       linearizeConfigDag(nodeKey, byKey),
     ).effectiveSchema;
-    const spineRoot = byKey.get(getConfigSpineRootKey(nodeKey, byKey));
-    const additionalProperties = configIsExtensible(
-      spineRoot,
-      req.context.org.settings?.configsExtensibleByDefault,
-    );
     // Union over the default value AND every environment override — a stale prod
     // value must get the "must fix" flag even when the default conforms.
     const incompatible = new Set<string>();
@@ -57,7 +50,6 @@ export const getConfigLineage = createApiRequestHandler(
       for (const k of findIncompatibleConfigValueKeys({
         value: obj,
         fields,
-        additionalProperties,
       })) {
         incompatible.add(k);
       }

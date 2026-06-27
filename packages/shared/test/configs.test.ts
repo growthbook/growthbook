@@ -17,6 +17,8 @@ import {
   getConfigSpineRootKey,
   findSiblingSchemaConflicts,
   findIncompatibleConfigValueKeys,
+  resolveConfigChain,
+  ConfigChainNode,
 } from "../src/util/configs";
 import { SimpleSchema, SchemaField } from "../types/feature";
 
@@ -544,7 +546,6 @@ describe("findIncompatibleConfigValueKeys", () => {
       findIncompatibleConfigValueKeys({
         value: { count: "not-a-number" },
         fields,
-        additionalProperties: true,
       }),
     ).toEqual(["count"]);
   });
@@ -554,7 +555,6 @@ describe("findIncompatibleConfigValueKeys", () => {
       findIncompatibleConfigValueKeys({
         value: { count: 3 },
         fields,
-        additionalProperties: true,
       }),
     ).toEqual([]);
   });
@@ -564,8 +564,110 @@ describe("findIncompatibleConfigValueKeys", () => {
       findIncompatibleConfigValueKeys({
         value: { count: "{{ @const:n }}" },
         fields,
-        additionalProperties: true,
       }),
     ).toEqual([]);
+  });
+
+  it("does NOT flag unknown/extra keys (extensibility is enforced elsewhere)", () => {
+    // An extra key isn't a type incompatibility — even against a field set that
+    // would be non-extensible, this scan only reports mismatched declared types.
+    expect(
+      findIncompatibleConfigValueKeys({
+        value: { count: 3, extra: "anything" },
+        fields,
+      }),
+    ).toEqual([]);
+  });
+
+  it("flags only the type-mismatched key, ignoring a co-present extra key", () => {
+    expect(
+      findIncompatibleConfigValueKeys({
+        value: { count: "nope", extra: "anything" },
+        fields,
+      }),
+    ).toEqual(["count"]);
+  });
+});
+
+describe("resolveConfigChain — value merge precedence", () => {
+  // Chain is ordered base → leaf; values merge deepest-wins, with `source` set
+  // to the deepest node that wrote each key.
+  const valueByKey = (chain: ConfigChainNode[]) => {
+    const { fields } = resolveConfigChain(chain);
+    return new Map(fields.map((f) => [f.key, f]));
+  };
+
+  it("lets a child value override its parent for the same key", () => {
+    const byKey = valueByKey([
+      { key: "base", value: JSON.stringify({ color: "red", size: 1 }) },
+      { key: "leaf", value: JSON.stringify({ color: "blue" }) },
+    ]);
+    expect(byKey.get("color")!.value).toBe("blue");
+    expect(byKey.get("color")!.source).toBe("leaf");
+    // A key only the parent set is inherited (base wins by default).
+    expect(byKey.get("size")!.value).toBe(1);
+    expect(byKey.get("size")!.source).toBe("base");
+  });
+
+  it("inherits keys only the parent defines and keeps their provenance", () => {
+    const byKey = valueByKey([
+      { key: "base", value: JSON.stringify({ a: 1, b: 2 }) },
+      { key: "child", value: JSON.stringify({ b: 3, c: 4 }) },
+      { key: "leaf", value: JSON.stringify({ c: 5 }) },
+    ]);
+    expect(byKey.get("a")!.value).toBe(1);
+    expect(byKey.get("a")!.source).toBe("base");
+    // b: child overrode base; leaf left it alone.
+    expect(byKey.get("b")!.value).toBe(3);
+    expect(byKey.get("b")!.source).toBe("child");
+    // c: leaf overrode child (deepest wins).
+    expect(byKey.get("c")!.value).toBe(5);
+    expect(byKey.get("c")!.source).toBe("leaf");
+  });
+
+  it("ignores the $extends merge directive when collecting values", () => {
+    const byKey = valueByKey([
+      {
+        key: "leaf",
+        value: JSON.stringify({ $extends: ["@config:base"], a: 1 }),
+      },
+    ]);
+    expect(byKey.has("$extends")).toBe(false);
+    expect(byKey.get("a")!.value).toBe(1);
+  });
+
+  it("accumulates the effective schema base → leaf (first definition wins)", () => {
+    const { effectiveSchema } = resolveConfigChain([
+      { key: "base", schema: objSchema("color") },
+      { key: "leaf", schema: objSchema("size") },
+    ]);
+    expect(effectiveSchema.map((f) => f.key)).toEqual(["color", "size"]);
+  });
+
+  it("merges a full linearized DAG (parent then mixins) deepest-wins", () => {
+    type DagNode = ConfigChainNode & { parent?: string; extends?: string[] };
+    const nodes = new Map<string, DagNode>([
+      ["base", { key: "base", value: JSON.stringify({ a: 1, b: 1 }) }],
+      ["theme", { key: "theme", value: JSON.stringify({ b: 2, c: 2 }) }],
+      [
+        "leaf",
+        {
+          key: "leaf",
+          parent: "base",
+          extends: ["theme"],
+          value: JSON.stringify({ c: 3 }),
+        },
+      ],
+    ]);
+    const chain = linearizeConfigDag("leaf", nodes);
+    const byKey = new Map(
+      resolveConfigChain(chain).fields.map((f) => [f.key, f]),
+    );
+    // base sets a/b; theme (after base) overrides b and sets c; leaf overrides c.
+    expect(byKey.get("a")!.value).toBe(1);
+    expect(byKey.get("b")!.value).toBe(2);
+    expect(byKey.get("b")!.source).toBe("theme");
+    expect(byKey.get("c")!.value).toBe(3);
+    expect(byKey.get("c")!.source).toBe("leaf");
   });
 });

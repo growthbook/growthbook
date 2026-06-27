@@ -129,8 +129,10 @@ export default function StandardRuleFields({
     const v = form.watch("value");
     const normalized = ensureConfigBacking(v, defaultConfigKey);
     if (normalized !== v) form.setValue("value", normalized);
+    // Re-run if the default re-points to a different config (else the rule keeps
+    // a stale backing key); `form` is stable (react-hook-form).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isConfigBacked]);
+  }, [isConfigBacked, defaultConfigKey]);
 
   const [advancedOptionsOpen, setadvancedOptionsOpen] = useState(
     !!form.watch("seed") ||

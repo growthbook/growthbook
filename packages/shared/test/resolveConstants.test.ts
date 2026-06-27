@@ -367,6 +367,69 @@ describe("resolveConstantRefs — nested constants and cycles", () => {
   });
 });
 
+describe("resolveConstantRefs — diamond graph + cycle/cache interaction", () => {
+  it("resolves a diamond (two paths to one base) consistently", () => {
+    // leaf $extends b and c; both b and c $extends the same base. The shared
+    // base is memoized per pass, so both paths see the same resolved object.
+    const map = mapOf({
+      base: { type: "json", value: '{"shared":1}' },
+      b: { type: "json", value: '{"$extends":["@const:base"],"fromB":2}' },
+      c: { type: "json", value: '{"$extends":["@const:base"],"fromC":3}' },
+    });
+    expect(
+      resolveConstantRefs({ $extends: ["@const:b", "@const:c"] }, map),
+    ).toEqual({ shared: 1, fromB: 2, fromC: 3 });
+  });
+
+  it("memoizes a fanned-out base so repeated paths agree", () => {
+    const map = mapOf({
+      base: { type: "json", value: '{"x":{"$extends":["@const:inner"]}}' },
+      inner: { type: "json", value: '{"y":1}' },
+    });
+    expect(
+      resolveConstantRefs(
+        {
+          one: { $extends: ["@const:base"] },
+          two: { $extends: ["@const:base"] },
+        },
+        map,
+      ),
+    ).toEqual({ one: { x: { y: 1 } }, two: { x: { y: 1 } } });
+  });
+
+  it("does not infinite-loop on a self-cycle and reports it via onCycle", () => {
+    const map = mapOf({
+      loop: { type: "json", value: '{"$extends":["@const:loop"],"k":1}' },
+    });
+    const cycles: string[] = [];
+    // The back-reference is cut (→ {} for the $extends), own keys survive.
+    expect(
+      resolveConstantRefs(
+        { $extends: ["@const:loop"] },
+        map,
+        new Set(),
+        (key) => cycles.push(key),
+      ),
+    ).toEqual({ k: 1 });
+    expect(cycles).toEqual(["loop"]);
+  });
+
+  it("renders a mutual string cycle verbatim/truncated without looping", () => {
+    const map = mapOf({
+      a: { type: "string", value: "A{{ @const:b }}" },
+      b: { type: "string", value: "B{{ @const:a }}" },
+    });
+    const cycles: string[] = [];
+    // a → "A" + b → "AB" + a(cycle) left verbatim.
+    expect(
+      resolveConstantRefs("{{ @const:a }}", map, new Set(), (key) =>
+        cycles.push(key),
+      ),
+    ).toBe("AB{{ @const:a }}");
+    expect(cycles).toContain("a");
+  });
+});
+
 describe("buildConstantValueMap — archived", () => {
   it("marks archived constants so references are scrubbed", () => {
     const constants = [

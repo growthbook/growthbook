@@ -366,7 +366,7 @@ export default function ConfigFieldRow({
                   Edit
                 </Button>
               ) : (
-                <Link size="2" onClick={onStartEdit}>
+                <Link size="2" weight="medium" onClick={onStartEdit}>
                   <PiPlusBold
                     style={{ marginRight: 3, verticalAlign: "middle" }}
                   />

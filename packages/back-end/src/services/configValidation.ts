@@ -111,10 +111,7 @@ export async function getIncompatibleConfigFields(
   context: Context,
   leaf: ConfigLeaf,
 ): Promise<string[]> {
-  const { fields, additionalProperties } = await getEffectiveConfigSchema(
-    context,
-    leaf,
-  );
+  const { fields } = await getEffectiveConfigSchema(context, leaf);
   // Union over the default value AND every environment override — a stale prod
   // value must surface even when the default conforms.
   const incompatible = new Set<string>();
@@ -127,7 +124,6 @@ export async function getIncompatibleConfigFields(
     for (const k of findIncompatibleConfigValueKeys({
       value: obj,
       fields,
-      additionalProperties,
     })) {
       incompatible.add(k);
     }

@@ -146,7 +146,11 @@ export function normalizeField(f: SchemaField): SchemaField {
       : simple;
 
   const enumValues = Array.isArray(obj.enum)
-    ? obj.enum.map((v) => (typeof v === "string" ? v : JSON.stringify(v)))
+    ? // `null` is carried by the `nullable` flag, not as an enum member — drop
+      // it so a nullable enum doesn't gain a literal `"null"` on round-trip.
+      obj.enum
+        .filter((v) => v !== null)
+        .map((v) => (typeof v === "string" ? v : JSON.stringify(v)))
     : f.enum;
   const minRaw = type === "string" ? obj.minLength : obj.minimum;
   const maxRaw = type === "string" ? obj.maxLength : obj.maximum;

@@ -354,16 +354,22 @@ export function findSiblingSchemaConflicts(
 export function findIncompatibleConfigValueKeys({
   value,
   fields,
-  additionalProperties,
 }: {
   value: Record<string, unknown>;
   fields: SchemaField[];
-  additionalProperties: boolean;
 }): string[] {
   // Single-compile scan (see collectInvalidConfigValueKeys): compiling the schema
   // once per call instead of once per value key keeps the per-node lineage scan
   // from quadratically recompiling Ajv across a family.
-  return collectInvalidConfigValueKeys({ value, fields, additionalProperties });
+  //
+  // Force `additionalProperties: true`: this scan reports values whose *type* no
+  // longer conforms, not extensibility violations (extra/unknown keys) — those
+  // are enforced separately by validateConfigValue at write time.
+  return collectInvalidConfigValueKeys({
+    value,
+    fields,
+    additionalProperties: true,
+  });
 }
 
 // Remove schema fields whose key is owned by an ancestor (base wins). Returns
