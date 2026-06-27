@@ -2592,12 +2592,25 @@ export async function createAndPublishRevision({
     canBypassApprovalChecks,
   });
 
+  // When the caller supplies `environmentDefaults`, it is the authoritative
+  // COMPLETE snapshot of per-env overrides (full-map-replace semantics). An
+  // empty snapshot `{}` (e.g. clearing the last override) is dropped by
+  // Mongoose's default `minimize` on the Mixed `environmentDefaults` path, so
+  // the persisted+reloaded revision comes back with it `undefined`. That would
+  // make `autoMerge` see "no change" and silently skip the clear. Restore the
+  // caller's authoritative snapshot on the revision passed to the merge so the
+  // full-replace (including clears) is honored.
+  const mergeRevision: FeatureRevisionInterface =
+    changes && "environmentDefaults" in changes
+      ? { ...revision, environmentDefaults: changes.environmentDefaults }
+      : revision;
+
   // Merge the new revision against the live-feature baseline. base === live
   // for a fresh revision off HEAD.
   const mergeResult = autoMerge(
     liveBase,
     liveBase,
-    revision,
+    mergeRevision,
     allEnvironments,
     {},
   );

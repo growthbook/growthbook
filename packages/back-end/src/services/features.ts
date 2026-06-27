@@ -3319,8 +3319,29 @@ export async function getMergeResultPublishEnvs({
         );
   const changedToggleEnvs = Object.keys(result.environmentsEnabled || {});
   // A per-env default value override is a served-value change for that env, so
-  // permission-check it like a rule/toggle change.
-  const changedDefaultEnvs = Object.keys(result.environmentDefaults || {});
+  // permission-check it like a rule/toggle change. `result.environmentDefaults`
+  // is a COMPLETE snapshot, so `Object.keys(...)` would over-broadly include
+  // envs whose override is unchanged AND miss CLEARED overrides (absent from
+  // the snapshot but present on the live feature). Diff the snapshot against the
+  // live per-env overrides instead — mirroring how checkIfRevisionNeedsReview /
+  // getDraftAffectedEnvironments compute changed envs — so only genuinely
+  // added/changed/cleared envs are permission-checked.
+  const changedDefaultEnvs: string[] =
+    result.environmentDefaults === undefined
+      ? []
+      : Array.from(
+          new Set([
+            ...Object.keys(result.environmentDefaults),
+            ...environmentIds.filter(
+              (env) =>
+                feature.environmentSettings?.[env]?.defaultValue !== undefined,
+            ),
+          ]),
+        ).filter(
+          (env) =>
+            result.environmentDefaults![env] !==
+            feature.environmentSettings?.[env]?.defaultValue,
+        );
   const holdoutEnvs = await collectHoldoutAffectedEnvs(
     context,
     feature,

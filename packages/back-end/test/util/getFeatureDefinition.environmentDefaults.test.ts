@@ -113,9 +113,12 @@ describe("getFeatureDefinition per-environment default overrides", () => {
       );
     });
 
-    it("falls back to the published override when the draft snapshot omits the env (cleared in draft)", () => {
-      // The draft's complete snapshot has NO production key (it inherits), so the
-      // published per-env override is the next precedence step.
+    it("a draft that cleared the override inherits the base, NOT the published override", () => {
+      // When a revision is passed its `environmentDefaults` snapshot is the
+      // AUTHORITATIVE complete picture: an absent key means the revision has no
+      // override for that env, so the preview must inherit the base (draft, then
+      // feature) and must NOT fall back to the stale published per-env override.
+      // Otherwise a cleared override would still preview as the published value.
       const feature = makeFeature({
         environmentSettings: {
           production: { enabled: true, defaultValue: "published-override" },
@@ -123,8 +126,9 @@ describe("getFeatureDefinition per-environment default overrides", () => {
         },
       });
       const revision = makeRevision({ environmentDefaults: {} });
+      // production override cleared in the draft -> inherits the (draft) base.
       expect(getDef(feature, "production", revision)?.defaultValue).toBe(
-        "published-override",
+        "base",
       );
     });
 

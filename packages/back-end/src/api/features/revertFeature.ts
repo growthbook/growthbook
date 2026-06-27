@@ -72,10 +72,11 @@ export async function revertFeatureCore(
   }
 
   // Revert copies concrete values from a published target revision. Per-env
-  // default overrides are present strings where the target overrode the env,
-  // and `undefined` tombstones where the target had no override but the live
-  // feature does (so publishing the revert clears that override). Use the
-  // full MergeResultChanges shape, which already allows the undefined values.
+  // default overrides use full-map-replace semantics: `changes.environmentDefaults`
+  // carries the COMPLETE target snapshot (a present key is an override; an env
+  // absent from the snapshot has NO override and gets cleared on publish). There
+  // are no `undefined` tombstones — absence is the signal. See the snapshot
+  // assembly below.
   const changes: MergeResultChanges = {};
 
   if (revision.defaultValue !== feature.defaultValue) {

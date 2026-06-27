@@ -61,6 +61,7 @@ describe("per-environment default overrides — v1/v2 round-trip", () => {
   ) =>
     auth(request(app).post("/api/v1/features")).send({
       id: FEATURE_ID,
+      owner: "test-owner",
       valueType: "string",
       defaultValue: "base",
       environments: {
@@ -74,6 +75,7 @@ describe("per-environment default overrides — v1/v2 round-trip", () => {
   const createV2 = (body: Record<string, unknown>) =>
     auth(request(app).post("/api/v2/features")).send({
       id: FEATURE_ID,
+      owner: "test-owner",
       valueType: "string",
       defaultValue: "base",
       environments: {
@@ -313,6 +315,7 @@ describe("per-environment default overrides — v1/v2 round-trip", () => {
       // number feature, then try to set a non-numeric override.
       await auth(request(app).post("/api/v1/features")).send({
         id: FEATURE_ID,
+        owner: "test-owner",
         valueType: "number",
         defaultValue: "1",
         environments: {
@@ -335,6 +338,7 @@ describe("per-environment default overrides — v1/v2 round-trip", () => {
     it("sets a json override of the literal null and round-trips it as a real override", async () => {
       await auth(request(app).post("/api/v1/features")).send({
         id: FEATURE_ID,
+        owner: "test-owner",
         valueType: "json",
         defaultValue: JSON.stringify({ a: 1 }),
         environments: {

@@ -73,65 +73,82 @@ function migrateContributors(raw: unknown[] | undefined): string[] | undefined {
   return ids.size > 0 ? [...ids] : undefined;
 }
 
-const featureRevisionSchema = new mongoose.Schema({
-  organization: String,
-  featureId: String,
-  createdBy: {},
-  version: Number,
-  baseVersion: Number,
-  // Live feature version captured when this revision was approved; used to
-  // detect approvals that have gone stale due to subsequent publishes.
-  approvedBaseVersion: Number,
-  dateCreated: Date,
-  dateUpdated: Date,
-  datePublished: Date,
-  publishedBy: {},
-  comment: String,
-  title: String,
-  defaultValue: String,
-  rules: {},
-  // Revision envelopes — only present when explicitly changed
-  environmentsEnabled: {},
-  environmentDefaults: {},
-  prerequisites: [{}],
-  archived: Boolean,
-  metadata: {},
-  holdout: {},
-  rampActions: [{}],
-  // Users who have made edits to this draft beyond the original author.
-  contributors: [{}],
-  // Active reviewer verdicts for the current review cycle. Maintained by the
-  // review lifecycle mutations; cleared when a new review cycle starts.
-  reviews: [
-    {
-      _id: false,
-      userId: String,
-      user: {},
-      status: String,
-      timestamp: Date,
-    },
-  ],
-  status: String,
-  requiresReview: Boolean,
-  autoPublishOnApproval: Boolean,
-  autoPublishEnabledBy: String,
-  scheduledPublishAt: Date,
-  scheduledPublishLockEdits: Boolean,
-  scheduledPublishLockOthers: Boolean,
-  scheduledPublishBypassApproval: Boolean,
-  scheduledPublishAttempts: Number,
-  scheduledPublishLastError: String,
-  log: [
-    {
-      _id: false,
-      user: {},
-      timestamp: Date,
-      action: String,
-      subject: String,
-      value: String,
-    },
-  ],
-});
+// `minimize: false` (vs Mongoose's default `true`) is required so an empty
+// `environmentDefaults: {}` snapshot (all per-env overrides cleared) is
+// persisted as `{}` instead of being stripped — see the field comment below.
+// Every Mixed `{}` field on this schema (createdBy, publishedBy, metadata, …)
+// is always written with a populated object on create, so disabling minimize
+// does not change their on-disk shape in practice.
+const featureRevisionSchema = new mongoose.Schema(
+  {
+    organization: String,
+    featureId: String,
+    createdBy: {},
+    version: Number,
+    baseVersion: Number,
+    // Live feature version captured when this revision was approved; used to
+    // detect approvals that have gone stale due to subsequent publishes.
+    approvedBaseVersion: Number,
+    dateCreated: Date,
+    dateUpdated: Date,
+    datePublished: Date,
+    publishedBy: {},
+    comment: String,
+    title: String,
+    defaultValue: String,
+    rules: {},
+    // Revision envelopes — only present when explicitly changed
+    environmentsEnabled: {},
+    // `environmentDefaults` is a COMPLETE snapshot of per-env default overrides
+    // where an empty `{}` (all overrides cleared) is a MEANINGFUL value distinct
+    // from `undefined` (a legacy revision that predates the field — see
+    // buildFeatureRevisionInterface and the apply layer). The schema-level
+    // `minimize: false` below keeps Mongoose from silently stripping an empty
+    // `{}` on save, which would otherwise collapse "all-cleared" into
+    // "legacy/absent". `default: undefined` keeps the field genuinely absent for
+    // revisions that never set it, preserving the {} vs undefined distinction.
+    environmentDefaults: { type: {}, default: undefined },
+    prerequisites: [{}],
+    archived: Boolean,
+    metadata: {},
+    holdout: {},
+    rampActions: [{}],
+    // Users who have made edits to this draft beyond the original author.
+    contributors: [{}],
+    // Active reviewer verdicts for the current review cycle. Maintained by the
+    // review lifecycle mutations; cleared when a new review cycle starts.
+    reviews: [
+      {
+        _id: false,
+        userId: String,
+        user: {},
+        status: String,
+        timestamp: Date,
+      },
+    ],
+    status: String,
+    requiresReview: Boolean,
+    autoPublishOnApproval: Boolean,
+    autoPublishEnabledBy: String,
+    scheduledPublishAt: Date,
+    scheduledPublishLockEdits: Boolean,
+    scheduledPublishLockOthers: Boolean,
+    scheduledPublishBypassApproval: Boolean,
+    scheduledPublishAttempts: Number,
+    scheduledPublishLastError: String,
+    log: [
+      {
+        _id: false,
+        user: {},
+        timestamp: Date,
+        action: String,
+        subject: String,
+        value: String,
+      },
+    ],
+  },
+  { minimize: false },
+);
 
 // Named so we can recognize its duplicate-key errors and translate them.
 const PUBLISH_LOCK_OTHERS_INDEX = "uniqueArmedPublishLockOthers";
@@ -748,6 +765,23 @@ export async function createInitialRevision(
       feature.environmentSettings?.[env]?.enabled ?? false;
   });
 
+  // Seed the initial published revision with a COMPLETE snapshot of the
+  // feature's per-env default overrides (full-map-replace semantics — a present
+  // key is an override, an absent key means "no override"). Every other
+  // revision builder writes `environmentDefaults`; omitting it here would make
+  // the create-with-override path produce a published revision with no override
+  // snapshot. Only real string values are stored (no undefined).
+  const environmentDefaults: Record<string, string> = Object.fromEntries(
+    environments
+      .filter(
+        (env) => feature.environmentSettings?.[env]?.defaultValue !== undefined,
+      )
+      .map((env) => [
+        env,
+        feature.environmentSettings![env].defaultValue as string,
+      ]),
+  );
+
   date = date || new Date();
 
   const doc = await FeatureRevisionModel.create({
@@ -765,6 +799,7 @@ export async function createInitialRevision(
     defaultValue: feature.defaultValue,
     rules,
     environmentsEnabled,
+    environmentDefaults,
     prerequisites: feature.prerequisites || [],
     archived: feature.archived ?? false,
     metadata: {
