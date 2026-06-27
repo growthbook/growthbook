@@ -184,7 +184,10 @@ function readImageDimensions(
 // (resize-to-cover then center-crop) so the output matches the target aspect
 // EXACTLY — the generated image then drops into the page's <img> slot without
 // the browser center-cropping/zooming it. Downscale only (the box fits inside
-// the source). Otherwise fall back to plain "fit".
+// the source). Falls back to plain "fit" when no valid ratio is provided.
+// Note: no source-aspect comparison — a ratio equal to the source's still
+// goes through "crop" (equivalent result), so add a skip-if-same guard here
+// if that ever matters.
 function resolveResize(
   srcWidth: number,
   srcHeight: number,
