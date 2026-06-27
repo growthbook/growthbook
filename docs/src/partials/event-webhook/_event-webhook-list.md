@@ -5829,8 +5829,10 @@ Triggered when a config is created
             /** The userId of the owner (or raw owner name/email for legacy records) */
             owner?: string | undefined;
             ownerEmail?: string | undefined;
-            /** The `key` of the config this one inherits from (lineage parent). The `$extends` directive is synthesized from this at resolution time and is never stored in `value`. */
+            /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
             parent?: string | undefined;
+            /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
+            extends?: string[] | undefined;
             /** This config's own JSON-encoded object value (its declared fields only — inherited fields are layered in at resolution time, not stored here). */
             value?: string | undefined;
             /** Per-environment value overrides (environment id → JSON-encoded object). Falls back to `value` when an environment is absent. */
@@ -5909,8 +5911,10 @@ Triggered when a config is updated
             /** The userId of the owner (or raw owner name/email for legacy records) */
             owner?: string | undefined;
             ownerEmail?: string | undefined;
-            /** The `key` of the config this one inherits from (lineage parent). The `$extends` directive is synthesized from this at resolution time and is never stored in `value`. */
+            /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
             parent?: string | undefined;
+            /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
+            extends?: string[] | undefined;
             /** This config's own JSON-encoded object value (its declared fields only — inherited fields are layered in at resolution time, not stored here). */
             value?: string | undefined;
             /** Per-environment value overrides (environment id → JSON-encoded object). Falls back to `value` when an environment is absent. */
@@ -5949,8 +5953,10 @@ Triggered when a config is updated
             /** The userId of the owner (or raw owner name/email for legacy records) */
             owner?: string | undefined;
             ownerEmail?: string | undefined;
-            /** The `key` of the config this one inherits from (lineage parent). The `$extends` directive is synthesized from this at resolution time and is never stored in `value`. */
+            /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
             parent?: string | undefined;
+            /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
+            extends?: string[] | undefined;
             /** This config's own JSON-encoded object value (its declared fields only — inherited fields are layered in at resolution time, not stored here). */
             value?: string | undefined;
             /** Per-environment value overrides (environment id → JSON-encoded object). Falls back to `value` when an environment is absent. */
@@ -6034,8 +6040,10 @@ Triggered when a config is deleted
             /** The userId of the owner (or raw owner name/email for legacy records) */
             owner?: string | undefined;
             ownerEmail?: string | undefined;
-            /** The `key` of the config this one inherits from (lineage parent). The `$extends` directive is synthesized from this at resolution time and is never stored in `value`. */
+            /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
             parent?: string | undefined;
+            /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
+            extends?: string[] | undefined;
             /** This config's own JSON-encoded object value (its declared fields only — inherited fields are layered in at resolution time, not stored here). */
             value?: string | undefined;
             /** Per-environment value overrides (environment id → JSON-encoded object). Falls back to `value` when an environment is absent. */
@@ -6143,8 +6151,10 @@ Triggered when a new draft revision is created for a config
                 /** The userId of the owner (or raw owner name/email for legacy records) */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
-                /** The `key` of the config this one inherits from (lineage parent). The `$extends` directive is synthesized from this at resolution time and is never stored in `value`. */
+                /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
                 parent?: string | undefined;
+                /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
+                extends?: string[] | undefined;
                 /** This config's own JSON-encoded object value (its declared fields only — inherited fields are layered in at resolution time, not stored here). */
                 value?: string | undefined;
                 /** Per-environment value overrides (environment id → JSON-encoded object). Falls back to `value` when an environment is absent. */
@@ -6183,8 +6193,10 @@ Triggered when a new draft revision is created for a config
                 /** The userId of the owner (or raw owner name/email for legacy records) */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
-                /** The `key` of the config this one inherits from (lineage parent). The `$extends` directive is synthesized from this at resolution time and is never stored in `value`. */
+                /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
                 parent?: string | undefined;
+                /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
+                extends?: string[] | undefined;
                 /** This config's own JSON-encoded object value (its declared fields only — inherited fields are layered in at resolution time, not stored here). */
                 value?: string | undefined;
                 /** Per-environment value overrides (environment id → JSON-encoded object). Falls back to `value` when an environment is absent. */
@@ -6297,8 +6309,10 @@ Triggered when a draft revision's proposed changes are modified (value, schema, 
                 /** The userId of the owner (or raw owner name/email for legacy records) */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
-                /** The `key` of the config this one inherits from (lineage parent). The `$extends` directive is synthesized from this at resolution time and is never stored in `value`. */
+                /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
                 parent?: string | undefined;
+                /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
+                extends?: string[] | undefined;
                 /** This config's own JSON-encoded object value (its declared fields only — inherited fields are layered in at resolution time, not stored here). */
                 value?: string | undefined;
                 /** Per-environment value overrides (environment id → JSON-encoded object). Falls back to `value` when an environment is absent. */
@@ -6337,8 +6351,10 @@ Triggered when a draft revision's proposed changes are modified (value, schema, 
                 /** The userId of the owner (or raw owner name/email for legacy records) */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
-                /** The `key` of the config this one inherits from (lineage parent). The `$extends` directive is synthesized from this at resolution time and is never stored in `value`. */
+                /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
                 parent?: string | undefined;
+                /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
+                extends?: string[] | undefined;
                 /** This config's own JSON-encoded object value (its declared fields only — inherited fields are layered in at resolution time, not stored here). */
                 value?: string | undefined;
                 /** Per-environment value overrides (environment id → JSON-encoded object). Falls back to `value` when an environment is absent. */
@@ -6452,8 +6468,10 @@ Triggered when a draft revision is submitted for review
                 /** The userId of the owner (or raw owner name/email for legacy records) */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
-                /** The `key` of the config this one inherits from (lineage parent). The `$extends` directive is synthesized from this at resolution time and is never stored in `value`. */
+                /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
                 parent?: string | undefined;
+                /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
+                extends?: string[] | undefined;
                 /** This config's own JSON-encoded object value (its declared fields only — inherited fields are layered in at resolution time, not stored here). */
                 value?: string | undefined;
                 /** Per-environment value overrides (environment id → JSON-encoded object). Falls back to `value` when an environment is absent. */
@@ -6492,8 +6510,10 @@ Triggered when a draft revision is submitted for review
                 /** The userId of the owner (or raw owner name/email for legacy records) */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
-                /** The `key` of the config this one inherits from (lineage parent). The `$extends` directive is synthesized from this at resolution time and is never stored in `value`. */
+                /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
                 parent?: string | undefined;
+                /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
+                extends?: string[] | undefined;
                 /** This config's own JSON-encoded object value (its declared fields only — inherited fields are layered in at resolution time, not stored here). */
                 value?: string | undefined;
                 /** Per-environment value overrides (environment id → JSON-encoded object). Falls back to `value` when an environment is absent. */
@@ -6606,8 +6626,10 @@ Triggered when a draft revision is approved by a reviewer
                 /** The userId of the owner (or raw owner name/email for legacy records) */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
-                /** The `key` of the config this one inherits from (lineage parent). The `$extends` directive is synthesized from this at resolution time and is never stored in `value`. */
+                /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
                 parent?: string | undefined;
+                /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
+                extends?: string[] | undefined;
                 /** This config's own JSON-encoded object value (its declared fields only — inherited fields are layered in at resolution time, not stored here). */
                 value?: string | undefined;
                 /** Per-environment value overrides (environment id → JSON-encoded object). Falls back to `value` when an environment is absent. */
@@ -6646,8 +6668,10 @@ Triggered when a draft revision is approved by a reviewer
                 /** The userId of the owner (or raw owner name/email for legacy records) */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
-                /** The `key` of the config this one inherits from (lineage parent). The `$extends` directive is synthesized from this at resolution time and is never stored in `value`. */
+                /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
                 parent?: string | undefined;
+                /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
+                extends?: string[] | undefined;
                 /** This config's own JSON-encoded object value (its declared fields only — inherited fields are layered in at resolution time, not stored here). */
                 value?: string | undefined;
                 /** Per-environment value overrides (environment id → JSON-encoded object). Falls back to `value` when an environment is absent. */
@@ -6766,8 +6790,10 @@ Triggered when a reviewer requests changes on a draft revision
                 /** The userId of the owner (or raw owner name/email for legacy records) */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
-                /** The `key` of the config this one inherits from (lineage parent). The `$extends` directive is synthesized from this at resolution time and is never stored in `value`. */
+                /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
                 parent?: string | undefined;
+                /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
+                extends?: string[] | undefined;
                 /** This config's own JSON-encoded object value (its declared fields only — inherited fields are layered in at resolution time, not stored here). */
                 value?: string | undefined;
                 /** Per-environment value overrides (environment id → JSON-encoded object). Falls back to `value` when an environment is absent. */
@@ -6806,8 +6832,10 @@ Triggered when a reviewer requests changes on a draft revision
                 /** The userId of the owner (or raw owner name/email for legacy records) */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
-                /** The `key` of the config this one inherits from (lineage parent). The `$extends` directive is synthesized from this at resolution time and is never stored in `value`. */
+                /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
                 parent?: string | undefined;
+                /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
+                extends?: string[] | undefined;
                 /** This config's own JSON-encoded object value (its declared fields only — inherited fields are layered in at resolution time, not stored here). */
                 value?: string | undefined;
                 /** Per-environment value overrides (environment id → JSON-encoded object). Falls back to `value` when an environment is absent. */
@@ -6926,8 +6954,10 @@ Triggered when a comment is added to a draft revision
                 /** The userId of the owner (or raw owner name/email for legacy records) */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
-                /** The `key` of the config this one inherits from (lineage parent). The `$extends` directive is synthesized from this at resolution time and is never stored in `value`. */
+                /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
                 parent?: string | undefined;
+                /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
+                extends?: string[] | undefined;
                 /** This config's own JSON-encoded object value (its declared fields only — inherited fields are layered in at resolution time, not stored here). */
                 value?: string | undefined;
                 /** Per-environment value overrides (environment id → JSON-encoded object). Falls back to `value` when an environment is absent. */
@@ -6966,8 +6996,10 @@ Triggered when a comment is added to a draft revision
                 /** The userId of the owner (or raw owner name/email for legacy records) */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
-                /** The `key` of the config this one inherits from (lineage parent). The `$extends` directive is synthesized from this at resolution time and is never stored in `value`. */
+                /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
                 parent?: string | undefined;
+                /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
+                extends?: string[] | undefined;
                 /** This config's own JSON-encoded object value (its declared fields only — inherited fields are layered in at resolution time, not stored here). */
                 value?: string | undefined;
                 /** Per-environment value overrides (environment id → JSON-encoded object). Falls back to `value` when an environment is absent. */
@@ -7086,8 +7118,10 @@ Triggered when a draft revision is discarded
                 /** The userId of the owner (or raw owner name/email for legacy records) */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
-                /** The `key` of the config this one inherits from (lineage parent). The `$extends` directive is synthesized from this at resolution time and is never stored in `value`. */
+                /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
                 parent?: string | undefined;
+                /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
+                extends?: string[] | undefined;
                 /** This config's own JSON-encoded object value (its declared fields only — inherited fields are layered in at resolution time, not stored here). */
                 value?: string | undefined;
                 /** Per-environment value overrides (environment id → JSON-encoded object). Falls back to `value` when an environment is absent. */
@@ -7126,8 +7160,10 @@ Triggered when a draft revision is discarded
                 /** The userId of the owner (or raw owner name/email for legacy records) */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
-                /** The `key` of the config this one inherits from (lineage parent). The `$extends` directive is synthesized from this at resolution time and is never stored in `value`. */
+                /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
                 parent?: string | undefined;
+                /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
+                extends?: string[] | undefined;
                 /** This config's own JSON-encoded object value (its declared fields only — inherited fields are layered in at resolution time, not stored here). */
                 value?: string | undefined;
                 /** Per-environment value overrides (environment id → JSON-encoded object). Falls back to `value` when an environment is absent. */
@@ -7240,8 +7276,10 @@ Triggered when a draft revision is rebased onto the latest live state
                 /** The userId of the owner (or raw owner name/email for legacy records) */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
-                /** The `key` of the config this one inherits from (lineage parent). The `$extends` directive is synthesized from this at resolution time and is never stored in `value`. */
+                /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
                 parent?: string | undefined;
+                /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
+                extends?: string[] | undefined;
                 /** This config's own JSON-encoded object value (its declared fields only — inherited fields are layered in at resolution time, not stored here). */
                 value?: string | undefined;
                 /** Per-environment value overrides (environment id → JSON-encoded object). Falls back to `value` when an environment is absent. */
@@ -7280,8 +7318,10 @@ Triggered when a draft revision is rebased onto the latest live state
                 /** The userId of the owner (or raw owner name/email for legacy records) */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
-                /** The `key` of the config this one inherits from (lineage parent). The `$extends` directive is synthesized from this at resolution time and is never stored in `value`. */
+                /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
                 parent?: string | undefined;
+                /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
+                extends?: string[] | undefined;
                 /** This config's own JSON-encoded object value (its declared fields only — inherited fields are layered in at resolution time, not stored here). */
                 value?: string | undefined;
                 /** Per-environment value overrides (environment id → JSON-encoded object). Falls back to `value` when an environment is absent. */
@@ -7394,8 +7434,10 @@ Triggered when a draft revision is published. Overlaps with `config.updated` but
                 /** The userId of the owner (or raw owner name/email for legacy records) */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
-                /** The `key` of the config this one inherits from (lineage parent). The `$extends` directive is synthesized from this at resolution time and is never stored in `value`. */
+                /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
                 parent?: string | undefined;
+                /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
+                extends?: string[] | undefined;
                 /** This config's own JSON-encoded object value (its declared fields only — inherited fields are layered in at resolution time, not stored here). */
                 value?: string | undefined;
                 /** Per-environment value overrides (environment id → JSON-encoded object). Falls back to `value` when an environment is absent. */
@@ -7434,8 +7476,10 @@ Triggered when a draft revision is published. Overlaps with `config.updated` but
                 /** The userId of the owner (or raw owner name/email for legacy records) */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
-                /** The `key` of the config this one inherits from (lineage parent). The `$extends` directive is synthesized from this at resolution time and is never stored in `value`. */
+                /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
                 parent?: string | undefined;
+                /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
+                extends?: string[] | undefined;
                 /** This config's own JSON-encoded object value (its declared fields only — inherited fields are layered in at resolution time, not stored here). */
                 value?: string | undefined;
                 /** Per-environment value overrides (environment id → JSON-encoded object). Falls back to `value` when an environment is absent. */
@@ -7548,8 +7592,10 @@ Triggered when a config is reverted to a previous published revision
                 /** The userId of the owner (or raw owner name/email for legacy records) */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
-                /** The `key` of the config this one inherits from (lineage parent). The `$extends` directive is synthesized from this at resolution time and is never stored in `value`. */
+                /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
                 parent?: string | undefined;
+                /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
+                extends?: string[] | undefined;
                 /** This config's own JSON-encoded object value (its declared fields only — inherited fields are layered in at resolution time, not stored here). */
                 value?: string | undefined;
                 /** Per-environment value overrides (environment id → JSON-encoded object). Falls back to `value` when an environment is absent. */
@@ -7588,8 +7634,10 @@ Triggered when a config is reverted to a previous published revision
                 /** The userId of the owner (or raw owner name/email for legacy records) */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
-                /** The `key` of the config this one inherits from (lineage parent). The `$extends` directive is synthesized from this at resolution time and is never stored in `value`. */
+                /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
                 parent?: string | undefined;
+                /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
+                extends?: string[] | undefined;
                 /** This config's own JSON-encoded object value (its declared fields only — inherited fields are layered in at resolution time, not stored here). */
                 value?: string | undefined;
                 /** Per-environment value overrides (environment id → JSON-encoded object). Falls back to `value` when an environment is absent. */
@@ -7703,8 +7751,10 @@ Triggered when a discarded revision is reopened
                 /** The userId of the owner (or raw owner name/email for legacy records) */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
-                /** The `key` of the config this one inherits from (lineage parent). The `$extends` directive is synthesized from this at resolution time and is never stored in `value`. */
+                /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
                 parent?: string | undefined;
+                /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
+                extends?: string[] | undefined;
                 /** This config's own JSON-encoded object value (its declared fields only — inherited fields are layered in at resolution time, not stored here). */
                 value?: string | undefined;
                 /** Per-environment value overrides (environment id → JSON-encoded object). Falls back to `value` when an environment is absent. */
@@ -7743,8 +7793,10 @@ Triggered when a discarded revision is reopened
                 /** The userId of the owner (or raw owner name/email for legacy records) */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
-                /** The `key` of the config this one inherits from (lineage parent). The `$extends` directive is synthesized from this at resolution time and is never stored in `value`. */
+                /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
                 parent?: string | undefined;
+                /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
+                extends?: string[] | undefined;
                 /** This config's own JSON-encoded object value (its declared fields only — inherited fields are layered in at resolution time, not stored here). */
                 value?: string | undefined;
                 /** Per-environment value overrides (environment id → JSON-encoded object). Falls back to `value` when an environment is absent. */
