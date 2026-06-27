@@ -452,6 +452,12 @@ export const putConfigRevisionMetadataValidator = {
         .describe(
           "Change the lineage parent (the `key` to inherit from). Empty string detaches from the parent.",
         ),
+      extends: z
+        .array(z.string())
+        .optional()
+        .describe(
+          "Replace the composition mixins layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; own keys win last). Send the complete set; an empty array clears all mixins.",
+        ),
       extensible: z.boolean().optional(),
     })
     .strict(),
@@ -465,7 +471,7 @@ export const putConfigRevisionValueValidator = {
   operationId: "putConfigRevisionValue",
   summary: "Update the value of a config draft revision",
   description:
-    'Stages a new default `value` and/or per-environment `environmentValues` on the draft (this config\'s own JSON object fields). At least one must be supplied. Pass `version: "new"` to auto-create a draft. Any `@config:` inheritance entry in the value is stripped — express lineage via the `parent` metadata field instead.\n\nSet `inferSchemaIfMissing: true` to derive and stage a field schema from the value when the config has none yet.',
+    'Stages a new default `value` and/or per-environment `environmentValues` on the draft (this config\'s own JSON object fields). At least one must be supplied. Pass `version: "new"` to auto-create a draft. A `@config:` inheritance entry in the value is rejected — express lineage via the `parent`/`extends` metadata fields instead.\n\nSet `inferSchemaIfMissing: true` to derive and stage a field schema from the value when the config has none yet.',
   tags: ["config-revisions"],
   paramsSchema: revisionParams,
   bodySchema: z

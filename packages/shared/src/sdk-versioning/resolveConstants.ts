@@ -2,8 +2,8 @@ import { ConstantInterface } from "shared/types/constant";
 import { CONSTANT_EXTENDS_KEY } from "../constants";
 
 // Which namespace an entry belongs to. References are namespaced (`@const:` vs
-// `@config:`) and only resolve against a matching source, so the two namespaces
-// stay strictly separate even though they share one key space + value map.
+// `@config:`) and the value map is keyed by `source:key`, so the two namespaces
+// are independent — a constant and a config may share a bare key.
 export type ConstantSource = "constant" | "config";
 
 // A constant's value resolved for a single target environment. `archived`
@@ -16,9 +16,10 @@ export type ConstantValueMapEntry = {
   // when merged into this map (see the resolution-universe loader), so only two
   // surface types exist here.
   type: "string" | "json";
-  // The namespace this entry belongs to; a `@config:` ref only resolves a
-  // `source: "config"` entry and `@const:` only a `source: "constant"` one.
-  // Optional for hand-built maps; absent is treated as `"constant"`.
+  // The namespace this entry belongs to. The map is keyed by `source:key`
+  // (see mapKey/buildConstantValueMap), so the source also disambiguates a key
+  // shared by a constant and a config. Optional for hand-built maps; absent is
+  // treated as `"constant"`.
   source?: ConstantSource;
   value: string;
   project?: string;
@@ -60,6 +61,13 @@ const PLACEHOLDER_KEY = new RegExp("^@(const|config):(" + KEY + ")$");
 const nsToSource = (ns: string): ConstantSource =>
   ns === "config" ? "config" : "constant";
 
+// Value-map key: namespaced by source so a constant and a config may share a
+// bare key without colliding. `@const:foo` resolves `constant:foo` and
+// `@config:foo` resolves `config:foo` — the two namespaces never overwrite each
+// other in the map, even with identical keys.
+const mapKey = (source: ConstantSource, key: string): string =>
+  `${source}:${key}`;
+
 // Build the per-environment lookup: `environmentValues[env] ?? value`. A
 // constant with no value for the environment (and no default) is omitted, so
 // references to it are left verbatim (graceful failure).
@@ -79,7 +87,7 @@ export function buildConstantValueMap(
   for (const c of constants) {
     const source: ConstantSource = c.source ?? "constant";
     if (c.archived) {
-      map.set(c.key, {
+      map.set(mapKey(source, c.key), {
         type: c.type,
         source,
         value: "",
@@ -99,7 +107,7 @@ export function buildConstantValueMap(
         parsed = undefined;
       }
     }
-    map.set(c.key, {
+    map.set(mapKey(source, c.key), {
       type: c.type,
       source,
       value,
@@ -146,27 +154,28 @@ function resolveStringRefs(
 ): string {
   return str.replace(INTERP, (full, escaped, ns, key) => {
     if (escaped) return escaped;
-    const entry = ctx.map.get(key);
+    // The map is namespaced by source, so a `@const:`/`@config:` ref only ever
+    // finds a matching-source entry (no cross-namespace check needed).
+    const mk = mapKey(nsToSource(ns), key);
+    const entry = ctx.map.get(mk);
     if (!entry) return full;
     // Archived or out-of-project-scope: strip the reference entirely (any type)
     // rather than leaking a raw `{{ @const:... }}` template into the value.
     if (isScrubbed(entry, ctx)) return "";
-    // A `@const:`/`@config:` ref only resolves a matching-source entry.
-    if ((entry.source ?? "constant") !== nsToSource(ns)) return full;
     if (entry.type !== "string") return full;
-    if (visited.has(key)) {
+    if (visited.has(mk)) {
       ctx.onCycle?.(key);
       return full;
     }
-    const cached = ctx.cache.get(key);
+    const cached = ctx.cache.get(mk);
     if (cached !== undefined) return cached as string;
     // The constant's value may itself reference other string constants.
     const resolved = resolveStringRefs(
       entry.value,
-      new Set([...visited, key]),
+      new Set([...visited, mk]),
       ctx,
     );
-    ctx.cache.set(key, resolved);
+    ctx.cache.set(mk, resolved);
     return resolved;
   });
 }
@@ -207,20 +216,18 @@ function resolveValue(
       source: ConstantSource,
       key: string,
     ): Record<string, unknown> | null => {
-      const entry = ctx.map.get(key);
-      if (
-        !entry ||
-        entry.type !== "json" ||
-        (entry.source ?? "constant") !== source ||
-        isScrubbed(entry, ctx)
-      )
+      // The map is namespaced by source, so the lookup itself enforces that a
+      // `@config:` ref only resolves a config (and `@const:` only a constant).
+      const mk = mapKey(source, key);
+      const entry = ctx.map.get(mk);
+      if (!entry || entry.type !== "json" || isScrubbed(entry, ctx))
         return null;
-      if (visited.has(key)) {
+      if (visited.has(mk)) {
         ctx.onCycle?.(key);
         return null;
       }
-      if (ctx.cache.has(key)) {
-        const cached = ctx.cache.get(key);
+      if (ctx.cache.has(mk)) {
+        const cached = ctx.cache.get(mk);
         return isPlainObject(cached) ? cached : null;
       }
       // Reuse the value parsed once at map-build time (buildConstantValueMap).
@@ -234,8 +241,8 @@ function resolveValue(
           return null;
         }
       }
-      const resolved = resolveValue(parsed, new Set([...visited, key]), ctx);
-      ctx.cache.set(key, resolved);
+      const resolved = resolveValue(parsed, new Set([...visited, mk]), ctx);
+      ctx.cache.set(mk, resolved);
       return isPlainObject(resolved) ? resolved : null;
     };
 

@@ -7,7 +7,7 @@ import { ConstantInterface } from "shared/types/constant";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError } from "back-end/src/util/errors";
-import { assertKeyAvailableAcrossNamespace } from "back-end/src/services/constants";
+import { assertKeyAvailable } from "back-end/src/services/constants";
 import { getAdapter } from "back-end/src/revisions";
 import {
   buildPatchOps,
@@ -38,8 +38,9 @@ export const postConstant = createApiRequestHandler(postConstantValidator)(
       await req.context.models.projects.ensureProjectsExist([project]);
     }
 
-    // Keys are unique across both constants and configs (shared `@const:` namespace).
-    await assertKeyAvailableAcrossNamespace(req.context, key);
+    // Constant keys are unique within the constant namespace (a config may share
+    // the key — `@const:foo` and `@config:foo` are distinct).
+    await assertKeyAvailable(req.context, key, "constant");
 
     // Validate value shape against the declared type (empty is allowed).
     if (value !== undefined)
@@ -47,14 +48,14 @@ export const postConstant = createApiRequestHandler(postConstantValidator)(
         type,
         value,
         label: "value",
-        forbidConfigRefs: true,
+        refSource: "constant",
       });
     for (const [env, v] of Object.entries(environmentValues ?? {})) {
       validateResolvableValue({
         type,
         value: v,
         label: env,
-        forbidConfigRefs: true,
+        refSource: "constant",
       });
     }
 

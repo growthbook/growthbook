@@ -16,6 +16,7 @@ import { assertNoReferenceCycle } from "back-end/src/services/constants";
 import { assertConfigValueValid } from "back-end/src/services/configValidation";
 import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
 import {
+  applyRevisionToSnapshot,
   assertValidConfigValueEdit,
   discardIfJustCreated,
   isDraftStatus,
@@ -58,52 +59,13 @@ export const putConfigRevisionValue = createApiRequestHandler(
       )
     : undefined;
 
-  // Reject a draft value that would close an `@const:` reference cycle.
+  // Reject a draft value that would close a reference cycle (config namespace).
   await assertNoReferenceCycle(
     req.context,
     config.key,
     strippedValue ?? config.value,
     strippedEnv ?? config.environmentValues,
-  );
-
-  const fieldsToUpdate: Record<string, unknown> = {};
-  if (strippedValue !== undefined) fieldsToUpdate.value = strippedValue;
-  if (strippedEnv !== undefined) fieldsToUpdate.environmentValues = strippedEnv;
-
-  // Optionally derive a schema from the value when the config has none yet, so a
-  // value-first import still gets typing/validation. Existing schemas are never
-  // overwritten here — use the schema endpoint for that.
-  if (
-    inferSchemaIfMissing &&
-    !config.schema?.fields?.length &&
-    strippedValue !== undefined
-  ) {
-    const obj = parsePlainJSONObject(strippedValue) ?? {};
-    const inferred: SimpleSchema = {
-      type: "object",
-      fields: inferFieldsFromValue(obj),
-    };
-    fieldsToUpdate.schema =
-      await req.context.models.configs.normalizeSchemaAgainstAncestors(
-        { key: config.key, parent: config.parent, value: strippedValue },
-        inferred,
-      );
-  }
-
-  // Enforce the staged value against the config's effective schema. Uses the
-  // proposed (inferred) schema when this request also sets one, so a value-first
-  // import validates against the schema it derives. Opt out with
-  // ?skipSchemaValidation=true.
-  await assertConfigValueValid(
-    req.context,
-    {
-      key: config.key,
-      name: config.name,
-      value: strippedValue ?? config.value,
-      schema: (fieldsToUpdate.schema as typeof config.schema) ?? config.schema,
-      parent: config.parent,
-    },
-    { value: strippedValue, environmentValues: strippedEnv },
+    "config",
   );
 
   await ensureLiveRevisionExists(
@@ -129,6 +91,59 @@ export const putConfigRevisionValue = createApiRequestHandler(
         `Cannot edit a revision with status "${revision.status}"`,
       );
     }
+
+    // Judge the staged value against the draft's OWN staged lineage/schema, not
+    // the live config — a draft may have changed parent/extends/schema, so the
+    // live values would produce false 400s (or miss real ones).
+    const draft = applyRevisionToSnapshot(revision);
+
+    const fieldsToUpdate: Record<string, unknown> = {};
+    if (strippedValue !== undefined) fieldsToUpdate.value = strippedValue;
+    if (strippedEnv !== undefined) {
+      fieldsToUpdate.environmentValues = strippedEnv;
+    }
+
+    // Optionally derive a schema from the value when the draft has none yet, so a
+    // value-first import still gets typing/validation. Existing schemas are never
+    // overwritten here — use the schema endpoint for that.
+    if (
+      inferSchemaIfMissing &&
+      !draft.schema?.fields?.length &&
+      strippedValue !== undefined
+    ) {
+      const obj = parsePlainJSONObject(strippedValue) ?? {};
+      const inferred: SimpleSchema = {
+        type: "object",
+        fields: inferFieldsFromValue(obj),
+      };
+      fieldsToUpdate.schema =
+        await req.context.models.configs.normalizeSchemaAgainstAncestors(
+          {
+            key: config.key,
+            parent: draft.parent,
+            extends: draft.extends,
+            value: strippedValue,
+          },
+          inferred,
+        );
+    }
+
+    // Enforce the staged value against the draft's effective schema. Uses the
+    // proposed (inferred) schema when this request also sets one, so a value-first
+    // import validates against the schema it derives. Opt out with
+    // ?skipSchemaValidation=true.
+    await assertConfigValueValid(
+      req.context,
+      {
+        key: config.key,
+        name: config.name,
+        value: strippedValue ?? draft.value,
+        schema: (fieldsToUpdate.schema as typeof config.schema) ?? draft.schema,
+        parent: draft.parent,
+        extends: draft.extends,
+      },
+      { value: strippedValue, environmentValues: strippedEnv },
+    );
 
     const updated = await createOrUpdateRevision(
       req.context,

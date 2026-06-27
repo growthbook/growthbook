@@ -36,6 +36,12 @@ export type LineageNode = {
   // Own schema field keys (the fields this config declares itself). Used to
   // preview "base wins" reconciliation in the editor.
   fieldKeys?: string[];
+  // Composition mixins: the config keys this node layers on top of its `parent`
+  // spine. Shown as same-level chips on the node (not nested tree branches).
+  extendsKeys?: string[];
+  // Own value keys that no longer conform to the effective schema ("incompatible,
+  // must fix"). Non-empty flags the node in the tree.
+  incompatibleFields?: string[];
 };
 
 export const FIELD_TYPE_OPTIONS = [

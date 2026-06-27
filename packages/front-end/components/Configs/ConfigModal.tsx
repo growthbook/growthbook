@@ -4,12 +4,13 @@ import { useForm } from "react-hook-form";
 import { ConfigWithoutValue } from "shared/types/config";
 import { Revision } from "shared/enterprise";
 import { generateTrackingKey } from "shared/experiments";
-import { getConfigParentKey } from "shared/util";
+import { getConfigParentKey, getConfigSubtree } from "shared/util";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiPlus } from "react-icons/pi";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
+import MultiSelectField from "@/components/Forms/MultiSelectField";
 import SelectOwner from "@/components/Owner/SelectOwner";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import Callout from "@/ui/Callout";
@@ -39,6 +40,9 @@ type FormValues = {
   key: string;
   name: string;
   parent: string;
+  // Composition mixins (config keys) layered on top of `parent`, in precedence
+  // order (later overrides earlier; all override `parent`; own keys win last).
+  extends: string[];
   owner: string;
   description: string;
   project: string;
@@ -68,11 +72,11 @@ export default function ConfigModal({
   const { organization } = useUser();
   const {
     configs,
+    _configsIncludingArchived: allConfigsForGraph,
     projects,
     project,
     mutateDefinitions,
     getConfigByKey,
-    getConstantByKey,
   } = useDefinitions();
 
   const editing = !!existing;
@@ -99,6 +103,7 @@ export default function ConfigModal({
       key: existing?.key ?? "",
       name: existing?.name ?? "",
       parent: parentKey ?? "",
+      extends: existing?.extends ?? [],
       owner: existing?.owner ?? "",
       description: existing?.description ?? "",
       project: existing?.project ?? project ?? "",
@@ -114,17 +119,35 @@ export default function ConfigModal({
     .map((c) => ({ label: c.name, value: c.key }));
   const projectOptions = projects.map((p) => ({ label: p.name, value: p.id }));
 
+  // Mixin candidates: any config except this one, its current `parent`, and its
+  // own descendants (which would close a composition cycle). Archived configs are
+  // excluded as candidates, but the descendant walk uses the archived-inclusive
+  // graph so a cycle through an archived intermediate is still excluded.
+  const currentParent = editing
+    ? (existing?.parent ?? "")
+    : form.watch("parent");
+  const descendantKeys = existing?.key
+    ? new Set(getConfigSubtree(existing.key, allConfigsForGraph))
+    : new Set<string>();
+  const extendsOptions = configs
+    .filter(
+      (c) =>
+        !c.archived &&
+        c.key !== existing?.key &&
+        c.key !== currentParent &&
+        !descendantKeys.has(c.key),
+    )
+    .map((c) => ({ label: c.name, value: c.key }));
+
   // Auto-derive the slug key from the name until the user edits the key.
   const keyTouched = useRef(editing);
   const name = form.watch("name");
   useEffect(() => {
     if (editing || keyTouched.current || !name) return;
     let active = true;
-    // Keys are unique across configs and constants, so check both.
-    generateTrackingKey(
-      { name },
-      async (k) => getConfigByKey(k) ?? getConstantByKey(k),
-    ).then((k) => {
+    // Config keys are unique within the config namespace only (a constant may
+    // share the key), so derive the slug against existing configs.
+    generateTrackingKey({ name }, async (k) => getConfigByKey(k)).then((k) => {
       if (active) form.setValue("key", k);
     });
     return () => {
@@ -169,6 +192,14 @@ export default function ConfigModal({
                 key: values.key,
                 name: values.name,
                 parent: values.parent || undefined,
+                // Dedupe and drop the parent (it's the spine, not a mixin) so we
+                // never submit a self-conflicting composition the backend rejects.
+                extends: (() => {
+                  const cleaned = [...new Set(values.extends)].filter(
+                    (k) => k && k !== values.parent,
+                  );
+                  return cleaned.length ? cleaned : undefined;
+                })(),
                 description: values.description || undefined,
                 project: values.project || undefined,
                 ...(values.parent ? {} : { extensible: values.extensible }),
@@ -267,6 +298,20 @@ export default function ConfigModal({
             )
           }
           helpText="A child inherits its parent's fields and overrides a subset."
+        />
+      )}
+
+      {/* Composition is set here at creation; for an existing config it's edited
+          inline in a draft on the config page. */}
+      {!editing && (
+        <MultiSelectField
+          label="Compose additional configs (optional)"
+          value={form.watch("extends")}
+          onChange={(v) => form.setValue("extends", v)}
+          options={extendsOptions}
+          sort={false}
+          placeholder="Add mixin configs…"
+          helpText="Mixins layer on top of the parent, in order (later overrides earlier; this config's own fields win last). Drag to reorder."
         />
       )}
 

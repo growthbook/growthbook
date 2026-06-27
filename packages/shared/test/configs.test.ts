@@ -1,16 +1,22 @@
 import {
   getConfigParentKey,
+  getConfigBaseKeys,
   stripExtends,
-  withParentExtends,
+  withConfigExtends,
   getConfigBackingKey,
   getConfigBackingPatch,
   setConfigBacking,
   getConfigSubtree,
+  getConfigSpineSubtree,
   ensureConfigBacking,
   getAncestorSchemaKeys,
   stripAncestorOwnedFields,
   configIsExtensible,
   stripConfigExtends,
+  linearizeConfigDag,
+  getConfigSpineRootKey,
+  findSiblingSchemaConflicts,
+  findIncompatibleConfigValueKeys,
 } from "../src/util/configs";
 import { SimpleSchema, SchemaField } from "../types/feature";
 
@@ -79,13 +85,22 @@ describe("getConfigSubtree", () => {
     expect(keys).not.toContain("other-child");
   });
 
-  it("links up legacy $extends-only data", () => {
+  it("descends through mixin (extends) edges, not just parent", () => {
     expect(
       getConfigSubtree("base", [
         { key: "base" },
-        { key: "legacy", value: '{"$extends":["@config:base"],"a":1}' },
+        { key: "mixed", extends: ["base"] },
       ]),
-    ).toEqual(["base", "legacy"]);
+    ).toEqual(["base", "mixed"]);
+  });
+
+  it("includes a config reached via parent OR extends, once", () => {
+    const keys = getConfigSubtree("base", [
+      { key: "base" },
+      { key: "child", parent: "base" },
+      { key: "leaf", parent: "child", extends: ["base"] },
+    ]);
+    expect(keys).toEqual(["base", "child", "leaf"]);
   });
 
   it("tolerates parent cycles", () => {
@@ -97,26 +112,106 @@ describe("getConfigSubtree", () => {
   });
 });
 
+describe("getConfigSpineSubtree", () => {
+  it("descends the parent spine only, in BFS order", () => {
+    const configs = [
+      { key: "base" },
+      { key: "child", parent: "base" },
+      { key: "grandchild", parent: "child" },
+      { key: "sibling", parent: "base" },
+    ];
+    expect(getConfigSpineSubtree("base", configs)).toEqual([
+      "base",
+      "child",
+      "sibling",
+      "grandchild",
+    ]);
+  });
+
+  it("does NOT pull in cross-family configs that only mixin a family member", () => {
+    const configs = [
+      { key: "base" },
+      { key: "child", parent: "base" },
+      // `mixer` lives in another family and merely composes `child`; it must not
+      // appear in `base`'s spine tree (unlike getConfigSubtree).
+      { key: "mixer", parent: "other-root", extends: ["child"] },
+      { key: "other-root" },
+    ];
+    expect(getConfigSpineSubtree("base", configs)).toEqual(["base", "child"]);
+  });
+
+  it("tolerates parent cycles", () => {
+    const cyclic = [
+      { key: "a", parent: "b" },
+      { key: "b", parent: "a" },
+    ];
+    expect(getConfigSpineSubtree("a", cyclic)).toEqual(["a", "b"]);
+  });
+});
+
+describe("getConfigBaseKeys", () => {
+  it("returns the parent first, then extends in order", () => {
+    expect(
+      getConfigBaseKeys({ parent: "base", extends: ["theme", "ab"] }),
+    ).toEqual(["base", "theme", "ab"]);
+  });
+
+  it("dedups while preserving order (parent wins its slot)", () => {
+    expect(
+      getConfigBaseKeys({
+        parent: "base",
+        extends: ["base", "theme", "theme"],
+      }),
+    ).toEqual(["base", "theme"]);
+  });
+
+  it("handles no parent / no extends", () => {
+    expect(getConfigBaseKeys({})).toEqual([]);
+    expect(getConfigBaseKeys({ extends: ["a"] })).toEqual(["a"]);
+  });
+});
+
+describe("getConfigSpineRootKey", () => {
+  const byKey = new Map<string, { key: string; parent?: string }>([
+    ["base", { key: "base" }],
+    ["child", { key: "child", parent: "base" }],
+    ["leaf", { key: "leaf", parent: "child" }],
+  ]);
+
+  it("walks the parent spine to the root", () => {
+    expect(getConfigSpineRootKey("leaf", byKey)).toBe("base");
+  });
+
+  it("returns the key itself for a root", () => {
+    expect(getConfigSpineRootKey("base", byKey)).toBe("base");
+  });
+
+  it("ignores extends mixins (spine = parent only)", () => {
+    const m = new Map<string, { key: string; parent?: string }>([
+      ["root", { key: "root" }],
+      ["mixroot", { key: "mixroot" }],
+      ["leaf", { key: "leaf", parent: "root" }],
+    ]);
+    expect(getConfigSpineRootKey("leaf", m)).toBe("root");
+  });
+
+  it("is cycle-safe", () => {
+    const m = new Map<string, { key: string; parent?: string }>([
+      ["a", { key: "a", parent: "b" }],
+      ["b", { key: "b", parent: "a" }],
+    ]);
+    expect(["a", "b"]).toContain(getConfigSpineRootKey("a", m));
+  });
+});
+
 describe("getConfigParentKey", () => {
-  it("prefers the explicit parent field", () => {
+  it("returns the explicit parent field", () => {
     expect(getConfigParentKey({ parent: "base" })).toBe("base");
   });
 
-  it("falls back to a legacy @config: ref in the value", () => {
-    expect(
-      getConfigParentKey({ value: '{"$extends":["@config:base"],"a":1}' }),
-    ).toBe("base");
-  });
-
-  it("falls back to a legacy @const: ref in the value", () => {
-    expect(getConfigParentKey({ value: '{"$extends":["@const:base"]}' })).toBe(
-      "base",
-    );
-  });
-
-  it("returns null with no parent and no $extends", () => {
-    expect(getConfigParentKey({ value: '{"a":1}' })).toBeNull();
+  it("returns null with no parent (no in-value fallback)", () => {
     expect(getConfigParentKey({})).toBeNull();
+    expect(getConfigParentKey({ parent: "" })).toBeNull();
   });
 });
 
@@ -134,33 +229,39 @@ describe("stripExtends", () => {
   });
 });
 
-describe("withParentExtends", () => {
-  it("injects a @config: parent ref as the first $extends entry", () => {
-    expect(withParentExtends('{"a":1}', "base")).toBe(
+describe("withConfigExtends", () => {
+  it("injects a single @config: base ref as the first $extends entry", () => {
+    expect(withConfigExtends('{"a":1}', ["base"])).toBe(
       '{"$extends":["@config:base"],"a":1}',
     );
   });
 
-  it("replaces any pre-existing @config ref with the parent ref", () => {
+  it("injects multiple base refs in order (parent, then mixins)", () => {
+    expect(withConfigExtends('{"a":1}', ["base", "theme", "ab"])).toBe(
+      '{"$extends":["@config:base","@config:theme","@config:ab"],"a":1}',
+    );
+  });
+
+  it("replaces any pre-existing @config refs with the supplied bases", () => {
     expect(
-      withParentExtends('{"$extends":["@config:old"],"a":1}', "base"),
+      withConfigExtends('{"$extends":["@config:old"],"a":1}', ["base"]),
     ).toBe('{"$extends":["@config:base"],"a":1}');
   });
 
-  it("strips $extends when there is no parent", () => {
-    expect(withParentExtends('{"$extends":["@config:old"],"a":1}', null)).toBe(
+  it("strips $extends when there are no bases", () => {
+    expect(withConfigExtends('{"$extends":["@config:old"],"a":1}', [])).toBe(
       '{"a":1}',
     );
   });
 
-  it("preserves @const refs, prepending the parent as the first entry", () => {
+  it("preserves @const refs, prepending the bases first", () => {
     expect(
-      withParentExtends('{"$extends":["@const:flags"],"a":1}', "base"),
-    ).toBe('{"$extends":["@config:base","@const:flags"],"a":1}');
+      withConfigExtends('{"$extends":["@const:flags"],"a":1}', ["base", "ab"]),
+    ).toBe('{"$extends":["@config:base","@config:ab","@const:flags"],"a":1}');
   });
 
-  it("keeps @const refs even with no parent", () => {
-    expect(withParentExtends('{"$extends":["@const:flags"],"a":1}', null)).toBe(
+  it("keeps @const refs even with no bases", () => {
+    expect(withConfigExtends('{"$extends":["@const:flags"],"a":1}', [])).toBe(
       '{"$extends":["@const:flags"],"a":1}',
     );
   });
@@ -271,6 +372,21 @@ describe("getAncestorSchemaKeys", () => {
       ["x", "y"],
     );
   });
+
+  it("unions keys across parent AND extends bases (DAG)", () => {
+    const m = new Map([
+      ["base", { schema: objSchema("color") }],
+      ["theme", { schema: objSchema("font") }],
+      [
+        "leaf",
+        { parent: "base", extends: ["theme"], schema: objSchema("own") },
+      ],
+    ]);
+    expect([...getAncestorSchemaKeys(m.get("leaf")!, m)].sort()).toEqual([
+      "color",
+      "font",
+    ]);
+  });
 });
 
 describe("stripAncestorOwnedFields", () => {
@@ -309,5 +425,147 @@ describe("configIsExtensible", () => {
 
   it("defaults to permissive when nothing is set", () => {
     expect(configIsExtensible(undefined, undefined)).toBe(true);
+  });
+});
+
+describe("linearizeConfigDag", () => {
+  type Node = {
+    key: string;
+    name?: string;
+    value?: string;
+    schema?: SimpleSchema;
+    parent?: string;
+    extends?: string[];
+  };
+  const map = (nodes: Node[]) => new Map(nodes.map((n) => [n.key, n]));
+  const order = (nodes: Node[], leaf: string) =>
+    linearizeConfigDag(leaf, map(nodes)).map((n) => n.key);
+
+  it("emits bases before the leaf (parent spine)", () => {
+    expect(
+      order(
+        [
+          { key: "base" },
+          { key: "child", parent: "base" },
+          { key: "leaf", parent: "child" },
+        ],
+        "leaf",
+      ),
+    ).toEqual(["base", "child", "leaf"]);
+  });
+
+  it("orders mixins after parent, in array order (later wins)", () => {
+    expect(
+      order(
+        [
+          { key: "base" },
+          { key: "theme" },
+          { key: "ab" },
+          { key: "leaf", parent: "base", extends: ["theme", "ab"] },
+        ],
+        "leaf",
+      ),
+    ).toEqual(["base", "theme", "ab", "leaf"]);
+  });
+
+  it("dedups a diamond base, emitting it once before dependents", () => {
+    const out = order(
+      [
+        { key: "base" },
+        { key: "b", parent: "base" },
+        { key: "c", parent: "base" },
+        { key: "leaf", parent: "b", extends: ["c"] },
+      ],
+      "leaf",
+    );
+    expect(out).toEqual(["base", "b", "c", "leaf"]);
+  });
+
+  it("is cycle-safe", () => {
+    const out = order(
+      [
+        { key: "a", parent: "b" },
+        { key: "b", parent: "a" },
+      ],
+      "a",
+    );
+    expect(out).toContain("a");
+    expect(new Set(out).size).toBe(out.length);
+  });
+});
+
+describe("findSiblingSchemaConflicts", () => {
+  const byKey = new Map([
+    ["base", { key: "base", schema: objSchema("color") }],
+    ["theme", { key: "theme", schema: objSchema("token") }],
+    ["ab", { key: "ab", schema: objSchema("token") }],
+    ["safe", { key: "safe", schema: objSchema("size") }],
+  ]);
+
+  it("flags a field declared by two sibling bases", () => {
+    const conflicts = findSiblingSchemaConflicts(
+      { extends: ["theme", "ab"] },
+      byKey,
+    );
+    expect(conflicts).toEqual([{ key: "token", owners: ["ab", "theme"] }]);
+  });
+
+  it("returns none when bases own disjoint fields", () => {
+    expect(
+      findSiblingSchemaConflicts({ parent: "base", extends: ["safe"] }, byKey),
+    ).toEqual([]);
+  });
+
+  it("does not flag a diamond (single shared owner)", () => {
+    const m = new Map([
+      ["base", { key: "base", schema: objSchema("color") }],
+      ["b", { key: "b", parent: "base", schema: objSchema("bb") }],
+      ["c", { key: "c", parent: "base", schema: objSchema("cc") }],
+    ]);
+    expect(
+      findSiblingSchemaConflicts({ parent: "b", extends: ["c"] }, m),
+    ).toEqual([]);
+  });
+});
+
+describe("findIncompatibleConfigValueKeys", () => {
+  const intField = (key: string): SchemaField => ({
+    key,
+    type: "integer",
+    required: false,
+    default: "",
+    description: "",
+    enum: [],
+  });
+  const fields = [intField("count")];
+
+  it("flags an own value whose type mismatches the effective field", () => {
+    expect(
+      findIncompatibleConfigValueKeys({
+        value: { count: "not-a-number" },
+        fields,
+        additionalProperties: true,
+      }),
+    ).toEqual(["count"]);
+  });
+
+  it("returns none when values conform", () => {
+    expect(
+      findIncompatibleConfigValueKeys({
+        value: { count: 3 },
+        fields,
+        additionalProperties: true,
+      }),
+    ).toEqual([]);
+  });
+
+  it("exempts reference-backed values", () => {
+    expect(
+      findIncompatibleConfigValueKeys({
+        value: { count: "{{ @const:n }}" },
+        fields,
+        additionalProperties: true,
+      }),
+    ).toEqual([]);
   });
 });

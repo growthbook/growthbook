@@ -18,10 +18,12 @@ import {
   constantRequiresReview,
   parsePlainJSONObject,
   resolveConfigChain,
-  ConfigChainNode,
+  linearizeConfigDag,
+  getConfigSpineRootKey,
   getConfigParentKey,
-  getConfigSubtree,
+  getConfigSpineSubtree,
   configIsExtensible,
+  findIncompatibleConfigValueKeys,
   stripConfigExtends,
 } from "shared/util";
 import { CONSTANT_EXTENDS_KEY } from "shared/constants";
@@ -42,10 +44,13 @@ import {
   loadConfigFamilyFeatureReferences,
   assertConfigArchivable,
   assertConfigDeletable,
-  assertKeyAvailableAcrossNamespace,
+  assertKeyAvailable,
 } from "back-end/src/services/constants";
 import { getResolvableValues } from "back-end/src/services/resolvableValues";
-import { reconcileConfigDescendants } from "back-end/src/services/configReconcile";
+import {
+  reconcileConfigDescendants,
+  assertConfigDescendantsReconcilable,
+} from "back-end/src/services/configReconcile";
 
 type PostConfigBody = z.infer<typeof postConfigBodyValidator>;
 type PutConfigBody = z.infer<typeof putConfigBodyValidator>;
@@ -91,11 +96,15 @@ export const getConfigCyclicKeys = async (
   if (!config) {
     return context.throwNotFoundError("Config not found");
   }
-  const all = await getResolvableValues(context);
+  // Config cycles live entirely in the config namespace, so scope the graph to
+  // configs and count only `@config:` references.
+  const all = (await getResolvableValues(context)).filter(
+    (c) => c.source === "config",
+  );
   const referencesByKey = new Map(
     all.map((c) => [
       c.key,
-      getConstantReferenceKeys(c.value, c.environmentValues),
+      getConstantReferenceKeys(c.value, c.environmentValues, "config"),
     ]),
   );
   const cyclicKeys = [
@@ -146,7 +155,7 @@ function configOwnFieldCount(value: string | undefined): number {
 
 // The config plus its effective schema, resolved per-field values, and lineage.
 export const getConfigResolved = async (
-  req: AuthRequest<null, { key: string }>,
+  req: AuthRequest<null, { key: string }, { v?: string }>,
   res: Response,
 ) => {
   const context = getContextFromReq(req);
@@ -155,29 +164,54 @@ export const getConfigResolved = async (
     return context.throwNotFoundError("Config not found");
   }
 
-  // Walk ancestors (leaf → base), then reverse to base → leaf for resolution.
-  const chain: ConfigChainNode[] = [];
-  const visited = new Set<string>();
-  let cur: typeof config | null = config;
-  let rootConfig: typeof config = config;
-  while (cur && !visited.has(cur.key)) {
-    visited.add(cur.key);
-    rootConfig = cur;
-    chain.unshift({
-      key: cur.key,
-      name: cur.name,
-      value: cur.value,
-      schema: cur.schema,
-    });
-    const parentKey = getConfigParentKey(cur);
-    cur = parentKey ? await context.models.configs.getByKey(parentKey) : null;
+  // When a draft revision is in view (`?v=<version>`), resolve against its
+  // proposed state so the chain, effective schema, and lineage reflect
+  // unpublished `parent`/`extends`/value/schema edits (composition is otherwise
+  // invisible until publish).
+  let leaf: ConfigInterface = config;
+  const versionRaw = req.query.v;
+  const version =
+    typeof versionRaw === "string" && /^\d+$/.test(versionRaw)
+      ? Number(versionRaw)
+      : null;
+  if (version !== null) {
+    const rev = await context.models.revisions.getByTargetAndVersion(
+      "config",
+      config.id,
+      version,
+    );
+    // Only an open draft alters resolution; merged/discarded resolve as live.
+    if (rev && rev.status !== "merged" && rev.status !== "discarded") {
+      leaf = {
+        ...config,
+        ...applyPatchToSnapshot(
+          rev.target.snapshot as ConfigInterface,
+          normalizeProposedChanges(rev.target.proposedChanges),
+        ),
+      };
+    }
   }
 
+  // Build the lineage map once and linearize the full base DAG (parent + every
+  // `extends` mixin) base → leaf for resolution. The draft leaf is substituted
+  // so its proposed bases drive the walk. Lineage can span projects the caller
+  // can't read, so use the unfiltered set (read access to the target itself was
+  // gated above) — matching the REST lineage/schema endpoints — so resolution
+  // isn't silently truncated when an ancestor/mixin lives elsewhere.
+  const allConfigs = (await context.models.configs.getAllForReconcile()).map(
+    (c) => (c.key === config.key ? leaf : c),
+  );
+  const byKey = new Map(allConfigs.map((c) => [c.key, c]));
+  byKey.set(config.key, leaf);
+
+  const chain = linearizeConfigDag(config.key, byKey);
   const { effectiveSchema, fields } = resolveConfigChain(chain);
 
-  // Whether the family allows extra keys (root config's policy / org default).
+  // Whether the family allows extra keys — governed by the `parent`-spine root's
+  // checkbox (mixin bases' extensibility is ignored) / org default.
+  const spineRoot = byKey.get(getConfigSpineRootKey(config.key, byKey));
   const extensible = configIsExtensible(
-    rootConfig,
+    spineRoot,
     context.org.settings?.configsExtensibleByDefault,
   );
 
@@ -194,26 +228,98 @@ export const getConfigResolved = async (
       archived: c.archived,
     }));
 
-  // Every config descending from this chain's base, for the sidebar tree.
-  const allConfigs = await context.models.configs.getAll();
-  const rootKey = chain[0]?.key ?? config.key;
-  const byKey = new Map(allConfigs.map((c) => [c.key, c]));
-  const lineage = getConfigSubtree(rootKey, allConfigs).flatMap((key) => {
-    const node = byKey.get(key);
+  // Own value keys that no longer conform to a node's effective schema (the
+  // "incompatible, must fix" state). Reuses `byKey` so it's a pure in-memory walk.
+  const incompatibleFieldsFor = (nodeKey: string): string[] => {
+    const node = byKey.get(nodeKey);
     if (!node) return [];
-    return [
-      {
-        key: node.key,
-        name: node.name,
-        parentKey: getConfigParentKey(node),
-        fieldCount: configOwnFieldCount(node.value),
-        // Own schema field keys, so the editor can preview "base wins"
-        // reconciliation (a descendant's field is stripped when an ancestor
-        // declares the same key).
-        fieldKeys: (node.schema?.fields ?? []).map((f) => f.key),
-      },
-    ];
-  });
+    const nodeFields = resolveConfigChain(
+      linearizeConfigDag(nodeKey, byKey),
+    ).effectiveSchema;
+    const nodeSpineRoot = byKey.get(getConfigSpineRootKey(nodeKey, byKey));
+    const nodeExtensible = configIsExtensible(
+      nodeSpineRoot,
+      context.org.settings?.configsExtensibleByDefault,
+    );
+    // Union over the default value AND every environment override — a stale prod
+    // value must get the "must fix" flag even when the default conforms.
+    const incompatible = new Set<string>();
+    for (const raw of [
+      node.value,
+      ...Object.values(node.environmentValues ?? {}),
+    ]) {
+      const obj = parsePlainJSONObject(raw ?? "");
+      if (!obj) continue;
+      for (const k of findIncompatibleConfigValueKeys({
+        value: obj,
+        fields: nodeFields,
+        additionalProperties: nodeExtensible,
+      })) {
+        incompatible.add(k);
+      }
+    }
+    return [...incompatible];
+  };
+
+  // The sidebar tree keeps the `parent` spine shape, so root it at the spine
+  // root (walk parent only); composition mixins surface as `extendsKeys` chips
+  // on each node rather than as separate tree branches.
+  const spineRootKey = getConfigSpineRootKey(config.key, byKey);
+
+  const buildSpineLineage = (rootKey: string) =>
+    getConfigSpineSubtree(rootKey, allConfigs).flatMap((key) => {
+      const node = byKey.get(key);
+      if (!node) return [];
+      return [
+        {
+          key: node.key,
+          name: node.name,
+          parentKey: getConfigParentKey(node),
+          // Composition mixins (the non-spine bases) for same-level chips.
+          extendsKeys: node.extends ?? [],
+          fieldCount: configOwnFieldCount(node.value),
+          // Own schema field keys, so the editor can preview "base wins"
+          // reconciliation (a descendant's field is stripped when an ancestor
+          // declares the same key).
+          fieldKeys: (node.schema?.fields ?? []).map((f) => f.key),
+          incompatibleFields: incompatibleFieldsFor(node.key),
+        },
+      ];
+    });
+
+  const lineage = buildSpineLineage(spineRootKey);
+
+  // Families that compose THIS config as a mixin (`extends`). A pure mixin has
+  // no `parent`-spine descendants of its own, so without this its sidebar tree is
+  // just a lone node — these surface "where am I used" as one tree per composing
+  // family. Deduped by spine root so sibling composers in the same family render
+  // a single tree, and the config's own family is excluded (it's already shown).
+  const composerRootKeys = [
+    ...new Set(
+      allConfigs
+        .filter(
+          (c) => c.key !== config.key && (c.extends ?? []).includes(config.key),
+        )
+        .map((c) => getConfigSpineRootKey(c.key, byKey)),
+    ),
+  ].filter((rk) => rk !== spineRootKey);
+
+  const composerFamilies = composerRootKeys.map((rootKey) => ({
+    rootKey,
+    lineage: buildSpineLineage(rootKey),
+  }));
+
+  // Own-value field count + display name for every config, keyed by config key,
+  // so the lineage tree can label/count mixin rows (mixins usually live outside
+  // this config's family, so they aren't present as lineage nodes).
+  const fieldCounts: Record<string, number> = {};
+  const configNames: Record<string, string> = {};
+  const archivedByKey: Record<string, boolean> = {};
+  for (const c of byKey.values()) {
+    fieldCounts[c.key] = configOwnFieldCount(c.value);
+    configNames[c.key] = c.name;
+    if (c.archived) archivedByKey[c.key] = true;
+  }
 
   return res.status(200).json({
     status: 200,
@@ -223,6 +329,10 @@ export const getConfigResolved = async (
     extensible,
     fields,
     lineage,
+    composerFamilies,
+    fieldCounts,
+    configNames,
+    archivedByKey,
     constants,
   });
 };
@@ -234,29 +344,54 @@ export const postConfig = async (
   const context = getContextFromReq(req);
   const body = req.body;
 
+  // Check create permission BEFORE probing project existence so the endpoint
+  // can't be used as an existence oracle (the model's canCreate enforces it too).
+  if (
+    !context.permissions.canCreateConfig({ project: body.project || undefined })
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
   if (body.project) {
     await context.models.projects.ensureProjectsExist([body.project]);
   }
 
-  // Config values are JSON objects (empty is allowed).
-  validateResolvableValue({ type: "json", value: body.value ?? "" });
+  // Config values are JSON objects (empty is allowed). Lineage is expressed via
+  // `parent`/`extends`, so a `@config:` ref in the value is rejected.
+  validateResolvableValue({
+    type: "json",
+    value: body.value ?? "",
+    refSource: "config",
+  });
   for (const [envId, v] of Object.entries(body.environmentValues ?? {})) {
-    validateResolvableValue({ type: "json", value: v, label: envId });
+    validateResolvableValue({
+      type: "json",
+      value: v,
+      label: envId,
+      refSource: "config",
+    });
   }
 
   // Cycle rejection is enforced in ConfigModel (covers every write path).
 
-  // Keys are unique across both constants and configs (shared `@const:` namespace).
-  await assertKeyAvailableAcrossNamespace(context, body.key);
+  // Config keys are unique within the config namespace (a constant may share the
+  // key — `@config:foo` and `@const:foo` are distinct).
+  await assertKeyAvailable(context, body.key, "config");
 
-  // Inheritance lives on `parent`; never persist `$extends` in the value.
-  const parent = body.parent || getConfigParentKey({ value: body.value }) || "";
+  // Inheritance lives on `parent` (spine) + `extends` (mixins); never in value.
+  const parent = body.parent || "";
+  const extendsKeys = body.extends;
 
   // A child created under a base can't re-declare an inherited field ("base
   // wins"); strip any colliding keys from its appended schema up front.
   const normalizedSchema =
     await context.models.configs.normalizeSchemaAgainstAncestors(
-      { key: body.key, parent: parent || undefined, value: body.value },
+      {
+        key: body.key,
+        parent: parent || undefined,
+        extends: extendsKeys,
+        value: body.value,
+      },
       body.schema,
     );
 
@@ -266,6 +401,7 @@ export const postConfig = async (
     name: body.name,
     owner: body.owner || context.userId,
     parent: parent || undefined,
+    extends: extendsKeys,
     value: stripConfigExtends(body.value),
     environmentValues: body.environmentValues,
     description: body.description,
@@ -321,18 +457,14 @@ export const putConfig = async (
     schema,
     extensible,
   } = req.body;
+  const extendsKeys = req.body.extends;
   const { id } = req.params;
 
-  // Inheritance lives on `parent`; strip any `$extends` from the value and
-  // migrate a legacy in-value ref into `parent` when the caller didn't set one.
+  // Inheritance lives on `parent` (spine) + `extends` (mixins); strip any stray
+  // `$extends` from the value (a `@config:` there is rejected upstream).
   const normalizedValue =
     typeof value !== "undefined" ? stripConfigExtends(value) : undefined;
-  const incomingParent =
-    parent !== undefined
-      ? parent
-      : typeof value !== "undefined"
-        ? (getConfigParentKey({ value }) ?? undefined)
-        : undefined;
+  const incomingParent = parent;
 
   const existing = await context.models.configs.getById(id);
   if (!existing) {
@@ -347,12 +479,18 @@ export const putConfig = async (
     context.permissions.throwPermissionError();
   }
 
-  // Config values are JSON objects (empty is allowed).
+  // Config values are JSON objects (empty is allowed). Lineage is set via
+  // `parent`/`extends`, so a `@config:` ref in the value is rejected.
   if (typeof value !== "undefined") {
-    validateResolvableValue({ type: "json", value });
+    validateResolvableValue({ type: "json", value, refSource: "config" });
   }
   for (const [envId, v] of Object.entries(environmentValues ?? {})) {
-    validateResolvableValue({ type: "json", value: v, label: envId });
+    validateResolvableValue({
+      type: "json",
+      value: v,
+      label: envId,
+      refSource: "config",
+    });
   }
 
   // Cycle rejection is enforced in ConfigModel (covers every write path).
@@ -390,7 +528,20 @@ export const putConfig = async (
     incomingParent !== undefined &&
     (incomingParent || "") !== (comparisonBase.parent || "")
   ) {
-    fieldsToUpdate.parent = incomingParent;
+    // Persist a clear as "" (not null/undefined): buildPatchOps drops null/
+    // undefined, which would silently no-op the clear and skip the schema
+    // re-normalization that a lineage change requires.
+    fieldsToUpdate.parent = incomingParent || "";
+  }
+  if (
+    extendsKeys !== undefined &&
+    !isEqual(extendsKeys, comparisonBase.extends ?? [])
+  ) {
+    // Store the array as-is (including `[]` to clear all mixins). An empty
+    // array — not `undefined` — is the canonical "no mixins" value: `undefined`
+    // is dropped by buildPatchOps/the update layer, so it would silently no-op
+    // the clear.
+    fieldsToUpdate.extends = extendsKeys;
   }
   if (hasChanged(normalizedValue, comparisonBase.value)) {
     fieldsToUpdate.value = normalizedValue;
@@ -414,26 +565,35 @@ export const putConfig = async (
   if (hasChanged(schema, comparisonBase.schema)) {
     fieldsToUpdate.schema = schema;
   }
-  if (
-    extensible !== undefined &&
-    !!extensible !== !!comparisonBase.extensible
-  ) {
+  if (extensible !== undefined && extensible !== comparisonBase.extensible) {
     fieldsToUpdate.extensible = extensible;
   }
 
   // Enforce "base wins": never let a child config persist a schema field whose
-  // key a published ancestor already owns. The publish path (adapter) re-runs
-  // this against ancestors-at-publish; doing it here keeps drafts honest too.
-  if (fieldsToUpdate.schema) {
-    fieldsToUpdate.schema =
+  // key a published ancestor already owns. A lineage change (parent/extends)
+  // shifts which keys the bases own, so re-normalize the config's own schema even
+  // when the caller didn't send one. The publish path (adapter) re-runs this
+  // against ancestors-at-publish; doing it here keeps drafts honest too.
+  const lineageChanged =
+    fieldsToUpdate.parent !== undefined || "extends" in fieldsToUpdate;
+  const schemaToNormalize = fieldsToUpdate.schema ?? existing.schema;
+  if ((fieldsToUpdate.schema || lineageChanged) && schemaToNormalize) {
+    const normalized =
       await context.models.configs.normalizeSchemaAgainstAncestors(
         {
           key: existing.key,
           parent: fieldsToUpdate.parent ?? existing.parent,
+          extends: extendsKeys ?? existing.extends,
           value: fieldsToUpdate.value ?? existing.value,
         },
-        fieldsToUpdate.schema,
+        schemaToNormalize,
       );
+    // Stage a schema write if normalization changed the schema we were about to
+    // persist (the sent schema or the existing one) — not vs. `existing.schema`,
+    // which would skip persisting a normalized form of a freshly-sent schema.
+    if (!isEqual(normalized, schemaToNormalize)) {
+      fieldsToUpdate.schema = normalized;
+    }
   }
 
   // Block the archive transition when the config is still referenced or has
@@ -515,6 +675,22 @@ export const putConfig = async (
     if (canImmediatelyMerge) {
       const isBypass = approvalRequired && bypassApproval;
 
+      // Dry run BEFORE claiming the merge / writing the root: reject a publish
+      // that would create an unresolvable sibling conflict at a descendant, so
+      // nothing is persisted (vs. committing the root and then throwing from the
+      // post-write cascade). See assertConfigDescendantsReconcilable for the
+      // accepted residual race.
+      if (
+        fieldsToUpdate.schema !== undefined ||
+        fieldsToUpdate.parent !== undefined ||
+        "extends" in fieldsToUpdate
+      ) {
+        await assertConfigDescendantsReconcilable(context, {
+          ...existing,
+          ...fieldsToUpdate,
+        } as ConfigInterface);
+      }
+
       // Claim the merge first (CAS-guarded) so a concurrent discard can't orphan
       // a half-applied change; reopen if the live write then fails.
       revision = await context.models.revisions.merge(
@@ -537,9 +713,14 @@ export const putConfig = async (
         throw e;
       }
 
-      // A schema change can introduce a field a descendant already declares;
-      // cascade "base wins" down the subtree (system-normalized live writes).
-      if (fieldsToUpdate.schema !== undefined) {
+      // A schema/lineage change can introduce a field a descendant already
+      // declares; cascade "base wins" down the subtree (system-normalized live
+      // writes).
+      if (
+        fieldsToUpdate.schema !== undefined ||
+        fieldsToUpdate.parent !== undefined ||
+        "extends" in fieldsToUpdate
+      ) {
         await reconcileConfigDescendants(context, existing.key);
       }
 

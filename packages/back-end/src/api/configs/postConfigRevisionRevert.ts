@@ -13,7 +13,10 @@ import {
   createOrUpdateRevision,
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
-import { assertConfigValueValid } from "back-end/src/services/configValidation";
+import {
+  assertConfigValueValid,
+  assertConfigValueValidForPublish,
+} from "back-end/src/services/configValidation";
 import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
 import { loadRevisionByVersion } from "./validations";
 import { toApiConfigRevision } from "./toApiConfigRevision";
@@ -56,9 +59,19 @@ export const postConfigRevisionRevert = createApiRequestHandler(
   for (const field of Object.keys(configUpdatableFieldsSchema.shape)) {
     const targetValue = (targetState as Record<string, unknown>)[field];
     const liveValue = (config as unknown as Record<string, unknown>)[field];
-    if (targetValue !== undefined && !isEqual(targetValue, liveValue)) {
+    if (isEqual(targetValue, liveValue)) continue;
+    if (targetValue !== undefined) {
       fieldsToUpdate[field] = targetValue;
+    } else if (field === "parent") {
+      // Absent in the target but set live → clear the lineage on revert (an
+      // empty string clears `parent`; see the merge path's clear handling).
+      fieldsToUpdate[field] = "";
+    } else if (field === "extends") {
+      fieldsToUpdate[field] = [];
     }
+    // Other optional fields absent in the target are left as-is: a revert never
+    // needs to null them in practice, and clearing them generically risks
+    // writing an invalid shape (e.g. an empty `schema`).
   }
 
   if (Object.keys(fieldsToUpdate).length === 0) {
@@ -66,6 +79,16 @@ export const postConfigRevisionRevert = createApiRequestHandler(
       `Revision #${req.params.version} matches the current config — nothing to revert.`,
     );
   }
+
+  // Resolve the revert strategy up front so validation can match it: a publish
+  // uses the bypassable publish-time check (block-vs-warn + ?ignoreWarnings),
+  // while a draft uses the write-time check (a draft can be staged for later
+  // review even if it won't pass publish).
+  const revertsBypassApproval =
+    !!req.organization.settings?.revertsBypassApproval;
+  const strategy =
+    req.body.strategy ?? (revertsBypassApproval ? "publish" : "draft");
+  const isPublish = strategy === "publish";
 
   // A historical value may predate the current schema; ensure the post-revert
   // state still conforms (against current ancestors). Opt out with
@@ -75,25 +98,26 @@ export const postConfigRevisionRevert = createApiRequestHandler(
   const revertedEnv =
     (fieldsToUpdate.environmentValues as Record<string, string> | undefined) ??
     config.environmentValues;
-  await assertConfigValueValid(
-    req.context,
-    {
-      key: config.key,
-      name: config.name,
-      value: revertedValue,
-      schema: (fieldsToUpdate.schema as typeof config.schema) ?? config.schema,
-      parent: (fieldsToUpdate.parent as string | undefined) ?? config.parent,
-      extensible:
-        (fieldsToUpdate.extensible as boolean | undefined) ?? config.extensible,
-    },
-    { value: revertedValue, environmentValues: revertedEnv },
-  );
-
-  const revertsBypassApproval =
-    !!req.organization.settings?.revertsBypassApproval;
-  const strategy =
-    req.body.strategy ?? (revertsBypassApproval ? "publish" : "draft");
-  const isPublish = strategy === "publish";
+  const revertLeaf = {
+    key: config.key,
+    name: config.name,
+    value: revertedValue,
+    schema: (fieldsToUpdate.schema as typeof config.schema) ?? config.schema,
+    parent: (fieldsToUpdate.parent as string | undefined) ?? config.parent,
+    extends: (fieldsToUpdate.extends as string[] | undefined) ?? config.extends,
+    extensible:
+      (fieldsToUpdate.extensible as boolean | undefined) ?? config.extensible,
+  };
+  const revertValues = { value: revertedValue, environmentValues: revertedEnv };
+  if (isPublish) {
+    await assertConfigValueValidForPublish(
+      req.context,
+      revertLeaf,
+      revertValues,
+    );
+  } else {
+    await assertConfigValueValid(req.context, revertLeaf, revertValues);
+  }
 
   const patchOps: JsonPatchOperation[] = Object.entries(fieldsToUpdate).map(
     ([key, value]) => ({ op: "replace" as const, path: `/${key}`, value }),

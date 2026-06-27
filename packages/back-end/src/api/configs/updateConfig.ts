@@ -5,7 +5,7 @@ import {
   validateResolvableValue,
 } from "shared/validators";
 import { ConfigInterface } from "shared/types/config";
-import { getConfigParentKey, stripConfigExtends } from "shared/util";
+import { stripConfigExtends } from "shared/util";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
@@ -14,7 +14,10 @@ import {
   buildPatchOps,
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
-import { reconcileConfigDescendants } from "back-end/src/services/configReconcile";
+import {
+  reconcileConfigDescendants,
+  assertConfigDescendantsReconcilable,
+} from "back-end/src/services/configReconcile";
 import { assertConfigValueValid } from "back-end/src/services/configValidation";
 import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
 
@@ -31,6 +34,7 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
       schema,
       extensible,
     } = req.body;
+    const extendsKeys = req.body.extends;
     const bypassApproval = req.body.bypassApproval === true;
 
     const config = await req.context.models.configs.getByKey(key);
@@ -46,16 +50,11 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
       req.context.permissions.throwPermissionError();
     }
 
-    // Inheritance lives on `parent`; strip any `$extends` from the value and
-    // migrate a legacy in-value `@config:` ref when the caller didn't set one.
+    // Inheritance lives on `parent` (spine) + `extends` (mixins); strip any
+    // stray `$extends` from the value (a `@config:` there is rejected upstream).
     const normalizedValue =
       value !== undefined ? stripConfigExtends(value) : undefined;
-    const incomingParent =
-      req.body.parent !== undefined
-        ? req.body.parent
-        : value !== undefined
-          ? (getConfigParentKey({ value }) ?? undefined)
-          : undefined;
+    const incomingParent = req.body.parent;
 
     const fieldsToUpdate: Partial<
       Omit<
@@ -85,9 +84,22 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
     if (parentChanged) {
       fieldsToUpdate.parent = incomingParent || undefined;
     }
+    const extendsChanged =
+      extendsKeys !== undefined && !isEqual(extendsKeys, config.extends ?? []);
+    if (extendsChanged) {
+      // Store the array as-is (including `[]` to clear all mixins). `undefined`
+      // is dropped by the update/patch layer and would silently no-op the clear.
+      fieldsToUpdate.extends = extendsKeys;
+    }
     if (value !== undefined) {
-      // Validate the raw value (may carry a `@config:` parent ref first).
-      validateResolvableValue({ type: "json", value, label: "value" });
+      // Lineage is set via `parent`/`extends`; a `@config:` ref in the value is
+      // rejected.
+      validateResolvableValue({
+        type: "json",
+        value,
+        label: "value",
+        refSource: "config",
+      });
       if (normalizedValue !== config.value) {
         fieldsToUpdate.value = normalizedValue;
       }
@@ -97,33 +109,48 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
       !isEqual(environmentValues, config.environmentValues)
     ) {
       for (const [env, v] of Object.entries(environmentValues)) {
-        validateResolvableValue({ type: "json", value: v, label: env });
+        validateResolvableValue({
+          type: "json",
+          value: v,
+          label: env,
+          refSource: "config",
+        });
       }
       fieldsToUpdate.environmentValues = environmentValues;
     }
     if (schema !== undefined && !isEqual(schema, config.schema)) {
       fieldsToUpdate.schema = schema;
     }
-    if (extensible !== undefined && !!extensible !== !!config.extensible) {
+    if (extensible !== undefined && extensible !== config.extensible) {
       fieldsToUpdate.extensible = extensible;
     }
 
     // Enforce "base wins" up front (the publish path re-runs it too). A parent
-    // move changes which fields the ancestors own, so re-normalize the config's
-    // own schema even when the caller didn't send one.
+    // move or a mixin change shifts which fields the bases own, so re-normalize
+    // the config's own schema even when the caller didn't send one.
     const effectiveParent = parentChanged ? incomingParent : config.parent;
+    const effectiveExtends = extendsChanged
+      ? (fieldsToUpdate.extends as string[] | undefined)
+      : config.extends;
     const schemaToNormalize = fieldsToUpdate.schema ?? config.schema;
-    if ((fieldsToUpdate.schema || parentChanged) && schemaToNormalize) {
+    if (
+      (fieldsToUpdate.schema || parentChanged || extendsChanged) &&
+      schemaToNormalize
+    ) {
       const normalized =
         await req.context.models.configs.normalizeSchemaAgainstAncestors(
           {
             key: config.key,
             parent: effectiveParent || undefined,
+            extends: effectiveExtends,
             value: fieldsToUpdate.value ?? config.value,
           },
           schemaToNormalize,
         );
-      if (!isEqual(normalized, config.schema)) {
+      // Compare against the schema we were about to persist (the sent schema or
+      // the existing one), not `config.schema`: if normalization changed it
+      // (e.g. stripped ancestor-owned fields), persist the normalized form.
+      if (!isEqual(normalized, schemaToNormalize)) {
         fieldsToUpdate.schema = normalized;
       }
     }
@@ -147,7 +174,8 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
       fieldsToUpdate.schema !== undefined ||
       fieldsToUpdate.environmentValues !== undefined ||
       fieldsToUpdate.extensible !== undefined ||
-      parentChanged
+      parentChanged ||
+      extendsChanged
     ) {
       const postValue = fieldsToUpdate.value ?? config.value;
       await assertConfigValueValid(
@@ -158,6 +186,7 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
           value: postValue,
           schema: fieldsToUpdate.schema ?? config.schema,
           parent: effectiveParent || undefined,
+          extends: effectiveExtends,
           extensible: fieldsToUpdate.extensible ?? config.extensible,
         },
         {
@@ -168,10 +197,21 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
       );
     }
 
-    // A schema change or a parent move both shift the subtree's effective
-    // ancestry, so descendants must be re-reconciled in either case.
+    // A schema change, a parent move, or a mixin change all shift the subtree's
+    // effective ancestry, so descendants must be re-reconciled.
     const needsDescendantReconcile =
-      fieldsToUpdate.schema !== undefined || parentChanged;
+      fieldsToUpdate.schema !== undefined || parentChanged || extendsChanged;
+
+    // Dry run BEFORE any write: reject a publish that would create an
+    // unresolvable sibling conflict at a descendant, so nothing is persisted
+    // (vs. committing the root and then throwing from the post-write cascade).
+    // See assertConfigDescendantsReconcilable for the accepted residual race.
+    if (needsDescendantReconcile) {
+      await assertConfigDescendantsReconcilable(req.context, {
+        ...config,
+        ...fieldsToUpdate,
+      } as ConfigInterface);
+    }
 
     // Change-aware approval gate (a value/schema change always requires review
     // when the project has requireReviews; metadata-only may be exempt) —

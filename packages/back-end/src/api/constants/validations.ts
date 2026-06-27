@@ -161,14 +161,14 @@ export function assertValidConstantValueEdit(
         type: constant.type,
         value,
         label: "value",
-        forbidConfigRefs: true,
+        refSource: "constant",
       });
     for (const [env, v] of Object.entries(environmentValues ?? {})) {
       validateResolvableValue({
         type: constant.type,
         value: v,
         label: env,
-        forbidConfigRefs: true,
+        refSource: "constant",
       });
     }
   } catch (e) {

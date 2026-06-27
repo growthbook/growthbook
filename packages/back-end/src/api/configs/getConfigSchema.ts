@@ -1,9 +1,9 @@
 import { getConfigSchemaValidator } from "shared/validators";
 import { SchemaField, SimpleSchema } from "shared/types/feature";
 import {
-  ConfigChainNode,
   resolveConfigChain,
-  getConfigParentKey,
+  linearizeConfigDag,
+  getConfigSpineRootKey,
   configIsExtensible,
   fieldsToJsonSchema,
   fieldsToTsType,
@@ -38,29 +38,26 @@ export const getConfigSchema = createApiRequestHandler(
   let additionalProperties: boolean;
 
   if (effective) {
-    // Walk ancestors (leaf → base), then resolve base → leaf to accumulate the
-    // family's effective schema (first-seen key wins, "base wins").
-    const chain: ConfigChainNode[] = [];
-    const visited = new Set<string>();
-    let cur: typeof config | null = config;
-    let rootConfig: typeof config = config;
-    while (cur && !visited.has(cur.key)) {
-      visited.add(cur.key);
-      rootConfig = cur;
-      chain.unshift({
-        key: cur.key,
-        name: cur.name,
-        value: cur.value,
-        schema: cur.schema,
-      });
-      const parentKey = getConfigParentKey(cur);
-      cur = parentKey
-        ? await req.context.models.configs.getByKey(parentKey)
-        : null;
-    }
+    // Linearize the full base DAG (parent + every `extends` mixin) base → leaf,
+    // then resolve to accumulate the family's effective schema (first-seen key
+    // wins, "base wins"). Lineage can span projects the caller can't read, so use
+    // the unfiltered set (read access to the target itself was gated above).
+    //
+    // NOTE (intentional disclosure): the effective schema can include field
+    // definitions inherited from ancestor configs in projects the caller can't
+    // independently read. This is by design — the effective schema is incomplete
+    // without ancestors — but it does surface ancestor-declared field shapes
+    // (not values) across project boundaries.
+    const all = await req.context.models.configs.getAllForReconcile();
+    const byKey = new Map(all.map((c) => [c.key, c]));
+    byKey.set(config.key, config);
+    const chain = linearizeConfigDag(config.key, byKey);
     fields = resolveConfigChain(chain).effectiveSchema;
+    // Extensibility is governed by the `parent`-spine root's checkbox; mixin
+    // bases' extensibility is ignored under composition.
+    const spineRoot = byKey.get(getConfigSpineRootKey(config.key, byKey));
     additionalProperties = configIsExtensible(
-      rootConfig,
+      spineRoot,
       req.context.org.settings?.configsExtensibleByDefault,
     );
   } else {

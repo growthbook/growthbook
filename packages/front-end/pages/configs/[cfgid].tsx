@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { ConstantInterface } from "shared/types/constant";
 import { ConfigInterface } from "shared/types/config";
@@ -16,6 +16,7 @@ import {
   ConfigChainNode,
   simpleToJSONSchema,
   fieldsToTsType,
+  getConfigSubtree,
 } from "shared/util";
 import {
   buildConstantValueMap,
@@ -46,6 +47,7 @@ import Metadata from "@/ui/Metadata";
 import Callout from "@/ui/Callout";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 import ConfigJsonEditor from "@/components/Configs/ConfigJsonEditor";
+import SelectField from "@/components/Forms/SelectField";
 import Switch from "@/ui/Switch";
 import {
   DropdownMenu,
@@ -103,6 +105,16 @@ type ResolvedResponse = {
   extensible?: boolean;
   fields: ResolvedField[];
   lineage: LineageNode[];
+  // Families that compose this config as a mixin (`extends`), one entry per
+  // composing `parent`-spine family. Lets a mixin view render "where am I used"
+  // as N trees instead of a lone node. Keyed by the family's spine root.
+  composerFamilies?: { rootKey: string; lineage: LineageNode[] }[];
+  // Own-value field count per config key (covers mixins outside the family).
+  fieldCounts?: Record<string, number>;
+  // Display name per config key (covers mixins outside the family).
+  configNames?: Record<string, string>;
+  // Archived flag per config key (covers mixins outside the family).
+  archivedByKey?: Record<string, boolean>;
   // Project-scoped value-map inputs so the field table can squash `@const:`
   // refs client-side. The editor and JSON view keep references raw.
   constants: (Pick<
@@ -204,7 +216,12 @@ export default function ConfigDetailPage(): React.ReactElement {
   const configKey = typeof cfgid === "string" ? cfgid : "";
 
   const { apiCall } = useAuth();
-  const { projects, mutateDefinitions } = useDefinitions();
+  const {
+    configs,
+    _configsIncludingArchived: allConfigsForGraph,
+    projects,
+    mutateDefinitions,
+  } = useDefinitions();
   const { organization, userId, hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
 
@@ -218,6 +235,8 @@ export default function ConfigDetailPage(): React.ReactElement {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showOverrides, setShowOverrides] = useState(false);
   const [showCreateChild, setShowCreateChild] = useState(false);
+  // Whether the inline "compose a mixin config" picker is showing.
+  const [composeAdding, setComposeAdding] = useState(false);
 
   // Field currently being overridden (inline value edit), and the draft text.
   const [activeTab, setActiveTab] = useState<"form" | "json" | "resolved">(
@@ -234,6 +253,14 @@ export default function ConfigDetailPage(): React.ReactElement {
   // that field's definition.
   const [schemaEdit, setSchemaEdit] = useState<"add" | string | null>(null);
 
+  // Surfaced when a composition (mixin) write fails.
+  const [composeError, setComposeError] = useState<string | null>(null);
+
+  // Serializes mixin (`extends`) writes: two quick add/remove clicks each compute
+  // `next` from a stale `mixinKeys` snapshot, so without a guard the second write
+  // can clobber the first and silently drop (or re-add) a mixin.
+  const savingExtendsRef = useRef(false);
+
   // Switching configs (e.g. via the lineage tree) reuses this page instance, so
   // clear any in-progress row edit / insert when the addressed config changes.
   useEffect(() => {
@@ -243,6 +270,7 @@ export default function ConfigDetailPage(): React.ReactElement {
     setEditKind("value");
     setSchemaEdit(null);
     setShowCreateChild(false);
+    setComposeAdding(false);
     setShowOverrides(false);
     // The reused page instance can otherwise carry a modal open from the
     // previous config (e.g. the review/publish dialog popping up after a
@@ -258,9 +286,11 @@ export default function ConfigDetailPage(): React.ReactElement {
   }, [configKey]);
 
   // Addressed by `key`; the resolved endpoint returns the config plus its
-  // lineage chain + tree.
+  // lineage chain + tree. The selected revision (`?v=` in the URL) is forwarded
+  // so a draft's unpublished lineage/composition drives resolution server-side.
+  const versionParam = typeof router.query.v === "string" ? router.query.v : "";
   const { data, error, mutate } = useApi<ResolvedResponse>(
-    `/configs/${configKey}/resolved`,
+    `/configs/${configKey}/resolved${versionParam ? `?v=${versionParam}` : ""}`,
     { shouldRun: () => !!configKey },
   );
   const config = data?.config;
@@ -563,6 +593,31 @@ export default function ConfigDetailPage(): React.ReactElement {
     if (res?.revision) await onRevisionCreated(res.revision);
   };
 
+  // Set the composition mixins (the `extends` array). Staged into the draft via
+  // the same revision-aware write query as value/schema edits.
+  //
+  // Serialized via a ref + awaited (see savingExtendsRef above): errors are
+  // surfaced instead of becoming unhandled rejections.
+  const saveExtends = async (next: string[]) => {
+    if (savingExtendsRef.current) return;
+    savingExtendsRef.current = true;
+    setComposeError(null);
+    try {
+      const res = await apiCall<{ revision?: Revision }>(
+        `/configs/${config.id}${writeQuery()}`,
+        { method: "PUT", body: JSON.stringify({ extends: next }) },
+      );
+      await mutate();
+      if (res?.revision) await onRevisionCreated(res.revision);
+    } catch (e) {
+      setComposeError(
+        e instanceof Error ? e.message : "Failed to update mixins",
+      );
+    } finally {
+      savingExtendsRef.current = false;
+    }
+  };
+
   // Value override (editKey) and schema add/edit (schemaEdit) are mutually
   // exclusive; both cancelled on tab switch so no editor lingers off-tab.
   const cancelEdits = () => {
@@ -751,6 +806,206 @@ export default function ConfigDetailPage(): React.ReactElement {
       )
     );
 
+  // Composition mixins: configs layered on top of the `parent` spine. Candidates
+  // exclude self, the parent, current mixins, and this config's own descendants
+  // (which would close a cycle). Archived configs are hidden as candidates, but
+  // the descendant walk uses the archived-inclusive graph so a cycle through an
+  // archived intermediate is still excluded.
+  const mixinKeys = displayedConfig.extends ?? [];
+  const mixinDescendants = new Set(
+    getConfigSubtree(config.key, allConfigsForGraph),
+  );
+  const composeOptions = configs
+    .filter(
+      (c) =>
+        !c.archived &&
+        c.key !== config.key &&
+        c.key !== parentKey &&
+        !mixinKeys.includes(c.key) &&
+        !mixinDescendants.has(c.key),
+    )
+    .map((c) => ({ label: c.name, value: c.key }));
+
+  // The composition row sits at the top of the field table (above the rows and
+  // the "Add field" CTA): a "COMPOSES" label, the mixin configs (removable in a
+  // draft), and a "+ Add config mixin" affordance.
+  // Top-of-table row showing the `parent` this config extends. Mirrors the
+  // compose row but has no actions — the parent is fixed (set at creation), so
+  // there's nothing to remove here.
+  const renderExtendsRow = () => {
+    if (!parentKey) return null;
+    const name =
+      allConfigsForGraph.find((c) => c.key === parentKey)?.name ?? parentKey;
+    return (
+      <Grid
+        columns={FIELD_GRID_TEMPLATE}
+        gapX="5"
+        align="start"
+        py="2"
+        px="3"
+        style={{ borderBottom: "1px solid var(--slate-a3)" }}
+      >
+        <Box style={{ minWidth: 0 }}>
+          <Flex align="center" style={{ minHeight: 32 }}>
+            <Text
+              size="small"
+              weight="medium"
+              color="text-low"
+              textTransform="uppercase"
+            >
+              Extends
+            </Text>
+          </Flex>
+        </Box>
+        <Box style={{ minWidth: 0, gridColumn: "span 3" }}>
+          <Flex align="center" gap="3" wrap="wrap" style={{ minHeight: 32 }}>
+            <Link href={`/configs/${parentKey}`} size="2">
+              {name}
+            </Link>
+          </Flex>
+        </Box>
+        {/* No actions: the parent is locked in. */}
+        <Box />
+      </Grid>
+    );
+  };
+
+  // Top-of-table row listing the composition mixins, with a right-justified
+  // actions menu (matching the field rows). Only shown when mixins exist; the
+  // "+ Add config mixin" entry point lives at the bottom by "Add field".
+  const renderComposeRow = () => {
+    if (mixinKeys.length === 0) return null;
+    return (
+      <Grid
+        columns={FIELD_GRID_TEMPLATE}
+        gapX="5"
+        align="start"
+        py="2"
+        px="3"
+        style={{ borderBottom: "1px solid var(--slate-a3)" }}
+      >
+        {/* Key column: row label. */}
+        <Box style={{ minWidth: 0 }}>
+          <Flex align="center" style={{ minHeight: 32 }}>
+            <Text
+              size="small"
+              weight="medium"
+              color="text-low"
+              textTransform="uppercase"
+            >
+              Composes
+            </Text>
+          </Flex>
+        </Box>
+
+        {/* Spans the value/type/source columns: the mixin configs. */}
+        <Box style={{ minWidth: 0, gridColumn: "span 3" }}>
+          <Flex align="center" gap="3" wrap="wrap" style={{ minHeight: 32 }}>
+            {mixinKeys.map((k) => {
+              const name =
+                allConfigsForGraph.find((c) => c.key === k)?.name ?? k;
+              return (
+                <Link key={k} href={`/configs/${k}`} size="2">
+                  {name}
+                </Link>
+              );
+            })}
+          </Flex>
+        </Box>
+
+        {/* Actions column: right-justified menu, matching the field rows. */}
+        <Flex
+          gap="2"
+          align="center"
+          justify="end"
+          style={{ minWidth: 0, minHeight: 32 }}
+        >
+          {canEditInline && (
+            <DropdownMenu
+              variant="soft"
+              trigger={
+                <IconButton
+                  variant="ghost"
+                  color="gray"
+                  radius="full"
+                  size="2"
+                  highContrast
+                >
+                  <BsThreeDotsVertical size={16} />
+                </IconButton>
+              }
+              triggerStyle={{ marginRight: 0, marginLeft: 0 }}
+              menuPlacement="end"
+            >
+              {mixinKeys.map((k) => (
+                <DropdownMenuItem
+                  key={k}
+                  color="red"
+                  onClick={() => saveExtends(mixinKeys.filter((x) => x !== k))}
+                >
+                  Remove mixin
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenu>
+          )}
+        </Flex>
+      </Grid>
+    );
+  };
+
+  // Bottom-of-table entry point for adding a mixin, mirroring "Add field".
+  const renderAddMixin = () => {
+    if (!canEditInline) return null;
+    return composeAdding ? (
+      <Box mt="2" py="1" style={{ maxWidth: 380 }}>
+        <Flex align="center" gap="3">
+          <Box style={{ flex: 1 }}>
+            <SelectField
+              value=""
+              placeholder={
+                composeOptions.length
+                  ? "Select a config to extend with…"
+                  : "No other configs available"
+              }
+              options={composeOptions}
+              autoFocus
+              onChange={(v) => {
+                setComposeAdding(false);
+                if (v) saveExtends([...mixinKeys, v]);
+              }}
+            />
+          </Box>
+          <Link size="2" onClick={() => setComposeAdding(false)}>
+            Cancel
+          </Link>
+        </Flex>
+        {composeError && (
+          <Box
+            mt="1"
+            style={{ color: "var(--red-11)", fontSize: "var(--font-size-1)" }}
+          >
+            {composeError}
+          </Box>
+        )}
+      </Box>
+    ) : (
+      <Box mt="2" py="1">
+        <Link size="2" onClick={() => setComposeAdding(true)}>
+          <PiPlusBold style={{ marginRight: 3, verticalAlign: "middle" }} />
+          Add config mixin
+        </Link>
+        {composeError && (
+          <Box
+            mt="1"
+            style={{ color: "var(--red-11)", fontSize: "var(--font-size-1)" }}
+          >
+            {composeError}
+          </Box>
+        )}
+      </Box>
+    );
+  };
+
   // Lineage status line: a parent config reports what it defines and how many
   // configs extend it; a child reports what it inherits and overrides. A hybrid
   // (both) shows all parts.
@@ -840,7 +1095,16 @@ export default function ConfigDetailPage(): React.ReactElement {
               </TabsList>
               <TabsContent value="configs">
                 <Box mt="2">
-                  <LineageTree nodes={data.lineage} currentKey={config.key} />
+                  <LineageTree
+                    nodes={data.lineage}
+                    currentKey={config.key}
+                    fieldCounts={data.fieldCounts}
+                    namesByKey={data.configNames}
+                    archivedByKey={data.archivedByKey}
+                    // Only the local/active draft is merged into the tree, so flag
+                    // just this node when a draft revision is in view.
+                    draftKeys={isDraft ? { [config.key]: true } : undefined}
+                  />
                 </Box>
                 {canUpdate && (
                   <Box mt="3" pl="1">
@@ -850,6 +1114,36 @@ export default function ConfigDetailPage(): React.ReactElement {
                       />
                       Add override config
                     </Link>
+                  </Box>
+                )}
+                {!!data.composerFamilies?.length && (
+                  <Box mt="4">
+                    <Text
+                      as="div"
+                      size="small"
+                      weight="medium"
+                      color="text-low"
+                      ml="1"
+                      mb="1"
+                    >
+                      Used as a mixin by
+                    </Text>
+                    {data.composerFamilies.map((fam) => (
+                      <Box key={fam.rootKey} mb="2">
+                        <LineageTree
+                          nodes={fam.lineage}
+                          currentKey={config.key}
+                          fieldCounts={data.fieldCounts}
+                          namesByKey={data.configNames}
+                          archivedByKey={data.archivedByKey}
+                          // The mixin row in each composer tree is this config,
+                          // so flag it as a draft when a draft revision is in view.
+                          draftKeys={
+                            isDraft ? { [config.key]: true } : undefined
+                          }
+                        />
+                      </Box>
+                    ))}
                   </Box>
                 )}
               </TabsContent>
@@ -1056,7 +1350,12 @@ export default function ConfigDetailPage(): React.ReactElement {
 
                 {/* Form — per-field resolved values (override / reset). */}
                 <TabsContent value="form">
-                  <Box style={{ overflowX: "auto" }}>
+                  <Box
+                    style={{
+                      overflow: "auto",
+                      maxHeight: "calc(100vh - 56px)",
+                    }}
+                  >
                     {canEditInline && reconciliationPreview.length > 0 && (
                       <Callout status="info" mt="3">
                         Publishing will remove{" "}
@@ -1083,10 +1382,16 @@ export default function ConfigDetailPage(): React.ReactElement {
                         columns={FIELD_GRID_TEMPLATE}
                         gapX="5"
                         align="start"
-                        mt="3"
+                        pt="3"
                         pb="1"
                         px="3"
-                        style={{ borderBottom: "1px solid var(--slate-a4)" }}
+                        style={{
+                          borderBottom: "1px solid var(--slate-a4)",
+                          position: "sticky",
+                          top: 0,
+                          zIndex: 2,
+                          background: "var(--color-panel-solid)",
+                        }}
                       >
                         {["Key", "Value", "Type", "Source"].map((label) => (
                           <Box key={label} style={{ minWidth: 0 }}>
@@ -1116,6 +1421,9 @@ export default function ConfigDetailPage(): React.ReactElement {
                           )}
                         </Flex>
                       </Grid>
+
+                      {renderExtendsRow()}
+                      {renderComposeRow()}
 
                       {resolved.fields.map((f) => {
                         // Editing an own field replaces the row with the full editor
@@ -1204,6 +1512,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                         </Text>
                       )}
                       {renderAddField()}
+                      {renderAddMixin()}
                     </Box>
                   </Box>
                 </TabsContent>

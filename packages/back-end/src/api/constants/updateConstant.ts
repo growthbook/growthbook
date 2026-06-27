@@ -63,7 +63,7 @@ export const updateConstant = createApiRequestHandler(updateConstantValidator)(
         type: constant.type,
         value,
         label: "value",
-        forbidConfigRefs: true,
+        refSource: "constant",
       });
       fieldsToUpdate.value = value;
     }
@@ -76,7 +76,7 @@ export const updateConstant = createApiRequestHandler(updateConstantValidator)(
           type: constant.type,
           value: v,
           label: env,
-          forbidConfigRefs: true,
+          refSource: "constant",
         });
       }
       fieldsToUpdate.environmentValues = environmentValues;

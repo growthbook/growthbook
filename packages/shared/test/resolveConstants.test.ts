@@ -2,10 +2,16 @@ import {
   buildConstantValueMap,
   resolveConstantRefs,
   ConstantValueMap,
+  ConstantValueMapEntry,
 } from "../src/sdk-versioning/resolveConstants";
 
+// The value map is keyed by `source:key` (see mapKey/buildConstantValueMap), so
+// test maps mirror that. Source defaults to "constant".
 const mapOf = (
-  entries: Record<string, { type: "string" | "json"; value: string }>,
+  entries: Record<
+    string,
+    { type: "string" | "json"; value: string; source?: "constant" | "config" }
+  >,
 ): ConstantValueMap =>
   new Map(
     Object.entries(entries).map(([k, e]) => {
@@ -18,9 +24,14 @@ const mapOf = (
           parsed = undefined;
         }
       }
-      return [k, { ...e, parsed }];
+      const source = e.source ?? "constant";
+      return [`${source}:${k}`, { ...e, source, parsed }];
     }),
   );
+
+// Build a map from raw `[key, entry]` pairs, prefixing each key with its source.
+const nsMap = (entries: [string, ConstantValueMapEntry][]): ConstantValueMap =>
+  new Map(entries.map(([k, e]) => [`${e.source ?? "constant"}:${k}`, e]));
 
 describe("buildConstantValueMap", () => {
   it("uses the environment override when present, else the default value", () => {
@@ -32,13 +43,17 @@ describe("buildConstantValueMap", () => {
         environmentValues: { production: "prod.example.com" },
       },
     ];
-    expect(buildConstantValueMap(constants, "production").get("host")).toEqual({
+    expect(
+      buildConstantValueMap(constants, "production").get("constant:host"),
+    ).toEqual({
       type: "string",
       source: "constant",
       value: "prod.example.com",
       project: "",
     });
-    expect(buildConstantValueMap(constants, "dev").get("host")).toEqual({
+    expect(
+      buildConstantValueMap(constants, "dev").get("constant:host"),
+    ).toEqual({
       type: "string",
       source: "constant",
       value: "default.example.com",
@@ -55,7 +70,7 @@ describe("buildConstantValueMap", () => {
         environmentValues: { dev: "" },
       },
     ];
-    expect(buildConstantValueMap(constants, "dev").get("x")).toEqual({
+    expect(buildConstantValueMap(constants, "dev").get("constant:x")).toEqual({
       type: "string",
       source: "constant",
       value: "",
@@ -67,7 +82,9 @@ describe("buildConstantValueMap", () => {
     const constants = [
       { key: "x", type: "string" as const, environmentValues: {} },
     ];
-    expect(buildConstantValueMap(constants, "dev").has("x")).toBe(false);
+    expect(buildConstantValueMap(constants, "dev").has("constant:x")).toBe(
+      false,
+    );
   });
 });
 
@@ -360,7 +377,7 @@ describe("buildConstantValueMap — archived", () => {
         archived: true,
       },
     ];
-    expect(buildConstantValueMap(constants, "dev").get("x")).toEqual({
+    expect(buildConstantValueMap(constants, "dev").get("constant:x")).toEqual({
       type: "json",
       source: "constant",
       value: "",
@@ -371,7 +388,7 @@ describe("buildConstantValueMap — archived", () => {
 });
 
 describe("resolveConstantRefs — archived scrubbing", () => {
-  const map: ConstantValueMap = new Map([
+  const map: ConstantValueMap = nsMap([
     ["gone", { type: "string", value: "old", archived: true }],
     ["gone-json", { type: "json", value: '{"a":1}', archived: true }],
     ["live", { type: "string", value: "here" }],
@@ -407,7 +424,7 @@ describe("resolveConstantRefs — archived scrubbing", () => {
   it("scrubs an archived constant referenced transitively through a live one", () => {
     // A live JSON constant whose body references an archived JSON constant, and
     // a live string constant whose value contains an archived string interp.
-    const nested: ConstantValueMap = new Map([
+    const nested: ConstantValueMap = nsMap([
       ["gone", { type: "string", value: "old", archived: true }],
       ["gone-json", { type: "json", value: '{"a":1}', archived: true }],
       [
@@ -432,7 +449,7 @@ describe("resolveConstantRefs — archived scrubbing", () => {
 });
 
 describe("resolveConstantRefs — project scoping", () => {
-  const map: ConstantValueMap = new Map([
+  const map: ConstantValueMap = nsMap([
     ["global-str", { type: "string", value: "G", project: "" }],
     ["proj-a-str", { type: "string", value: "A", project: "prj_a" }],
     ["proj-a-json", { type: "json", value: '{"a":1}', project: "prj_a" }],
@@ -502,7 +519,7 @@ describe("resolveConstantRefs — project scoping", () => {
 describe("resolveConstantRefs — @config namespace separation", () => {
   // A config (source "config") and a constant (source "constant"), exercising
   // that refs only resolve within their own namespace.
-  const map: ConstantValueMap = new Map([
+  const map: ConstantValueMap = nsMap([
     [
       "base",
       {
@@ -548,7 +565,7 @@ describe("resolveConstantRefs — @config namespace separation", () => {
 });
 
 describe("resolveConstantRefs — config extends config", () => {
-  const map: ConstantValueMap = new Map([
+  const map: ConstantValueMap = nsMap([
     [
       "root",
       { type: "json", source: "config", value: '{"a":1}', parsed: { a: 1 } },
@@ -581,8 +598,8 @@ describe("buildConstantValueMap — source tagging", () => {
       ],
       "dev",
     );
-    expect(map.get("c")?.source).toBe("config");
-    expect(map.get("k")?.source).toBe("constant");
+    expect(map.get("config:c")?.source).toBe("config");
+    expect(map.get("constant:k")?.source).toBe("constant");
   });
 });
 

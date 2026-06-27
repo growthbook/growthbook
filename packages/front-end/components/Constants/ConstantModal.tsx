@@ -58,13 +58,8 @@ export default function ConstantModal({
 }) {
   const { apiCall } = useAuth();
   const router = useRouter();
-  const {
-    mutateDefinitions,
-    getConstantByKey,
-    getConfigByKey,
-    projects,
-    project,
-  } = useDefinitions();
+  const { mutateDefinitions, getConstantByKey, projects, project } =
+    useDefinitions();
 
   const editing = !!existing;
 
@@ -97,13 +92,13 @@ export default function ConstantModal({
   useEffect(() => {
     if (editing || keyTouched.current || !name) return;
     let active = true;
-    // Keys are unique across constants and configs, so check both.
-    generateTrackingKey(
-      { name },
-      async (k) => getConstantByKey(k) ?? getConfigByKey(k),
-    ).then((k) => {
-      if (active) form.setValue("key", k);
-    });
+    // Constant keys are unique within the constant namespace only (a config may
+    // share the key), so derive the slug against existing constants.
+    generateTrackingKey({ name }, async (k) => getConstantByKey(k)).then(
+      (k) => {
+        if (active) form.setValue("key", k);
+      },
+    );
     return () => {
       active = false;
     };
@@ -148,7 +143,7 @@ export default function ConstantModal({
             type: values.type,
             value: values.value,
             label: "Value",
-            forbidConfigRefs: true,
+            refSource: "constant",
           });
           const res = await apiCall<{ constant: { key: string } }>(
             `/constants`,

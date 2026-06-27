@@ -19,9 +19,15 @@ export const configValidator = z
     key: z.string(),
     name: z.string(),
     owner: ownerField,
-    // Lineage parent (another config's `key`). `$extends` is synthesized from
-    // this at resolution time, never stored in `value`.
+    // Lineage parent (another config's `key`): the primary spine of the lineage
+    // tree. `$extends` is synthesized from this at resolution time, never stored
+    // in `value`.
     parent: z.string().optional(),
+    // Additional composition bases (mixins) beyond `parent`, in precedence order
+    // (later overrides earlier; all override `parent`; own keys win last). Like
+    // `parent`, these are config `key`s synthesized into `$extends` at resolution
+    // time and never stored in `value`.
+    extends: z.array(z.string()).optional(),
     // JSON-encoded object; resolved per env as `environmentValues[env] ?? value`.
     value: z.string().optional(),
     environmentValues: z.record(z.string(), z.string()).optional(),
@@ -44,6 +50,7 @@ export const configUpdatableFieldsSchema = configValidator.pick({
   name: true,
   owner: true,
   parent: true,
+  extends: true,
   value: true,
   environmentValues: true,
   description: true,
@@ -66,6 +73,7 @@ export const postConfigBodyValidator = z.object({
   // Optional — the controller defaults the owner to the requesting user.
   owner: optionalOwnerInputField,
   parent: z.string().optional(),
+  extends: z.array(z.string()).optional(),
   value: z.string().optional(),
   environmentValues: z.record(z.string(), z.string()).optional(),
   description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
@@ -78,6 +86,7 @@ export const putConfigBodyValidator = z.object({
   name: z.string().optional(),
   owner: ownerInputField.optional(),
   parent: z.string().optional(),
+  extends: z.array(z.string()).optional(),
   value: z.string().optional(),
   environmentValues: z.record(z.string(), z.string()).optional(),
   description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
@@ -121,7 +130,13 @@ export const apiConfigValidator = namedSchema(
       parent: z
         .string()
         .describe(
-          "The `key` of the config this one inherits from (lineage parent). The `$extends` directive is synthesized from this at resolution time and is never stored in `value`.",
+          "The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`.",
+        )
+        .optional(),
+      extends: z
+        .array(z.string())
+        .describe(
+          "Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`.",
         )
         .optional(),
       value: z
@@ -177,7 +192,13 @@ const postConfigApiBody = z
     parent: z
       .string()
       .describe(
-        "The `key` of the config to inherit from. Express inheritance here, NOT via a `@config:` entry in `value` (any such entry is stripped and migrated to `parent`).",
+        "The `key` of the config to inherit from (the primary lineage spine). Express inheritance via `parent`/`extends`, NEVER via a `@config:` entry in `value` (which is rejected).",
+      )
+      .optional(),
+    extends: z
+      .array(z.string())
+      .describe(
+        "Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; own keys win last). Set inheritance here, never via a `@config:` entry in `value`.",
       )
       .optional(),
     value: z.string().optional(),
@@ -187,7 +208,7 @@ const postConfigApiBody = z
     owner: optionalOwnerInputField,
     schema: simpleSchemaValidator
       .describe(
-        "Field definitions for this config. Fields whose key a published ancestor already owns are stripped on create ('base wins'). Omit to leave the config schema-less, or use the schema-import endpoints to derive one.",
+        "Field definitions for this config. Fields whose key an ancestor (via `parent`/`extends`) already owns are stripped on create ('base wins'); a field owned by two sibling bases is a conflict and is rejected. Omit to leave the config schema-less, or use the schema-import endpoints to derive one.",
       )
       .optional(),
     extensible: z.boolean().optional(),
@@ -202,6 +223,12 @@ const updateConfigApiBody = z
       .string()
       .describe(
         "Change the lineage parent (the `key` of the config to inherit from). Set to an empty string to detach from the parent and make this a root config.",
+      )
+      .optional(),
+    extends: z
+      .array(z.string())
+      .describe(
+        "Replace the composition bases (mixins) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; own keys win last). Send the complete set; an empty array clears all mixins. Set inheritance here, never via a `@config:` entry in `value`.",
       )
       .optional(),
     value: z.string().optional(),
@@ -269,14 +296,30 @@ const apiConfigLineageNodeValidator = z
     parent: z
       .string()
       .nullable()
-      .describe("The lineage parent's key, or null for the family root."),
+      .describe(
+        "The lineage parent's key (tree spine), or null for the family root.",
+      ),
+    extends: z
+      .array(z.string())
+      .describe(
+        "Additional composition bases (mixin config keys) layered on top of `parent`. The tree shape follows `parent`/`depth`; these express composition beyond the parent/child spine.",
+      )
+      .optional(),
     project: z.string().optional(),
     archived: z.boolean(),
     depth: z
       .number()
       .int()
-      .describe("Distance from the family root (the root is 0)."),
+      .describe(
+        "Distance from the family root along the `parent` spine (root is 0).",
+      ),
     isTarget: z.boolean().describe("True for the requested config."),
+    incompatibleFields: z
+      .array(z.string())
+      .describe(
+        "Own value keys whose value no longer conforms to the effective (inherited) field type and must be fixed. Empty when all conform.",
+      )
+      .optional(),
   })
   .strict();
 

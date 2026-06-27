@@ -4,11 +4,11 @@ import {
   validateResolvableValue,
 } from "shared/validators";
 import { ConfigInterface } from "shared/types/config";
-import { getConfigParentKey, stripConfigExtends } from "shared/util";
+import { stripConfigExtends } from "shared/util";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError } from "back-end/src/util/errors";
-import { assertKeyAvailableAcrossNamespace } from "back-end/src/services/constants";
+import { assertKeyAvailable } from "back-end/src/services/constants";
 import { assertConfigValueValid } from "back-end/src/services/configValidation";
 import { getAdapter } from "back-end/src/revisions";
 import {
@@ -30,6 +30,7 @@ export const postConfig = createApiRequestHandler(postConfigValidator)(async (
     schema,
     extensible,
   } = req.body;
+  const extendsKeys = req.body.extends;
   const bypassApproval = req.body.bypassApproval === true;
 
   if (!req.context.permissions.canCreateConfig({ project: project || "" })) {
@@ -40,27 +41,36 @@ export const postConfig = createApiRequestHandler(postConfigValidator)(async (
     await req.context.models.projects.ensureProjectsExist([project]);
   }
 
-  // Keys are unique across both constants and configs (shared `@config:`/
-  // `@const:` namespace).
-  await assertKeyAvailableAcrossNamespace(req.context, key);
+  // Config keys are unique within the config namespace (a constant may share the
+  // key — `@config:foo` and `@const:foo` are distinct).
+  await assertKeyAvailable(req.context, key, "config");
 
-  // Configs are always JSON objects (empty allowed). Validate the raw value
-  // (which may carry a `@config:` parent ref as the first `$extends` entry).
+  // Configs are always JSON objects (empty allowed). Lineage is expressed via
+  // `parent`/`extends`, so a `@config:` ref in the value is rejected.
   if (value !== undefined)
-    validateResolvableValue({ type: "json", value, label: "value" });
+    validateResolvableValue({
+      type: "json",
+      value,
+      label: "value",
+      refSource: "config",
+    });
   for (const [env, v] of Object.entries(environmentValues ?? {})) {
-    validateResolvableValue({ type: "json", value: v, label: env });
+    validateResolvableValue({
+      type: "json",
+      value: v,
+      label: env,
+      refSource: "config",
+    });
   }
 
-  // Inheritance lives on `parent`; accept it explicitly or migrate a legacy
-  // in-value `@config:` ref. `$extends` is never persisted in the value.
-  const parent = req.body.parent || getConfigParentKey({ value }) || "";
+  // Inheritance lives on `parent` (spine) + `extends` (mixins); never in value.
+  const parent = req.body.parent || "";
 
   // A child created under a base can't re-declare an inherited field ("base
   // wins"); strip any colliding keys from its appended schema up front.
   const normalizedSchema =
     await req.context.models.configs.normalizeSchemaAgainstAncestors(
-      { key, parent: parent || undefined, value },
+      { key, parent: parent || undefined, extends: extendsKeys, value },
       schema,
     );
 
@@ -75,6 +85,7 @@ export const postConfig = createApiRequestHandler(postConfigValidator)(async (
       value: storedValue,
       schema: normalizedSchema,
       parent: parent || undefined,
+      extends: extendsKeys,
       extensible,
     },
     { value: storedValue, environmentValues },
@@ -90,6 +101,7 @@ export const postConfig = createApiRequestHandler(postConfigValidator)(async (
   const patchOps = buildPatchOps({
     name,
     ...(parent ? { parent } : {}),
+    ...(extendsKeys ? { extends: extendsKeys } : {}),
     ...(value !== undefined ? { value: stripConfigExtends(value) } : {}),
     ...(environmentValues ? { environmentValues } : {}),
     ...(description !== undefined ? { description } : {}),
@@ -130,6 +142,7 @@ export const postConfig = createApiRequestHandler(postConfigValidator)(async (
     name,
     owner: owner || req.context.userId || "",
     parent: parent || undefined,
+    extends: extendsKeys,
     value: stripConfigExtends(value),
     environmentValues,
     description,

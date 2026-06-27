@@ -3347,7 +3347,12 @@ export function simpleSchemaFieldToJSONSchema(
   if (field.default) schema.default = getValue(field.default);
 
   if (field.type !== "boolean" && field.enum.length) {
-    schema.enum = field.enum.map((v) => getValue(v));
+    // A nullable enum must also admit null — the type union allows it, so the
+    // enum has to list it too or null would fail validation.
+    schema.enum = [
+      ...field.enum.map((v) => getValue(v)),
+      ...(field.nullable ? [null] : []),
+    ];
   }
   if (!schema.enum) {
     // Bounds are optional — emit only when set.

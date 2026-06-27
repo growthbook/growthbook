@@ -1,3 +1,4 @@
+import { isEqual } from "lodash";
 import { putConfigRevisionMetadataValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
@@ -26,6 +27,18 @@ export const putConfigRevisionMetadata = createApiRequestHandler(
   }
 
   const { name, owner, description, project, parent, extensible } = req.body;
+  const extendsKeys = req.body.extends;
+
+  // Re-check edit permission against the merged change set so a `project` move
+  // requires edit on both old AND new project. Done BEFORE probing project
+  // existence so the endpoint can't be used as an existence oracle.
+  if (
+    !req.context.permissions.canUpdateConfig(config, {
+      project: typeof project !== "undefined" ? project : config.project,
+    })
+  ) {
+    req.context.permissions.throwPermissionError();
+  }
 
   // Mass-assignment guard: only allowlisted fields reach the patch builder.
   const fieldsToUpdate: Record<string, unknown> = {};
@@ -45,17 +58,12 @@ export const putConfigRevisionMetadata = createApiRequestHandler(
   if (typeof parent !== "undefined") {
     fieldsToUpdate.parent = parent;
   }
-  if (typeof extensible !== "undefined") fieldsToUpdate.extensible = extensible;
-
-  // Re-check edit permission against the merged change set so a `project` move
-  // requires edit on both old AND new project.
-  if (
-    !req.context.permissions.canUpdateConfig(config, {
-      project: typeof project !== "undefined" ? project : config.project,
-    })
-  ) {
-    req.context.permissions.throwPermissionError();
+  // Store the array as-is (including `[]` to clear all mixins). `undefined` is
+  // dropped by buildPatchOps and would silently no-op the clear.
+  if (typeof extendsKeys !== "undefined") {
+    fieldsToUpdate.extends = extendsKeys;
   }
+  if (typeof extensible !== "undefined") fieldsToUpdate.extensible = extensible;
 
   await ensureLiveRevisionExists(
     req.context,
@@ -88,11 +96,19 @@ export const putConfigRevisionMetadata = createApiRequestHandler(
       return { revision: await toApiConfigRevision(closed, req.context) };
     }
 
-    // Reparenting or toggling extensibility changes the effective ancestor
-    // schema; the draft's existing value(s) must still conform (opt out with
-    // ?skipSchemaValidation=true).
-    if (typeof parent !== "undefined" || typeof extensible !== "undefined") {
+    // Reparenting, changing mixins, or toggling extensibility changes the
+    // effective ancestor schema; the draft's existing value(s) must still
+    // conform (opt out with ?skipSchemaValidation=true).
+    if (
+      typeof parent !== "undefined" ||
+      typeof extendsKeys !== "undefined" ||
+      typeof extensible !== "undefined"
+    ) {
       const draft = applyRevisionToSnapshot(revision);
+      const effectiveParent =
+        typeof parent !== "undefined" ? parent : draft.parent;
+      const effectiveExtends =
+        typeof extendsKeys !== "undefined" ? extendsKeys : draft.extends;
       await assertConfigValueValid(
         req.context,
         {
@@ -100,12 +116,36 @@ export const putConfigRevisionMetadata = createApiRequestHandler(
           name: config.name,
           value: draft.value,
           schema: draft.schema,
-          parent: typeof parent !== "undefined" ? parent : draft.parent,
+          parent: effectiveParent,
+          extends: effectiveExtends,
           extensible:
             typeof extensible !== "undefined" ? extensible : draft.extensible,
         },
         { value: draft.value, environmentValues: draft.environmentValues },
       );
+
+      // A lineage change shifts which fields the bases own, so re-normalize the
+      // draft's own schema now ("base wins"). Without this, reviewers see a stale
+      // schema until publish re-runs normalization. Extensibility alone doesn't
+      // change ownership, so only re-normalize on parent/extends edits.
+      if (
+        draft.schema &&
+        (typeof parent !== "undefined" || typeof extendsKeys !== "undefined")
+      ) {
+        const normalizedSchema =
+          await req.context.models.configs.normalizeSchemaAgainstAncestors(
+            {
+              key: config.key,
+              parent: effectiveParent || undefined,
+              extends: effectiveExtends,
+              value: draft.value,
+            },
+            draft.schema,
+          );
+        if (!isEqual(normalizedSchema, draft.schema)) {
+          fieldsToUpdate.schema = normalizedSchema;
+        }
+      }
     }
 
     const updated = await createOrUpdateRevision(

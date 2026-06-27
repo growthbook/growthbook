@@ -163,18 +163,27 @@ export function pickNewDraftMetadata(body: {
 }
 
 // Validate a staged value/environmentValues edit. Configs are always JSON
-// objects (empty allowed). Unlike constants, configs may embed `@const:` refs;
-// `@config:` lineage is expressed via `parent`, so it's stripped from values
-// before staging (see the value handler), not validated here.
+// objects (empty allowed). `@const:` refs are allowed; lineage is expressed via
+// `parent`/`extends`, so a `@config:` ref in the value is rejected here.
 export function assertValidConfigValueEdit(
   value: string | undefined,
   environmentValues: Record<string, string> | undefined,
 ): void {
   try {
     if (value !== undefined)
-      validateResolvableValue({ type: "json", value, label: "value" });
+      validateResolvableValue({
+        type: "json",
+        value,
+        label: "value",
+        refSource: "config",
+      });
     for (const [env, v] of Object.entries(environmentValues ?? {})) {
-      validateResolvableValue({ type: "json", value: v, label: env });
+      validateResolvableValue({
+        type: "json",
+        value: v,
+        label: env,
+        refSource: "config",
+      });
     }
   } catch (e) {
     throw new BadRequestError(e instanceof Error ? e.message : String(e));

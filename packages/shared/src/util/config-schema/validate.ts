@@ -8,21 +8,101 @@ export type ConfigValueValidationResult = {
   errors: string[];
 };
 
-// A field value can be (or deeply contain) a reference token — a bare
-// `@const:key`/`@config:key` or a `{{ @const:key }}` interpolation — which
-// resolves dynamically to whatever the target holds. We can't statically
-// type-check those (a `"@const:timeout"` string may resolve to an integer), so
-// a value carrying any reference is exempt from type/extensibility checks here,
-// mirroring how schema inference treats reference tokens as `any`.
+// A field value can be (or deeply contain) a reference token that resolves
+// dynamically to whatever the target holds. We can't statically type-check those
+// (a `"@const:timeout"` string may resolve to an integer), so such a value is
+// exempt from type/extensibility checks here, mirroring how schema inference
+// treats reference tokens as `any`.
+//
+// Only the forms the resolver actually substitutes count (see
+// resolveConstants.ts): a bare `@const:key`/`@config:key` placeholder that IS
+// the whole string (an `$extends` entry), or a `{{ @const:key }}` interpolation
+// embedded in a string. A token that merely appears as free text (e.g.
+// `"retry @config:base"`) is left verbatim by the resolver, so it must still be
+// type-checked rather than exempted.
+const REF_KEY = "[a-z0-9][a-z0-9_-]*";
+const BARE_REF_RE = new RegExp(`^@(?:const|config):${REF_KEY}$`);
+const INTERP_REF_RE = new RegExp(
+  `\\{\\{\\s*@(?:const|config):${REF_KEY}\\s*\\}\\}`,
+);
+
 function valueHasReferenceToken(v: unknown): boolean {
   if (typeof v === "string")
-    return v.includes("@const:") || v.includes("@config:");
+    return BARE_REF_RE.test(v) || INTERP_REF_RE.test(v);
   if (Array.isArray(v)) return v.some(valueHasReferenceToken);
   if (v !== null && typeof v === "object")
     return Object.values(v as Record<string, unknown>).some(
       valueHasReferenceToken,
     );
   return false;
+}
+
+// Return the top-level value keys that fail validation against the (effective)
+// schema. Equivalent to calling `validateConfigValue` per key, but compiles the
+// schema ONCE for the whole object and attributes errors back to top-level keys
+// via Ajv's `instancePath` / `additionalProperty` — turning the per-node lineage
+// scan from O(keys) Ajv compiles into O(1). Reference-backed keys are exempt
+// (their resolved type is unknown), matching `validateConfigValue`. `required` is
+// never enforced here (the incompatibility scan runs on sparse own values).
+export function collectInvalidConfigValueKeys({
+  value,
+  fields,
+  additionalProperties,
+}: {
+  value: Record<string, unknown>;
+  fields: SchemaField[];
+  additionalProperties: boolean;
+}): string[] {
+  const data: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(value)) {
+    if (k === CONSTANT_EXTENDS_KEY) continue;
+    if (valueHasReferenceToken(v)) continue;
+    data[k] = v;
+  }
+  const keys = Object.keys(data);
+  if (!keys.length) return [];
+
+  // No declared fields: the only constraint is extensibility — a non-extensible
+  // config may carry no keys, so every present key is offending.
+  if (!fields.length) return additionalProperties ? [] : keys;
+
+  let schemaObj: Record<string, unknown>;
+  try {
+    schemaObj = JSON.parse(
+      simpleToJSONSchema({ type: "object", fields, additionalProperties }),
+    );
+  } catch {
+    // A malformed schema can't attribute a fault to a specific value key; the
+    // schema itself is surfaced as invalid elsewhere.
+    return [];
+  }
+  schemaObj.required = [];
+
+  let validate: ReturnType<Ajv["compile"]>;
+  try {
+    validate = new Ajv({ strictSchema: false, allErrors: true }).compile(
+      schemaObj,
+    );
+  } catch {
+    return [];
+  }
+  if (validate(data)) return [];
+
+  const offending = new Set<string>();
+  for (const err of validate.errors ?? []) {
+    const path = err.instancePath ?? "";
+    if (path.startsWith("/")) {
+      // Top-level key = first JSON-Pointer segment (un-escaped per RFC 6901).
+      const seg = path.slice(1).split("/")[0];
+      offending.add(seg.replace(/~1/g, "/").replace(/~0/g, "~"));
+    } else {
+      const addl = (err.params as { additionalProperty?: string })
+        ?.additionalProperty;
+      if (addl) offending.add(addl);
+    }
+  }
+  // Preserve input order; drop any attribution that isn't a present key.
+  return keys.filter((k) => offending.has(k));
 }
 
 // Validate a config's value object against its (effective) schema — the config

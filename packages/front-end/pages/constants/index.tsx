@@ -51,7 +51,12 @@ function isConstantsTab(value: string): value is ConstantsTab {
 
 export default function ConstantsPage(): React.ReactElement {
   const router = useRouter();
-  const { ready, project, projects, constants } = useDefinitions();
+  const {
+    ready,
+    project,
+    projects,
+    _constantsIncludingArchived: allConstants,
+  } = useDefinitions();
   const { getOwnerDisplay } = useUser();
   const permissionsUtil = usePermissionsUtil();
 
@@ -83,12 +88,15 @@ export default function ConstantsPage(): React.ReactElement {
 
   const { count: openReviewsCount } = useOpenRevisionCount("constant");
 
+  // Source from the archived-inclusive list so the `is:archived` facet can
+  // actually surface archived constants (the default view still hides them via
+  // `filterResults` below).
   const visibleConstants = useMemo(
     () =>
-      constants.filter((c) =>
+      allConstants.filter((c) =>
         isProjectListValidForProject(c.project ? [c.project] : [], project),
       ),
-    [constants, project],
+    [allConstants, project],
   );
 
   const constantItems = useAddComputedFields(visibleConstants, (c) => ({
@@ -169,7 +177,14 @@ export default function ConstantsPage(): React.ReactElement {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items, hasDraftFilter]);
 
-  const hasArchived = constants.some((c) => c.archived);
+  // Project-scoped: the archived facet/badge must reflect the constants in scope
+  // for the current project, not the org-wide list.
+  const hasArchived = visibleConstants.some((c) => c.archived);
+  const allTabCount = (
+    showArchived
+      ? visibleConstants
+      : visibleConstants.filter((c) => !c.archived)
+  ).length;
 
   if (!ready) {
     return <LoadingOverlay />;
@@ -178,7 +193,9 @@ export default function ConstantsPage(): React.ReactElement {
   const canAdd = permissionsUtil.canCreateConstant({
     project: project || undefined,
   });
-  const hasConstants = constants.length > 0;
+  // Include archived so an org with only archived constants still gets the list
+  // (and its `is:archived` facet) rather than the empty state.
+  const hasConstants = allConstants.length > 0;
 
   const addButton = (
     <Button disabled={!canAdd} onClick={() => setModalOpen(true)}>
@@ -232,7 +249,7 @@ export default function ConstantsPage(): React.ReactElement {
               <TabsTrigger value="all">
                 All Constants
                 <span className="ml-2 round-text-background text-main">
-                  {constants.length}
+                  {allTabCount}
                 </span>
               </TabsTrigger>
               <TabsTrigger value="drafts">

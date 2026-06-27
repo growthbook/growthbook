@@ -6,16 +6,17 @@ import {
   getCyclicConstantRefs,
 } from "shared/validators";
 import {
-  getConfigParentKey,
-  withParentExtends,
+  getConfigBaseKeys,
+  withConfigExtends,
   getAncestorSchemaKeys,
   stripAncestorOwnedFields,
+  findSiblingSchemaConflicts,
 } from "shared/util";
 import { UpdateProps } from "shared/types/base-model";
 import { isEqual, omit } from "lodash";
 import { BadRequestError } from "back-end/src/util/errors";
 import { resolvableValueChanged } from "back-end/src/services/constants";
-import { getResolvableValues } from "back-end/src/services/resolvableValues";
+import { configToResolvable } from "back-end/src/services/resolvableValues";
 import {
   logConfigCreatedEvent,
   logConfigUpdatedEvent,
@@ -67,18 +68,23 @@ export class ConfigModel extends BaseClass {
     return this.context.permissions.canDeleteConfig(doc);
   }
 
-  // Reject cyclic lineage/values; the graph spans both collections. The parent's
-  // `$extends` is synthesized in so a parent→…→self cycle is caught at write time.
+  // Reject cyclic lineage. Every base (`parent` + `extends`) is synthesized into
+  // `$extends` (`@config:` refs) so a base→…→self cycle through any composition
+  // edge is caught at write time. Config cycles are confined to the config
+  // namespace (a config's lineage references only configs; its `@const:` value
+  // refs point at constants, which can never reference back), so scope to it.
+  //
+  // Use the UNFILTERED config list (lineage is an org-global graph): a permission
+  // -filtered read would hide a config in a project the writer can't see and let
+  // a cross-project cycle through it slip past.
   private async assertNoCycle(doc: ConfigInterface): Promise<void> {
-    const effectiveValue = withParentExtends(
-      doc.value,
-      getConfigParentKey(doc),
-    );
+    const effectiveValue = withConfigExtends(doc.value, getConfigBaseKeys(doc));
     const cyclic = getCyclicConstantRefs(
       doc.key,
       effectiveValue,
       doc.environmentValues,
-      await getResolvableValues(this.context),
+      (await this.getAllForReconcile()).map(configToResolvable),
+      "config",
     );
     if (cyclic.length) {
       throw new BadRequestError(
@@ -89,6 +95,7 @@ export class ConfigModel extends BaseClass {
 
   protected async beforeCreate(doc: ConfigInterface) {
     await this.assertNoCycle(doc);
+    await this.assertValidComposition(doc);
   }
 
   protected async beforeUpdate(
@@ -98,10 +105,95 @@ export class ConfigModel extends BaseClass {
   ) {
     if (
       updates.parent !== undefined ||
+      updates.extends !== undefined ||
       updates.value !== undefined ||
       updates.environmentValues !== undefined
     ) {
       await this.assertNoCycle(newDoc);
+    }
+    // A lineage change (parent/extends) or a schema change can make two sibling
+    // bases own the same field key — a structural composition error.
+    if (
+      updates.parent !== undefined ||
+      updates.extends !== undefined ||
+      updates.schema !== undefined
+    ) {
+      await this.assertValidComposition(newDoc);
+    }
+  }
+
+  // Validate a config's composition (its `parent` spine + `extends` mixins):
+  //  - structural: no self-reference, no duplicate bases, `extends` disjoint
+  //    from `parent`, and every base key resolves to a known config;
+  //  - schema: no two sibling bases (branches with no ancestor/descendant
+  //    relationship) declare the same field key — there's no "base wins" winner
+  //    among siblings, so it's a hard error.
+  // Structural (not gated by skipSchemaValidation; it's lineage integrity, not
+  // value-vs-schema conformance).
+  private async assertValidComposition(doc: ConfigInterface): Promise<void> {
+    const baseKeys = getConfigBaseKeys(doc);
+    if (!baseKeys.length) return;
+
+    // Structural checks against the raw fields (getConfigBaseKeys already dedups
+    // for resolution, so inspect the raw `extends` for duplicates/overlap).
+    const extendsList = doc.extends ?? [];
+    if (extendsList.includes(doc.key) || doc.parent === doc.key) {
+      throw new BadRequestError("A config cannot extend itself.");
+    }
+    if (doc.parent && extendsList.includes(doc.parent)) {
+      throw new BadRequestError(
+        `"${doc.parent}" is already the parent; remove it from "extends".`,
+      );
+    }
+    const dupes = extendsList.filter((k, i) => extendsList.indexOf(k) !== i);
+    if (dupes.length) {
+      throw new BadRequestError(
+        `Duplicate "extends" entries: ${[...new Set(dupes)].join(", ")}.`,
+      );
+    }
+
+    const all = await this.getAllForReconcile();
+    const byKey = new Map(all.map((c) => [c.key, c]));
+    // Use the proposed doc (its own bases), not the stored copy.
+    byKey.set(doc.key, doc);
+
+    const missing = baseKeys.filter((k) => !byKey.has(k));
+    if (missing.length) {
+      throw new BadRequestError(
+        `Unknown config(s) in lineage: ${missing.join(", ")}.`,
+      );
+    }
+
+    // Don't let a config inherit from an archived base — neither the `parent`
+    // spine nor an `extends` mixin. An archived base is scrubbed from the SDK
+    // payload (the child would resolve as if it were absent) while still
+    // governing lineage/extensibility here, so block it on every write path
+    // (the UI also hides archived configs as candidates).
+    if (doc.parent && byKey.get(doc.parent)?.archived) {
+      throw new BadRequestError(
+        `Cannot inherit from archived parent "${doc.parent}". ` +
+          `Unarchive it or choose a different parent.`,
+      );
+    }
+    const archivedMixins = extendsList.filter((k) => byKey.get(k)?.archived);
+    if (archivedMixins.length) {
+      throw new BadRequestError(
+        `Cannot extend archived config(s): ${archivedMixins.join(", ")}. ` +
+          `Unarchive them or remove them from "extends".`,
+      );
+    }
+
+    const conflicts = findSiblingSchemaConflicts(doc, byKey);
+    if (conflicts.length) {
+      const detail = conflicts
+        .map((c) => `"${c.key}" (declared by ${c.owners.join(" and ")})`)
+        .join(", ");
+      throw new BadRequestError(
+        `This config's bases declare the same field on separate branches, so ` +
+          `there is no single owner: ${detail}. Each effective field must be ` +
+          `owned by exactly one config — remove the duplicate declaration from ` +
+          `one of the bases or drop one of the conflicting bases.`,
+      );
     }
   }
 
@@ -117,6 +209,7 @@ export class ConfigModel extends BaseClass {
   ) {
     if (
       updates.parent !== undefined ||
+      updates.extends !== undefined ||
       updates.value !== undefined ||
       updates.environmentValues !== undefined ||
       updates.project !== undefined ||
@@ -167,15 +260,19 @@ export class ConfigModel extends BaseClass {
   // the input unchanged when there are no collisions. Call before every schema
   // write so a child can never re-declare an inherited field.
   public async normalizeSchemaAgainstAncestors(
-    config: { key?: string; parent?: string; value?: string },
+    config: {
+      key?: string;
+      parent?: string;
+      extends?: string[];
+      value?: string;
+    },
     schema: SimpleSchema | undefined,
   ): Promise<SimpleSchema | undefined> {
     if (!schema?.fields?.length) return schema;
-    const parentKey = config.parent || getConfigParentKey(config);
-    if (!parentKey) return schema;
+    if (!getConfigBaseKeys(config).length) return schema;
     const all = await this.getAllForReconcile();
     const byKey = new Map(all.map((c) => [c.key, c]));
-    const ancestorKeys = getAncestorSchemaKeys({ parent: parentKey }, byKey);
+    const ancestorKeys = getAncestorSchemaKeys(config, byKey);
     const kept = stripAncestorOwnedFields(schema, ancestorKeys);
     return kept ? { ...schema, fields: kept } : schema;
   }
@@ -192,6 +289,9 @@ export class ConfigModel extends BaseClass {
       owner: config.owner,
       ownerEmail: "",
       parent: config.parent,
+      // Coalesce a legacy `null` (from an earlier clear bug) to undefined so the
+      // optional-array API field validates.
+      extends: config.extends ?? undefined,
       value: config.value,
       environmentValues: config.environmentValues,
       description: config.description,

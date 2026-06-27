@@ -1,23 +1,38 @@
 import { SimpleSchema, SchemaField } from "shared/types/feature";
 import { CONSTANT_EXTENDS_KEY } from "../constants";
 import { parsePlainJSONObject } from "./features";
+import { collectInvalidConfigValueKeys } from "./config-schema";
 
-// Inheritance is modeled by a `parent` key on the config, not stored in its
+// Inheritance is modeled by a `parent` key (the primary lineage spine) plus an
+// optional ordered `extends[]` of mixin config keys, neither stored in the
 // editable value. The `$extends` directive that drives resolution is synthesized
-// from `parent` on demand (see configToResolvable). These helpers bridge the two.
+// from these on demand (see configToResolvable). These helpers bridge the two.
 
-// The lineage parent of a config: its explicit `parent`, falling back to a
-// legacy `$extends` ref embedded in the value (for data written before `parent`).
-export function getConfigParentKey(config: {
+// The lineage parent of a config: the primary tree spine. Composition mixins
+// live in `extends` (see getConfigBaseKeys); the tree shape follows `parent`.
+export function getConfigParentKey(config: { parent?: string }): string | null {
+  return config.parent || null;
+}
+
+// Every base config key for a config, in precedence order: the `parent` spine
+// first, then each `extends` mixin in array order. Deduped, order-preserving.
+// These become the `@config:` `$extends` entries — later overrides earlier, and
+// the config's own keys win last (matches resolveConstantRefs). Used by every
+// lineage walk (resolution, schema reconciliation, cycle detection, lineage).
+export function getConfigBaseKeys(config: {
   parent?: string;
-  value?: string;
-}): string | null {
-  if (config.parent) return config.parent;
-  const list = parsePlainJSONObject(config.value ?? "")?.[CONSTANT_EXTENDS_KEY];
-  if (!Array.isArray(list)) return null;
-  const first = list.find((r): r is string => typeof r === "string");
-  const m = first?.match(/^@(?:const|config):([a-z0-9][a-z0-9_-]*)$/);
-  return m ? m[1] : null;
+  extends?: string[];
+}): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  const push = (k: string | null | undefined) => {
+    if (!k || seen.has(k)) return;
+    seen.add(k);
+    out.push(k);
+  };
+  push(config.parent);
+  for (const k of config.extends ?? []) push(k);
+  return out;
 }
 
 // Drop any `$extends` directive from a JSON-encoded config value (returns
@@ -51,15 +66,16 @@ export function stripConfigExtends(
   return JSON.stringify(rest);
 }
 
-// Synthesize the resolution value for a config: prepend `@config:parent` as the
-// first `$extends` entry (the base layer; own keys still win) while preserving
-// any `@const:` refs the value declares. Config lineage is owned by `parent`, so
-// pre-existing `@config:` entries are dropped. With no parent and no constant
-// refs, this strips `$extends` entirely.
-export function withParentExtends(
+// Synthesize the resolution value for a config: prepend its `@config:` base
+// refs (in precedence order — see getConfigBaseKeys) as the first `$extends`
+// entries (the base layers; own keys still win) while preserving any `@const:`
+// refs the value declares. Config lineage is owned by `parent`/`extends`, so
+// pre-existing `@config:` entries in the value are dropped. With no bases and no
+// constant refs, this strips `$extends` entirely.
+export function withConfigExtends(
   value: string | undefined,
-  parentKey: string | null,
-): string | undefined {
+  baseKeys: string[],
+): string {
   const obj = parsePlainJSONObject(value ?? "") ?? {};
   const prior = obj[CONSTANT_EXTENDS_KEY];
   const constantRefs = Array.isArray(prior)
@@ -69,10 +85,7 @@ export function withParentExtends(
     : [];
   const rest = { ...obj };
   delete rest[CONSTANT_EXTENDS_KEY];
-  const list = [
-    ...(parentKey ? [`@config:${parentKey}`] : []),
-    ...constantRefs,
-  ];
+  const list = [...baseKeys.map((k) => `@config:${k}`), ...constantRefs];
   if (!list.length) return JSON.stringify(rest);
   return JSON.stringify({ [CONSTANT_EXTENDS_KEY]: list, ...rest });
 }
@@ -132,19 +145,51 @@ export function setConfigBacking(
 }
 
 // `rootKey` plus every config descending from it, in BFS order. Cycle-safe.
-// Used to constrain which configs a rule may override with, and to build the
-// lineage tree on the config detail page.
+// Descent follows ALL base edges (parent + extends), so a config reached only
+// via a mixin is included. Used to constrain which configs a rule may override
+// with, and to build the lineage family on the config detail page.
 export function getConfigSubtree(
   rootKey: string,
-  configs: { key: string; parent?: string; value?: string }[],
+  configs: { key: string; parent?: string; extends?: string[] }[],
 ): string[] {
   const childrenOf = new Map<string, string[]>();
   for (const c of configs) {
-    const parentKey = getConfigParentKey(c);
-    if (parentKey === null) continue;
-    const list = childrenOf.get(parentKey);
+    for (const baseKey of getConfigBaseKeys(c)) {
+      const list = childrenOf.get(baseKey);
+      if (list) list.push(c.key);
+      else childrenOf.set(baseKey, [c.key]);
+    }
+  }
+
+  const ordered: string[] = [];
+  const seen = new Set<string>();
+  const queue = [rootKey];
+  while (queue.length) {
+    const key = queue.shift() as string;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    ordered.push(key);
+    for (const child of childrenOf.get(key) ?? []) queue.push(child);
+  }
+  return ordered;
+}
+
+// `rootKey` plus every config descending from it via the `parent` spine ONLY
+// (ignoring `extends` mixins). Cycle-safe, BFS order. Used to build the lineage
+// TREE, whose shape follows `parent`: mixins surface as per-node chips, so the
+// tree must not pull in cross-family configs that merely mixin a family member
+// (that's what `getConfigSubtree`, which walks every base edge, would do).
+export function getConfigSpineSubtree(
+  rootKey: string,
+  configs: { key: string; parent?: string }[],
+): string[] {
+  const childrenOf = new Map<string, string[]>();
+  for (const c of configs) {
+    const p = getConfigParentKey(c);
+    if (!p) continue;
+    const list = childrenOf.get(p);
     if (list) list.push(c.key);
-    else childrenOf.set(parentKey, [c.key]);
+    else childrenOf.set(p, [c.key]);
   }
 
   const ordered: string[] = [];
@@ -172,28 +217,153 @@ export function ensureConfigBacking(
   return setConfigBacking(defaultConfigKey, value);
 }
 
-// Schema field keys owned by a config's ancestors (the closest base wins on a
-// key collision). Walks the parent chain via `getConfigParentKey`; cycle-safe.
-// Used to enforce "base wins": a descendant may re-value an inherited field but
-// must not re-declare its schema, so these keys are stripped from child schemas.
+// Schema field keys owned by a config's ancestors across the whole base DAG
+// (parent + every `extends` mixin, transitively). The base wins on a key
+// collision. Cycle-safe. Used to enforce "base wins": a descendant may re-value
+// an inherited field but must not re-declare its schema, so these keys are
+// stripped from child schemas.
 export function getAncestorSchemaKeys(
-  config: { parent?: string; value?: string },
+  config: { parent?: string; extends?: string[] },
   byKey: Map<
     string,
-    { parent?: string; value?: string; schema?: SimpleSchema }
+    { parent?: string; extends?: string[]; schema?: SimpleSchema }
   >,
 ): Set<string> {
   const keys = new Set<string>();
   const seen = new Set<string>();
-  let parentKey = getConfigParentKey(config);
-  while (parentKey && !seen.has(parentKey)) {
-    seen.add(parentKey);
-    const parent = byKey.get(parentKey);
-    if (!parent) break;
-    for (const f of parent.schema?.fields ?? []) keys.add(f.key);
-    parentKey = getConfigParentKey(parent);
+  const stack = [...getConfigBaseKeys(config)];
+  while (stack.length) {
+    const baseKey = stack.pop() as string;
+    if (seen.has(baseKey)) continue;
+    seen.add(baseKey);
+    const base = byKey.get(baseKey);
+    if (!base) continue;
+    for (const f of base.schema?.fields ?? []) keys.add(f.key);
+    for (const b of getConfigBaseKeys(base)) stack.push(b);
   }
   return keys;
+}
+
+// A config (with its lineage edges) keyed for DAG walks.
+type ConfigDagNode = ConfigChainNode & {
+  parent?: string;
+  extends?: string[];
+};
+
+// Linearize a config's base DAG into an ordered base → leaf chain for
+// `resolveConfigChain` (which merges last-wins for values, first-seen-wins for
+// schema). Post-order DFS over `[parent, ...extends]`: a node is emitted only
+// after all its bases, deduped keeping the first emission, so a diamond base
+// appears once (before everything that depends on it). Cycle-safe.
+export function linearizeConfigDag(
+  leafKey: string,
+  byKey: Map<string, ConfigDagNode>,
+): ConfigChainNode[] {
+  const out: ConfigChainNode[] = [];
+  const emitted = new Set<string>();
+  const onStack = new Set<string>();
+  const visit = (key: string) => {
+    if (emitted.has(key) || onStack.has(key)) return;
+    const node = byKey.get(key);
+    if (!node) return;
+    onStack.add(key);
+    for (const base of getConfigBaseKeys(node)) visit(base);
+    onStack.delete(key);
+    emitted.add(key);
+    out.push({
+      key: node.key,
+      name: node.name,
+      value: node.value,
+      schema: node.schema,
+    });
+  };
+  visit(leafKey);
+  return out;
+}
+
+// The root of a config's `parent` spine — walk `parent` only, ignoring `extends`
+// mixins. This is the config whose `extensible` checkbox governs the family's
+// extensibility; mixin bases' extensibility is intentionally ignored under
+// composition (the spine root's checkbox is the single source of truth).
+export function getConfigSpineRootKey(
+  leafKey: string,
+  byKey: Map<string, { key: string; parent?: string }>,
+): string {
+  let rootKey = leafKey;
+  const seen = new Set<string>([leafKey]);
+  let cur = byKey.get(leafKey);
+  while (cur?.parent && !seen.has(cur.parent)) {
+    seen.add(cur.parent);
+    const p = byKey.get(cur.parent);
+    if (!p) break;
+    rootKey = p.key;
+    cur = p;
+  }
+  return rootKey;
+}
+
+// Field keys owned by two or more of a leaf's bases that are NOT in an
+// ancestor/descendant relationship (sibling branches of the composition DAG).
+// This is the multi-base analog of the linear "a child can't redeclare a
+// parent's field" rule: every effective field key must be owned by exactly one
+// config. Pure key-ownership — no type comparison; ANY duplicate ownership is a
+// conflict. Returns `{ key, owners }` per conflicting field (empty = none).
+//
+// Only the leaf's BASES are considered (not the leaf's own schema): a collision
+// between the leaf and one of its bases is the existing ancestor case, resolved
+// by `getAncestorSchemaKeys`/`stripAncestorOwnedFields` (base wins).
+export function findSiblingSchemaConflicts(
+  leaf: { parent?: string; extends?: string[] },
+  byKey: Map<string, ConfigDagNode>,
+): { key: string; owners: string[] }[] {
+  const ownersByField = new Map<string, Set<string>>();
+  const seen = new Set<string>();
+  const stack = [...getConfigBaseKeys(leaf)];
+  while (stack.length) {
+    const key = stack.pop() as string;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const c = byKey.get(key);
+    if (!c) continue;
+    for (const f of c.schema?.fields ?? []) {
+      let set = ownersByField.get(f.key);
+      if (!set) {
+        set = new Set<string>();
+        ownersByField.set(f.key, set);
+      }
+      set.add(c.key);
+    }
+    for (const b of getConfigBaseKeys(c)) stack.push(b);
+  }
+  const conflicts: { key: string; owners: string[] }[] = [];
+  for (const [field, owners] of ownersByField) {
+    // A single owner reached via multiple paths (diamond) is fine; 2+ distinct
+    // owners means divergent sibling branches both declare the field.
+    if (owners.size >= 2) {
+      conflicts.push({ key: field, owners: [...owners].sort() });
+    }
+  }
+  return conflicts;
+}
+
+// Own value keys whose stored value no longer conforms to the effective
+// (inherited) field type — the "incompatible, must fix" state that arises when
+// an ancestor's schema change leaves a descendant's preserved value mismatched.
+// Reference-backed values are exempt (resolved type is unknown). Returns the
+// list of offending own keys (empty = all conform).
+export function findIncompatibleConfigValueKeys({
+  value,
+  fields,
+  additionalProperties,
+}: {
+  value: Record<string, unknown>;
+  fields: SchemaField[];
+  additionalProperties: boolean;
+}): string[] {
+  // Single-compile scan (see collectInvalidConfigValueKeys): compiling the schema
+  // once per call instead of once per value key keeps the per-node lineage scan
+  // from quadratically recompiling Ajv across a family.
+  return collectInvalidConfigValueKeys({ value, fields, additionalProperties });
 }
 
 // Remove schema fields whose key is owned by an ancestor (base wins). Returns
@@ -208,11 +378,13 @@ export function stripAncestorOwnedFields(
   return kept.length === fields.length ? null : kept;
 }
 
-// Effective extensibility for a config family. Only the root (base) config's
-// explicit `extensible` flag matters; when absent it inherits the org default
+// Effective extensibility for a config family. Only the spine root (the topmost
+// `parent` ancestor — see getConfigSpineRootKey) config's explicit `extensible`
+// checkbox matters; when absent it inherits the org default
 // (`configsExtensibleByDefault`), which itself defaults to permissive (true).
-// An extensible family permits child configs / feature rules / overrides to add
-// keys beyond the declared schema; a non-extensible family is strict.
+// Mixin (`extends`) bases' extensibility is intentionally ignored under
+// composition. An extensible family permits child configs / feature rules /
+// overrides to add keys beyond the declared schema.
 export function configIsExtensible(
   rootConfig: { extensible?: boolean } | undefined | null,
   orgDefault: boolean | undefined,

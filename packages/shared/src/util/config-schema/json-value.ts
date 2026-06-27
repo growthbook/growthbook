@@ -9,7 +9,9 @@ import { SchemaConverter } from "./types";
 // Reference tokens (`@const:key` / `@config:key`) resolve to whatever the target
 // holds, so we never pin them to a concrete primitive type during inference.
 function isReferenceToken(s: string): boolean {
-  return /^@(?:const|config):/.test(s);
+  // Require an actual key after the namespace — a keyless `@config:` is not a
+  // resolvable token and shouldn't be inferred as `any`.
+  return /^@(?:const|config):[a-z0-9][a-z0-9_-]*$/.test(s);
 }
 
 // Best-guess a single field definition from a concrete JS value. Conservative by

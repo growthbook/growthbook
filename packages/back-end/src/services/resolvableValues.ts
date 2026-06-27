@@ -1,6 +1,6 @@
 import { ConstantInterface } from "shared/types/constant";
 import { ConfigInterface } from "shared/types/config";
-import { getConfigParentKey, withParentExtends } from "shared/util";
+import { getConfigBaseKeys, withConfigExtends } from "shared/util";
 import { ConstantSource } from "shared/sdk-versioning";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
@@ -10,15 +10,16 @@ import { ApiReqContext } from "back-end/types/api";
 export type ResolvableValue = ConstantInterface & { source: ConstantSource };
 
 // Shapes a config as a `json` constant. Synthesizes the `$extends` directive
-// from `parent` (into the default + each env value) so resolution, cycle
-// detection, and the reference graph see the lineage.
+// from the config's base keys (`parent` + `extends` mixins, in precedence
+// order) into the default + each env value, so resolution, cycle detection, and
+// the reference graph see the full composition.
 export function configToResolvable(config: ConfigInterface): ResolvableValue {
-  const parentKey = getConfigParentKey(config);
+  const baseKeys = getConfigBaseKeys(config);
   const environmentValues = config.environmentValues
     ? Object.fromEntries(
         Object.entries(config.environmentValues).map(([env, v]) => [
           env,
-          withParentExtends(v, parentKey) ?? v,
+          withConfigExtends(v, baseKeys),
         ]),
       )
     : config.environmentValues;
@@ -26,7 +27,7 @@ export function configToResolvable(config: ConfigInterface): ResolvableValue {
     ...config,
     type: "json",
     source: "config",
-    value: withParentExtends(config.value, parentKey),
+    value: withConfigExtends(config.value, baseKeys),
     environmentValues,
   };
 }

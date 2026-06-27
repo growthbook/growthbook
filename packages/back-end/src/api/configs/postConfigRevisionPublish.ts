@@ -104,8 +104,11 @@ export const postConfigRevisionPublish = createApiRequestHandler(
   const updatableFields = adapter.getUpdatableFields();
 
   // Same-base governance: when the org enforces rebase-before-publish, a stale
-  // revision must be rebased first. `mergeNow` only takes effect for bypass
-  // callers; otherwise it's ignored.
+  // (diverged) revision must be rebased first. Note `mergeNow` has no observable
+  // effect here: a non-bypass caller is always blocked when diverged (forceMerge
+  // requires `canBypass`), and a bypass caller always passes the `!canBypass`
+  // gate anyway — so bypass callers publish whether `mergeNow` is true or false.
+  // It's retained only as an explicit intent signal / forward-compat affordance.
   if (req.organization.settings?.requireRebaseBeforePublish) {
     const forceMerge = !!req.body.mergeNow && canBypass;
     if (!forceMerge) {
@@ -159,6 +162,7 @@ export const postConfigRevisionPublish = createApiRequestHandler(
       schema:
         (desiredState.schema as SimpleSchema | undefined) ?? config.schema,
       parent: (desiredState.parent as string | undefined) ?? config.parent,
+      extends: (desiredState.extends as string[] | undefined) ?? config.extends,
       extensible:
         (desiredState.extensible as boolean | undefined) ?? config.extensible,
     },

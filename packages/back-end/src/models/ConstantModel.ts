@@ -73,8 +73,12 @@ export class ConstantModel extends BaseClass {
       key,
       value,
       environmentValues,
-      // Span both collections — a constant can reference a config and vice versa.
-      await getResolvableValues(this.context),
+      // Constants reference only constants (`@const:`), so a constant cycle is
+      // confined to the constant namespace — scope to it.
+      (await getResolvableValues(this.context)).filter(
+        (c) => c.source === "constant",
+      ),
+      "constant",
     );
     if (cyclic.length) {
       throw new BadRequestError(

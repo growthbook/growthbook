@@ -45,7 +45,12 @@ function isConfigsTab(value: string): value is ConfigsTab {
 
 export default function ConfigsPage(): React.ReactElement {
   const router = useRouter();
-  const { ready, project, projects, configs } = useDefinitions();
+  const {
+    ready,
+    project,
+    projects,
+    _configsIncludingArchived: allConfigs,
+  } = useDefinitions();
   const { getOwnerDisplay } = useUser();
   const permissionsUtil = usePermissionsUtil();
 
@@ -82,12 +87,15 @@ export default function ConfigsPage(): React.ReactElement {
     [openConfigRevisions],
   );
 
+  // Source from the archived-inclusive list so the `is:archived` facet can
+  // actually surface archived configs (the default view still hides them via
+  // `filterResults` below).
   const visibleConfigs = useMemo(
     () =>
-      configs.filter((c) =>
+      allConfigs.filter((c) =>
         isProjectListValidForProject(c.project ? [c.project] : [], project),
       ),
-    [configs, project],
+    [allConfigs, project],
   );
 
   const configItems = useAddComputedFields(visibleConfigs, (c) => ({
@@ -166,7 +174,12 @@ export default function ConfigsPage(): React.ReactElement {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items, hasDraftFilter]);
 
-  const hasArchived = configs.some((c) => c.archived);
+  // Project-scoped: the archived facet/badge must reflect the configs in scope
+  // for the current project, not the org-wide list.
+  const hasArchived = visibleConfigs.some((c) => c.archived);
+  const allTabCount = (
+    showArchived ? visibleConfigs : visibleConfigs.filter((c) => !c.archived)
+  ).length;
 
   if (!ready) {
     return <LoadingOverlay />;
@@ -175,7 +188,9 @@ export default function ConfigsPage(): React.ReactElement {
   const canAdd = permissionsUtil.canCreateConfig({
     project: project || undefined,
   });
-  const hasConfigs = configs.length > 0;
+  // Include archived so an org with only archived configs still gets the list
+  // (and its `is:archived` facet) rather than the empty state.
+  const hasConfigs = allConfigs.length > 0;
 
   const addButton = (
     <Button disabled={!canAdd} onClick={() => setModalOpen(true)}>
@@ -230,7 +245,7 @@ export default function ConfigsPage(): React.ReactElement {
               <TabsTrigger value="all">
                 All Configs
                 <span className="ml-2 round-text-background text-main">
-                  {configs.length}
+                  {allTabCount}
                 </span>
               </TabsTrigger>
               <TabsTrigger value="drafts">

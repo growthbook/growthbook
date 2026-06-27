@@ -29,7 +29,7 @@ import {
   ConstantReferences,
   loadConstantReferences,
   assertConstantArchivable,
-  assertKeyAvailableAcrossNamespace,
+  assertKeyAvailable,
 } from "back-end/src/services/constants";
 import { getResolvableValues } from "back-end/src/services/resolvableValues";
 import { dispatchConstantRevisionEvent } from "back-end/src/services/constantRevisionEvents";
@@ -102,11 +102,15 @@ export const getConstantCyclicKeys = async (
   if (!constant) {
     return context.throwNotFoundError("Constant not found");
   }
-  const all = await getResolvableValues(context);
+  // Constant cycles live entirely in the constant namespace, so scope the graph
+  // to constants and count only `@const:` references.
+  const all = (await getResolvableValues(context)).filter(
+    (c) => c.source === "constant",
+  );
   const referencesByKey = new Map(
     all.map((c) => [
       c.key,
-      getConstantReferenceKeys(c.value, c.environmentValues),
+      getConstantReferenceKeys(c.value, c.environmentValues, "constant"),
     ]),
   );
   const cyclicKeys = [
@@ -144,21 +148,22 @@ export const postConstant = async (
   validateResolvableValue({
     type: body.type,
     value: body.value ?? "",
-    forbidConfigRefs: true,
+    refSource: "constant",
   });
   for (const [envId, v] of Object.entries(body.environmentValues ?? {})) {
     validateResolvableValue({
       type: body.type,
       value: v,
       label: envId,
-      forbidConfigRefs: true,
+      refSource: "constant",
     });
   }
 
   // Cycle rejection is enforced in ConstantModel (covers every write path).
 
-  // Keys are unique across both constants and configs (shared `@const:` namespace).
-  await assertKeyAvailableAcrossNamespace(context, body.key);
+  // Constant keys are unique within the constant namespace (a config may share
+  // the key — `@const:foo` and `@config:foo` are distinct).
+  await assertKeyAvailable(context, body.key, "constant");
 
   // Permission is enforced by the model's canCreate.
   const constant = await context.models.constants.create({
@@ -241,7 +246,7 @@ export const putConstant = async (
     validateResolvableValue({
       type: existing.type,
       value,
-      forbidConfigRefs: true,
+      refSource: "constant",
     });
   }
   for (const [envId, v] of Object.entries(environmentValues ?? {})) {
@@ -249,7 +254,7 @@ export const putConstant = async (
       type: existing.type,
       value: v,
       label: envId,
-      forbidConfigRefs: true,
+      refSource: "constant",
     });
   }
 

@@ -71,7 +71,12 @@ export const putConfigRevisionSchema = createApiRequestHandler(
     // Enforce "base wins" against ancestors-at-stage-time (re-checked at publish).
     const normalizedSchema =
       await req.context.models.configs.normalizeSchemaAgainstAncestors(
-        { key: config.key, parent: draft.parent, value: draft.value },
+        {
+          key: config.key,
+          parent: draft.parent,
+          extends: draft.extends,
+          value: draft.value,
+        },
         schema,
       );
 
@@ -85,6 +90,7 @@ export const putConfigRevisionSchema = createApiRequestHandler(
         value: draft.value,
         schema: normalizedSchema,
         parent: draft.parent,
+        extends: draft.extends,
       },
       { value: draft.value, environmentValues: draft.environmentValues },
     );

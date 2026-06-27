@@ -411,8 +411,8 @@ export function checkMergeConflicts(
 
   // Helper to check if values are different
   const hasChanged = (val1: unknown, val2: unknown): boolean => {
-    if (val1 == null) return false;
-    if (val2 == null) return true;
+    if ((val1 ?? null) === null) return false;
+    if ((val2 ?? null) === null) return true;
     return !isEqual(val1, val2);
   };
 

@@ -18878,10 +18878,19 @@ paths:
                   type: string
                 parent:
                   description: >-
-                    The `key` of the config to inherit from. Express inheritance
-                    here, NOT via a `@config:` entry in `value` (any such entry
-                    is stripped and migrated to `parent`).
+                    The `key` of the config to inherit from (the primary lineage
+                    spine). Express inheritance via `parent`/`extends`, NEVER
+                    via a `@config:` entry in `value` (which is rejected).
                   type: string
+                extends:
+                  description: >-
+                    Additional composition bases (config `key`s) layered on top
+                    of `parent`, in precedence order (later overrides earlier;
+                    all override `parent`; own keys win last). Set inheritance
+                    here, never via a `@config:` entry in `value`.
+                  type: array
+                  items:
+                    type: string
                 value:
                   type: string
                 environmentValues:
@@ -18906,10 +18915,12 @@ paths:
                   type: string
                 schema:
                   description: >-
-                    Field definitions for this config. Fields whose key a
-                    published ancestor already owns are stripped on create
-                    ('base wins'). Omit to leave the config schema-less, or use
-                    the schema-import endpoints to derive one.
+                    Field definitions for this config. Fields whose key an
+                    ancestor (via `parent`/`extends`) already owns are stripped
+                    on create ('base wins'); a field owned by two sibling bases
+                    is a conflict and is rejected. Omit to leave the config
+                    schema-less, or use the schema-import endpoints to derive
+                    one.
                   type: object
                   properties:
                     type:
@@ -19424,6 +19435,16 @@ paths:
                     inherit from). Set to an empty string to detach from the
                     parent and make this a root config.
                   type: string
+                extends:
+                  description: >-
+                    Replace the composition bases (mixins) layered on top of
+                    `parent`, in precedence order (later overrides earlier; all
+                    override `parent`; own keys win last). Send the complete
+                    set; an empty array clears all mixins. Set inheritance here,
+                    never via a `@config:` entry in `value`.
+                  type: array
+                  items:
+                    type: string
                 value:
                   type: string
                 environmentValues:
@@ -19934,6 +19955,15 @@ paths:
                     Change the lineage parent (the `key` to inherit from). Empty
                     string detaches from the parent.
                   type: string
+                extends:
+                  description: >-
+                    Replace the composition mixins layered on top of `parent`,
+                    in precedence order (later overrides earlier; all override
+                    `parent`; own keys win last). Send the complete set; an
+                    empty array clears all mixins.
+                  type: array
+                  items:
+                    type: string
                 extensible:
                   type: boolean
               additionalProperties: false
@@ -19964,9 +19994,9 @@ paths:
       description: >-
         Stages a new default `value` and/or per-environment `environmentValues`
         on the draft (this config's own JSON object fields). At least one must
-        be supplied. Pass `version: "new"` to auto-create a draft. Any
-        `@config:` inheritance entry in the value is stripped — express lineage
-        via the `parent` metadata field instead.
+        be supplied. Pass `version: "new"` to auto-create a draft. A `@config:`
+        inheritance entry in the value is rejected — express lineage via the
+        `parent`/`extends` metadata fields instead.
 
 
         Set `inferSchemaIfMissing: true` to derive and stage a field schema from
@@ -42725,10 +42755,19 @@ components:
           type: string
         parent:
           description: >-
-            The `key` of the config this one inherits from (lineage parent). The
-            `$extends` directive is synthesized from this at resolution time and
-            is never stored in `value`.
+            The `key` of the config this one inherits from (lineage parent — the
+            primary spine). Synthesized into `$extends` at resolution time and
+            never stored in `value`.
           type: string
+        extends:
+          description: >-
+            Additional composition bases (config `key`s) layered on top of
+            `parent`, in precedence order (later overrides earlier; all override
+            `parent`; this config's own keys win last). Like `parent`, set via
+            this field — never via a `@config:` entry in `value`.
+          type: array
+          items:
+            type: string
         value:
           description: >-
             This config's own JSON-encoded object value (its declared fields
@@ -48417,22 +48456,42 @@ components:
               name:
                 type: string
               parent:
-                description: The lineage parent's key, or null for the family root.
+                description: >-
+                  The lineage parent's key (tree spine), or null for the family
+                  root.
                 anyOf:
                   - type: string
                   - type: 'null'
+              extends:
+                description: >-
+                  Additional composition bases (mixin config keys) layered on
+                  top of `parent`. The tree shape follows `parent`/`depth`;
+                  these express composition beyond the parent/child spine.
+                type: array
+                items:
+                  type: string
               project:
                 type: string
               archived:
                 type: boolean
               depth:
-                description: Distance from the family root (the root is 0).
+                description: >-
+                  Distance from the family root along the `parent` spine (root
+                  is 0).
                 type: integer
                 minimum: -9007199254740991
                 maximum: 9007199254740991
               isTarget:
                 description: True for the requested config.
                 type: boolean
+              incompatibleFields:
+                description: >-
+                  Own value keys whose value no longer conforms to the effective
+                  (inherited) field type and must be fixed. Empty when all
+                  conform.
+                type: array
+                items:
+                  type: string
             required:
               - key
               - name
@@ -50581,20 +50640,35 @@ components:
         name:
           type: string
         parent:
-          description: The lineage parent's key, or null for the family root.
+          description: The lineage parent's key (tree spine), or null for the family root.
           anyOf:
             - type: string
             - type: 'null'
+        extends:
+          description: >-
+            Additional composition bases (mixin config keys) layered on top of
+            `parent`. The tree shape follows `parent`/`depth`; these express
+            composition beyond the parent/child spine.
+          type: array
+          items:
+            type: string
         project:
           type: string
         archived:
           type: boolean
         depth:
-          description: Distance from the family root (the root is 0).
+          description: Distance from the family root along the `parent` spine (root is 0).
           type: integer
         isTarget:
           description: True for the requested config.
           type: boolean
+        incompatibleFields:
+          description: >-
+            Own value keys whose value no longer conforms to the effective
+            (inherited) field type and must be fixed. Empty when all conform.
+          type: array
+          items:
+            type: string
       required:
         - key
         - name

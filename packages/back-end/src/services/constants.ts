@@ -9,6 +9,7 @@ import {
   getConfigSubtree,
   getConfigBackingKey,
 } from "shared/util";
+import { ConstantSource } from "shared/sdk-versioning";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { BadRequestError } from "back-end/src/util/errors";
@@ -39,48 +40,55 @@ export async function resolvableValueChanged(
   });
 }
 
-// Reject cyclic values at write time — a stored cycle leaks raw `@const:`
-// placeholders into the payload.
+// Reject cyclic values at write time — a stored cycle leaks raw reference
+// placeholders into the payload. `namespace` scopes the check: cycles are always
+// intra-namespace (constants reference only constants; configs reference only
+// configs in their lineage), so a constant and a config sharing a bare key are
+// never conflated.
 export async function assertNoReferenceCycle(
   context: ReqContext | ApiReqContext,
   key: string,
   value: string | undefined,
   environmentValues: Record<string, string> | undefined,
+  namespace: ConstantSource = "constant",
 ): Promise<void> {
-  const all = await getResolvableValues(context);
-  const cyclic = getCyclicConstantRefs(key, value, environmentValues, all);
+  const all = (await getResolvableValues(context)).filter(
+    (c) => c.source === namespace,
+  );
+  const cyclic = getCyclicConstantRefs(
+    key,
+    value,
+    environmentValues,
+    all,
+    namespace,
+  );
   if (cyclic.length) {
+    const prefix = namespace === "config" ? "@config:" : "@const:";
     throw new BadRequestError(
       `This value references ${cyclic
-        .map((k) => `@const:${k}`)
+        .map((k) => `${prefix}${k}`)
         .join(", ")}, which would create a reference cycle.`,
     );
   }
 }
 
-// Keys are unique across both collections — check each. Returns the owner, or null.
-export async function findKeyOwnerAcrossNamespace(
+// Throw a friendly duplicate-key error if `key` is already taken within the
+// given namespace. Constants and configs are independent namespaces (a constant
+// and a config MAY share a key — `@const:foo` and `@config:foo` are distinct),
+// so each collection is checked on its own. The DB also enforces a per-org
+// unique index per collection; this just yields a nicer message.
+export async function assertKeyAvailable(
   context: ReqContext | ApiReqContext,
   key: string,
-): Promise<"constant" | "config" | null> {
-  const [constant, config] = await Promise.all([
-    context.models.constants.getByKey(key),
-    context.models.configs.getByKey(key),
-  ]);
-  if (constant) return "constant";
-  if (config) return "config";
-  return null;
-}
-
-// Throw a friendly duplicate-key error if `key` is taken by a constant or config.
-export async function assertKeyAvailableAcrossNamespace(
-  context: ReqContext | ApiReqContext,
-  key: string,
+  namespace: ConstantSource,
 ): Promise<void> {
-  const owner = await findKeyOwnerAcrossNamespace(context, key);
-  if (owner) {
+  const existing =
+    namespace === "config"
+      ? await context.models.configs.getByKey(key)
+      : await context.models.constants.getByKey(key);
+  if (existing) {
     throw new BadRequestError(
-      `A ${owner} with key "${key}" already exists. Keys must be unique across constants and configs.`,
+      `A ${namespace} with key "${key}" already exists.`,
     );
   }
 }
@@ -132,13 +140,24 @@ function featureValueStrings(feature: FeatureInterface): string[] {
   return out;
 }
 
-// The set of constant keys referenced anywhere in a feature's values.
-function featureConstantKeys(feature: FeatureInterface): Set<string> {
-  const keys = new Set<string>();
+// A namespaced reference token (`constant:key` / `config:key`) used to match
+// references without conflating a key shared by a constant and a config.
+const refToken = (source: ConstantSource, key: string): string =>
+  `${source}:${key}`;
+
+// The set of namespaced reference tokens a feature's values hold (both
+// `@const:` and `@config:` references).
+function featureReferenceTokens(feature: FeatureInterface): Set<string> {
+  const tokens = new Set<string>();
   for (const value of featureValueStrings(feature)) {
-    for (const key of getConstantReferenceKeys(value, undefined)) keys.add(key);
+    for (const key of getConstantReferenceKeys(value, undefined, "constant")) {
+      tokens.add(refToken("constant", key));
+    }
+    for (const key of getConstantReferenceKeys(value, undefined, "config")) {
+      tokens.add(refToken("config", key));
+    }
   }
-  return keys;
+  return tokens;
 }
 
 // Features and constants/configs that reference a constant. Includes one level
@@ -148,34 +167,40 @@ export async function loadConstantReferences(
   context: ReqContext | ApiReqContext,
   constantId: string,
 ): Promise<ConstantReferences | null> {
-  // Span both collections — references cross the config/constant boundary.
+  // Span both collections — a constant target may be referenced by configs (via
+  // `@const:`) and vice versa. Matching is namespaced: a reference to the target
+  // only counts when its `@const:`/`@config:` prefix matches the target's own
+  // namespace, so a same-keyed constant/config pair isn't conflated.
   const configs = await context.models.configs.getAll();
   const configIds = new Set(configs.map((c) => c.id));
   const allConstants = await getResolvableValues(context);
   const target = allConstants.find((c) => c.id === constantId);
   if (!target) return null;
 
-  // Constants/configs that directly embed the target.
+  // Constants/configs that directly embed the target (in the target's namespace).
   const constantsReferencingTarget = allConstants.filter(
     (c) =>
       c.id !== constantId &&
-      getConstantReferenceKeys(c.value, c.environmentValues).includes(
-        target.key,
-      ),
+      getConstantReferenceKeys(
+        c.value,
+        c.environmentValues,
+        target.source,
+      ).includes(target.key),
   );
 
-  // Affected = references the target directly or via one embedding constant.
-  const affectedKeys = new Set<string>([
-    target.key,
-    ...constantsReferencingTarget.map((c) => c.key),
+  // Affected = references the target directly or via one embedding resolvable.
+  // Tracked as namespaced tokens so feature matching stays namespace-correct.
+  const affectedTokens = new Set<string>([
+    refToken(target.source, target.key),
+    ...constantsReferencingTarget.map((c) => refToken(c.source, c.key)),
   ]);
 
   const allFeatures = await getAllFeatures(context, {});
   const features = allFeatures
     .filter((f) => {
-      const keys = featureConstantKeys(f);
-      for (const k of affectedKeys) {
-        if (keys.has(k)) return true;
+      const tokens = featureReferenceTokens(f);
+      for (const t of affectedTokens) {
+        if (tokens.has(t)) return true;
       }
       return false;
     })
@@ -288,51 +313,64 @@ export async function assertConstantArchivable(
   );
 }
 
-// Configs whose lineage parent is `configKey`. Uses the unfiltered set so a
-// child in an unreadable project still blocks the guard (lineage is global).
-async function getChildConfigs(
+// Configs that depend on `configKey` as a base — either via the `parent` spine
+// (inheritance) or via `extends` (composition mixin). Both edges break if the
+// base disappears: a dangling `parent` pointer or a dangling mixin ref whose
+// fields silently vanish from the composer's resolution. Uses the unfiltered set
+// so a dependent in an unreadable project still blocks the guard (lineage is
+// global).
+async function getDependentConfigs(
   context: ReqContext | ApiReqContext,
   configKey: string,
 ): Promise<ConfigInterface[]> {
   const all = await context.models.configs.getAllForReconcile();
   return all.filter(
-    (c) => c.key !== configKey && getConfigParentKey(c) === configKey,
+    (c) =>
+      c.key !== configKey &&
+      (getConfigParentKey(c) === configKey ||
+        (c.extends ?? []).includes(configKey)),
   );
 }
 
 // Block archiving a config that is still referenced (value-embedded refs) OR
-// that has live child configs inheriting from it — archiving the base would
-// break the children's resolution. Unarchiving is always allowed.
+// that live configs depend on as a base — via `parent` (inheritance) or
+// `extends` (composition). Archiving the base would break those dependents'
+// resolution. Unarchiving is always allowed.
 export async function assertConfigArchivable(
   context: ReqContext | ApiReqContext,
   config: { id: string; key: string },
 ): Promise<void> {
   await assertConstantArchivable(context, config.id, "config");
 
-  const liveChildren = (await getChildConfigs(context, config.key)).filter(
-    (c) => !c.archived,
-  );
-  if (liveChildren.length) {
+  const liveDependents = (
+    await getDependentConfigs(context, config.key)
+  ).filter((c) => !c.archived);
+  if (liveDependents.length) {
     throw new BadRequestError(
-      `Cannot archive config: ${liveChildren.length} live child config(s) inherit from it (${liveChildren
+      `Cannot archive config: ${liveDependents.length} live config(s) depend on it (${liveDependents
         .map((c) => c.key)
-        .join(", ")}). Archive or re-parent them first.`,
+        .join(
+          ", ",
+        )}). Re-parent or remove the mixin from them, or archive them first.`,
     );
   }
 }
 
-// Block deleting a config that any other config still inherits from (archived
-// or not) — deletion would dangle their `parent` pointer.
+// Block deleting a config that any other config still depends on as a base
+// (archived or not) — via `parent` or `extends`. Deletion would dangle their
+// `parent` pointer or `extends` mixin ref.
 export async function assertConfigDeletable(
   context: ReqContext | ApiReqContext,
   config: { id: string; key: string },
 ): Promise<void> {
-  const children = await getChildConfigs(context, config.key);
-  if (children.length) {
+  const dependents = await getDependentConfigs(context, config.key);
+  if (dependents.length) {
     throw new BadRequestError(
-      `Cannot delete config: ${children.length} child config(s) inherit from it (${children
+      `Cannot delete config: ${dependents.length} config(s) depend on it (${dependents
         .map((c) => c.key)
-        .join(", ")}). Delete or re-parent them first.`,
+        .join(
+          ", ",
+        )}). Re-parent or remove the mixin from them, or delete them first.`,
     );
   }
 }

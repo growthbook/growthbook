@@ -155,14 +155,14 @@ export default function ConstantValueModal({
           type,
           value: values.value,
           label: "Value",
-          forbidConfigRefs: true,
+          refSource: "constant",
         });
         for (const [envId, v] of Object.entries(environmentValues)) {
           validateResolvableValue({
             type,
             value: v,
             label: envId,
-            forbidConfigRefs: true,
+            refSource: "constant",
           });
         }
 

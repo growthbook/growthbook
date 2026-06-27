@@ -113,20 +113,33 @@ describe("validateResolvableValue", () => {
     ).toThrow(/\$extends/);
   });
 
-  it("rejects @config refs only when forbidConfigRefs is set", () => {
+  it("allows a @config ref for feature values (no refSource)", () => {
     expect(() =>
       validateResolvableValue({
         type: "json",
         value: '{"$extends":["@config:base"]}',
       }),
     ).not.toThrow();
+  });
+
+  it("rejects a @config ref for constants with a constant-specific message", () => {
     expect(() =>
       validateResolvableValue({
         type: "json",
         value: '{"$extends":["@config:base"]}',
-        forbidConfigRefs: true,
+        refSource: "constant",
       }),
     ).toThrow(/Constants cannot reference configs/);
+  });
+
+  it("rejects a @config ref for configs with a config-specific message", () => {
+    expect(() =>
+      validateResolvableValue({
+        type: "json",
+        value: '{"$extends":["@config:base"]}',
+        refSource: "config",
+      }),
+    ).toThrow(/parent.*extends|extends.*parent/);
   });
 
   it("prefixes the error with the label when provided", () => {
@@ -316,20 +329,36 @@ describe("assertValidExtendsEntries", () => {
       ).toThrow(/@config/);
     });
 
-    it("rejects any @config ref when forbidConfigRefs is set (constants)", () => {
+    it("rejects any @config ref when refSource=constant", () => {
       expect(() =>
         assertValidExtendsEntries(
           { $extends: ["@config:base"] },
           "",
           false,
-          true,
+          "constant",
         ),
       ).toThrow(/Constants cannot reference configs/);
     });
 
-    it("still allows @const refs when forbidConfigRefs is set", () => {
+    it("rejects any @config ref when refSource=config (config-specific message)", () => {
       expect(() =>
-        assertValidExtendsEntries({ $extends: ["@const:a"] }, "", false, true),
+        assertValidExtendsEntries(
+          { $extends: ["@config:base"] },
+          "",
+          false,
+          "config",
+        ),
+      ).toThrow(/parent.*extends|extends.*parent/);
+    });
+
+    it("still allows @const refs when refSource is set", () => {
+      expect(() =>
+        assertValidExtendsEntries(
+          { $extends: ["@const:a"] },
+          "",
+          false,
+          "constant",
+        ),
       ).not.toThrow();
     });
   });

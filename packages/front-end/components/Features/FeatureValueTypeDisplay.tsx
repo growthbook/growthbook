@@ -48,7 +48,8 @@ export default function FeatureValueTypeDisplay({
 
   return (
     <Flex as="span" align="center" gap="1" display="inline-flex">
-      <span>{label},</span>
+      <span>{label}</span>
+      <span style={{ color: "var(--slate-9)" }}>·</span>
       {link && config ? (
         <Link
           href={`/configs/${config.key}`}
