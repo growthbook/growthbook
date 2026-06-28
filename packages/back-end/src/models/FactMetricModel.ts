@@ -26,6 +26,8 @@ import {
   validateFactMetricRowFilterSql,
 } from "back-end/src/services/factMetricRowFilterValidation";
 import { projectFilterQuery } from "back-end/src/util/mongo.util";
+import { validateAggregationSpecification } from "back-end/src/services/factMetricAggregationValidation";
+import { healPriorSettings } from "back-end/src/util/priors";
 import { MakeModelClass } from "./BaseModel";
 import { getDataSourceById } from "./DataSourceModel";
 import { getFactTableMap } from "./FactTableModel";
@@ -213,9 +215,24 @@ export class FactMetricModel extends BaseClass {
         stddev: DEFAULT_PROPER_PRIOR_STDDEV,
       };
     }
+    healPriorSettings(newDoc.priorSettings);
 
     if (newDoc.numerator) {
       newDoc.numerator = FactMetricModel.migrateColumnRef(newDoc.numerator);
+    }
+
+    // Fix Daily Participation metrics that have incorrect column values
+    // These metrics require $$distinctDates to correctly generate COUNT(DISTINCT DATE(...))
+    if (
+      newDoc.metricType === "dailyParticipation" &&
+      newDoc.numerator &&
+      newDoc.numerator.column !== "$$distinctDates"
+    ) {
+      newDoc.numerator = {
+        ...newDoc.numerator,
+        column: "$$distinctDates",
+        aggregation: undefined,
+      };
     }
 
     // Clean up orphaned denominators that should not exist
@@ -232,6 +249,11 @@ export class FactMetricModel extends BaseClass {
 
   public static migrateColumnRef(columnRef: LegacyColumnRef): ColumnRef {
     const { filters, inlineFilters, ...newColumnRef } = columnRef;
+
+    // The Mongo driver stores explicit `undefined` as null, which fails validation on later updates
+    if ((newColumnRef.aggregation ?? null) === null) {
+      delete newColumnRef.aggregation;
+    }
 
     // If row filters are already defined, do nothing
     if (newColumnRef.rowFilters !== undefined) {
@@ -344,6 +366,19 @@ export class FactMetricModel extends BaseClass {
       filterType: "numerator",
     });
 
+    // Validate aggregation/datatype constraints (runs for every code path
+    // that hits BaseModel — internal UI controllers, external API,
+    // bulk import, etc.)
+    validateAggregationSpecification({
+      errorPrefix: "Numerator misspecified. ",
+      column: data.numerator,
+      factTable: numeratorFactTable,
+      metricType: data.metricType,
+      quantileType: data.quantileSettings?.type,
+      quantileIgnoreZeros: data.quantileSettings?.ignoreZeros,
+      quantileEventCountColumn: data.quantileSettings?.quantileEventCountColumn,
+    });
+
     // validate column
     const metricSupportsDistinctDates =
       data.metricType === "mean" ||
@@ -394,6 +429,17 @@ export class FactMetricModel extends BaseClass {
         columnRef: data.denominator,
         factTable: denominatorFactTable,
         filterType: "denominator",
+      });
+
+      validateAggregationSpecification({
+        errorPrefix: "Denominator misspecified. ",
+        column: data.denominator,
+        factTable: denominatorFactTable,
+        metricType: data.metricType,
+        quantileType: data.quantileSettings?.type,
+        quantileIgnoreZeros: data.quantileSettings?.ignoreZeros,
+        // Override is numerator-only; never relevant for denominators.
+        quantileEventCountColumn: undefined,
       });
     } else if (data.denominator?.factTableId) {
       throw new Error("Denominator not allowed for non-ratio metric");
@@ -546,6 +592,7 @@ export class FactMetricModel extends BaseClass {
       cappingSettings: {
         ...cappingSettings,
         type: cappingSettings.type || "none",
+        ignoreZeros: cappingSettings.ignoreZeros ?? undefined,
       },
       windowSettings: {
         ...windowSettings,

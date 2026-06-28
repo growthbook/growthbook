@@ -7,7 +7,7 @@ import { getReviewSetting } from "shared/util";
 import { useAuth } from "@/services/auth";
 import { useExperiments } from "@/hooks/useExperiments";
 import Callout from "@/ui/Callout";
-import Modal from "@/components/Modal";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useDefaultDraft } from "@/hooks/useDefaultDraft";
 import DraftSelectorForChanges, {
@@ -50,7 +50,7 @@ const AddToHoldoutModal = ({
 
   const defaultDraft = useDefaultDraft(revisionList);
   const [mode, setMode] = useState<DraftMode>(
-    defaultDraft != null ? "existing" : "new",
+    defaultDraft !== null ? "existing" : "new",
   );
   const [selectedDraft, setSelectedDraft] = useState<number | null>(
     defaultDraft,
@@ -71,7 +71,7 @@ const AddToHoldoutModal = ({
   const showHoldoutSelect = experimentsAreInDraft && eligibleToAddToHoldout;
 
   return (
-    <Modal
+    <ModalStandard
       header="Add to holdout"
       close={close}
       open={true}
@@ -90,7 +90,7 @@ const AddToHoldoutModal = ({
                   ...value,
                   ...(isPublish
                     ? { autoPublish: true }
-                    : mode === "existing" && selectedDraft != null
+                    : mode === "existing" && selectedDraft !== null
                       ? { targetDraftVersion: selectedDraft }
                       : { forceNewDraft: true }),
                 }),
@@ -100,8 +100,7 @@ const AddToHoldoutModal = ({
               const resolvedVersion =
                 res.draftVersion ??
                 (mode === "existing" ? selectedDraft : null);
-              if (resolvedVersion != null) setVersion(resolvedVersion);
-              close();
+              if (resolvedVersion !== null) setVersion(resolvedVersion);
             })
           : undefined
       }
@@ -140,7 +139,7 @@ const AddToHoldoutModal = ({
           />
         </>
       )}
-    </Modal>
+    </ModalStandard>
   );
 };
 

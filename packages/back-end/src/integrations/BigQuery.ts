@@ -16,6 +16,7 @@ import {
   MaxTimestampIncrementalUnitsQueryParams,
 } from "shared/types/integrations";
 import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
+import { RunQueryMetadata } from "shared/types/query";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import { formatInformationSchema } from "back-end/src/util/informationSchemas";
@@ -23,6 +24,7 @@ import { logger } from "back-end/src/util/logger";
 import {
   BigQueryDataType,
   getFactTableTypeFromBigQueryType,
+  sanitizeQueryMetadataForBigQueryLabels,
 } from "back-end/src/services/bigquery";
 import SqlIntegration from "./SqlIntegration";
 import { bigQueryDialect } from "./dialects/bigquery";
@@ -59,27 +61,43 @@ export default class BigQuery extends SqlIntegration {
     });
   }
 
-  async cancelQuery(externalId: string): Promise<void> {
+  async cancelQuery(
+    externalId: string,
+    metadata?: Record<string, string>,
+  ): Promise<void> {
     const client = this.getClient();
-    const job = client.job(externalId);
 
-    // Attempt to cancel job
+    // Location is required for non-US/EU multi-region datasets — without it
+    // BQ returns 404. Historical jobs without persisted location fall back
+    // to the library default.
+    const location = metadata?.location;
+    const job = location
+      ? client.job(externalId, { location })
+      : client.job(externalId);
+
+    // job.cancel() resolves when the cancel is accepted, not when the job
+    // transitions to CANCELLED. statusAtCancel often still reads RUNNING.
     const [apiResult] = await job.cancel();
-    logger.debug(
-      `Cancelled BigQuery job ${externalId} - ${JSON.stringify(
-        apiResult.job?.status,
-      )}`,
+    logger.info(
+      { externalId, location, statusAtCancel: apiResult.job?.status },
+      "BigQuery cancel request accepted",
     );
   }
 
   async runQuery(
     sql: string,
-    setExternalId?: ExternalIdCallback,
+    setExternalId: ExternalIdCallback | undefined,
+    queryMetadata: RunQueryMetadata,
   ): Promise<QueryResponse> {
     const client = this.getClient();
 
+    const labels = sanitizeQueryMetadataForBigQueryLabels(queryMetadata);
+
     const [job] = await client.createQueryJob({
-      labels: { integration: "growthbook" },
+      labels: {
+        ...labels,
+        integration: "growthbook",
+      },
       query: sql,
       useLegacySql: false,
       ...(this.params.reservation
@@ -88,7 +106,11 @@ export default class BigQuery extends SqlIntegration {
     });
 
     if (setExternalId && job.id) {
-      await setExternalId(job.id);
+      // Persist location so cancelQuery can target the right region.
+      await setExternalId(
+        job.id,
+        job.location ? { location: job.location } : undefined,
+      );
     }
 
     const [rows, _, queryResultsResponse] = await job.getQueryResults();
@@ -148,7 +170,7 @@ export default class BigQuery extends SqlIntegration {
     );
   }
 
-  hasQuantileKLL(): boolean {
+  hasQuantileSketch(): boolean {
     return true;
   }
   supportsLimitZeroColumnValidation(): boolean {
@@ -204,6 +226,8 @@ export default class BigQuery extends SqlIntegration {
       try {
         const { rows: datasetResults } = await this.runQuery(
           format(query, this.getSqlDialect().formatDialect),
+          undefined,
+          { queryType: "informationSchema" },
         );
 
         if (datasetResults.length > 0) {
@@ -251,8 +275,11 @@ export default class BigQuery extends SqlIntegration {
       .map((field) => mapField(field));
   }
 
-  createTablePartitions(columns: string[]): string {
-    return bigQueryCreateTablePartitions(columns);
+  createTablePartitions(
+    columns: string[],
+    opts?: { partitionByDate?: boolean; partitionExpirationDays?: number },
+  ): string {
+    return bigQueryCreateTablePartitions(columns, opts);
   }
 
   getMaxTimestampMetricSourceQuery(

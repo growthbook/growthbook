@@ -533,6 +533,199 @@ describe("Build base user permissions", () => {
     });
   });
 
+  it("should let an explicit project-level noaccess role take precedence over a team's global role (project role isn't widened by team global)", async () => {
+    const teams: TeamInterface[] = [
+      {
+        id: "team_123",
+        name: "SCIM Group",
+        organization: "org_id_1234",
+        description: "",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        createdBy: "idp",
+        role: "readonly",
+        limitAccessByEnvironment: false,
+        environments: [],
+        projectRoles: [],
+        managedByIdp: true,
+      },
+    ];
+
+    const userPermissions = getUserPermissions(
+      { id: "base_user_123" },
+      {
+        ...testOrg,
+        members: [
+          {
+            ...testOrg.members[0],
+            role: "readonly",
+            projectRoles: [
+              {
+                project: "prj_hidden",
+                role: "noaccess",
+                limitAccessByEnvironment: false,
+                environments: [],
+              },
+            ],
+            teams: ["team_123"],
+          },
+        ],
+      },
+      teams,
+    );
+
+    expect(userPermissions).toEqual({
+      global: {
+        environments: [],
+        limitAccessByEnvironment: false,
+        permissions: roleToPermissionMap("readonly", testOrg),
+      },
+      projects: {
+        prj_hidden: {
+          environments: [],
+          limitAccessByEnvironment: false,
+          permissions: roleToPermissionMap("noaccess", testOrg),
+        },
+      },
+    });
+
+    const permissions = new Permissions(userPermissions);
+    expect(permissions.canReadSingleProjectResource("prj_hidden")).toEqual(
+      false,
+    );
+  });
+
+  it("should let an explicit team project role take precedence over the user's global role", async () => {
+    const teams: TeamInterface[] = [
+      {
+        id: "team_123",
+        name: "Restricted Project Team",
+        organization: "org_id_1234",
+        description: "",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        createdBy: "Demo User",
+        role: "noaccess",
+        limitAccessByEnvironment: false,
+        environments: [],
+        projectRoles: [
+          {
+            project: "prj_restricted",
+            role: "noaccess",
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        ],
+        managedByIdp: false,
+      },
+    ];
+
+    const userPermissions = getUserPermissions(
+      { id: "base_user_123" },
+      {
+        ...testOrg,
+        members: [
+          {
+            ...testOrg.members[0],
+            role: "engineer",
+            projectRoles: [],
+            teams: ["team_123"],
+          },
+        ],
+      },
+      teams,
+    );
+
+    expect(userPermissions).toEqual({
+      global: {
+        environments: [],
+        limitAccessByEnvironment: false,
+        permissions: roleToPermissionMap("engineer", testOrg),
+      },
+      projects: {
+        prj_restricted: {
+          environments: [],
+          limitAccessByEnvironment: false,
+          permissions: roleToPermissionMap("noaccess", testOrg),
+        },
+      },
+    });
+
+    const permissions = new Permissions(userPermissions);
+    expect(permissions.canReadSingleProjectResource("prj_restricted")).toEqual(
+      false,
+    );
+  });
+
+  it("should union a user's explicit project role with a team's explicit project role (a user-level noaccess does not block a team's explicit grant on the same project)", async () => {
+    const teams: TeamInterface[] = [
+      {
+        id: "team_123",
+        name: "Project Engineers",
+        organization: "org_id_1234",
+        description: "",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        createdBy: "Demo User",
+        role: "noaccess",
+        limitAccessByEnvironment: false,
+        environments: [],
+        projectRoles: [
+          {
+            project: "prj_shared",
+            role: "engineer",
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        ],
+        managedByIdp: false,
+      },
+    ];
+
+    const userPermissions = getUserPermissions(
+      { id: "base_user_123" },
+      {
+        ...testOrg,
+        members: [
+          {
+            ...testOrg.members[0],
+            role: "readonly",
+            projectRoles: [
+              {
+                project: "prj_shared",
+                role: "noaccess",
+                limitAccessByEnvironment: false,
+                environments: [],
+              },
+            ],
+            teams: ["team_123"],
+          },
+        ],
+      },
+      teams,
+    );
+
+    expect(userPermissions).toEqual({
+      global: {
+        environments: [],
+        limitAccessByEnvironment: false,
+        permissions: roleToPermissionMap("readonly", testOrg),
+      },
+      projects: {
+        prj_shared: {
+          environments: [],
+          limitAccessByEnvironment: false,
+          permissions: roleToPermissionMap("engineer", testOrg),
+        },
+      },
+    });
+
+    const permissions = new Permissions(userPermissions);
+    expect(permissions.canReadSingleProjectResource("prj_shared")).toEqual(
+      true,
+    );
+  });
+
   it("should not override a user's global permissions with a team's permissions if the user has a more permissive role (e.g. don't override admin permissions with collaborator permissions", async () => {
     const teams: TeamInterface[] = [
       {
@@ -1870,6 +2063,24 @@ describe("PermissionsUtilClass.canUpdateAttribute check", () => {
   });
 
   it("User with global engineer role can remove all projects from existing attribute", async () => {
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("engineer", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {},
+    });
+
+    expect(
+      permissions.canUpdateAttribute(
+        { projects: ["ABC123"] },
+        { projects: [] },
+      ),
+    ).toEqual(true);
+  });
+
+  it("User with attribute update permission can update when a ready event forwarder exists", async () => {
     const permissions = new Permissions({
       global: {
         permissions: roleToPermissionMap("engineer", testOrg),

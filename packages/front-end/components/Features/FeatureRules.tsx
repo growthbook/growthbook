@@ -1,5 +1,5 @@
 import { FeatureInterface } from "shared/types/feature";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PiFunnel, PiPlusBold, PiMagnifyingGlass } from "react-icons/pi";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
@@ -23,6 +23,7 @@ import {
   FEATURE_RULES_ALL_ENVS,
 } from "@/services/features";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
+import { isHoldoutEnabledAnyEnv } from "@/hooks/useHoldouts";
 import Switch from "@/ui/Switch";
 import Button from "@/ui/Button";
 import Badge from "@/ui/Badge";
@@ -39,6 +40,7 @@ export default function FeatureRules({
   environments,
   feature,
   isLocked,
+  lockedBySchedule,
   canEditDrafts,
   experimentsMap,
   mutate,
@@ -58,6 +60,8 @@ export default function FeatureRules({
   feature: FeatureInterface;
   baseFeature: FeatureInterface;
   isLocked: boolean;
+  // `isLocked` is due to a pending scheduled publish; ramp controls stay interactive.
+  lockedBySchedule?: boolean;
   canEditDrafts: boolean;
   experimentsMap: Map<string, ExperimentInterfaceStringDates>;
   mutate: () => Promise<unknown>;
@@ -79,9 +83,34 @@ export default function FeatureRules({
     "hide-disabled-rules",
     false,
   );
+  const [showOrphaned, setShowOrphaned] = useLocalStorage(
+    "show-orphaned-rules",
+    false,
+  );
   const hasInactiveRules = (feature.rules ?? []).some((r) =>
     isRuleInactive(r, experimentsMap),
   );
+
+  // Orphaned: non-empty `environments` list referencing only deleted envs.
+  // `environments: []` (pending) and `allEnvironments: true` are not orphaned.
+  // Memoized so RuleList's `hiddenRuleIds` effect dep stays stable.
+  const orphanedRuleIds = useMemo(() => {
+    const knownEnvIds = new Set(environments.map((e) => e.id));
+    return new Set<string>(
+      (feature.rules ?? [])
+        .filter(
+          (r) =>
+            r &&
+            !r.allEnvironments &&
+            Array.isArray(r.environments) &&
+            r.environments.length > 0 &&
+            r.environments.every((e) => !knownEnvIds.has(e)),
+        )
+        .map((r) => r.id)
+        .filter((id): id is string => !!id),
+    );
+  }, [feature.rules, environments]);
+  const hasOrphanedRules = orphanedRuleIds.size > 0;
 
   // Externally triggered rule open (e.g. ramp timeline CTA). Switch to the
   // requested env if it projects there, else any env that has it.
@@ -138,20 +167,17 @@ export default function FeatureRules({
 
   const activeEnv =
     env === null ? null : (environments.find((e) => e.id === env) ?? null);
-  const liveHoldoutActive =
-    !!activeEnv &&
-    !!holdout &&
-    !!holdout?.environmentSettings?.[activeEnv.id]?.enabled;
+  const holdoutEnabledInActiveEnv =
+    !!activeEnv && !!holdout?.environmentSettings?.[activeEnv.id]?.enabled;
+  const liveHoldoutActive = !!holdout && holdoutEnabledInActiveEnv;
   const draftDeletesHoldout =
-    !!activeEnv &&
     !feature.holdout?.id &&
     !!baseFeature.holdout?.id &&
-    !!holdout?.environmentSettings?.[activeEnv.id]?.enabled;
+    holdoutEnabledInActiveEnv;
   const includeHoldoutRule = liveHoldoutActive || draftDeletesHoldout;
 
-  // Show holdout in All-Envs whenever it's enabled in any env.
-  const holdoutEnabledAnyEnv =
-    !!holdout && envs.some((id) => holdout?.environmentSettings?.[id]?.enabled);
+  // Show holdout in All-Envs whenever it's enabled in any of the org's envs.
+  const holdoutEnabledAnyEnv = isHoldoutEnabledAnyEnv(holdout, envs);
   const liveHoldoutActiveAnyEnv = !!feature.holdout?.id && holdoutEnabledAnyEnv;
   const draftDeletesHoldoutAnyEnv =
     !feature.holdout?.id && !!baseFeature.holdout?.id && holdoutEnabledAnyEnv;
@@ -374,8 +400,8 @@ export default function FeatureRules({
                 </Button>
               }
             >
-              <Box px="3" py="2">
-                <Flex align="center" gap="2" justify="end">
+              <Box px="3">
+                <Flex align="center" gap="2" justify="end" py="2">
                   <Text size="small" color="text-low">
                     Show inactive rules
                   </Text>
@@ -386,6 +412,18 @@ export default function FeatureRules({
                     disabled={!hasInactiveRules}
                   />
                 </Flex>
+                {env === null && hasOrphanedRules && (
+                  <Flex align="center" gap="2" justify="end" py="2">
+                    <Text size="small" color="text-low">
+                      Show missing environment rules
+                    </Text>
+                    <Switch
+                      size="1"
+                      value={showOrphaned}
+                      onChange={(v) => setShowOrphaned(v)}
+                    />
+                  </Flex>
+                )}
               </Box>
               {overflowLabels.length > 0 && <DropdownMenuSeparator />}
               {showOverflowSearch && (
@@ -450,6 +488,7 @@ export default function FeatureRules({
                 version={currentVersion}
                 setVersion={setVersion}
                 locked={isLocked}
+                lockedBySchedule={lockedBySchedule}
                 experimentsMap={experimentsMap}
                 hideInactive={hideInactive}
                 isDraft={isDraft}
@@ -460,15 +499,17 @@ export default function FeatureRules({
                 revisionList={revisionList}
                 rampSchedules={rampSchedules}
                 draftRevision={draftRevision}
+                hiddenRuleIds={showOrphaned ? undefined : orphanedRuleIds}
               />
             ) : (
               <Box py="4" className="text-muted">
                 <em>No rules have been added yet</em>
               </Box>
             )}
-            {canEditDrafts && !isLocked && (
+            {!isLocked && (
               <Flex mt="5" mb="1" justify="end">
                 <Button
+                  disabled={!canEditDrafts}
                   onClick={() => {
                     // environment="" → rule modal defaults to allEnvironments scope
                     setRuleModal({
@@ -500,6 +541,7 @@ export default function FeatureRules({
                 version={currentVersion}
                 setVersion={setVersion}
                 locked={isLocked}
+                lockedBySchedule={lockedBySchedule}
                 experimentsMap={experimentsMap}
                 hideInactive={hideInactive}
                 isDraft={isDraft}
@@ -516,13 +558,14 @@ export default function FeatureRules({
                 <em>No rules have been added to this environment yet</em>
               </Box>
             )}
-            {canEditDrafts && !isLocked && (
+            {!isLocked && (
               <>
                 <Flex pt="4" justify="between" align="center">
                   <Text weight="semibold" size="large">
                     Add rule to {activeEnv.id}
                   </Text>
                   <Button
+                    disabled={!canEditDrafts}
                     onClick={() => {
                       setRuleModal({
                         environment: activeEnv.id,
@@ -542,6 +585,7 @@ export default function FeatureRules({
       {ruleModal !== null && (
         <RuleModal
           feature={feature}
+          baseFeature={baseFeature}
           close={() => setRuleModal(null)}
           i={ruleModal.i}
           ruleId={ruleModal.ruleId}

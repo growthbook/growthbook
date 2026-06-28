@@ -9,7 +9,7 @@ import { useAuth } from "@/services/auth";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Field from "@/components/Forms/Field";
 import { GBAddCircle } from "@/components/Icons";
-import Modal from "@/components/Modal";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Callout from "@/ui/Callout";
 
 const defaultType = "simple";
@@ -111,7 +111,7 @@ const VisualChangesetModal: FC<{
     );
 
   return (
-    <Modal
+    <ModalStandard
       trackingEventModalType="visual-changeset-modal"
       trackingEventModalSource={source}
       open
@@ -285,7 +285,7 @@ const VisualChangesetModal: FC<{
           Your URL patterns do not match the target URL
         </Callout>
       )}
-    </Modal>
+    </ModalStandard>
   );
 };
 

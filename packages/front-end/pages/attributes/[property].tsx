@@ -209,12 +209,21 @@ export default function AttributeDetailPage() {
           submitColor="danger"
           trackingEventModalType=""
           submit={async () => {
-            await apiCall<{ status: number }>("/attribute/", {
+            const response = await apiCall<{
+              status: number;
+              eventForwarderWarning?: string;
+            }>("/attribute/", {
               method: "DELETE",
               body: JSON.stringify({ id: attribute.property }),
             });
             refreshOrganization();
             setShowDeleteModal(false);
+            if (response.eventForwarderWarning) {
+              sessionStorage.setItem(
+                "attributeDeleteEventForwarderWarning",
+                response.eventForwarderWarning,
+              );
+            }
             router.push("/attributes");
           }}
         >
@@ -362,6 +371,8 @@ export default function AttributeDetailPage() {
                   if (payload.projects === null) delete payload.projects;
                   if (payload.format === null) delete payload.format;
                   if (payload.enum === null) delete payload.enum;
+                  if (payload.disableEqualityConditions === null)
+                    delete payload.disableEqualityConditions;
                   await apiCall("/attribute", {
                     method: "PUT",
                     body: JSON.stringify(payload),

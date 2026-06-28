@@ -25,6 +25,8 @@ import {
 import { HoldoutInterfaceStringDates } from "../validators/holdout";
 import { featureHasEnvironment } from "./features";
 
+export * from "./strings";
+export * from "./event-forwarder-destination";
 export * from "./features";
 export * from "./managedWarehouse";
 export * from "./saved-groups";
@@ -35,6 +37,11 @@ export * from "./types";
 export * from "./errors";
 export * from "./namespaces";
 export * from "./custom-fields";
+export * from "./diffFormats";
+export * from "./format-json";
+export * from "./datasource";
+export * from "./event-forwarder-fact-table";
+export * from "./event-forwarder-warehouse-queries";
 
 export const DEFAULT_ENVIRONMENT_IDS = ["production", "dev", "staging", "test"];
 
@@ -135,7 +142,10 @@ export function isAnalysisAllowed(
   analysisSettings: ExperimentSnapshotAnalysisSettings,
 ): boolean {
   // Analysis dimensions must be subset of snapshot dimensions
-  const snapshotDimIds = snapshotSettings.dimensions.map((d) => d.id);
+  const snapshotDimIds = [
+    ...snapshotSettings.dimensions.map((d) => d.id),
+    ...(snapshotSettings.precomputedUnitDimensionIds ?? []),
+  ];
   if (!analysisSettings.dimensions.every((d) => snapshotDimIds.includes(d))) {
     return false;
   }
@@ -294,7 +304,14 @@ export function getMatchingRules(
   omitDisabledEnvironments: boolean = false,
 ): MatchingRule[] {
   const matches: MatchingRule[] = [];
-  const allRules: FeatureRule[] = revision?.rules ?? feature.rules ?? [];
+  // Drop sparse `null`/`undefined` slots so the `filter(rule)` callback —
+  // which typically reads `rule.type` — can't crash on a corrupt legacy
+  // entry (see `naiveFlattenV1Rules` for the same concern).
+  const allRules: FeatureRule[] = (
+    revision?.rules ??
+    feature.rules ??
+    []
+  ).filter((r): r is FeatureRule => r != null && typeof r === "object");
 
   allRules.forEach((rule, i) => {
     if (!filter(rule)) return;
@@ -336,13 +353,19 @@ export function getMatchingRules(
 //   environments:[list]            → list.includes(environment)
 //   environments:[]                → false (pending)
 //   neither (malformed/legacy)     → true (permissive fallback)
+//   nullish/non-object             → false (defensive; pre-v2 docs stored as
+//                                    Mongoose `Mixed` can land with sparse
+//                                    `null`/`undefined` rule slots)
 export function ruleAppliesToEnv(
   rule: FeatureRule,
   environment: string,
 ): boolean {
+  if (rule == null || typeof rule !== "object") return false;
   if (rule.allEnvironments) return true;
   if (rule.environments !== undefined) {
-    return rule.environments.includes(environment);
+    return Array.isArray(rule.environments)
+      ? rule.environments.includes(environment)
+      : false;
   }
   return true;
 }
@@ -350,13 +373,17 @@ export function ruleAppliesToEnv(
 // Filter to rules applying to `environment`, preserving input order. Accepts
 // nullish for convenience. Non-array input (e.g. a not-yet-JIT-upgraded v1
 // revision) returns [] rather than throwing, so the caller's envSettings
-// fallback can take over.
+// fallback can take over. Nullish slots inside the array are dropped before
+// the predicate runs — see `naiveFlattenV1Rules` for the same hardening.
 export function getRulesForEnvironment(
   rules: FeatureRule[] | undefined | null,
   environment: string,
 ): FeatureRule[] {
   if (!Array.isArray(rules)) return [];
-  return rules.filter((r) => ruleAppliesToEnv(r, environment));
+  return rules.filter(
+    (r): r is FeatureRule =>
+      r != null && typeof r === "object" && ruleAppliesToEnv(r, environment),
+  );
 }
 
 // Footprint of a rule, intersected with `applicableEnvs`. Must match
@@ -384,9 +411,26 @@ export function ruleFootprint(
 // duplicate ids. Persistence paths must use `normalizeRulesInputToV2` on the
 // back-end, which dedupes by id, collapses to allEnvironments, and suffixes
 // collisions.
+// Hardening: pre-v2 docs stored as Mongoose `Mixed` can land with sparse
+// `null`/`undefined` rule slots (partial imports, hand-edited backups). A
+// single nullish entry would crash every downstream `.type` / `.id` /
+// `.environments` accessor (see PR #5800). Filter at the chokepoint so
+// `autoMerge`, `tryRuleLevelMerge`, and the diff helpers above never see
+// a nullish rule. The object branch also drops nullish entries before the
+// spread that would otherwise produce a typeless "rule" record.
+const isPlausibleRule = (v: unknown): v is FeatureRule =>
+  v != null && typeof v === "object" && !Array.isArray(v);
+
 export function naiveFlattenV1Rules(input: unknown): FeatureRule[] {
   if (input == null) return [];
-  if (Array.isArray(input)) return input as FeatureRule[];
+  if (Array.isArray(input)) {
+    // Common case (v2-shaped arrays from JIT migration): pass through by
+    // reference so callers can rely on identity. Only allocate when a
+    // sparse/legacy slot needs to be scrubbed.
+    return input.every(isPlausibleRule)
+      ? (input as FeatureRule[])
+      : input.filter(isPlausibleRule);
+  }
   if (typeof input === "object") {
     const out: FeatureRule[] = [];
     for (const [env, rules] of Object.entries(
@@ -394,6 +438,7 @@ export function naiveFlattenV1Rules(input: unknown): FeatureRule[] {
     )) {
       if (!Array.isArray(rules)) continue;
       for (const r of rules) {
+        if (!isPlausibleRule(r)) continue;
         out.push({
           ...r,
           allEnvironments: false,
@@ -647,3 +692,8 @@ export function parseProcessLogBase() {
 export function capitalizeFirstCharacter(s: string) {
   return s.charAt(0).toLocaleUpperCase() + s.slice(1);
 }
+
+export {
+  NON_PRODUCTION_ENV_PATTERNS,
+  isEnvironmentDevLike,
+} from "./environments";

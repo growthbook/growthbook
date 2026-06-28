@@ -5,12 +5,12 @@ import {
   PiPlusBold,
   PiCaretDownFill,
   PiCircleHalf,
-  PiFiles,
-  PiKey,
+  PiHourglassHigh,
   PiListChecks,
   PiMoon,
   PiSunDim,
   PiBuildingFill,
+  PiSparkle,
 } from "react-icons/pi";
 import Head from "next/head";
 import { Flex, Text } from "@radix-ui/themes";
@@ -43,6 +43,8 @@ import Checkbox from "@/ui/Checkbox";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import AccountPlanNotices from "@/components/Layout/AccountPlanNotices";
 import AccountPlanBadge from "@/components/Layout/AccountPlanBadge";
+import { useOpenRevisionCount } from "@/hooks/useRevisions";
+import { useAgentPanel } from "@/components/Agent/AgentPanelContext";
 import styles from "./TopNav.module.scss";
 import { usePageHead } from "./PageHead";
 
@@ -60,9 +62,16 @@ const TopNav: FC<{
 
   const { breadcrumb } = usePageHead();
 
-  const { updateUser, name, email, organization } = useUser();
+  const { updateUser, name, email, organization, hasCommercialFeature } =
+    useUser();
 
   const { apiCall, logout, organizations, orgId, setOrgId } = useAuth();
+
+  const hasApprovalFlows = hasCommercialFeature("require-approvals");
+  // Lightweight count endpoint — avoids fetching every open revision document
+  // just to render a badge. Filtered server-side to non-merged/non-discarded.
+  const { count: openRevisionCount } = useOpenRevisionCount();
+  const pendingReviewCount = hasApprovalFlows ? openRevisionCount : 0;
 
   // The current org might not be in the organizations list if the user is a superAdmin
   // and selected the org from the /admin page. So we add it here.
@@ -77,6 +86,12 @@ const TopNav: FC<{
 
   const { setTheme, preferredTheme } = useAppearanceUITheme();
   const [orgDropdownOpen, setOrgDropdownOpen] = useState(false);
+
+  const {
+    available: agentAvailable,
+    open: agentOpen,
+    togglePanel: toggleAgentPanel,
+  } = useAgentPanel();
 
   const form = useForm({
     defaultValues: { name: name || "", enableCelebrations },
@@ -153,7 +168,7 @@ const TopNav: FC<{
           setEditUserOpen(true);
         }}
       >
-        Edit Profile
+        Edit profile
       </DropdownMenuItem>
     );
   };
@@ -178,32 +193,24 @@ const TopNav: FC<{
   const renderPersonalAccessTokensDropDown = () => {
     return (
       <DropdownMenuItem
-        className={styles.dropdownItemIconColor}
         onClick={() => {
           setDropdownOpen(false);
           router.push("/account/personal-access-tokens");
         }}
       >
-        <div className="align-middle">
-          <PiKey size="16" className="mr-1" />
-          Personal Access Tokens
-        </div>
+        Personal Access Tokens
       </DropdownMenuItem>
     );
   };
   const renderMyReportsDropDown = () => {
     return (
       <DropdownMenuItem
-        className={styles.dropdownItemIconColor}
         onClick={() => {
           setDropdownOpen(false);
           router.push("/reports");
         }}
       >
-        <div className="align-middle">
-          <PiFiles size="16" className="mr-1" />
-          My Reports
-        </div>
+        My Reports
       </DropdownMenuItem>
     );
   };
@@ -219,6 +226,43 @@ const TopNav: FC<{
         <div className="align-middle">
           <PiListChecks size="16" className="mr-1" />
           Activity Feed
+        </div>
+      </DropdownMenuItem>
+    );
+  };
+  const renderPendingReviewsDropDown = () => {
+    if (!hasApprovalFlows) return null;
+    return (
+      <DropdownMenuItem
+        className={styles.dropdownItemIconColor}
+        onClick={() => {
+          setDropdownOpen(false);
+          router.push("/approval-requests");
+        }}
+      >
+        <div className="align-middle d-flex align-items-center">
+          <PiHourglassHigh size="16" className="mr-1" />
+          Pending Reviews
+          {pendingReviewCount > 0 && (
+            <span
+              style={{
+                backgroundColor: "var(--red-9)",
+                color: "white",
+                borderRadius: "50%",
+                minWidth: 18,
+                height: 18,
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 11,
+                fontWeight: 600,
+                marginLeft: 6,
+                padding: "0 4px",
+              }}
+            >
+              {pendingReviewCount}
+            </span>
+          )}
         </div>
       </DropdownMenuItem>
     );
@@ -436,6 +480,24 @@ const TopNav: FC<{
             </>
           )}
           {renderOrganizationDropDown()}
+          {agentAvailable && (
+            <button
+              type="button"
+              onClick={toggleAgentPanel}
+              aria-label={
+                agentOpen
+                  ? "Close GrowthBook AI assistant"
+                  : "Open GrowthBook AI assistant"
+              }
+              aria-pressed={agentOpen}
+              title="Ask GrowthBook AI"
+              className={`nav-link ${styles.agentTrigger} ${
+                agentOpen ? styles.agentTriggerActive : ""
+              }`}
+            >
+              <PiSparkle size={18} />
+            </button>
+          )}
           <DropdownMenu
             variant="solid"
             open={dropdownOpen}
@@ -464,8 +526,11 @@ const TopNav: FC<{
           >
             {renderNameAndEmailDropdownLabel()}
             {renderEditProfileDropDown()}
-            {renderThemeSubDropDown()}
+            <DropdownMenuSeparator />
+            {renderPendingReviewsDropDown()}
             {renderMyActivityFeedsDropDown()}
+            {renderThemeSubDropDown()}
+            <DropdownMenuSeparator />
             {renderMyReportsDropDown()}
             {renderPersonalAccessTokensDropDown()}
             <DropdownMenuSeparator />

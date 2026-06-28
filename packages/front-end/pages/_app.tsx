@@ -12,6 +12,7 @@ import { growthbookTrackingPlugin } from "@growthbook/growthbook/plugins";
 import { Inter } from "next/font/google";
 import { Container } from "@radix-ui/themes";
 import { OrganizationMessagesContainer } from "@/components/OrganizationMessages/OrganizationMessages";
+import { OrgSuspendedBannerContainer } from "@/components/OrgSuspendedBanner/OrgSuspendedBanner";
 import { DemoDataSourceGlobalBannerContainer } from "@/components/DemoDataSourceGlobalBanner/DemoDataSourceGlobalBanner";
 import { PageHeadProvider } from "@/components/Layout/PageHead";
 import { RadixTheme } from "@/services/RadixTheme";
@@ -29,6 +30,7 @@ import {
 } from "@/services/env";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import "diff2html/bundles/css/diff2html.min.css";
+import "react-grid-layout/css/styles.css";
 import Layout from "@/components/Layout/Layout";
 import { AppearanceUIThemeProvider } from "@/services/AppearanceUIThemeProvider";
 import TopNavLite from "@/components/Layout/TopNavLite";
@@ -36,11 +38,13 @@ import GetStartedProvider from "@/services/GetStartedProvider";
 import GuidedGetStartedBar from "@/components/Layout/GuidedGetStartedBar";
 import LayoutLite from "@/components/Layout/LayoutLite";
 import { growthbook } from "@/services/utils";
-import { UserContextProvider } from "@/services/UserContext";
+import { UserContextProvider, useUser } from "@/services/UserContext";
 import { SidebarOpenProvider } from "@/components/Layout/SidebarOpenProvider";
 import { HoverTooltipProvider } from "@/hooks/useHoverTooltip";
 import { FeatureStaleStatesProvider } from "@/hooks/useFeatureStaleStates";
 import { CommandPaletteLauncher } from "@/components/CommandPalette/CommandPalette";
+import AgentLauncher from "@/components/Agent/AgentLauncher";
+import { AgentPanelProvider } from "@/components/Agent/AgentPanelContext";
 import Callout from "@/ui/Callout";
 
 // Make useLayoutEffect isomorphic (for SSR)
@@ -62,6 +66,14 @@ type ModAppProps = AppProps & {
     mainClassName?: string;
   };
 };
+
+// Renders definitions and page content only when the org is not suspended.
+// Keeps the layout (nav) and banners outside so the org switcher stays usable.
+function OrgPageContent({ children }: { children: React.ReactNode }) {
+  const { orgSuspended } = useUser();
+  if (orgSuspended) return null;
+  return <>{children}</>;
+}
 
 function App({
   Component,
@@ -197,18 +209,27 @@ function App({
                             <GetStartedProvider>
                               <DefinitionsProvider>
                                 <FeatureStaleStatesProvider>
-                                  {liteLayout ? <LayoutLite /> : <Layout />}
-                                  <CommandPaletteLauncher />
-                                  <main className={`main ${parts[0]}`}>
-                                    <GuidedGetStartedBar />
-                                    <OrganizationMessagesContainer />
-                                    <DemoDataSourceGlobalBannerContainer />
-                                    <DefinitionsGuard>
-                                      <Component
-                                        {...{ ...pageProps, envReady: ready }}
-                                      />
-                                    </DefinitionsGuard>
-                                  </main>
+                                  <AgentPanelProvider>
+                                    {liteLayout ? <LayoutLite /> : <Layout />}
+                                    <CommandPaletteLauncher />
+                                    <AgentLauncher />
+                                    <main className={`main ${parts[0]}`}>
+                                      <OrgSuspendedBannerContainer />
+                                      <OrganizationMessagesContainer />
+                                      <DemoDataSourceGlobalBannerContainer />
+                                      <OrgPageContent>
+                                        <GuidedGetStartedBar />
+                                        <DefinitionsGuard>
+                                          <Component
+                                            {...{
+                                              ...pageProps,
+                                              envReady: ready,
+                                            }}
+                                          />
+                                        </DefinitionsGuard>
+                                      </OrgPageContent>
+                                    </main>
+                                  </AgentPanelProvider>
                                 </FeatureStaleStatesProvider>
                               </DefinitionsProvider>
                             </GetStartedProvider>

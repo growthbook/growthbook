@@ -48,6 +48,10 @@ import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { SdkWebHookLogDocument } from "back-end/src/models/SdkWebhookLogModel";
 import { getAccountPlan } from "back-end/src/enterprise";
 import { logger } from "back-end/src/util/logger";
+import {
+  healPriorSettings,
+  healMetricOverrides,
+} from "back-end/src/util/priors";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "./secrets";
 
 function roundVariationWeight(num: number): number {
@@ -72,6 +76,11 @@ function adjustWeights(weights: number[]): number[] {
 
 export function upgradeMetricDoc(doc: LegacyMetricInterface): MetricInterface {
   const newDoc = { ...doc };
+
+  // Raw-driver reads skip Mongoose date casting; legacy docs may store strings
+  if (typeof newDoc.runStarted === "string") {
+    newDoc.runStarted = new Date(newDoc.runStarted);
+  }
 
   if (doc.windowSettings === undefined) {
     if (doc.conversionDelayHours == null && doc.earlyStart) {
@@ -113,6 +122,7 @@ export function upgradeMetricDoc(doc: LegacyMetricInterface): MetricInterface {
       stddev: DEFAULT_PROPER_PRIOR_STDDEV,
     };
   }
+  healPriorSettings(newDoc.priorSettings);
 
   if (!doc.userIdTypes?.length) {
     if (doc.userIdType === "user") {
@@ -336,6 +346,14 @@ function draftHasChanges(
 // Diffs against origin/main may show those keys as `-` deletes; mask via the
 // `--stripOutputFields` flag in `diff-features.ts` if you need clean diffs.
 export function upgradeFeatureRule(rule: FeatureRule): FeatureRule {
+  // Defensive: `rules` is stored as Mongoose Mixed and pre-v2 docs occasionally
+  // landed with sparse/null array elements (incomplete imports, hand-edited
+  // backups, half-applied legacy migrations). Accessing `.type` on those
+  // throws "Cannot read properties of undefined (reading 'type')" and aborts
+  // the entire JIT migration on read — blocking publish/serve for the whole
+  // feature. Pass nullish through; downstream callers filter via
+  // `isPlausibleFeatureRule` before relying on the rule shape.
+  if (rule == null || typeof rule !== "object") return rule;
   // Old style experiment rule without coverage
   if (rule.type === "experiment" && !("coverage" in rule)) {
     const weights = rule.values
@@ -592,6 +610,8 @@ export function upgradeOrganizationDoc(
     delete org.settings.postStratificationDisabled;
   }
 
+  healPriorSettings(org.settings?.metricDefaults?.priorSettings);
+
   return org;
 }
 
@@ -713,6 +733,7 @@ export function upgradeExperimentDoc(
       }
     });
   }
+  healMetricOverrides(experiment.metricOverrides);
 
   if (experiment.decisionFrameworkSettings === undefined) {
     experiment.decisionFrameworkSettings = {};
@@ -794,6 +815,8 @@ export function migrateExperimentReport(
       }),
     );
   }
+
+  healMetricOverrides(newArgs.metricOverrides);
 
   return {
     ...report,

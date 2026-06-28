@@ -1,6 +1,6 @@
 import { FC } from "react";
 import { useForm } from "react-hook-form";
-import Modal from "@/components/Modal";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import SelectOwner from "./SelectOwner";
 
 const EditOwnerModal: FC<{
@@ -16,9 +16,9 @@ const EditOwnerModal: FC<{
   });
 
   return (
-    <Modal
+    <ModalStandard
       trackingEventModalType=""
-      header={"Edit Owner"}
+      header="Edit Owner"
       open={true}
       close={cancel}
       submit={form.handleSubmit(async (data) => {
@@ -31,7 +31,7 @@ const EditOwnerModal: FC<{
         value={form.watch("owner")}
         onChange={(v) => form.setValue("owner", v)}
       />
-    </Modal>
+    </ModalStandard>
   );
 };
 

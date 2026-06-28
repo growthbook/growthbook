@@ -1,4 +1,7 @@
-import { SDKConnectionInterface } from "shared/types/sdk-connection";
+import {
+  SDKConnectionInterface,
+  SDKLanguage,
+} from "shared/types/sdk-connection";
 import { useCallback, useEffect, useState } from "react";
 import {
   FaAngleDown,
@@ -7,6 +10,8 @@ import {
   FaExclamationTriangle,
 } from "react-icons/fa";
 import { PiArrowRight, PiPaperPlaneTiltFill } from "react-icons/pi";
+import { Flex, Box } from "@radix-ui/themes";
+import { getLatestSDKVersion, getSDKCapabilities } from "shared/sdk-versioning";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { getApiBaseUrl } from "@/components/Features/CodeSnippetModal";
 import InstallationCodeSnippet from "@/components/SyntaxHighlighting/Snippets/InstallationCodeSnippet";
@@ -21,7 +26,10 @@ import { useUser } from "@/services/UserContext";
 import CheckSDKConnectionModal from "@/components/GuidedGetStarted/CheckSDKConnectionModal";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import { DocLink } from "@/components/DocLink";
-import { languageMapping } from "@/components/Features/SDKConnections/SDKLanguageLogo";
+import SDKLanguageLogo, {
+  languageMapping,
+} from "@/components/Features/SDKConnections/SDKLanguageLogo";
+import SelectField, { GroupedValue } from "@/components/Forms/SelectField";
 import Link from "@/ui/Link";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useAuth } from "@/services/auth";
@@ -48,7 +56,7 @@ const VerifyConnectionPage = ({
   const [inviting, setInviting] = useState(false);
   const [eventTracker, setEventTracker] = useState("");
 
-  const { refreshOrganization, organization } = useUser();
+  const { refreshOrganization, organization, hasCommercialFeature } = useUser();
   const settings = useOrgSettings();
   const attributeSchema = useAttributeSchema();
   const { data, error, mutate } = useSDKConnections();
@@ -88,9 +96,54 @@ const VerifyConnectionPage = ({
     },
     [apiCall, canUpdate, currentConnection, eventTracker],
   );
+  const changeLanguage = useCallback(
+    async (language: SDKLanguage) => {
+      if (!canUpdate || !currentConnection?.id) return;
+
+      // Mirror the language-dependent settings applied when the connection
+      // was first created (see pages/setup/index.tsx)
+      const sdkCapabilities = getSDKCapabilities(language);
+      const canUseVisualEditor = sdkCapabilities.includes("visualEditorJS");
+      const canUseUrlRedirects = sdkCapabilities.includes("redirects");
+      const canUseSecureConnection =
+        hasCommercialFeature("hash-secure-attributes") &&
+        sdkCapabilities.includes("encryption");
+      const languageLabel = languageMapping[language].label;
+
+      try {
+        await apiCall(`/sdk-connections/${currentConnection.id}`, {
+          method: "PUT",
+          body: JSON.stringify({
+            name: `${languageLabel} SDK Connection`,
+            languages: [language],
+            sdkVersion: getLatestSDKVersion(language),
+            encryptPayload: canUseSecureConnection,
+            hashSecureAttributes: canUseSecureConnection,
+            includeExperimentNames: !canUseSecureConnection,
+            includeVisualExperiments: canUseVisualEditor,
+            includeRedirectExperiments: canUseUrlRedirects,
+          }),
+        });
+        track("SDK Language Changed", { language });
+        await mutate();
+      } catch (e) {
+        // Ignore - keep showing the previous instructions
+      }
+    },
+    [apiCall, canUpdate, currentConnection, hasCommercialFeature, mutate],
+  );
+
   const apiHost = currentConnection ? getApiBaseUrl(currentConnection) : "";
   const language = currentConnection?.languages[0] || "javascript";
   const { docs } = languageMapping[language];
+  const languagesByType: Record<string, GroupedValue> = {};
+  Object.entries(languageMapping).forEach(([value, { label, type }]) => {
+    if (!languagesByType[type]) {
+      languagesByType[type] = { label: type, options: [] };
+    }
+    languagesByType[type].options.push({ value, label });
+  });
+  const languageOptions = Object.values(languagesByType);
   const hashSecureAttributes = !!currentConnection?.hashSecureAttributes;
   const secureAttributes =
     attributeSchema?.filter((a) =>
@@ -103,7 +156,7 @@ const VerifyConnectionPage = ({
   }
 
   return (
-    <div className="mt-5" style={{ padding: "0px 57px" }}>
+    <div style={{ padding: "0px 57px" }}>
       {!currentConnection && <LoadingOverlay />}
       {inviting && (
         <InviteModal
@@ -150,9 +203,29 @@ const VerifyConnectionPage = ({
               </div>
             )}
           </div>
-          <DocLink docSection={docs}>
-            View documentation <PiArrowRight />
-          </DocLink>
+          <Flex align="center" gap="4">
+            <Box width="260px">
+              <SelectField
+                value={language}
+                options={languageOptions}
+                onChange={(value) => changeLanguage(value as SDKLanguage)}
+                formatOptionLabel={({ value }) => (
+                  <SDKLanguageLogo
+                    language={value as SDKLanguage}
+                    showLabel
+                    size={25}
+                  />
+                )}
+                containerClassName="mb-0"
+                disabled={!canUpdate}
+                isSearchable
+                sort={false}
+              />
+            </Box>
+            <DocLink docSection={docs}>
+              View documentation <PiArrowRight />
+            </DocLink>
+          </Flex>
           <div className="mt-4 mb-3">
             <h4
               className="cursor-pointer"

@@ -14,6 +14,7 @@ import { compileSqlTemplate } from "back-end/src/util/sql";
 
 import { getFactMetricColumn } from "back-end/src/integrations/sql/columns/fact-metric-column";
 import { toTimestampWithMs } from "back-end/src/integrations/sql/primitives/to-timestamp-with-ms";
+import { getKllEventCountSourceColumn } from "back-end/src/services/factMetrics";
 
 /** Fact Table CTE for multiple fact metrics that share the same fact table */
 export function getFactMetricCTE(
@@ -112,6 +113,7 @@ export function getFactMetricCTE(
         factTable,
         columnRef: m.numerator,
         escapeStringLiteral: dialect.escapeStringLiteral,
+        stringMatch: dialect.stringMatch,
         jsonExtract: dialect.jsonExtract,
         evalBoolean: dialect.evalBoolean,
         sliceInfo,
@@ -124,6 +126,27 @@ export function getFactMetricCTE(
 
       metricCols.push(`-- ${m.name}
         ${column} as m${index}_value`);
+
+      // For 'kll merge' metrics, also project the paired event-count
+      // column. KLL sketches do not retain an accessible item count, so
+      // the user must materialize this alongside the sketch. Source-column
+      // resolution: the metric author may override the default convention
+      // (`<sketch>_n_events`) via quantileSettings.quantileEventCountColumn;
+      // the create-time validator guarantees the resolved column exists
+      // and has a numeric datatype on the same fact table.
+      if (m.numerator.aggregation === "kll merge") {
+        const nEventsSourceCol = getKllEventCountSourceColumn({
+          column: m.numerator,
+          quantileEventCountColumn:
+            m.quantileSettings?.quantileEventCountColumn,
+        });
+        const nEventsCol =
+          filters.length > 0
+            ? `CASE WHEN (${filters.join("\n AND ")}) THEN m.${nEventsSourceCol} ELSE NULL END`
+            : `m.${nEventsSourceCol}`;
+        metricCols.push(`-- ${m.name} (paired n_events for kll merge)
+        ${nEventsCol} as m${index}_n_events`);
+      }
 
       allMetricFilters.push(filters);
     }
@@ -148,6 +171,7 @@ export function getFactMetricCTE(
         factTable,
         columnRef: m.denominator,
         escapeStringLiteral: dialect.escapeStringLiteral,
+        stringMatch: dialect.stringMatch,
         jsonExtract: dialect.jsonExtract,
         evalBoolean: dialect.evalBoolean,
         sliceInfo,

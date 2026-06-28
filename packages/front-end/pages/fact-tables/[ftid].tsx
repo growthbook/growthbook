@@ -6,7 +6,6 @@ import {
   FactTableInterface,
   FactMetricInterface,
 } from "shared/types/fact-table";
-import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
 import EditOwnerModal from "@/components/Owner/EditOwnerModal";
@@ -17,6 +16,7 @@ import { useAuth } from "@/services/auth";
 import FactTableModal from "@/components/FactTables/FactTableModal";
 import Code from "@/components/SyntaxHighlighting/Code";
 import ColumnList from "@/components/FactTables/ColumnList";
+import AggregatedFactTablesCard from "@/components/FactTables/AggregatedFactTablesCard";
 import FactFilterList from "@/components/FactTables/FactFilterList";
 import EditProjectsForm from "@/components/Projects/EditProjectsForm";
 import PageHead from "@/components/Layout/PageHead";
@@ -42,8 +42,6 @@ import {
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
 import { useUser } from "@/services/UserContext";
-import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
-import Callout from "@/ui/Callout";
 import Modal from "@/components/Modal";
 import HistoryTable from "@/components/HistoryTable";
 
@@ -80,7 +78,7 @@ export default function FactTablePage() {
   const { apiCall } = useAuth();
 
   const permissionsUtil = usePermissionsUtil();
-  const { hasCommercialFeature, organization, getOwnerDisplay } = useUser();
+  const { hasCommercialFeature, getOwnerDisplay } = useUser();
 
   const {
     getFactTableById,
@@ -239,24 +237,6 @@ export default function FactTablePage() {
         ]}
       />
 
-      {factTable.projects?.includes(
-        getDemoDatasourceProjectIdForOrganization(organization.id),
-      ) && (
-        <Callout status="info" mb="4">
-          <Flex align="center" justify="between" gap="3">
-            <div>
-              This Fact Table is part of our sample dataset. You can safely
-              delete this once you are done exploring.
-            </div>
-            <DeleteDemoDatasourceButton
-              onDelete={() => router.push("/fact-tables")}
-              source="fact-table"
-              asLink
-            />
-          </Flex>
-        </Callout>
-      )}
-
       {factTable.archived && (
         <div className="alert alert-secondary mb-2">
           <strong>This Fact Table is archived.</strong> Existing references will
@@ -300,7 +280,7 @@ export default function FactTablePage() {
                     setDropdownOpen(false);
                   }}
                 >
-                  Edit Fact Table
+                  Edit
                 </DropdownMenuItem>
               )}
               {!factTable.managedBy &&
@@ -316,24 +296,6 @@ export default function FactTablePage() {
                     Convert to Official Fact Table
                   </DropdownMenuItem>
                 )}
-              {canDuplicate && (
-                <DropdownMenuItem
-                  onClick={() => {
-                    setDuplicateFactTable({
-                      ...factTable,
-                      name: `${factTable.name} (Copy)`,
-                      managedBy:
-                        factTable.managedBy === "admin" &&
-                        permissionsUtil.canCreateOfficialResources(factTable)
-                          ? "admin"
-                          : "",
-                    });
-                    setDropdownOpen(false);
-                  }}
-                >
-                  Duplicate Fact Table
-                </DropdownMenuItem>
-              )}
               <DropdownMenuItem
                 onClick={() => {
                   setAuditModal(true);
@@ -342,49 +304,71 @@ export default function FactTablePage() {
               >
                 Audit log
               </DropdownMenuItem>
-              {canEdit && (
-                <DropdownMenuItem
-                  onClick={async () => {
-                    await apiCall(
-                      `/fact-tables/${factTable.id}/${
-                        factTable.archived ? "unarchive" : "archive"
-                      }`,
-                      {
-                        method: "POST",
-                      },
-                    );
-                    mutateDefinitions();
-                    setDropdownOpen(false);
-                  }}
-                >
-                  {factTable.archived ? "Unarchive" : "Archive"} Fact Table
-                </DropdownMenuItem>
-              )}
             </DropdownMenuGroup>
-            {canDelete && (
+            {canEdit || canDelete || canDuplicate ? (
               <>
                 <DropdownMenuSeparator />
                 <DropdownMenuGroup>
-                  <DropdownMenuItem
-                    color="red"
-                    confirmation={{
-                      confirmationTitle: "Delete Fact Table",
-                      cta: "Delete",
-                      submit: async () => {
-                        await apiCall(`/fact-tables/${factTable.id}`, {
-                          method: "DELETE",
+                  {canDuplicate && (
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setDuplicateFactTable({
+                          ...factTable,
+                          name: `${factTable.name} (Copy)`,
+                          managedBy:
+                            factTable.managedBy === "admin" &&
+                            permissionsUtil.canCreateOfficialResources(
+                              factTable,
+                            )
+                              ? "admin"
+                              : "",
                         });
+                        setDropdownOpen(false);
+                      }}
+                    >
+                      Duplicate
+                    </DropdownMenuItem>
+                  )}
+                  {canEdit && (
+                    <DropdownMenuItem
+                      onClick={async () => {
+                        await apiCall(
+                          `/fact-tables/${factTable.id}/${
+                            factTable.archived ? "unarchive" : "archive"
+                          }`,
+                          {
+                            method: "POST",
+                          },
+                        );
                         mutateDefinitions();
-                        router.push("/fact-tables");
-                      },
-                      closeDropdown: () => setDropdownOpen(false),
-                    }}
-                  >
-                    Delete Fact Table
-                  </DropdownMenuItem>
+                        setDropdownOpen(false);
+                      }}
+                    >
+                      {factTable.archived ? "Unarchive" : "Archive"}
+                    </DropdownMenuItem>
+                  )}
+                  {canDelete && (
+                    <DropdownMenuItem
+                      color="red"
+                      confirmation={{
+                        confirmationTitle: "Delete Fact Table",
+                        cta: "Delete",
+                        submit: async () => {
+                          await apiCall(`/fact-tables/${factTable.id}`, {
+                            method: "DELETE",
+                          });
+                          mutateDefinitions();
+                          router.push("/fact-tables");
+                        },
+                        closeDropdown: () => setDropdownOpen(false),
+                      }}
+                    >
+                      Delete
+                    </DropdownMenuItem>
+                  )}
                 </DropdownMenuGroup>
               </>
-            )}
+            ) : null}
           </DropdownMenu>
         </Flex>
       </Flex>
@@ -575,6 +559,8 @@ export default function FactTablePage() {
           </TabsContent>
         </Box>
       </Tabs>
+
+      <AggregatedFactTablesCard factTable={factTable} />
     </div>
   );
 }

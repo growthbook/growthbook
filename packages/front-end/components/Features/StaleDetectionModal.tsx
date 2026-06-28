@@ -3,13 +3,13 @@ import { FeatureInterface } from "shared/types/feature";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { getReviewSetting } from "shared/util";
 import { useAuth } from "@/services/auth";
-import Modal from "@/components/Modal";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import DraftSelectorForChanges, {
   DraftMode,
 } from "@/components/Features/DraftSelectorForChanges";
-import { useDefaultDraft } from "@/hooks/useDefaultDraft";
+import { useDefaultDraftMode } from "@/hooks/useDefaultDraft";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
 export default function StaleDetectionModal({
   close,
@@ -46,14 +46,17 @@ export default function StaleDetectionModal({
 
   const canAutoPublish = isAdmin || !staleGated;
 
-  const defaultDraft = useDefaultDraft(revisionList);
-  const [mode, setMode] = useState<DraftMode>(staleGated ? "new" : "publish");
+  const { mode: initialMode, defaultDraft } = useDefaultDraftMode(
+    revisionList,
+    canAutoPublish,
+  );
+  const [mode, setMode] = useState<DraftMode>(initialMode);
   const [selectedDraft, setSelectedDraft] = useState<number | null>(
     defaultDraft,
   );
 
   return (
-    <Modal
+    <ModalStandard
       trackingEventModalType=""
       open
       close={close}
@@ -82,10 +85,9 @@ export default function StaleDetectionModal({
         await mutate();
         const resolvedVersion =
           res?.draftVersion ?? (mode === "existing" ? selectedDraft : null);
-        if (resolvedVersion != null) setVersion(resolvedVersion);
+        if (resolvedVersion !== null) setVersion(resolvedVersion);
         if (enabling && mode === "publish") onEnable?.();
       }}
-      useRadixButton={true}
     >
       <DraftSelectorForChanges
         feature={feature}
@@ -102,6 +104,6 @@ export default function StaleDetectionModal({
           ? `Enable stale detection for ${feature.id}?`
           : `Disable stale detection for ${feature.id}? It will no longer be marked as stale.`}
       </p>
-    </Modal>
+    </ModalStandard>
   );
 }

@@ -12,6 +12,17 @@ interface MarkdownProps
   isPublic?: boolean;
   shareUid?: string;
   shareType?: "experiment" | "report";
+  /**
+   * When provided, relative (same-origin) links are handled by this callback
+   * instead of opening in a new tab — e.g. to navigate in-app via the router.
+   * External links (with a protocol) still open in a new tab.
+   */
+  onInternalLinkClick?: (href: string) => void;
+}
+
+/** A relative, same-origin path like `/features/foo` — not protocol-relative. */
+function isInternalHref(href: string): boolean {
+  return href.startsWith("/") && !href.startsWith("//");
 }
 
 const Markdown: FC<MarkdownProps> = ({
@@ -20,6 +31,7 @@ const Markdown: FC<MarkdownProps> = ({
   isPublic = false,
   shareUid,
   shareType = "experiment",
+  onInternalLinkClick,
   ...props
 }) => {
   if (typeof children !== "string") {
@@ -33,12 +45,31 @@ const Markdown: FC<MarkdownProps> = ({
 
   const components = useMemo(
     () => ({
-      // open external links in new tab
-      a: ({ ...props }) => (
-        <a href={props.href} target="_blank" rel="noreferrer">
-          {props.children}
-        </a>
-      ),
+      // Internal (relative) links navigate in-app when a handler is given;
+      // everything else opens in a new tab.
+      a: ({ ...props }) => {
+        const href = props.href ?? "";
+        if (onInternalLinkClick && isInternalHref(href)) {
+          return (
+            <a
+              href={href}
+              onClick={(e) => {
+                // Let modifier-clicks (cmd/ctrl/middle) open a new tab as usual.
+                if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+                e.preventDefault();
+                onInternalLinkClick(href);
+              }}
+            >
+              {props.children}
+            </a>
+          );
+        }
+        return (
+          <a href={href} target="_blank" rel="noreferrer">
+            {props.children}
+          </a>
+        );
+      },
       img: ({ ...props }) => (
         <AuthorizedImage
           imageCache={imageCache}
@@ -49,7 +80,7 @@ const Markdown: FC<MarkdownProps> = ({
         />
       ),
     }),
-    [isPublic, shareUid, shareType],
+    [isPublic, shareUid, shareType, onInternalLinkClick],
   );
 
   return (

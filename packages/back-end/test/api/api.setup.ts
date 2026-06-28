@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import mongoose from "mongoose";
 import { MongoMemoryServer } from "mongodb-memory-server";
 import merge from "lodash/merge";
@@ -48,6 +49,10 @@ export const setupApp = () => {
         req.audit = auditMock;
         req.context = reqContext;
         req.organization = reqContext?.org;
+        // The /api/v1 router rate-limits per req.apiKey (60 req/min). The real
+        // auth middleware sets this; under this mock we give each request a
+        // unique key so the limiter never crosses test boundaries.
+        req.apiKey = randomUUID();
         next();
       });
 

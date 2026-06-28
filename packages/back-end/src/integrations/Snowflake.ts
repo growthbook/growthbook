@@ -2,9 +2,12 @@ import { snowflakeCreateTableOptions } from "shared/enterprise";
 import { SqlDialect } from "shared/types/sql";
 import { QueryResponse, ExternalIdCallback } from "shared/types/integrations";
 import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
-import { QueryMetadata } from "shared/types/query";
+import { RunQueryMetadata } from "shared/types/query";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
-import { runSnowflakeQuery } from "back-end/src/services/snowflake";
+import {
+  cancelSnowflakeQuery,
+  runSnowflakeQuery,
+} from "back-end/src/services/snowflake";
 import SqlIntegration from "./SqlIntegration";
 import { snowflakeDialect } from "./dialects/snowflake";
 
@@ -34,12 +37,18 @@ export default class Snowflake extends SqlIntegration {
   }
   runQuery(
     sql: string,
-    setExternalId?: ExternalIdCallback,
-    queryMetadata?: QueryMetadata,
+    setExternalId: ExternalIdCallback | undefined,
+    queryMetadata: RunQueryMetadata,
   ): Promise<QueryResponse> {
     return runSnowflakeQuery(this.params, sql, setExternalId, queryMetadata);
   }
+  async cancelQuery(externalId: string): Promise<void> {
+    await cancelSnowflakeQuery(this.params, externalId);
+  }
   supportsLimitZeroColumnValidation(): boolean {
+    return true;
+  }
+  hasQuantileSketch(): boolean {
     return true;
   }
   getInformationSchemaWhereClause(): string {

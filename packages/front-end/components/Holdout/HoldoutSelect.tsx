@@ -16,11 +16,16 @@ export const HoldoutSelect = ({
   setHoldout,
   selectedHoldoutId,
   formType,
+  hideEmptyStatePromo,
 }: {
   selectedProject?: string;
   setHoldout: (holdoutId: string) => void;
   selectedHoldoutId: string | undefined;
   formType: "experiment" | "feature";
+  // When true, suppress the "Use Holdouts to ..." promo callouts that render
+  // when the org has no holdouts yet. The actual selector still renders when
+  // there are holdouts to pick from. Useful for onboarding contexts.
+  hideEmptyStatePromo?: boolean;
 }) => {
   const { getDatasourceById } = useDefinitions();
   const { hasCommercialFeature } = useUser();
@@ -80,6 +85,7 @@ export const HoldoutSelect = ({
   }, [holdoutsWithExperiment, requiredSelectableHoldouts]);
 
   if (!hasHoldouts) {
+    if (hideEmptyStatePromo) return null;
     return (
       <PremiumCallout
         id="holdout-select-promo"
@@ -99,6 +105,7 @@ export const HoldoutSelect = ({
   }
 
   if (holdoutsWithExperiment.length === 0) {
+    if (hideEmptyStatePromo) return null;
     return (
       <Callout
         mt="3"

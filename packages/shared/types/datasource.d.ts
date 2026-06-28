@@ -11,6 +11,7 @@ import { DatabricksConnectionParams } from "./integrations/databricks";
 import { MetricType } from "./metric";
 import { MssqlConnectionParams } from "./integrations/mssql";
 import { FactTableColumnType } from "./fact-table";
+import { EventForwarderConfigWithMetadata } from "./event-forwarder";
 
 export type DataSourceType =
   | "growthbook_clickhouse"
@@ -59,6 +60,7 @@ export type SchemaFormat =
   | "firebase"
   | "keen"
   | "clevertap"
+  | "eventForwarder"
   | "custom";
 
 export type AutoFactTableSchemas = "segment" | "rudderstack" | "amplitude";
@@ -144,8 +146,9 @@ export interface DataSourceProperties {
   hasEfficientPercentiles?: boolean;
   canGroupPercentileCappedMetrics?: boolean;
   hasCountDistinctHLL?: boolean;
-  hasQuantileKLL?: boolean;
+  hasQuantileSketch?: boolean;
   hasIncrementalRefresh?: boolean;
+  hasArrayQuantileGrid?: boolean;
   maxColumns: number;
 }
 
@@ -153,6 +156,7 @@ type WithParams<B, P> = Omit<B, "params"> & {
   params: P;
   properties?: DataSourceProperties;
   decryptionError: boolean;
+  eventForwarderConfig?: EventForwarderConfigWithMetadata | null;
 };
 
 export type IdentityJoinQuery = {
@@ -177,11 +181,17 @@ export interface ExposureQuery {
   dimensionSlicesId?: string;
   dimensionMetadata?: ExperimentDimensionMetadata[];
   error?: string;
+  /** Set to "api" for queries auto-created by Event Forwarder (not deletable in UI). */
+  managedBy?: "" | "api";
 }
 
 export interface FeatureUsageQuery {
   id: string;
   query: string;
+  description?: string;
+  error?: string;
+  /** Set to "api" for queries auto-created by Event Forwarder (not deletable in UI). */
+  managedBy?: "" | "api";
 }
 
 export interface UserIdType {
@@ -237,6 +247,18 @@ export type DataSourcePipelineSettings = {
    * even when mode is "incremental". They will fall back to standard queries.
    */
   excludedExperimentIds?: string[];
+  /**
+   * Experiments explicitly opted into incremental refresh while the data
+   * source's default `mode` is not `"incremental"` (typically `"ephemeral"`).
+   * Ignored when `mode === "incremental"` — use `includedExperimentIds` /
+   * `excludedExperimentIds` for per-experiment scoping in that mode.
+   *
+   * If incremental fails at run time, these experiments fall back to whatever
+   * `mode` says. The incremental write configuration (writeDataset, etc.)
+   * must still be valid; the UI enforces this by running the incremental
+   * validation probes whenever this list is non-empty.
+   */
+  incrementalOptInExperimentIds?: string[];
 };
 
 export type MaterializedColumnType = "" | "identifier" | "dimension";
@@ -296,7 +318,13 @@ export type DataSourceSettings = {
 export interface GrowthbookClickhouseSettings extends DataSourceSettings {
   /** When false, the warehouse exists in GrowthBook but ClickHouse was not provisioned yet. */
   hasBeenProvisioned?: boolean;
+  /** @deprecated Replaced by native JSON columns (`useJsonColumns`); kept for legacy warehouses. */
   materializedColumns?: MaterializedColumn[];
+  /**
+   * When true, per-org tables store `attributes`/`properties` as native JSON columns
+   * (vs String + materialized columns), with identifiers aliased in the fact-table SQL.
+   */
+  useJsonColumns?: boolean;
 }
 
 interface DataSourceBase {
