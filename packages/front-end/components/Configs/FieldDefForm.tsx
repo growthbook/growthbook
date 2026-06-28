@@ -64,6 +64,7 @@ export default function FieldDefForm({
   );
   const [valueText, setValueText] = useState(initialValue);
   const [valueIsNull, setValueIsNull] = useState(initialNull);
+  const [valueIsUndefined, setValueIsUndefined] = useState(false);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -201,8 +202,11 @@ export default function FieldDefForm({
       }
     }
     // Parse against the value surface so {type:string} saves a string, not JSON.
+    // `undefined` leaves the value unset (the key is omitted by the caller).
     let value: unknown = undefined;
-    if (withValue && valueIsNull) {
+    if (withValue && valueIsUndefined) {
+      value = undefined;
+    } else if (withValue && valueIsNull) {
       value = null;
     } else if (withValue) {
       const t = valueText.trim();
@@ -345,42 +349,47 @@ export default function FieldDefForm({
   ) : (
     <Box mt="2">
       {descriptionField}
-      {(canNullable || canValidate || (canEnum && !showEnum)) && (
-        <Flex gap="4" align="center" wrap="wrap">
-          {canNullable && (
-            <Checkbox
-              size="sm"
-              weight="regular"
-              value={field.nullable === true}
-              setValue={(v) => setField({ ...field, nullable: v })}
-              label="Nullable"
-            />
-          )}
-          {canEnum && !showEnum && (
-            <Button
-              variant="ghost"
-              size="xs"
-              icon={<PiPlus />}
-              onClick={() => {
-                setShowEnum(true);
-                setShowValidation(false);
-              }}
-            >
-              Restrict to specific values
-            </Button>
-          )}
-          {canValidate && !showValidation && (
-            <Button
-              variant="ghost"
-              size="xs"
-              icon={<PiPlus />}
-              onClick={() => setShowValidation(true)}
-            >
-              Add validation
-            </Button>
-          )}
-        </Flex>
-      )}
+      <Flex gap="4" align="center" wrap="wrap">
+        <Checkbox
+          size="sm"
+          weight="regular"
+          value={field.required === false}
+          setValue={(v) => setField({ ...field, required: !v })}
+          label="Optional"
+        />
+        {canNullable && (
+          <Checkbox
+            size="sm"
+            weight="regular"
+            value={field.nullable === true}
+            setValue={(v) => setField({ ...field, nullable: v })}
+            label="Nullable"
+          />
+        )}
+        {canEnum && !showEnum && (
+          <Button
+            variant="ghost"
+            size="xs"
+            icon={<PiPlus />}
+            onClick={() => {
+              setShowEnum(true);
+              setShowValidation(false);
+            }}
+          >
+            Restrict to specific values
+          </Button>
+        )}
+        {canValidate && !showValidation && (
+          <Button
+            variant="ghost"
+            size="xs"
+            icon={<PiPlus />}
+            onClick={() => setShowValidation(true)}
+          >
+            Add validation
+          </Button>
+        )}
+      </Flex>
       {canEnum && showEnum && (
         <Box mt="3">
           <label>Allowed values</label>
@@ -512,19 +521,53 @@ export default function FieldDefForm({
           <Box style={{ minWidth: 0 }}>
             <Flex align="center" style={{ minHeight: 32 }}>
               <Box style={{ width: "100%", minWidth: 0 }}>
-                {valueIsNull ? <Text color="text-low">null</Text> : valueInput}
+                {valueIsUndefined ? (
+                  <Text color="text-low">
+                    <code>undefined</code>
+                  </Text>
+                ) : valueIsNull ? (
+                  <Text color="text-low">
+                    <code>null</code>
+                  </Text>
+                ) : (
+                  valueInput
+                )}
               </Box>
             </Flex>
-            {!isNew && fieldIsNullable(field) && !valueIsJson && (
-              <Checkbox
-                size="sm"
-                weight="regular"
-                mt="1"
-                value={valueIsNull}
-                setValue={setValueIsNull}
-                label={<code>null</code>}
-              />
-            )}
+            {(() => {
+              const nullable = fieldIsNullable(field) && !valueIsJson;
+              const optional = field.required === false;
+              if (!nullable && !optional) return null;
+              return (
+                <Flex mt="1" gap="4" align="center">
+                  {nullable && (
+                    <Checkbox
+                      size="sm"
+                      weight="regular"
+                      disabled={valueIsUndefined}
+                      value={valueIsNull}
+                      setValue={(v) => {
+                        setValueIsNull(v);
+                        if (v) setValueIsUndefined(false);
+                      }}
+                      label={<code>null</code>}
+                    />
+                  )}
+                  {optional && (
+                    <Checkbox
+                      size="sm"
+                      weight="regular"
+                      value={valueIsUndefined}
+                      setValue={(v) => {
+                        setValueIsUndefined(v);
+                        if (v) setValueIsNull(false);
+                      }}
+                      label={<code>undefined</code>}
+                    />
+                  )}
+                </Flex>
+              );
+            })()}
           </Box>
         )}
         <Box style={{ minWidth: 0 }}>

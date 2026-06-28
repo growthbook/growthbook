@@ -273,7 +273,7 @@ function OverrideRow({
             <Box style={{ minWidth: 0, color: "var(--slate-11)" }}>
               {base === undefined ? (
                 <Text color="text-low">
-                  <code>{JSON.stringify(typeDefault(nf))}</code> (default)
+                  <code>undefined</code>
                 </Text>
               ) : (
                 <code

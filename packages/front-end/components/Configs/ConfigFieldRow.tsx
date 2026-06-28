@@ -28,7 +28,6 @@ import {
   fieldValueType,
   fieldIsNullable,
   normalizeField,
-  typeDefault,
   valueToDisplayString,
 } from "@/components/Configs/fieldSchema";
 import styles from "./ConfigFieldRow.module.scss";
@@ -63,10 +62,10 @@ export default function ConfigFieldRow({
   squashConstants: (value: unknown) => unknown;
   editing: boolean;
   editText: string;
-  editKind: "value" | "null";
+  editKind: "value" | "null" | "unset";
   editError: string | null;
   setEditText: (v: string) => void;
-  setEditKind: (k: "value" | "null") => void;
+  setEditKind: (k: "value" | "null" | "unset") => void;
   onStartEdit: () => void;
   onSubmit: () => void;
   onCancelEdit: () => void;
@@ -129,7 +128,10 @@ export default function ConfigFieldRow({
               <>
                 {(() => {
                   const nullable = fieldIsNullable(nf);
+                  const optional = nf?.required === false;
                   const isNull = editKind === "null";
+                  const isUnset = editKind === "unset";
+                  const disabled = isNull || isUnset;
                   const vt = fieldValueType(nf);
                   const enumValues =
                     vt !== "json" && vt !== "boolean" ? (nf?.enum ?? []) : [];
@@ -145,7 +147,7 @@ export default function ConfigFieldRow({
                           ]}
                           initialOption="value…"
                           sort={false}
-                          disabled={isNull}
+                          disabled={disabled}
                         />
                       ) : enumValues.length > 0 ? (
                         <SelectField
@@ -157,12 +159,12 @@ export default function ConfigFieldRow({
                           }))}
                           initialOption="value…"
                           sort={false}
-                          disabled={isNull}
+                          disabled={disabled}
                         />
                       ) : (
                         <FeatureValueField
                           id={`config-value-${f.key}`}
-                          value={isNull ? "" : editText}
+                          value={disabled ? "" : editText}
                           setValue={setEditText}
                           valueType={vt}
                           useCodeInput={vt === "json"}
@@ -170,21 +172,35 @@ export default function ConfigFieldRow({
                           codeInputDefaultHeight={FIVE_LINES_HEIGHT}
                           constantContext={constantContext}
                           inlineConstantButton
-                          disabled={isNull}
+                          disabled={disabled}
                         />
                       )}
-                      {nullable && vt !== "json" && (
-                        <Box mt="1">
-                          <Checkbox
-                            size="sm"
-                            label="null"
-                            value={isNull}
-                            setValue={(v) => {
-                              setEditKind(v ? "null" : "value");
-                              if (v) setEditText("");
-                            }}
-                          />
-                        </Box>
+                      {((nullable && vt !== "json") || optional) && (
+                        <Flex mt="1" gap="4" align="center">
+                          {nullable && vt !== "json" && (
+                            <Checkbox
+                              size="sm"
+                              label="null"
+                              disabled={isUnset}
+                              value={isNull}
+                              setValue={(v) => {
+                                setEditKind(v ? "null" : "value");
+                                if (v) setEditText("");
+                              }}
+                            />
+                          )}
+                          {optional && (
+                            <Checkbox
+                              size="sm"
+                              label="undefined"
+                              value={isUnset}
+                              setValue={(v) => {
+                                setEditKind(v ? "unset" : "value");
+                                if (v) setEditText("");
+                              }}
+                            />
+                          )}
+                        </Flex>
                       )}
                     </>
                   );
@@ -199,7 +215,7 @@ export default function ConfigFieldRow({
               <>
                 {f.value === undefined ? (
                   <Text color="text-low">
-                    <code>{JSON.stringify(typeDefault(nf))}</code> (default)
+                    <code>undefined</code>
                   </Text>
                 ) : f.value === null ? (
                   <ValueDisplay
@@ -210,13 +226,17 @@ export default function ConfigFieldRow({
                 ) : (
                   (() => {
                     const vt = fieldValueType(nf);
+                    // Render booleans as a code literal (true/false) like every
+                    // other value here, not ValueDisplay's feature-flag ● TRUE
+                    // style. (Don't change ValueDisplay — features rely on it.)
+                    const displayType = vt === "boolean" ? "json" : vt;
                     return (
                       <ValueDisplay
                         value={valueToDisplayString(
                           squashConstants(f.value),
                           vt,
                         )}
-                        type={vt}
+                        type={displayType}
                         showFullscreenButton={vt === "json"}
                         copyButtonClassName={styles.copyButton}
                       />
@@ -230,7 +250,7 @@ export default function ConfigFieldRow({
                   >
                     {parentValue === undefined ? (
                       <Text color="text-low">
-                        <code>{JSON.stringify(typeDefault(nf))}</code> (default)
+                        <code>undefined</code>
                       </Text>
                     ) : parentValue === null ? (
                       <ValueDisplay
@@ -241,13 +261,14 @@ export default function ConfigFieldRow({
                     ) : (
                       (() => {
                         const vt = fieldValueType(nf);
+                        const displayType = vt === "boolean" ? "json" : vt;
                         return (
                           <ValueDisplay
                             value={valueToDisplayString(
                               squashConstants(parentValue),
                               vt,
                             )}
-                            type={vt}
+                            type={displayType}
                             copyButtonClassName={styles.copyButton}
                           />
                         );

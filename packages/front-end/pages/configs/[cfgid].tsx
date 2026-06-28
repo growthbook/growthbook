@@ -248,7 +248,7 @@ export default function ConfigDetailPage(): React.ReactElement {
   const [editError, setEditError] = useState<string | null>(null);
   // Separate from the text so an explicit null and a concrete value stay
   // distinct. (Not overriding at all is a third axis: the inherit / Reset action.)
-  const [editKind, setEditKind] = useState<"value" | "null">("value");
+  const [editKind, setEditKind] = useState<"value" | "null" | "unset">("value");
 
   // Inline schema authoring: "add" shows a blank field form; a key string edits
   // that field's definition.
@@ -649,6 +649,18 @@ export default function ConfigDetailPage(): React.ReactElement {
 
   const submitOverride = async () => {
     if (!editKey) return;
+    // Unset = omit the key from this config's own value (optional field absent).
+    if (editKind === "unset") {
+      const v = { ...ownValue() };
+      delete v[editKey];
+      try {
+        await saveValue(v);
+        setEditKey(null);
+      } catch (e) {
+        setEditError(e instanceof Error ? e.message : "Failed to save value");
+      }
+      return;
+    }
     let parsed: unknown;
     if (editKind === "null") {
       parsed = null;
