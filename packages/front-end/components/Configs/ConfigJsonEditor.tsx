@@ -35,9 +35,9 @@ import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import Modal from "@/components/Modal";
 import { ResolvedField } from "@/components/Configs/fieldSchema";
 
-// The schema editor speaks JSON Schema or TypeScript; both compile to the same
-// SchemaField[]. JSON Schema stays the canonical/default surface.
-type SchemaLang = "json" | "typescript";
+// The schema editor speaks JSON Schema, TypeScript, or Protobuf; all compile to
+// the same SchemaField[]. JSON Schema stays the canonical/default surface.
+type SchemaLang = "json" | "typescript" | "protobuf";
 
 type Props = {
   // Stable saved strings — local state reseeds whenever these change (after a
@@ -129,6 +129,9 @@ function compileFieldsToText(
   if (lang === "typescript") {
     return fieldsToTsType(fields, { additionalProperties });
   }
+  if (lang === "protobuf") {
+    return fieldsToProto(fields, { additionalProperties });
+  }
   if (!fields.length) return emptySchemaText(additionalProperties);
   try {
     return JSON.stringify(
@@ -147,9 +150,9 @@ function parseSchemaText(
   text: string,
   lang: SchemaLang,
 ): SchemaConversionResult {
-  return lang === "typescript"
-    ? tsTypesToFields(text)
-    : jsonSchemaStringToFields(text);
+  if (lang === "typescript") return tsTypesToFields(text);
+  if (lang === "protobuf") return protoToFields(text);
+  return jsonSchemaStringToFields(text);
 }
 
 // Seed the editable schema buffer from the config's declared own fields (or an
@@ -361,10 +364,10 @@ export default function ConfigJsonEditor({
     seededKeys.current = new Set();
   };
 
-  // Editor format selector: JSON Schema / TypeScript edit in place; anything else
-  // (Protobuf, a named projection) is a read-only preview of the current fields.
+  // Editor format selector: JSON Schema / TypeScript / Protobuf edit in place; a
+  // named projection (`proj:<source>`) edits in its own buffer with name capture.
   const onEditorFormatSelect = (v: string) => {
-    if (v === "json" || v === "typescript") {
+    if (v === "json" || v === "typescript" || v === "protobuf") {
       setSchemaPreviewSel(null);
       switchSchemaLang(v);
     } else {
@@ -872,6 +875,8 @@ export default function ConfigJsonEditor({
         minLines={12}
         maxLines={40}
         fontSize="0.75em"
+        showCopyButton
+        showFullscreenButton
       />
       <HelperText status="info" size="sm" mt="1">
         <span>
@@ -959,12 +964,20 @@ export default function ConfigJsonEditor({
                 // often), so a fresh editor per language keeps it editable.
                 <CodeTextArea
                   key={schemaLang}
-                  language={schemaLang === "typescript" ? "typescript" : "json"}
+                  language={
+                    schemaLang === "typescript"
+                      ? "typescript"
+                      : schemaLang === "protobuf"
+                        ? "protobuf"
+                        : "json"
+                  }
                   value={schemaText}
                   setValue={setSchemaText}
                   minLines={12}
                   maxLines={40}
                   fontSize="0.75em"
+                  showCopyButton
+                  showFullscreenButton
                   helpText={schemaCtas}
                 />
               ) : (
