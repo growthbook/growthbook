@@ -32,6 +32,8 @@ export type SchemaWarning = {
 // presentation metadata for projection — NOT part of the schema contract, so it
 // never participates in canonical equality / drift.
 export type SchemaProjection = {
+  // The language this projection renders in (e.g. "typescript").
+  language: string;
   rootName?: string;
   typeNames: Record<string, string>;
 };

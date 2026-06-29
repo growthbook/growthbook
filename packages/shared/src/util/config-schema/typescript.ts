@@ -743,7 +743,7 @@ export function tsTypesToFields(text: string): SchemaConversionResult {
   if (root) {
     const typeNames: Record<string, string> = {};
     captureMemberNames(body, byName, "", new Set([root.name]), 1, typeNames);
-    projection = { rootName: root.name, typeNames };
+    projection = { language: "typescript", rootName: root.name, typeNames };
   }
 
   return {

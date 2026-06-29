@@ -1544,6 +1544,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                     view={activeTab === "resolved" ? "preview" : "edit"}
                     parentKey={parentKey}
                     parentName={parentName}
+                    renderProjections={config?.renderProjections}
                     onSave={(value, fields) => saveSchema(fields, value)}
                   />
                 )}

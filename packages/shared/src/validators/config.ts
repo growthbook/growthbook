@@ -17,6 +17,7 @@ import { namedSchema } from "./openapi-helpers";
 // only — never part of the schema contract, so it never affects drift.
 export const schemaProjectionValidator = z
   .object({
+    language: z.string(),
     rootName: z.string().optional(),
     typeNames: z.record(z.string(), z.string()),
   })

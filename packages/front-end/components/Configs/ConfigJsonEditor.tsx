@@ -10,6 +10,7 @@ import {
   jsonSchemaStringToFields,
   reconcileSchemaFields,
   SchemaConversionResult,
+  SchemaProjection,
   simpleToJSONSchema,
   stripConfigExtends,
   tsTypesToFields,
@@ -21,6 +22,7 @@ import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
 import Field from "@/components/Forms/Field";
 import Button from "@/ui/Button";
+import SelectField from "@/components/Forms/SelectField";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
@@ -56,6 +58,9 @@ type Props = {
   // ("inherits base schema from …") rather than the bare "No schema defined."
   parentKey?: string | null;
   parentName?: string | null;
+  // Captured per-source render projections (source id → named-type projection),
+  // offered as named TypeScript output options for this config's own schema.
+  renderProjections?: Record<string, SchemaProjection>;
   onSave: (
     value: Record<string, unknown>,
     fields: SchemaField[],
@@ -178,6 +183,7 @@ export default function ConfigJsonEditor({
   view = "edit",
   parentKey,
   parentName,
+  renderProjections,
   onSave,
 }: Props) {
   const [valueText, setValueText] = useState<string>(() =>
@@ -195,10 +201,13 @@ export default function ConfigJsonEditor({
   // Active schema language. Held in a ref too so the reseed effect (which must
   // not re-run on a language switch) can read the current language.
   const [schemaLang, setSchemaLang] = useState<SchemaLang>("json");
-  // Display-only language for the read-only (off-draft / Resolved) schema views,
-  // kept separate from the editable buffer's language so viewing as TS never
-  // desyncs the JSON-seeded edit buffer.
-  const [readonlyLang, setReadonlyLang] = useState<SchemaLang>("json");
+  // Display-only schema format for the read-only views, kept separate from the
+  // editable buffer's language so viewing as TS never desyncs the JSON-seeded
+  // edit buffer. A value of `proj:<source>` selects a named projection (own
+  // schema only). Per-column so selecting a projection on the own schema doesn't
+  // leak to the Resolved/effective view (different pointers).
+  const [ownSchemaSel, setOwnSchemaSel] = useState<string>("json");
+  const [resolvedSchemaSel, setResolvedSchemaSel] = useState<string>("json");
   const schemaLangRef = useRef<SchemaLang>(schemaLang);
   useEffect(() => {
     schemaLangRef.current = schemaLang;
@@ -439,31 +448,115 @@ export default function ConfigJsonEditor({
     </Tabs>
   );
 
-  // Read-only schema column: heading + language toggle + the schema rendered in
-  // the chosen language. Used off-draft (own schema) and on the Resolved tab
-  // (effective schema), so either can be viewed as JSON Schema or TypeScript.
+  // Schema format picker for the read-only views: a SelectField whose first group
+  // is the generic conversions (JSON Schema / TypeScript) and whose second group
+  // (when projections exist) is the named per-source projections, each labelled
+  // with its language. Selecting `proj:<source>` renders that consumer's named
+  // types.
+  const LANG_LABELS: Record<string, string> = {
+    typescript: "TypeScript",
+    "json-schema": "JSON Schema",
+  };
+  const schemaFormatSelect = (
+    sel: string,
+    setSel: (v: string) => void,
+    projections?: Record<string, SchemaProjection>,
+  ): ReactNode => {
+    const options: Parameters<typeof SelectField>[0]["options"] = [
+      {
+        label: "Convert",
+        options: [
+          { label: "JSON Schema", value: "json" },
+          { label: "TypeScript", value: "typescript" },
+        ],
+      },
+    ];
+    const entries = Object.entries(projections ?? {});
+    if (entries.length) {
+      options.push({
+        label: "Named projections",
+        options: entries.map(([source, p]) => ({
+          label: `${source} (${LANG_LABELS[p.language] ?? p.language})`,
+          value: `proj:${source}`,
+        })),
+      });
+    }
+    return (
+      <Box style={{ minWidth: 200 }}>
+        <SelectField
+          value={sel}
+          onChange={setSel}
+          options={options}
+          sort={false}
+          containerStyle={{ marginBottom: 0 }}
+        />
+      </Box>
+    );
+  };
+
+  const renderReadonlySchema = (
+    sel: string,
+    schemaFields: SchemaField[],
+    jsonString: string,
+    projections?: Record<string, SchemaProjection>,
+  ): ReactNode => {
+    if (sel.startsWith("proj:")) {
+      const projection = projections?.[sel.slice("proj:".length)];
+      if (projection) {
+        return (
+          <Box style={{ maxHeight: 320, overflowY: "auto", maxWidth: "100%" }}>
+            <InlineCode
+              language="typescript"
+              code={fieldsToTsType(schemaFields, {
+                additionalProperties: extensible,
+                projection,
+              })}
+              fontSize="0.75rem"
+            />
+          </Box>
+        );
+      }
+      return readonlyTsSchema(schemaFields); // projection gone — fall back
+    }
+    return sel === "typescript"
+      ? readonlyTsSchema(schemaFields)
+      : readonlyJsonSchema(jsonString);
+  };
+
+  // Read-only schema column: heading + format picker + the schema rendered in
+  // the chosen format. Used off-draft (own schema, with projections) and on the
+  // Resolved tab (effective schema, generic conversions only).
   const readonlySchemaColumn = (
+    sel: string,
+    setSel: (v: string) => void,
     schemaFields: SchemaField[],
     jsonString: string | null,
     heading: string,
-    emptyState?: ReactNode,
+    opts?: {
+      projections?: Record<string, SchemaProjection>;
+      emptyState?: ReactNode;
+    },
   ): ReactNode => (
     <>
       <Flex justify="between" align="center" mb="1" gap="3">
         <Text weight="semibold" size="medium" as="div">
           {heading}
         </Text>
-        {schemaFields.length > 0 && langToggle(readonlyLang, setReadonlyLang)}
+        {schemaFields.length > 0 &&
+          schemaFormatSelect(sel, setSel, opts?.projections)}
       </Flex>
       {schemaFields.length === 0 || jsonString === null
-        ? (emptyState ?? (
+        ? (opts?.emptyState ?? (
             <Text size="medium" color="text-low" as="div">
               No schema defined.
             </Text>
           ))
-        : readonlyLang === "typescript"
-          ? readonlyTsSchema(schemaFields)
-          : readonlyJsonSchema(jsonString)}
+        : renderReadonlySchema(
+            sel,
+            schemaFields,
+            jsonString,
+            opts?.projections,
+          )}
     </>
   );
 
@@ -626,6 +719,8 @@ export default function ConfigJsonEditor({
       {readonlyValue(resolvedValueString)}
     </>,
     readonlySchemaColumn(
+      resolvedSchemaSel,
+      setResolvedSchemaSel,
       effectiveSchema,
       effectiveSchemaString,
       "Effective schema",
@@ -650,10 +745,12 @@ export default function ConfigJsonEditor({
             {readonlyValue(prettyValue(valueJson))}
           </>,
           readonlySchemaColumn(
+            ownSchemaSel,
+            setOwnSchemaSel,
             ownFields,
             ownSchemaString,
             "Schema",
-            ownSchemaEmptyState,
+            { projections: renderProjections, emptyState: ownSchemaEmptyState },
           ),
         )}
       </Box>
