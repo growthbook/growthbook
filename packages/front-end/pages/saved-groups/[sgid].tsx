@@ -681,7 +681,6 @@ export default function EditSavedGroupPage() {
           trackingEventModalType="show-saved-group-references"
           close={() => setShowReferencesModal(false)}
           open={showReferencesModal}
-          useRadixButton={true}
           closeCta="Close"
         >
           <Text as="p" mb="3">
@@ -708,7 +707,6 @@ export default function EditSavedGroupPage() {
               size="max"
               hideCta={true}
               closeCta="Close"
-              useRadixButton={true}
             >
               <RevisionDetail<SavedGroupInterface>
                 diffConfig={REVISION_SAVED_GROUP_DIFF_CONFIG}
@@ -914,7 +912,6 @@ export default function EditSavedGroupPage() {
           header="Create New Draft"
           cta="Create Draft"
           loading={creatingDraft}
-          useRadixButton={true}
           submit={async () => {
             setCreatingDraft(true);
             try {

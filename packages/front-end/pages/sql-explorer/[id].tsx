@@ -119,7 +119,7 @@ export default function SqlQueryDetail() {
             Edit
           </Button>
         )}
-        <MoreMenu useRadix={true}>
+        <MoreMenu>
           {canDelete && (
             <DeleteButton
               useRadix={false}

@@ -51,7 +51,7 @@ export default function ReportResultMoreMenu({
     hasData && supportsNotebooks && notebookUrl && notebookFilename;
 
   return (
-    <MoreMenu autoCloseOnClick={false} useRadix={true} className="ml-2">
+    <MoreMenu autoCloseOnClick={false} className="ml-2">
       {setNameModalOpen ? (
         <button
           className="dropdown-item py-2"

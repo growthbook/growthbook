@@ -184,10 +184,7 @@ export function CreateSDKWebhookModal({
         helpText={
           <>
             Please select an existing{" "}
-            <DocLink useRadix docSection="webhookSecrets">
-              webhook secret
-            </DocLink>{" "}
-            or{" "}
+            <DocLink docSection="webhookSecrets">webhook secret</DocLink> or{" "}
             <Link onClick={() => setIsSecretModalOpen(true)}>
               create a new one
             </Link>

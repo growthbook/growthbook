@@ -574,7 +574,6 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
           </Button>
         ) : undefined
       }
-      useRadixButton={true}
     >
       {step === "confirm" ? (
         <EventWebHookAddConfirm form={form} />

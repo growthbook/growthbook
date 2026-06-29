@@ -116,7 +116,6 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
               trackingEventModalType="show-saved-query-references"
               close={() => setShowReferencesModal(null)}
               open={true}
-              useRadixButton={true}
               closeCta="Close"
             >
               <Text as="p" mb="3">

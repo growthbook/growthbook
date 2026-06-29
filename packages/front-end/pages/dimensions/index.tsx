@@ -229,7 +229,7 @@ const DimensionsPage: FC = () => {
                     {item.identifierTypes.join(", ")}
                   </TableCell>
                   <TableCell style={{ width: 30 }} className="text-right">
-                    <MoreMenu useRadix={true}>
+                    <MoreMenu>
                       <NextLink
                         className="dropdown-item"
                         href={`/datasources/${item.datasourceId}#${EAQ_ANCHOR_ID}`}

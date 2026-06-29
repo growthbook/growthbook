@@ -711,7 +711,6 @@ function UrlCard({
           {canEdit && (
             <DeleteButton
               className="btn-sm ml-4"
-              useRadix={true}
               text="Remove"
               stopPropagation={true}
               onClick={() => onDeleteChangeset()}

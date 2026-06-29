@@ -160,7 +160,7 @@ export default function CustomHooksPage() {
                         )}
                       </TableCell>
                       <TableCell>
-                        <MoreMenu useRadix iconButtonSize="1">
+                        <MoreMenu iconButtonSize="1">
                           <a
                             href="#"
                             className="dropdown-item"
@@ -251,7 +251,7 @@ export default function CustomHooksPage() {
                         </Link>
                       </TableCell>
                       <TableCell>
-                        <MoreMenu useRadix iconButtonSize="1">
+                        <MoreMenu iconButtonSize="1">
                           <a
                             href="#"
                             className="dropdown-item"
