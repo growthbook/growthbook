@@ -13,7 +13,7 @@ import {
   discardIfJustCreated,
   isDraftStatus,
   pickNewDraftMetadata,
-  resolveImportedSchema,
+  resolveConfigSchemaSource,
   resolveOrCreateRevision,
 } from "./validations";
 import { toApiConfigRevision } from "./toApiConfigRevision";
@@ -59,14 +59,17 @@ export const putConfigRevisionSchema = createApiRequestHandler(
     // what the revision will publish.
     const draft = applyRevisionToSnapshot(revision);
 
-    const { schema, warnings } = resolveImportedSchema({
-      schema: req.body.schema,
-      format: req.body.format,
-      source: req.body.source,
+    const { schema, warnings } = resolveConfigSchemaSource({
+      source: req.body.schema,
       infer: req.body.infer,
       additionalProperties: req.body.additionalProperties,
       inferValue: draft.value,
     });
+    if (schema === undefined) {
+      throw new BadRequestError(
+        "Provide a schema source: `schema` (a json-schema/typescript document) or `infer: true`.",
+      );
+    }
 
     // Enforce "base wins" against ancestors-at-stage-time (re-checked at publish).
     const normalizedSchema =

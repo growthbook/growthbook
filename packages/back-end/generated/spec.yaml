@@ -355,6 +355,9 @@ tags:
   - name: ConfigSchemaExport_model
     x-displayName: Config Schema Export
     description: <SchemaDefinition schemaRef="#/components/schemas/ConfigSchemaExport" />
+  - name: ConfigSchemaSource_model
+    x-displayName: Config Schema Source
+    description: <SchemaDefinition schemaRef="#/components/schemas/ConfigSchemaSource" />
   - name: ConfigSchemaWarning_model
     x-displayName: Config Schema Warning
     description: <SchemaDefinition schemaRef="#/components/schemas/ConfigSchemaWarning" />
@@ -18914,82 +18917,16 @@ paths:
                     request's Personal Access Token (PAT), if one is being used.
                   type: string
                 schema:
-                  description: >-
-                    Field definitions for this config. Fields whose key an
-                    ancestor (via `parent`/`extends`) already owns are stripped
-                    on create ('base wins'); a field owned by two sibling bases
-                    is a conflict and is rejected. Omit to leave the config
-                    schema-less, or use the schema-import endpoints to derive
-                    one.
-                  type: object
-                  properties:
-                    type:
-                      type: string
-                      enum:
-                        - object
-                        - object[]
-                        - primitive
-                        - primitive[]
-                    fields:
-                      type: array
-                      items:
-                        type: object
-                        properties:
-                          key:
-                            type: string
-                            maxLength: 64
-                          type:
-                            type: string
-                            enum:
-                              - integer
-                              - float
-                              - string
-                              - boolean
-                          required:
-                            type: boolean
-                          default:
-                            type: string
-                            maxLength: 256
-                          description:
-                            type: string
-                            maxLength: 10000
-                          enum:
-                            maxItems: 256
-                            type: array
-                            items:
-                              type: string
-                              maxLength: 256
-                          min:
-                            type: number
-                          max:
-                            type: number
-                          nullable:
-                            type: boolean
-                          jsonSchema:
-                            type: string
-                        required:
-                          - key
-                          - type
-                          - required
-                          - default
-                          - description
-                          - enum
-                        additionalProperties: false
-                    additionalProperties:
-                      type: boolean
-                  required:
-                    - type
-                    - fields
-                  additionalProperties: false
+                  $ref: '#/components/schemas/ConfigSchemaSource'
                 extensible:
                   type: boolean
                 bypassApproval:
+                  deprecated: true
                   description: >-
-                    Set to true to skip the approval flow when the org requires
-                    approvals for this config's project. Requires the
-                    `bypassApprovalChecks` permission (or the org-level REST
-                    bypass setting). When approvals aren't required, this flag
-                    has no effect.
+                    Deprecated and ignored on create: a brand-new config
+                    publishes immediately and never enters the approval flow, so
+                    this flag has no effect. Approvals apply only to later
+                    changes via the update endpoint.
                   type: boolean
               required:
                 - key
@@ -19005,6 +18942,10 @@ paths:
                 properties:
                   config:
                     $ref: '#/components/schemas/Config'
+                  warnings:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ConfigSchemaWarning'
                 required:
                   - config
                 additionalProperties: false
@@ -19256,17 +19197,14 @@ paths:
         - name: format
           in: query
           description: >-
-            Output format. `simple` returns the canonical SimpleSchema object;
-            `json-schema` and `typescript` render it as a string. Defaults to
-            `json-schema`.
+            Output format. `json-schema` (default) returns a JSON Schema
+            document; `typescript` renders the schema as TypeScript source.
           schema:
             description: >-
-              Output format. `simple` returns the canonical SimpleSchema object;
-              `json-schema` and `typescript` render it as a string. Defaults to
-              `json-schema`.
+              Output format. `json-schema` (default) returns a JSON Schema
+              document; `typescript` renders the schema as TypeScript source.
             type: string
             enum:
-              - simple
               - json-schema
               - typescript
         - $ref: '#/components/parameters/effective'
@@ -19279,12 +19217,8 @@ paths:
                 id: ConfigSchemaExport
                 type: object
                 properties:
-                  format:
-                    type: string
-                    enum:
-                      - simple
-                      - json-schema
-                      - typescript
+                  schema:
+                    $ref: '#/components/schemas/ConfigSchemaSource'
                   effective:
                     description: >-
                       True when the schema includes inherited fields accumulated
@@ -19294,79 +19228,10 @@ paths:
                   additionalProperties:
                     description: Whether the config family permits extra keys.
                     type: boolean
-                  simpleSchema:
-                    anyOf:
-                      - type: object
-                        properties:
-                          type:
-                            type: string
-                            enum:
-                              - object
-                              - object[]
-                              - primitive
-                              - primitive[]
-                          fields:
-                            type: array
-                            items:
-                              type: object
-                              properties:
-                                key:
-                                  type: string
-                                  maxLength: 64
-                                type:
-                                  type: string
-                                  enum:
-                                    - integer
-                                    - float
-                                    - string
-                                    - boolean
-                                required:
-                                  type: boolean
-                                default:
-                                  type: string
-                                  maxLength: 256
-                                description:
-                                  type: string
-                                  maxLength: 10000
-                                enum:
-                                  maxItems: 256
-                                  type: array
-                                  items:
-                                    type: string
-                                    maxLength: 256
-                                min:
-                                  type: number
-                                max:
-                                  type: number
-                                nullable:
-                                  type: boolean
-                                jsonSchema:
-                                  type: string
-                              required:
-                                - key
-                                - type
-                                - required
-                                - default
-                                - description
-                                - enum
-                              additionalProperties: false
-                          additionalProperties:
-                            type: boolean
-                        required:
-                          - type
-                          - fields
-                        additionalProperties: false
-                      - type: 'null'
-                  rendered:
-                    anyOf:
-                      - type: string
-                      - type: 'null'
                 required:
-                  - format
+                  - schema
                   - effective
                   - additionalProperties
-                  - simpleSchema
-                  - rendered
                 additionalProperties: false
       x-codeSamples:
         - lang: cURL
@@ -19472,71 +19337,7 @@ paths:
                     it will be validated as existing in the organization.
                   type: string
                 schema:
-                  description: >-
-                    Replace this config's field definitions. Fields colliding
-                    with a published ancestor's key are stripped ('base wins').
-                    A schema change cascades the 'base wins' normalization to
-                    descendants when published.
-                  type: object
-                  properties:
-                    type:
-                      type: string
-                      enum:
-                        - object
-                        - object[]
-                        - primitive
-                        - primitive[]
-                    fields:
-                      type: array
-                      items:
-                        type: object
-                        properties:
-                          key:
-                            type: string
-                            maxLength: 64
-                          type:
-                            type: string
-                            enum:
-                              - integer
-                              - float
-                              - string
-                              - boolean
-                          required:
-                            type: boolean
-                          default:
-                            type: string
-                            maxLength: 256
-                          description:
-                            type: string
-                            maxLength: 10000
-                          enum:
-                            maxItems: 256
-                            type: array
-                            items:
-                              type: string
-                              maxLength: 256
-                          min:
-                            type: number
-                          max:
-                            type: number
-                          nullable:
-                            type: boolean
-                          jsonSchema:
-                            type: string
-                        required:
-                          - key
-                          - type
-                          - required
-                          - default
-                          - description
-                          - enum
-                        additionalProperties: false
-                    additionalProperties:
-                      type: boolean
-                  required:
-                    - type
-                    - fields
-                  additionalProperties: false
+                  $ref: '#/components/schemas/ConfigSchemaSource'
                 extensible:
                   type: boolean
                 bypassApproval:
@@ -19558,6 +19359,10 @@ paths:
                 properties:
                   config:
                     $ref: '#/components/schemas/Config'
+                  warnings:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ConfigSchemaWarning'
                 required:
                   - config
                 additionalProperties: false
@@ -20080,15 +19885,14 @@ paths:
         Stages this config's field schema on the draft. Provide exactly ONE
         source:
 
-        - `schema`: a SimpleSchema object directly.
-
-        - `format` + `source`: a raw document to convert. **JSON Schema is the
-        recommended ("happy path") format** — it is the canonical pivot,
-        preserves nested objects/arrays, and resolves local `$ref`/`$defs` (so
-        generator output with referenced types works). `typescript` is a
-        best-effort convenience parser. All conversions are lossy-by-design and
-        degrade exotic constructs to permissive types WITH warnings (returned in
-        `warnings`).
+        - `schema`: a schema document — `{ type: "json-schema", value }` (a JSON
+        Schema object) or `{ type: "typescript", value }` (TypeScript source).
+        **JSON Schema is the recommended ("happy path") format** — it is the
+        canonical pivot, preserves nested objects/arrays, and resolves local
+        `$ref`/`$defs` (so generator output with referenced types works).
+        `typescript` is a best-effort convenience parser. All conversions are
+        lossy-by-design and degrade exotic constructs to permissive types WITH
+        warnings (returned in `warnings`).
 
         - `infer: true`: derive the schema from the draft's value.
 
@@ -20125,80 +19929,7 @@ paths:
                 revisionComment:
                   type: string
                 schema:
-                  type: object
-                  properties:
-                    type:
-                      type: string
-                      enum:
-                        - object
-                        - object[]
-                        - primitive
-                        - primitive[]
-                    fields:
-                      type: array
-                      items:
-                        type: object
-                        properties:
-                          key:
-                            type: string
-                            maxLength: 64
-                          type:
-                            type: string
-                            enum:
-                              - integer
-                              - float
-                              - string
-                              - boolean
-                          required:
-                            type: boolean
-                          default:
-                            type: string
-                            maxLength: 256
-                          description:
-                            type: string
-                            maxLength: 10000
-                          enum:
-                            maxItems: 256
-                            type: array
-                            items:
-                              type: string
-                              maxLength: 256
-                          min:
-                            type: number
-                          max:
-                            type: number
-                          nullable:
-                            type: boolean
-                          jsonSchema:
-                            type: string
-                        required:
-                          - key
-                          - type
-                          - required
-                          - default
-                          - description
-                          - enum
-                        additionalProperties: false
-                    additionalProperties:
-                      type: boolean
-                  required:
-                    - type
-                    - fields
-                  additionalProperties: false
-                format:
-                  description: >-
-                    The language of `source`. Required when `source` is
-                    provided. `json-schema` is recommended (highest fidelity;
-                    resolves `$ref`/`$defs`). `typescript` is best-effort.
-                    `simple` expects `source` to be a JSON-encoded SimpleSchema.
-                  type: string
-                  enum:
-                    - simple
-                    - json-schema
-                    - typescript
-                source:
-                  description: Raw schema document to convert, in the language `format`.
-                  type: string
+                  $ref: '#/components/schemas/ConfigSchemaSource'
                 infer:
                   description: Derive the schema from the draft's value instead.
                   type: boolean
@@ -42797,68 +42528,23 @@ components:
           type: boolean
         schema:
           description: >-
-            This config's own field definitions (its contribution to the
-            family's effective schema). Inherited fields are owned by ancestors
-            and are not repeated here.
+            This config's own field definitions as a JSON Schema document (its
+            contribution to the family's effective schema). Inherited fields are
+            owned by ancestors and are not repeated here.
           type: object
           properties:
             type:
               type: string
-              enum:
-                - object
-                - object[]
-                - primitive
-                - primitive[]
-            fields:
-              type: array
-              items:
-                type: object
-                properties:
-                  key:
-                    type: string
-                    maxLength: 64
-                  type:
-                    type: string
-                    enum:
-                      - integer
-                      - float
-                      - string
-                      - boolean
-                  required:
-                    type: boolean
-                  default:
-                    type: string
-                    maxLength: 256
-                  description:
-                    type: string
-                    maxLength: 10000
-                  enum:
-                    maxItems: 256
-                    type: array
-                    items:
-                      type: string
-                      maxLength: 256
-                  min:
-                    type: number
-                  max:
-                    type: number
-                  nullable:
-                    type: boolean
-                  jsonSchema:
-                    type: string
-                required:
-                  - key
-                  - type
-                  - required
-                  - default
-                  - description
-                  - enum
-                additionalProperties: false
-            additionalProperties:
-              type: boolean
+              const: json-schema
+            value:
+              description: A JSON Schema document (an object).
+              type: object
+              propertyNames:
+                type: string
+              additionalProperties: {}
           required:
             - type
-            - fields
+            - value
           additionalProperties: false
         extensible:
           description: >-
@@ -42878,6 +42564,53 @@ components:
         - name
         - dateCreated
         - dateUpdated
+      additionalProperties: false
+    ConfigSchemaSource:
+      anyOf:
+        - type: object
+          properties:
+            type:
+              type: string
+              const: json-schema
+            value:
+              description: A JSON Schema document (an object).
+              type: object
+              propertyNames:
+                type: string
+              additionalProperties: {}
+          required:
+            - type
+            - value
+          additionalProperties: false
+        - type: object
+          properties:
+            type:
+              type: string
+              const: typescript
+            value:
+              description: TypeScript source — an interface or object type.
+              type: string
+          required:
+            - type
+            - value
+          additionalProperties: false
+    ConfigSchemaWarning:
+      type: object
+      properties:
+        code:
+          type: string
+          enum:
+            - dropped-declaration
+            - non-object-root
+            - unresolved-type
+            - unsupported-member
+        message:
+          type: string
+        path:
+          type: string
+      required:
+        - code
+        - message
       additionalProperties: false
     ConfigRevision:
       type: object
@@ -43175,24 +42908,6 @@ components:
         - userId
         - action
         - dateCreated
-      additionalProperties: false
-    ConfigSchemaWarning:
-      type: object
-      properties:
-        code:
-          type: string
-          enum:
-            - dropped-declaration
-            - non-object-root
-            - unresolved-type
-            - unsupported-member
-        message:
-          type: string
-        path:
-          type: string
-      required:
-        - code
-        - message
       additionalProperties: false
     Organization:
       type: object
@@ -48520,12 +48235,8 @@ components:
     ConfigSchemaExport:
       type: object
       properties:
-        format:
-          type: string
-          enum:
-            - simple
-            - json-schema
-            - typescript
+        schema:
+          $ref: '#/components/schemas/ConfigSchemaSource'
         effective:
           description: >-
             True when the schema includes inherited fields accumulated across
@@ -48534,80 +48245,42 @@ components:
         additionalProperties:
           description: Whether the config family permits extra keys.
           type: boolean
-        simpleSchema:
+      required:
+        - schema
+        - effective
+        - additionalProperties
+      additionalProperties: false
+      $defs:
+        ConfigSchemaSource:
+          id: ConfigSchemaSource
           anyOf:
             - type: object
               properties:
                 type:
                   type: string
-                  enum:
-                    - object
-                    - object[]
-                    - primitive
-                    - primitive[]
-                fields:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      key:
-                        type: string
-                        maxLength: 64
-                      type:
-                        type: string
-                        enum:
-                          - integer
-                          - float
-                          - string
-                          - boolean
-                      required:
-                        type: boolean
-                      default:
-                        type: string
-                        maxLength: 256
-                      description:
-                        type: string
-                        maxLength: 10000
-                      enum:
-                        maxItems: 256
-                        type: array
-                        items:
-                          type: string
-                          maxLength: 256
-                      min:
-                        type: number
-                      max:
-                        type: number
-                      nullable:
-                        type: boolean
-                      jsonSchema:
-                        type: string
-                    required:
-                      - key
-                      - type
-                      - required
-                      - default
-                      - description
-                      - enum
-                    additionalProperties: false
-                additionalProperties:
-                  type: boolean
+                  const: json-schema
+                value:
+                  description: A JSON Schema document (an object).
+                  type: object
+                  propertyNames:
+                    type: string
+                  additionalProperties: {}
               required:
                 - type
-                - fields
+                - value
               additionalProperties: false
-            - type: 'null'
-        rendered:
-          anyOf:
-            - type: string
-            - type: 'null'
-      required:
-        - format
-        - effective
-        - additionalProperties
-        - simpleSchema
-        - rendered
-      additionalProperties: false
+            - type: object
+              properties:
+                type:
+                  type: string
+                  const: typescript
+                value:
+                  description: TypeScript source — an interface or object type.
+                  type: string
+              required:
+                - type
+                - value
+              additionalProperties: false
     SavedGroupReferences:
       type: object
       properties:
@@ -51307,6 +50980,7 @@ x-tagGroups:
       - ConfigRevisionActivityLogEntry_model
       - ConfigRevisionReview_model
       - ConfigSchemaExport_model
+      - ConfigSchemaSource_model
       - ConfigSchemaWarning_model
       - Constant_model
       - ConstantReferences_model

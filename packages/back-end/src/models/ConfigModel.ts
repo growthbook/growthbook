@@ -11,6 +11,7 @@ import {
   getAncestorSchemaKeys,
   stripAncestorOwnedFields,
   findSiblingSchemaConflicts,
+  fieldsToJsonSchema,
 } from "shared/util";
 import { UpdateProps } from "shared/types/base-model";
 import { isEqual, omit } from "lodash";
@@ -330,7 +331,20 @@ export class ConfigModel extends BaseClass {
       description: config.description,
       project: config.project,
       archived: config.archived,
-      schema: config.schema,
+      // Expose the schema as the canonical JSON Schema envelope; SimpleSchema is
+      // internal-only. `value` is the JSON Schema document (parsed from the
+      // converter's string form).
+      schema: config.schema
+        ? {
+            type: "json-schema",
+            value: JSON.parse(
+              fieldsToJsonSchema(config.schema.fields, {
+                type: config.schema.type,
+                additionalProperties: config.schema.additionalProperties,
+              }),
+            ),
+          }
+        : undefined,
       extensible: config.extensible,
       dateCreated: config.dateCreated.toISOString(),
       dateUpdated: config.dateUpdated.toISOString(),

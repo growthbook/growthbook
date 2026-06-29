@@ -2,6 +2,7 @@ import {
   validateResolvableValue,
   simpleSchemaValidator,
   configSchemaFormatValidator,
+  ConfigSchemaSource,
 } from "shared/validators";
 import type { ConfigInterface } from "shared/types/config";
 import type { SimpleSchema } from "shared/types/feature";
@@ -191,6 +192,37 @@ export function assertValidConfigValueEdit(
 }
 
 type SchemaFormat = z.infer<typeof configSchemaFormatValidator>;
+
+// Resolve a public schema envelope (`{ type: "json-schema" | "typescript", value }`)
+// or an `infer` request into a `SimpleSchema` + warnings, by translating the
+// envelope to the converter's `format`+`source` form. Returns `schema: undefined`
+// when neither is supplied (a schema-less create or a no-schema-change update).
+export function resolveConfigSchemaSource(args: {
+  source?: ConfigSchemaSource;
+  infer?: boolean;
+  additionalProperties?: boolean;
+  inferValue?: string;
+}): { schema: SimpleSchema | undefined; warnings: SchemaWarning[] } {
+  const { source, infer, additionalProperties, inferValue } = args;
+  if (source === undefined && infer !== true) {
+    return { schema: undefined, warnings: [] };
+  }
+  if (source !== undefined) {
+    const importArgs =
+      source.type === "typescript"
+        ? { format: "typescript" as const, source: source.value }
+        : {
+            format: "json-schema" as const,
+            source: JSON.stringify(source.value),
+          };
+    return resolveImportedSchema({ ...importArgs, additionalProperties });
+  }
+  return resolveImportedSchema({
+    infer: true,
+    additionalProperties,
+    inferValue,
+  });
+}
 
 // Resolve a schema-import request body into a `SimpleSchema` plus structured
 // warnings. Exactly one source must be supplied:

@@ -1,5 +1,5 @@
 import { getConfigSchemaValidator } from "shared/validators";
-import { SchemaField, SimpleSchema } from "shared/types/feature";
+import { SchemaField } from "shared/types/feature";
 import {
   resolveConfigChain,
   linearizeConfigDag,
@@ -65,30 +65,28 @@ export const getConfigSchema = createApiRequestHandler(
     additionalProperties = config.schema?.additionalProperties ?? false;
   }
 
-  const simpleSchema: SimpleSchema = {
-    type: "object",
-    fields,
-    additionalProperties,
-  };
-
-  let rendered: string | null = null;
-  if (format === "json-schema") {
-    rendered = fieldsToJsonSchema(fields, {
-      type: "object",
-      additionalProperties,
-    });
-  } else if (format === "typescript") {
-    rendered = fieldsToTsType(fields, {
-      name: toPascalCase(config.key),
-      additionalProperties,
-    });
-  }
+  const schema =
+    format === "typescript"
+      ? {
+          type: "typescript" as const,
+          value: fieldsToTsType(fields, {
+            name: toPascalCase(config.key),
+            additionalProperties,
+          }),
+        }
+      : {
+          type: "json-schema" as const,
+          value: JSON.parse(
+            fieldsToJsonSchema(fields, {
+              type: "object",
+              additionalProperties,
+            }),
+          ),
+        };
 
   return {
-    format,
+    schema,
     effective,
     additionalProperties,
-    simpleSchema,
-    rendered,
   };
 });

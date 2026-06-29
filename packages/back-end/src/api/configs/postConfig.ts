@@ -10,6 +10,7 @@ import { PlanDoesNotAllowError } from "back-end/src/util/errors";
 import { assertKeyAvailable } from "back-end/src/services/constants";
 import { assertConfigValueValid } from "back-end/src/services/configValidation";
 import { ensureLiveRevisionExists } from "back-end/src/revisions/util";
+import { resolveConfigSchemaSource } from "./validations";
 
 export const postConfig = createApiRequestHandler(postConfigValidator)(async (
   req,
@@ -69,12 +70,18 @@ export const postConfig = createApiRequestHandler(postConfigValidator)(async (
   // Inheritance lives on `parent` (spine) + `extends` (mixins); never in value.
   const parent = req.body.parent || "";
 
+  // Convert the schema envelope (JSON Schema / TypeScript) to the internal
+  // SimpleSchema in one call — this is what makes create single-shot from source.
+  const { schema: resolvedSchema, warnings } = resolveConfigSchemaSource({
+    source: schema,
+  });
+
   // A child created under a base can't re-declare an inherited field ("base
   // wins"); strip any colliding keys from its appended schema up front.
   const normalizedSchema =
     await req.context.models.configs.normalizeSchemaAgainstAncestors(
       { key, parent: parent || undefined, extends: extendsKeys, value },
-      schema,
+      resolvedSchema,
     );
 
   // Enforce the value against the (effective) schema. Opt out with
@@ -132,5 +139,6 @@ export const postConfig = createApiRequestHandler(postConfigValidator)(async (
       req.context.models.configs.toApiInterface(config as ConfigInterface),
       req.context,
     ),
+    ...(warnings.length ? { warnings } : {}),
   };
 });

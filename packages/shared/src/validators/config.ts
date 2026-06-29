@@ -114,6 +114,75 @@ export const configSchemaFormatValidator = z.enum([
   "typescript",
 ]);
 
+// Public schema-render formats. SimpleSchema is internal-only; the external API
+// speaks JSON Schema (canonical) and TypeScript (rendered).
+export const configSchemaRenderFormatValidator = z.enum([
+  "json-schema",
+  "typescript",
+]);
+
+// A JSON Schema document — an object, open by nature, so typed loosely. The
+// converter (not Zod) validates/degrades its contents.
+const jsonSchemaDocument = z
+  .record(z.string(), z.unknown())
+  .describe("A JSON Schema document (an object).");
+
+// Schema I/O envelope: a config's field schema supplied as a JSON Schema document
+// (canonical, native JSON — no escaping) or TypeScript source. Used for
+// create/update/import input and schema export. JSON Schema is the happy path
+// (highest fidelity, resolves `$ref`/`$defs`); TypeScript is best-effort and
+// degrades exotic constructs to permissive types WITH warnings.
+export const configSchemaSourceValidator = namedSchema(
+  "ConfigSchemaSource",
+  z.discriminatedUnion("type", [
+    z
+      .object({
+        type: z.literal("json-schema"),
+        value: jsonSchemaDocument,
+      })
+      .strict(),
+    z
+      .object({
+        type: z.literal("typescript"),
+        value: z
+          .string()
+          .describe("TypeScript source — an interface or object type."),
+      })
+      .strict(),
+  ]),
+);
+
+export type ConfigSchemaSource = z.infer<typeof configSchemaSourceValidator>;
+
+// Read projection of a config's own schema: always JSON Schema (the canonical
+// form). TypeScript output is available via the schema-export endpoint.
+const configSchemaReadValidator = z
+  .object({
+    type: z.literal("json-schema"),
+    value: jsonSchemaDocument,
+  })
+  .strict();
+
+// Structured, machine-actionable warnings emitted by schema importers (an LLM/CI
+// sync loop can act on `code` to self-correct). Mirrors the shared `SchemaWarning`
+// shape in `shared/util/config-schema`. Lives here (not config-revisions) so both
+// the config and revision validators can reference it without an import cycle.
+export const apiSchemaWarningValidator = namedSchema(
+  "ConfigSchemaWarning",
+  z
+    .object({
+      code: z.enum([
+        "dropped-declaration",
+        "non-object-root",
+        "unresolved-type",
+        "unsupported-member",
+      ]),
+      message: z.string(),
+      path: z.string().optional(),
+    })
+    .strict(),
+);
+
 // A reusable, typed, inheritable JSON object referenced from feature values via
 // `@config:key`. Resolves like a `json` constant (composed via `$extends`), but
 // carries a field `schema` and a lineage `parent`. `key` is the stable handle,
@@ -159,9 +228,9 @@ export const apiConfigValidator = namedSchema(
         .describe("The project this config belongs to (empty = all projects)")
         .optional(),
       archived: z.boolean().optional(),
-      schema: simpleSchemaValidator
+      schema: configSchemaReadValidator
         .describe(
-          "This config's own field definitions (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here.",
+          "This config's own field definitions as a JSON Schema document (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here.",
         )
         .optional(),
       extensible: z
@@ -184,6 +253,17 @@ const bypassApprovalField = z
     "Set to true to skip the approval flow when the org requires approvals for this config's project. Requires the `bypassApprovalChecks` permission (or the org-level REST bypass setting). When approvals aren't required, this flag has no effect.",
   )
   .optional();
+
+// On create a config publishes immediately and never enters the approval flow,
+// so this flag is a no-op here. Retained (deprecated) for backward compatibility;
+// it remains meaningful on update.
+const bypassApprovalCreateField = z
+  .boolean()
+  .describe(
+    "Deprecated and ignored on create: a brand-new config publishes immediately and never enters the approval flow, so this flag has no effect. Approvals apply only to later changes via the update endpoint.",
+  )
+  .optional()
+  .meta({ deprecated: true });
 
 const postConfigApiBody = z
   .object({
@@ -208,13 +288,13 @@ const postConfigApiBody = z
     description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
     project: z.string().optional(),
     owner: optionalOwnerInputField,
-    schema: simpleSchemaValidator
+    schema: configSchemaSourceValidator
       .describe(
-        "Field definitions for this config. Fields whose key an ancestor (via `parent`/`extends`) already owns are stripped on create ('base wins'); a field owned by two sibling bases is a conflict and is rejected. Omit to leave the config schema-less, or use the schema-import endpoints to derive one.",
+        'Field definitions for this config, as a JSON Schema document (`{ type: "json-schema", value }`) or TypeScript source (`{ type: "typescript", value }`) — converted server-side in one call. Fields whose key an ancestor (via `parent`/`extends`) already owns are stripped on create (\'base wins\'); a field owned by two sibling bases is a conflict and is rejected. Omit to leave the config schema-less. Conversion warnings are returned in `warnings`.',
       )
       .optional(),
     extensible: z.boolean().optional(),
-    bypassApproval: bypassApprovalField,
+    bypassApproval: bypassApprovalCreateField,
   })
   .strict();
 
@@ -243,9 +323,9 @@ const updateConfigApiBody = z
     description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
     project: z.string().optional(),
     owner: ownerInputField.optional(),
-    schema: simpleSchemaValidator
+    schema: configSchemaSourceValidator
       .describe(
-        "Replace this config's field definitions. Fields colliding with a published ancestor's key are stripped ('base wins'). A schema change cascades the 'base wins' normalization to descendants when published.",
+        "Replace this config's field definitions, as a JSON Schema document (`{ type: \"json-schema\", value }`) or TypeScript source (`{ type: \"typescript\", value }`). Fields colliding with a published ancestor's key are stripped ('base wins'). A schema change cascades the 'base wins' normalization to descendants when published. Conversion warnings are returned in `warnings`.",
       )
       .optional(),
     extensible: z.boolean().optional(),
@@ -259,6 +339,15 @@ const configKeyParams = z
   .strict();
 
 const apiConfigResponse = z.object({ config: apiConfigValidator }).strict();
+
+// Create/update can convert a schema source (JSON Schema / TypeScript) inline, so
+// they surface any importer warnings alongside the config.
+const apiConfigResponseWithWarnings = z
+  .object({
+    config: apiConfigValidator,
+    warnings: z.array(apiSchemaWarningValidator).optional(),
+  })
+  .strict();
 
 export const apiConfigReferencesValidator = namedSchema(
   "ConfigReferences",
@@ -360,7 +449,9 @@ const apiConfigSchemaExportValidator = namedSchema(
   "ConfigSchemaExport",
   z
     .object({
-      format: configSchemaFormatValidator,
+      schema: configSchemaSourceValidator.describe(
+        'The config\'s schema in the requested format: a JSON Schema document (`{ type: "json-schema", value }`) or rendered TypeScript source (`{ type: "typescript", value }`).',
+      ),
       effective: z
         .boolean()
         .describe(
@@ -369,11 +460,6 @@ const apiConfigSchemaExportValidator = namedSchema(
       additionalProperties: z
         .boolean()
         .describe("Whether the config family permits extra keys."),
-      // The canonical internal representation, always present.
-      simpleSchema: simpleSchemaValidator.nullable(),
-      // The schema rendered as a string in the requested language
-      // (`json-schema`/`typescript`). Null when `format` is `simple`.
-      rendered: z.string().nullable(),
     })
     .strict(),
 );
@@ -410,7 +496,7 @@ export const postConfigValidator = {
   bodySchema: postConfigApiBody,
   querySchema: z.never(),
   paramsSchema: z.never(),
-  responseSchema: apiConfigResponse,
+  responseSchema: apiConfigResponseWithWarnings,
   summary: "Create a single config",
   operationId: "postConfig",
   tags: ["configs"],
@@ -429,7 +515,7 @@ export const updateConfigValidator = {
   bodySchema: updateConfigApiBody,
   querySchema: z.never(),
   paramsSchema: configKeyParams,
-  responseSchema: apiConfigResponse,
+  responseSchema: apiConfigResponseWithWarnings,
   summary: "Partially update a single config",
   operationId: "updateConfig",
   tags: ["configs"],
@@ -510,10 +596,10 @@ export const getConfigSchemaValidator = {
   bodySchema: z.never(),
   querySchema: z
     .object({
-      format: configSchemaFormatValidator
+      format: configSchemaRenderFormatValidator
         .optional()
         .describe(
-          "Output format. `simple` returns the canonical SimpleSchema object; `json-schema` and `typescript` render it as a string. Defaults to `json-schema`.",
+          "Output format. `json-schema` (default) returns a JSON Schema document; `typescript` renders the schema as TypeScript source.",
         ),
       effective: z
         .union([z.literal("true"), z.literal("false"), z.boolean()])

@@ -20,6 +20,7 @@ import {
 } from "back-end/src/services/configReconcile";
 import { assertConfigValueValid } from "back-end/src/services/configValidation";
 import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
+import { resolveConfigSchemaSource } from "./validations";
 
 export const updateConfig = createApiRequestHandler(updateConfigValidator)(
   async (req) => {
@@ -36,6 +37,12 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
     } = req.body;
     const extendsKeys = req.body.extends;
     const bypassApproval = req.body.bypassApproval === true;
+
+    // Convert the schema envelope (JSON Schema / TypeScript) to the internal
+    // SimpleSchema; `warnings` surface any lossy degradation back to the caller.
+    const { schema: resolvedSchema, warnings } = resolveConfigSchemaSource({
+      source: schema,
+    });
 
     const config = await req.context.models.configs.getByKey(key);
     if (!config) {
@@ -118,8 +125,11 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
       }
       fieldsToUpdate.environmentValues = environmentValues;
     }
-    if (schema !== undefined && !isEqual(schema, config.schema)) {
-      fieldsToUpdate.schema = schema;
+    if (
+      resolvedSchema !== undefined &&
+      !isEqual(resolvedSchema, config.schema)
+    ) {
+      fieldsToUpdate.schema = resolvedSchema;
     }
     if (extensible !== undefined && extensible !== config.extensible) {
       fieldsToUpdate.extensible = extensible;
@@ -163,6 +173,7 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
           req.context.models.configs.toApiInterface(config),
           req.context,
         ),
+        ...(warnings.length ? { warnings } : {}),
       };
     }
 
@@ -289,6 +300,7 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
           req.context.models.configs.toApiInterface({ ...config, ...updated }),
           req.context,
         ),
+        ...(warnings.length ? { warnings } : {}),
       };
     }
 
@@ -304,6 +316,7 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
         req.context.models.configs.toApiInterface({ ...config, ...updated }),
         req.context,
       ),
+      ...(warnings.length ? { warnings } : {}),
     };
   },
 );

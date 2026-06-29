@@ -4,7 +4,11 @@ import {
   skipPaginationQueryField,
   apiPaginationFieldsValidator,
 } from "./shared";
-import { apiConfigValidator, configSchemaFormatValidator } from "./config";
+import {
+  apiConfigValidator,
+  apiSchemaWarningValidator,
+  configSchemaSourceValidator,
+} from "./config";
 import {
   jsonPatchOperationValidator,
   reviewDecision,
@@ -13,7 +17,6 @@ import {
   reviewValidator,
 } from "./revisions";
 import { ownerInputField } from "./owner-field";
-import { simpleSchemaValidator } from "./features";
 import { namedSchema } from "./openapi-helpers";
 
 // ---- Shared param schemas ----
@@ -88,25 +91,6 @@ const apiActivityLogEntryValidator = namedSchema(
   activityLogEntryValidator
     .omit({ dateCreated: true })
     .extend({ dateCreated: z.string().meta({ format: "date-time" }) })
-    .strict(),
-);
-
-// Structured, machine-actionable warnings emitted by schema importers (e.g. an
-// LLM/CI sync loop can act on `code` to self-correct). Mirrors the shared
-// `SchemaWarning` shape in `shared/util/config-schema`.
-export const apiSchemaWarningValidator = namedSchema(
-  "ConfigSchemaWarning",
-  z
-    .object({
-      code: z.enum([
-        "dropped-declaration",
-        "non-object-root",
-        "unresolved-type",
-        "unsupported-member",
-      ]),
-      message: z.string(),
-      path: z.string().optional(),
-    })
     .strict(),
 );
 
@@ -505,22 +489,13 @@ export const putConfigRevisionSchemaValidator = {
   operationId: "putConfigRevisionSchema",
   summary: "Update or import the schema of a config draft revision",
   description:
-    'Stages this config\'s field schema on the draft. Provide exactly ONE source:\n- `schema`: a SimpleSchema object directly.\n- `format` + `source`: a raw document to convert. **JSON Schema is the recommended ("happy path") format** — it is the canonical pivot, preserves nested objects/arrays, and resolves local `$ref`/`$defs` (so generator output with referenced types works). `typescript` is a best-effort convenience parser. All conversions are lossy-by-design and degrade exotic constructs to permissive types WITH warnings (returned in `warnings`).\n- `infer: true`: derive the schema from the draft\'s value.\n\nFields whose key a published ancestor already owns are stripped ("base wins"). Pass `version: "new"` to auto-create a draft.',
+    'Stages this config\'s field schema on the draft. Provide exactly ONE source:\n- `schema`: a schema document — `{ type: "json-schema", value }` (a JSON Schema object) or `{ type: "typescript", value }` (TypeScript source). **JSON Schema is the recommended ("happy path") format** — it is the canonical pivot, preserves nested objects/arrays, and resolves local `$ref`/`$defs` (so generator output with referenced types works). `typescript` is a best-effort convenience parser. All conversions are lossy-by-design and degrade exotic constructs to permissive types WITH warnings (returned in `warnings`).\n- `infer: true`: derive the schema from the draft\'s value.\n\nFields whose key a published ancestor already owns are stripped ("base wins"). Pass `version: "new"` to auto-create a draft.',
   tags: ["config-revisions"],
   paramsSchema: revisionParams,
   bodySchema: z
     .object({
       ...newDraftMetadataFields,
-      schema: simpleSchemaValidator.optional(),
-      format: configSchemaFormatValidator
-        .optional()
-        .describe(
-          "The language of `source`. Required when `source` is provided. `json-schema` is recommended (highest fidelity; resolves `$ref`/`$defs`). `typescript` is best-effort. `simple` expects `source` to be a JSON-encoded SimpleSchema.",
-        ),
-      source: z
-        .string()
-        .optional()
-        .describe("Raw schema document to convert, in the language `format`."),
+      schema: configSchemaSourceValidator.optional(),
       infer: z
         .boolean()
         .optional()
