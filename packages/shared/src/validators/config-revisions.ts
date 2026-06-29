@@ -506,6 +506,58 @@ export const putConfigRevisionSchemaValidator = {
   responseSchema: revisionResponseWithWarnings,
 };
 
+export const putConfigRevisionProjectionValidator = {
+  method: "put" as const,
+  path: "/configs-revisions/:key/:version/projection",
+  operationId: "putConfigRevisionProjection",
+  summary: "Set (or update) a config's per-source render projection on a draft",
+  description:
+    'Stages a per-source render projection on the draft, AND the schema it implies. Provide a named `schema` source (`{ type: "typescript" | "protobuf" | "json-schema", value }`) for the consuming codebase identified by `source`: GrowthBook derives the config\'s canonical schema from it (so the change projects into the Config) and captures that source\'s named-type structure under `renderProjections[source]`. Both are staged on the draft and published through the normal flow. Pass `version: "new"` to auto-create a draft. Lossy conversions degrade with `warnings`.',
+  tags: ["config-revisions"],
+  paramsSchema: revisionParams,
+  bodySchema: z
+    .object({
+      ...newDraftMetadataFields,
+      source: z
+        .string()
+        .describe(
+          "Identifier of the consuming codebase/service this projection belongs to.",
+        ),
+      schema: configSchemaSourceValidator.describe(
+        "The named schema source for this projection. Its type names are captured; its structure derives the config's canonical schema.",
+      ),
+      additionalProperties: z
+        .boolean()
+        .optional()
+        .describe(
+          "Whether the resulting object schema permits extra keys (family extensibility).",
+        ),
+    })
+    .strict(),
+  querySchema: z.never(),
+  responseSchema: revisionResponseWithWarnings,
+};
+
+export const deleteConfigRevisionProjectionValidator = {
+  method: "delete" as const,
+  path: "/configs-revisions/:key/:version/projection",
+  operationId: "deleteConfigRevisionProjection",
+  summary: "Remove a config's per-source render projection on a draft",
+  description:
+    'Stages removal of the `source` projection from `renderProjections` on the draft (the canonical schema is unchanged). Published through the normal flow. Pass `version: "new"` to auto-create a draft.',
+  tags: ["config-revisions"],
+  paramsSchema: revisionParams,
+  bodySchema: z.never(),
+  querySchema: z
+    .object({
+      source: z
+        .string()
+        .describe("Identifier of the projection (source) to remove."),
+    })
+    .strict(),
+  responseSchema: revisionResponse,
+};
+
 export const putConfigRevisionArchiveValidator = {
   method: "put" as const,
   path: "/configs-revisions/:key/:version/archive",

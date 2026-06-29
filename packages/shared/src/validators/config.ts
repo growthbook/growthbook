@@ -78,6 +78,9 @@ export const configUpdatableFieldsSchema = configValidator.pick({
   archived: true,
   schema: true,
   extensible: true,
+  // Per-source render projections are versioned alongside the schema (set/cleared
+  // via the projection revision endpoints).
+  renderProjections: true,
 });
 
 const keyField = z

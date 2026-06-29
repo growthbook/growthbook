@@ -20038,6 +20038,141 @@ paths:
             'https://api.growthbook.io/api/v1/configs-revisions/{key}/{version}/schema'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/configs-revisions/{key}/{version}/projection:
+    put:
+      operationId: putConfigRevisionProjection
+      summary: Set (or update) a config's per-source render projection on a draft
+      description: >-
+        Stages a per-source render projection on the draft, AND the schema it
+        implies. Provide a named `schema` source (`{ type: "typescript" |
+        "protobuf" | "json-schema", value }`) for the consuming codebase
+        identified by `source`: GrowthBook derives the config's canonical schema
+        from it (so the change projects into the Config) and captures that
+        source's named-type structure under `renderProjections[source]`. Both
+        are staged on the draft and published through the normal flow. Pass
+        `version: "new"` to auto-create a draft. Lossy conversions degrade with
+        `warnings`.
+      tags:
+        - config-revisions
+      parameters:
+        - name: key
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - name: version
+          in: path
+          required: true
+          description: ''
+          schema:
+            anyOf:
+              - type: integer
+              - type: string
+                const: new
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                revisionTitle:
+                  type: string
+                revisionComment:
+                  type: string
+                source:
+                  description: >-
+                    Identifier of the consuming codebase/service this projection
+                    belongs to.
+                  type: string
+                schema:
+                  $ref: '#/components/schemas/ConfigSchemaSource'
+                additionalProperties:
+                  description: >-
+                    Whether the resulting object schema permits extra keys
+                    (family extensibility).
+                  type: boolean
+              required:
+                - source
+                - schema
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/ConfigRevision'
+                  warnings:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ConfigSchemaWarning'
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X PUT
+            'https://api.growthbook.io/api/v1/configs-revisions/{key}/{version}/projection'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    delete:
+      operationId: deleteConfigRevisionProjection
+      summary: Remove a config's per-source render projection on a draft
+      description: >-
+        Stages removal of the `source` projection from `renderProjections` on
+        the draft (the canonical schema is unchanged). Published through the
+        normal flow. Pass `version: "new"` to auto-create a draft.
+      tags:
+        - config-revisions
+      parameters:
+        - name: key
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - name: version
+          in: path
+          required: true
+          description: ''
+          schema:
+            anyOf:
+              - type: integer
+              - type: string
+                const: new
+        - name: source
+          in: query
+          required: true
+          description: Identifier of the projection (source) to remove.
+          schema:
+            description: Identifier of the projection (source) to remove.
+            type: string
+      responses:
+        '200':
+          description: Resource deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/ConfigRevision'
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X DELETE
+            'https://api.growthbook.io/api/v1/configs-revisions/{key}/{version}/projection'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/configs-revisions/{key}/{version}/archive:
     put:
       operationId: putConfigRevisionArchive

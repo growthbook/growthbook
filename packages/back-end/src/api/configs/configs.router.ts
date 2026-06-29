@@ -26,6 +26,8 @@ import { postConfigRevisionSubmitReview } from "./postConfigRevisionSubmitReview
 import { putConfigRevisionMetadata } from "./putConfigRevisionMetadata";
 import { putConfigRevisionValue } from "./putConfigRevisionValue";
 import { putConfigRevisionSchema } from "./putConfigRevisionSchema";
+import { putConfigRevisionProjection } from "./putConfigRevisionProjection";
+import { deleteConfigRevisionProjection } from "./deleteConfigRevisionProjection";
 import { putConfigRevisionArchive } from "./putConfigRevisionArchive";
 
 export const configsRoutes: OpenApiRoute[] = [
@@ -57,6 +59,8 @@ export const configsRoutes: OpenApiRoute[] = [
   putConfigRevisionMetadata,
   putConfigRevisionValue,
   putConfigRevisionSchema,
+  putConfigRevisionProjection,
+  deleteConfigRevisionProjection,
   putConfigRevisionArchive,
 
   // Review & lifecycle
