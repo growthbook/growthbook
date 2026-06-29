@@ -448,11 +448,11 @@ export default function ConfigJsonEditor({
     </Tabs>
   );
 
-  // Schema format picker for the read-only views: a SelectField whose first group
-  // is the generic conversions (JSON Schema / TypeScript) and whose second group
-  // (when projections exist) is the named per-source projections, each labelled
-  // with its language. Selecting `proj:<source>` renders that consumer's named
-  // types.
+  // Schema format picker for the read-only views: the generic conversions
+  // (JSON Schema / TypeScript) sit ungrouped at the top (the defaults, no label),
+  // and — when the config has captured projections — a labelled "Named
+  // projections" group follows, each labelled with its source and language.
+  // Selecting `proj:<source>` renders that consumer's named types.
   const LANG_LABELS: Record<string, string> = {
     typescript: "TypeScript",
     "json-schema": "JSON Schema",
@@ -463,20 +463,19 @@ export default function ConfigJsonEditor({
     projections?: Record<string, SchemaProjection>,
   ): ReactNode => {
     const options: Parameters<typeof SelectField>[0]["options"] = [
-      {
-        label: "Convert",
-        options: [
-          { label: "JSON Schema", value: "json" },
-          { label: "TypeScript", value: "typescript" },
-        ],
-      },
+      { label: "JSON Schema", value: "json" },
+      { label: "TypeScript", value: "typescript" },
     ];
     const entries = Object.entries(projections ?? {});
     if (entries.length) {
       options.push({
         label: "Named projections",
         options: entries.map(([source, p]) => ({
-          label: `${source} (${LANG_LABELS[p.language] ?? p.language})`,
+          // `language` is always set on capture; fall back defensively so a
+          // legacy projection never renders "(undefined)".
+          label: `${source} (${
+            LANG_LABELS[p.language] ?? p.language ?? "TypeScript"
+          })`,
           value: `proj:${source}`,
         })),
       });
