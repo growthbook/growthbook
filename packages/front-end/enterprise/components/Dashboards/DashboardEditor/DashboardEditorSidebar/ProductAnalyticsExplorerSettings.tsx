@@ -4,12 +4,17 @@ import {
   MetricExplorationBlockInterface,
   FactTableExplorationBlockInterface,
   DataSourceExplorationBlockInterface,
+  buildComparisonDateRange,
 } from "shared/enterprise";
-import { ProductAnalyticsExploration } from "shared/validators";
+import type {
+  ExplorationDateRange,
+  ProductAnalyticsExploration,
+} from "shared/validators";
 import useApi from "@/hooks/useApi";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Callout from "@/ui/Callout";
 import { ExplorerProvider } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
+import type { ExplorerDraftConfig } from "@/enterprise/components/ProductAnalytics/util";
 import ProductAnalyticsExplorerSideBarWrapper from "./ProductAnalyticsExplorerSideBarWrapper";
 
 interface Props {
@@ -56,22 +61,48 @@ export default function ProductAnalyticsExplorerSettings({
     );
   }
 
-  const blockConfig =
+  const baseInitialConfig =
     data?.exploration?.config && block.config
       ? { ...data.exploration.config, ...block.config }
       : data?.exploration?.config || block.config;
-  const initialConfig =
+  const effectiveInitialConfig =
     block.useDashboardFilters === true && dashboardFilters?.dateRange
-      ? { ...blockConfig, dateRange: dashboardFilters.dateRange }
-      : blockConfig;
+      ? { ...baseInitialConfig, dateRange: dashboardFilters.dateRange }
+      : baseInitialConfig;
+  const initialConfig: ExplorerDraftConfig = block.comparison?.enabled
+    ? {
+        ...effectiveInitialConfig,
+        previousTimeFrame:
+          block.comparison.previousTimeFrame ??
+          buildComparisonDateRange(effectiveInitialConfig.dateRange),
+      }
+    : effectiveInitialConfig;
+  const explorerProviderKey = [
+    block.id,
+    block.explorerAnalysisId,
+    block.useDashboardFilters === true,
+    JSON.stringify(dashboardFilters?.dateRange ?? null),
+  ].join(":");
 
   return (
     <ExplorerProvider
-      key={JSON.stringify(initialConfig)}
+      key={explorerProviderKey}
       initialConfig={initialConfig}
       hasExistingResults={!!block.explorerAnalysisId}
       trackingSource="dashboard-editor"
-      onRunComplete={(exploration) => {
+      onRunComplete={(
+        exploration,
+        comparisonExploration,
+        previousTimeFrame: ExplorationDateRange | null,
+      ) => {
+        const comparison =
+          previousTimeFrame != null
+            ? {
+                enabled: true,
+                ...(exploration.config.dateRange.predefined ===
+                  "customDateRange" && { previousTimeFrame }),
+              }
+            : undefined;
         const nextConfig =
           block.useDashboardFilters === true && dashboardFilters?.dateRange
             ? { ...exploration.config, dateRange: block.config.dateRange }
@@ -79,6 +110,15 @@ export default function ProductAnalyticsExplorerSettings({
         setBlock({
           ...block,
           explorerAnalysisId: exploration.id,
+          ...(comparison
+            ? {
+                comparison,
+                comparisonExplorerAnalysisId: comparisonExploration?.id,
+              }
+            : {
+                comparison: undefined,
+                comparisonExplorerAnalysisId: undefined,
+              }),
           config: {
             ...nextConfig,
             chartType: block.config?.chartType || exploration.config?.chartType,

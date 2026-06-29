@@ -11,7 +11,7 @@ import {
 import Button from "@/ui/Button";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { DashboardSnapshotContext } from "@/enterprise/components/Dashboards/DashboardSnapshotProvider";
-import { DateRangePicker } from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/DateRangePicker";
+import { ControlledDateRangePicker } from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/DateRangePicker";
 
 const DEFAULT_DASHBOARD_DATE_RANGE: NonNullable<
   NonNullable<DashboardInterface["filters"]>["dateRange"]
@@ -93,10 +93,7 @@ export default function DashboardFilterBar({
               : block,
           )
         : blocks;
-      await onFiltersChange(
-        nextFilters,
-        shouldOptInSupportedBlocks ? nextBlocks : undefined,
-      );
+      await onFiltersChange(nextFilters);
 
       const nextApplicability = shouldOptInSupportedBlocks
         ? getDashboardFilterApplicability({ blocks: nextBlocks })
@@ -141,7 +138,7 @@ export default function DashboardFilterBar({
   return (
     <Flex align="center" gap="3" mt="2" justify="end">
       {hasDateFilter && filters?.dateRange && canModifyFilters ? (
-        <DateRangePicker
+        <ControlledDateRangePicker
           value={filters.dateRange}
           onChange={(dateRange) =>
             persistFilters({
@@ -152,7 +149,7 @@ export default function DashboardFilterBar({
           shouldWrap
         />
       ) : hasDateFilter && filters?.dateRange ? (
-        <DateRangePicker
+        <ControlledDateRangePicker
           value={filters.dateRange}
           onChange={() => {}}
           shouldWrap

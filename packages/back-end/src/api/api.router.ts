@@ -29,6 +29,7 @@ import { projectsRoutes } from "./projects/projects.router";
 import { environmentsRoutes } from "./environments/environments.router";
 import { attributesRoutes } from "./attributes/attributes.router";
 import { savedGroupsRoutes } from "./saved-groups/saved-groups.router";
+import { constantsRoutes } from "./constants/constants.router";
 import { sdkConnectionsRoutes } from "./sdk-connections/sdk-connections.router";
 import { sdkPayloadRoutes } from "./sdk-payload/sdk-payload.router";
 import { dataSourcesRoutes } from "./data-sources/data-sources.router";
@@ -162,6 +163,7 @@ export const allRoutes = [
   ...dataSourcesRoutes,
   ...visualChangesetsRoutes,
   ...savedGroupsRoutes,
+  ...constantsRoutes,
   ...organizationsRoutes,
   ...sdkPayloadRoutes,
   ...factTablesRoutes,

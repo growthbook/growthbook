@@ -325,6 +325,7 @@ interface Props {
   isTabActive: boolean;
   title: string;
   blocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
+  filterBlocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
   id: string;
   isEditing: boolean;
   projects: string[];
@@ -359,6 +360,7 @@ function DashboardEditor({
   isTabActive,
   title,
   blocks,
+  filterBlocks,
   isEditing,
   enableAutoUpdates,
   updateSchedule,
@@ -721,7 +723,7 @@ function DashboardEditor({
         onFiltersChange &&
         (isEditing || hasDashboardDateFilter) ? (
           <DashboardFilterBar
-            blocks={blocks}
+            blocks={filterBlocks ?? blocks}
             filters={filters}
             canEdit={canEdit}
             isEditing={isEditing}

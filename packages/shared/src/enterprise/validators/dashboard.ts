@@ -5,6 +5,7 @@ import { baseExplorationConfigValidator } from "../../validators/product-analyti
 import {
   apiCreateDashboardBlockInterface,
   apiDashboardBlockInterface,
+  blockComparisonValidator,
   dashboardBlockInterface,
   DASHBOARD_GRID_COLS,
 } from "./dashboard-block";
@@ -75,6 +76,10 @@ export const dashboardInterface = z
     title: z.string(),
     blocks: z.array(dashboardBlockInterface),
     filters: dashboardFiltersValidator.optional(),
+    // Dashboard-wide period comparison. Currently set only per exploration
+    // block; this is the seam for a future dashboard-level compare toggle
+    // (see resolveBlockComparison) and is honored on refresh/render already.
+    comparison: blockComparisonValidator.optional(),
     grid: dashboardGridConfig.optional(),
     projects: z.array(z.string()).optional(), // General dashboards only, experiment dashboards use the experiment's projects
     nextUpdate: z.date().optional(),
@@ -143,6 +148,7 @@ export const apiCreateDashboardBody = z
       )
       .optional(),
     filters: dashboardFiltersValidator.optional(),
+    comparison: blockComparisonValidator.optional(),
     blocks: z.array(apiCreateDashboardBlockInterface),
   })
   .strict();

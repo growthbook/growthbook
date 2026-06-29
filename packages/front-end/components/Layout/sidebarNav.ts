@@ -71,7 +71,7 @@ export const navlinks: SidebarLinkProps[] = [
   {
     name: "Product Analytics",
     href: "/product-analytics/explore",
-    path: /^(product-analytics|sql-explorer)/,
+    path: /^(product-analytics|sql-explorer|session-replay)/,
     Icon: GBProductAnalytics,
     subLinks: [
       {
@@ -84,6 +84,13 @@ export const navlinks: SidebarLinkProps[] = [
         name: "Dashboards",
         href: "/product-analytics/dashboards",
         path: /^product-analytics\/dashboards/,
+      },
+      {
+        name: "Session Replay",
+        href: "/session-replay",
+        path: /^session-replay/,
+        beta: true,
+        filter: ({ gb }) => !!gb?.isOn("session-replays"),
       },
     ],
   },
@@ -168,7 +175,7 @@ export const navlinks: SidebarLinkProps[] = [
   {
     name: "SDK Configuration",
     href: "/sdks",
-    path: /^(attributes|environments|saved-groups|sdks|archetypes)/,
+    path: /^(attributes|environments|saved-groups|constants|sdks|archetypes)/,
     autoClose: true,
     Icon: BsCodeSlash,
     subLinks: [
@@ -191,6 +198,11 @@ export const navlinks: SidebarLinkProps[] = [
         name: "Saved Groups",
         href: "/saved-groups",
         path: /^saved-groups/,
+      },
+      {
+        name: "Constants",
+        href: "/constants",
+        path: /^constants/,
       },
       {
         name: "Archetypes",
@@ -237,7 +249,7 @@ export const navlinks: SidebarLinkProps[] = [
         href: "/projects",
         path: /^project/,
         filter: ({ permissionsUtils }) =>
-          permissionsUtils.canManageSomeProjects(),
+          permissionsUtils.canViewProjectsPage(),
       },
       {
         name: "Custom Fields",

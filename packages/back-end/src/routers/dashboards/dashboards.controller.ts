@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   blockHasFieldOfType,
   dashboardBlockHasIds,
+  isDashboardFilterSupportedBlock,
   snapshotSatisfiesBlock,
   DashboardInterface,
   DashboardBlockInterface,
@@ -102,12 +103,17 @@ export async function createDashboard(
     blocks,
     projects,
     filters,
+    comparison,
     userId,
   } = req.body;
 
-  const createdBlocks = blocks.map((blockData) =>
-    generateDashboardBlockIds(context.org.id, blockData),
-  );
+  const createdBlocks = blocks
+    .map((blockData) => generateDashboardBlockIds(context.org.id, blockData))
+    .map((block) =>
+      filters?.dateRange && isDashboardFilterSupportedBlock(block)
+        ? { ...block, useDashboardFilters: true }
+        : block,
+    );
 
   const dashboard = await context.models.dashboards.create({
     isDefault: false,
@@ -121,6 +127,7 @@ export async function createDashboard(
     title,
     projects,
     filters,
+    comparison,
     blocks: createdBlocks,
   });
 
@@ -156,6 +163,21 @@ export async function updateDashboard(
         : generateDashboardBlockIds(context.org.id, blockData),
     );
     updates.blocks = createdBlocks;
+  }
+
+  if (
+    !updates.blocks &&
+    !dashboard.filters?.dateRange &&
+    updates.filters?.dateRange
+  ) {
+    updates.blocks = dashboard.blocks.map((block) =>
+      isDashboardFilterSupportedBlock(block)
+        ? {
+            ...block,
+            useDashboardFilters: true,
+          }
+        : block,
+    );
   }
 
   const updatedDashboard = await context.models.dashboards.updateById(

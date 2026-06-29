@@ -169,6 +169,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     metricGroups,
     tags,
     savedGroups,
+    constants,
     customFields,
     projects,
     factTables,
@@ -183,6 +184,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     context.models.metricGroups.getAll(),
     getAllTags(orgId),
     context.models.savedGroups.getAllWithoutValues(),
+    context.models.constants.getAllWithoutValues(),
     context.models.customFields.getCustomFields(),
     context.models.projects.getAll(),
     getAllFactTablesForOrganization(context),
@@ -200,6 +202,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     metricGroups,
     tags,
     savedGroups,
+    constants,
     customFields: customFields?.fields ?? [],
     projects,
     factTables,
@@ -1683,6 +1686,18 @@ export async function putOrganization(
     }
 
     validatePriorSettings(updates.settings?.metricDefaults?.priorSettings);
+
+    const topValuesLookbackValue = settings?.topValuesLookbackValue;
+    if (
+      typeof topValuesLookbackValue === "number" &&
+      (!Number.isInteger(topValuesLookbackValue) ||
+        topValuesLookbackValue <= 0 ||
+        topValuesLookbackValue > 365)
+    ) {
+      throw new Error(
+        "Top values lookback value must be an integer between 1 and 365",
+      );
+    }
 
     await updateOrganization(org.id, updates);
 

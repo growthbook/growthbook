@@ -75,6 +75,7 @@ function SingleDashboardPage() {
         blocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
         userId?: string;
         filters?: DashboardInterface["filters"];
+        comparison?: DashboardInterface["comparison"];
       };
     }) => {
       const res = (await apiCall(
@@ -90,6 +91,7 @@ function SingleDashboardPage() {
                   enableAutoUpdates: data.enableAutoUpdates,
                   userId: data.userId,
                   filters: data.filters,
+                  comparison: data.comparison ?? undefined,
                 }
               : data,
           ),

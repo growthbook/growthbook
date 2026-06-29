@@ -17,8 +17,8 @@ import {
   parseFigmaFrameUrl,
   renderFigmaNodeImage,
 } from "back-end/src/services/figma";
-import { requireUserAuth } from "./requireUserAuth";
-import { scopeCss } from "./scopeCss";
+import { requireUserAuth } from "back-end/src/api/visual-editor-ai/requireUserAuth";
+import { scopeCss } from "back-end/src/api/visual-editor-ai/scopeCss";
 
 // Reuse the reference-image shape from image-gen: plain base64, mimeType
 // enum, 8 MB cap. No `data:` URL → no SSRF on the mockup-image path.
@@ -377,6 +377,13 @@ export const postFigmaToVariant = createApiRequestHandler(validation)(async (
     zodObjectSchema: outputSchema,
     overrideModel: visionModel,
     cacheSystemPrompt: true,
+    // Figma → Variant emits a whole component's HTML + scoped CSS, the
+    // largest single artifact this codebase generates. Raise the cap well
+    // above the 8000 default so big components don't truncate mid-JSON
+    // (NoObjectGeneratedError). 16000 stays under modern model ceilings;
+    // very old/small self-hosted models (8192 cap) are the only ones this
+    // could over-shoot.
+    maxOutputTokens: 16000,
   });
 
   // The model judged the design too large for a scoped in-page component.

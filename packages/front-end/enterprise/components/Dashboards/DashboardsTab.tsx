@@ -42,6 +42,7 @@ export type CreateDashboardArgs = {
     blocks?: DashboardBlockData<DashboardBlockInterface>[];
     projects?: string[];
     filters?: DashboardInterface["filters"];
+    comparison?: DashboardInterface["comparison"];
   };
 };
 export type UpdateDashboardArgs = {
@@ -57,6 +58,7 @@ export type UpdateDashboardArgs = {
     updateSchedule?: DashboardUpdateSchedule;
     projects?: string[];
     filters?: DashboardInterface["filters"];
+    comparison?: DashboardInterface["comparison"];
   }>;
 };
 export type SubmitDashboard<
@@ -211,6 +213,7 @@ function DashboardsTab({
                 shareLevel: data.shareLevel,
                 userId: data.userId,
                 filters: data.filters,
+                comparison: data.comparison ?? undefined,
               }
             : {
                 blocks: data.blocks ?? [],
@@ -220,6 +223,7 @@ function DashboardsTab({
                 shareLevel: data.shareLevel,
                 experimentId: experiment.id,
                 filters: data.filters,
+                comparison: data.comparison ?? undefined,
               },
         ),
       });

@@ -442,6 +442,7 @@ export default function DashboardWorkspace({
               }
               title={dashboard.title}
               blocks={effectiveBlocks}
+              filterBlocks={blocks}
               filters={dashboard.filters}
               isEditing={true}
               isGeneralDashboard={isGeneralDashboard}
@@ -468,6 +469,7 @@ export default function DashboardWorkspace({
                     });
                   }
                 } catch (e) {
+                  console.error(e);
                   setSaveError(e.message);
                   throw e;
                 } finally {

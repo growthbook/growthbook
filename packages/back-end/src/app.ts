@@ -121,6 +121,10 @@ import { savedGroupRouter } from "./routers/saved-group/saved-group.router";
 import { ArchetypeRouter } from "./routers/archetype/archetype.router";
 import { AttributeRouter } from "./routers/attributes/attributes.router";
 import { customFieldsRouter } from "./routers/custom-fields/custom-fields.router";
+import {
+  constantsRouter,
+  constantDraftStatesRouter,
+} from "./routers/constant/constant.router";
 import { segmentRouter } from "./routers/segment/segment.router";
 import { dimensionRouter } from "./routers/dimension/dimension.router";
 import { sdkConnectionRouter } from "./routers/sdk-connection/sdk-connection.router";
@@ -148,6 +152,7 @@ import { dashboardsRouter } from "./routers/dashboards/dashboards.router";
 import { customHooksRouter } from "./routers/custom-hooks/custom-hooks.router";
 import { importingRouter } from "./routers/importing/importing.router";
 import { productAnalyticsRouter } from "./routers/product-analytics/product-analytics.router";
+import { sessionReplayRouter } from "./routers/session-replay/session-replay.router";
 import { agentRouter } from "./routers/agent/agent.router";
 
 const app = express();
@@ -621,6 +626,9 @@ app.use("/archetype", ArchetypeRouter);
 app.use("/attribute", AttributeRouter);
 
 app.use("/custom-fields", customFieldsRouter);
+
+app.use("/constants", constantsRouter);
+app.use("/constants-draft-states", constantDraftStatesRouter);
 
 // Ideas
 app.get("/ideas", ideasController.getIdeas);
@@ -1166,6 +1174,8 @@ app.delete(
 );
 app.get("/discussions/recent/:num", discussionsController.getRecentDiscussions);
 app.use("/upload", uploadRouter);
+
+app.use("/session-replay", sessionReplayRouter);
 
 // Teams
 app.use("/teams", teamRouter);

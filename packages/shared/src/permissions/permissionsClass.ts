@@ -28,6 +28,7 @@ import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { IdeaInterface } from "shared/types/idea";
 import { ArchetypeInterface } from "shared/types/archetype";
 import { SavedGroupInterface } from "shared/types/saved-group";
+import { ConstantInterface } from "shared/types/constant";
 import { CustomHookInterface } from "../validators/custom-hooks";
 import { EventForwarderConfigInterface } from "../validators/event-forwarder-config";
 import { HoldoutInterface } from "../validators/holdout";
@@ -129,6 +130,24 @@ export class Permissions {
 
   public canDeleteMetricGroup = (): boolean => {
     return this.checkGlobalPermission("createMetricGroups");
+  };
+
+  public canViewSessionReplay = (
+    session?: { projects?: string[] } | null,
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: session?.projects },
+      "viewSessionReplay",
+    );
+  };
+
+  public canDeleteSessionReplay = (
+    session?: { projects?: string[] } | null,
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: session?.projects },
+      "deleteSessionReplay",
+    );
   };
 
   public canManageOrgSettings = (): boolean => {
@@ -928,6 +947,19 @@ export class Permissions {
     );
   };
 
+  // Used to determine if we should show the Settings > Projects link in SideNav
+  // Returns true if user can view any projects (even without manage permission)
+  public canViewProjectsPage = (): boolean => {
+    // If user can manage some projects, they should see the page
+    if (this.canManageSomeProjects()) {
+      return true;
+    }
+
+    // Otherwise, check if they have readData permission globally or in any project
+    const projectsToCheck = ["", ...Object.keys(this.userPermissions.projects)];
+    return projectsToCheck.some((p) => this.hasPermission("readData", p));
+  };
+
   public canUpdateProject = (project: string): boolean => {
     return this.checkProjectFilterPermission(
       { projects: [project] },
@@ -1272,6 +1304,35 @@ export class Permissions {
     savedGroup: Pick<SavedGroupInterface, "projects">,
   ): boolean => {
     return this.checkProjectFilterPermission(savedGroup, "manageSavedGroups");
+  };
+
+  public canCreateConstant = (
+    constant: Pick<ConstantInterface, "project">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: constant.project ? [constant.project] : [] },
+      "manageConstants",
+    );
+  };
+
+  public canUpdateConstant = (
+    existing: Pick<ConstantInterface, "project">,
+    updated: Pick<ConstantInterface, "project">,
+  ): boolean => {
+    return this.checkProjectFilterUpdatePermission(
+      { projects: existing.project ? [existing.project] : [] },
+      "project" in updated ? { projects: [updated.project || ""] } : {},
+      "manageConstants",
+    );
+  };
+
+  public canDeleteConstant = (
+    constant: Pick<ConstantInterface, "project">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: constant.project ? [constant.project] : [] },
+      "manageConstants",
+    );
   };
 
   public canBypassSavedGroupSizeLimit = (projects?: string[]): boolean => {

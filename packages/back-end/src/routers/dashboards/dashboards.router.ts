@@ -1,6 +1,7 @@
 import express from "express";
 import { z } from "zod";
 import {
+  blockComparisonValidator,
   createDashboardBlockInterface,
   dashboardBlockInterface,
   dashboardFiltersValidator,
@@ -26,6 +27,7 @@ export const createDashboardBody = z
     enableAutoUpdates: z.boolean(),
     updateSchedule: dashboardUpdateSchedule.optional(),
     filters: dashboardFiltersValidator.optional(),
+    comparison: blockComparisonValidator.optional(),
     blocks: z.array(createDashboardBlockInterface),
     projects: z.array(z.string()).optional(),
     userId: z.string().optional(),
@@ -41,6 +43,7 @@ export const updateDashboardBody = z
     enableAutoUpdates: z.boolean().optional(),
     updateSchedule: dashboardUpdateSchedule.optional(),
     filters: dashboardFiltersValidator.optional(),
+    comparison: blockComparisonValidator.optional(),
     projects: z.array(z.string()).optional(),
     blocks: z
       .array(
