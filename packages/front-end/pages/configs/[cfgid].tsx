@@ -18,6 +18,7 @@ import {
   fieldsToTsType,
   fieldsToProto,
   getConfigSubtree,
+  computeConfigReconciliationPreview,
   SchemaProjection,
 } from "shared/util";
 import {
@@ -503,6 +504,21 @@ export default function ConfigDetailPage(): React.ReactElement {
     return map;
   }, [data, displayedConfig, parentKey]);
 
+  // Descendants that currently declare a field key this config also declares.
+  // Publishing makes this config the owner of those keys, so the cascade strips
+  // the redundant definitions from each descendant ("base wins"). Surfaced as an
+  // informational Callout. Kept above the loading guard for stable hook order.
+  const reconciliationPreview = useMemo(() => {
+    if (!data || !displayedConfig)
+      return [] as { name: string; keys: string[] }[];
+    const ownKeys = (displayedConfig.schema?.fields ?? []).map((sf) => sf.key);
+    return computeConfigReconciliationPreview(
+      data.lineage,
+      displayedConfig.key,
+      ownKeys,
+    );
+  }, [data, displayedConfig]);
+
   // Clipboard-export strings for the Export menu, derived from the displayed
   // revision (so drafts export their proposed state). Schemas are pretty-printed
   // JSON Schema or TS; the empty schema still emits a valid object schema. Kept
@@ -758,39 +774,6 @@ export default function ConfigDetailPage(): React.ReactElement {
   const ancestorOwnedKeys = resolved.effectiveSchema
     .map((sf) => sf.key)
     .filter((k) => !ownSchemaKeys.includes(k));
-
-  // Descendants that currently declare a field key this config also declares.
-  // Publishing makes this config the owner of those keys, so the cascade strips
-  // the redundant definitions from each descendant ("base wins"). Surfaced as an
-  // informational Callout so the author knows what publishing will do.
-  const reconciliationPreview = (() => {
-    if (!ownSchemaKeys.length) return [] as { name: string; keys: string[] }[];
-    const childrenOf = new Map<string, string[]>();
-    for (const n of data.lineage) {
-      if (!n.parentKey) continue;
-      const list = childrenOf.get(n.parentKey);
-      if (list) list.push(n.key);
-      else childrenOf.set(n.parentKey, [n.key]);
-    }
-    const descKeys: string[] = [];
-    const seen = new Set<string>();
-    const queue = [...(childrenOf.get(config.key) ?? [])];
-    while (queue.length) {
-      const k = queue.shift() as string;
-      if (seen.has(k)) continue;
-      seen.add(k);
-      descKeys.push(k);
-      for (const c of childrenOf.get(k) ?? []) queue.push(c);
-    }
-    const ownKeys = new Set(ownSchemaKeys);
-    const hits: { name: string; keys: string[] }[] = [];
-    for (const k of descKeys) {
-      const node = data.lineage.find((n) => n.key === k);
-      const collide = (node?.fieldKeys ?? []).filter((fk) => ownKeys.has(fk));
-      if (collide.length) hits.push({ name: node?.name ?? k, keys: collide });
-    }
-    return hits;
-  })();
 
   // Persist the appended schema (optionally with a value override in the same write).
   const saveSchema = async (

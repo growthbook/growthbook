@@ -205,6 +205,37 @@ export function getConfigSpineSubtree(
   return ordered;
 }
 
+// Spine descendants of `configKey` that currently declare a field key this
+// config also declares. Publishing makes this config the owner of those keys,
+// so the "base wins" cascade strips the redundant definitions from each
+// descendant; the detail page surfaces this as an informational preview. One
+// entry per colliding descendant, in BFS order.
+export function computeConfigReconciliationPreview(
+  lineage: {
+    key: string;
+    parentKey?: string | null;
+    name?: string;
+    fieldKeys?: string[];
+  }[],
+  configKey: string,
+  ownSchemaKeys: string[],
+): { name: string; keys: string[] }[] {
+  if (!ownSchemaKeys.length) return [];
+  const byKey = new Map(lineage.map((n) => [n.key, n]));
+  const ownKeys = new Set(ownSchemaKeys);
+  const descendants = getConfigSpineSubtree(
+    configKey,
+    lineage.map((n) => ({ key: n.key, parent: n.parentKey ?? undefined })),
+  ).filter((k) => k !== configKey);
+  const hits: { name: string; keys: string[] }[] = [];
+  for (const k of descendants) {
+    const node = byKey.get(k);
+    const collide = (node?.fieldKeys ?? []).filter((fk) => ownKeys.has(fk));
+    if (collide.length) hits.push({ name: node?.name ?? k, keys: collide });
+  }
+  return hits;
+}
+
 // Ensure a config-backed feature's value carries a config ref: a rule that
 // doesn't reference one implicitly serves the feature's default config, so
 // prepend it. No-op for non-config features or already-backed values.

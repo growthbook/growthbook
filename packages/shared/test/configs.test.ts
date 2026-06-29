@@ -18,6 +18,7 @@ import {
   findSiblingSchemaConflicts,
   findIncompatibleConfigValueKeys,
   resolveConfigChain,
+  computeConfigReconciliationPreview,
   ConfigChainNode,
 } from "../src/util/configs";
 import { SimpleSchema, SchemaField } from "../types/feature";
@@ -669,5 +670,48 @@ describe("resolveConfigChain — value merge precedence", () => {
     expect(byKey.get("b")!.source).toBe("theme");
     expect(byKey.get("c")!.value).toBe(3);
     expect(byKey.get("c")!.source).toBe("leaf");
+  });
+});
+
+describe("computeConfigReconciliationPreview", () => {
+  // root → child → grandchild spine; `mixin` extends root but is off-spine.
+  const lineage = [
+    { key: "root", parentKey: null, name: "Root", fieldKeys: ["a"] },
+    { key: "child", parentKey: "root", name: "Child", fieldKeys: ["a", "b"] },
+    {
+      key: "grandchild",
+      parentKey: "child",
+      name: "Grandchild",
+      fieldKeys: ["a", "c"],
+    },
+    { key: "mixin", parentKey: null, name: "Mixin", fieldKeys: ["a"] },
+  ];
+
+  it("returns [] when the config declares no own fields", () => {
+    expect(computeConfigReconciliationPreview(lineage, "root", [])).toEqual([]);
+  });
+
+  it("reports spine descendants that redeclare an own key, in BFS order", () => {
+    const hits = computeConfigReconciliationPreview(lineage, "root", ["a"]);
+    // `mixin` is off the parent spine, so it's excluded; root itself excluded.
+    expect(hits).toEqual([
+      { name: "Child", keys: ["a"] },
+      { name: "Grandchild", keys: ["a"] },
+    ]);
+  });
+
+  it("only reports the keys that actually collide", () => {
+    const hits = computeConfigReconciliationPreview(lineage, "child", [
+      "b",
+      "c",
+    ]);
+    // Only grandchild descends from child; it declares `c` (collides) not `b`.
+    expect(hits).toEqual([{ name: "Grandchild", keys: ["c"] }]);
+  });
+
+  it("returns [] when no descendant collides", () => {
+    expect(
+      computeConfigReconciliationPreview(lineage, "grandchild", ["a"]),
+    ).toEqual([]);
   });
 });
