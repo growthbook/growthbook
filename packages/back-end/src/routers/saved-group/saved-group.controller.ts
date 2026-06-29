@@ -546,6 +546,7 @@ type PutSavedGroupRequest = AuthRequest<
     revisionId?: string;
     forceCreateRevision?: string;
     title?: string;
+    comment?: string;
     revertedFrom?: string;
   }
 >;
@@ -738,6 +739,7 @@ export const putSavedGroup = async (
   const bypassApproval = req.query.bypassApproval === "1";
   const autoPublish = req.query.autoPublish === "1";
   const title = req.query.title;
+  const comment = req.query.comment;
   const revertedFrom = req.query.revertedFrom;
 
   // All edits flow through the revision system: if no draft-intent flag was
@@ -787,6 +789,7 @@ export const putSavedGroup = async (
       // replaceChanges: false (default) — merge with existing proposed changes
       forceCreate,
       title,
+      comment,
       revertedFrom,
       // Only update a specific draft revision when we're staying in draft mode
       revisionId:
