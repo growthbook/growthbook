@@ -8,6 +8,7 @@ import { URLRedirectInterface } from "shared/types/url-redirect";
 import { useState } from "react";
 import { HoldoutInterfaceStringDates } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
+import { experimentHasLiveLinkedChanges } from "shared/util";
 import { Flex } from "@radix-ui/themes";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import LinkedChanges from "@/components/Experiment/LinkedChanges/LinkedChanges";
@@ -108,6 +109,10 @@ export default function Implementation({
   const isHoldout = experiment.type === "holdout";
   const simpleExperimentFlow = useFeatureIsOn("simple-experiment-flow");
 
+  const safeToEdit =
+    experiment.status !== "running" ||
+    !experimentHasLiveLinkedChanges(experiment, linkedFeatures);
+
   const showTrafficFunnel = !isHoldout && simpleExperimentFlow;
   const canEditHoldoutDefaultState =
     isHoldout &&
@@ -164,6 +169,7 @@ export default function Implementation({
             }
             setEditVariationIndex={setEditMetadataIndex}
             canEditExperiment={canEditExperiment}
+            safeToEdit={safeToEdit}
             mutate={mutate}
             phaseIndex={phases.length - 1}
           />

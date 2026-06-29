@@ -28,6 +28,7 @@ export interface Props {
   editNamespace?: (() => void) | null;
   setEditVariationIndex?: (index: number) => void;
   canEditExperiment?: boolean;
+  safeToEdit: boolean;
   mutate?: () => void;
 }
 
@@ -177,6 +178,7 @@ export default function TrafficAllocationFunnel({
   editNamespace,
   setEditVariationIndex,
   canEditExperiment = false,
+  safeToEdit = false,
   mutate,
 }: Props) {
   const { namespaces } = useOrgSettings();
@@ -226,7 +228,7 @@ export default function TrafficAllocationFunnel({
         </Heading>
         {!isHoldout &&
           editNamespace &&
-          !isRunning &&
+          safeToEdit &&
           !hasNamespace &&
           !!namespaces?.length && (
             <Button
@@ -245,13 +247,13 @@ export default function TrafficAllocationFunnel({
             <>
               <FunnelCard
                 title="Namespace"
-                onEdit={isRunning ? null : editNamespace}
+                onEdit={editNamespace}
                 inlineSummary={
                   <Text size="large" color="text-mid">
                     {namespaceName}
                   </Text>
                 }
-                disabled={isRunning}
+                disabled={!safeToEdit}
               />
               <FunnelConnector label={includedLabel} />
             </>
@@ -260,7 +262,7 @@ export default function TrafficAllocationFunnel({
           <FunnelCard
             title="Targeting"
             titleColor={!hasConfiguredTargeting ? "text-disabled" : undefined}
-            onEdit={isRunning ? null : editTargeting}
+            onEdit={editTargeting}
             inlineSummary={
               hasConfiguredTargeting ? undefined : (
                 <Text size="large">
@@ -268,7 +270,7 @@ export default function TrafficAllocationFunnel({
                 </Text>
               )
             }
-            disabled={isRunning}
+            disabled={!safeToEdit}
           >
             <Flex direction="column" gap="3">
               {hasConfiguredTargeting ? (
@@ -309,8 +311,8 @@ export default function TrafficAllocationFunnel({
 
           <FunnelCard
             title="Traffic"
-            onEdit={isRunning ? null : editTraffic}
-            disabled={isRunning}
+            onEdit={editTraffic}
+            disabled={!safeToEdit}
           >
             {!isHoldout ? (
               <Flex direction="column" gap="3">
