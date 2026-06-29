@@ -130,13 +130,15 @@ export const configSchemaFormatValidator = z.enum([
   "simple",
   "json-schema",
   "typescript",
+  "protobuf",
 ]);
 
 // Public schema-render formats. SimpleSchema is internal-only; the external API
-// speaks JSON Schema (canonical) and TypeScript (rendered).
+// speaks JSON Schema (canonical) plus rendered TypeScript / Protobuf.
 export const configSchemaRenderFormatValidator = z.enum([
   "json-schema",
   "typescript",
+  "protobuf",
 ]);
 
 // A JSON Schema document — an object, open by nature, so typed loosely. The
@@ -170,6 +172,14 @@ export const configSchemaSourceValidator = namedSchema(
         value: z
           .string()
           .describe("TypeScript source — an interface or object type."),
+      })
+      .strict(),
+    z
+      .object({
+        type: z.literal("protobuf"),
+        value: z
+          .string()
+          .describe("Protobuf (proto3) source — a `message` definition."),
       })
       .strict(),
   ]),

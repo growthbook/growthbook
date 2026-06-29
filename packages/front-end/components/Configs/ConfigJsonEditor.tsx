@@ -6,6 +6,7 @@ import clsx from "clsx";
 import { SchemaField, SimpleSchema } from "shared/types/feature";
 import {
   fieldsToTsType,
+  fieldsToProto,
   inferJsonSchemaForValue,
   jsonSchemaStringToFields,
   reconcileSchemaFields,
@@ -423,6 +424,19 @@ export default function ConfigJsonEditor({
     </Box>
   );
 
+  // Read-only Protobuf (proto3) rendering of a field set.
+  const readonlyProtoSchema = (schemaFields: SchemaField[]): ReactNode => (
+    <Box style={{ maxHeight: 320, overflowY: "auto", maxWidth: "100%" }}>
+      <InlineCode
+        language="protobuf"
+        code={fieldsToProto(schemaFields, {
+          additionalProperties: extensible,
+        })}
+        fontSize="0.75rem"
+      />
+    </Box>
+  );
+
   // A child config with no own schema still inherits its parent's; say so rather
   // than the bare "No schema defined." (which reads as "no schema at all").
   const ownSchemaEmptyState: ReactNode =
@@ -456,6 +470,7 @@ export default function ConfigJsonEditor({
   const LANG_LABELS: Record<string, string> = {
     typescript: "TypeScript",
     "json-schema": "JSON Schema",
+    protobuf: "Protobuf",
   };
   const schemaFormatSelect = (
     sel: string,
@@ -465,6 +480,7 @@ export default function ConfigJsonEditor({
     const options: Parameters<typeof SelectField>[0]["options"] = [
       { label: "JSON Schema", value: "json" },
       { label: "TypeScript", value: "typescript" },
+      { label: "Protobuf", value: "protobuf" },
     ];
     const entries = Object.entries(projections ?? {});
     if (entries.length) {
@@ -517,9 +533,9 @@ export default function ConfigJsonEditor({
       }
       return readonlyTsSchema(schemaFields); // projection gone — fall back
     }
-    return sel === "typescript"
-      ? readonlyTsSchema(schemaFields)
-      : readonlyJsonSchema(jsonString);
+    if (sel === "typescript") return readonlyTsSchema(schemaFields);
+    if (sel === "protobuf") return readonlyProtoSchema(schemaFields);
+    return readonlyJsonSchema(jsonString);
   };
 
   // Read-only schema column: heading + format picker + the schema rendered in

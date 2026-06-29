@@ -7,6 +7,7 @@ import {
   configIsExtensible,
   fieldsToJsonSchema,
   fieldsToTsType,
+  fieldsToProto,
   stringToBoolean,
 } from "shared/util";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -80,15 +81,23 @@ export const getConfigSchema = createApiRequestHandler(
             projection,
           }),
         }
-      : {
-          type: "json-schema" as const,
-          value: JSON.parse(
-            fieldsToJsonSchema(fields, {
-              type: "object",
+      : format === "protobuf"
+        ? {
+            type: "protobuf" as const,
+            value: fieldsToProto(fields, {
+              name: toPascalCase(config.key),
               additionalProperties,
             }),
-          ),
-        };
+          }
+        : {
+            type: "json-schema" as const,
+            value: JSON.parse(
+              fieldsToJsonSchema(fields, {
+                type: "object",
+                additionalProperties,
+              }),
+            ),
+          };
 
   return {
     schema,

@@ -17,6 +17,7 @@ import {
   inferFieldsFromValue,
   jsonSchemaStringToFields,
   tsTypesToFields,
+  protoToFields,
   SchemaWarning,
   SchemaProjection,
 } from "shared/util";
@@ -202,13 +203,15 @@ export function resolveConfigSchemaSource(args: {
     return { schema: undefined, warnings: [] };
   }
   if (source !== undefined) {
+    // json-schema carries a JSON object (stringify it); typescript/protobuf
+    // carry source text used verbatim.
     const importArgs =
-      source.type === "typescript"
-        ? { format: "typescript" as const, source: source.value }
-        : {
+      source.type === "json-schema"
+        ? {
             format: "json-schema" as const,
             source: JSON.stringify(source.value),
-          };
+          }
+        : { format: source.type, source: source.value };
     return resolveImportedSchema({ ...importArgs, additionalProperties });
   }
   return resolveImportedSchema({
@@ -312,7 +315,9 @@ export function resolveImportedSchema(args: {
   const converted =
     format === "json-schema"
       ? jsonSchemaStringToFields(source)
-      : tsTypesToFields(source);
+      : format === "protobuf"
+        ? protoToFields(source)
+        : tsTypesToFields(source);
   if (converted.error) {
     throw new BadRequestError(
       `Could not parse ${format} schema: ${converted.error}`,

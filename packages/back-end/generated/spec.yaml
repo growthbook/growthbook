@@ -19285,6 +19285,7 @@ paths:
             enum:
               - json-schema
               - typescript
+              - protobuf
         - $ref: '#/components/parameters/effective'
         - $ref: '#/components/parameters/source'
       responses:
@@ -42676,6 +42677,18 @@ components:
             - type
             - value
           additionalProperties: false
+        - type: object
+          properties:
+            type:
+              type: string
+              const: protobuf
+            value:
+              description: Protobuf (proto3) source — a `message` definition.
+              type: string
+          required:
+            - type
+            - value
+          additionalProperties: false
     ConfigSchemaWarning:
       type: object
       properties:
@@ -48358,6 +48371,18 @@ components:
                   const: typescript
                 value:
                   description: TypeScript source — an interface or object type.
+                  type: string
+              required:
+                - type
+                - value
+              additionalProperties: false
+            - type: object
+              properties:
+                type:
+                  type: string
+                  const: protobuf
+                value:
+                  description: Protobuf (proto3) source — a `message` definition.
                   type: string
               required:
                 - type

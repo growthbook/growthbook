@@ -80,5 +80,6 @@ export * from "./fields";
 export * from "./json-value";
 export * from "./json-schema";
 export * from "./typescript";
+export * from "./proto";
 export * from "./registry";
 export * from "./validate";

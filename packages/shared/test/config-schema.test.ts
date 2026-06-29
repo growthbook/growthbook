@@ -4,7 +4,9 @@ import {
   collectInvalidConfigValueKeys,
   diffSchemaFields,
   fieldsCanonicallyEqual,
+  fieldsToProto,
   fieldsToTsType,
+  protoToFields,
   inferFieldFromValue,
   inferFieldsFromValue,
   inferJsonSchemaForValue,
@@ -1008,5 +1010,104 @@ describe("fieldsToTsType with projection (named-type replay)", () => {
     const ts = fieldsToTsType(fields, { projection });
     expect(ts).toContain("interface RetryPolicy {");
     expect(ts).not.toContain("serviceName"); // reflects current schema, not the import
+  });
+});
+
+describe("protoToFields", () => {
+  it("maps scalars, repeated, optional, nested message, and enum fields", () => {
+    const { fields, error } = protoToFields(`
+      syntax = "proto3";
+      enum LogLevel { DEBUG = 0; INFO = 1; }
+      message Retry { int32 max_attempts = 1; repeated string retry_on = 2; }
+      message AppConfig {
+        string service_name = 1;
+        int32 port = 2;
+        bool enabled = 3;
+        optional string region = 4;
+        LogLevel log_level = 5;
+        Retry retry = 6;
+        repeated string origins = 7;
+      }
+    `);
+    expect(error).toBeNull();
+    const byKey = Object.fromEntries(fields.map((f) => [f.key, f]));
+    expect(byKey.service_name.type).toBe("string");
+    expect(byKey.port.type).toBe("integer");
+    expect(byKey.enabled.type).toBe("boolean");
+    expect(byKey.service_name.required).toBe(true);
+    expect(byKey.region.required).toBe(false); // `optional` keyword
+    expect(byKey.log_level.enum).toEqual(["DEBUG", "INFO"]);
+    const retry = JSON.parse(byKey.retry.jsonSchema as string);
+    expect(retry.properties.max_attempts).toEqual({ type: "integer" });
+    expect(retry.properties.retry_on).toEqual({
+      type: "array",
+      items: { type: "string" },
+    });
+  });
+
+  it("picks the root message (the one nothing else references)", () => {
+    const { fields } = protoToFields(`
+      message Inner { string a = 1; }
+      message Root { Inner inner = 1; string b = 2; }
+    `);
+    expect(fields.map((f) => f.key).sort()).toEqual(["b", "inner"]);
+  });
+
+  it("degrades unknown / exotic types with a warning", () => {
+    const { warnings } = protoToFields(`
+      message Cfg {
+        google.protobuf.Timestamp ts = 1;
+        bytes blob = 2;
+      }
+    `);
+    expect(warnings.length).toBeGreaterThan(0);
+    expect(
+      warnings.some((w) => /unresolved type "google/.test(w.message)),
+    ).toBe(true);
+    expect(warnings.some((w) => /bytes/.test(w.message))).toBe(true);
+  });
+});
+
+describe("fieldsToProto", () => {
+  it("renders scalars, arrays, nested objects, and enums", () => {
+    const fields = [
+      field({ key: "service_name", type: "string" }),
+      field({ key: "port", type: "integer" }),
+      field({ key: "mode", enum: ["lru", "lfu"] }),
+      field({
+        key: "origins",
+        jsonSchema: JSON.stringify({
+          type: "array",
+          items: { type: "string" },
+        }),
+      }),
+      field({
+        key: "http",
+        jsonSchema: JSON.stringify({
+          type: "object",
+          properties: { base_url: { type: "string" } },
+          required: ["base_url"],
+        }),
+      }),
+    ];
+    const proto = fieldsToProto(fields, { name: "AppConfig" });
+    expect(proto).toContain('syntax = "proto3";');
+    expect(proto).toContain("message AppConfig {");
+    expect(proto).toContain("string service_name = 1;");
+    expect(proto).toContain("int32 port = 2;");
+    expect(proto).toMatch(/string mode = 3;.*one of/); // enum → string + comment
+    expect(proto).toContain("repeated string origins = 4;");
+    expect(proto).toContain("Http http = 5;"); // nested object → message ref
+    expect(proto).toContain("message Http {");
+    expect(proto).toContain("string base_url = 1;");
+  });
+
+  it("round-trips a message: proto → fields → proto", () => {
+    const { fields } = protoToFields(
+      `message Cfg { string name = 1; int32 count = 2; }`,
+    );
+    const proto = fieldsToProto(fields, { name: "Cfg" });
+    expect(proto).toContain("string name = 1;");
+    expect(proto).toContain("int32 count = 2;");
   });
 });
