@@ -23,6 +23,10 @@ import {
 } from "back-end/src/services/constants";
 import { configToResolvable } from "back-end/src/services/resolvableValues";
 import {
+  AsyncSnapshot,
+  createAsyncSnapshot,
+} from "back-end/src/util/asyncSnapshot";
+import {
   logConfigCreatedEvent,
   logConfigUpdatedEvent,
   logConfigDeletedEvent,
@@ -53,6 +57,16 @@ const BaseClass = MakeModelClass({
 });
 
 export class ConfigModel extends BaseClass {
+  // Request-scoped snapshot of every config (the reconciliation feed). One
+  // schema/lineage write reads the whole collection many times — normalize +
+  // value validation + descendant dry-run + the cycle/composition hooks — all
+  // against unchanged data. Memoize that fetch and invalidate on any write so
+  // the post-write descendant reconcile still sees fresh data.
+  private reconcileSnapshot: AsyncSnapshot<ConfigInterface[]> =
+    createAsyncSnapshot(() =>
+      this._find({}, { bypassReadPermissionChecks: true }),
+    );
+
   protected canRead(doc: ConfigInterface): boolean {
     return this.context.permissions.canReadSingleProjectResource(doc.project);
   }
@@ -214,6 +228,7 @@ export class ConfigModel extends BaseClass {
   }
 
   protected async afterCreate(doc: ConfigInterface) {
+    this.reconcileSnapshot.invalidate();
     // A new config can satisfy a `@config:` ref that a feature already embeds
     // (e.g. an imported/dangling reference), so refresh the SDK payload.
     resolvableValueChanged(this.context, "updated", "config", doc.key).catch(
@@ -233,6 +248,7 @@ export class ConfigModel extends BaseClass {
     updates: UpdateProps<ConfigInterface>,
     newDoc: ConfigInterface,
   ) {
+    this.reconcileSnapshot.invalidate();
     if (
       updates.parent !== undefined ||
       updates.extends !== undefined ||
@@ -264,6 +280,7 @@ export class ConfigModel extends BaseClass {
   }
 
   protected async afterDelete(doc: ConfigInterface) {
+    this.reconcileSnapshot.invalidate();
     resolvableValueChanged(this.context, "deleted", "config", doc.key).catch(
       (e) => {
         this.context.logger.error(
@@ -284,7 +301,7 @@ export class ConfigModel extends BaseClass {
   // descendants may live in projects the acting user can't read) to enforce
   // "base wins" on field collisions.
   public getAllForReconcile(): Promise<ConfigInterface[]> {
-    return this._find({}, { bypassReadPermissionChecks: true });
+    return this.reconcileSnapshot.get();
   }
 
   // Strip from a config's appended schema any field key already owned by a
