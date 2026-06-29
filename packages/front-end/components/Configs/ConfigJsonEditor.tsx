@@ -9,6 +9,7 @@ import {
   fieldsToProto,
   inferJsonSchemaForValue,
   jsonSchemaStringToFields,
+  protoToFields,
   reconcileSchemaFields,
   SchemaConversionResult,
   SchemaProjection,
@@ -59,11 +60,19 @@ type Props = {
   parentKey?: string | null;
   parentName?: string | null;
   // Captured per-source render projections (source id → named-type projection),
-  // offered as named TypeScript output options for this config's own schema.
+  // offered as named output options for this config's own schema. On a draft
+  // they're editable: editing the named source re-derives the schema (which
+  // projects into the Config) and recaptures that source's names.
   renderProjections?: Record<string, SchemaProjection>;
+  // Schema-format option values (`json`/`typescript`/`protobuf`/`proj:<source>`)
+  // whose backing data differs between this draft and the published config — the
+  // editor renders an amber dot on those dropdown options.
+  unpublishedFormats?: Set<string>;
   onSave: (
     value: Record<string, unknown>,
     fields: SchemaField[],
+    // When provided, replaces the config's per-source projections (set/clear).
+    renderProjections?: Record<string, SchemaProjection>,
   ) => Promise<void>;
 };
 
@@ -154,6 +163,35 @@ function seedSchemaText(
   );
 }
 
+// A projection is edited in its own captured language. Seed renders the current
+// fields with that source's named types; parse compiles the edited source back
+// to fields AND recaptures the projection (named-type structure).
+type ProjectionLang = SchemaProjection["language"];
+
+function seedProjectionText(
+  fields: SchemaField[],
+  type: SimpleSchema["type"],
+  additionalProperties: boolean,
+  projection: SchemaProjection,
+): string {
+  if (projection.language === "protobuf") {
+    return fieldsToProto(fields, { additionalProperties, projection });
+  }
+  if (projection.language === "typescript") {
+    return fieldsToTsType(fields, { additionalProperties, projection });
+  }
+  return compileFieldsToText(fields, type, additionalProperties, "json");
+}
+
+function parseProjectionText(
+  text: string,
+  lang: ProjectionLang,
+): SchemaConversionResult {
+  if (lang === "protobuf") return protoToFields(text);
+  if (lang === "typescript") return tsTypesToFields(text);
+  return jsonSchemaStringToFields(text);
+}
+
 // Compile fields to a JSON Schema string for read-only display. `simpleToJSONSchema`
 // already returns JSON text (and throws on an empty/invalid schema), so we hand
 // that string straight to the renderer — never re-stringify it.
@@ -184,6 +222,7 @@ export default function ConfigJsonEditor({
   parentKey,
   parentName,
   renderProjections,
+  unpublishedFormats,
   onSave,
 }: Props) {
   const [valueText, setValueText] = useState<string>(() =>
@@ -212,6 +251,10 @@ export default function ConfigJsonEditor({
   // formats (Protobuf, named projections) are read-only previews of the current
   // fields. Non-null means "previewing" — the editable buffer is left untouched.
   const [schemaPreviewSel, setSchemaPreviewSel] = useState<string | null>(null);
+  // Editable buffer for the named-source projection currently selected (in its
+  // captured language). Only used on a draft; reseeded from the saved fields +
+  // projection whenever the selection or saved state changes.
+  const [projectionText, setProjectionText] = useState<string>("");
   const schemaLangRef = useRef<SchemaLang>(schemaLang);
   useEffect(() => {
     schemaLangRef.current = schemaLang;
@@ -320,11 +363,6 @@ export default function ConfigJsonEditor({
     }
   };
 
-  const conflictKeys = useMemo(
-    () => fields.map((f) => f.key).filter((k) => ancestorOwned.has(k)),
-    [fields, ancestorOwned],
-  );
-
   // The config's own stored fields, independent of the editable buffer /
   // language toggle — drives the read-only (off-draft) schema display so the
   // language toggle there can flip purely the rendering, not the parse.
@@ -336,6 +374,54 @@ export default function ConfigJsonEditor({
   const effectiveSchemaString = useMemo(
     () => schemaToJsonString(schemaType, effectiveSchema, extensible),
     [schemaType, effectiveSchema, extensible],
+  );
+
+  // Projection editing (draft only): when a `proj:<source>` format is selected,
+  // the named source becomes editable in its captured language. Editing it
+  // re-derives the config schema (which projects into the value) and recaptures
+  // that source's named-type structure — both staged together on the draft.
+  const projectionSource = schemaPreviewSel?.startsWith("proj:")
+    ? schemaPreviewSel.slice("proj:".length)
+    : null;
+  const activeProjection = projectionSource
+    ? renderProjections?.[projectionSource]
+    : undefined;
+  const editingProjection =
+    view === "edit" && canEdit && !!projectionSource && !!activeProjection;
+  const projectionLang: ProjectionLang =
+    activeProjection?.language ?? "typescript";
+  const projectionSeed = useMemo(
+    () =>
+      activeProjection
+        ? seedProjectionText(
+            ownFields,
+            schemaType,
+            extensible,
+            activeProjection,
+          )
+        : "",
+    [activeProjection, ownFields, schemaType, extensible],
+  );
+  // Reseed when entering a projection or after the saved state changes (mutate);
+  // keystrokes update `projectionText` directly, so this never clobbers edits.
+  useEffect(() => {
+    if (editingProjection) setProjectionText(projectionSeed);
+  }, [editingProjection, projectionSeed]);
+  const parsedProjection = useMemo(
+    () =>
+      editingProjection
+        ? parseProjectionText(projectionText, projectionLang)
+        : null,
+    [editingProjection, projectionText, projectionLang],
+  );
+
+  // Fields backing the active surface: the projection buffer when editing one,
+  // otherwise the JSON/TS schema buffer.
+  const activeFields =
+    editingProjection && parsedProjection ? parsedProjection.fields : fields;
+  const conflictKeys = useMemo(
+    () => activeFields.map((f) => f.key).filter((k) => ancestorOwned.has(k)),
+    [activeFields, ancestorOwned],
   );
 
   // Conversion is lossy-by-design: unresolved/unrepresentable types degrade to a
@@ -358,7 +444,11 @@ export default function ConfigJsonEditor({
     extensible,
     schemaLang,
   );
-  const dirty = valueText !== pristineValue || schemaText !== pristineSchema;
+  const projectionDirty =
+    editingProjection && projectionText !== projectionSeed;
+  const dirty =
+    valueText !== pristineValue ||
+    (editingProjection ? projectionDirty : schemaText !== pristineSchema);
 
   // Save mirrors Cancel: both only apply when there are unsaved edits. With
   // nothing changed there's nothing to save (or cancel).
@@ -366,13 +456,14 @@ export default function ConfigJsonEditor({
     canEdit &&
     dirty &&
     !parseError &&
-    !schemaError &&
+    (editingProjection ? !parsedProjection?.error : !schemaError) &&
     conflictKeys.length === 0 &&
     !saving;
 
   const handleCancel = () => {
     setValueText(pristineValue);
     setSchemaText(pristineSchema);
+    setProjectionText(projectionSeed);
     seededKeys.current = new Set();
     setParseError(null);
     setSaveError(null);
@@ -386,10 +477,48 @@ export default function ConfigJsonEditor({
       const obj = JSON.parse(stripped) as Record<string, unknown>;
       // Reuse stored field objects for keys whose meaning is unchanged so a
       // no-op save doesn't rewrite them into canonical form (no spurious diff).
-      const reconciled = reconcileSchemaFields(parseFields(schemaJson), fields);
-      await onSave(obj, reconciled);
+      const reconciled = reconcileSchemaFields(
+        parseFields(schemaJson),
+        activeFields,
+      );
+      if (editingProjection && projectionSource && parsedProjection) {
+        // The edited source derives the schema (above) AND recaptures its own
+        // named types; a language with no names yields an empty projection.
+        const captured = parsedProjection.projection ?? {
+          language: projectionLang,
+          typeNames: {},
+        };
+        await onSave(obj, reconciled, {
+          ...(renderProjections ?? {}),
+          [projectionSource]: captured,
+        });
+      } else {
+        await onSave(obj, reconciled);
+      }
     } catch (e) {
       setSaveError(e instanceof Error ? e.message : "Failed to save");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Drop one source's projection (schema untouched). Routes through the same
+  // save path with `renderProjections` cleared of that source.
+  const handleRemoveProjection = async () => {
+    if (!projectionSource) return;
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const stripped = stripConfigExtends(valueText) ?? valueText;
+      const obj = JSON.parse(stripped) as Record<string, unknown>;
+      const next = { ...(renderProjections ?? {}) };
+      delete next[projectionSource];
+      await onSave(obj, parseFields(schemaJson), next);
+      setSchemaPreviewSel(null);
+    } catch (e) {
+      setSaveError(
+        e instanceof Error ? e.message : "Failed to remove projection",
+      );
     } finally {
       setSaving(false);
     }
@@ -465,6 +594,9 @@ export default function ConfigJsonEditor({
     sel: string,
     setSel: (v: string) => void,
     projections?: Record<string, SchemaProjection>,
+    // Option values with unpublished (staged-but-not-published) changes; each
+    // gets an amber dot. Only meaningful for the editable own-schema picker.
+    dirtyValues?: Set<string>,
   ): ReactNode => {
     const options: Parameters<typeof SelectField>[0]["options"] = [
       { label: "JSON Schema", value: "json" },
@@ -493,6 +625,27 @@ export default function ConfigJsonEditor({
           options={options}
           sort={false}
           containerStyle={{ marginBottom: 0 }}
+          formatOptionLabel={
+            dirtyValues?.size
+              ? (option) => (
+                  <Flex align="center" justify="between" gap="2">
+                    <span>{option.label}</span>
+                    {dirtyValues.has(option.value) && (
+                      <span
+                        title="Unpublished changes"
+                        style={{
+                          width: 8,
+                          height: 8,
+                          borderRadius: "50%",
+                          background: "var(--amber-9)",
+                          flexShrink: 0,
+                        }}
+                      />
+                    )}
+                  </Flex>
+                )
+              : undefined
+          }
         />
       </Box>
     );
@@ -636,8 +789,59 @@ export default function ConfigJsonEditor({
         schemaPreviewSel ?? schemaLang,
         onEditorFormatSelect,
         renderProjections,
+        unpublishedFormats,
       )}
     </Flex>
+  );
+
+  // Editable named-source projection. TS/JSON use the Ace editor; Protobuf has
+  // no Ace mode, so it falls back to a plain textarea.
+  const projectionEditor = (
+    <>
+      {projectionLang === "protobuf" ? (
+        <Field
+          textarea
+          minRows={12}
+          value={projectionText}
+          onChange={(e) => setProjectionText(e.target.value)}
+        />
+      ) : (
+        <CodeTextArea
+          key={`proj:${projectionSource}:${projectionLang}`}
+          language={projectionLang === "typescript" ? "typescript" : "json"}
+          value={projectionText}
+          setValue={setProjectionText}
+          minLines={12}
+          maxLines={40}
+          fontSize="0.75em"
+        />
+      )}
+      <Flex justify="between" align="center" gap="3" mt="1">
+        <Text size="small" color="text-low">
+          Editing <code>{projectionSource}</code> updates the config&apos;s
+          schema and recaptures this projection&apos;s named types.
+        </Text>
+        <Link
+          color="red"
+          onClick={(e) => {
+            e.preventDefault();
+            if (!saving) handleRemoveProjection();
+          }}
+        >
+          Remove projection
+        </Link>
+      </Flex>
+      {parsedProjection?.error && (
+        <div style={{ color: "var(--red-11)", fontSize: 12, marginTop: 4 }}>
+          {parsedProjection.error}
+        </div>
+      )}
+      {!!parsedProjection?.warnings.length && (
+        <div style={{ color: "var(--amber-11)", fontSize: 12, marginTop: 4 }}>
+          {parsedProjection.warnings.map((w) => w.message).join("; ")}
+        </div>
+      )}
+    </>
   );
 
   const editContent = (
@@ -684,9 +888,13 @@ export default function ConfigJsonEditor({
         </>,
         <>
           {schemaHeader}
-          {schemaPreviewSel ? (
-            // Read-only preview (Protobuf / a named projection) of the current
-            // fields — editing happens in JSON Schema or TypeScript.
+          {editingProjection ? (
+            // Editable named-source projection — derives the schema on save.
+            projectionEditor
+          ) : schemaPreviewSel ? (
+            // Read-only preview (Protobuf, or a projection that's since been
+            // removed) of the current fields — JSON Schema / TypeScript edit
+            // in place.
             renderReadonlySchema(
               schemaPreviewSel,
               fields,

@@ -448,6 +448,7 @@ export const putConfig = async (
     archived,
     schema,
     extensible,
+    renderProjections,
   } = req.body;
   const extendsKeys = req.body.extends;
   const { id } = req.params;
@@ -548,6 +549,14 @@ export const putConfig = async (
   }
   if (extensible !== undefined && extensible !== comparisonBase.extensible) {
     fieldsToUpdate.extensible = extensible;
+  }
+  // Per-source render projections. `{}` is a meaningful value (clears the last
+  // projection), so compare with isEqual rather than the null-coalescing helper.
+  if (
+    renderProjections !== undefined &&
+    !isEqual(renderProjections, comparisonBase.renderProjections ?? {})
+  ) {
+    fieldsToUpdate.renderProjections = renderProjections;
   }
 
   // Enforce "base wins": never let a child config persist a schema field whose

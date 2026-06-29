@@ -115,6 +115,7 @@ export const putConfigBodyValidator = z.object({
   archived: z.boolean().optional(),
   schema: simpleSchemaValidator.optional(),
   extensible: z.boolean().optional(),
+  renderProjections: z.record(z.string(), schemaProjectionValidator).optional(),
 });
 
 // ===========================================================================

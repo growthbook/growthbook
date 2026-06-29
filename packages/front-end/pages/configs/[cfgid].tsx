@@ -18,12 +18,14 @@ import {
   fieldsToTsType,
   fieldsToProto,
   getConfigSubtree,
+  SchemaProjection,
 } from "shared/util";
 import {
   buildConstantValueMap,
   resolveConstantRefs,
   ConstantSource,
 } from "shared/sdk-versioning";
+import { isEqual } from "lodash";
 import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiPlusBold, PiCaretDown, PiCheckBold, PiCopy } from "react-icons/pi";
@@ -397,6 +399,38 @@ export default function ConfigDetailPage(): React.ReactElement {
     ) as ConfigInterface;
   }, [selectedRevision, config]);
 
+  // Schema-format options whose backing data differs between the displayed
+  // draft and the published config — the editor renders an amber dot on each.
+  // A schema change touches every format (all derive from it); a projection's
+  // own change (added/removed/renamed) additionally flags that one source.
+  const unpublishedFormats = useMemo(() => {
+    const set = new Set<string>();
+    if (!config || !displayedConfig) return set;
+    const schemaChanged = !isEqual(
+      displayedConfig.schema ?? null,
+      config.schema ?? null,
+    );
+    if (schemaChanged) {
+      set.add("json");
+      set.add("typescript");
+      set.add("protobuf");
+    }
+    const draftRP = displayedConfig.renderProjections ?? {};
+    const liveRP = config.renderProjections ?? {};
+    for (const source of new Set([
+      ...Object.keys(draftRP),
+      ...Object.keys(liveRP),
+    ])) {
+      if (
+        schemaChanged ||
+        !isEqual(draftRP[source] ?? null, liveRP[source] ?? null)
+      ) {
+        set.add(`proj:${source}`);
+      }
+    }
+    return set;
+  }, [config, displayedConfig]);
+
   // Re-resolve the chain with this node's displayed (possibly draft) value
   // substituted in, so the field table reflects the revision in view.
   const resolved = useMemo(() => {
@@ -762,6 +796,7 @@ export default function ConfigDetailPage(): React.ReactElement {
   const saveSchema = async (
     fields: SchemaField[],
     valueOverride?: Record<string, unknown>,
+    renderProjections?: Record<string, SchemaProjection>,
   ) => {
     const schema: SimpleSchema = { type: ownSchema().type, fields };
     const res = await apiCall<{ revision?: Revision }>(
@@ -771,6 +806,7 @@ export default function ConfigDetailPage(): React.ReactElement {
         body: JSON.stringify({
           schema,
           ...(valueOverride ? { value: JSON.stringify(valueOverride) } : {}),
+          ...(renderProjections !== undefined ? { renderProjections } : {}),
         }),
       },
     );
@@ -1555,8 +1591,11 @@ export default function ConfigDetailPage(): React.ReactElement {
                     view={activeTab === "resolved" ? "preview" : "edit"}
                     parentKey={parentKey}
                     parentName={parentName}
-                    renderProjections={config?.renderProjections}
-                    onSave={(value, fields) => saveSchema(fields, value)}
+                    renderProjections={displayedConfig.renderProjections}
+                    unpublishedFormats={unpublishedFormats}
+                    onSave={(value, fields, renderProjections) =>
+                      saveSchema(fields, value, renderProjections)
+                    }
                   />
                 )}
               </Tabs>
