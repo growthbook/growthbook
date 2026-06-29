@@ -1,4 +1,5 @@
 import Tooltip from "@/components/Tooltip/Tooltip";
+import Callout from "@/ui/Callout";
 
 export default function BuildInformationSchemaCard({
   refreshOrCreateInfoSchema,
@@ -11,7 +12,7 @@ export default function BuildInformationSchemaCard({
 }) {
   return (
     <div>
-      <div className="alert alert-info">
+      <Callout status="info">
         <div>
           <span>
             Need help building your query? Click the button below to get insight
@@ -33,8 +34,8 @@ export default function BuildInformationSchemaCard({
             Generate Information Schema
           </button>
         </Tooltip>
-      </div>
-      {error && <div className="alert alert-danger">{error}</div>}
+      </Callout>
+      {error && <Callout status="error">{error}</Callout>}
     </div>
   );
 }

@@ -285,7 +285,7 @@ export default function CustomHookModal({
             )}
           </ul>
 
-          <Callout status="info" mb="4" contentsAs="div">
+          <Callout status="info" mb="4">
             <Flex align="center" wrap={"wrap"} gapX={"2"}>
               <Text as="span">Call</Text>
               <InlineCode

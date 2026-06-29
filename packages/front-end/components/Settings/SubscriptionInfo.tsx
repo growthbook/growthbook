@@ -141,52 +141,46 @@ export default function SubscriptionInfo() {
               {subscription?.nextBillDate}
             </div>
             {subscription?.hasPaymentMethod === true ? (
-              <div
-                className="mt-3 px-3 py-2 alert alert-success row"
+              <Callout
+                status="success"
                 style={{ maxWidth: 650 }}
+                mt="3"
+                icon={<FaCheckCircle />}
               >
-                <div className="col-auto px-1">
-                  <FaCheckCircle />
-                </div>
-                <div className="col">
-                  You have a valid payment method on file. You will be billed
-                  automatically on this date.
-                </div>
-              </div>
+                You have a valid payment method on file. You will be billed
+                automatically on this date.
+              </Callout>
             ) : subscription?.hasPaymentMethod === false ? (
-              <div
-                className="mt-3 px-3 py-2 alert alert-warning row"
+              <Callout
+                status="warning"
                 style={{ maxWidth: 550 }}
+                mt="3"
+                icon={<FaExclamationTriangle />}
               >
-                <div className="col-auto px-1">
-                  <FaExclamationTriangle />
-                </div>
-                <div className="col">
-                  <p>
-                    You do not have a valid payment method on file. Your
-                    subscription will be cancelled on this date unless you add a
-                    valid payment method.
-                  </p>
-                  <p className="mb-0">
-                    Click <strong>View Plan Details</strong> below to add a
-                    payment method.
-                  </p>
-                </div>
-              </div>
+                <p>
+                  You do not have a valid payment method on file. Your
+                  subscription will be cancelled on this date unless you add a
+                  valid payment method.
+                </p>
+                <p className="mb-0">
+                  Click <strong>View Plan Details</strong> below to add a
+                  payment method.
+                </p>
+              </Callout>
             ) : null}
           </div>
         )}
       {subscription?.pendingCancelation && subscription?.dateToBeCanceled && (
-        <div className="col-md-12 mb-3 alert alert-danger">
+        <Callout status="error" mb="3" className="col-md-12">
           Your plan will be canceled, but is still available until the end of
           your billing period on
           {` ${subscription?.dateToBeCanceled}.`}
-        </div>
+        </Callout>
       )}
       {subscription?.status === "canceled" && (
-        <div className="col-md-12 mb-3 alert alert-danger">
+        <Callout status="error" mb="3" className="col-md-12">
           Your plan was canceled on {` ${subscription?.cancelationDate}.`}
-        </div>
+        </Callout>
       )}
       <div className="col-md-12 mt-4 mb-3 d-flex flex-row px-0">
         {subscription?.billingPlatform === "stripe" ? (

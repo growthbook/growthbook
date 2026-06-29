@@ -90,7 +90,7 @@ export const HoldoutSelect = ({
       <PremiumCallout
         id="holdout-select-promo"
         commercialFeature="holdouts"
-        dismissable={true}
+        dismissible={true}
         mt="3"
         mb="3"
       >

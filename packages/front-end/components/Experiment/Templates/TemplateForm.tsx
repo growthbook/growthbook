@@ -27,6 +27,7 @@ import {
 } from "@/hooks/useCustomFields";
 import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
 import { useUser } from "@/services/UserContext";
+import Callout from "@/ui/Callout";
 
 type Props = {
   initialValue?: Partial<ExperimentTemplateInterface>;
@@ -259,14 +260,14 @@ const TemplateForm: FC<Props> = ({
       >
         <Page display="Overview">
           <div>
-            {msg && <div className="alert alert-info">{msg}</div>}
+            {msg && <Callout status="info">{msg}</Callout>}
 
             {currentProjectIsDemo && (
-              <div className="alert alert-warning">
+              <Callout status="warning">
                 You are creating a template under the demo datasource project.
                 This template will be deleted when the demo datasource project
                 is deleted.
-              </div>
+              </Callout>
             )}
 
             <h4 className="mb-3">Template Details</h4>
