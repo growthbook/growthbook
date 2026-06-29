@@ -87,6 +87,7 @@ export const getConfigSchema = createApiRequestHandler(
             value: fieldsToProto(fields, {
               name: toPascalCase(config.key),
               additionalProperties,
+              projection,
             }),
           }
         : {

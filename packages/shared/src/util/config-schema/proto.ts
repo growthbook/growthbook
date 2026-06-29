@@ -5,6 +5,7 @@ import { jsonSchemaStringToFields } from "./json-schema";
 import {
   SchemaConversionResult,
   SchemaConverter,
+  SchemaProjection,
   SchemaWarning,
 } from "./types";
 
@@ -300,6 +301,39 @@ function selectRoot(
   return messages.find((d) => !referenced.has(d.name)) ?? messages[0] ?? null;
 }
 
+// Capture the source's named-message structure (for round-trip rendering): a
+// map of JSON-Pointer path → the proto message name declared there. Mirrors the
+// TypeScript converter's name capture (a repeated message records under `/items`).
+function captureMessageNames(
+  body: string,
+  byName: Map<string, ProtoDecl>,
+  pointer: string,
+  seen: Set<string>,
+  depth: number,
+  out: Record<string, string>,
+): void {
+  if (depth > MAX_NEST_DEPTH) return;
+  for (const stmt of fieldStatements(body)) {
+    const field = parseField(stmt);
+    if (!field || field.rawType.startsWith("map<")) continue;
+    const decl = byName.get(field.rawType);
+    if (decl?.kind !== "message" || seen.has(field.rawType)) continue;
+    const at =
+      field.modifier === "repeated"
+        ? `${pointer}/properties/${field.name}/items`
+        : `${pointer}/properties/${field.name}`;
+    out[at] = field.rawType;
+    captureMessageNames(
+      decl.body,
+      byName,
+      at,
+      new Set([...seen, field.rawType]),
+      depth + 1,
+      out,
+    );
+  }
+}
+
 export function protoToFields(text: string): SchemaConversionResult {
   const clean = stripComments(text);
   const decls = collectDecls(clean);
@@ -342,10 +376,22 @@ export function protoToFields(text: string): SchemaConversionResult {
   const doc: Record<string, unknown> = { type: "object", properties };
   if (required.length) doc.required = required;
   const result = jsonSchemaStringToFields(JSON.stringify(doc));
+
+  const typeNames: Record<string, string> = {};
+  captureMessageNames(
+    root.body,
+    byName,
+    "",
+    new Set([root.name]),
+    1,
+    typeNames,
+  );
+
   return {
     fields: result.fields,
     error: result.error,
     warnings: [...warnings, ...result.warnings],
+    projection: { language: "protobuf", rootName: root.name, typeNames },
   };
 }
 
@@ -370,6 +416,18 @@ const SCALAR_OUT: Record<string, string> = {
   boolean: "bool",
 };
 
+// Render context: the JSON-Pointer of the node being rendered + the projection.
+// A nested message uses the projection's captured name at its pointer, else a
+// name generated from the field key.
+type ProtoRenderCtx = { pointer: string; projection?: SchemaProjection };
+
+function childCtx(
+  ctx: ProtoRenderCtx | undefined,
+  seg: string,
+): ProtoRenderCtx {
+  return { pointer: (ctx?.pointer ?? "") + seg, projection: ctx?.projection };
+}
+
 // Render the proto type for a node, generating nested messages into `nested`.
 // Returns the type token plus an optional trailing line comment (e.g. enum
 // allowed values). Arrays/optionality are handled by the caller.
@@ -378,6 +436,7 @@ function protoTypeFor(
   key: string,
   nested: string[],
   depth: number,
+  ctx: ProtoRenderCtx,
 ): { token: string; comment?: string } {
   if (depth > MAX_NEST_DEPTH) return { token: "string", comment: "unknown" };
   const rawType = node.type;
@@ -398,7 +457,7 @@ function protoTypeFor(
     if (!props || typeof props !== "object" || !Object.keys(props).length) {
       return { token: "string", comment: "free-form object (JSON string)" };
     }
-    const name = pascalCase(key);
+    const name = ctx.projection?.typeNames?.[ctx.pointer] ?? pascalCase(key);
     nested.push(
       renderMessage(
         name,
@@ -406,6 +465,7 @@ function protoTypeFor(
         node,
         nested,
         depth,
+        ctx,
       ),
     );
     return { token: name };
@@ -430,6 +490,7 @@ function renderField(
   required: boolean,
   nested: string[],
   depth: number,
+  ctx: ProtoRenderCtx,
 ): string {
   const rawType = node.type;
   const isNullable = Array.isArray(rawType) && rawType.includes("null");
@@ -446,10 +507,16 @@ function renderField(
       node.items && typeof node.items === "object"
         ? (node.items as Record<string, unknown>)
         : { type: "string" };
-    ({ token, comment } = protoTypeFor(items, key, nested, depth));
+    ({ token, comment } = protoTypeFor(
+      items,
+      key,
+      nested,
+      depth,
+      childCtx(ctx, "/items"),
+    ));
     modifier = "repeated ";
   } else {
-    ({ token, comment } = protoTypeFor(node, key, nested, depth));
+    ({ token, comment } = protoTypeFor(node, key, nested, depth, ctx));
     // proto3: presence (optional) approximates nullable / not-required.
     if (isNullable || !required) modifier = "optional ";
   }
@@ -463,6 +530,7 @@ function renderMessage(
   parent: Record<string, unknown>,
   nested: string[],
   depth: number,
+  ctx: ProtoRenderCtx,
 ): string {
   const required = new Set(
     Array.isArray(parent.required)
@@ -477,6 +545,7 @@ function renderMessage(
       required.has(k),
       nested,
       depth + 1,
+      childCtx(ctx, `/properties/${k}`),
     ),
   );
   return `message ${name} {\n${lines.map((l) => `  ${l}`).join("\n")}\n}`;
@@ -484,10 +553,15 @@ function renderMessage(
 
 export function fieldsToProto(
   fields: SchemaField[],
-  opts?: { name?: string; additionalProperties?: boolean },
+  opts?: {
+    name?: string;
+    additionalProperties?: boolean;
+    projection?: SchemaProjection;
+  },
 ): string {
-  const rootName = opts?.name ?? "ConfigSchema";
+  const rootName = opts?.projection?.rootName ?? opts?.name ?? "ConfigSchema";
   const nested: string[] = [];
+  const baseCtx: ProtoRenderCtx = { pointer: "", projection: opts?.projection };
   const lines = fields.map((raw, i) => {
     const f = normalizeField(raw);
     let node: Record<string, unknown>;
@@ -499,7 +573,15 @@ export function fieldsToProto(
     } catch {
       node = { type: "string" };
     }
-    return renderField(node, f.key, i + 1, f.required, nested, 1);
+    return renderField(
+      node,
+      f.key,
+      i + 1,
+      f.required,
+      nested,
+      1,
+      childCtx(baseCtx, `/properties/${f.key}`),
+    );
   });
   const root = `message ${rootName} {\n${lines
     .map((l) => `  ${l}`)

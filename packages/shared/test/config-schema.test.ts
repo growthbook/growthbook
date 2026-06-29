@@ -1111,3 +1111,36 @@ describe("fieldsToProto", () => {
     expect(proto).toContain("int32 count = 2;");
   });
 });
+
+describe("proto projection (named-message round-trip)", () => {
+  const src = `
+    message RetryPolicy { int32 max_attempts = 1; }
+    message AppConfig { string name = 1; RetryPolicy retry = 2; }
+  `;
+
+  it("captures proto message names by JSON-Pointer", () => {
+    const { projection } = protoToFields(src);
+    expect(projection?.language).toBe("protobuf");
+    expect(projection?.rootName).toBe("AppConfig");
+    expect(projection?.typeNames).toEqual({
+      "/properties/retry": "RetryPolicy",
+    });
+  });
+
+  it("replays captured message names on export", () => {
+    const { fields, projection } = protoToFields(src);
+    const proto = fieldsToProto(fields, { projection });
+    expect(proto).toContain("message AppConfig {");
+    expect(proto).toContain("message RetryPolicy {");
+    expect(proto).toContain("RetryPolicy retry = 2;");
+  });
+
+  it("falls back to generated names without a projection", () => {
+    const { fields } = protoToFields(src);
+    const proto = fieldsToProto(fields, { name: "Cfg" });
+    expect(proto).toContain("message Cfg {");
+    // field key "retry" → generated "Retry", not the original "RetryPolicy"
+    expect(proto).toContain("Retry retry = 2;");
+    expect(proto).not.toContain("message RetryPolicy");
+  });
+});
