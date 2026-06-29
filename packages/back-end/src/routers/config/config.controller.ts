@@ -370,14 +370,6 @@ export const postConfig = async (
     value: body.value ?? "",
     refSource: "config",
   });
-  for (const [envId, v] of Object.entries(body.environmentValues ?? {})) {
-    validateResolvableValue({
-      type: "json",
-      value: v,
-      label: envId,
-      refSource: "config",
-    });
-  }
 
   // Cycle rejection is enforced in ConfigModel (covers every write path).
 
@@ -410,7 +402,6 @@ export const postConfig = async (
     parent: parent || undefined,
     extends: extendsKeys,
     value: stripConfigExtends(body.value),
-    environmentValues: body.environmentValues,
     description: body.description,
     project: body.project,
     schema: normalizedSchema,
@@ -457,7 +448,6 @@ export const putConfig = async (
     owner,
     parent,
     value,
-    environmentValues,
     description,
     project,
     archived,
@@ -490,14 +480,6 @@ export const putConfig = async (
   // `parent`/`extends`, so a `@config:` ref in the value is rejected.
   if (typeof value !== "undefined") {
     validateResolvableValue({ type: "json", value, refSource: "config" });
-  }
-  for (const [envId, v] of Object.entries(environmentValues ?? {})) {
-    validateResolvableValue({
-      type: "json",
-      value: v,
-      label: envId,
-      refSource: "config",
-    });
   }
 
   // Cycle rejection is enforced in ConfigModel (covers every write path).
@@ -552,9 +534,6 @@ export const putConfig = async (
   }
   if (hasChanged(normalizedValue, comparisonBase.value)) {
     fieldsToUpdate.value = normalizedValue;
-  }
-  if (hasChanged(environmentValues, comparisonBase.environmentValues)) {
-    fieldsToUpdate.environmentValues = environmentValues;
   }
   if (hasChanged(description, comparisonBase.description)) {
     fieldsToUpdate.description = description;
@@ -624,11 +603,9 @@ export const putConfig = async (
   };
   const proposedValues = {
     value: proposed.value,
-    environmentValues: proposed.environmentValues,
   };
   const valueAffectingChange =
     fieldsToUpdate.value !== undefined ||
-    fieldsToUpdate.environmentValues !== undefined ||
     fieldsToUpdate.schema !== undefined ||
     fieldsToUpdate.parent !== undefined ||
     "extends" in fieldsToUpdate;
