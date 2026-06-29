@@ -24,7 +24,6 @@ import CodeTextArea from "@/components/Forms/CodeTextArea";
 import Field from "@/components/Forms/Field";
 import Button from "@/ui/Button";
 import SelectField from "@/components/Forms/SelectField";
-import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
@@ -209,6 +208,10 @@ export default function ConfigJsonEditor({
   // leak to the Resolved/effective view (different pointers).
   const [ownSchemaSel, setOwnSchemaSel] = useState<string>("json");
   const [resolvedSchemaSel, setResolvedSchemaSel] = useState<string>("json");
+  // In the editable editor, JSON Schema / TypeScript are edited in place; other
+  // formats (Protobuf, named projections) are read-only previews of the current
+  // fields. Non-null means "previewing" — the editable buffer is left untouched.
+  const [schemaPreviewSel, setSchemaPreviewSel] = useState<string | null>(null);
   const schemaLangRef = useRef<SchemaLang>(schemaLang);
   useEffect(() => {
     schemaLangRef.current = schemaLang;
@@ -304,6 +307,17 @@ export default function ConfigJsonEditor({
     setSchemaText(compileFieldsToText(fields, schemaType, extensible, next));
     setSchemaLang(next);
     seededKeys.current = new Set();
+  };
+
+  // Editor format selector: JSON Schema / TypeScript edit in place; anything else
+  // (Protobuf, a named projection) is a read-only preview of the current fields.
+  const onEditorFormatSelect = (v: string) => {
+    if (v === "json" || v === "typescript") {
+      setSchemaPreviewSel(null);
+      switchSchemaLang(v);
+    } else {
+      setSchemaPreviewSel(v);
+    }
   };
 
   const conflictKeys = useMemo(
@@ -446,21 +460,6 @@ export default function ConfigJsonEditor({
         <Link href={`/configs/${parentKey}`}>{parentName}</Link>.
       </Text>
     ) : undefined;
-
-  // A JSON Schema / TypeScript toggle, rendered as a small tab bar. `onSelect`
-  // differs by context: editing recompiles the buffer (switchSchemaLang),
-  // read-only just flips what's shown.
-  const langToggle = (
-    active: SchemaLang,
-    onSelect: (lang: SchemaLang) => void,
-  ): ReactNode => (
-    <Tabs value={active} onValueChange={(v) => onSelect(v as SchemaLang)}>
-      <TabsList size="1">
-        <TabsTrigger value="json">JSON Schema</TabsTrigger>
-        <TabsTrigger value="typescript">TypeScript</TabsTrigger>
-      </TabsList>
-    </Tabs>
-  );
 
   // Schema format picker for the read-only views: the generic conversions
   // (JSON Schema / TypeScript) sit ungrouped at the top (the defaults, no label),
@@ -643,7 +642,11 @@ export default function ConfigJsonEditor({
       <Text weight="semibold" size="medium" as="div">
         Schema
       </Text>
-      {langToggle(schemaLang, switchSchemaLang)}
+      {schemaFormatSelect(
+        schemaPreviewSel ?? schemaLang,
+        onEditorFormatSelect,
+        renderProjections,
+      )}
     </Flex>
   );
 
@@ -683,45 +686,66 @@ export default function ConfigJsonEditor({
         </>,
         <>
           {schemaHeader}
-          {schemaCodeMode ? (
-            // Remount on language switch: swapping Ace's mode in place can leave
-            // the session in a state where keystrokes don't register (TS most
-            // often), so a fresh editor per language keeps it reliably editable.
-            <CodeTextArea
-              key={schemaLang}
-              language={schemaLang === "typescript" ? "typescript" : "json"}
-              value={schemaText}
-              setValue={setSchemaText}
-              minLines={12}
-              maxLines={40}
-              fontSize="0.75em"
-              helpText={schemaCtas}
-            />
+          {schemaPreviewSel ? (
+            // Read-only preview (Protobuf / a named projection) of the current
+            // fields — editing happens in JSON Schema or TypeScript.
+            renderReadonlySchema(
+              schemaPreviewSel,
+              fields,
+              schemaToJsonString(schemaType, fields, extensible) ?? "",
+              renderProjections,
+            )
           ) : (
-            <Field
-              textarea
-              minRows={12}
-              value={schemaText}
-              onChange={(e) => setSchemaText(e.target.value)}
-              helpText={schemaCtas}
-            />
-          )}
-          {schemaError && (
-            <div style={{ color: "var(--red-11)", fontSize: 12, marginTop: 4 }}>
-              {schemaError}
-            </div>
-          )}
-          {blockingWarnings.length > 0 && (
-            <div style={{ color: "var(--red-11)", fontSize: 12, marginTop: 4 }}>
-              {blockingWarnings.map((w) => w.message).join("; ")}
-            </div>
-          )}
-          {infoWarnings.length > 0 && (
-            <div
-              style={{ color: "var(--amber-11)", fontSize: 12, marginTop: 4 }}
-            >
-              {infoWarnings.map((w) => w.message).join("; ")}
-            </div>
+            <>
+              {schemaCodeMode ? (
+                // Remount on language switch: swapping Ace's mode in place can
+                // leave the session unable to register keystrokes (TS most
+                // often), so a fresh editor per language keeps it editable.
+                <CodeTextArea
+                  key={schemaLang}
+                  language={schemaLang === "typescript" ? "typescript" : "json"}
+                  value={schemaText}
+                  setValue={setSchemaText}
+                  minLines={12}
+                  maxLines={40}
+                  fontSize="0.75em"
+                  helpText={schemaCtas}
+                />
+              ) : (
+                <Field
+                  textarea
+                  minRows={12}
+                  value={schemaText}
+                  onChange={(e) => setSchemaText(e.target.value)}
+                  helpText={schemaCtas}
+                />
+              )}
+              {schemaError && (
+                <div
+                  style={{ color: "var(--red-11)", fontSize: 12, marginTop: 4 }}
+                >
+                  {schemaError}
+                </div>
+              )}
+              {blockingWarnings.length > 0 && (
+                <div
+                  style={{ color: "var(--red-11)", fontSize: 12, marginTop: 4 }}
+                >
+                  {blockingWarnings.map((w) => w.message).join("; ")}
+                </div>
+              )}
+              {infoWarnings.length > 0 && (
+                <div
+                  style={{
+                    color: "var(--amber-11)",
+                    fontSize: 12,
+                    marginTop: 4,
+                  }}
+                >
+                  {infoWarnings.map((w) => w.message).join("; ")}
+                </div>
+              )}
+            </>
           )}
         </>,
       )}
