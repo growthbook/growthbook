@@ -28,7 +28,7 @@ export default function DatasourceSettings() {
 
           <Box mb="6" width="100%">
             <Text as="label" className="font-weight-semibold" size="3">
-              Default Data Source (Optional)
+              Default Data Source
             </Text>
             <Box mb="3">
               The default data source is the default data source selected when
