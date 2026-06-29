@@ -65,6 +65,11 @@ export const getConfigSchema = createApiRequestHandler(
     additionalProperties = config.schema?.additionalProperties ?? false;
   }
 
+  // A captured per-source projection reproduces that consumer's named types.
+  const projection = req.query.source
+    ? config.renderProjections?.[req.query.source]
+    : undefined;
+
   const schema =
     format === "typescript"
       ? {
@@ -72,6 +77,7 @@ export const getConfigSchema = createApiRequestHandler(
           value: fieldsToTsType(fields, {
             name: toPascalCase(config.key),
             additionalProperties,
+            projection,
           }),
         }
       : {

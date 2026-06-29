@@ -12,6 +12,16 @@ import { namedSchema } from "./openapi-helpers";
 
 // A JSON-object value with a field schema and `$extends` inheritance; resolves
 // like a `json` constant. The schema only drives typing/validation/UX.
+// Per-source naming captured from an import (a consuming codebase's type names),
+// replayed when exporting that source's typed projection. Presentation metadata
+// only — never part of the schema contract, so it never affects drift.
+export const schemaProjectionValidator = z
+  .object({
+    rootName: z.string().optional(),
+    typeNames: z.record(z.string(), z.string()),
+  })
+  .strict();
+
 export const configValidator = z
   .object({
     id: z.string(),
@@ -44,6 +54,12 @@ export const configValidator = z
     // feature rules, and ad-hoc overrides. Only the root config's value applies.
     // Absent = inherit the org default (`configsExtensibleByDefault`).
     extensible: z.boolean().optional(),
+    // Per-source render projections (source id → captured type names), used to
+    // reproduce a consumer's named types on export. Presentation metadata, set at
+    // import time; never part of the schema contract or drift.
+    renderProjections: z
+      .record(z.string(), schemaProjectionValidator)
+      .optional(),
     dateCreated: z.date(),
     dateUpdated: z.date(),
   })
@@ -295,6 +311,12 @@ const postConfigApiBody = z
         'Field definitions for this config, as a JSON Schema document (`{ type: "json-schema", value }`) or TypeScript source (`{ type: "typescript", value }`) — converted server-side in one call. Fields whose key an ancestor (via `parent`/`extends`) already owns are stripped on create (\'base wins\'); a field owned by two sibling bases is a conflict and is rejected. Omit to leave the config schema-less. Conversion warnings are returned in `warnings`.',
       )
       .optional(),
+    source: z
+      .string()
+      .describe(
+        "Optional identifier of the consuming codebase/service. When a `typescript` schema is supplied, its named-type structure is captured under this source so `GET /configs/:key/schema?source=<id>&format=typescript` can reproduce those names.",
+      )
+      .optional(),
     extensible: z.boolean().optional(),
     bypassApproval: bypassApprovalCreateField,
   })
@@ -326,6 +348,12 @@ const updateConfigApiBody = z
     schema: configSchemaSourceValidator
       .describe(
         "Replace this config's field definitions, as a JSON Schema document (`{ type: \"json-schema\", value }`) or TypeScript source (`{ type: \"typescript\", value }`). Fields colliding with a published ancestor's key are stripped ('base wins'). A schema change cascades the 'base wins' normalization to descendants when published. Conversion warnings are returned in `warnings`.",
+      )
+      .optional(),
+    source: z
+      .string()
+      .describe(
+        "Optional identifier of the consuming codebase/service. When a `typescript` schema is supplied, its named-type structure is captured under this source for reproduction on export.",
       )
       .optional(),
     extensible: z.boolean().optional(),
@@ -674,6 +702,12 @@ export const getConfigSchemaValidator = {
         .optional()
         .describe(
           "When true, includes fields inherited across the lineage (the family's accumulated schema). When false (default), returns only this config's own fields.",
+        ),
+      source: z
+        .string()
+        .optional()
+        .describe(
+          "Render using a previously-captured source projection (its named types). Only affects `typescript` output; ignored if the source has no projection.",
         ),
     })
     .strict(),

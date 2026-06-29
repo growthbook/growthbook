@@ -59,7 +59,11 @@ export const postConfig = createApiRequestHandler(postConfigValidator)(async (
 
   // Convert the schema envelope (JSON Schema / TypeScript) to the internal
   // SimpleSchema in one call — this is what makes create single-shot from source.
-  const { schema: resolvedSchema, warnings } = resolveConfigSchemaSource({
+  const {
+    schema: resolvedSchema,
+    warnings,
+    projection,
+  } = resolveConfigSchemaSource({
     source: schema,
   });
 
@@ -106,6 +110,10 @@ export const postConfig = createApiRequestHandler(postConfigValidator)(async (
     project: project || "",
     schema: normalizedSchema,
     extensible,
+    // Capture the consuming source's named-type structure for typed export.
+    ...(req.body.source && projection
+      ? { renderProjections: { [req.body.source]: projection } }
+      : {}),
   });
 
   // Backfill a live (published) revision so the config is immediately editable

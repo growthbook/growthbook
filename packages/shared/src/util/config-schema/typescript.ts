@@ -758,12 +758,35 @@ function tsKey(key: string): string {
   return /^[A-Za-z_$][\w$]*$/.test(key) ? key : JSON.stringify(key);
 }
 
-// Inverse of `tsTypeToSchemaNode`: render a JSON Schema node back to an inline
-// TS type expression, so a nested field's structure survives export (e.g.
-// `{ baseUrl: string; retry: { ... } }`). Structural only — the original named
-// types (RetryPolicy/LogLevel) aren't stored, so they're inlined, never named.
+// Render context for projection-aware export: the JSON-Pointer of the node being
+// rendered, the consumer's projection, and an accumulator of named interface
+// bodies (name → member lines). Absent ⇒ plain structural (inline) rendering.
+type TsRenderCtx = {
+  pointer: string;
+  projection: SchemaProjection;
+  named: Map<string, string>;
+};
+
+function childRenderCtx(
+  ctx: TsRenderCtx | undefined,
+  key: string,
+): TsRenderCtx | undefined {
+  return ctx
+    ? { ...ctx, pointer: `${ctx.pointer}/properties/${jsonPointerEscape(key)}` }
+    : undefined;
+}
+
+// Inverse of `tsTypeToSchemaNode`: render a JSON Schema node back to a TS type
+// expression. Structural by default — a nested object inlines as `{ ... }`. With
+// a render context, an object whose JSON-Pointer carries a captured name is
+// emitted as a NAMED reference and its interface registered in `ctx.named` (once;
+// reserved up front to guard cycles), so a consumer's named types round-trip.
 // Mirrors the importer's depth cap + bail-to-`unknown` discipline.
-function jsonSchemaNodeToTsExpr(node: unknown, depth: number): string {
+function jsonSchemaNodeToTsExpr(
+  node: unknown,
+  depth: number,
+  ctx?: TsRenderCtx,
+): string {
   if (depth > MAX_NEST_DEPTH) return "unknown";
   if (!node || typeof node !== "object" || Array.isArray(node))
     return "unknown";
@@ -796,10 +819,13 @@ function jsonSchemaNodeToTsExpr(node: unknown, depth: number): string {
     case "boolean":
       return withNull("boolean");
     case "array": {
+      const itemCtx = ctx
+        ? { ...ctx, pointer: `${ctx.pointer}/items` }
+        : undefined;
       const item =
         n.items === undefined
           ? "unknown"
-          : jsonSchemaNodeToTsExpr(n.items, depth + 1);
+          : jsonSchemaNodeToTsExpr(n.items, depth + 1, itemCtx);
       // Parenthesize a union/nullable item so `(A | B)[]` parses correctly.
       const inner = /[ |]/.test(item) ? `(${item})` : item;
       return withNull(`${inner}[]`);
@@ -819,49 +845,78 @@ function jsonSchemaNodeToTsExpr(node: unknown, depth: number): string {
           ? n.required.filter((x): x is string => typeof x === "string")
           : [],
       );
-      const members = Object.entries(props as Record<string, unknown>).map(
-        ([k, v]) =>
-          `${tsKey(k)}${required.has(k) ? "" : "?"}: ${jsonSchemaNodeToTsExpr(
-            v,
-            depth + 1,
-          )}`,
-      );
-      return withNull(`{ ${members.join("; ")} }`);
+      const propEntries = Object.entries(props as Record<string, unknown>);
+      const memberExpr = ([k, v]: [string, unknown]) =>
+        `${tsKey(k)}${required.has(k) ? "" : "?"}: ${jsonSchemaNodeToTsExpr(
+          v,
+          depth + 1,
+          childRenderCtx(ctx, k),
+        )}`;
+
+      const name = ctx ? ctx.projection.typeNames[ctx.pointer] : undefined;
+      if (name && ctx) {
+        if (!ctx.named.has(name)) {
+          ctx.named.set(name, ""); // reserve first (cycle guard)
+          ctx.named.set(
+            name,
+            propEntries.map((e) => `  ${memberExpr(e)};`).join("\n"),
+          );
+        }
+        return withNull(name);
+      }
+      return withNull(`{ ${propEntries.map(memberExpr).join("; ")} }`);
     }
   }
   return withNull("unknown");
 }
 
-function fieldToTsExpr(f: SchemaField): string {
+function fieldToTsExpr(f: SchemaField, ctx?: TsRenderCtx): string {
   try {
     const node =
       f.jsonSchema !== undefined
         ? JSON.parse(f.jsonSchema)
         : simpleSchemaFieldToJSONSchema(f);
-    return jsonSchemaNodeToTsExpr(node, 1);
+    return jsonSchemaNodeToTsExpr(node, 1, ctx);
   } catch {
     return "unknown";
   }
 }
 
-// Serialize fields back to a TypeScript interface (so the editor can show the
-// existing schema as TS when the language toggle flips). `additionalProperties`
-// surfaces as an index signature.
+// Serialize fields back to TypeScript. With `opts.projection`, a consumer's
+// captured type names are reproduced as named interfaces — rendered against the
+// CURRENT fields, so the names ride live schema state, not stale source text;
+// without it, nested objects inline. `additionalProperties` → an index signature.
 export function fieldsToTsType(
   fields: SchemaField[],
-  opts?: { name?: string; additionalProperties?: boolean },
+  opts?: {
+    name?: string;
+    additionalProperties?: boolean;
+    projection?: SchemaProjection;
+  },
 ): string {
-  const name = opts?.name ?? "ConfigSchema";
+  const name = opts?.projection?.rootName ?? opts?.name ?? "ConfigSchema";
+  const named = new Map<string, string>();
+  const baseCtx: TsRenderCtx | undefined = opts?.projection
+    ? { pointer: "", projection: opts.projection, named }
+    : undefined;
   const lines: string[] = [];
   for (const raw of fields) {
     const f = normalizeField(raw);
     if (f.description) lines.push(`  /** ${f.description} */`);
+    const fieldCtx = baseCtx
+      ? { ...baseCtx, pointer: `/properties/${jsonPointerEscape(f.key)}` }
+      : undefined;
     lines.push(
-      `  ${tsKey(f.key)}${f.required ? "" : "?"}: ${fieldToTsExpr(f)};`,
+      `  ${tsKey(f.key)}${f.required ? "" : "?"}: ${fieldToTsExpr(f, fieldCtx)};`,
     );
   }
   if (opts?.additionalProperties) lines.push("  [key: string]: unknown;");
-  return `interface ${name} {\n${lines.join("\n")}\n}`;
+  const rootInterface = `interface ${name} {\n${lines.join("\n")}\n}`;
+  // Named sub-interfaces first (deterministic order), then the root.
+  const subs = [...named.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([subName, body]) => `interface ${subName} {\n${body}\n}`);
+  return [...subs, rootInterface].join("\n\n");
 }
 
 // TypeScript `.d.ts`-style converter (interfaces / object types).

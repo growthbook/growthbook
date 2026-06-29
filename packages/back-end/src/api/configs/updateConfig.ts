@@ -35,7 +35,11 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
 
     // Convert the schema envelope (JSON Schema / TypeScript) to the internal
     // SimpleSchema; `warnings` surface any lossy degradation back to the caller.
-    const { schema: resolvedSchema, warnings } = resolveConfigSchemaSource({
+    const {
+      schema: resolvedSchema,
+      warnings,
+      projection,
+    } = resolveConfigSchemaSource({
       source: schema,
     });
 
@@ -114,6 +118,13 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
     }
     if (extensible !== undefined && extensible !== config.extensible) {
       fieldsToUpdate.extensible = extensible;
+    }
+    // Capture/refresh the consuming source's named-type projection.
+    if (req.body.source && projection) {
+      fieldsToUpdate.renderProjections = {
+        ...config.renderProjections,
+        [req.body.source]: projection,
+      };
     }
 
     // Enforce "base wins" up front (the publish path re-runs it too). A parent

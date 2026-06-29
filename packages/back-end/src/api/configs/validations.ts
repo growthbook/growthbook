@@ -18,6 +18,7 @@ import {
   jsonSchemaStringToFields,
   tsTypesToFields,
   SchemaWarning,
+  SchemaProjection,
 } from "shared/util";
 import { ApiReqContext } from "back-end/types/api";
 import {
@@ -191,7 +192,11 @@ export function resolveConfigSchemaSource(args: {
   infer?: boolean;
   additionalProperties?: boolean;
   inferValue?: string;
-}): { schema: SimpleSchema | undefined; warnings: SchemaWarning[] } {
+}): {
+  schema: SimpleSchema | undefined;
+  warnings: SchemaWarning[];
+  projection?: SchemaProjection;
+} {
   const { source, infer, additionalProperties, inferValue } = args;
   if (source === undefined && infer !== true) {
     return { schema: undefined, warnings: [] };
@@ -228,7 +233,11 @@ export function resolveImportedSchema(args: {
   infer?: boolean;
   additionalProperties?: boolean;
   inferValue?: string;
-}): { schema: SimpleSchema; warnings: SchemaWarning[] } {
+}): {
+  schema: SimpleSchema;
+  warnings: SchemaWarning[];
+  projection?: SchemaProjection;
+} {
   const { schema, format, source, infer, additionalProperties } = args;
 
   const sourcesProvided = [
@@ -316,5 +325,6 @@ export function resolveImportedSchema(args: {
       ...(additionalProperties !== undefined ? { additionalProperties } : {}),
     },
     warnings: converted.warnings,
+    ...(converted.projection ? { projection: converted.projection } : {}),
   };
 }

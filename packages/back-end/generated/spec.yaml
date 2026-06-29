@@ -18922,6 +18922,14 @@ paths:
                   type: string
                 schema:
                   $ref: '#/components/schemas/ConfigSchemaSource'
+                source:
+                  description: >-
+                    Optional identifier of the consuming codebase/service. When
+                    a `typescript` schema is supplied, its named-type structure
+                    is captured under this source so `GET
+                    /configs/:key/schema?source=<id>&format=typescript` can
+                    reproduce those names.
+                  type: string
                 extensible:
                   type: boolean
                 bypassApproval:
@@ -19278,6 +19286,7 @@ paths:
               - json-schema
               - typescript
         - $ref: '#/components/parameters/effective'
+        - $ref: '#/components/parameters/source'
       responses:
         '200':
           description: Successful response
@@ -19403,6 +19412,12 @@ paths:
                   type: string
                 schema:
                   $ref: '#/components/schemas/ConfigSchemaSource'
+                source:
+                  description: >-
+                    Optional identifier of the consuming codebase/service. When
+                    a `typescript` schema is supplied, its named-type structure
+                    is captured under this source for reproduction on export.
+                  type: string
                 extensible:
                   type: boolean
                 bypassApproval:
@@ -36073,6 +36088,19 @@ components:
           - type: string
             const: 'false'
           - type: boolean
+    source:
+      name: source
+      in: query
+      description: >-
+        Render using a previously-captured source projection (its named types).
+        Only affects `typescript` output; ignored if the source has no
+        projection.
+      schema:
+        description: >-
+          Render using a previously-captured source projection (its named
+          types). Only affects `typescript` output; ignored if the source has no
+          projection.
+        type: string
     search:
       name: search
       in: query

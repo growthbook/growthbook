@@ -955,3 +955,58 @@ describe("tsTypesToFields projection (named-type capture)", () => {
     expect(projection?.typeNames).toEqual({ "/properties/root": "Node" });
   });
 });
+
+describe("fieldsToTsType with projection (named-type replay)", () => {
+  const src = `
+    type RetryPolicy = { maxAttempts: number; retryOn: ("5xx" | "timeout")[] };
+    interface AppConfig {
+      serviceName: string;
+      http: { baseUrl: string; retry: RetryPolicy };
+    }
+  `;
+
+  it("reproduces named interfaces from a captured projection", () => {
+    const { fields, projection } = tsTypesToFields(src);
+    const ts = fieldsToTsType(fields, { projection });
+    // Root uses the captured name and references RetryPolicy (not inlined).
+    expect(ts).toContain("interface AppConfig {");
+    expect(ts).toContain("interface RetryPolicy {");
+    expect(ts).toContain("retry: RetryPolicy");
+    expect(ts).toContain('retryOn: ("5xx" | "timeout")[]');
+    // The named type is emitted once, not inlined at the use site.
+    expect(ts).not.toMatch(/retry: \{/);
+  });
+
+  it("inlines (no named subtypes) when no projection is supplied", () => {
+    const { fields } = tsTypesToFields(src);
+    const ts = fieldsToTsType(fields, { name: "AppConfig" });
+    expect(ts).not.toContain("interface RetryPolicy");
+    expect(ts).toMatch(/retry: \{/); // inlined object
+  });
+
+  it("renders against current fields, not stale source (drops a removed field)", () => {
+    const { projection } = tsTypesToFields(src);
+    // Simulate the schema losing `serviceName` in GB; projection is unchanged.
+    const fields = [
+      field({
+        key: "http",
+        jsonSchema: JSON.stringify({
+          type: "object",
+          additionalProperties: false,
+          required: ["retry"],
+          properties: {
+            retry: {
+              type: "object",
+              additionalProperties: false,
+              properties: { maxAttempts: { type: "number" } },
+              required: ["maxAttempts"],
+            },
+          },
+        }),
+      }),
+    ];
+    const ts = fieldsToTsType(fields, { projection });
+    expect(ts).toContain("interface RetryPolicy {");
+    expect(ts).not.toContain("serviceName"); // reflects current schema, not the import
+  });
+});
