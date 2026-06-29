@@ -58,8 +58,11 @@
 //      drop, non-object roots (e.g. `type X = A | B`), and refs collapsed to
 //      `any`. Full ref resolution stays out of scope for the lightweight parser
 //      (LLM or server compiler handles it).
-//   5. JSON Schema `$ref`/`$defs`: currently stored verbatim per field. Either
-//      deref on import or warn that refs won't resolve in a single field blob.
+//   5. [DONE] JSON Schema `$ref`/`$defs`: local refs are dereffed/inlined on
+//      import (incl. a root-level `$ref`) so each field's sub-schema is
+//      self-contained. External/unresolvable refs → `any`, recursive → opaque
+//      object, all with `unresolved-type` warnings. JSON Schema is the
+//      high-fidelity "happy path" import format.
 //   6. Recursion / self-reference (a tree config) is a genuine STRUCTURAL
 //      mismatch with the flat-field model, not just a parser gap. Detect and
 //      warn rather than silently mangle.

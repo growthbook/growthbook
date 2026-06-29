@@ -105,7 +105,9 @@ export const putConfigBodyValidator = z.object({
 // Schema-import source formats. A caller may supply a `SimpleSchema` directly,
 // a raw document to convert (`json-schema`/`typescript`), or ask GrowthBook to
 // infer a schema from the config's value (`infer`). JSON Schema is the canonical
-// pivot, so any added language only needs a converter — never an API change.
+// pivot AND the recommended happy-path import format (highest fidelity, resolves
+// `$ref`/`$defs`); other languages are best-effort and only need a converter —
+// never an API change.
 export const configSchemaFormatValidator = z.enum([
   "simple",
   "json-schema",

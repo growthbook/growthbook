@@ -20082,10 +20082,13 @@ paths:
 
         - `schema`: a SimpleSchema object directly.
 
-        - `format` + `source`: a raw document to convert (`json-schema` or
-        `typescript`). JSON Schema is the canonical pivot; conversions are
-        lossy-by-design and degrade exotic constructs to permissive types WITH
-        warnings (returned in `warnings`).
+        - `format` + `source`: a raw document to convert. **JSON Schema is the
+        recommended ("happy path") format** — it is the canonical pivot,
+        preserves nested objects/arrays, and resolves local `$ref`/`$defs` (so
+        generator output with referenced types works). `typescript` is a
+        best-effort convenience parser. All conversions are lossy-by-design and
+        degrade exotic constructs to permissive types WITH warnings (returned in
+        `warnings`).
 
         - `infer: true`: derive the schema from the draft's value.
 
@@ -20185,8 +20188,9 @@ paths:
                 format:
                   description: >-
                     The language of `source`. Required when `source` is
-                    provided. `simple` expects `source` to be a JSON-encoded
-                    SimpleSchema.
+                    provided. `json-schema` is recommended (highest fidelity;
+                    resolves `$ref`/`$defs`). `typescript` is best-effort.
+                    `simple` expects `source` to be a JSON-encoded SimpleSchema.
                   type: string
                   enum:
                     - simple

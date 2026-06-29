@@ -505,7 +505,7 @@ export const putConfigRevisionSchemaValidator = {
   operationId: "putConfigRevisionSchema",
   summary: "Update or import the schema of a config draft revision",
   description:
-    'Stages this config\'s field schema on the draft. Provide exactly ONE source:\n- `schema`: a SimpleSchema object directly.\n- `format` + `source`: a raw document to convert (`json-schema` or `typescript`). JSON Schema is the canonical pivot; conversions are lossy-by-design and degrade exotic constructs to permissive types WITH warnings (returned in `warnings`).\n- `infer: true`: derive the schema from the draft\'s value.\n\nFields whose key a published ancestor already owns are stripped ("base wins"). Pass `version: "new"` to auto-create a draft.',
+    'Stages this config\'s field schema on the draft. Provide exactly ONE source:\n- `schema`: a SimpleSchema object directly.\n- `format` + `source`: a raw document to convert. **JSON Schema is the recommended ("happy path") format** — it is the canonical pivot, preserves nested objects/arrays, and resolves local `$ref`/`$defs` (so generator output with referenced types works). `typescript` is a best-effort convenience parser. All conversions are lossy-by-design and degrade exotic constructs to permissive types WITH warnings (returned in `warnings`).\n- `infer: true`: derive the schema from the draft\'s value.\n\nFields whose key a published ancestor already owns are stripped ("base wins"). Pass `version: "new"` to auto-create a draft.',
   tags: ["config-revisions"],
   paramsSchema: revisionParams,
   bodySchema: z
@@ -515,7 +515,7 @@ export const putConfigRevisionSchemaValidator = {
       format: configSchemaFormatValidator
         .optional()
         .describe(
-          "The language of `source`. Required when `source` is provided. `simple` expects `source` to be a JSON-encoded SimpleSchema.",
+          "The language of `source`. Required when `source` is provided. `json-schema` is recommended (highest fidelity; resolves `$ref`/`$defs`). `typescript` is best-effort. `simple` expects `source` to be a JSON-encoded SimpleSchema.",
         ),
       source: z
         .string()

@@ -142,6 +142,75 @@ describe("jsonSchemaStringToFields", () => {
     expect(fields[0].type).toBe("string");
     expect(fields[0].nullable).toBe(true);
   });
+
+  it("inlines a local $ref against $defs (and reduces enums)", () => {
+    const { fields, warnings } = jsonSchemaStringToFields(
+      JSON.stringify({
+        type: "object",
+        required: ["retry"],
+        properties: {
+          retry: { $ref: "#/$defs/Retry" },
+          level: { $ref: "#/definitions/Level" },
+        },
+        $defs: {
+          Retry: {
+            type: "object",
+            properties: { maxAttempts: { type: "number" } },
+            required: ["maxAttempts"],
+          },
+        },
+        definitions: { Level: { type: "string", enum: ["a", "b"] } },
+      }),
+    );
+    expect(warnings).toEqual([]);
+    expect(JSON.parse(fields[0].jsonSchema as string)).toEqual({
+      type: "object",
+      properties: { maxAttempts: { type: "number" } },
+      required: ["maxAttempts"],
+    });
+    // `level` reduced to a simple enum string (no dangling $ref).
+    expect(fields[1]).toMatchObject({ type: "string", enum: ["a", "b"] });
+  });
+
+  it("resolves a root-level $ref to find the config's properties", () => {
+    const { fields } = jsonSchemaStringToFields(
+      JSON.stringify({
+        $ref: "#/$defs/Root",
+        $defs: {
+          Root: { type: "object", properties: { a: { type: "string" } } },
+        },
+      }),
+    );
+    expect(fields.map((f) => f.key)).toEqual(["a"]);
+  });
+
+  it("bails recursive / external / unresolved $refs with a warning", () => {
+    const { fields, warnings } = jsonSchemaStringToFields(
+      JSON.stringify({
+        type: "object",
+        properties: {
+          node: { $ref: "#/$defs/Node" },
+          ext: { $ref: "https://x/y.json#/Foo" },
+          missing: { $ref: "#/$defs/Nope" },
+        },
+        $defs: {
+          Node: {
+            type: "object",
+            properties: { child: { $ref: "#/$defs/Node" } },
+          },
+        },
+      }),
+    );
+    // recursive: opaque object; external/unresolved: any ({}).
+    expect(JSON.parse(fields[0].jsonSchema as string)).toEqual({
+      type: "object",
+      properties: { child: { type: "object" } },
+    });
+    expect(JSON.parse(fields[1].jsonSchema as string)).toEqual({});
+    expect(JSON.parse(fields[2].jsonSchema as string)).toEqual({});
+    expect(warnings.length).toBe(3);
+    expect(warnings.every((w) => w.code === "unresolved-type")).toBe(true);
+  });
 });
 
 describe("fieldsCanonicallyEqual", () => {
