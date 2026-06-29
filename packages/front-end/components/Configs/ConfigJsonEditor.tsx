@@ -1,7 +1,8 @@
 import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { PiBracketsCurly } from "react-icons/pi";
 import { FaMagic } from "react-icons/fa";
+import { BsThreeDotsVertical } from "react-icons/bs";
 import clsx from "clsx";
 import { SchemaField, SimpleSchema } from "shared/types/feature";
 import {
@@ -28,6 +29,9 @@ import SelectField from "@/components/Forms/SelectField";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
+import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
+// eslint-disable-next-line no-restricted-imports
+import Modal from "@/components/Modal";
 import { ResolvedField } from "@/components/Configs/fieldSchema";
 
 // The schema editor speaks JSON Schema or TypeScript; both compile to the same
@@ -255,6 +259,10 @@ export default function ConfigJsonEditor({
   // captured language). Only used on a draft; reseeded from the saved fields +
   // projection whenever the selection or saved state changes.
   const [projectionText, setProjectionText] = useState<string>("");
+  // "New projection" modal (source name + language).
+  const [showNewProjection, setShowNewProjection] = useState(false);
+  const [newProjSource, setNewProjSource] = useState("");
+  const [newProjLang, setNewProjLang] = useState<ProjectionLang>("typescript");
   const schemaLangRef = useRef<SchemaLang>(schemaLang);
   useEffect(() => {
     schemaLangRef.current = schemaLang;
@@ -502,6 +510,11 @@ export default function ConfigJsonEditor({
     }
   };
 
+  // Menu actions operate on the config's saved value (not the editable buffer),
+  // so creating/removing a projection never drags in unrelated value edits.
+  const savedValueObject = (): Record<string, unknown> =>
+    parsePlainObject(valueJson) ?? {};
+
   // Drop one source's projection (schema untouched). Routes through the same
   // save path with `renderProjections` cleared of that source.
   const handleRemoveProjection = async () => {
@@ -509,11 +522,9 @@ export default function ConfigJsonEditor({
     setSaving(true);
     setSaveError(null);
     try {
-      const stripped = stripConfigExtends(valueText) ?? valueText;
-      const obj = JSON.parse(stripped) as Record<string, unknown>;
       const next = { ...(renderProjections ?? {}) };
       delete next[projectionSource];
-      await onSave(obj, parseFields(schemaJson), next);
+      await onSave(savedValueObject(), parseFields(schemaJson), next);
       setSchemaPreviewSel(null);
     } catch (e) {
       setSaveError(
@@ -522,6 +533,23 @@ export default function ConfigJsonEditor({
     } finally {
       setSaving(false);
     }
+  };
+
+  // Add a new named projection (empty named types = the default rendering in the
+  // chosen language), then select it for editing. Schema is untouched.
+  const handleNewProjection = async () => {
+    const source = newProjSource.trim();
+    if (!source) throw new Error("Enter a source name");
+    if (renderProjections?.[source]) {
+      throw new Error(`A projection for "${source}" already exists`);
+    }
+    await onSave(savedValueObject(), parseFields(schemaJson), {
+      ...(renderProjections ?? {}),
+      [source]: { language: newProjLang, typeNames: {} },
+    });
+    setSchemaPreviewSel(`proj:${source}`);
+    setNewProjSource("");
+    setNewProjLang("typescript");
   };
 
   const columnHeader = (text: string) => (
@@ -785,52 +813,68 @@ export default function ConfigJsonEditor({
       <Text weight="semibold" size="medium" as="div">
         Schema
       </Text>
-      {schemaFormatSelect(
-        schemaPreviewSel ?? schemaLang,
-        onEditorFormatSelect,
-        renderProjections,
-        unpublishedFormats,
-      )}
+      <Flex align="center" gap="1">
+        {schemaFormatSelect(
+          schemaPreviewSel ?? schemaLang,
+          onEditorFormatSelect,
+          renderProjections,
+          unpublishedFormats,
+        )}
+        <DropdownMenu
+          variant="soft"
+          menuPlacement="end"
+          trigger={
+            <IconButton
+              variant="ghost"
+              color="gray"
+              radius="full"
+              size="2"
+              highContrast
+            >
+              <BsThreeDotsVertical size={16} />
+            </IconButton>
+          }
+        >
+          <DropdownMenuItem onClick={() => setShowNewProjection(true)}>
+            New projection
+          </DropdownMenuItem>
+          {editingProjection && (
+            <DropdownMenuItem
+              color="red"
+              onClick={() => {
+                if (!saving) handleRemoveProjection();
+              }}
+            >
+              Remove projection
+            </DropdownMenuItem>
+          )}
+        </DropdownMenu>
+      </Flex>
     </Flex>
   );
 
-  // Editable named-source projection. TS/JSON use the Ace editor; Protobuf has
-  // no Ace mode, so it falls back to a plain textarea.
+  // Editable named-source projection, in its captured language.
   const projectionEditor = (
     <>
-      {projectionLang === "protobuf" ? (
-        <Field
-          textarea
-          minRows={12}
-          value={projectionText}
-          onChange={(e) => setProjectionText(e.target.value)}
-        />
-      ) : (
-        <CodeTextArea
-          key={`proj:${projectionSource}:${projectionLang}`}
-          language={projectionLang === "typescript" ? "typescript" : "json"}
-          value={projectionText}
-          setValue={setProjectionText}
-          minLines={12}
-          maxLines={40}
-          fontSize="0.75em"
-        />
-      )}
-      <Flex justify="between" align="center" gap="3" mt="1">
-        <Text size="small" color="text-low">
-          Editing <code>{projectionSource}</code> updates the config&apos;s
-          schema and recaptures this projection&apos;s named types.
-        </Text>
-        <Link
-          color="red"
-          onClick={(e) => {
-            e.preventDefault();
-            if (!saving) handleRemoveProjection();
-          }}
-        >
-          Remove projection
-        </Link>
-      </Flex>
+      <CodeTextArea
+        key={`proj:${projectionSource}:${projectionLang}`}
+        language={
+          projectionLang === "protobuf"
+            ? "protobuf"
+            : projectionLang === "typescript"
+              ? "typescript"
+              : "json"
+        }
+        value={projectionText}
+        setValue={setProjectionText}
+        minLines={12}
+        maxLines={40}
+        fontSize="0.75em"
+      />
+      <Text size="small" color="text-low" as="div" mt="1">
+        Editing <code>{projectionSource}</code> updates the config&apos;s schema
+        and recaptures this projection&apos;s named types.
+      </Text>
       {parsedProjection?.error && (
         <div style={{ color: "var(--red-11)", fontSize: 12, marginTop: 4 }}>
           {parsedProjection.error}
@@ -965,6 +1009,39 @@ export default function ConfigJsonEditor({
     ),
   );
 
+  const newProjectionModal = showNewProjection ? (
+    <Modal
+      open
+      trackingEventModalType="config-new-projection"
+      header="New projection"
+      cta="Create"
+      submit={handleNewProjection}
+      close={() => {
+        setShowNewProjection(false);
+        setNewProjSource("");
+        setNewProjLang("typescript");
+      }}
+    >
+      <Field
+        label="Source"
+        placeholder="e.g. checkout-service"
+        value={newProjSource}
+        onChange={(e) => setNewProjSource(e.target.value)}
+        helpText="A consumer/service name that identifies this projection."
+      />
+      <SelectField
+        label="Language"
+        value={newProjLang}
+        onChange={(v) => setNewProjLang(v as ProjectionLang)}
+        sort={false}
+        options={[
+          { label: "TypeScript", value: "typescript" },
+          { label: "Protobuf", value: "protobuf" },
+        ]}
+      />
+    </Modal>
+  ) : null;
+
   // Resolved (read-only) view — resolved value + effective schema. Available on
   // every revision (draft or not) and driven entirely by props, so "Resolved"
   // always means the same thing.
@@ -1017,6 +1094,7 @@ export default function ConfigJsonEditor({
         </Button>
       </Flex>
       {editContent}
+      {newProjectionModal}
     </Box>
   );
 }
