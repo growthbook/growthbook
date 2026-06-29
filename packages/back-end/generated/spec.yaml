@@ -18925,10 +18925,10 @@ paths:
                 source:
                   description: >-
                     Optional identifier of the consuming codebase/service. When
-                    a `typescript` schema is supplied, its named-type structure
-                    is captured under this source so `GET
-                    /configs/:key/schema?source=<id>&format=typescript` can
-                    reproduce those names.
+                    a `typescript` or `protobuf` schema is supplied, its
+                    named-type structure is captured under this source so `GET
+                    /configs/:key/schema?source=<id>&format=<typescript|protobuf>`
+                    can reproduce those names.
                   type: string
                 extensible:
                   type: boolean
@@ -19276,11 +19276,13 @@ paths:
           in: query
           description: >-
             Output format. `json-schema` (default) returns a JSON Schema
-            document; `typescript` renders the schema as TypeScript source.
+            document; `typescript` and `protobuf` render the schema as
+            TypeScript source or a proto3 definition.
           schema:
             description: >-
               Output format. `json-schema` (default) returns a JSON Schema
-              document; `typescript` renders the schema as TypeScript source.
+              document; `typescript` and `protobuf` render the schema as
+              TypeScript source or a proto3 definition.
             type: string
             enum:
               - json-schema
@@ -19416,8 +19418,9 @@ paths:
                 source:
                   description: >-
                     Optional identifier of the consuming codebase/service. When
-                    a `typescript` schema is supplied, its named-type structure
-                    is captured under this source for reproduction on export.
+                    a `typescript` or `protobuf` schema is supplied, its
+                    named-type structure is captured under this source for
+                    reproduction on export.
                   type: string
                 extensible:
                   type: boolean
@@ -36229,13 +36232,13 @@ components:
       in: query
       description: >-
         Render using a previously-captured source projection (its named types).
-        Only affects `typescript` output; ignored if the source has no
-        projection.
+        Only affects `typescript`/`protobuf` output; ignored if the source has
+        no projection.
       schema:
         description: >-
           Render using a previously-captured source projection (its named
-          types). Only affects `typescript` output; ignored if the source has no
-          projection.
+          types). Only affects `typescript`/`protobuf` output; ignored if the
+          source has no projection.
         type: string
     search:
       name: search

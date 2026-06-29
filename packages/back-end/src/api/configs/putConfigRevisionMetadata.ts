@@ -98,7 +98,7 @@ export const putConfigRevisionMetadata = createApiRequestHandler(
 
     // Reparenting, changing mixins, or toggling extensibility changes the
     // effective ancestor schema; the draft's existing value(s) must still
-    // conform (opt out with ?skipSchemaValidation=true).
+    // conform.
     if (
       typeof parent !== "undefined" ||
       typeof extendsKeys !== "undefined" ||

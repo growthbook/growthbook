@@ -120,8 +120,7 @@ export const putConfigRevisionValue = createApiRequestHandler(
 
     // Enforce the staged value against the draft's effective schema. Uses the
     // proposed (inferred) schema when this request also sets one, so a value-first
-    // import validates against the schema it derives. Opt out with
-    // ?skipSchemaValidation=true.
+    // import validates against the schema it derives.
     await assertConfigValueValid(
       req.context,
       {

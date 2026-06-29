@@ -91,8 +91,7 @@ export const postConfigRevisionRevert = createApiRequestHandler(
   const isPublish = strategy === "publish";
 
   // A historical value may predate the current schema; ensure the post-revert
-  // state still conforms (against current ancestors). Opt out with
-  // ?skipSchemaValidation=true.
+  // state still conforms (against current ancestors).
   const revertedValue =
     (fieldsToUpdate.value as string | undefined) ?? config.value;
   const revertLeaf = {

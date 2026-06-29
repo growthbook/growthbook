@@ -83,8 +83,7 @@ export const putConfigRevisionSchema = createApiRequestHandler(
         schema,
       );
 
-    // The new schema must still admit the draft's value(s) (opt out with
-    // ?skipSchemaValidation=true).
+    // The new schema must still admit the draft's value(s).
     await assertConfigValueValid(
       req.context,
       {

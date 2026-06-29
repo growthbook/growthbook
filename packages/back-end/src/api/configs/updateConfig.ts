@@ -170,8 +170,7 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
     }
 
     // Re-validate the post-update value against the post-update effective
-    // schema whenever anything that affects conformance changed. Opt out with
-    // ?skipSchemaValidation=true.
+    // schema whenever anything that affects conformance changed.
     if (
       fieldsToUpdate.value !== undefined ||
       fieldsToUpdate.schema !== undefined ||

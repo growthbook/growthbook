@@ -75,8 +75,7 @@ export const postConfig = createApiRequestHandler(postConfigValidator)(async (
       resolvedSchema,
     );
 
-  // Enforce the value against the (effective) schema. Opt out with
-  // ?skipSchemaValidation=true.
+  // Enforce the value against the (effective) schema.
   const storedValue = stripConfigExtends(value);
   await assertConfigValueValid(
     req.context,
