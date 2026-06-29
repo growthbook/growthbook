@@ -5833,30 +5833,17 @@ Triggered when a config is created
             parent?: string | undefined;
             /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
             extends?: string[] | undefined;
-            /** This config's own JSON-encoded object value (its declared fields only — inherited fields are layered in at resolution time, not stored here). */
-            value?: string | undefined;
-            /** Per-environment value overrides (environment id → JSON-encoded object). Falls back to `value` when an environment is absent. */
-            environmentValues?: Record<string, string> | undefined;
+            /** This config's own value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Configs are environment-agnostic: there is no per-environment override (use a Constant for that). */
+            value?: Record<string, unknown> | undefined;
             description?: string | undefined;
             /** The project this config belongs to (empty = all projects) */
             project?: string | undefined;
             archived?: boolean | undefined;
-            /** This config's own field definitions (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
+            /** This config's own field definitions as a JSON Schema document (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
             schema?: {
-                type: "object" | "object[]" | "primitive" | "primitive[]";
-                fields: {
-                    key: string;
-                    type: "integer" | "float" | "string" | "boolean";
-                    required: boolean;
-                    default: string;
-                    description: string;
-                    enum: string[];
-                    min?: number | undefined;
-                    max?: number | undefined;
-                    nullable?: boolean | undefined;
-                    jsonSchema?: string | undefined;
-                }[];
-                additionalProperties?: boolean | undefined;
+                type: "json-schema";
+                /** A JSON Schema document (an object). */
+                value: Record<string, unknown>;
             } | undefined;
             /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
             extensible?: boolean | undefined;
@@ -5915,30 +5902,17 @@ Triggered when a config is updated
             parent?: string | undefined;
             /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
             extends?: string[] | undefined;
-            /** This config's own JSON-encoded object value (its declared fields only — inherited fields are layered in at resolution time, not stored here). */
-            value?: string | undefined;
-            /** Per-environment value overrides (environment id → JSON-encoded object). Falls back to `value` when an environment is absent. */
-            environmentValues?: Record<string, string> | undefined;
+            /** This config's own value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Configs are environment-agnostic: there is no per-environment override (use a Constant for that). */
+            value?: Record<string, unknown> | undefined;
             description?: string | undefined;
             /** The project this config belongs to (empty = all projects) */
             project?: string | undefined;
             archived?: boolean | undefined;
-            /** This config's own field definitions (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
+            /** This config's own field definitions as a JSON Schema document (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
             schema?: {
-                type: "object" | "object[]" | "primitive" | "primitive[]";
-                fields: {
-                    key: string;
-                    type: "integer" | "float" | "string" | "boolean";
-                    required: boolean;
-                    default: string;
-                    description: string;
-                    enum: string[];
-                    min?: number | undefined;
-                    max?: number | undefined;
-                    nullable?: boolean | undefined;
-                    jsonSchema?: string | undefined;
-                }[];
-                additionalProperties?: boolean | undefined;
+                type: "json-schema";
+                /** A JSON Schema document (an object). */
+                value: Record<string, unknown>;
             } | undefined;
             /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
             extensible?: boolean | undefined;
@@ -5957,30 +5931,17 @@ Triggered when a config is updated
             parent?: string | undefined;
             /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
             extends?: string[] | undefined;
-            /** This config's own JSON-encoded object value (its declared fields only — inherited fields are layered in at resolution time, not stored here). */
-            value?: string | undefined;
-            /** Per-environment value overrides (environment id → JSON-encoded object). Falls back to `value` when an environment is absent. */
-            environmentValues?: Record<string, string> | undefined;
+            /** This config's own value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Configs are environment-agnostic: there is no per-environment override (use a Constant for that). */
+            value?: Record<string, unknown> | undefined;
             description?: string | undefined;
             /** The project this config belongs to (empty = all projects) */
             project?: string | undefined;
             archived?: boolean | undefined;
-            /** This config's own field definitions (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
+            /** This config's own field definitions as a JSON Schema document (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
             schema?: {
-                type: "object" | "object[]" | "primitive" | "primitive[]";
-                fields: {
-                    key: string;
-                    type: "integer" | "float" | "string" | "boolean";
-                    required: boolean;
-                    default: string;
-                    description: string;
-                    enum: string[];
-                    min?: number | undefined;
-                    max?: number | undefined;
-                    nullable?: boolean | undefined;
-                    jsonSchema?: string | undefined;
-                }[];
-                additionalProperties?: boolean | undefined;
+                type: "json-schema";
+                /** A JSON Schema document (an object). */
+                value: Record<string, unknown>;
             } | undefined;
             /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
             extensible?: boolean | undefined;
@@ -6044,30 +6005,17 @@ Triggered when a config is deleted
             parent?: string | undefined;
             /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
             extends?: string[] | undefined;
-            /** This config's own JSON-encoded object value (its declared fields only — inherited fields are layered in at resolution time, not stored here). */
-            value?: string | undefined;
-            /** Per-environment value overrides (environment id → JSON-encoded object). Falls back to `value` when an environment is absent. */
-            environmentValues?: Record<string, string> | undefined;
+            /** This config's own value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Configs are environment-agnostic: there is no per-environment override (use a Constant for that). */
+            value?: Record<string, unknown> | undefined;
             description?: string | undefined;
             /** The project this config belongs to (empty = all projects) */
             project?: string | undefined;
             archived?: boolean | undefined;
-            /** This config's own field definitions (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
+            /** This config's own field definitions as a JSON Schema document (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
             schema?: {
-                type: "object" | "object[]" | "primitive" | "primitive[]";
-                fields: {
-                    key: string;
-                    type: "integer" | "float" | "string" | "boolean";
-                    required: boolean;
-                    default: string;
-                    description: string;
-                    enum: string[];
-                    min?: number | undefined;
-                    max?: number | undefined;
-                    nullable?: boolean | undefined;
-                    jsonSchema?: string | undefined;
-                }[];
-                additionalProperties?: boolean | undefined;
+                type: "json-schema";
+                /** A JSON Schema document (an object). */
+                value: Record<string, unknown>;
             } | undefined;
             /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
             extensible?: boolean | undefined;
@@ -6155,30 +6103,17 @@ Triggered when a new draft revision is created for a config
                 parent?: string | undefined;
                 /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
                 extends?: string[] | undefined;
-                /** This config's own JSON-encoded object value (its declared fields only — inherited fields are layered in at resolution time, not stored here). */
-                value?: string | undefined;
-                /** Per-environment value overrides (environment id → JSON-encoded object). Falls back to `value` when an environment is absent. */
-                environmentValues?: Record<string, string> | undefined;
+                /** This config's own value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Configs are environment-agnostic: there is no per-environment override (use a Constant for that). */
+                value?: Record<string, unknown> | undefined;
                 description?: string | undefined;
                 /** The project this config belongs to (empty = all projects) */
                 project?: string | undefined;
                 archived?: boolean | undefined;
-                /** This config's own field definitions (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
+                /** This config's own field definitions as a JSON Schema document (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
                 schema?: {
-                    type: "object" | "object[]" | "primitive" | "primitive[]";
-                    fields: {
-                        key: string;
-                        type: "integer" | "float" | "string" | "boolean";
-                        required: boolean;
-                        default: string;
-                        description: string;
-                        enum: string[];
-                        min?: number | undefined;
-                        max?: number | undefined;
-                        nullable?: boolean | undefined;
-                        jsonSchema?: string | undefined;
-                    }[];
-                    additionalProperties?: boolean | undefined;
+                    type: "json-schema";
+                    /** A JSON Schema document (an object). */
+                    value: Record<string, unknown>;
                 } | undefined;
                 /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
                 extensible?: boolean | undefined;
@@ -6197,30 +6132,17 @@ Triggered when a new draft revision is created for a config
                 parent?: string | undefined;
                 /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
                 extends?: string[] | undefined;
-                /** This config's own JSON-encoded object value (its declared fields only — inherited fields are layered in at resolution time, not stored here). */
-                value?: string | undefined;
-                /** Per-environment value overrides (environment id → JSON-encoded object). Falls back to `value` when an environment is absent. */
-                environmentValues?: Record<string, string> | undefined;
+                /** This config's own value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Configs are environment-agnostic: there is no per-environment override (use a Constant for that). */
+                value?: Record<string, unknown> | undefined;
                 description?: string | undefined;
                 /** The project this config belongs to (empty = all projects) */
                 project?: string | undefined;
                 archived?: boolean | undefined;
-                /** This config's own field definitions (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
+                /** This config's own field definitions as a JSON Schema document (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
                 schema?: {
-                    type: "object" | "object[]" | "primitive" | "primitive[]";
-                    fields: {
-                        key: string;
-                        type: "integer" | "float" | "string" | "boolean";
-                        required: boolean;
-                        default: string;
-                        description: string;
-                        enum: string[];
-                        min?: number | undefined;
-                        max?: number | undefined;
-                        nullable?: boolean | undefined;
-                        jsonSchema?: string | undefined;
-                    }[];
-                    additionalProperties?: boolean | undefined;
+                    type: "json-schema";
+                    /** A JSON Schema document (an object). */
+                    value: Record<string, unknown>;
                 } | undefined;
                 /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
                 extensible?: boolean | undefined;
@@ -6313,30 +6235,17 @@ Triggered when a draft revision's proposed changes are modified (value, schema, 
                 parent?: string | undefined;
                 /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
                 extends?: string[] | undefined;
-                /** This config's own JSON-encoded object value (its declared fields only — inherited fields are layered in at resolution time, not stored here). */
-                value?: string | undefined;
-                /** Per-environment value overrides (environment id → JSON-encoded object). Falls back to `value` when an environment is absent. */
-                environmentValues?: Record<string, string> | undefined;
+                /** This config's own value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Configs are environment-agnostic: there is no per-environment override (use a Constant for that). */
+                value?: Record<string, unknown> | undefined;
                 description?: string | undefined;
                 /** The project this config belongs to (empty = all projects) */
                 project?: string | undefined;
                 archived?: boolean | undefined;
-                /** This config's own field definitions (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
+                /** This config's own field definitions as a JSON Schema document (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
                 schema?: {
-                    type: "object" | "object[]" | "primitive" | "primitive[]";
-                    fields: {
-                        key: string;
-                        type: "integer" | "float" | "string" | "boolean";
-                        required: boolean;
-                        default: string;
-                        description: string;
-                        enum: string[];
-                        min?: number | undefined;
-                        max?: number | undefined;
-                        nullable?: boolean | undefined;
-                        jsonSchema?: string | undefined;
-                    }[];
-                    additionalProperties?: boolean | undefined;
+                    type: "json-schema";
+                    /** A JSON Schema document (an object). */
+                    value: Record<string, unknown>;
                 } | undefined;
                 /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
                 extensible?: boolean | undefined;
@@ -6355,30 +6264,17 @@ Triggered when a draft revision's proposed changes are modified (value, schema, 
                 parent?: string | undefined;
                 /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
                 extends?: string[] | undefined;
-                /** This config's own JSON-encoded object value (its declared fields only — inherited fields are layered in at resolution time, not stored here). */
-                value?: string | undefined;
-                /** Per-environment value overrides (environment id → JSON-encoded object). Falls back to `value` when an environment is absent. */
-                environmentValues?: Record<string, string> | undefined;
+                /** This config's own value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Configs are environment-agnostic: there is no per-environment override (use a Constant for that). */
+                value?: Record<string, unknown> | undefined;
                 description?: string | undefined;
                 /** The project this config belongs to (empty = all projects) */
                 project?: string | undefined;
                 archived?: boolean | undefined;
-                /** This config's own field definitions (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
+                /** This config's own field definitions as a JSON Schema document (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
                 schema?: {
-                    type: "object" | "object[]" | "primitive" | "primitive[]";
-                    fields: {
-                        key: string;
-                        type: "integer" | "float" | "string" | "boolean";
-                        required: boolean;
-                        default: string;
-                        description: string;
-                        enum: string[];
-                        min?: number | undefined;
-                        max?: number | undefined;
-                        nullable?: boolean | undefined;
-                        jsonSchema?: string | undefined;
-                    }[];
-                    additionalProperties?: boolean | undefined;
+                    type: "json-schema";
+                    /** A JSON Schema document (an object). */
+                    value: Record<string, unknown>;
                 } | undefined;
                 /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
                 extensible?: boolean | undefined;
@@ -6472,30 +6368,17 @@ Triggered when a draft revision is submitted for review
                 parent?: string | undefined;
                 /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
                 extends?: string[] | undefined;
-                /** This config's own JSON-encoded object value (its declared fields only — inherited fields are layered in at resolution time, not stored here). */
-                value?: string | undefined;
-                /** Per-environment value overrides (environment id → JSON-encoded object). Falls back to `value` when an environment is absent. */
-                environmentValues?: Record<string, string> | undefined;
+                /** This config's own value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Configs are environment-agnostic: there is no per-environment override (use a Constant for that). */
+                value?: Record<string, unknown> | undefined;
                 description?: string | undefined;
                 /** The project this config belongs to (empty = all projects) */
                 project?: string | undefined;
                 archived?: boolean | undefined;
-                /** This config's own field definitions (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
+                /** This config's own field definitions as a JSON Schema document (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
                 schema?: {
-                    type: "object" | "object[]" | "primitive" | "primitive[]";
-                    fields: {
-                        key: string;
-                        type: "integer" | "float" | "string" | "boolean";
-                        required: boolean;
-                        default: string;
-                        description: string;
-                        enum: string[];
-                        min?: number | undefined;
-                        max?: number | undefined;
-                        nullable?: boolean | undefined;
-                        jsonSchema?: string | undefined;
-                    }[];
-                    additionalProperties?: boolean | undefined;
+                    type: "json-schema";
+                    /** A JSON Schema document (an object). */
+                    value: Record<string, unknown>;
                 } | undefined;
                 /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
                 extensible?: boolean | undefined;
@@ -6514,30 +6397,17 @@ Triggered when a draft revision is submitted for review
                 parent?: string | undefined;
                 /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
                 extends?: string[] | undefined;
-                /** This config's own JSON-encoded object value (its declared fields only — inherited fields are layered in at resolution time, not stored here). */
-                value?: string | undefined;
-                /** Per-environment value overrides (environment id → JSON-encoded object). Falls back to `value` when an environment is absent. */
-                environmentValues?: Record<string, string> | undefined;
+                /** This config's own value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Configs are environment-agnostic: there is no per-environment override (use a Constant for that). */
+                value?: Record<string, unknown> | undefined;
                 description?: string | undefined;
                 /** The project this config belongs to (empty = all projects) */
                 project?: string | undefined;
                 archived?: boolean | undefined;
-                /** This config's own field definitions (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
+                /** This config's own field definitions as a JSON Schema document (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
                 schema?: {
-                    type: "object" | "object[]" | "primitive" | "primitive[]";
-                    fields: {
-                        key: string;
-                        type: "integer" | "float" | "string" | "boolean";
-                        required: boolean;
-                        default: string;
-                        description: string;
-                        enum: string[];
-                        min?: number | undefined;
-                        max?: number | undefined;
-                        nullable?: boolean | undefined;
-                        jsonSchema?: string | undefined;
-                    }[];
-                    additionalProperties?: boolean | undefined;
+                    type: "json-schema";
+                    /** A JSON Schema document (an object). */
+                    value: Record<string, unknown>;
                 } | undefined;
                 /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
                 extensible?: boolean | undefined;
@@ -6630,30 +6500,17 @@ Triggered when a draft revision is approved by a reviewer
                 parent?: string | undefined;
                 /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
                 extends?: string[] | undefined;
-                /** This config's own JSON-encoded object value (its declared fields only — inherited fields are layered in at resolution time, not stored here). */
-                value?: string | undefined;
-                /** Per-environment value overrides (environment id → JSON-encoded object). Falls back to `value` when an environment is absent. */
-                environmentValues?: Record<string, string> | undefined;
+                /** This config's own value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Configs are environment-agnostic: there is no per-environment override (use a Constant for that). */
+                value?: Record<string, unknown> | undefined;
                 description?: string | undefined;
                 /** The project this config belongs to (empty = all projects) */
                 project?: string | undefined;
                 archived?: boolean | undefined;
-                /** This config's own field definitions (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
+                /** This config's own field definitions as a JSON Schema document (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
                 schema?: {
-                    type: "object" | "object[]" | "primitive" | "primitive[]";
-                    fields: {
-                        key: string;
-                        type: "integer" | "float" | "string" | "boolean";
-                        required: boolean;
-                        default: string;
-                        description: string;
-                        enum: string[];
-                        min?: number | undefined;
-                        max?: number | undefined;
-                        nullable?: boolean | undefined;
-                        jsonSchema?: string | undefined;
-                    }[];
-                    additionalProperties?: boolean | undefined;
+                    type: "json-schema";
+                    /** A JSON Schema document (an object). */
+                    value: Record<string, unknown>;
                 } | undefined;
                 /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
                 extensible?: boolean | undefined;
@@ -6672,30 +6529,17 @@ Triggered when a draft revision is approved by a reviewer
                 parent?: string | undefined;
                 /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
                 extends?: string[] | undefined;
-                /** This config's own JSON-encoded object value (its declared fields only — inherited fields are layered in at resolution time, not stored here). */
-                value?: string | undefined;
-                /** Per-environment value overrides (environment id → JSON-encoded object). Falls back to `value` when an environment is absent. */
-                environmentValues?: Record<string, string> | undefined;
+                /** This config's own value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Configs are environment-agnostic: there is no per-environment override (use a Constant for that). */
+                value?: Record<string, unknown> | undefined;
                 description?: string | undefined;
                 /** The project this config belongs to (empty = all projects) */
                 project?: string | undefined;
                 archived?: boolean | undefined;
-                /** This config's own field definitions (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
+                /** This config's own field definitions as a JSON Schema document (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
                 schema?: {
-                    type: "object" | "object[]" | "primitive" | "primitive[]";
-                    fields: {
-                        key: string;
-                        type: "integer" | "float" | "string" | "boolean";
-                        required: boolean;
-                        default: string;
-                        description: string;
-                        enum: string[];
-                        min?: number | undefined;
-                        max?: number | undefined;
-                        nullable?: boolean | undefined;
-                        jsonSchema?: string | undefined;
-                    }[];
-                    additionalProperties?: boolean | undefined;
+                    type: "json-schema";
+                    /** A JSON Schema document (an object). */
+                    value: Record<string, unknown>;
                 } | undefined;
                 /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
                 extensible?: boolean | undefined;
@@ -6794,30 +6638,17 @@ Triggered when a reviewer requests changes on a draft revision
                 parent?: string | undefined;
                 /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
                 extends?: string[] | undefined;
-                /** This config's own JSON-encoded object value (its declared fields only — inherited fields are layered in at resolution time, not stored here). */
-                value?: string | undefined;
-                /** Per-environment value overrides (environment id → JSON-encoded object). Falls back to `value` when an environment is absent. */
-                environmentValues?: Record<string, string> | undefined;
+                /** This config's own value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Configs are environment-agnostic: there is no per-environment override (use a Constant for that). */
+                value?: Record<string, unknown> | undefined;
                 description?: string | undefined;
                 /** The project this config belongs to (empty = all projects) */
                 project?: string | undefined;
                 archived?: boolean | undefined;
-                /** This config's own field definitions (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
+                /** This config's own field definitions as a JSON Schema document (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
                 schema?: {
-                    type: "object" | "object[]" | "primitive" | "primitive[]";
-                    fields: {
-                        key: string;
-                        type: "integer" | "float" | "string" | "boolean";
-                        required: boolean;
-                        default: string;
-                        description: string;
-                        enum: string[];
-                        min?: number | undefined;
-                        max?: number | undefined;
-                        nullable?: boolean | undefined;
-                        jsonSchema?: string | undefined;
-                    }[];
-                    additionalProperties?: boolean | undefined;
+                    type: "json-schema";
+                    /** A JSON Schema document (an object). */
+                    value: Record<string, unknown>;
                 } | undefined;
                 /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
                 extensible?: boolean | undefined;
@@ -6836,30 +6667,17 @@ Triggered when a reviewer requests changes on a draft revision
                 parent?: string | undefined;
                 /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
                 extends?: string[] | undefined;
-                /** This config's own JSON-encoded object value (its declared fields only — inherited fields are layered in at resolution time, not stored here). */
-                value?: string | undefined;
-                /** Per-environment value overrides (environment id → JSON-encoded object). Falls back to `value` when an environment is absent. */
-                environmentValues?: Record<string, string> | undefined;
+                /** This config's own value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Configs are environment-agnostic: there is no per-environment override (use a Constant for that). */
+                value?: Record<string, unknown> | undefined;
                 description?: string | undefined;
                 /** The project this config belongs to (empty = all projects) */
                 project?: string | undefined;
                 archived?: boolean | undefined;
-                /** This config's own field definitions (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
+                /** This config's own field definitions as a JSON Schema document (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
                 schema?: {
-                    type: "object" | "object[]" | "primitive" | "primitive[]";
-                    fields: {
-                        key: string;
-                        type: "integer" | "float" | "string" | "boolean";
-                        required: boolean;
-                        default: string;
-                        description: string;
-                        enum: string[];
-                        min?: number | undefined;
-                        max?: number | undefined;
-                        nullable?: boolean | undefined;
-                        jsonSchema?: string | undefined;
-                    }[];
-                    additionalProperties?: boolean | undefined;
+                    type: "json-schema";
+                    /** A JSON Schema document (an object). */
+                    value: Record<string, unknown>;
                 } | undefined;
                 /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
                 extensible?: boolean | undefined;
@@ -6958,30 +6776,17 @@ Triggered when a comment is added to a draft revision
                 parent?: string | undefined;
                 /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
                 extends?: string[] | undefined;
-                /** This config's own JSON-encoded object value (its declared fields only — inherited fields are layered in at resolution time, not stored here). */
-                value?: string | undefined;
-                /** Per-environment value overrides (environment id → JSON-encoded object). Falls back to `value` when an environment is absent. */
-                environmentValues?: Record<string, string> | undefined;
+                /** This config's own value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Configs are environment-agnostic: there is no per-environment override (use a Constant for that). */
+                value?: Record<string, unknown> | undefined;
                 description?: string | undefined;
                 /** The project this config belongs to (empty = all projects) */
                 project?: string | undefined;
                 archived?: boolean | undefined;
-                /** This config's own field definitions (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
+                /** This config's own field definitions as a JSON Schema document (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
                 schema?: {
-                    type: "object" | "object[]" | "primitive" | "primitive[]";
-                    fields: {
-                        key: string;
-                        type: "integer" | "float" | "string" | "boolean";
-                        required: boolean;
-                        default: string;
-                        description: string;
-                        enum: string[];
-                        min?: number | undefined;
-                        max?: number | undefined;
-                        nullable?: boolean | undefined;
-                        jsonSchema?: string | undefined;
-                    }[];
-                    additionalProperties?: boolean | undefined;
+                    type: "json-schema";
+                    /** A JSON Schema document (an object). */
+                    value: Record<string, unknown>;
                 } | undefined;
                 /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
                 extensible?: boolean | undefined;
@@ -7000,30 +6805,17 @@ Triggered when a comment is added to a draft revision
                 parent?: string | undefined;
                 /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
                 extends?: string[] | undefined;
-                /** This config's own JSON-encoded object value (its declared fields only — inherited fields are layered in at resolution time, not stored here). */
-                value?: string | undefined;
-                /** Per-environment value overrides (environment id → JSON-encoded object). Falls back to `value` when an environment is absent. */
-                environmentValues?: Record<string, string> | undefined;
+                /** This config's own value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Configs are environment-agnostic: there is no per-environment override (use a Constant for that). */
+                value?: Record<string, unknown> | undefined;
                 description?: string | undefined;
                 /** The project this config belongs to (empty = all projects) */
                 project?: string | undefined;
                 archived?: boolean | undefined;
-                /** This config's own field definitions (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
+                /** This config's own field definitions as a JSON Schema document (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
                 schema?: {
-                    type: "object" | "object[]" | "primitive" | "primitive[]";
-                    fields: {
-                        key: string;
-                        type: "integer" | "float" | "string" | "boolean";
-                        required: boolean;
-                        default: string;
-                        description: string;
-                        enum: string[];
-                        min?: number | undefined;
-                        max?: number | undefined;
-                        nullable?: boolean | undefined;
-                        jsonSchema?: string | undefined;
-                    }[];
-                    additionalProperties?: boolean | undefined;
+                    type: "json-schema";
+                    /** A JSON Schema document (an object). */
+                    value: Record<string, unknown>;
                 } | undefined;
                 /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
                 extensible?: boolean | undefined;
@@ -7122,30 +6914,17 @@ Triggered when a draft revision is discarded
                 parent?: string | undefined;
                 /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
                 extends?: string[] | undefined;
-                /** This config's own JSON-encoded object value (its declared fields only — inherited fields are layered in at resolution time, not stored here). */
-                value?: string | undefined;
-                /** Per-environment value overrides (environment id → JSON-encoded object). Falls back to `value` when an environment is absent. */
-                environmentValues?: Record<string, string> | undefined;
+                /** This config's own value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Configs are environment-agnostic: there is no per-environment override (use a Constant for that). */
+                value?: Record<string, unknown> | undefined;
                 description?: string | undefined;
                 /** The project this config belongs to (empty = all projects) */
                 project?: string | undefined;
                 archived?: boolean | undefined;
-                /** This config's own field definitions (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
+                /** This config's own field definitions as a JSON Schema document (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
                 schema?: {
-                    type: "object" | "object[]" | "primitive" | "primitive[]";
-                    fields: {
-                        key: string;
-                        type: "integer" | "float" | "string" | "boolean";
-                        required: boolean;
-                        default: string;
-                        description: string;
-                        enum: string[];
-                        min?: number | undefined;
-                        max?: number | undefined;
-                        nullable?: boolean | undefined;
-                        jsonSchema?: string | undefined;
-                    }[];
-                    additionalProperties?: boolean | undefined;
+                    type: "json-schema";
+                    /** A JSON Schema document (an object). */
+                    value: Record<string, unknown>;
                 } | undefined;
                 /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
                 extensible?: boolean | undefined;
@@ -7164,30 +6943,17 @@ Triggered when a draft revision is discarded
                 parent?: string | undefined;
                 /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
                 extends?: string[] | undefined;
-                /** This config's own JSON-encoded object value (its declared fields only — inherited fields are layered in at resolution time, not stored here). */
-                value?: string | undefined;
-                /** Per-environment value overrides (environment id → JSON-encoded object). Falls back to `value` when an environment is absent. */
-                environmentValues?: Record<string, string> | undefined;
+                /** This config's own value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Configs are environment-agnostic: there is no per-environment override (use a Constant for that). */
+                value?: Record<string, unknown> | undefined;
                 description?: string | undefined;
                 /** The project this config belongs to (empty = all projects) */
                 project?: string | undefined;
                 archived?: boolean | undefined;
-                /** This config's own field definitions (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
+                /** This config's own field definitions as a JSON Schema document (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
                 schema?: {
-                    type: "object" | "object[]" | "primitive" | "primitive[]";
-                    fields: {
-                        key: string;
-                        type: "integer" | "float" | "string" | "boolean";
-                        required: boolean;
-                        default: string;
-                        description: string;
-                        enum: string[];
-                        min?: number | undefined;
-                        max?: number | undefined;
-                        nullable?: boolean | undefined;
-                        jsonSchema?: string | undefined;
-                    }[];
-                    additionalProperties?: boolean | undefined;
+                    type: "json-schema";
+                    /** A JSON Schema document (an object). */
+                    value: Record<string, unknown>;
                 } | undefined;
                 /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
                 extensible?: boolean | undefined;
@@ -7280,30 +7046,17 @@ Triggered when a draft revision is rebased onto the latest live state
                 parent?: string | undefined;
                 /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
                 extends?: string[] | undefined;
-                /** This config's own JSON-encoded object value (its declared fields only — inherited fields are layered in at resolution time, not stored here). */
-                value?: string | undefined;
-                /** Per-environment value overrides (environment id → JSON-encoded object). Falls back to `value` when an environment is absent. */
-                environmentValues?: Record<string, string> | undefined;
+                /** This config's own value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Configs are environment-agnostic: there is no per-environment override (use a Constant for that). */
+                value?: Record<string, unknown> | undefined;
                 description?: string | undefined;
                 /** The project this config belongs to (empty = all projects) */
                 project?: string | undefined;
                 archived?: boolean | undefined;
-                /** This config's own field definitions (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
+                /** This config's own field definitions as a JSON Schema document (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
                 schema?: {
-                    type: "object" | "object[]" | "primitive" | "primitive[]";
-                    fields: {
-                        key: string;
-                        type: "integer" | "float" | "string" | "boolean";
-                        required: boolean;
-                        default: string;
-                        description: string;
-                        enum: string[];
-                        min?: number | undefined;
-                        max?: number | undefined;
-                        nullable?: boolean | undefined;
-                        jsonSchema?: string | undefined;
-                    }[];
-                    additionalProperties?: boolean | undefined;
+                    type: "json-schema";
+                    /** A JSON Schema document (an object). */
+                    value: Record<string, unknown>;
                 } | undefined;
                 /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
                 extensible?: boolean | undefined;
@@ -7322,30 +7075,17 @@ Triggered when a draft revision is rebased onto the latest live state
                 parent?: string | undefined;
                 /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
                 extends?: string[] | undefined;
-                /** This config's own JSON-encoded object value (its declared fields only — inherited fields are layered in at resolution time, not stored here). */
-                value?: string | undefined;
-                /** Per-environment value overrides (environment id → JSON-encoded object). Falls back to `value` when an environment is absent. */
-                environmentValues?: Record<string, string> | undefined;
+                /** This config's own value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Configs are environment-agnostic: there is no per-environment override (use a Constant for that). */
+                value?: Record<string, unknown> | undefined;
                 description?: string | undefined;
                 /** The project this config belongs to (empty = all projects) */
                 project?: string | undefined;
                 archived?: boolean | undefined;
-                /** This config's own field definitions (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
+                /** This config's own field definitions as a JSON Schema document (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
                 schema?: {
-                    type: "object" | "object[]" | "primitive" | "primitive[]";
-                    fields: {
-                        key: string;
-                        type: "integer" | "float" | "string" | "boolean";
-                        required: boolean;
-                        default: string;
-                        description: string;
-                        enum: string[];
-                        min?: number | undefined;
-                        max?: number | undefined;
-                        nullable?: boolean | undefined;
-                        jsonSchema?: string | undefined;
-                    }[];
-                    additionalProperties?: boolean | undefined;
+                    type: "json-schema";
+                    /** A JSON Schema document (an object). */
+                    value: Record<string, unknown>;
                 } | undefined;
                 /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
                 extensible?: boolean | undefined;
@@ -7438,30 +7178,17 @@ Triggered when a draft revision is published. Overlaps with `config.updated` but
                 parent?: string | undefined;
                 /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
                 extends?: string[] | undefined;
-                /** This config's own JSON-encoded object value (its declared fields only — inherited fields are layered in at resolution time, not stored here). */
-                value?: string | undefined;
-                /** Per-environment value overrides (environment id → JSON-encoded object). Falls back to `value` when an environment is absent. */
-                environmentValues?: Record<string, string> | undefined;
+                /** This config's own value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Configs are environment-agnostic: there is no per-environment override (use a Constant for that). */
+                value?: Record<string, unknown> | undefined;
                 description?: string | undefined;
                 /** The project this config belongs to (empty = all projects) */
                 project?: string | undefined;
                 archived?: boolean | undefined;
-                /** This config's own field definitions (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
+                /** This config's own field definitions as a JSON Schema document (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
                 schema?: {
-                    type: "object" | "object[]" | "primitive" | "primitive[]";
-                    fields: {
-                        key: string;
-                        type: "integer" | "float" | "string" | "boolean";
-                        required: boolean;
-                        default: string;
-                        description: string;
-                        enum: string[];
-                        min?: number | undefined;
-                        max?: number | undefined;
-                        nullable?: boolean | undefined;
-                        jsonSchema?: string | undefined;
-                    }[];
-                    additionalProperties?: boolean | undefined;
+                    type: "json-schema";
+                    /** A JSON Schema document (an object). */
+                    value: Record<string, unknown>;
                 } | undefined;
                 /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
                 extensible?: boolean | undefined;
@@ -7480,30 +7207,17 @@ Triggered when a draft revision is published. Overlaps with `config.updated` but
                 parent?: string | undefined;
                 /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
                 extends?: string[] | undefined;
-                /** This config's own JSON-encoded object value (its declared fields only — inherited fields are layered in at resolution time, not stored here). */
-                value?: string | undefined;
-                /** Per-environment value overrides (environment id → JSON-encoded object). Falls back to `value` when an environment is absent. */
-                environmentValues?: Record<string, string> | undefined;
+                /** This config's own value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Configs are environment-agnostic: there is no per-environment override (use a Constant for that). */
+                value?: Record<string, unknown> | undefined;
                 description?: string | undefined;
                 /** The project this config belongs to (empty = all projects) */
                 project?: string | undefined;
                 archived?: boolean | undefined;
-                /** This config's own field definitions (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
+                /** This config's own field definitions as a JSON Schema document (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
                 schema?: {
-                    type: "object" | "object[]" | "primitive" | "primitive[]";
-                    fields: {
-                        key: string;
-                        type: "integer" | "float" | "string" | "boolean";
-                        required: boolean;
-                        default: string;
-                        description: string;
-                        enum: string[];
-                        min?: number | undefined;
-                        max?: number | undefined;
-                        nullable?: boolean | undefined;
-                        jsonSchema?: string | undefined;
-                    }[];
-                    additionalProperties?: boolean | undefined;
+                    type: "json-schema";
+                    /** A JSON Schema document (an object). */
+                    value: Record<string, unknown>;
                 } | undefined;
                 /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
                 extensible?: boolean | undefined;
@@ -7596,30 +7310,17 @@ Triggered when a config is reverted to a previous published revision
                 parent?: string | undefined;
                 /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
                 extends?: string[] | undefined;
-                /** This config's own JSON-encoded object value (its declared fields only — inherited fields are layered in at resolution time, not stored here). */
-                value?: string | undefined;
-                /** Per-environment value overrides (environment id → JSON-encoded object). Falls back to `value` when an environment is absent. */
-                environmentValues?: Record<string, string> | undefined;
+                /** This config's own value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Configs are environment-agnostic: there is no per-environment override (use a Constant for that). */
+                value?: Record<string, unknown> | undefined;
                 description?: string | undefined;
                 /** The project this config belongs to (empty = all projects) */
                 project?: string | undefined;
                 archived?: boolean | undefined;
-                /** This config's own field definitions (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
+                /** This config's own field definitions as a JSON Schema document (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
                 schema?: {
-                    type: "object" | "object[]" | "primitive" | "primitive[]";
-                    fields: {
-                        key: string;
-                        type: "integer" | "float" | "string" | "boolean";
-                        required: boolean;
-                        default: string;
-                        description: string;
-                        enum: string[];
-                        min?: number | undefined;
-                        max?: number | undefined;
-                        nullable?: boolean | undefined;
-                        jsonSchema?: string | undefined;
-                    }[];
-                    additionalProperties?: boolean | undefined;
+                    type: "json-schema";
+                    /** A JSON Schema document (an object). */
+                    value: Record<string, unknown>;
                 } | undefined;
                 /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
                 extensible?: boolean | undefined;
@@ -7638,30 +7339,17 @@ Triggered when a config is reverted to a previous published revision
                 parent?: string | undefined;
                 /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
                 extends?: string[] | undefined;
-                /** This config's own JSON-encoded object value (its declared fields only — inherited fields are layered in at resolution time, not stored here). */
-                value?: string | undefined;
-                /** Per-environment value overrides (environment id → JSON-encoded object). Falls back to `value` when an environment is absent. */
-                environmentValues?: Record<string, string> | undefined;
+                /** This config's own value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Configs are environment-agnostic: there is no per-environment override (use a Constant for that). */
+                value?: Record<string, unknown> | undefined;
                 description?: string | undefined;
                 /** The project this config belongs to (empty = all projects) */
                 project?: string | undefined;
                 archived?: boolean | undefined;
-                /** This config's own field definitions (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
+                /** This config's own field definitions as a JSON Schema document (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
                 schema?: {
-                    type: "object" | "object[]" | "primitive" | "primitive[]";
-                    fields: {
-                        key: string;
-                        type: "integer" | "float" | "string" | "boolean";
-                        required: boolean;
-                        default: string;
-                        description: string;
-                        enum: string[];
-                        min?: number | undefined;
-                        max?: number | undefined;
-                        nullable?: boolean | undefined;
-                        jsonSchema?: string | undefined;
-                    }[];
-                    additionalProperties?: boolean | undefined;
+                    type: "json-schema";
+                    /** A JSON Schema document (an object). */
+                    value: Record<string, unknown>;
                 } | undefined;
                 /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
                 extensible?: boolean | undefined;
@@ -7755,30 +7443,17 @@ Triggered when a discarded revision is reopened
                 parent?: string | undefined;
                 /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
                 extends?: string[] | undefined;
-                /** This config's own JSON-encoded object value (its declared fields only — inherited fields are layered in at resolution time, not stored here). */
-                value?: string | undefined;
-                /** Per-environment value overrides (environment id → JSON-encoded object). Falls back to `value` when an environment is absent. */
-                environmentValues?: Record<string, string> | undefined;
+                /** This config's own value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Configs are environment-agnostic: there is no per-environment override (use a Constant for that). */
+                value?: Record<string, unknown> | undefined;
                 description?: string | undefined;
                 /** The project this config belongs to (empty = all projects) */
                 project?: string | undefined;
                 archived?: boolean | undefined;
-                /** This config's own field definitions (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
+                /** This config's own field definitions as a JSON Schema document (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
                 schema?: {
-                    type: "object" | "object[]" | "primitive" | "primitive[]";
-                    fields: {
-                        key: string;
-                        type: "integer" | "float" | "string" | "boolean";
-                        required: boolean;
-                        default: string;
-                        description: string;
-                        enum: string[];
-                        min?: number | undefined;
-                        max?: number | undefined;
-                        nullable?: boolean | undefined;
-                        jsonSchema?: string | undefined;
-                    }[];
-                    additionalProperties?: boolean | undefined;
+                    type: "json-schema";
+                    /** A JSON Schema document (an object). */
+                    value: Record<string, unknown>;
                 } | undefined;
                 /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
                 extensible?: boolean | undefined;
@@ -7797,30 +7472,17 @@ Triggered when a discarded revision is reopened
                 parent?: string | undefined;
                 /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
                 extends?: string[] | undefined;
-                /** This config's own JSON-encoded object value (its declared fields only — inherited fields are layered in at resolution time, not stored here). */
-                value?: string | undefined;
-                /** Per-environment value overrides (environment id → JSON-encoded object). Falls back to `value` when an environment is absent. */
-                environmentValues?: Record<string, string> | undefined;
+                /** This config's own value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Configs are environment-agnostic: there is no per-environment override (use a Constant for that). */
+                value?: Record<string, unknown> | undefined;
                 description?: string | undefined;
                 /** The project this config belongs to (empty = all projects) */
                 project?: string | undefined;
                 archived?: boolean | undefined;
-                /** This config's own field definitions (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
+                /** This config's own field definitions as a JSON Schema document (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
                 schema?: {
-                    type: "object" | "object[]" | "primitive" | "primitive[]";
-                    fields: {
-                        key: string;
-                        type: "integer" | "float" | "string" | "boolean";
-                        required: boolean;
-                        default: string;
-                        description: string;
-                        enum: string[];
-                        min?: number | undefined;
-                        max?: number | undefined;
-                        nullable?: boolean | undefined;
-                        jsonSchema?: string | undefined;
-                    }[];
-                    additionalProperties?: boolean | undefined;
+                    type: "json-schema";
+                    /** A JSON Schema document (an object). */
+                    value: Record<string, unknown>;
                 } | undefined;
                 /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
                 extensible?: boolean | undefined;
