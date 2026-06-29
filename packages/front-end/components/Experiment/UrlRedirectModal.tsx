@@ -131,6 +131,7 @@ const UrlRedirectModal: FC<{
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType="url-redirect-modal"
       trackingEventModalSource={source}
       autoCloseOnSubmit={false}
@@ -222,8 +223,10 @@ const UrlRedirectModal: FC<{
                   <>
                     Destination URL has query parameters the original URL does
                     not have. See{" "}
-                    <DocLink docSection="url_redirects">our docs</DocLink> for
-                    more info on how to handle this kind of redirect.
+                    <DocLink useRadix={false} docSection="url_redirects">
+                      our docs
+                    </DocLink>{" "}
+                    for more info on how to handle this kind of redirect.
                   </>
                 );
               }

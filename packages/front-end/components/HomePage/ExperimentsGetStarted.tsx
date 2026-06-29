@@ -136,7 +136,9 @@ const ExperimentsGetStarted = (): React.ReactElement => {
               <div className="alert alert-info">
                 It looks like you have a <code>config.yml</code> file. Use that
                 to define data sources and metrics.{" "}
-                <DocLink docSection="config_yml">View Documentation</DocLink>
+                <DocLink useRadix={false} docSection="config_yml">
+                  View Documentation
+                </DocLink>
               </div>
             )}
             <div className="row mb-3">

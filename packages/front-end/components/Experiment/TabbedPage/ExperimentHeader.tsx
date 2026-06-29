@@ -514,6 +514,7 @@ export default function ExperimentHeader({
       )}
       {showBanditModal ? (
         <Modal
+          useRadixButton={false}
           open={true}
           close={() => setShowBanditModal(false)}
           trackingEventModalType=""
@@ -739,7 +740,6 @@ export default function ExperimentHeader({
           close={() => setShareModalOpen(false)}
           closeCta="Close"
           header={`Share "${experiment.name}"`}
-          useRadixButton={true}
           secondaryCTA={shareLinkButton}
         >
           <div className="mb-3">

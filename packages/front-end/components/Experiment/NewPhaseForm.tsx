@@ -120,6 +120,7 @@ const NewPhaseForm: FC<{
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType="new-phase-form"
       trackingEventModalSource={source}
       header={firstPhase ? "Start Experiment" : "New Experiment Phase"}

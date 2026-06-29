@@ -295,7 +295,7 @@ function CustomHooksTable({
                   {hook.incrementalChangesOnly ? "Yes" : "No"}
                 </TableCell>
                 <TableCell>
-                  <MoreMenu>
+                  <MoreMenu useRadix={false}>
                     <a
                       href="#"
                       className="dropdown-item"
@@ -338,6 +338,7 @@ function CustomHooksTable({
                     )}
                     {canManage && featureScoped && (
                       <DeleteButton
+                        useRadix={false}
                         useIcon={false}
                         text="Delete"
                         displayName="custom hook"

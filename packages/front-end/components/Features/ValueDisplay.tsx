@@ -289,7 +289,6 @@ export default function ValueDisplay({
             )
           }
           closeCta="Close"
-          useRadixButton={true}
         >
           <ValueDisplay
             value={value}

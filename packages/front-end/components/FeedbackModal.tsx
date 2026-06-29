@@ -38,6 +38,7 @@ export default function FeedbackModal({
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       open={open}
       header={header}
