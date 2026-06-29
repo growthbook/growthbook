@@ -23,12 +23,17 @@ export const UNLIMITED_USAGE: OrganizationUsage = {
     requests: "unlimited",
     bandwidth: "unlimited",
     managedClickhouseEvents: "unlimited",
+    sessionReplaySessions: "unlimited",
   },
   cdn: {
     lastUpdated: new Date(),
     status: "under",
   },
   managedClickhouse: {
+    lastUpdated: new Date(),
+    status: "under",
+  },
+  sessionReplay: {
     lastUpdated: new Date(),
     status: "under",
   },
@@ -128,6 +133,16 @@ export const setUsageInCache = (orgId: string, usage: OrganizationUsage) => {
     usage: {
       ...usage,
       cdn: { ...usage.cdn, lastUpdated: new Date(usage.cdn.lastUpdated) },
+      ...(usage.sessionReplay
+        ? {
+            sessionReplay: {
+              ...usage.sessionReplay,
+              lastUpdated: usage.sessionReplay.lastUpdated
+                ? new Date(usage.sessionReplay.lastUpdated)
+                : undefined,
+            },
+          }
+        : {}),
     },
   };
 };
