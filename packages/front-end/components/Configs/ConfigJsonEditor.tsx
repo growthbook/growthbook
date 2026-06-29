@@ -338,19 +338,10 @@ export default function ConfigJsonEditor({
     [schemaType, effectiveSchema, extensible],
   );
 
-  // TS that degrades to `any` (unresolved/unrepresentable types, e.g. a typo'd
-  // union like `"red" | yellow`) blocks the save instead of silently saving a
-  // weaker schema. The JSON Schema converter never emits this code, so this only
-  // bites in TypeScript mode. Other warnings (dropped siblings, index sigs) are
-  // informational.
-  const blockingWarnings = useMemo(
-    () => schemaWarnings.filter((w) => w.code === "unresolved-type"),
-    [schemaWarnings],
-  );
-  const infoWarnings = useMemo(
-    () => schemaWarnings.filter((w) => w.code !== "unresolved-type"),
-    [schemaWarnings],
-  );
+  // Conversion is lossy-by-design: unresolved/unrepresentable types degrade to a
+  // permissive type (`any`/object), index signatures are skipped, etc. These are
+  // all INFORMATIONAL — they never block the save (only a hard parse error does).
+  // The schema saves with the degraded field; the warning tells you what was lost.
   const resolvedValueString = useMemo(() => {
     const obj: Record<string, unknown> = {};
     for (const f of resolvedFields) obj[f.key] = f.value;
@@ -377,7 +368,6 @@ export default function ConfigJsonEditor({
     !parseError &&
     !schemaError &&
     conflictKeys.length === 0 &&
-    blockingWarnings.length === 0 &&
     !saving;
 
   const handleCancel = () => {
@@ -635,9 +625,9 @@ export default function ConfigJsonEditor({
       align="center"
       mb="1"
       gap="3"
-      // Match the value column's label row height (the language tabs are taller
-      // than the Insert-constant link) so both editors start at the same y.
-      style={{ minHeight: "var(--space-6)" }}
+      // Fixed label-row height so the schema editor lines up with the value
+      // editor (the value column's label row uses the same height).
+      style={{ minHeight: 40 }}
     >
       <Text weight="semibold" size="medium" as="div">
         Schema
@@ -669,7 +659,15 @@ export default function ConfigJsonEditor({
         <>
           <FeatureValueField
             id="config-json-value"
-            label="Value"
+            // Fixed-height label row matching the schema column's so both
+            // editors start at the same y.
+            label={
+              <Box
+                style={{ display: "flex", alignItems: "center", minHeight: 40 }}
+              >
+                Value
+              </Box>
+            }
             value={valueText}
             setValue={setValueText}
             valueType="json"
@@ -727,14 +725,7 @@ export default function ConfigJsonEditor({
                   {schemaError}
                 </div>
               )}
-              {blockingWarnings.length > 0 && (
-                <div
-                  style={{ color: "var(--red-11)", fontSize: 12, marginTop: 4 }}
-                >
-                  {blockingWarnings.map((w) => w.message).join("; ")}
-                </div>
-              )}
-              {infoWarnings.length > 0 && (
+              {schemaWarnings.length > 0 && (
                 <div
                   style={{
                     color: "var(--amber-11)",
@@ -742,7 +733,7 @@ export default function ConfigJsonEditor({
                     marginTop: 4,
                   }}
                 >
-                  {infoWarnings.map((w) => w.message).join("; ")}
+                  {schemaWarnings.map((w) => w.message).join("; ")}
                 </div>
               )}
             </>
