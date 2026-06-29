@@ -28,6 +28,7 @@ import Button from "@/ui/Button";
 import SelectField from "@/components/Forms/SelectField";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
+import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 // eslint-disable-next-line no-restricted-imports
@@ -823,6 +824,7 @@ export default function ConfigJsonEditor({
         <DropdownMenu
           variant="soft"
           menuPlacement="end"
+          triggerStyle={{ marginLeft: 0, marginRight: 0 }}
           trigger={
             <IconButton
               variant="ghost"
@@ -871,10 +873,14 @@ export default function ConfigJsonEditor({
         maxLines={40}
         fontSize="0.75em"
       />
-      <Text size="small" color="text-low" as="div" mt="1">
-        Editing <code>{projectionSource}</code> updates the config&apos;s schema
-        and recaptures this projection&apos;s named types.
-      </Text>
+      <HelperText status="info" size="sm" mt="1">
+        <span>
+          Editing <code>{projectionSource}</code>
+          {
+            " updates the config’s schema and recaptures this projection’s named types."
+          }
+        </span>
+      </HelperText>
       {parsedProjection?.error && (
         <div style={{ color: "var(--red-11)", fontSize: 12, marginTop: 4 }}>
           {parsedProjection.error}
