@@ -1,10 +1,7 @@
 import { SchemaField } from "shared/types/feature";
-import {
-  blankField,
-  JSON_SCHEMA_PRESETS,
-  normalizeField,
-  presetKeyFromField,
-} from "./fields";
+import { simpleSchemaFieldToJSONSchema } from "../features";
+import { normalizeField } from "./fields";
+import { jsonSchemaStringToFields } from "./json-schema";
 import {
   SchemaConversionResult,
   SchemaConverter,
@@ -342,18 +339,6 @@ function unquote(raw: string): string {
 
 const STRING_LITERAL_RE = /^"(?:[^"\\]|\\.)*"$|^'(?:[^'\\]|\\.)*'$/;
 
-type ParsedTsType = {
-  type: SchemaField["type"];
-  nullable: boolean;
-  enum: string[];
-  jsonSchema?: string;
-  warning?: string;
-};
-
-const ANY_SCHEMA = JSON.stringify(JSON_SCHEMA_PRESETS.any);
-const OBJECT_SCHEMA = JSON.stringify(JSON_SCHEMA_PRESETS.json);
-const ARRAY_SCHEMA = JSON.stringify(JSON_SCHEMA_PRESETS.array);
-
 // Cap how deep we'll recurse building a nested schema; beyond this we bail to the
 // bare object/array preset rather than risk a pathological/expensive parse.
 const MAX_NEST_DEPTH = 3;
@@ -511,131 +496,6 @@ function objectBodyToSchemaNode(
   return schema;
 }
 
-function parseSingleTsType(
-  t: string,
-  nullable: boolean,
-  decls?: Map<string, TsDeclaration>,
-  seen?: Set<string>,
-): ParsedTsType {
-  const arrayLike =
-    /\[\]$/.test(t) ||
-    /^(?:readonly\s+)?Array<[\s\S]*>$/.test(t) ||
-    /^(?:readonly\s+)?ReadonlyArray<[\s\S]*>$/.test(t) ||
-    (t.startsWith("[") && t.endsWith("]"));
-  const objectLikeExpr =
-    t.startsWith("{") || /^Record<[\s\S]*>$/.test(t) || t === "object";
-  const objectRef = decls?.get(t)?.objectLike === true;
-
-  // Structured types (nested object/array, or a reference to one): try to build
-  // a real nested JSON Schema; on bailout fall through to the bare preset.
-  if (arrayLike || objectLikeExpr || objectRef) {
-    let node = tsTypeToSchemaNode(t, decls, new Set(seen ?? []), 1);
-    if (node) {
-      if (nullable && typeof node.type === "string") {
-        node = { ...node, type: [node.type, "null"] };
-      }
-      return {
-        type: "string",
-        nullable: false,
-        enum: [],
-        jsonSchema: JSON.stringify(node, null, 2),
-      };
-    }
-  }
-
-  if (arrayLike) {
-    return { type: "string", nullable, enum: [], jsonSchema: ARRAY_SCHEMA };
-  }
-  if (objectLikeExpr) {
-    return { type: "string", nullable, enum: [], jsonSchema: OBJECT_SCHEMA };
-  }
-  switch (t) {
-    case "string":
-      return { type: "string", nullable, enum: [] };
-    case "number":
-      return { type: "float", nullable, enum: [] };
-    case "boolean":
-    case "true":
-    case "false":
-      return { type: "boolean", nullable, enum: [] };
-    case "any":
-    case "unknown":
-      return { type: "string", nullable, enum: [], jsonSchema: ANY_SCHEMA };
-  }
-  if (/^-?\d+(?:\.\d+)?$/.test(t)) {
-    return { type: "float", nullable, enum: [] };
-  }
-  if (STRING_LITERAL_RE.test(t)) {
-    return { type: "string", nullable, enum: [unquote(t)] };
-  }
-  // A reference to a sibling declaration: resolve it (stitch in the child).
-  // Object types become an opaque object preset; alias types (unions, etc.)
-  // resolve to their RHS so e.g. `logLevel: LogLevel` becomes the enum.
-  const decl = decls?.get(t);
-  if (decl) {
-    if (decl.objectLike) {
-      return { type: "string", nullable, enum: [], jsonSchema: OBJECT_SCHEMA };
-    }
-    if (seen?.has(t)) {
-      // Reference cycle among aliases — degrade to `any` rather than recurse.
-      return { type: "string", nullable, enum: [], jsonSchema: ANY_SCHEMA };
-    }
-    const nextSeen = new Set(seen ?? []);
-    nextSeen.add(t);
-    const resolved = parseTsType(decl.rhs ?? "", decls, nextSeen);
-    return { ...resolved, nullable: nullable || resolved.nullable };
-  }
-  return {
-    type: "string",
-    nullable,
-    enum: [],
-    jsonSchema: ANY_SCHEMA,
-    warning: `unresolved type "${t}"`,
-  };
-}
-
-function parseTsType(
-  rawExpr: string,
-  decls?: Map<string, TsDeclaration>,
-  seen?: Set<string>,
-): ParsedTsType {
-  const expr = rawExpr
-    .trim()
-    .replace(/[;,]+$/, "")
-    .trim();
-  const parts = splitUnion(expr);
-  let nullable = false;
-  const nonNull = parts.filter((p) => {
-    if (p === "null" || p === "undefined") {
-      nullable = true;
-      return false;
-    }
-    return true;
-  });
-  if (nonNull.length === 0) {
-    return { type: "string", nullable, enum: [], jsonSchema: ANY_SCHEMA };
-  }
-  if (nonNull.every((p) => STRING_LITERAL_RE.test(p))) {
-    return { type: "string", nullable, enum: nonNull.map(unquote) };
-  }
-  if (nonNull.length === 1)
-    return parseSingleTsType(nonNull[0], nullable, decls, seen);
-  // A union mixing string/number literals with bare members is almost always a
-  // forgotten quote (e.g. `"red" | yellow`); call that out specifically.
-  const hasLiteral = nonNull.some(
-    (p) => STRING_LITERAL_RE.test(p) || /^-?\d+(?:\.\d+)?$/.test(p),
-  );
-  return {
-    type: "string",
-    nullable,
-    enum: [],
-    jsonSchema: ANY_SCHEMA,
-    warning: hasLiteral
-      ? `union "${expr}" mixes literal and non-literal members — quote literal values (e.g. "yellow") or use a single type`
-      : `union type "${expr}" can't be represented as a single field type`,
-  };
-}
-
 // Declarations that are neither the root nor reachable from it (genuinely
 // dropped, not stitched in). Reachable types are resolved into the root, so they
 // don't warn. Unreachable object types are "dropped"; unreachable non-object
@@ -665,33 +525,38 @@ function leftoverWarnings(
   return out;
 }
 
-// Parse a TypeScript object type / interface into the config's own SchemaField[].
-export function tsTypesToFields(text: string): SchemaConversionResult {
-  const decls = parseDeclarations(text);
-  const byName = new Map(decls.map((d) => [d.name, d]));
-  const root = selectRoot(decls, byName);
-
-  // No declared object type — fall back to a bare object literal (`{ ... }`).
-  if (!root) {
-    const { body, error } = extractObjectBody(text);
-    if (error) return { fields: [], error, warnings: [] };
-    if (body === null) return { fields: [], error: null, warnings: [] };
-    return parseObjectBody(body, undefined, []);
-  }
-
-  const reached = reachableFrom(root.name, byName);
-  const warnings = leftoverWarnings(decls, root.name, reached);
-  return parseObjectBody(root.body ?? "", byName, warnings);
+// Bare JSON Schema preset a member degrades to when its TS type can't be
+// resolved into a real node — mirrors the old per-field fallback: array-like →
+// array, object-like → object, otherwise `{}` (any).
+function fallbackNode(
+  t: string,
+  decls: Map<string, TsDeclaration> | undefined,
+): Record<string, unknown> {
+  const arrayLike =
+    /\[\]$/.test(t) ||
+    /^(?:readonly\s+)?Array<[\s\S]*>$/.test(t) ||
+    /^(?:readonly\s+)?ReadonlyArray<[\s\S]*>$/.test(t) ||
+    (t.startsWith("[") && t.endsWith("]"));
+  if (arrayLike) return { type: "array" };
+  const objectLike =
+    t.startsWith("{") ||
+    /^Record<[\s\S]*>$/.test(t) ||
+    t === "object" ||
+    decls?.get(t)?.objectLike === true;
+  if (objectLike) return { type: "object" };
+  return {};
 }
 
-// Parse one object body's members into fields, resolving sibling references via
-// `decls`. `warnings` seeds the accumulator (e.g. dropped-declaration notes).
-function parseObjectBody(
+// Build a JSON Schema document from an object body's members, resolving sibling
+// references via `decls`. Each member's TS type converts to a JSON Schema node;
+// on bail it degrades to a bare preset and emits an `unresolved-type` warning.
+function objectBodyToDocument(
   body: string,
   decls: Map<string, TsDeclaration> | undefined,
-  warnings: SchemaWarning[],
-): SchemaConversionResult {
-  const fields: SchemaField[] = [];
+): { doc: Record<string, unknown>; warnings: SchemaWarning[] } {
+  const warnings: SchemaWarning[] = [];
+  const properties: Record<string, unknown> = {};
+  const required: string[] = [];
   for (const member of tokenizeMembers(body)) {
     const m = member.decl.match(
       /^(?:readonly\s+)?("[^"]*"|'[^']*'|\[[^\]]*\]|[A-Za-z_$][\w$]*)(\??)\s*:\s*([\s\S]+)$/,
@@ -711,25 +576,66 @@ function parseObjectBody(
       continue;
     }
     const key = unquote(m[1]);
-    const parsed = parseTsType(m[3], decls);
-    if (parsed.warning) {
+    const t = m[3]
+      .trim()
+      .replace(/[;,]+$/, "")
+      .trim();
+    let node = tsTypeToSchemaNode(t, decls, new Set(), 1);
+    if (!node) {
+      node = fallbackNode(t, decls);
       warnings.push({
         code: "unresolved-type",
         path: key,
-        message: `${key}: ${parsed.warning}`,
+        message: `${key}: unresolved type "${t}"`,
       });
     }
-    const field = blankField();
-    field.key = key;
-    field.required = m[2] !== "?";
-    field.type = parsed.type;
-    field.enum = parsed.enum;
-    if (parsed.nullable) field.nullable = true;
-    if (parsed.jsonSchema !== undefined) field.jsonSchema = parsed.jsonSchema;
-    if (member.jsdoc) field.description = member.jsdoc;
-    fields.push(normalizeField(field));
+    if (member.jsdoc) node = { ...node, description: member.jsdoc };
+    properties[key] = node;
+    if (m[2] !== "?") required.push(key);
   }
-  return { fields, error: null, warnings };
+  const doc: Record<string, unknown> = { type: "object", properties };
+  if (required.length) doc.required = required;
+  return { doc, warnings };
+}
+
+// Parse a TypeScript object type / interface into the config's own SchemaField[]
+// by pivoting through a JSON Schema document and delegating field-mapping.
+export function tsTypesToFields(text: string): SchemaConversionResult {
+  const decls = parseDeclarations(text);
+  const byName = new Map(decls.map((d) => [d.name, d]));
+  const root = selectRoot(decls, byName);
+
+  let body: string;
+  let resolvers: Map<string, TsDeclaration> | undefined;
+  let tsWarnings: SchemaWarning[];
+
+  // No declared object type — fall back to a bare object literal (`{ ... }`).
+  if (!root) {
+    const extracted = extractObjectBody(text);
+    if (extracted.error)
+      return { fields: [], error: extracted.error, warnings: [] };
+    if (extracted.body === null)
+      return { fields: [], error: null, warnings: [] };
+    body = extracted.body;
+    resolvers = undefined;
+    tsWarnings = [];
+  } else {
+    body = root.body ?? "";
+    resolvers = byName;
+    const reached = reachableFrom(root.name, byName);
+    tsWarnings = leftoverWarnings(decls, root.name, reached);
+  }
+
+  const { doc, warnings: memberWarnings } = objectBodyToDocument(
+    body,
+    resolvers,
+  );
+  const result = jsonSchemaStringToFields(JSON.stringify(doc));
+  return {
+    fields: result.fields,
+    error: result.error,
+    warnings: [...tsWarnings, ...memberWarnings, ...result.warnings],
+  };
 }
 
 function tsKey(key: string): string {
@@ -811,27 +717,15 @@ function jsonSchemaNodeToTsExpr(node: unknown, depth: number): string {
 }
 
 function fieldToTsExpr(f: SchemaField): string {
-  const preset = presetKeyFromField(f);
-  let base: string;
-  if (preset === "json") base = "Record<string, unknown>";
-  else if (preset === "array") base = "unknown[]";
-  else if (preset === "any") base = "unknown";
-  else if (f.jsonSchema !== undefined) {
-    // A rich (non-preset) schema renders to its inline nested TS shape.
-    try {
-      base = jsonSchemaNodeToTsExpr(JSON.parse(f.jsonSchema), 1);
-    } catch {
-      base = "unknown";
-    }
-  } else if (f.enum.length > 0)
-    base = f.enum.map((v) => JSON.stringify(v)).join(" | ");
-  else if (f.type === "integer" || f.type === "float") base = "number";
-  else if (f.type === "boolean") base = "boolean";
-  else base = "string";
-  // The node already encodes its own nullability; only append for the simple
-  // branches (and guard against doubling).
-  if (f.nullable === true && !/\|\s*null$/.test(base)) base += " | null";
-  return base;
+  try {
+    const node =
+      f.jsonSchema !== undefined
+        ? JSON.parse(f.jsonSchema)
+        : simpleSchemaFieldToJSONSchema(f);
+    return jsonSchemaNodeToTsExpr(node, 1);
+  } catch {
+    return "unknown";
+  }
 }
 
 // Serialize fields back to a TypeScript interface (so the editor can show the
