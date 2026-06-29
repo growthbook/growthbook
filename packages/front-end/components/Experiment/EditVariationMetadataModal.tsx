@@ -6,7 +6,6 @@ import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import Field from "@/components/Forms/Field";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
-import Text from "@/ui/Text";
 
 interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -40,15 +39,6 @@ const EditVariationMetadataModal: FC<Props> = ({
       trackingEventModalType="edit-variation-metadata"
       trackingEventModalSource={source}
       header="Edit Variation"
-      subheader={
-        <>
-          Want to edit values? Navigate to{" "}
-          <Text size="large" weight="semibold">
-            {" "}
-            Linked Changes {">"} Edit
-          </Text>
-        </>
-      }
       open={true}
       close={close}
       size="lg"
