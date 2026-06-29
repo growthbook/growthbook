@@ -28,18 +28,10 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
     const { name, description, project, owner, schema, extensible } = req.body;
     const extendsKeys = req.body.extends;
     const bypassApproval = req.body.bypassApproval === true;
-    // Values arrive as native JSON objects; stored/validated as JSON strings.
+    // Value arrives as a native JSON object; stored/validated as a JSON string.
+    // (Configs are environment-agnostic — no per-environment overrides.)
     const value =
       req.body.value !== undefined ? JSON.stringify(req.body.value) : undefined;
-    const environmentValues =
-      req.body.environmentValues !== undefined
-        ? Object.fromEntries(
-            Object.entries(req.body.environmentValues).map(([env, v]) => [
-              env,
-              JSON.stringify(v),
-            ]),
-          )
-        : undefined;
 
     // Convert the schema envelope (JSON Schema / TypeScript) to the internal
     // SimpleSchema; `warnings` surface any lossy degradation back to the caller.
@@ -115,20 +107,6 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
       }
     }
     if (
-      environmentValues !== undefined &&
-      !isEqual(environmentValues, config.environmentValues)
-    ) {
-      for (const [env, v] of Object.entries(environmentValues)) {
-        validateResolvableValue({
-          type: "json",
-          value: v,
-          label: env,
-          refSource: "config",
-        });
-      }
-      fieldsToUpdate.environmentValues = environmentValues;
-    }
-    if (
       resolvedSchema !== undefined &&
       !isEqual(resolvedSchema, config.schema)
     ) {
@@ -186,7 +164,6 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
     if (
       fieldsToUpdate.value !== undefined ||
       fieldsToUpdate.schema !== undefined ||
-      fieldsToUpdate.environmentValues !== undefined ||
       fieldsToUpdate.extensible !== undefined ||
       parentChanged ||
       extendsChanged
@@ -203,11 +180,7 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
           extends: effectiveExtends,
           extensible: fieldsToUpdate.extensible ?? config.extensible,
         },
-        {
-          value: postValue,
-          environmentValues:
-            fieldsToUpdate.environmentValues ?? config.environmentValues,
-        },
+        { value: postValue },
       );
     }
 

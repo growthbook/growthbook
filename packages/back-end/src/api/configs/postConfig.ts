@@ -18,18 +18,10 @@ export const postConfig = createApiRequestHandler(postConfigValidator)(async (
   const { key, name, description, project, owner, schema, extensible } =
     req.body;
   const extendsKeys = req.body.extends;
-  // Values arrive as native JSON objects; stored/validated as JSON strings.
+  // Value arrives as a native JSON object; stored/validated as a JSON string.
+  // (Configs are environment-agnostic — no per-environment overrides.)
   const value =
     req.body.value !== undefined ? JSON.stringify(req.body.value) : undefined;
-  const environmentValues =
-    req.body.environmentValues !== undefined
-      ? Object.fromEntries(
-          Object.entries(req.body.environmentValues).map(([env, v]) => [
-            env,
-            JSON.stringify(v),
-          ]),
-        )
-      : undefined;
 
   if (!req.context.permissions.canCreateConfig({ project: project || "" })) {
     req.context.permissions.throwPermissionError();
@@ -61,14 +53,6 @@ export const postConfig = createApiRequestHandler(postConfigValidator)(async (
       label: "value",
       refSource: "config",
     });
-  for (const [env, v] of Object.entries(environmentValues ?? {})) {
-    validateResolvableValue({
-      type: "json",
-      value: v,
-      label: env,
-      refSource: "config",
-    });
-  }
 
   // Inheritance lives on `parent` (spine) + `extends` (mixins); never in value.
   const parent = req.body.parent || "";
@@ -101,7 +85,7 @@ export const postConfig = createApiRequestHandler(postConfigValidator)(async (
       extends: extendsKeys,
       extensible,
     },
-    { value: storedValue, environmentValues },
+    { value: storedValue },
   );
 
   // Cycle rejection is enforced in ConfigModel (covers every write path).
@@ -118,7 +102,6 @@ export const postConfig = createApiRequestHandler(postConfigValidator)(async (
     parent: parent || undefined,
     extends: extendsKeys,
     value: stripConfigExtends(value),
-    environmentValues,
     description,
     project: project || "",
     schema: normalizedSchema,

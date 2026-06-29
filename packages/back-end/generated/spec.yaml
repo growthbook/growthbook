@@ -18898,24 +18898,14 @@ paths:
                   items:
                     type: string
                 value:
-                  description: This config's value as a JSON object.
+                  description: >-
+                    This config's value as a JSON object. Configs are
+                    environment-agnostic — there is no per-environment override
+                    (use a Constant for that).
                   type: object
                   propertyNames:
                     type: string
                   additionalProperties: {}
-                environmentValues:
-                  description: >-
-                    Per-environment value overrides (environment id → JSON
-                    object). Each override fully replaces `value` for that
-                    environment.
-                  type: object
-                  propertyNames:
-                    type: string
-                  additionalProperties:
-                    type: object
-                    propertyNames:
-                      type: string
-                    additionalProperties: {}
                 description:
                   type: string
                   maxLength: 10000
@@ -19391,27 +19381,14 @@ paths:
                   items:
                     type: string
                 value:
-                  description: This config's value as a JSON object.
+                  description: >-
+                    This config's value as a JSON object. Configs are
+                    environment-agnostic — there is no per-environment override
+                    (use a Constant for that).
                   type: object
                   propertyNames:
                     type: string
                   additionalProperties: {}
-                environmentValues:
-                  description: >-
-                    Per-environment value overrides (environment id → JSON
-                    object). When provided, this REPLACES the entire override
-                    map — send the complete set, not just the environments you
-                    want to change (omit the field to leave overrides
-                    unchanged). Each override fully replaces `value` for that
-                    environment.
-                  type: object
-                  propertyNames:
-                    type: string
-                  additionalProperties:
-                    type: object
-                    propertyNames:
-                      type: string
-                    additionalProperties: {}
                 description:
                   type: string
                   maxLength: 10000
@@ -19885,11 +19862,11 @@ paths:
       operationId: putConfigRevisionValue
       summary: Update the value of a config draft revision
       description: >-
-        Stages a new default `value` and/or per-environment `environmentValues`
-        on the draft (this config's own JSON object fields). At least one must
-        be supplied. Pass `version: "new"` to auto-create a draft. A `@config:`
-        inheritance entry in the value is rejected — express lineage via the
-        `parent`/`extends` metadata fields instead.
+        Stages a new `value` (this config's own JSON object) on the draft. Pass
+        `version: "new"` to auto-create a draft. A `@config:` inheritance entry
+        in the value is rejected — express lineage via the `parent`/`extends`
+        metadata fields instead. Configs are environment-agnostic: there is no
+        per-environment override (use a Constant for that).
 
 
         Set `inferSchemaIfMissing: true` to derive and stage a field schema from
@@ -19924,17 +19901,11 @@ paths:
                 revisionComment:
                   type: string
                 value:
-                  description: This config's own JSON-encoded object value
-                  type: string
-                environmentValues:
-                  description: >-
-                    Per-environment value overrides (environment id →
-                    JSON-encoded object)
+                  description: This config's own value as a JSON object.
                   type: object
                   propertyNames:
                     type: string
-                  additionalProperties:
-                    type: string
+                  additionalProperties: {}
                 inferSchemaIfMissing:
                   description: >-
                     When the config has no schema yet, infer one from the
@@ -42595,24 +42566,12 @@ components:
           description: >-
             This config's own value as a JSON object (its declared fields only —
             inherited fields are layered in at resolution time, not stored
-            here).
+            here). Configs are environment-agnostic: there is no per-environment
+            override (use a Constant for that).
           type: object
           propertyNames:
             type: string
           additionalProperties: {}
-        environmentValues:
-          description: >-
-            Per-environment value overrides (environment id → JSON object). Each
-            override fully replaces `value` for that environment; falls back to
-            `value` when an environment is absent.
-          type: object
-          propertyNames:
-            type: string
-          additionalProperties:
-            type: object
-            propertyNames:
-              type: string
-            additionalProperties: {}
         description:
           type: string
           maxLength: 10000

@@ -37,34 +37,27 @@ export const putConfigRevisionValue = createApiRequestHandler(
     req.context.permissions.throwPermissionError();
   }
 
-  const { value, environmentValues, inferSchemaIfMissing } = req.body;
-  if (value === undefined && environmentValues === undefined) {
-    throw new BadRequestError(
-      "Provide `value` and/or `environmentValues` to update.",
-    );
+  const { inferSchemaIfMissing } = req.body;
+  // Value arrives as a native JSON object; handled as a JSON string internally.
+  // (Configs are environment-agnostic — no per-environment overrides.)
+  const value =
+    req.body.value !== undefined ? JSON.stringify(req.body.value) : undefined;
+  if (value === undefined) {
+    throw new BadRequestError("Provide `value` to update.");
   }
 
-  // Validate the raw value(s) as JSON objects.
-  assertValidConfigValueEdit(value, environmentValues);
+  // Validate the raw value as a JSON object.
+  assertValidConfigValueEdit(value, undefined);
 
-  // Inheritance lives on `parent`; strip any `@config:` ref from stored values.
-  const strippedValue =
-    value !== undefined ? stripConfigExtends(value) : undefined;
-  const strippedEnv = environmentValues
-    ? Object.fromEntries(
-        Object.entries(environmentValues).map(([env, v]) => [
-          env,
-          stripConfigExtends(v) ?? v,
-        ]),
-      )
-    : undefined;
+  // Inheritance lives on `parent`; strip any `@config:` ref from the stored value.
+  const strippedValue = stripConfigExtends(value);
 
   // Reject a draft value that would close a reference cycle (config namespace).
   await assertNoReferenceCycle(
     req.context,
     config.key,
     strippedValue ?? config.value,
-    strippedEnv ?? config.environmentValues,
+    config.environmentValues,
     "config",
   );
 
@@ -99,9 +92,6 @@ export const putConfigRevisionValue = createApiRequestHandler(
 
     const fieldsToUpdate: Record<string, unknown> = {};
     if (strippedValue !== undefined) fieldsToUpdate.value = strippedValue;
-    if (strippedEnv !== undefined) {
-      fieldsToUpdate.environmentValues = strippedEnv;
-    }
 
     // Optionally derive a schema from the value when the draft has none yet, so a
     // value-first import still gets typing/validation. Existing schemas are never
@@ -142,7 +132,7 @@ export const putConfigRevisionValue = createApiRequestHandler(
         parent: draft.parent,
         extends: draft.extends,
       },
-      { value: strippedValue, environmentValues: strippedEnv },
+      { value: strippedValue },
     );
 
     const updated = await createOrUpdateRevision(

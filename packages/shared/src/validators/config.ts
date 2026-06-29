@@ -28,8 +28,15 @@ export const configValidator = z
     // `parent`, these are config `key`s synthesized into `$extends` at resolution
     // time and never stored in `value`.
     extends: z.array(z.string()).optional(),
-    // JSON-encoded object; resolved per env as `environmentValues[env] ?? value`.
+    // Own value, a JSON object stored as a JSON-encoded string.
     value: z.string().optional(),
+    // DECISION: configs are environment-agnostic — they expose a single `value`,
+    // never per-environment overrides. `environmentValues` is NOT serviced by
+    // configs and is absent from every config API surface (create, update, read,
+    // and the revision value edit). It remains on the stored model only because
+    // configs reuse the constant-shaped base + its revision/resolution machinery;
+    // it is never populated for a config. For per-environment values, use a
+    // Constant (which supports env overrides) as the value source.
     environmentValues: z.record(z.string(), z.string()).optional(),
     description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
     project: z.string().optional(),
@@ -130,7 +137,7 @@ const jsonSchemaDocument = z
 // A config's value — always a JSON object. The external API takes/returns it as
 // native JSON (not a JSON-encoded string); the value is stored as a string
 // internally and parsed/stringified at the API boundary.
-const configValueObject = z.record(z.string(), z.unknown());
+export const configValueObject = z.record(z.string(), z.unknown());
 
 // Schema I/O envelope: a config's field schema supplied as a JSON Schema document
 // (canonical, native JSON — no escaping) or TypeScript source. Used for
@@ -217,13 +224,7 @@ export const apiConfigValidator = namedSchema(
         .optional(),
       value: configValueObject
         .describe(
-          "This config's own value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here).",
-        )
-        .optional(),
-      environmentValues: z
-        .record(z.string(), configValueObject)
-        .describe(
-          "Per-environment value overrides (environment id → JSON object). Each override fully replaces `value` for that environment; falls back to `value` when an environment is absent.",
+          "This config's own value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Configs are environment-agnostic: there is no per-environment override (use a Constant for that).",
         )
         .optional(),
       description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
@@ -288,12 +289,8 @@ const postConfigApiBody = z
       )
       .optional(),
     value: configValueObject
-      .describe("This config's value as a JSON object.")
-      .optional(),
-    environmentValues: z
-      .record(z.string(), configValueObject)
       .describe(
-        "Per-environment value overrides (environment id → JSON object). Each override fully replaces `value` for that environment.",
+        "This config's value as a JSON object. Configs are environment-agnostic — there is no per-environment override (use a Constant for that).",
       )
       .optional(),
     description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
@@ -325,12 +322,8 @@ const updateConfigApiBody = z
       )
       .optional(),
     value: configValueObject
-      .describe("This config's value as a JSON object.")
-      .optional(),
-    environmentValues: z
-      .record(z.string(), configValueObject)
       .describe(
-        "Per-environment value overrides (environment id → JSON object). When provided, this REPLACES the entire override map — send the complete set, not just the environments you want to change (omit the field to leave overrides unchanged). Each override fully replaces `value` for that environment.",
+        "This config's value as a JSON object. Configs are environment-agnostic — there is no per-environment override (use a Constant for that).",
       )
       .optional(),
     description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),

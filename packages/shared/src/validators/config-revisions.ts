@@ -8,6 +8,7 @@ import {
   apiConfigValidator,
   apiSchemaWarningValidator,
   configSchemaSourceValidator,
+  configValueObject,
 } from "./config";
 import {
   jsonPatchOperationValidator,
@@ -455,22 +456,15 @@ export const putConfigRevisionValueValidator = {
   operationId: "putConfigRevisionValue",
   summary: "Update the value of a config draft revision",
   description:
-    'Stages a new default `value` and/or per-environment `environmentValues` on the draft (this config\'s own JSON object fields). At least one must be supplied. Pass `version: "new"` to auto-create a draft. A `@config:` inheritance entry in the value is rejected — express lineage via the `parent`/`extends` metadata fields instead.\n\nSet `inferSchemaIfMissing: true` to derive and stage a field schema from the value when the config has none yet.',
+    'Stages a new `value` (this config\'s own JSON object) on the draft. Pass `version: "new"` to auto-create a draft. A `@config:` inheritance entry in the value is rejected — express lineage via the `parent`/`extends` metadata fields instead. Configs are environment-agnostic: there is no per-environment override (use a Constant for that).\n\nSet `inferSchemaIfMissing: true` to derive and stage a field schema from the value when the config has none yet.',
   tags: ["config-revisions"],
   paramsSchema: revisionParams,
   bodySchema: z
     .object({
       ...newDraftMetadataFields,
-      value: z
-        .string()
+      value: configValueObject
         .optional()
-        .describe("This config's own JSON-encoded object value"),
-      environmentValues: z
-        .record(z.string(), z.string())
-        .optional()
-        .describe(
-          "Per-environment value overrides (environment id → JSON-encoded object)",
-        ),
+        .describe("This config's own value as a JSON object."),
       inferSchemaIfMissing: z
         .boolean()
         .optional()
