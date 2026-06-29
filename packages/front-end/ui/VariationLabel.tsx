@@ -17,6 +17,8 @@ export interface VariationLabelProps {
 // Below this available width (px) for the name, we drop the name entirely and
 // show only the VariationNumber, relying on the tooltip to reveal the name.
 const MIN_NAME_WIDTH_PX = 24;
+// Matches the Flex `gap="1"` (var(--space-1)) between the number and the name.
+const FLEX_GAP_PX = 4;
 
 export default function VariationLabel({
   number,
@@ -24,18 +26,23 @@ export default function VariationLabel({
   size = "medium",
   disableTooltip = false,
 }: VariationLabelProps) {
-  const slotRef = useRef<HTMLDivElement>(null);
+  // The root always fills the available width regardless of `hideName`, so the
+  // ResizeObserver stays attached and re-measures when the container grows.
+  const rootRef = useRef<HTMLDivElement>(null);
+  const numberRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLDivElement>(null);
   const [hideName, setHideName] = useState(false);
   const [isTruncated, setIsTruncated] = useState(false);
 
   useEffect(() => {
-    const slot = slotRef.current;
-    if (!slot) return;
+    const root = rootRef.current;
+    if (!root) return;
 
     const measure = () => {
-      const width = slot.clientWidth;
-      setHideName(width > 0 && width < MIN_NAME_WIDTH_PX);
+      const rootWidth = root.clientWidth;
+      const numberWidth = numberRef.current?.offsetWidth ?? 0;
+      const nameWidth = rootWidth - numberWidth - FLEX_GAP_PX;
+      setHideName(rootWidth > 0 && nameWidth < MIN_NAME_WIDTH_PX);
       const text = textRef.current;
       setIsTruncated(!!text && text.scrollWidth > text.clientWidth);
     };
@@ -43,16 +50,16 @@ export default function VariationLabel({
     measure();
 
     const observer = new ResizeObserver(measure);
-    observer.observe(slot);
+    observer.observe(root);
     return () => observer.disconnect();
-  }, [name, size, hideName]);
+  }, [name, size, number]);
 
-  const variationNumber = <VariationNumber number={number} />;
+  const variationNumber = <VariationNumber ref={numberRef} number={number} />;
 
   const content = (
     <Flex align="center" gap="1" minWidth="0">
       {variationNumber}
-      <Box ref={slotRef} minWidth="0" flexGrow="1" overflow="hidden">
+      <Box minWidth="0" flexGrow="1" overflow="hidden">
         {!hideName ? (
           <Text
             ref={textRef}
@@ -69,15 +76,23 @@ export default function VariationLabel({
     </Flex>
   );
 
-  if (disableTooltip) return content;
+  if (disableTooltip) {
+    return (
+      <Box ref={rootRef} minWidth="0">
+        {content}
+      </Box>
+    );
+  }
 
   return (
-    <Tooltip
-      body={name}
-      shouldDisplay={hideName || isTruncated}
-      tipPosition="top"
-    >
-      {hideName ? variationNumber : content}
-    </Tooltip>
+    <Box ref={rootRef} minWidth="0">
+      <Tooltip
+        body={name}
+        shouldDisplay={hideName || isTruncated}
+        tipPosition="top"
+      >
+        {hideName ? variationNumber : content}
+      </Tooltip>
+    </Box>
   );
 }

@@ -82,6 +82,28 @@ export default function VariationLabelStories() {
           ))}
         </Flex>
       </Flex>
+
+      <Flex direction="column" gap="2">
+        <Text size="2" weight="bold">
+          Resizable (drag the right edge)
+        </Text>
+        <Box
+          p="2"
+          style={{
+            width: 280,
+            minWidth: 28,
+            maxWidth: "100%",
+            resize: "horizontal",
+            overflow: "auto",
+            border: "1px solid var(--gray-6)",
+          }}
+        >
+          <VariationLabel
+            number={2}
+            name="A very long variation name that should truncate"
+          />
+        </Box>
+      </Flex>
     </Flex>
   );
 }
