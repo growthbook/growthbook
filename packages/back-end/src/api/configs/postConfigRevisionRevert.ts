@@ -95,9 +95,6 @@ export const postConfigRevisionRevert = createApiRequestHandler(
   // ?skipSchemaValidation=true.
   const revertedValue =
     (fieldsToUpdate.value as string | undefined) ?? config.value;
-  const revertedEnv =
-    (fieldsToUpdate.environmentValues as Record<string, string> | undefined) ??
-    config.environmentValues;
   const revertLeaf = {
     key: config.key,
     name: config.name,
@@ -108,7 +105,7 @@ export const postConfigRevisionRevert = createApiRequestHandler(
     extensible:
       (fieldsToUpdate.extensible as boolean | undefined) ?? config.extensible,
   };
-  const revertValues = { value: revertedValue, environmentValues: revertedEnv };
+  const revertValues = { value: revertedValue };
   if (isPublish) {
     await assertConfigValueValidForPublish(
       req.context,

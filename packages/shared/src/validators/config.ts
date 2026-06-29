@@ -29,15 +29,12 @@ export const configValidator = z
     // time and never stored in `value`.
     extends: z.array(z.string()).optional(),
     // Own value, a JSON object stored as a JSON-encoded string.
+    //
+    // DECISION: configs are environment-agnostic — they expose a single `value`
+    // and have NO per-environment overrides anywhere (no `environmentValues`
+    // field, on any API or the model). For per-environment values, use a Constant
+    // (which supports env overrides) as the value source.
     value: z.string().optional(),
-    // DECISION: configs are environment-agnostic — they expose a single `value`,
-    // never per-environment overrides. `environmentValues` is NOT serviced by
-    // configs and is absent from every config API surface (create, update, read,
-    // and the revision value edit). It remains on the stored model only because
-    // configs reuse the constant-shaped base + its revision/resolution machinery;
-    // it is never populated for a config. For per-environment values, use a
-    // Constant (which supports env overrides) as the value source.
-    environmentValues: z.record(z.string(), z.string()).optional(),
     description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
     project: z.string().optional(),
     archived: z.boolean().optional(),
@@ -59,7 +56,6 @@ export const configUpdatableFieldsSchema = configValidator.pick({
   parent: true,
   extends: true,
   value: true,
-  environmentValues: true,
   description: true,
   project: true,
   archived: true,

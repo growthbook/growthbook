@@ -20,7 +20,6 @@ type ConfigLeaf = Pick<ConfigInterface, "key" | "name" | "value"> & {
   parent?: string;
   extends?: string[];
   extensible?: boolean;
-  environmentValues?: Record<string, string>;
 };
 
 // Resolve a config's effective schema fields + extensibility across its full
@@ -50,7 +49,6 @@ export async function getEffectiveConfigSchema(
 
 type ConfigValues = {
   value?: string;
-  environmentValues?: Record<string, string>;
 };
 
 // Collect (don't throw) every schema-conformance error for a config's staged
@@ -81,9 +79,6 @@ async function collectConfigValueErrors(
     if (!res.valid) errors.push(`${label}: ${res.errors.join(", ")}`);
   };
   check(values.value, "value");
-  for (const [env, v] of Object.entries(values.environmentValues ?? {})) {
-    check(v, `environmentValues.${env}`);
-  }
   return errors;
 }
 
@@ -112,13 +107,8 @@ export async function getIncompatibleConfigFields(
   leaf: ConfigLeaf,
 ): Promise<string[]> {
   const { fields } = await getEffectiveConfigSchema(context, leaf);
-  // Union over the default value AND every environment override — a stale prod
-  // value must surface even when the default conforms.
   const incompatible = new Set<string>();
-  for (const raw of [
-    leaf.value,
-    ...Object.values(leaf.environmentValues ?? {}),
-  ]) {
+  for (const raw of [leaf.value]) {
     const obj = parsePlainJSONObject(raw ?? "");
     if (!obj) continue;
     for (const k of findIncompatibleConfigValueKeys({

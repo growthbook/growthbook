@@ -11,24 +11,15 @@ export type ResolvableValue = ConstantInterface & { source: ConstantSource };
 
 // Shapes a config as a `json` constant. Synthesizes the `$extends` directive
 // from the config's base keys (`parent` + `extends` mixins, in precedence
-// order) into the default + each env value, so resolution, cycle detection, and
-// the reference graph see the full composition.
+// order) into the value, so resolution, cycle detection, and the reference graph
+// see the full composition. Configs are environment-agnostic — no env overrides.
 export function configToResolvable(config: ConfigInterface): ResolvableValue {
   const baseKeys = getConfigBaseKeys(config);
-  const environmentValues = config.environmentValues
-    ? Object.fromEntries(
-        Object.entries(config.environmentValues).map(([env, v]) => [
-          env,
-          withConfigExtends(v, baseKeys),
-        ]),
-      )
-    : config.environmentValues;
   return {
     ...config,
     type: "json",
     source: "config",
     value: withConfigExtends(config.value, baseKeys),
-    environmentValues,
   };
 }
 

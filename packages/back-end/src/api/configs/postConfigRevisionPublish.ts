@@ -166,13 +166,7 @@ export const postConfigRevisionPublish = createApiRequestHandler(
       extensible:
         (desiredState.extensible as boolean | undefined) ?? config.extensible,
     },
-    {
-      value: postValue,
-      environmentValues:
-        (desiredState.environmentValues as
-          | Record<string, string>
-          | undefined) ?? config.environmentValues,
-    },
+    { value: postValue },
   );
 
   // Claim the merge BEFORE applying to the live entity. `merge` is CAS-guarded,

@@ -47,7 +47,7 @@ export const putConfigRevisionValue = createApiRequestHandler(
   }
 
   // Validate the raw value as a JSON object.
-  assertValidConfigValueEdit(value, undefined);
+  assertValidConfigValueEdit(value);
 
   // Inheritance lives on `parent`; strip any `@config:` ref from the stored value.
   const strippedValue = stripConfigExtends(value);
@@ -57,7 +57,7 @@ export const putConfigRevisionValue = createApiRequestHandler(
     req.context,
     config.key,
     strippedValue ?? config.value,
-    config.environmentValues,
+    undefined,
     "config",
   );
 

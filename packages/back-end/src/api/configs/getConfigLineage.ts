@@ -38,13 +38,8 @@ export const getConfigLineage = createApiRequestHandler(
     const fields = resolveConfigChain(
       linearizeConfigDag(nodeKey, byKey),
     ).effectiveSchema;
-    // Union over the default value AND every environment override — a stale prod
-    // value must get the "must fix" flag even when the default conforms.
     const incompatible = new Set<string>();
-    for (const raw of [
-      node.value,
-      ...Object.values(node.environmentValues ?? {}),
-    ]) {
+    for (const raw of [node.value]) {
       const obj = parsePlainJSONObject(raw ?? "");
       if (!obj) continue;
       for (const k of findIncompatibleConfigValueKeys({

@@ -163,13 +163,10 @@ export function pickNewDraftMetadata(body: {
   return { title: body.revisionTitle, comment: body.revisionComment };
 }
 
-// Validate a staged value/environmentValues edit. Configs are always JSON
-// objects (empty allowed). `@const:` refs are allowed; lineage is expressed via
+// Validate a staged value edit. Configs are always JSON objects (empty allowed)
+// and environment-agnostic. `@const:` refs are allowed; lineage is expressed via
 // `parent`/`extends`, so a `@config:` ref in the value is rejected here.
-export function assertValidConfigValueEdit(
-  value: string | undefined,
-  environmentValues: Record<string, string> | undefined,
-): void {
+export function assertValidConfigValueEdit(value: string | undefined): void {
   try {
     if (value !== undefined)
       validateResolvableValue({
@@ -178,14 +175,6 @@ export function assertValidConfigValueEdit(
         label: "value",
         refSource: "config",
       });
-    for (const [env, v] of Object.entries(environmentValues ?? {})) {
-      validateResolvableValue({
-        type: "json",
-        value: v,
-        label: env,
-        refSource: "config",
-      });
-    }
   } catch (e) {
     throw new BadRequestError(e instanceof Error ? e.message : String(e));
   }

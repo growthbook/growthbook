@@ -1648,7 +1648,7 @@ export default function ConfigDetailPage(): React.ReactElement {
               },
               {
                 label: "Value",
-                keys: ["value", "environmentValues"],
+                keys: ["value"],
                 render: renderConstantValues,
                 getBadges: getConstantValuesBadges,
               },

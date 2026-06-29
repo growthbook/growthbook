@@ -95,7 +95,7 @@ export const putConfigRevisionSchema = createApiRequestHandler(
         parent: draft.parent,
         extends: draft.extends,
       },
-      { value: draft.value, environmentValues: draft.environmentValues },
+      { value: draft.value },
     );
 
     const updated = await createOrUpdateRevision(

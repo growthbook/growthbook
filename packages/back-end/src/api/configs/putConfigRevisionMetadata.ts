@@ -121,7 +121,7 @@ export const putConfigRevisionMetadata = createApiRequestHandler(
           extensible:
             typeof extensible !== "undefined" ? extensible : draft.extensible,
         },
-        { value: draft.value, environmentValues: draft.environmentValues },
+        { value: draft.value },
       );
 
       // A lineage change shifts which fields the bases own, so re-normalize the

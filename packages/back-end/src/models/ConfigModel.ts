@@ -87,7 +87,7 @@ export class ConfigModel extends BaseClass {
     const cyclic = getCyclicConstantRefs(
       doc.key,
       effectiveValue,
-      doc.environmentValues,
+      undefined,
       (await this.getAllForReconcile()).map(configToResolvable),
       "config",
     );
@@ -117,8 +117,7 @@ export class ConfigModel extends BaseClass {
     if (
       updates.parent !== undefined ||
       updates.extends !== undefined ||
-      updates.value !== undefined ||
-      updates.environmentValues !== undefined
+      updates.value !== undefined
     ) {
       await this.assertNoCycle(newDoc);
     }
@@ -238,7 +237,6 @@ export class ConfigModel extends BaseClass {
       updates.parent !== undefined ||
       updates.extends !== undefined ||
       updates.value !== undefined ||
-      updates.environmentValues !== undefined ||
       updates.project !== undefined ||
       updates.archived !== undefined
     ) {
@@ -354,10 +352,7 @@ export class ConfigModel extends BaseClass {
 
   // Value-omitted projection for the definitions context (values can be large).
   public async getAllWithoutValues(): Promise<ConfigWithoutValue[]> {
-    const configs = await this._find(
-      {},
-      { projection: { value: 0, environmentValues: 0 } },
-    );
+    const configs = await this._find({}, { projection: { value: 0 } });
     return configs as ConfigWithoutValue[];
   }
 
