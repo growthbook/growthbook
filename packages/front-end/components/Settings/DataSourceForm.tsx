@@ -181,6 +181,7 @@ const DataSourceForm: FC<{
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       inline={inline}
       open={true}
@@ -251,6 +252,7 @@ const DataSourceForm: FC<{
         })}
         helpText={
           <DocLink
+            useRadix={false}
             docSection={datasource.type as DocSection}
             fallBackSection="datasources"
           >

@@ -148,7 +148,6 @@ export default function SavedGroupArchiveModal({
         close();
       }}
       ctaEnabled={canSubmit}
-      useRadixButton={true}
     >
       <DraftSelector
         hasActiveDrafts={activeDrafts.length > 0}

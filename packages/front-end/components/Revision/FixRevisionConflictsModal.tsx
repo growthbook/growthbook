@@ -288,7 +288,6 @@ export default function FixRevisionConflictsModal({
       close={close}
       closeCta="Cancel"
       size="max"
-      useRadixButton={true}
     >
       <Page
         display="Fix Conflicts"

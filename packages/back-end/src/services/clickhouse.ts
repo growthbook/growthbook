@@ -14,6 +14,11 @@ import {
   MaterializedColumn,
 } from "shared/types/datasource";
 import { SDKAttributeSchema } from "shared/types/organization";
+import type {
+  ExperimentEvalItem,
+  FeatureEvalItem,
+  SessionEventItem,
+} from "shared/validators";
 import { ColumnInterface } from "shared/types/fact-table";
 import { isEqual } from "lodash";
 import type { ReqContext } from "back-end/types/request";
@@ -25,9 +30,12 @@ import {
   updateFactTableColumns,
 } from "back-end/src/models/FactTableModel";
 import {
+  getGrowthbookDatasource,
   dangerouslyGetGrowthbookDatasourceBypassPermission,
   updateDataSource,
 } from "back-end/src/models/DataSourceModel";
+import { getSourceIntegrationObject } from "back-end/src/services/datasource";
+import SqlIntegration from "back-end/src/integrations/SqlIntegration";
 import { updateMaterializedColumnsInClickhouse } from "back-end/src/services/licenseServerManagedClickhouse";
 import { logger } from "back-end/src/util/logger";
 
@@ -60,7 +68,6 @@ export function getReservedColumnNames(): Set<string> {
     ].map((col) => col.toLowerCase()),
   );
 }
-
 export async function updateMaterializedColumns({
   context,
   datasource,
@@ -162,6 +169,189 @@ export async function updateMaterializedColumns({
       context,
     );
   }
+}
+
+// --- Session Replay ---
+
+export type SessionReplayRow = {
+  session_replay_id: string;
+  organization: string;
+  client_key: string;
+  user_id: string;
+  // Persistent device id from the autoAttributesPlugin gbuuid cookie.
+  // Separate from user_id (the logged-in identity) — lets sessions be
+  // grouped by browser across anonymous → authenticated transitions.
+  device_id: string;
+  s3_key: string;
+  started_at: string;
+  ended_at: string;
+  last_event_at: string;
+  duration_ms: number;
+  event_count: number;
+  error_count: number;
+  url_first: string;
+  urls_visited: string[];
+  page_title: string;
+  viewport_width: number;
+  viewport_height: number;
+  attributes: Record<string, string>;
+  // Flat key arrays aggregated across all chunks by the sessions view.
+  // Use these for filtering and list display.
+  feature_keys: string[];
+  experiment_keys: string[];
+  // Per-chunk structured eval/event history. Present on raw table rows,
+  // absent from the sessions view. Merged across chunks in application
+  // code for the detail view.
+  feature_evals?: { items: FeatureEvalItem[] };
+  experiment_evals?: { items: ExperimentEvalItem[] };
+  session_events?: { items: SessionEventItem[] };
+  country: string;
+  user_agent: string;
+  device: string;
+  browser: string;
+  created_at: string;
+};
+
+export async function listSessionReplays(
+  context: ReqContext,
+  options?: {
+    userId?: string;
+    clientKey?: string;
+    /** Pre-filter to sessions from these SDK connection keys (permission scoping) */
+    clientKeys?: string[];
+    url?: string;
+    country?: string;
+    device?: string;
+    /** Inclusive lower bound in seconds */
+    minDurationSecs?: number;
+    /** Inclusive upper bound in seconds */
+    maxDurationSecs?: number;
+    minEventCount?: number;
+    maxEventCount?: number;
+    /** Filter to sessions where this feature flag was evaluated */
+    featureKey?: string;
+    /** Filter to sessions where this experiment was exposed */
+    experimentKey?: string;
+    limit?: number;
+    offset?: number;
+  },
+): Promise<SessionReplayRow[]> {
+  const datasource = await getGrowthbookDatasource(context);
+  if (!datasource) return [];
+
+  const integration = getSourceIntegrationObject(
+    context,
+    datasource,
+  ) as SqlIntegration;
+  const conditions: string[] = [];
+
+  if (options?.userId) {
+    conditions.push(`user_id = '${escapeClickhouseString(options.userId)}'`);
+  }
+  if (options?.clientKeys?.length) {
+    const escaped = options.clientKeys
+      .map((k) => `'${escapeClickhouseString(k)}'`)
+      .join(", ");
+    conditions.push(`client_key IN (${escaped})`);
+  }
+  if (options?.clientKey) {
+    conditions.push(
+      `client_key = '${escapeClickhouseString(options.clientKey)}'`,
+    );
+  }
+  if (options?.url) {
+    conditions.push(
+      `positionCaseInsensitive(url_first, ${toClickhouseStringLiteral(options.url)}) > 0`,
+    );
+  }
+  if (options?.country) {
+    conditions.push(`country = '${escapeClickhouseString(options.country)}'`);
+  }
+  if (options?.device) {
+    conditions.push(`device = '${escapeClickhouseString(options.device)}'`);
+  }
+  if (options?.minDurationSecs !== undefined) {
+    conditions.push(
+      `duration_ms >= ${Math.round(options.minDurationSecs * 1000)}`,
+    );
+  }
+  if (options?.maxDurationSecs !== undefined) {
+    conditions.push(
+      `duration_ms <= ${Math.round(options.maxDurationSecs * 1000)}`,
+    );
+  }
+  if (options?.minEventCount !== undefined) {
+    conditions.push(`event_count >= ${Math.round(options.minEventCount)}`);
+  }
+  if (options?.maxEventCount !== undefined) {
+    conditions.push(`event_count <= ${Math.round(options.maxEventCount)}`);
+  }
+  if (options?.featureKey) {
+    const escaped = escapeClickhouseString(options.featureKey);
+    conditions.push(`has(feature_keys, '${escaped}')`);
+  }
+  if (options?.experimentKey) {
+    const escaped = escapeClickhouseString(options.experimentKey);
+    conditions.push(`has(experiment_keys, '${escaped}')`);
+  }
+
+  const limit = Math.max(1, Math.min(100, Math.floor(options?.limit ?? 100)));
+  const offset = Math.max(0, Math.floor(options?.offset ?? 0));
+  // Always exclude soft-deleted from the list; callers that explicitly want
+  // them must use a future bulk-list-by-id endpoint that doesn't go through
+  // this function. Add this BEFORE the user-supplied conditions so it can't
+  // be overridden by an empty filter.
+  const allConditions = ["deleted_at IS NULL", ...conditions];
+  const where = `WHERE ${allConditions.join(" AND ")}`;
+
+  const { rows } = await integration.runQuery(
+    `
+    SELECT *, ingested_at AS created_at
+    FROM session_replay_sessions
+    ${where}
+    ORDER BY started_at DESC
+    LIMIT ${limit}
+    OFFSET ${offset}
+  `,
+    undefined,
+    { queryType: "sessionReplayList" },
+  );
+
+  return rows as unknown as SessionReplayRow[];
+}
+
+function escapeClickhouseString(value: string): string {
+  return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+}
+
+function toClickhouseStringLiteral(value: string): string {
+  return `'${escapeClickhouseString(value)}'`;
+}
+
+export async function getSessionReplayChunksBySessionId(
+  context: ReqContext,
+  sessionId: string,
+): Promise<SessionReplayRow[]> {
+  const datasource = await getGrowthbookDatasource(context);
+  if (!datasource) return [];
+
+  const integration = getSourceIntegrationObject(
+    context,
+    datasource,
+  ) as SqlIntegration;
+  const sanitizedSessionId = sessionId.replace(/[^a-zA-Z0-9_-]/g, "");
+
+  const { rows } = await integration.runQuery(
+    `
+    SELECT *, ingested_at AS created_at
+    FROM session_replay_metadata
+    WHERE session_replay_id = '${sanitizedSessionId}' AND deleted_at IS NULL
+  `,
+    undefined,
+    { queryType: "sessionReplayDetail" },
+  );
+
+  return rows as unknown as SessionReplayRow[];
 }
 
 // Re-sync a JSON-column managed warehouse after the org's identifiers change:

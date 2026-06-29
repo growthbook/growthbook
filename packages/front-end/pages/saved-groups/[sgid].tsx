@@ -434,6 +434,7 @@ export default function EditSavedGroupPage() {
       )}
       {deleteItemsModal && (
         <Modal
+          useRadixButton={false}
           trackingEventModalType="delete-saved-group-items"
           close={() => setDeleteItemsModal(false)}
           open={deleteItemsModal}
@@ -500,6 +501,7 @@ export default function EditSavedGroupPage() {
       )}
       {addItems && (
         <Modal
+          useRadixButton={false}
           trackingEventModalType={`edit-saved-group-${importOperation}-items`}
           close={() => {
             setAddItems(false);
@@ -679,7 +681,6 @@ export default function EditSavedGroupPage() {
           trackingEventModalType="show-saved-group-references"
           close={() => setShowReferencesModal(false)}
           open={showReferencesModal}
-          useRadixButton={true}
           closeCta="Close"
         >
           <Text as="p" mb="3">
@@ -706,7 +707,6 @@ export default function EditSavedGroupPage() {
               size="max"
               hideCta={true}
               closeCta="Close"
-              useRadixButton={true}
             >
               <RevisionDetail<SavedGroupInterface>
                 diffConfig={REVISION_SAVED_GROUP_DIFF_CONFIG}
@@ -752,6 +752,7 @@ export default function EditSavedGroupPage() {
             archiveDrifts && liveArchived && !targetArchived;
           return (
             <Modal
+              useRadixButton={false}
               header="Revert Merged Revision"
               trackingEventModalType="revert-revision"
               close={() => {
@@ -911,7 +912,6 @@ export default function EditSavedGroupPage() {
           header="Create New Draft"
           cta="Create Draft"
           loading={creatingDraft}
-          useRadixButton={true}
           submit={async () => {
             setCreatingDraft(true);
             try {
@@ -1527,7 +1527,9 @@ export default function EditSavedGroupPage() {
                 <Callout status="info">
                   This saved group has legacy behavior when empty and will be
                   completely ignored when used for targeting.{" "}
-                  <DocLink docSection="idLists">Learn More</DocLink>
+                  <DocLink useRadix={false} docSection="idLists">
+                    Learn More
+                  </DocLink>
                 </Callout>
               )}
           </>

@@ -307,7 +307,7 @@ const MemberList: FC<{
                     <td>
                       {member.id !== userId && (
                         <>
-                          <MoreMenu>
+                          <MoreMenu useRadix={false}>
                             {canEditRoles && (
                               <button
                                 className="dropdown-item"
@@ -343,6 +343,7 @@ const MemberList: FC<{
                             )}
                             {canDeleteMembers && (
                               <DeleteButton
+                                useRadix={false}
                                 link={true}
                                 text="Remove User"
                                 useIcon={false}

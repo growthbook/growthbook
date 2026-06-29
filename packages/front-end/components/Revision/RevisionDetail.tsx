@@ -407,6 +407,7 @@ function RevisionDetail<T>({
     <Box>
       {confirmReopen && onReopen && (
         <Modal
+          useRadixButton={false}
           trackingEventModalType=""
           header="Reopen Revision"
           close={() => setConfirmReopen(false)}

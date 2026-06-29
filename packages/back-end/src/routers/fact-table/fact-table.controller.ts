@@ -333,7 +333,7 @@ export const putFactTable = async (
     >
   > | null = null;
 
-  if (forceColumnRefresh || needsColumnRefresh(data)) {
+  if (forceColumnRefresh || needsColumnRefresh(factTable, data)) {
     const { columns, needsBackgroundRefresh } = await refreshColumns(
       context,
       datasource,
