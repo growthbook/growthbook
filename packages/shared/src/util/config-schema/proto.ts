@@ -1,6 +1,8 @@
 import { SchemaField } from "shared/types/feature";
 import { simpleSchemaFieldToJSONSchema } from "../features";
 import { normalizeField } from "./fields";
+import { isIntegerSchemaNode, pascalCaseTypeName } from "./naming";
+import { matchBraces, stripSlashComments } from "./parse-utils";
 import { jsonSchemaStringToFields } from "./json-schema";
 import {
   SchemaConversionResult,
@@ -38,67 +40,6 @@ const SCALARS: Record<string, Record<string, unknown>> = {
   bool: { type: "boolean" },
   string: { type: "string" },
 };
-
-function stripComments(text: string): string {
-  let out = "";
-  for (let i = 0; i < text.length; i++) {
-    const c = text[i];
-    if (c === '"' || c === "'") {
-      const quote = c;
-      out += c;
-      i++;
-      while (i < text.length) {
-        out += text[i];
-        if (text[i] === "\\") {
-          out += text[i + 1] ?? "";
-          i++;
-        } else if (text[i] === quote) break;
-        i++;
-      }
-      continue;
-    }
-    if (c === "/" && text[i + 1] === "/") {
-      while (i < text.length && text[i] !== "\n") i++;
-      out += "\n";
-      continue;
-    }
-    if (c === "/" && text[i + 1] === "*") {
-      i += 2;
-      while (i < text.length && !(text[i] === "*" && text[i + 1] === "/")) i++;
-      i++;
-      continue;
-    }
-    out += c;
-  }
-  return out;
-}
-
-// Body between a `{` at `open` and its matching `}` (string-aware). Returns the
-// inner text and the index just past the closing brace.
-function matchBraces(
-  text: string,
-  open: number,
-): { body: string; end: number } {
-  let depth = 0;
-  for (let i = open; i < text.length; i++) {
-    const c = text[i];
-    if (c === '"' || c === "'") {
-      const quote = c;
-      i++;
-      while (i < text.length && text[i] !== quote) {
-        if (text[i] === "\\") i++;
-        i++;
-      }
-      continue;
-    }
-    if (c === "{") depth++;
-    else if (c === "}") {
-      depth--;
-      if (depth === 0) return { body: text.slice(open + 1, i), end: i + 1 };
-    }
-  }
-  return { body: text.slice(open + 1), end: text.length };
-}
 
 type ProtoDecl = { kind: "message" | "enum"; name: string; body: string };
 
@@ -335,7 +276,7 @@ function captureMessageNames(
 }
 
 export function protoToFields(text: string): SchemaConversionResult {
-  const clean = stripComments(text);
+  const clean = stripSlashComments(text);
   const decls = collectDecls(clean);
   const byName = new Map(decls.map((d) => [d.name, d]));
   const root = selectRoot(decls, byName);
@@ -401,16 +342,6 @@ export function protoToFields(text: string): SchemaConversionResult {
 // become generated nested messages).
 // =========================================================================
 
-function pascalCase(key: string): string {
-  return (
-    key
-      .split(/[^A-Za-z0-9]+/)
-      .filter(Boolean)
-      .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
-      .join("") || "Nested"
-  );
-}
-
 const SCALAR_OUT: Record<string, string> = {
   string: "string",
   boolean: "bool",
@@ -468,7 +399,8 @@ function protoTypeFor(
     if (!props || typeof props !== "object" || !Object.keys(props).length) {
       return { token: "string", comment: "free-form object (JSON string)" };
     }
-    let name = ctx.projection?.typeNames?.[ctx.pointer] ?? pascalCase(key);
+    let name =
+      ctx.projection?.typeNames?.[ctx.pointer] ?? pascalCaseTypeName(key);
     // Disambiguate name collisions so each object field keeps its own message
     // (two `message X {}` blocks would be invalid proto3). Reserve before
     // recursing so nested fields can't reclaim the same name.
@@ -490,13 +422,10 @@ function protoTypeFor(
     );
     return { token: name };
   }
-  // Integers ride JSON Schema as `{type:"number", multipleOf:1}` (or `integer`);
-  // everything else `number` is a double.
-  if (t === "integer") return { token: "int32" };
-  if (t === "number") {
-    const isInt = node.multipleOf === 1 || node.format === "number";
-    return { token: isInt ? "int32" : "double" };
+  if (isIntegerSchemaNode(node, typeof t === "string" ? t : undefined)) {
+    return { token: "int32" };
   }
+  if (t === "number") return { token: "double" };
   if (typeof t === "string" && t in SCALAR_OUT) {
     return { token: SCALAR_OUT[t] };
   }

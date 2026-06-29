@@ -1,6 +1,7 @@
 import { SchemaField } from "shared/types/feature";
 import { simpleSchemaFieldToJSONSchema } from "../features";
 import { normalizeField } from "./fields";
+import { jsonPointerEscape } from "./naming";
 import { jsonSchemaStringToFields } from "./json-schema";
 import {
   SchemaConversionResult,
@@ -646,10 +647,6 @@ function objectBodyToDocument(
   const doc: Record<string, unknown> = { type: "object", properties };
   if (required.length) doc.required = required;
   return { doc, warnings };
-}
-
-function jsonPointerEscape(key: string): string {
-  return key.replace(/~/g, "~0").replace(/\//g, "~1");
 }
 
 // Walk an object body recording, for each member whose type is a NAMED object

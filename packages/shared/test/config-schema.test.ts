@@ -6,6 +6,12 @@ import {
   fieldsCanonicallyEqual,
   fieldsToProto,
   fieldsToTsType,
+  fieldsToGolang,
+  golangToFields,
+  fieldsToRust,
+  rustToFields,
+  fieldsToPython,
+  pythonToFields,
   protoToFields,
   inferFieldFromValue,
   inferFieldsFromValue,
@@ -1173,5 +1179,260 @@ describe("proto projection (named-message round-trip)", () => {
     // field key "retry" → generated "Retry", not the original "RetryPolicy"
     expect(proto).toContain("Retry retry = 2;");
     expect(proto).not.toContain("message RetryPolicy");
+  });
+});
+
+describe("golang converter", () => {
+  it("renders scalars, arrays, nested structs, and enums", () => {
+    const fields = [
+      field({ key: "service_name", type: "string" }),
+      field({ key: "port", type: "integer" }),
+      field({ key: "ratio", type: "float" }),
+      field({ key: "enabled", type: "boolean" }),
+      field({ key: "mode", enum: ["lru", "lfu"] }),
+      field({
+        key: "origins",
+        jsonSchema: JSON.stringify({
+          type: "array",
+          items: { type: "string" },
+        }),
+      }),
+      field({
+        key: "http",
+        jsonSchema: JSON.stringify({
+          type: "object",
+          properties: { base_url: { type: "string" } },
+          required: ["base_url"],
+        }),
+      }),
+    ];
+    const go = fieldsToGolang(fields, { name: "AppConfig" });
+    expect(go).toContain("type AppConfig struct {");
+    expect(go).toContain('ServiceName string `json:"service_name"`');
+    expect(go).toContain('Port int `json:"port"`');
+    expect(go).toContain('Ratio float64 `json:"ratio"`');
+    expect(go).toContain('Enabled bool `json:"enabled"`');
+    expect(go).toMatch(/Mode string `json:"mode"` \/\/ one of/);
+    expect(go).toContain('Origins []string `json:"origins"`');
+    expect(go).toContain('Http Http `json:"http"`');
+    expect(go).toContain("type Http struct {");
+    expect(go).toContain('BaseUrl string `json:"base_url"`');
+  });
+
+  it("renders an optional/nullable field as a pointer with omitempty", () => {
+    const go = fieldsToGolang([
+      field({ key: "name", type: "string" }),
+      field({ key: "note", type: "string", required: false }),
+    ]);
+    expect(go).toContain('Name string `json:"name"`');
+    expect(go).toContain('Note *string `json:"note,omitempty"`');
+  });
+
+  it("round-trips a struct: go -> fields -> go (names + optionality preserved)", () => {
+    const src =
+      `type Cfg struct {
+  Name string ` +
+      '`json:"name"`' +
+      `
+  Count *int  ` +
+      '`json:"count,omitempty"`' +
+      `
+}`;
+    const { fields, error } = golangToFields(src);
+    expect(error).toBeNull();
+    const go = fieldsToGolang(fields, { name: "Cfg" });
+    expect(go).toContain('Name string `json:"name"`');
+    expect(go).toContain('Count *int `json:"count,omitempty"`');
+  });
+
+  it("captures and replays nested struct names by JSON-Pointer", () => {
+    const src =
+      `type RetryPolicy struct {
+  MaxAttempts int ` +
+      '`json:"max_attempts"`' +
+      `
+}
+type AppConfig struct {
+  Name  string      ` +
+      '`json:"name"`' +
+      `
+  Retry RetryPolicy ` +
+      '`json:"retry"`' +
+      `
+}`;
+    const { fields, projection } = golangToFields(src);
+    expect(projection?.language).toBe("go");
+    expect(projection?.rootName).toBe("AppConfig");
+    expect(projection?.typeNames).toEqual({
+      "/properties/retry": "RetryPolicy",
+    });
+    const go = fieldsToGolang(fields, { projection });
+    expect(go).toContain("type AppConfig struct {");
+    expect(go).toContain("type RetryPolicy struct {");
+    expect(go).toContain("Retry RetryPolicy");
+  });
+
+  it("disambiguates colliding generated struct names", () => {
+    const objA = JSON.stringify({
+      type: "object",
+      properties: { a: { type: "string" } },
+      required: ["a"],
+    });
+    const objB = JSON.stringify({
+      type: "object",
+      properties: { b: { type: "integer" } },
+      required: ["b"],
+    });
+    const go = fieldsToGolang([
+      field({ key: "retry", jsonSchema: objA }),
+      field({ key: "Retry", jsonSchema: objB }),
+    ]);
+    const names = [...go.matchAll(/type (\w+) struct/g)].map((m) => m[1]);
+    expect(new Set(names).size).toBe(names.length);
+    expect(go).toContain("type Retry struct {");
+    expect(go).toContain("type Retry2 struct {");
+  });
+});
+
+describe("rust converter", () => {
+  it("renders scalars, arrays, nested structs, optionals, and enums", () => {
+    const fields = [
+      field({ key: "service_name", type: "string" }),
+      field({ key: "port", type: "integer" }),
+      field({ key: "note", type: "string", required: false }),
+      field({ key: "mode", enum: ["lru", "lfu"] }),
+      field({
+        key: "origins",
+        jsonSchema: JSON.stringify({
+          type: "array",
+          items: { type: "string" },
+        }),
+      }),
+      field({
+        key: "http",
+        jsonSchema: JSON.stringify({
+          type: "object",
+          properties: { base_url: { type: "string" } },
+          required: ["base_url"],
+        }),
+      }),
+    ];
+    const rs = fieldsToRust(fields, { name: "AppConfig" });
+    expect(rs).toContain("#[derive(Serialize, Deserialize)]");
+    expect(rs).toContain("pub struct AppConfig {");
+    expect(rs).toContain("pub service_name: String,");
+    expect(rs).toContain("pub port: i64,");
+    expect(rs).toContain("pub note: Option<String>,");
+    expect(rs).toMatch(/pub mode: String, \/\/ one of/);
+    expect(rs).toContain("pub origins: Vec<String>,");
+    expect(rs).toContain("pub http: Http,");
+    expect(rs).toContain("pub struct Http {");
+  });
+
+  it("round-trips and captures/replays nested struct names", () => {
+    const src = `#[derive(Serialize, Deserialize)]
+pub struct Retry {
+    pub max_attempts: i64,
+    pub backoff_ms: Option<i64>,
+}
+#[derive(Serialize, Deserialize)]
+pub struct AppConfig {
+    pub name: String,
+    pub retry: Retry,
+}`;
+    const { fields, projection, error } = rustToFields(src);
+    expect(error).toBeNull();
+    expect(projection?.language).toBe("rust");
+    expect(projection?.rootName).toBe("AppConfig");
+    expect(projection?.typeNames).toEqual({ "/properties/retry": "Retry" });
+    const rs = fieldsToRust(fields, { projection });
+    expect(rs).toContain("pub struct AppConfig {");
+    expect(rs).toContain("pub struct Retry {");
+    expect(rs).toContain("pub retry: Retry,");
+    expect(rs).toContain("pub backoff_ms: Option<i64>,");
+  });
+
+  it("emits a serde rename when the key isn't a clean snake identifier", () => {
+    const rs = fieldsToRust([field({ key: "base-url", type: "string" })]);
+    expect(rs).toContain('#[serde(rename = "base-url")]');
+    expect(rs).toContain("pub base_url: String,");
+  });
+});
+
+describe("python converter (Pydantic)", () => {
+  it("renders scalars, arrays, nested models, optionals, and enums", () => {
+    const fields = [
+      field({ key: "service_name", type: "string" }),
+      field({ key: "port", type: "integer" }),
+      field({ key: "note", type: "string", required: false }),
+      field({ key: "mode", enum: ["lru", "lfu"] }),
+      field({
+        key: "origins",
+        jsonSchema: JSON.stringify({
+          type: "array",
+          items: { type: "string" },
+        }),
+      }),
+      field({
+        key: "http",
+        jsonSchema: JSON.stringify({
+          type: "object",
+          properties: { base_url: { type: "string" } },
+          required: ["base_url"],
+        }),
+      }),
+    ];
+    const py = fieldsToPython(fields, { name: "AppConfig" });
+    expect(py).toContain("from pydantic import BaseModel");
+    expect(py).toContain("class AppConfig(BaseModel):");
+    expect(py).toContain("service_name: str");
+    expect(py).toContain("port: int");
+    expect(py).toContain("note: Optional[str] = None");
+    expect(py).toContain('mode: Literal["lru", "lfu"]');
+    expect(py).toContain("origins: List[str]");
+    expect(py).toContain("http: Http");
+    expect(py).toContain("class Http(BaseModel):");
+  });
+
+  it("defines nested models before the models that use them", () => {
+    const py = fieldsToPython(
+      [
+        field({
+          key: "http",
+          jsonSchema: JSON.stringify({
+            type: "object",
+            properties: { base_url: { type: "string" } },
+            required: ["base_url"],
+          }),
+        }),
+      ],
+      { name: "AppConfig" },
+    );
+    expect(py.indexOf("class Http(BaseModel):")).toBeLessThan(
+      py.indexOf("class AppConfig(BaseModel):"),
+    );
+  });
+
+  it("round-trips and captures/replays nested class names", () => {
+    const src = `from pydantic import BaseModel
+from typing import Optional
+
+class Retry(BaseModel):
+    max_attempts: int
+    backoff_ms: Optional[int] = None
+
+class AppConfig(BaseModel):
+    name: str
+    retry: Retry`;
+    const { fields, projection, error } = pythonToFields(src);
+    expect(error).toBeNull();
+    expect(projection?.language).toBe("python");
+    expect(projection?.rootName).toBe("AppConfig");
+    expect(projection?.typeNames).toEqual({ "/properties/retry": "Retry" });
+    const py = fieldsToPython(fields, { projection });
+    expect(py).toContain("class AppConfig(BaseModel):");
+    expect(py).toContain("class Retry(BaseModel):");
+    expect(py).toContain("retry: Retry");
+    expect(py).toContain("backoff_ms: Optional[int] = None");
   });
 });
