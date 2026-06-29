@@ -19,6 +19,8 @@ type SelectProps = {
   style?: React.CSSProperties;
   triggerClassName?: string;
   align?: "start" | "center" | "end";
+  /** Portal container — use to render the dropdown inside a parent portal (e.g. Popover). */
+  container?: HTMLElement | null;
 } & MarginProps;
 
 export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
@@ -36,6 +38,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
     variant = "surface",
     triggerClassName,
     align = "start",
+    container,
     ...containerProps
   }: SelectProps,
   ref,
@@ -62,7 +65,12 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
           disabled={disabled}
           variant={variant}
         />
-        <RadixSelect.Content variant="soft" position="popper" align={align}>
+        <RadixSelect.Content
+          variant="soft"
+          position="popper"
+          align={align}
+          container={container ?? undefined}
+        >
           {children}
         </RadixSelect.Content>
       </RadixSelect.Root>
