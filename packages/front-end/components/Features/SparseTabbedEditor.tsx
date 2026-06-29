@@ -1,4 +1,5 @@
 import { ReactNode, useEffect, useState } from "react";
+import type { Ace } from "ace-builds";
 import { Box, Flex } from "@radix-ui/themes";
 import { FaMagic } from "react-icons/fa";
 import clsx from "clsx";
@@ -27,6 +28,8 @@ export default function SparseTabbedEditor({
   defaultHeight,
   showInlineLabel = true,
   condensed = false,
+  onEditorLoad,
+  usedConstantTags,
 }: {
   value: string;
   setValue: (v: string) => void;
@@ -43,6 +46,12 @@ export default function SparseTabbedEditor({
   // Tighter layout for embedded contexts like ramp step editors: smaller tabs
   // and a shorter default editor height.
   condensed?: boolean;
+  // Exposes the Edit-tab Ace editor so a parent's constant picker can insert at
+  // the cursor (the Edit tab is force-mounted so this stays valid on Preview).
+  onEditorLoad?: (editor: Ace.Editor) => void;
+  // "Constants used:" legend for the references in the current value, shown in
+  // the Edit-tab footer beside Format JSON.
+  usedConstantTags?: ReactNode;
 }) {
   const [tab, setTab] = useState<"edit" | "preview">("edit");
   const [fullscreen, setFullscreen] = useState(false);
@@ -52,7 +61,9 @@ export default function SparseTabbedEditor({
   // override — respect it as-is.
   const sparseDefaultHeight =
     defaultHeight ?? (condensed ? 64 : Math.round(TEN_LINES_HEIGHT / 2));
-  const tabsSize: "1" | "2" = condensed && !fullscreen ? "1" : "2";
+  // Use the compact tab size everywhere except fullscreen — the larger size 2
+  // strip is needlessly tall above the editor.
+  const tabsSize: "1" | "2" = fullscreen ? "2" : "1";
 
   // Escape exits fullscreen (mirrors CodeTextArea's behavior).
   useEffect(() => {
@@ -127,6 +138,9 @@ export default function SparseTabbedEditor({
       <Box pt="2" style={fullscreen ? { flex: 1, minHeight: 0 } : undefined}>
         <TabsContent
           value="edit"
+          // Keep the editor mounted on the Preview tab so the parent's constant
+          // picker can still insert at the cursor (and live-update the preview).
+          forceMount
           style={fullscreen ? { height: "100%" } : undefined}
         >
           <CodeTextArea
@@ -135,7 +149,12 @@ export default function SparseTabbedEditor({
             setValue={setValue}
             helpText={
               fullscreen ? undefined : (
-                <Flex justify="end">{formatJSONButton}</Flex>
+                <Flex align="start" justify="between" gap="3" width="100%">
+                  <Box flexGrow="1" style={{ minWidth: 0 }}>
+                    {usedConstantTags}
+                  </Box>
+                  <Box flexShrink="0">{formatJSONButton}</Box>
+                </Flex>
               )
             }
             placeholder={placeholder}
@@ -146,6 +165,7 @@ export default function SparseTabbedEditor({
             showCopyButton={true}
             showFullscreenButton={!fullscreen}
             onRequestFullscreen={() => setFullscreen(true)}
+            onEditorLoad={onEditorLoad}
           />
         </TabsContent>
         <TabsContent value="preview">
