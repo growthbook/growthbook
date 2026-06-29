@@ -236,9 +236,10 @@ describe("tsTypesToFields", () => {
       ["enabled", "boolean", false],
       ["tags", "string", true],
     ]);
-    // arrays become the array preset
+    // arrays import with their element type as `items`
     expect(JSON.parse(fields[3].jsonSchema as string)).toEqual({
       type: "array",
+      items: { type: "string" },
     });
   });
 
@@ -253,8 +254,32 @@ describe("tsTypesToFields", () => {
     expect(fields[0].nullable).toBe(true);
   });
 
-  it("treats nested objects as the object preset", () => {
+  it("imports a nested object as a real nested schema", () => {
     const { fields } = parse(`interface T { addr: { city: string } }`);
+    expect(JSON.parse(fields[0].jsonSchema as string)).toEqual({
+      type: "object",
+      properties: { city: { type: "string" } },
+      required: ["city"],
+      additionalProperties: false,
+    });
+  });
+
+  it("bails nested building past max depth to the bare object preset", () => {
+    // 4 levels deep (a→b→c→d); the deepest object exceeds MAX_NEST_DEPTH and
+    // degrades to the bare object preset instead of recursing further.
+    const { fields } = parse(
+      `interface T { a: { b: { c: { d: { e: string } } } } }`,
+    );
+    const schema = JSON.parse(fields[0].jsonSchema as string);
+    // The innermost reachable object is opaque (no nested properties beyond cap).
+    expect(JSON.stringify(schema)).toContain('"type":"object"');
+  });
+
+  it("degrades a nested object with an exotic member to the bare preset", () => {
+    // A member type we can't represent (a function) bails the whole object.
+    const { fields } = parse(
+      `interface T { h: { fn: () => void; ok: string } }`,
+    );
     expect(JSON.parse(fields[0].jsonSchema as string)).toEqual({
       type: "object",
     });
@@ -331,6 +356,67 @@ describe("tsTypesToFields", () => {
     const { warnings } = parse(`interface T { [key: string]: unknown }`);
     expect(warnings.some((w) => w.code === "unsupported-member")).toBe(true);
   });
+
+  it("picks the DAG root (the unreferenced object), not the first object", () => {
+    // RetryPolicy is declared first but is referenced by AppConfig, so AppConfig
+    // (referenced by nothing) is the root — not the first object literal.
+    const { fields, warnings } = parse(`
+      type RetryPolicy = { maxAttempts: number };
+      type LogLevel = "debug" | "info" | "warn";
+      interface AppConfig {
+        serviceName: string;
+        logLevel: LogLevel;
+        retry: RetryPolicy;
+      }
+    `);
+    expect(fields.map((f) => f.key)).toEqual([
+      "serviceName",
+      "logLevel",
+      "retry",
+    ]);
+    // RetryPolicy + LogLevel are stitched in (reachable), so nothing is dropped.
+    expect(
+      warnings.filter(
+        (w) => w.code === "dropped-declaration" || w.code === "non-object-root",
+      ),
+    ).toEqual([]);
+  });
+
+  it("resolves a referenced alias into its enum", () => {
+    const { fields } = parse(`
+      type LogLevel = "debug" | "info" | "warn" | "error";
+      interface AppConfig { logLevel: LogLevel }
+    `);
+    expect(fields[0]).toMatchObject({
+      key: "logLevel",
+      type: "string",
+      enum: ["debug", "info", "warn", "error"],
+    });
+  });
+
+  it("resolves a referenced object type into its nested schema", () => {
+    const { fields } = parse(`
+      interface Retry { maxAttempts: number }
+      interface AppConfig { retry: Retry }
+    `);
+    expect(fields[0].key).toBe("retry");
+    expect(JSON.parse(fields[0].jsonSchema as string)).toEqual({
+      type: "object",
+      properties: { maxAttempts: { type: "number" } },
+      required: ["maxAttempts"],
+      additionalProperties: false,
+    });
+  });
+
+  it("does not infinitely recurse on a reference cycle", () => {
+    const { fields } = parse(`
+      type A = B | string;
+      type B = A | number;
+      interface Cfg { x: A }
+    `);
+    // Resolves without hanging; the cyclic alias degrades to a value/any.
+    expect(fields[0].key).toBe("x");
+  });
 });
 
 describe("fieldsToTsType", () => {
@@ -347,6 +433,50 @@ describe("fieldsToTsType", () => {
     expect(ts).toContain("count?: number;");
     expect(ts).toContain('mode: "a" | "b";');
     expect(ts).toContain("host: string | null;");
+  });
+
+  it("renders a nested-object field's schema as an inline TS shape", () => {
+    const nested = field({
+      key: "http",
+      jsonSchema: JSON.stringify({
+        type: "object",
+        properties: {
+          baseUrl: { type: "string" },
+          retry: {
+            type: "object",
+            properties: { maxAttempts: { type: "number" } },
+            required: ["maxAttempts"],
+          },
+        },
+        required: ["baseUrl"],
+      }),
+    });
+    const ts = fieldsToTsType([nested]);
+    expect(ts).toContain("baseUrl: string");
+    expect(ts).toContain("retry?: { maxAttempts: number }");
+  });
+
+  it("renders array items and bails deep/exotic schemas to unknown", () => {
+    const arr = field({
+      key: "tags",
+      jsonSchema: JSON.stringify({ type: "array", items: { type: "string" } }),
+    });
+    expect(fieldsToTsType([arr])).toContain("tags: string[]");
+  });
+
+  it("round-trips a nested object structurally (inline, no named types)", () => {
+    const src = `interface AppConfig {
+      http: { baseUrl: string; timeoutMs: number };
+      tags: string[];
+    }`;
+    const { fields } = tsTypesToFields(src);
+    const out = tsTypesToFields(fieldsToTsType(fields, { name: "AppConfig" }));
+    expect(out.fields.map((f) => f.key)).toEqual(["http", "tags"]);
+    // The nested shape survives (http stays a structured object schema).
+    expect(JSON.parse(out.fields[0].jsonSchema as string)).toMatchObject({
+      type: "object",
+      properties: { baseUrl: { type: "string" } },
+    });
   });
 
   it("adds an index signature when extensible", () => {

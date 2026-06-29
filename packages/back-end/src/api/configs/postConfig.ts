@@ -1,4 +1,3 @@
-import { Revision } from "shared/enterprise";
 import {
   postConfigValidator,
   validateResolvableValue,
@@ -7,17 +6,10 @@ import { ConfigInterface } from "shared/types/config";
 import { stripConfigExtends } from "shared/util";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import {
-  BadRequestError,
-  PlanDoesNotAllowError,
-} from "back-end/src/util/errors";
+import { PlanDoesNotAllowError } from "back-end/src/util/errors";
 import { assertKeyAvailable } from "back-end/src/services/constants";
 import { assertConfigValueValid } from "back-end/src/services/configValidation";
-import { getAdapter } from "back-end/src/revisions";
-import {
-  buildPatchOps,
-  ensureLiveRevisionExists,
-} from "back-end/src/revisions/util";
+import { ensureLiveRevisionExists } from "back-end/src/revisions/util";
 
 export const postConfig = createApiRequestHandler(postConfigValidator)(async (
   req,
@@ -34,7 +26,6 @@ export const postConfig = createApiRequestHandler(postConfigValidator)(async (
     extensible,
   } = req.body;
   const extendsKeys = req.body.extends;
-  const bypassApproval = req.body.bypassApproval === true;
 
   if (!req.context.permissions.canCreateConfig({ project: project || "" })) {
     req.context.permissions.throwPermissionError();
@@ -105,48 +96,9 @@ export const postConfig = createApiRequestHandler(postConfigValidator)(async (
 
   // Cycle rejection is enforced in ConfigModel (covers every write path).
 
-  // Change-aware approval gate, scoped to the new config's project (a create
-  // in a project without a review rule isn't gated). There's no existing
-  // entity to draft against on create, so the only non-UI path under required
-  // approvals is bypass.
-  const adapter = getAdapter("config");
-  const patchOps = buildPatchOps({
-    name,
-    ...(parent ? { parent } : {}),
-    ...(extendsKeys ? { extends: extendsKeys } : {}),
-    ...(value !== undefined ? { value: stripConfigExtends(value) } : {}),
-    ...(environmentValues ? { environmentValues } : {}),
-    ...(description !== undefined ? { description } : {}),
-    ...(project ? { project } : {}),
-    ...(owner ? { owner } : {}),
-    ...(normalizedSchema ? { schema: normalizedSchema } : {}),
-    ...(extensible !== undefined ? { extensible } : {}),
-  });
-  const approvalRequired = adapter.isApprovalRequiredForRevision
-    ? adapter.isApprovalRequiredForRevision(req.context, {
-        target: {
-          snapshot: { project: project || "" },
-          proposedChanges: patchOps,
-        },
-      } as unknown as Revision)
-    : adapter.isApprovalRequired(req.context);
-  if (approvalRequired) {
-    if (!bypassApproval) {
-      throw new BadRequestError(
-        "This organization requires approvals for this config's project. " +
-          "Create it through the GrowthBook UI's approval flow, " +
-          'or pass `{ "bypassApproval": true }` if you have the bypass permission.',
-      );
-    }
-    const canBypass =
-      !!req.organization.settings?.restApiBypassesReviews ||
-      adapter.canBypassApproval(req.context, {
-        project: project || "",
-      } as unknown as Record<string, unknown>);
-    if (!canBypass) {
-      req.context.permissions.throwPermissionError();
-    }
-  }
+  // Creation never requires approval (consistent with features): a brand-new
+  // config has no dependents, so creating it can't change any resolved value.
+  // Approvals apply to subsequent changes via the revision flow.
 
   // Permission is enforced again by the model's canCreate.
   const config = await req.context.models.configs.create({

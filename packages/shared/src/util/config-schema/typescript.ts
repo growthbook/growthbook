@@ -84,30 +84,127 @@ type TsDeclaration = {
   // Object-like types (interfaces, `type X = { ... }`) can back a config; other
   // aliases (unions, primitives, refs) cannot.
   objectLike: boolean;
+  // Object body (object-like decls) or alias RHS (non-object decls), so the
+  // importer can resolve references to sibling types and pick the DAG root.
+  body?: string;
+  rhs?: string;
 };
 
-// Scan top-level declaration headers so the importer can be honest about what it
-// dropped (it only ever consumes the FIRST object literal). Heuristic and lossy
-// by design — good enough to warn, not a substitute for a real parser.
-function analyzeDeclarations(text: string): TsDeclaration[] {
-  const out: TsDeclaration[] = [];
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// Parse every top-level declaration with its body/RHS. Each declaration spans
+// from just after its name to the start of the next declaration header, which
+// bounds body/RHS extraction to one declaration at a time. Heuristic and lossy
+// by design (no `typescript` compiler) — good enough to pick a root and resolve
+// sibling references, not a substitute for a real parser.
+function parseDeclarations(text: string): TsDeclaration[] {
   const re =
     /(?:^|[\s;{}()])(?:export\s+)?(?:declare\s+)?(interface|type)\s+([A-Za-z_$][\w$]*)/g;
+  const heads: {
+    kind: "interface" | "type";
+    name: string;
+    headerStart: number;
+    contentStart: number;
+  }[] = [];
   let m: RegExpExecArray | null;
   while ((m = re.exec(text))) {
-    const kind = m[1] as "interface" | "type";
-    const name = m[2];
-    if (kind === "interface") {
-      out.push({ name, kind, objectLike: true });
+    heads.push({
+      kind: m[1] as "interface" | "type",
+      name: m[2],
+      headerStart: m.index,
+      contentStart: re.lastIndex,
+    });
+  }
+  const out: TsDeclaration[] = [];
+  for (let i = 0; i < heads.length; i++) {
+    const h = heads[i];
+    const end = i + 1 < heads.length ? heads[i + 1].headerStart : text.length;
+    const chunk = text.slice(h.contentStart, end);
+    if (h.kind === "interface") {
+      const { body } = extractObjectBody(chunk);
+      out.push({
+        name: h.name,
+        kind: "interface",
+        objectLike: true,
+        body: body ?? "",
+      });
       continue;
     }
-    // `type Name ... = <rhs>` — object-like iff the RHS starts with `{`.
-    const after = text.slice(re.lastIndex);
-    const eq = after.indexOf("=");
-    const rhs = eq === -1 ? "" : after.slice(eq + 1).replace(/^\s+/, "");
-    out.push({ name, kind, objectLike: rhs.startsWith("{") });
+    const eq = chunk.indexOf("=");
+    const rhs = eq === -1 ? "" : chunk.slice(eq + 1).trim();
+    if (rhs.startsWith("{")) {
+      const { body } = extractObjectBody(rhs);
+      out.push({
+        name: h.name,
+        kind: "type",
+        objectLike: true,
+        body: body ?? "",
+      });
+    } else {
+      out.push({
+        name: h.name,
+        kind: "type",
+        objectLike: false,
+        rhs: rhs.replace(/;\s*$/, "").trim(),
+      });
+    }
   }
   return out;
+}
+
+// Names of declarations directly referenced in a declaration's body/RHS.
+function referencesIn(
+  d: TsDeclaration,
+  byName: Map<string, TsDeclaration>,
+): string[] {
+  const content = (d.objectLike ? d.body : d.rhs) ?? "";
+  const refs: string[] = [];
+  for (const name of byName.keys()) {
+    if (name === d.name) continue;
+    if (new RegExp(`\\b${escapeRegExp(name)}\\b`).test(content))
+      refs.push(name);
+  }
+  return refs;
+}
+
+// The config root is the object-like declaration that no OTHER declaration
+// references — the top of the type DAG (e.g. `AppConfig`, which references
+// `RetryPolicy`/`LogLevel` but is referenced by nothing). Falls back to the
+// first object type when every candidate is referenced (e.g. a reference cycle,
+// or a union root whose variants are all referenced).
+function selectRoot(
+  decls: TsDeclaration[],
+  byName: Map<string, TsDeclaration>,
+): TsDeclaration | null {
+  const referenced = new Set<string>();
+  for (const d of decls) {
+    for (const r of referencesIn(d, byName)) referenced.add(r);
+  }
+  const objects = decls.filter((d) => d.objectLike);
+  return objects.find((d) => !referenced.has(d.name)) ?? objects[0] ?? null;
+}
+
+// Declarations reachable from the root by following type references (the types
+// stitched into the config). Anything not reachable was genuinely dropped.
+function reachableFrom(
+  rootName: string,
+  byName: Map<string, TsDeclaration>,
+): Set<string> {
+  const reached = new Set<string>();
+  const stack = [rootName];
+  while (stack.length) {
+    const d = byName.get(stack.pop() as string);
+    if (!d) continue;
+    for (const r of referencesIn(d, byName)) {
+      if (!reached.has(r)) {
+        reached.add(r);
+        stack.push(r);
+      }
+    }
+  }
+  return reached;
 }
 
 // Strip the `/** */` frame and ` * ` line markers; drop `@tag` lines.
@@ -257,16 +354,199 @@ const ANY_SCHEMA = JSON.stringify(JSON_SCHEMA_PRESETS.any);
 const OBJECT_SCHEMA = JSON.stringify(JSON_SCHEMA_PRESETS.json);
 const ARRAY_SCHEMA = JSON.stringify(JSON_SCHEMA_PRESETS.array);
 
-function parseSingleTsType(t: string, nullable: boolean): ParsedTsType {
+// Cap how deep we'll recurse building a nested schema; beyond this we bail to the
+// bare object/array preset rather than risk a pathological/expensive parse.
+const MAX_NEST_DEPTH = 3;
+
+// Strip one balanced layer of wrapping parens: "(a | b)" -> "a | b".
+function stripParens(t: string): string {
+  const s = t.trim();
+  if (!s.startsWith("(") || !s.endsWith(")")) return s;
+  let depth = 0;
+  for (let i = 0; i < s.length; i++) {
+    if (s[i] === "(") depth++;
+    else if (s[i] === ")") {
+      depth--;
+      if (depth === 0 && i !== s.length - 1) return s; // not a full wrap
+    }
+  }
+  return s.slice(1, -1).trim();
+}
+
+// Recursively build a JSON Schema node for a TS type, so nested objects/arrays
+// survive import as real nested schemas (not the bare `{type:object}` preset).
+// Returns null to BAIL — the caller falls back to the bare preset — on depth
+// overflow, an open-ended shape (Record/object/any), a mixed union, an
+// unparseable member, an unresolved reference, or a reference cycle. Bailing is
+// deliberate: an imperfect nested type degrades to opaque rather than wrong.
+function tsTypeToSchemaNode(
+  expr: string,
+  decls: Map<string, TsDeclaration> | undefined,
+  seen: Set<string>,
+  depth: number,
+): Record<string, unknown> | null {
+  if (depth > MAX_NEST_DEPTH) return null;
+  const e = stripParens(
+    expr
+      .trim()
+      .replace(/[;,]+$/, "")
+      .trim(),
+  );
+  const parts = splitUnion(e);
+  let nullable = false;
+  const nonNull = parts.filter((p) => {
+    if (p === "null" || p === "undefined") {
+      nullable = true;
+      return false;
+    }
+    return true;
+  });
+  if (nonNull.length === 0) return null;
+  const withNull = (node: Record<string, unknown>): Record<string, unknown> =>
+    nullable && typeof node.type === "string"
+      ? { ...node, type: [node.type, "null"] }
+      : node;
+
+  if (nonNull.every((p) => STRING_LITERAL_RE.test(p))) {
+    return withNull({ type: "string", enum: nonNull.map(unquote) });
+  }
+  if (nonNull.length !== 1) return null;
+  const t = stripParens(nonNull[0]);
+
+  const arrSuffix = /^(.+)\[\]$/.exec(t);
+  const arrGeneric =
+    /^(?:readonly\s+)?(?:Array|ReadonlyArray)<([\s\S]+)>$/.exec(t);
+  if (arrSuffix || arrGeneric) {
+    const inner = (
+      arrSuffix ? arrSuffix[1] : (arrGeneric as RegExpExecArray)[1]
+    ).trim();
+    const items = tsTypeToSchemaNode(inner, decls, seen, depth + 1);
+    return withNull(items ? { type: "array", items } : { type: "array" });
+  }
+  if (t.startsWith("[")) return null; // tuple — bail
+  if (
+    /^Record<[\s\S]*>$/.test(t) ||
+    t === "object" ||
+    t === "any" ||
+    t === "unknown"
+  ) {
+    return null; // open-ended — bail
+  }
+  if (t.startsWith("{")) {
+    const { body } = extractObjectBody(t);
+    if (body === null) return null;
+    const node = objectBodyToSchemaNode(body, decls, seen, depth + 1);
+    return node ? withNull(node) : null;
+  }
+  switch (t) {
+    case "string":
+      return withNull({ type: "string" });
+    case "number":
+      return withNull({ type: "number" });
+    case "boolean":
+    case "true":
+    case "false":
+      return withNull({ type: "boolean" });
+  }
+  if (/^-?\d+(?:\.\d+)?$/.test(t)) return withNull({ type: "number" });
+  if (STRING_LITERAL_RE.test(t)) {
+    return withNull({ type: "string", enum: [unquote(t)] });
+  }
+  const decl = decls?.get(t);
+  if (decl) {
+    if (seen.has(t)) return null; // cycle — bail
+    const nextSeen = new Set(seen);
+    nextSeen.add(t);
+    if (decl.objectLike) {
+      const node = objectBodyToSchemaNode(
+        decl.body ?? "",
+        decls,
+        nextSeen,
+        depth + 1,
+      );
+      return node ? withNull(node) : null;
+    }
+    const aliasNode = tsTypeToSchemaNode(
+      decl.rhs ?? "",
+      decls,
+      nextSeen,
+      depth,
+    );
+    return aliasNode ? withNull(aliasNode) : null;
+  }
+  return null; // unresolved — bail
+}
+
+// Build an object JSON Schema node from a member body. Bails (null) if any member
+// is structurally unparseable or itself bails — so a partly-exotic object stays
+// opaque rather than emitting a half-right schema.
+function objectBodyToSchemaNode(
+  body: string,
+  decls: Map<string, TsDeclaration> | undefined,
+  seen: Set<string>,
+  depth: number,
+): Record<string, unknown> | null {
+  if (depth > MAX_NEST_DEPTH) return null;
+  const members = tokenizeMembers(body);
+  if (members.length === 0) return null;
+  const properties: Record<string, unknown> = {};
+  const required: string[] = [];
+  for (const member of members) {
+    const m = member.decl.match(
+      /^(?:readonly\s+)?("[^"]*"|'[^']*'|\[[^\]]*\]|[A-Za-z_$][\w$]*)(\??)\s*:\s*([\s\S]+)$/,
+    );
+    if (!m || m[1].startsWith("[")) return null;
+    const node = tsTypeToSchemaNode(m[3], decls, seen, depth);
+    if (!node) return null;
+    const key = unquote(m[1]);
+    properties[key] = node;
+    if (m[2] !== "?") required.push(key);
+  }
+  const schema: Record<string, unknown> = {
+    type: "object",
+    properties,
+    additionalProperties: false,
+  };
+  if (required.length) schema.required = required;
+  return schema;
+}
+
+function parseSingleTsType(
+  t: string,
+  nullable: boolean,
+  decls?: Map<string, TsDeclaration>,
+  seen?: Set<string>,
+): ParsedTsType {
   const arrayLike =
     /\[\]$/.test(t) ||
     /^(?:readonly\s+)?Array<[\s\S]*>$/.test(t) ||
     /^(?:readonly\s+)?ReadonlyArray<[\s\S]*>$/.test(t) ||
     (t.startsWith("[") && t.endsWith("]"));
+  const objectLikeExpr =
+    t.startsWith("{") || /^Record<[\s\S]*>$/.test(t) || t === "object";
+  const objectRef = decls?.get(t)?.objectLike === true;
+
+  // Structured types (nested object/array, or a reference to one): try to build
+  // a real nested JSON Schema; on bailout fall through to the bare preset.
+  if (arrayLike || objectLikeExpr || objectRef) {
+    let node = tsTypeToSchemaNode(t, decls, new Set(seen ?? []), 1);
+    if (node) {
+      if (nullable && typeof node.type === "string") {
+        node = { ...node, type: [node.type, "null"] };
+      }
+      return {
+        type: "string",
+        nullable: false,
+        enum: [],
+        jsonSchema: JSON.stringify(node, null, 2),
+      };
+    }
+  }
+
   if (arrayLike) {
     return { type: "string", nullable, enum: [], jsonSchema: ARRAY_SCHEMA };
   }
-  if (t.startsWith("{") || /^Record<[\s\S]*>$/.test(t) || t === "object") {
+  if (objectLikeExpr) {
     return { type: "string", nullable, enum: [], jsonSchema: OBJECT_SCHEMA };
   }
   switch (t) {
@@ -288,6 +568,23 @@ function parseSingleTsType(t: string, nullable: boolean): ParsedTsType {
   if (STRING_LITERAL_RE.test(t)) {
     return { type: "string", nullable, enum: [unquote(t)] };
   }
+  // A reference to a sibling declaration: resolve it (stitch in the child).
+  // Object types become an opaque object preset; alias types (unions, etc.)
+  // resolve to their RHS so e.g. `logLevel: LogLevel` becomes the enum.
+  const decl = decls?.get(t);
+  if (decl) {
+    if (decl.objectLike) {
+      return { type: "string", nullable, enum: [], jsonSchema: OBJECT_SCHEMA };
+    }
+    if (seen?.has(t)) {
+      // Reference cycle among aliases — degrade to `any` rather than recurse.
+      return { type: "string", nullable, enum: [], jsonSchema: ANY_SCHEMA };
+    }
+    const nextSeen = new Set(seen ?? []);
+    nextSeen.add(t);
+    const resolved = parseTsType(decl.rhs ?? "", decls, nextSeen);
+    return { ...resolved, nullable: nullable || resolved.nullable };
+  }
   return {
     type: "string",
     nullable,
@@ -297,7 +594,11 @@ function parseSingleTsType(t: string, nullable: boolean): ParsedTsType {
   };
 }
 
-function parseTsType(rawExpr: string): ParsedTsType {
+function parseTsType(
+  rawExpr: string,
+  decls?: Map<string, TsDeclaration>,
+  seen?: Set<string>,
+): ParsedTsType {
   const expr = rawExpr
     .trim()
     .replace(/[;,]+$/, "")
@@ -317,7 +618,8 @@ function parseTsType(rawExpr: string): ParsedTsType {
   if (nonNull.every((p) => STRING_LITERAL_RE.test(p))) {
     return { type: "string", nullable, enum: nonNull.map(unquote) };
   }
-  if (nonNull.length === 1) return parseSingleTsType(nonNull[0], nullable);
+  if (nonNull.length === 1)
+    return parseSingleTsType(nonNull[0], nullable, decls, seen);
   // A union mixing string/number literals with bare members is almost always a
   // forgotten quote (e.g. `"red" | yellow`); call that out specifically.
   const hasLiteral = nonNull.some(
@@ -334,39 +636,61 @@ function parseTsType(rawExpr: string): ParsedTsType {
   };
 }
 
-// Top-level declarations the importer can't fold into the single config object:
-// extra object types it had to drop, and non-object aliases that can't be roots.
-function declarationWarnings(text: string): SchemaWarning[] {
-  const decls = analyzeDeclarations(text);
-  if (decls.length <= 1) return [];
-  const warnings: SchemaWarning[] = [];
-  // The first object-like declaration is the one whose body we extract.
-  const importedName = decls.find((d) => d.objectLike)?.name;
+// Declarations that are neither the root nor reachable from it (genuinely
+// dropped, not stitched in). Reachable types are resolved into the root, so they
+// don't warn. Unreachable object types are "dropped"; unreachable non-object
+// aliases "can't back a config" — distinct codes, both informative.
+function leftoverWarnings(
+  decls: TsDeclaration[],
+  rootName: string,
+  reached: Set<string>,
+): SchemaWarning[] {
+  const out: SchemaWarning[] = [];
   for (const d of decls) {
-    if (!d.objectLike) {
-      warnings.push({
+    if (d.name === rootName || reached.has(d.name)) continue;
+    if (d.objectLike) {
+      out.push({
+        code: "dropped-declaration",
+        path: d.name,
+        message: `Declaration "${d.name}" was ignored — it isn't the config root and nothing references it.`,
+      });
+    } else {
+      out.push({
         code: "non-object-root",
         path: d.name,
         message: `Type "${d.name}" is not an object type and can't back a config; it was ignored.`,
       });
-    } else if (d.name !== importedName) {
-      warnings.push({
-        code: "dropped-declaration",
-        path: d.name,
-        message: `Declaration "${d.name}" was ignored — a config maps to a single object type.`,
-      });
     }
   }
-  return warnings;
+  return out;
 }
 
 // Parse a TypeScript object type / interface into the config's own SchemaField[].
 export function tsTypesToFields(text: string): SchemaConversionResult {
-  const { body, error } = extractObjectBody(text);
-  if (error) return { fields: [], error, warnings: [] };
-  if (body === null) return { fields: [], error: null, warnings: [] };
+  const decls = parseDeclarations(text);
+  const byName = new Map(decls.map((d) => [d.name, d]));
+  const root = selectRoot(decls, byName);
 
-  const warnings: SchemaWarning[] = declarationWarnings(text);
+  // No declared object type — fall back to a bare object literal (`{ ... }`).
+  if (!root) {
+    const { body, error } = extractObjectBody(text);
+    if (error) return { fields: [], error, warnings: [] };
+    if (body === null) return { fields: [], error: null, warnings: [] };
+    return parseObjectBody(body, undefined, []);
+  }
+
+  const reached = reachableFrom(root.name, byName);
+  const warnings = leftoverWarnings(decls, root.name, reached);
+  return parseObjectBody(root.body ?? "", byName, warnings);
+}
+
+// Parse one object body's members into fields, resolving sibling references via
+// `decls`. `warnings` seeds the accumulator (e.g. dropped-declaration notes).
+function parseObjectBody(
+  body: string,
+  decls: Map<string, TsDeclaration> | undefined,
+  warnings: SchemaWarning[],
+): SchemaConversionResult {
   const fields: SchemaField[] = [];
   for (const member of tokenizeMembers(body)) {
     const m = member.decl.match(
@@ -387,7 +711,7 @@ export function tsTypesToFields(text: string): SchemaConversionResult {
       continue;
     }
     const key = unquote(m[1]);
-    const parsed = parseTsType(m[3]);
+    const parsed = parseTsType(m[3], decls);
     if (parsed.warning) {
       warnings.push({
         code: "unresolved-type",
@@ -412,19 +736,101 @@ function tsKey(key: string): string {
   return /^[A-Za-z_$][\w$]*$/.test(key) ? key : JSON.stringify(key);
 }
 
+// Inverse of `tsTypeToSchemaNode`: render a JSON Schema node back to an inline
+// TS type expression, so a nested field's structure survives export (e.g.
+// `{ baseUrl: string; retry: { ... } }`). Structural only — the original named
+// types (RetryPolicy/LogLevel) aren't stored, so they're inlined, never named.
+// Mirrors the importer's depth cap + bail-to-`unknown` discipline.
+function jsonSchemaNodeToTsExpr(node: unknown, depth: number): string {
+  if (depth > MAX_NEST_DEPTH) return "unknown";
+  if (!node || typeof node !== "object" || Array.isArray(node))
+    return "unknown";
+  const n = node as Record<string, unknown>;
+
+  let nullable = false;
+  let typeName: string | undefined;
+  if (Array.isArray(n.type)) {
+    const ts = n.type.filter((x): x is string => typeof x === "string");
+    nullable = ts.includes("null");
+    typeName = ts.find((x) => x !== "null");
+  } else if (typeof n.type === "string") {
+    typeName = n.type;
+  }
+  const withNull = (s: string) => (nullable ? `${s} | null` : s);
+
+  if (Array.isArray(n.enum) && n.enum.length) {
+    const members = n.enum
+      .filter((v) => v !== null)
+      .map((v) => JSON.stringify(v))
+      .join(" | ");
+    return withNull(members || "unknown");
+  }
+  switch (typeName) {
+    case "string":
+      return withNull("string");
+    case "number":
+    case "integer":
+      return withNull("number");
+    case "boolean":
+      return withNull("boolean");
+    case "array": {
+      const item =
+        n.items === undefined
+          ? "unknown"
+          : jsonSchemaNodeToTsExpr(n.items, depth + 1);
+      // Parenthesize a union/nullable item so `(A | B)[]` parses correctly.
+      const inner = /[ |]/.test(item) ? `(${item})` : item;
+      return withNull(`${inner}[]`);
+    }
+    case "object": {
+      const props = n.properties;
+      if (
+        !props ||
+        typeof props !== "object" ||
+        Array.isArray(props) ||
+        !Object.keys(props).length
+      ) {
+        return withNull("Record<string, unknown>");
+      }
+      const required = new Set(
+        Array.isArray(n.required)
+          ? n.required.filter((x): x is string => typeof x === "string")
+          : [],
+      );
+      const members = Object.entries(props as Record<string, unknown>).map(
+        ([k, v]) =>
+          `${tsKey(k)}${required.has(k) ? "" : "?"}: ${jsonSchemaNodeToTsExpr(
+            v,
+            depth + 1,
+          )}`,
+      );
+      return withNull(`{ ${members.join("; ")} }`);
+    }
+  }
+  return withNull("unknown");
+}
+
 function fieldToTsExpr(f: SchemaField): string {
   const preset = presetKeyFromField(f);
   let base: string;
   if (preset === "json") base = "Record<string, unknown>";
   else if (preset === "array") base = "unknown[]";
   else if (preset === "any") base = "unknown";
-  else if (f.jsonSchema !== undefined) base = "unknown";
-  else if (f.enum.length > 0)
+  else if (f.jsonSchema !== undefined) {
+    // A rich (non-preset) schema renders to its inline nested TS shape.
+    try {
+      base = jsonSchemaNodeToTsExpr(JSON.parse(f.jsonSchema), 1);
+    } catch {
+      base = "unknown";
+    }
+  } else if (f.enum.length > 0)
     base = f.enum.map((v) => JSON.stringify(v)).join(" | ");
   else if (f.type === "integer" || f.type === "float") base = "number";
   else if (f.type === "boolean") base = "boolean";
   else base = "string";
-  if (f.nullable === true) base += " | null";
+  // The node already encodes its own nullability; only append for the simple
+  // branches (and guard against doubling).
+  if (f.nullable === true && !/\|\s*null$/.test(base)) base += " | null";
   return base;
 }
 
