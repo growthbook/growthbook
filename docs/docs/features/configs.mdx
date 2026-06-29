@@ -26,7 +26,8 @@ A config has:
 - A **value** — a JSON object.
 - A **schema** — the field definitions (names, types, required/optional, bounds, enums, nullability) the value is validated against.
 - An optional **parent** — another config's key. The config inherits the parent's fields and value, then layers its own on top.
-- Optional **per-environment values** — overrides applied when a payload is built for a specific environment.
+
+Configs are **environment-agnostic**: a config has a single value, not per-environment overrides. If you need a value to differ by environment, use a [constant](/features/constants) (which supports per-environment values) as the value source.
 
 ## Type safety and validation
 
@@ -65,6 +66,28 @@ A config's value and its type definition can move in and out of GrowthBook:
 The TypeScript import/export is a convenience for round-tripping simple `type`/`interface` shapes — it is **not** a full TypeScript language parser. It understands the common building blocks (primitive fields, objects, arrays, simple unions/enums, optional and nullable fields) and ignores or rejects anything beyond that (generics, conditional/mapped types, imported types, functions, etc.). For anything non-trivial, use JSON Schema as the source of truth.
 
 :::
+
+## Keeping code and configs in sync at scale
+
+Configs are designed to be the **source of truth** for the configuration they describe. Rather than hand-maintaining the same shape in many codebases — where copies drift apart over time — define the config once in GrowthBook and have your services consume it. The schema and value live in one place; code reads them.
+
+A typical end-to-end workflow:
+
+1. **Define the config in GrowthBook** — author it in the UI, or import it once from an existing code definition (see [Import and export](#import-and-export)).
+2. **Generate types from the config.** Export the schema as TypeScript (or JSON Schema) and commit the generated types so your code is type-checked against the config's current shape. Regenerate when the config changes — the same pattern teams use for generated API clients or protobuf types.
+3. **Consume the resolved value at runtime** through a JSON feature flag backed by the config (see [Using a config as a feature flag's value](#using-a-config-as-a-feature-flags-value)). The SDK serves the resolved value; the generated types describe its shape.
+4. **Guard against drift in CI.** The schema **verify** endpoint checks whether the shape your code expects still matches the config in GrowthBook. It reports whether the two are in sync and, when they differ, a **categorized diff** — _contract_ changes (types, required-ness, enums, structure) separated from _documentation-only_ changes (descriptions) — so a CI step can fail the build on real contract drift while treating doc changes as informational.
+
+Because types are compile-time and values are served at runtime, follow the same forward/backward-compatibility hygiene as any API contract: ship new fields with **defaults** (so a valid value exists the moment the field appears), and **deprecate before removing**.
+
+### Named projections (per-source type names)
+
+When you import a config's schema from TypeScript and supply a **source** identifier (typically a service or codebase name), GrowthBook captures that source's named-type structure — for example, that the object at `http.retry` was declared as `RetryPolicy`. Exporting the schema with the same `source` reproduces those names instead of inlining the shapes:
+
+- **Without a source** — nested objects are inlined: `retry: { maxAttempts: number; … }`.
+- **With a source** — named interfaces are emitted: `interface RetryPolicy { … }` and `retry: RetryPolicy`.
+
+Projections are rendered against the config's **current** schema, so the captured names stay attached as the config evolves — an export never serves a stale snapshot. Different sources can each keep their own type names for the same config. Projections are presentation metadata only: they never affect validation, the canonical schema, or drift detection.
 
 ## Editing and approvals
 
