@@ -63,6 +63,7 @@ export default function RevisionBanner({
     <>
       {confirmDiscard && (
         <Modal
+          useRadixButton={false}
           trackingEventModalType=""
           header="Discard Draft"
           close={() => setConfirmDiscard(false)}
@@ -86,6 +87,7 @@ export default function RevisionBanner({
       )}
       {confirmPublish && (
         <Modal
+          useRadixButton={false}
           trackingEventModalType=""
           header="Publish Changes"
           close={() => setConfirmPublish(false)}
@@ -109,6 +111,7 @@ export default function RevisionBanner({
       )}
       {confirmReopen && onReopen && (
         <Modal
+          useRadixButton={false}
           trackingEventModalType=""
           header="Reopen Revision"
           close={() => setConfirmReopen(false)}

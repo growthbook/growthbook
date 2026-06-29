@@ -109,6 +109,7 @@ export default function ChatSearchModal({
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       header="Search chats"
       close={onClose}

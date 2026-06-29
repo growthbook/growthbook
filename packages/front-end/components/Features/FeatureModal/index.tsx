@@ -237,6 +237,7 @@ export default function FeatureModal({
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       open
       size="lg"

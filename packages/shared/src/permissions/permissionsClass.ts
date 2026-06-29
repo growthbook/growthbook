@@ -133,6 +133,24 @@ export class Permissions {
     return this.checkGlobalPermission("createMetricGroups");
   };
 
+  public canViewSessionReplay = (
+    session?: { projects?: string[] } | null,
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: session?.projects },
+      "viewSessionReplay",
+    );
+  };
+
+  public canDeleteSessionReplay = (
+    session?: { projects?: string[] } | null,
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: session?.projects },
+      "deleteSessionReplay",
+    );
+  };
+
   public canManageOrgSettings = (): boolean => {
     return this.checkGlobalPermission("organizationSettings");
   };

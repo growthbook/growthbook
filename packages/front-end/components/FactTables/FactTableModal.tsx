@@ -136,6 +136,7 @@ export default function FactTableModal({
         />
       )}
       <Modal
+        useRadixButton={false}
         trackingEventModalType=""
         open={true}
         close={close}

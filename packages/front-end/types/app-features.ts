@@ -117,4 +117,5 @@ export type AppFeatures = {
   "events-forwarder-multi-step": "OFF" | "VISIBLE" | "ENABLED";
   "enable-error-tracking": boolean;
   "managed-warehouse-diagnostics": boolean;
+  "session-replays": boolean;
 };

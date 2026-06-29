@@ -549,6 +549,7 @@ const MetricDrilldownModal = ({
   return (
     <Tabs defaultValue={initialTab}>
       <Modal
+        useRadixButton={false}
         open={true}
         close={close}
         borderlessHeader={true}

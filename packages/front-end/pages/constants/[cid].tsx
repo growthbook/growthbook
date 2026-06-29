@@ -456,7 +456,6 @@ export default function ConstantDetailPage(): React.ReactElement {
           size="max"
           hideCta={true}
           closeCta="Close"
-          useRadixButton={true}
         >
           <RevisionDetail<ConstantInterface>
             diffConfig={REVISION_CONSTANT_DIFF_CONFIG}
@@ -487,7 +486,6 @@ export default function ConstantDetailPage(): React.ReactElement {
           close={() => setShowReferencesModal(false)}
           open={showReferencesModal}
           closeCta="Close"
-          useRadixButton={true}
         >
           <Text as="p" mb="3">
             This constant is referenced by the following features and constants
