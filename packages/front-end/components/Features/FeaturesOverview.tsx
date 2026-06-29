@@ -1672,7 +1672,6 @@ export default function FeaturesOverview({
             ctaEnabled={!atDraftCap || draftCapAcknowledged}
             disabledMessage="Acknowledge the draft cap warning to continue"
             loading={creatingDraft}
-            useRadixButton={true}
             submit={async () => {
               setCreatingDraft(true);
               try {

@@ -153,7 +153,7 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
               </td>
               {canDeleteKeys && (
                 <td>
-                  <MoreMenu>
+                  <MoreMenu useRadix={false}>
                     {onToggleDisabled && (
                       <button
                         className="dropdown-item"
@@ -166,6 +166,7 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                       </button>
                     )}
                     <DeleteButton
+                      useRadix={false}
                       onClick={onDelete(key.id)}
                       className="dropdown-item"
                       displayName="API Key"

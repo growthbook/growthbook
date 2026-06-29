@@ -554,7 +554,6 @@ export default function ConstantDetailPage(): React.ReactElement {
           close={() => setShowReferencesModal(false)}
           open={showReferencesModal}
           closeCta="Close"
-          useRadixButton={true}
         >
           <Text as="p" mb="3">
             This constant is referenced by the following features and constants

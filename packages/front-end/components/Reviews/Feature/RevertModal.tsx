@@ -145,6 +145,7 @@ export default function RevertModal({
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       open={true}
       header="Revert"

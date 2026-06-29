@@ -241,6 +241,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<
       )}
 
       <Modal
+        useRadixButton={false}
         trackingEventModalType=""
         open={true}
         submit={handleSubmit}
