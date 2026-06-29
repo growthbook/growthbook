@@ -358,6 +358,9 @@ tags:
   - name: ConfigSchemaSource_model
     x-displayName: Config Schema Source
     description: <SchemaDefinition schemaRef="#/components/schemas/ConfigSchemaSource" />
+  - name: ConfigSchemaVerify_model
+    x-displayName: Config Schema Verify
+    description: <SchemaDefinition schemaRef="#/components/schemas/ConfigSchemaVerify" />
   - name: ConfigSchemaWarning_model
     x-displayName: Config Schema Warning
     description: <SchemaDefinition schemaRef="#/components/schemas/ConfigSchemaWarning" />
@@ -19180,6 +19183,72 @@ paths:
             curl -X GET
             'https://api.growthbook.io/api/v1/configs/checkout-flow/lineage' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/configs/{key}/schema/verify:
+    post:
+      operationId: verifyConfigSchema
+      summary: Verify a config's schema against a source (drift check)
+      tags:
+        - configs
+      parameters:
+        - name: key
+          in: path
+          required: true
+          description: The key of the config
+          schema:
+            description: The key of the config
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                schema:
+                  $ref: '#/components/schemas/ConfigSchemaSource'
+              required:
+                - schema
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                id: ConfigSchemaVerify
+                type: object
+                properties:
+                  inSync:
+                    description: >-
+                      True when the supplied schema is canonically identical to
+                      the config's stored schema.
+                    type: boolean
+                  fingerprint:
+                    description: Canonical fingerprint of the config's stored schema.
+                    type: string
+                  incomingFingerprint:
+                    description: Canonical fingerprint of the supplied schema.
+                    type: string
+                  drift:
+                    $ref: '#/components/schemas/drift'
+                  warnings:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ConfigSchemaWarning'
+                required:
+                  - inSync
+                  - fingerprint
+                  - incomingFingerprint
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/configs/checkout-flow/schema/verify'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY' \
+              -H 'Content-Type: application/json' \
+              -d '{"schema":{"type":"typescript","value":"interface CheckoutFlow { timeout: number; retries: number }"}}'
   /v1/configs/{key}/schema:
     get:
       operationId: getConfigSchema
@@ -48281,6 +48350,96 @@ components:
                 - type
                 - value
               additionalProperties: false
+    ConfigSchemaVerify:
+      type: object
+      properties:
+        inSync:
+          description: >-
+            True when the supplied schema is canonically identical to the
+            config's stored schema.
+          type: boolean
+        fingerprint:
+          description: Canonical fingerprint of the config's stored schema.
+          type: string
+        incomingFingerprint:
+          description: Canonical fingerprint of the supplied schema.
+          type: string
+        drift:
+          description: Present only when `inSync` is false.
+          type: object
+          properties:
+            contract:
+              description: >-
+                Changes that alter what validates
+                (type/enum/required/nullable/bounds/structure, or an
+                added/removed field).
+              type: array
+              items:
+                type: object
+                properties:
+                  key:
+                    type: string
+                  change:
+                    type: string
+                    enum:
+                      - added
+                      - removed
+                      - changed
+                required:
+                  - key
+                  - change
+                additionalProperties: false
+            docs:
+              description: Description-only changes (no effect on validation).
+              type: array
+              items:
+                type: object
+                properties:
+                  key:
+                    type: string
+                  change:
+                    type: string
+                    enum:
+                      - added
+                      - removed
+                      - changed
+                required:
+                  - key
+                  - change
+                additionalProperties: false
+          required:
+            - contract
+            - docs
+          additionalProperties: false
+        warnings:
+          type: array
+          items:
+            $ref: '#/components/schemas/ConfigSchemaWarning'
+      required:
+        - inSync
+        - fingerprint
+        - incomingFingerprint
+      additionalProperties: false
+      $defs:
+        ConfigSchemaWarning:
+          id: ConfigSchemaWarning
+          type: object
+          properties:
+            code:
+              type: string
+              enum:
+                - dropped-declaration
+                - non-object-root
+                - unresolved-type
+                - unsupported-member
+            message:
+              type: string
+            path:
+              type: string
+          required:
+            - code
+            - message
+          additionalProperties: false
     SavedGroupReferences:
       type: object
       properties:
@@ -50360,6 +50519,53 @@ components:
         - depth
         - isTarget
       additionalProperties: false
+    drift:
+      description: Present only when `inSync` is false.
+      type: object
+      properties:
+        contract:
+          description: >-
+            Changes that alter what validates
+            (type/enum/required/nullable/bounds/structure, or an added/removed
+            field).
+          type: array
+          items:
+            type: object
+            properties:
+              key:
+                type: string
+              change:
+                type: string
+                enum:
+                  - added
+                  - removed
+                  - changed
+            required:
+              - key
+              - change
+            additionalProperties: false
+        docs:
+          description: Description-only changes (no effect on validation).
+          type: array
+          items:
+            type: object
+            properties:
+              key:
+                type: string
+              change:
+                type: string
+                enum:
+                  - added
+                  - removed
+                  - changed
+            required:
+              - key
+              - change
+            additionalProperties: false
+      required:
+        - contract
+        - docs
+      additionalProperties: false
     updatedMember:
       type: object
       properties:
@@ -50981,6 +51187,7 @@ x-tagGroups:
       - ConfigRevisionReview_model
       - ConfigSchemaExport_model
       - ConfigSchemaSource_model
+      - ConfigSchemaVerify_model
       - ConfigSchemaWarning_model
       - Constant_model
       - ConstantReferences_model

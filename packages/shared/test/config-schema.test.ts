@@ -1,6 +1,8 @@
 import { SchemaField } from "../types/feature";
 import {
+  canonicalSchemaString,
   collectInvalidConfigValueKeys,
+  diffSchemaFields,
   fieldsCanonicallyEqual,
   fieldsToTsType,
   inferFieldFromValue,
@@ -840,5 +842,75 @@ describe("collectInvalidConfigValueKeys", () => {
         additionalProperties: false,
       }),
     ).toEqual([tildeKey]);
+  });
+});
+
+describe("canonicalSchemaString (fingerprint basis)", () => {
+  it("is order-independent (reordering fields → same string)", () => {
+    const a = [field({ key: "a" }), field({ key: "b", type: "integer" })];
+    const b = [field({ key: "b", type: "integer" }), field({ key: "a" })];
+    expect(canonicalSchemaString(a)).toBe(canonicalSchemaString(b));
+  });
+
+  it("ignores cosmetic/redundant differences (raw {type:string} vs simple)", () => {
+    const simple = [field({ key: "a", type: "string" })];
+    const raw = [field({ key: "a", jsonSchema: '{"type":"string"}' })];
+    expect(canonicalSchemaString(simple)).toBe(canonicalSchemaString(raw));
+  });
+
+  it("changes when a contract field changes", () => {
+    const before = [field({ key: "a", type: "string" })];
+    const after = [field({ key: "a", type: "integer" })];
+    expect(canonicalSchemaString(before)).not.toBe(
+      canonicalSchemaString(after),
+    );
+  });
+
+  it("changes when only a description changes (single hash includes docs)", () => {
+    const before = [field({ key: "a", description: "" })];
+    const after = [field({ key: "a", description: "the a field" })];
+    expect(canonicalSchemaString(before)).not.toBe(
+      canonicalSchemaString(after),
+    );
+  });
+});
+
+describe("diffSchemaFields (categorized drift)", () => {
+  it("reports added and removed fields as contract changes", () => {
+    const stored = [field({ key: "a" })];
+    const incoming = [field({ key: "b" })];
+    const { contract, docs } = diffSchemaFields(stored, incoming);
+    expect(docs).toEqual([]);
+    expect(contract).toEqual([
+      { key: "a", change: "removed" },
+      { key: "b", change: "added" },
+    ]);
+  });
+
+  it("labels a type change as contract, not docs", () => {
+    const { contract, docs } = diffSchemaFields(
+      [field({ key: "a", type: "string" })],
+      [field({ key: "a", type: "integer" })],
+    );
+    expect(contract).toEqual([{ key: "a", change: "changed" }]);
+    expect(docs).toEqual([]);
+  });
+
+  it("labels a description-only change as docs, not contract", () => {
+    const { contract, docs } = diffSchemaFields(
+      [field({ key: "a", description: "" })],
+      [field({ key: "a", description: "now documented" })],
+    );
+    expect(docs).toEqual([{ key: "a", change: "changed" }]);
+    expect(contract).toEqual([]);
+  });
+
+  it("returns no changes for canonically-equal schemas", () => {
+    const stored = [field({ key: "a", type: "string" })];
+    const incoming = [field({ key: "a", jsonSchema: '{"type":"string"}' })];
+    expect(diffSchemaFields(stored, incoming)).toEqual({
+      contract: [],
+      docs: [],
+    });
   });
 });

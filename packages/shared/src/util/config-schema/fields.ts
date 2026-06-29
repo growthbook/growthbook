@@ -218,3 +218,63 @@ export function reconcileSchemaFields(
     return stored && fieldsCanonicallyEqual(stored, edited) ? stored : edited;
   });
 }
+
+// Stable, order-independent canonical serialization of a field set — the basis
+// for the schema fingerprint and drift detection. Fields are sorted by key
+// (object property order isn't meaningful) and reduced to canonical form, so a
+// reorder or a cosmetic/redundant difference produces the SAME string. A single
+// canonical form (description included) drives equality, reconciliation, AND
+// drift, so they can never disagree — a description change IS a change;
+// `diffSchemaFields` then labels whether it's contract or docs-only.
+export function canonicalSchemaString(fields: SchemaField[]): string {
+  const canonical = [...fields]
+    .map(canonicalField)
+    .sort((a, b) => a.key.localeCompare(b.key));
+  return canonicalJSON(canonical);
+}
+
+// Contract-only canonical form: canonicalField minus `description`. Used solely
+// to LABEL a diff (docs-only vs contract) — never for the fingerprint, which
+// includes description.
+function canonicalContractJSON(f: SchemaField): string {
+  const out: Record<string, unknown> = { ...canonicalField(f) };
+  delete out.description;
+  return canonicalJSON(out);
+}
+
+export type SchemaFieldChange = {
+  key: string;
+  change: "added" | "removed" | "changed";
+};
+
+// Categorized field-level diff between a `stored` schema and an `incoming` one.
+// `contract` changes alter what validates (type/enum/required/nullable/bounds/
+// nested structure, or an added/removed field); `docs` changes are
+// description-only. Detection uses the full canonical form (nothing is silently
+// ignored); classification strips `description` to label each change, so callers
+// can fail hard on contract drift while treating docs drift as a soft signal.
+export function diffSchemaFields(
+  stored: SchemaField[],
+  incoming: SchemaField[],
+): { contract: SchemaFieldChange[]; docs: SchemaFieldChange[] } {
+  const storedByKey = new Map(stored.map((f) => [f.key, f]));
+  const incomingByKey = new Map(incoming.map((f) => [f.key, f]));
+  const contract: SchemaFieldChange[] = [];
+  const docs: SchemaFieldChange[] = [];
+  const keys = [
+    ...new Set([...storedByKey.keys(), ...incomingByKey.keys()]),
+  ].sort();
+  for (const key of keys) {
+    const a = storedByKey.get(key);
+    const b = incomingByKey.get(key);
+    if (a && !b) {
+      contract.push({ key, change: "removed" });
+    } else if (!a && b) {
+      contract.push({ key, change: "added" });
+    } else if (a && b && !fieldsCanonicallyEqual(a, b)) {
+      const docsOnly = canonicalContractJSON(a) === canonicalContractJSON(b);
+      (docsOnly ? docs : contract).push({ key, change: "changed" });
+    }
+  }
+  return { contract, docs };
+}

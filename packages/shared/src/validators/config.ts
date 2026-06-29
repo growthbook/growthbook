@@ -464,6 +464,74 @@ const apiConfigSchemaExportValidator = namedSchema(
     .strict(),
 );
 
+const schemaFieldChangeValidator = z
+  .object({
+    key: z.string(),
+    change: z.enum(["added", "removed", "changed"]),
+  })
+  .strict();
+
+const apiConfigSchemaVerifyValidator = namedSchema(
+  "ConfigSchemaVerify",
+  z
+    .object({
+      inSync: z
+        .boolean()
+        .describe(
+          "True when the supplied schema is canonically identical to the config's stored schema.",
+        ),
+      fingerprint: z
+        .string()
+        .describe("Canonical fingerprint of the config's stored schema."),
+      incomingFingerprint: z
+        .string()
+        .describe("Canonical fingerprint of the supplied schema."),
+      drift: z
+        .object({
+          contract: z
+            .array(schemaFieldChangeValidator)
+            .describe(
+              "Changes that alter what validates (type/enum/required/nullable/bounds/structure, or an added/removed field).",
+            ),
+          docs: z
+            .array(schemaFieldChangeValidator)
+            .describe("Description-only changes (no effect on validation)."),
+        })
+        .strict()
+        .optional()
+        .describe("Present only when `inSync` is false."),
+      warnings: z.array(apiSchemaWarningValidator).optional(),
+    })
+    .strict(),
+);
+
+export const verifyConfigSchemaValidator = {
+  bodySchema: z
+    .object({
+      schema: configSchemaSourceValidator.describe(
+        "The schema to check against the config's stored schema — a JSON Schema document or TypeScript source. Read-only: nothing is mutated.",
+      ),
+    })
+    .strict(),
+  querySchema: z.never(),
+  paramsSchema: configKeyParams,
+  responseSchema: apiConfigSchemaVerifyValidator,
+  summary: "Verify a config's schema against a source (drift check)",
+  operationId: "verifyConfigSchema",
+  tags: ["configs"],
+  method: "post" as const,
+  path: "/configs/:key/schema/verify",
+  exampleRequest: {
+    params: { key: "checkout-flow" },
+    body: {
+      schema: {
+        type: "typescript" as const,
+        value: "interface CheckoutFlow { timeout: number; retries: number }",
+      },
+    },
+  },
+};
+
 export const listConfigsValidator = {
   bodySchema: z.never(),
   querySchema: z.object({ ...paginationQueryFields }).strict(),
