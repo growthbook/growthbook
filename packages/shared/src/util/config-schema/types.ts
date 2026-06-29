@@ -25,10 +25,23 @@ export type SchemaWarning = {
 // failure (nothing usable parsed); `warnings` are non-fatal degradations the
 // caller can act on. This is the single contract — `jsonSchemaStringToFields`,
 // `tsTypesToFields`, and `SchemaConverter.toFields` all return this shape.
+// Per-source naming captured from an import, for round-trip rendering: the
+// names a consuming codebase gives the config's types. `rootName` is the
+// top-level type; `typeNames` maps a JSON-Pointer path (e.g.
+// "/properties/http/properties/retry") to the named type declared there. This is
+// presentation metadata for projection — NOT part of the schema contract, so it
+// never participates in canonical equality / drift.
+export type SchemaProjection = {
+  rootName?: string;
+  typeNames: Record<string, string>;
+};
+
 export type SchemaConversionResult = {
   fields: SchemaField[];
   error: string | null;
   warnings: SchemaWarning[];
+  // Naming captured from the source (currently TypeScript), when present.
+  projection?: SchemaProjection;
 };
 
 export type FromFieldsOptions = {

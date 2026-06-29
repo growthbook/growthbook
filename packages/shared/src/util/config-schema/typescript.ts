@@ -5,6 +5,7 @@ import { jsonSchemaStringToFields } from "./json-schema";
 import {
   SchemaConversionResult,
   SchemaConverter,
+  SchemaProjection,
   SchemaWarning,
 } from "./types";
 
@@ -647,6 +648,61 @@ function objectBodyToDocument(
   return { doc, warnings };
 }
 
+function jsonPointerEscape(key: string): string {
+  return key.replace(/~/g, "~0").replace(/\//g, "~1");
+}
+
+// Walk an object body recording, for each member whose type is a NAMED object
+// type, the JSON-Pointer path → that type's name (then recurse into it). Inline
+// object literals are descended without a name; aliases/scalars/arrays are left
+// inline (they aren't reproduced as named types on export). Mirrors the member
+// walk + named-decl detection in `objectBodyToDocument`/`tsTypeToSchemaNode`, so
+// the pointers line up with the emitted JSON Schema. Bounded by MAX_NEST_DEPTH
+// and a `seen` cycle guard.
+function captureMemberNames(
+  body: string,
+  decls: Map<string, TsDeclaration>,
+  pointer: string,
+  seen: Set<string>,
+  depth: number,
+  out: Record<string, string>,
+): void {
+  if (depth > MAX_NEST_DEPTH) return;
+  for (const member of tokenizeMembers(body)) {
+    const m = member.decl.match(
+      /^(?:readonly\s+)?("[^"]*"|'[^']*'|\[[^\]]*\]|[A-Za-z_$][\w$]*)(\??)\s*:\s*([\s\S]+)$/,
+    );
+    if (!m || m[1].startsWith("[")) continue;
+    const key = unquote(m[1]);
+    const childPointer = `${pointer}/properties/${jsonPointerEscape(key)}`;
+    const t = stripParens(
+      m[3]
+        .trim()
+        .replace(/[;,]+$/, "")
+        .trim(),
+    );
+    if (t.startsWith("{")) {
+      const { body: inner } = extractObjectBody(t);
+      if (inner !== null) {
+        captureMemberNames(inner, decls, childPointer, seen, depth + 1, out);
+      }
+      continue;
+    }
+    const decl = decls.get(t);
+    if (decl?.objectLike && !seen.has(t)) {
+      out[childPointer] = t;
+      captureMemberNames(
+        decl.body ?? "",
+        decls,
+        childPointer,
+        new Set([...seen, t]),
+        depth + 1,
+        out,
+      );
+    }
+  }
+}
+
 // Parse a TypeScript object type / interface into the config's own SchemaField[]
 // by pivoting through a JSON Schema document and delegating field-mapping.
 export function tsTypesToFields(text: string): SchemaConversionResult {
@@ -680,10 +736,21 @@ export function tsTypesToFields(text: string): SchemaConversionResult {
     resolvers,
   );
   const result = jsonSchemaStringToFields(JSON.stringify(doc));
+
+  // Capture the source's named-type structure (for round-trip rendering). Only
+  // meaningful when there's a named root resolving sibling types.
+  let projection: SchemaProjection | undefined;
+  if (root) {
+    const typeNames: Record<string, string> = {};
+    captureMemberNames(body, byName, "", new Set([root.name]), 1, typeNames);
+    projection = { rootName: root.name, typeNames };
+  }
+
   return {
     fields: result.fields,
     error: result.error,
     warnings: [...tsWarnings, ...memberWarnings, ...result.warnings],
+    ...(projection ? { projection } : {}),
   };
 }
 

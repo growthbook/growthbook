@@ -914,3 +914,44 @@ describe("diffSchemaFields (categorized drift)", () => {
     });
   });
 });
+
+describe("tsTypesToFields projection (named-type capture)", () => {
+  it("captures named object types by JSON-Pointer path + root name", () => {
+    const { projection } = tsTypesToFields(`
+      type RetryPolicy = { maxAttempts: number; retryOn: ("5xx" | "timeout")[] };
+      interface AppConfig {
+        serviceName: string;
+        http: { baseUrl: string; retry: RetryPolicy };
+      }
+    `);
+    expect(projection?.rootName).toBe("AppConfig");
+    // `retry` is a named type nested under the inline `http` object.
+    expect(projection?.typeNames).toEqual({
+      "/properties/http/properties/retry": "RetryPolicy",
+    });
+  });
+
+  it("does not name inline objects, scalars, enums, or aliases", () => {
+    const { projection } = tsTypesToFields(`
+      type LogLevel = "debug" | "info";
+      interface AppConfig {
+        port: number;
+        logLevel: LogLevel;
+        nested: { a: string };
+      }
+    `);
+    // LogLevel is an alias (not an object type) and `nested` is inline — neither
+    // is reproduced as a named type, so no entries.
+    expect(projection?.rootName).toBe("AppConfig");
+    expect(projection?.typeNames).toEqual({});
+  });
+
+  it("does not run a name capture into a reference cycle", () => {
+    const { projection } = tsTypesToFields(`
+      interface Node { child: Node }
+      interface Cfg { root: Node }
+    `);
+    // First Node is named; the self-cycle stops there.
+    expect(projection?.typeNames).toEqual({ "/properties/root": "Node" });
+  });
+});
