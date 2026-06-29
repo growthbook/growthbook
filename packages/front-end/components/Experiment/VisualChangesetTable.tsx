@@ -720,6 +720,7 @@ function UrlCard({
           )}
           {canEdit && experiment.status === "draft" && (
             <OpenVisualEditorLink
+              useRadix={false}
               visualChangeset={vc}
               useLink
               button={<Button variant="ghost">Launch visual editor</Button>}

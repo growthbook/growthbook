@@ -173,6 +173,7 @@ const ExperimentCarouselModal: FC<{
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       open={true}
       header={null}

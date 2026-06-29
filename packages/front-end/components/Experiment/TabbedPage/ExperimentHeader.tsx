@@ -511,6 +511,7 @@ export default function ExperimentHeader({
       )}
       {showBanditModal ? (
         <Modal
+          useRadixButton={false}
           open={true}
           close={() => setShowBanditModal(false)}
           trackingEventModalType=""

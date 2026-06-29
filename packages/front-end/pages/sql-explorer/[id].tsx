@@ -122,6 +122,7 @@ export default function SqlQueryDetail() {
         <MoreMenu useRadix={true}>
           {canDelete && (
             <DeleteButton
+              useRadix={false}
               className="dropdown-item"
               onClick={async () => {
                 await apiCall(`/saved-queries/${savedQuery.id}`, {

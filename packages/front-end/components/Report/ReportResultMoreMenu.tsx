@@ -116,6 +116,7 @@ export default function ReportResultMoreMenu({
         <>
           <hr className="mx-4 my-2" />
           <DeleteButton
+            useRadix={false}
             className="dropdown-item text-danger"
             useIcon={false}
             text="Delete report"

@@ -133,6 +133,7 @@ export default function LinkedChange({
                 experiment?.status === "draft" &&
                 !experiment?.nextScheduledStatusUpdate && (
                   <OpenVisualEditorLink
+                    useRadix={false}
                     visualChangeset={vc}
                     useLink={true}
                     button={

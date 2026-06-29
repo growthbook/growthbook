@@ -396,6 +396,7 @@ export default function FactMetricPage() {
     <div className="pagecontents container-fluid">
       {auditModal && (
         <Modal
+          useRadixButton={false}
           trackingEventModalType=""
           open={true}
           header="Audit Log"
@@ -424,6 +425,7 @@ export default function FactMetricPage() {
       )}
       {showDeleteModal && (
         <Modal
+          useRadixButton={false}
           trackingEventModalType=""
           header={`Delete Metric`}
           close={() => setShowDeleteModal(false)}
@@ -803,7 +805,7 @@ export default function FactMetricPage() {
               <Text as="p" mb="2" color="text-mid">
                 Choose metric breakdowns to automatically analyze in your
                 experiments.{" "}
-                <DocLink docSection="autoSlices">
+                <DocLink useRadix={false} docSection="autoSlices">
                   Learn More <PiArrowSquareOut />
                 </DocLink>
               </Text>

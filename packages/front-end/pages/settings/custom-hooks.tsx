@@ -198,6 +198,7 @@ export default function CustomHooksPage() {
                             {hook.enabled ? "Disable" : "Enable"}
                           </a>
                           <DeleteButton
+                            useRadix={false}
                             useIcon={false}
                             text="Delete"
                             displayName="custom hook"
