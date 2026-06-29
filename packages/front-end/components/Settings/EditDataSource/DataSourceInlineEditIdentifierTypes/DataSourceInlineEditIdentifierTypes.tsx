@@ -172,7 +172,6 @@ export const DataSourceInlineEditIdentifierTypes: FC<
                   {!deleteDisabled && (
                     <DeleteButton
                       onClick={handleActionDeleteClicked(idx)}
-                      useRadix={true}
                       useIcon={false}
                       displayName={userIdTypes[idx]?.userIdType}
                       deleteMessage={`Are you sure you want to delete identifier type ${userIdTypes[idx]?.userIdType}?`}

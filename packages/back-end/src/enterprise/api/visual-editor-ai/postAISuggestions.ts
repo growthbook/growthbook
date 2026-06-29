@@ -11,7 +11,7 @@ import {
 import { getAISettingsForOrg } from "back-end/src/services/organizations";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { logger } from "back-end/src/util/logger";
-import { requireUserAuth } from "./requireUserAuth";
+import { requireUserAuth } from "back-end/src/api/visual-editor-ai/requireUserAuth";
 
 const pageHintsSchema = z.object({
   url: z.string().optional(),

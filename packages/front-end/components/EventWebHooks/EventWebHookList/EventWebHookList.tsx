@@ -49,7 +49,7 @@ export const EventWebHookList: FC<EventWebHookListProps> = ({
         <p>
           Monitor specific events globally accross features and experiments.
           <span className="ml-2">
-            <DocLink docSection={"eventWebhooks"}>
+            <DocLink useRadix={false} docSection={"eventWebhooks"}>
               View Documentation &gt;
             </DocLink>
           </span>

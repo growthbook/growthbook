@@ -447,6 +447,7 @@ export default function TabbedPage({
       )}
       {watchersModal && (
         <Modal
+          useRadixButton={false}
           trackingEventModalType=""
           open={true}
           header="Experiment Watchers"
