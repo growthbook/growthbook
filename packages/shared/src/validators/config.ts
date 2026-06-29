@@ -127,6 +127,11 @@ const jsonSchemaDocument = z
   .record(z.string(), z.unknown())
   .describe("A JSON Schema document (an object).");
 
+// A config's value — always a JSON object. The external API takes/returns it as
+// native JSON (not a JSON-encoded string); the value is stored as a string
+// internally and parsed/stringified at the API boundary.
+const configValueObject = z.record(z.string(), z.unknown());
+
 // Schema I/O envelope: a config's field schema supplied as a JSON Schema document
 // (canonical, native JSON — no escaping) or TypeScript source. Used for
 // create/update/import input and schema export. JSON Schema is the happy path
@@ -210,16 +215,15 @@ export const apiConfigValidator = namedSchema(
           "Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`.",
         )
         .optional(),
-      value: z
-        .string()
+      value: configValueObject
         .describe(
-          "This config's own JSON-encoded object value (its declared fields only — inherited fields are layered in at resolution time, not stored here).",
+          "This config's own value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here).",
         )
         .optional(),
       environmentValues: z
-        .record(z.string(), z.string())
+        .record(z.string(), configValueObject)
         .describe(
-          "Per-environment value overrides (environment id → JSON-encoded object). Falls back to `value` when an environment is absent.",
+          "Per-environment value overrides (environment id → JSON object). Each override fully replaces `value` for that environment; falls back to `value` when an environment is absent.",
         )
         .optional(),
       description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
@@ -283,8 +287,15 @@ const postConfigApiBody = z
         "Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; own keys win last). Set inheritance here, never via a `@config:` entry in `value`.",
       )
       .optional(),
-    value: z.string().optional(),
-    environmentValues: z.record(z.string(), z.string()).optional(),
+    value: configValueObject
+      .describe("This config's value as a JSON object.")
+      .optional(),
+    environmentValues: z
+      .record(z.string(), configValueObject)
+      .describe(
+        "Per-environment value overrides (environment id → JSON object). Each override fully replaces `value` for that environment.",
+      )
+      .optional(),
     description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
     project: z.string().optional(),
     owner: optionalOwnerInputField,
@@ -313,11 +324,13 @@ const updateConfigApiBody = z
         "Replace the composition bases (mixins) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; own keys win last). Send the complete set; an empty array clears all mixins. Set inheritance here, never via a `@config:` entry in `value`.",
       )
       .optional(),
-    value: z.string().optional(),
+    value: configValueObject
+      .describe("This config's value as a JSON object.")
+      .optional(),
     environmentValues: z
-      .record(z.string(), z.string())
+      .record(z.string(), configValueObject)
       .describe(
-        "Per-environment value overrides (environment id → JSON-encoded object). When provided, this REPLACES the entire override map — send the complete set, not just the environments you want to change (omit the field to leave overrides unchanged).",
+        "Per-environment value overrides (environment id → JSON object). When provided, this REPLACES the entire override map — send the complete set, not just the environments you want to change (omit the field to leave overrides unchanged). Each override fully replaces `value` for that environment.",
       )
       .optional(),
     description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
@@ -574,7 +587,7 @@ export const postConfigValidator = {
     body: {
       key: "checkout-flow",
       name: "Checkout Flow",
-      value: '{"timeout":30,"retries":3}',
+      value: { timeout: 30, retries: 3 },
     },
   },
 };
@@ -591,7 +604,7 @@ export const updateConfigValidator = {
   path: "/configs/:key",
   exampleRequest: {
     params: { key: "checkout-flow" },
-    body: { value: '{"timeout":60,"retries":3}' },
+    body: { value: { timeout: 60, retries: 3 } },
   },
 };
 

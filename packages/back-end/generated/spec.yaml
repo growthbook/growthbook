@@ -18898,13 +18898,24 @@ paths:
                   items:
                     type: string
                 value:
-                  type: string
+                  description: This config's value as a JSON object.
+                  type: object
+                  propertyNames:
+                    type: string
+                  additionalProperties: {}
                 environmentValues:
+                  description: >-
+                    Per-environment value overrides (environment id → JSON
+                    object). Each override fully replaces `value` for that
+                    environment.
                   type: object
                   propertyNames:
                     type: string
                   additionalProperties:
-                    type: string
+                    type: object
+                    propertyNames:
+                      type: string
+                    additionalProperties: {}
                 description:
                   type: string
                   maxLength: 10000
@@ -18958,7 +18969,7 @@ paths:
             curl -X POST 'https://api.growthbook.io/api/v1/configs' \
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
-              -d '{"key":"checkout-flow","name":"Checkout Flow","value":"{\"timeout\":30,\"retries\":3}"}'
+              -d '{"key":"checkout-flow","name":"Checkout Flow","value":{"timeout":30,"retries":3}}'
   /v1/configs-revisions:
     get:
       operationId: listConfigRevisions
@@ -19380,19 +19391,27 @@ paths:
                   items:
                     type: string
                 value:
-                  type: string
+                  description: This config's value as a JSON object.
+                  type: object
+                  propertyNames:
+                    type: string
+                  additionalProperties: {}
                 environmentValues:
                   description: >-
-                    Per-environment value overrides (environment id →
-                    JSON-encoded object). When provided, this REPLACES the
-                    entire override map — send the complete set, not just the
-                    environments you want to change (omit the field to leave
-                    overrides unchanged).
+                    Per-environment value overrides (environment id → JSON
+                    object). When provided, this REPLACES the entire override
+                    map — send the complete set, not just the environments you
+                    want to change (omit the field to leave overrides
+                    unchanged). Each override fully replaces `value` for that
+                    environment.
                   type: object
                   propertyNames:
                     type: string
                   additionalProperties:
-                    type: string
+                    type: object
+                    propertyNames:
+                      type: string
+                    additionalProperties: {}
                 description:
                   type: string
                   maxLength: 10000
@@ -19442,7 +19461,7 @@ paths:
             'https://api.growthbook.io/api/v1/configs/checkout-flow' \
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
-              -d '{"value":"{\"timeout\":60,\"retries\":3}"}'
+              -d '{"value":{"timeout":60,"retries":3}}'
     delete:
       operationId: deleteConfig
       summary: Delete a single config
@@ -42574,19 +42593,26 @@ components:
             type: string
         value:
           description: >-
-            This config's own JSON-encoded object value (its declared fields
-            only — inherited fields are layered in at resolution time, not
-            stored here).
-          type: string
+            This config's own value as a JSON object (its declared fields only —
+            inherited fields are layered in at resolution time, not stored
+            here).
+          type: object
+          propertyNames:
+            type: string
+          additionalProperties: {}
         environmentValues:
           description: >-
-            Per-environment value overrides (environment id → JSON-encoded
-            object). Falls back to `value` when an environment is absent.
+            Per-environment value overrides (environment id → JSON object). Each
+            override fully replaces `value` for that environment; falls back to
+            `value` when an environment is absent.
           type: object
           propertyNames:
             type: string
           additionalProperties:
-            type: string
+            type: object
+            propertyNames:
+              type: string
+            additionalProperties: {}
         description:
           type: string
           maxLength: 10000

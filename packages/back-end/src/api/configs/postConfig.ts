@@ -15,18 +15,21 @@ import { resolveConfigSchemaSource } from "./validations";
 export const postConfig = createApiRequestHandler(postConfigValidator)(async (
   req,
 ) => {
-  const {
-    key,
-    name,
-    value,
-    environmentValues,
-    description,
-    project,
-    owner,
-    schema,
-    extensible,
-  } = req.body;
+  const { key, name, description, project, owner, schema, extensible } =
+    req.body;
   const extendsKeys = req.body.extends;
+  // Values arrive as native JSON objects; stored/validated as JSON strings.
+  const value =
+    req.body.value !== undefined ? JSON.stringify(req.body.value) : undefined;
+  const environmentValues =
+    req.body.environmentValues !== undefined
+      ? Object.fromEntries(
+          Object.entries(req.body.environmentValues).map(([env, v]) => [
+            env,
+            JSON.stringify(v),
+          ]),
+        )
+      : undefined;
 
   if (!req.context.permissions.canCreateConfig({ project: project || "" })) {
     req.context.permissions.throwPermissionError();

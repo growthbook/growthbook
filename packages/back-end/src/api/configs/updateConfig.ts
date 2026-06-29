@@ -25,18 +25,21 @@ import { resolveConfigSchemaSource } from "./validations";
 export const updateConfig = createApiRequestHandler(updateConfigValidator)(
   async (req) => {
     const { key } = req.params;
-    const {
-      name,
-      value,
-      environmentValues,
-      description,
-      project,
-      owner,
-      schema,
-      extensible,
-    } = req.body;
+    const { name, description, project, owner, schema, extensible } = req.body;
     const extendsKeys = req.body.extends;
     const bypassApproval = req.body.bypassApproval === true;
+    // Values arrive as native JSON objects; stored/validated as JSON strings.
+    const value =
+      req.body.value !== undefined ? JSON.stringify(req.body.value) : undefined;
+    const environmentValues =
+      req.body.environmentValues !== undefined
+        ? Object.fromEntries(
+            Object.entries(req.body.environmentValues).map(([env, v]) => [
+              env,
+              JSON.stringify(v),
+            ]),
+          )
+        : undefined;
 
     // Convert the schema envelope (JSON Schema / TypeScript) to the internal
     // SimpleSchema; `warnings` surface any lossy degradation back to the caller.

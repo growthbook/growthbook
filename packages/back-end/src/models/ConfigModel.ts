@@ -326,8 +326,16 @@ export class ConfigModel extends BaseClass {
       // Coalesce a legacy `null` (from an earlier clear bug) to undefined so the
       // optional-array API field validates.
       extends: config.extends ?? undefined,
-      value: config.value,
-      environmentValues: config.environmentValues,
+      // Stored as JSON strings; the external API exposes them as native JSON.
+      value: config.value ? JSON.parse(config.value) : undefined,
+      environmentValues: config.environmentValues
+        ? Object.fromEntries(
+            Object.entries(config.environmentValues).map(([env, v]) => [
+              env,
+              JSON.parse(v),
+            ]),
+          )
+        : undefined,
       description: config.description,
       project: config.project,
       archived: config.archived,
