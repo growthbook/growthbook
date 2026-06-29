@@ -62,10 +62,10 @@ export default function ConfigFieldRow({
   squashConstants: (value: unknown) => unknown;
   editing: boolean;
   editText: string;
-  editKind: "value" | "null" | "unset";
+  editKind: "value" | "null" | "undefined";
   editError: string | null;
   setEditText: (v: string) => void;
-  setEditKind: (k: "value" | "null" | "unset") => void;
+  setEditKind: (k: "value" | "null" | "undefined") => void;
   onStartEdit: () => void;
   onSubmit: () => void;
   onCancelEdit: () => void;
@@ -130,8 +130,8 @@ export default function ConfigFieldRow({
                   const nullable = fieldIsNullable(nf);
                   const optional = nf?.required === false;
                   const isNull = editKind === "null";
-                  const isUnset = editKind === "unset";
-                  const disabled = isNull || isUnset;
+                  const isUndefined = editKind === "undefined";
+                  const disabled = isNull || isUndefined;
                   const vt = fieldValueType(nf);
                   const enumValues =
                     vt !== "json" && vt !== "boolean" ? (nf?.enum ?? []) : [];
@@ -181,7 +181,7 @@ export default function ConfigFieldRow({
                             <Checkbox
                               size="sm"
                               label="null"
-                              disabled={isUnset}
+                              disabled={isUndefined}
                               value={isNull}
                               setValue={(v) => {
                                 setEditKind(v ? "null" : "value");
@@ -193,9 +193,9 @@ export default function ConfigFieldRow({
                             <Checkbox
                               size="sm"
                               label="undefined"
-                              value={isUnset}
+                              value={isUndefined}
                               setValue={(v) => {
-                                setEditKind(v ? "unset" : "value");
+                                setEditKind(v ? "undefined" : "value");
                                 if (v) setEditText("");
                               }}
                             />
