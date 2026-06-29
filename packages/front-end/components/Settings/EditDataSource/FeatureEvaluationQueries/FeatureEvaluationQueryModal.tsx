@@ -11,6 +11,7 @@ import { TestQueryRow } from "shared/types/integrations";
 import Code from "@/components/SyntaxHighlighting/Code";
 import Modal from "@/components/Modal";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
+import Callout from "@/ui/Callout";
 
 type FeatureEvaluationQueryProps = {
   featureUsageQuery?: FeatureUsageQuery;
@@ -114,11 +115,10 @@ export const FeatureEvaluationQueryModal: FC<FeatureEvaluationQueryProps> = ({
               <div className="form-group">
                 <label className="mr-5">Query</label>
                 {userEnteredQuery === defaultQuery && (
-                  <div className="alert alert-info">
-                    <FaExclamationTriangle style={{ marginTop: "-2px" }} /> The
-                    prefilled query below may require editing to fit your data
-                    structure.
-                  </div>
+                  <Callout status="info" icon={<FaExclamationTriangle />}>
+                    The prefilled query below may require editing to fit your
+                    data structure.
+                  </Callout>
                 )}
                 {userEnteredQuery && (
                   <Code

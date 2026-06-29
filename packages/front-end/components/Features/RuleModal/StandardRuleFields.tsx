@@ -397,10 +397,13 @@ export default function StandardRuleFields({
                         disableStart={isRunningSimple}
                       />
                       {isTerminal && !isPendingRemoval && (
-                        <Callout status="info" mt="3" size="sm">
-                          <Flex align="center" justify="between" gap="3">
-                            <Text>This schedule has finished.</Text>
+                        <Callout
+                          status="info"
+                          mt="3"
+                          size="sm"
+                          action={
                             <Button
+                              color="inherit"
                               size="xs"
                               variant="outline"
                               onClick={() =>
@@ -412,7 +415,9 @@ export default function StandardRuleFields({
                             >
                               Remove schedule
                             </Button>
-                          </Flex>
+                          }
+                        >
+                          <Text>This schedule has finished.</Text>
                         </Callout>
                       )}
                       {isPendingRemoval && (
@@ -514,11 +519,10 @@ export default function StandardRuleFields({
         </Flex>
       )}
       {isCyclic && (
-        <div className="alert alert-danger">
-          <FaExclamationTriangle /> A prerequisite (
-          <code>{cyclicFeatureId}</code>) creates a circular dependency. Remove
-          this prerequisite to continue.
-        </div>
+        <Callout status="error" icon={<FaExclamationTriangle />}>
+          A prerequisite (<code>{cyclicFeatureId}</code>) creates a circular
+          dependency. Remove this prerequisite to continue.
+        </Callout>
       )}
     </>
   );

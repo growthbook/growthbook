@@ -1711,6 +1711,7 @@ export default function RuleModal({
               </Box>
               {hasCommercialFeature("safe-rollout") ? (
                 <Button
+                  color="inherit"
                   variant="soft"
                   size="xs"
                   onClick={() => {
@@ -1736,7 +1737,7 @@ export default function RuleModal({
                   commercialFeature="safe-rollout"
                   usePortal={true}
                 >
-                  <Button variant="soft" size="xs" disabled>
+                  <Button color="inherit" variant="soft" size="xs" disabled>
                     Show me
                   </Button>
                 </PremiumTooltip>

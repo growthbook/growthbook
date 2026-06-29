@@ -215,6 +215,7 @@ export const ExperimentAssignmentQueries: FC<
                       </Box>
                       <Box mt="3">
                         <Button
+                          color="inherit"
                           onClick={handleValidate()}
                           loading={validatingQuery}
                         >
@@ -222,6 +223,7 @@ export const ExperimentAssignmentQueries: FC<
                         </Button>
                         {canEdit && !isManaged && (
                           <Button
+                            color="inherit"
                             onClick={handleActionClicked(idx, "edit")}
                             style={{ marginLeft: "1rem" }}
                           >

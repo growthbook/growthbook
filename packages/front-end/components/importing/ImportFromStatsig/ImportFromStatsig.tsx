@@ -32,6 +32,7 @@ import track from "@/services/track";
 import { isCloud } from "@/services/env";
 import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
+import Callout from "@/ui/Callout";
 import { EntityAccordion, EntityAccordionContent } from "./EntityAccordion";
 
 function HasChangesIcon({
@@ -1305,7 +1306,7 @@ export default function ImportFromStatsig() {
 
       <div className="position-relative">
         {data.status === "error" ? (
-          <div className="alert alert-danger">{data.error || "Error"}</div>
+          <Callout status="error">{data.error || "Error"}</Callout>
         ) : data.status === "init" ? null : (
           <div>
             <div className="mt-3">

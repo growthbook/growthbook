@@ -129,16 +129,10 @@ export default function RevisionBanner({
           This will reopen the revision and allow you to make further changes.
         </Modal>
       )}
-      <Callout status={config.status} mb="4" contentsAs="div">
-        <Flex align="center" justify="between" gap="3" wrap="wrap">
-          <span>
-            {config.text}
-            {error && (
-              <span style={{ color: "var(--red-9)", marginLeft: 8 }}>
-                {error}
-              </span>
-            )}
-          </span>
+      <Callout
+        status={config.status}
+        mb="4"
+        action={
           <Flex gap="2" align="center">
             {canDiscard &&
               revision.status !== "discarded" &&
@@ -168,7 +162,16 @@ export default function RevisionBanner({
               </Button>
             )}
           </Flex>
-        </Flex>
+        }
+      >
+        <span>
+          {config.text}
+          {error && (
+            <span style={{ color: "var(--red-9)", marginLeft: 8 }}>
+              {error}
+            </span>
+          )}
+        </span>
       </Callout>
     </>
   );

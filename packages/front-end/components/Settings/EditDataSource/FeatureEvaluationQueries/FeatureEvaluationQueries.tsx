@@ -175,7 +175,11 @@ export const FeatureEvaluationQueries: FC<FeatureEvaluationQueriesProps> = ({
                 {featureUsageQuery.error}
               </Box>
               <Box mt="3">
-                <Button onClick={handleValidate()} loading={validatingQuery}>
+                <Button
+                  color="inherit"
+                  onClick={handleValidate()}
+                  loading={validatingQuery}
+                >
                   Check it again.
                 </Button>
               </Box>

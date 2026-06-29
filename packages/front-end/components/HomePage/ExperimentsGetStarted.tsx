@@ -16,8 +16,9 @@ import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
 import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
-import Button from "@/components/Button";
+import Button from "@/ui/Button";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Callout from "@/ui/Callout";
 
 const ExperimentsGetStarted = (): React.ReactElement => {
   const { metrics, datasources, mutateDefinitions, project, projects } =
@@ -134,11 +135,11 @@ const ExperimentsGetStarted = (): React.ReactElement => {
               experiment.
             </p>
             {hasFileConfig() && (
-              <div className="alert alert-info">
+              <Callout status="info">
                 It looks like you have a <code>config.yml</code> file. Use that
                 to define data sources and metrics.{" "}
                 <DocLink docSection="config_yml">View Documentation</DocLink>
-              </div>
+              </Callout>
             )}
             <div className="row mb-3">
               <div className="col">
@@ -264,15 +265,19 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                 </div>
               </div>
             </div>
-            <div className="alert alert-info text-center">
+            <Callout status="info" className="text-center">
               <p>
                 Not ready to connect to your data warehouse? Explore a sample
                 experiment first to get a feel for the GrowthBook platform.
               </p>
-              <Button color="outline-primary" onClick={openSampleExperiment}>
+              <Button
+                color="inherit"
+                variant="outline"
+                onClick={openSampleExperiment}
+              >
                 View Sample Experiment
               </Button>
-            </div>
+            </Callout>
           </div>
         ) : (
           <div>

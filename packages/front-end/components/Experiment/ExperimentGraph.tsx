@@ -15,6 +15,7 @@ import useApi from "@/hooks/useApi";
 import SelectField from "@/components/Forms/SelectField";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
+import Callout from "@/ui/Callout";
 import styles from "./ExperimentGraph.module.scss";
 
 export default function ExperimentGraph({
@@ -206,11 +207,7 @@ export default function ExperimentGraph({
   );
 
   if (error) {
-    return (
-      <div className="alert alert-danger">
-        An error occurred: {error.message}
-      </div>
-    );
+    return <Callout status="error">An error occurred: {error.message}</Callout>;
   }
   if (!data) {
     return <LoadingOverlay />;

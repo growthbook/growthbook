@@ -16,6 +16,7 @@ import Button from "@/ui/Button";
 import Metadata from "@/ui/Metadata";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
+import Callout from "@/ui/Callout";
 
 type DataSourceInlineEditIdentifierTypesProps =
   DataSourceQueryEditingModalBaseProps;
@@ -198,7 +199,9 @@ export const DataSourceInlineEditIdentifierTypes: FC<
 
       {/* region Identity Type empty state */}
       {userIdTypes.length === 0 ? (
-        <div className="mb-0 alert alert-info">No user identifier types.</div>
+        <Callout status="info" mb="0">
+          No user identifier types.
+        </Callout>
       ) : null}
       {/* endregion Identity Type empty state */}
 

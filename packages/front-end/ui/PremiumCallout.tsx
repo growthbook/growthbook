@@ -9,7 +9,7 @@ import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { useState } from "react";
 import { PiArrowSquareOut, PiLightbulb, PiX } from "react-icons/pi";
 import { useUser } from "@/services/UserContext";
-import { DocLink, DocSection } from "@/components/DocLink";
+import { DocSection, docUrl } from "@/components/DocLink";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
@@ -19,7 +19,7 @@ import styles from "./Callout.module.scss";
 export type Props = {
   commercialFeature: CommercialFeature;
   id: string;
-  dismissable?: boolean;
+  dismissible?: boolean;
   renderWhenDismissed?: (undismiss: () => void) => React.ReactElement;
   children: React.ReactNode;
   docSection?: DocSection;
@@ -28,7 +28,7 @@ export type Props = {
 export default function PremiumCallout({
   commercialFeature,
   id,
-  dismissable = false,
+  dismissible = false,
   children,
   docSection,
   renderWhenDismissed,
@@ -45,7 +45,7 @@ export default function PremiumCallout({
   const [upgradeModal, setUpgradeModal] = useState(false);
 
   if (hasFeature && !docSection) return null;
-  if (dismissable && dismissed)
+  if (dismissible && dismissed)
     return renderWhenDismissed
       ? renderWhenDismissed(() => setDismissed(false))
       : null;
@@ -68,11 +68,23 @@ export default function PremiumCallout({
     <PaidFeatureBadge commercialFeature={commercialFeature} useTip={false} />
   );
 
+  const externalLinkLabel = (label: string) => (
+    <>
+      <span style={{ textDecoration: "underline" }}>{label}</span>{" "}
+      <PiArrowSquareOut size={15} />
+    </>
+  );
+
   const link =
     hasFeature && docSection ? (
-      <DocLink docSection={docSection} useRadix={true}>
-        View docs <PiArrowSquareOut size={15} />
-      </DocLink>
+      <Link
+        href={docUrl(docSection)}
+        target="_blank"
+        rel="noopener noreferrer"
+        underline="none"
+      >
+        {externalLinkLabel("View docs")}
+      </Link>
     ) : pro ? (
       <Link
         href="#"
@@ -88,9 +100,9 @@ export default function PremiumCallout({
         href="https://www.growthbook.io/demo"
         target="_blank"
         rel="noreferrer"
-        style={{ whiteSpace: "nowrap" }}
+        underline="none"
       >
-        Talk to Sales <PiArrowSquareOut size={15} />
+        {externalLinkLabel("Talk to Sales")}
       </Link>
     );
 
@@ -120,10 +132,11 @@ export default function PremiumCallout({
         <Text as="div" size="2">
           <Flex align="start" gap="1" pr="3">
             <div>{children}</div>
-            <div style={{ flex: 1 }}>{link}</div>
+            {/* nowrap keeps the CTA label + external-link icon on one line */}
+            <div style={{ flex: 1, whiteSpace: "nowrap" }}>{link}</div>
           </Flex>
         </Text>
-        {dismissable ? (
+        {dismissible ? (
           <IconButton
             variant="ghost"
             color="gray"

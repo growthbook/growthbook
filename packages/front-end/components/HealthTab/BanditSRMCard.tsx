@@ -16,6 +16,7 @@ import BanditSRMGraph from "@/components/HealthTab/BanditSRMGraph";
 import ButtonSelectField from "@/components/Forms/ButtonSelectField";
 import { pValueFormatter } from "@/services/experiments";
 import SRMWarning from "@/components/Experiment/SRMWarning";
+import Callout from "@/ui/Callout";
 import { StatusBadge } from "./StatusBadge";
 import { IssueValue } from "./IssueTags";
 
@@ -70,7 +71,7 @@ export default function BanditSRMCard({
   if (srm === undefined) {
     return (
       <div className="box my-4 p-3">
-        <div className="alert alert-danger">Traffic data is missing</div>
+        <Callout status="error">Traffic data is missing</Callout>
       </div>
     );
   }
@@ -127,10 +128,10 @@ export default function BanditSRMCard({
                 />
               </>
             ) : (
-              <div className="alert alert-info font-weight-bold">
+              <Callout status="info" className="font-weight-bold">
                 More traffic is required to detect a Sample Ratio Mismatch
                 (SRM).
-              </div>
+              </Callout>
             )}
           </div>
         </div>

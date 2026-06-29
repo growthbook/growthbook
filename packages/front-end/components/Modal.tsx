@@ -15,6 +15,7 @@ import track, { TrackEventProps } from "@/services/track";
 import ConditionalWrapper from "@/components/ConditionalWrapper";
 import ErrorDisplay from "@/ui/ErrorDisplay";
 import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
 import LoadingOverlay from "./LoadingOverlay";
 import Portal from "./Modal/Portal";
 import Tooltip from "./Tooltip/Tooltip";
@@ -276,7 +277,7 @@ const Modal: FC<ModalProps> = ({
         }}
       >
         {isSuccess ? (
-          <div className="alert alert-success">{successMessage}</div>
+          <Callout status="success">{successMessage}</Callout>
         ) : (
           <>
             {aboveBodyContent}
