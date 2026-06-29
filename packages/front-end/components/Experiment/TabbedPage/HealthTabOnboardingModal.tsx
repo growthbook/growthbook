@@ -193,6 +193,7 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
   if (step === -1) {
     return (
       <Modal
+        useRadixButton={false}
         trackingEventModalType=""
         open={open}
         submit={close}
@@ -362,6 +363,7 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       open={open}
       close={() => {

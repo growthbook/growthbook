@@ -2148,7 +2148,6 @@ export default function ReviewAndPublish({
         }}
         closeCta="Cancel"
         size="max"
-        useRadixButton={true}
       >
         <Page
           display="Fix Conflicts"

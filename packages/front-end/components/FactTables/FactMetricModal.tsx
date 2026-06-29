@@ -1070,6 +1070,7 @@ function FieldMappingModal({
 
   return (
     <Modal
+      useRadixButton={false}
       close={close}
       header="Create Fact Metric From Template"
       trackingEventModalType=""
@@ -1450,6 +1451,7 @@ export default function FactMetricModal({
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       open={true}
       header={!isNew ? "Edit Metric" : "Create Fact Table Metric"}
@@ -2176,7 +2178,7 @@ export default function FactMetricModal({
                       >
                         Choose metric breakdowns to automatically analyze in
                         your experiments.{" "}
-                        <DocLink docSection="autoSlices">
+                        <DocLink useRadix={false} docSection="autoSlices">
                           Learn More <PiArrowSquareOut />
                         </DocLink>
                       </Text>
