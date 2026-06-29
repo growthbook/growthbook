@@ -1110,6 +1110,37 @@ describe("fieldsToProto", () => {
     expect(proto).toContain("string name = 1;");
     expect(proto).toContain("int32 count = 2;");
   });
+
+  it("disambiguates colliding generated message names (valid proto3)", () => {
+    // Two sibling object fields whose keys both PascalCase to `Retry`. Without
+    // dedup this emitted two `message Retry {}` blocks (invalid proto3).
+    const objA = JSON.stringify({
+      type: "object",
+      properties: { a: { type: "string" } },
+      required: ["a"],
+    });
+    const objB = JSON.stringify({
+      type: "object",
+      properties: { b: { type: "integer" } },
+      required: ["b"],
+    });
+    const proto = fieldsToProto(
+      [
+        field({ key: "retry", jsonSchema: objA }),
+        field({ key: "Retry", jsonSchema: objB }),
+      ],
+      { name: "Cfg" },
+    );
+    const messageNames = [...proto.matchAll(/message (\w+) \{/g)].map(
+      (m) => m[1],
+    );
+    // No duplicate message definitions, and both fields keep their own message.
+    expect(new Set(messageNames).size).toBe(messageNames.length);
+    expect(proto).toContain("message Retry {");
+    expect(proto).toContain("message Retry2 {");
+    expect(proto).toContain("string a = 1;");
+    expect(proto).toContain("int32 b = 1;");
+  });
 });
 
 describe("proto projection (named-message round-trip)", () => {

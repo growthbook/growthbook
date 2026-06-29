@@ -419,13 +419,24 @@ const SCALAR_OUT: Record<string, string> = {
 // Render context: the JSON-Pointer of the node being rendered + the projection.
 // A nested message uses the projection's captured name at its pointer, else a
 // name generated from the field key.
-type ProtoRenderCtx = { pointer: string; projection?: SchemaProjection };
+type ProtoRenderCtx = {
+  pointer: string;
+  projection?: SchemaProjection;
+  // Message names already emitted this render, so colliding object fields get a
+  // distinct name instead of producing duplicate `message X {}` definitions
+  // (invalid proto3). Shared by reference across the whole render.
+  emitted: Set<string>;
+};
 
 function childCtx(
   ctx: ProtoRenderCtx | undefined,
   seg: string,
 ): ProtoRenderCtx {
-  return { pointer: (ctx?.pointer ?? "") + seg, projection: ctx?.projection };
+  return {
+    pointer: (ctx?.pointer ?? "") + seg,
+    projection: ctx?.projection,
+    emitted: ctx?.emitted ?? new Set<string>(),
+  };
 }
 
 // Render the proto type for a node, generating nested messages into `nested`.
@@ -457,7 +468,16 @@ function protoTypeFor(
     if (!props || typeof props !== "object" || !Object.keys(props).length) {
       return { token: "string", comment: "free-form object (JSON string)" };
     }
-    const name = ctx.projection?.typeNames?.[ctx.pointer] ?? pascalCase(key);
+    let name = ctx.projection?.typeNames?.[ctx.pointer] ?? pascalCase(key);
+    // Disambiguate name collisions so each object field keeps its own message
+    // (two `message X {}` blocks would be invalid proto3). Reserve before
+    // recursing so nested fields can't reclaim the same name.
+    if (ctx.emitted.has(name)) {
+      let n = 2;
+      while (ctx.emitted.has(`${name}${n}`)) n++;
+      name = `${name}${n}`;
+    }
+    ctx.emitted.add(name);
     nested.push(
       renderMessage(
         name,
@@ -561,7 +581,12 @@ export function fieldsToProto(
 ): string {
   const rootName = opts?.projection?.rootName ?? opts?.name ?? "ConfigSchema";
   const nested: string[] = [];
-  const baseCtx: ProtoRenderCtx = { pointer: "", projection: opts?.projection };
+  // Seed with the root name so a nested message never duplicates it.
+  const baseCtx: ProtoRenderCtx = {
+    pointer: "",
+    projection: opts?.projection,
+    emitted: new Set<string>([rootName]),
+  };
   const lines = fields.map((raw, i) => {
     const f = normalizeField(raw);
     let node: Record<string, unknown>;

@@ -112,7 +112,7 @@ export const updateFeatureV2 = createApiRequestHandler(
   }
 
   const jsonSchema =
-    feature.valueType !== "boolean" && req.body.jsonSchema != null
+    feature.valueType !== "boolean" && (req.body.jsonSchema ?? null) !== null
       ? parseApiJsonSchema(
           req.organization,
           req.body.jsonSchema,
@@ -125,7 +125,7 @@ export const updateFeatureV2 = createApiRequestHandler(
   // tightens the schema is judged against the schema it's also setting.
   const effectiveFeature = {
     ...feature,
-    ...(jsonSchema != null ? { jsonSchema } : {}),
+    ...(jsonSchema !== null ? { jsonSchema } : {}),
   };
 
   let defaultValue: string | undefined;

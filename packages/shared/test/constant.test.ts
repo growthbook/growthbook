@@ -207,6 +207,19 @@ describe("getConstantRevisionChange", () => {
     expect(change.metadataOnly).toBe(false);
     expect(change.changedEnvironments).toEqual([]);
   });
+
+  // Lineage/extensibility changes shift a config's effective resolved value, so
+  // they must be reviewable content, not slip through as a no-review change.
+  it.each(["parent", "extends", "extensible"])(
+    "treats a config %s change as a (reviewable) value change",
+    (field) => {
+      const change = getConstantRevisionChange({ value: "v" }, [
+        { op: "replace", path: `/${field}`, value: "x" },
+      ]);
+      expect(change.valueChanged).toBe(true);
+      expect(change.metadataOnly).toBe(false);
+    },
+  );
 });
 
 describe("constantRequiresReview", () => {

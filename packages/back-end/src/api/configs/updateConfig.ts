@@ -88,7 +88,10 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
       incomingParent !== undefined &&
       (incomingParent || "") !== (config.parent || "");
     if (parentChanged) {
-      fieldsToUpdate.parent = incomingParent || undefined;
+      // Persist a clear as "" (not undefined): undefined is dropped by
+      // buildPatchOps / the update layer, which would silently no-op the
+      // detach. Mirrors the internal putConfig controller.
+      fieldsToUpdate.parent = incomingParent || "";
     }
     const extendsChanged =
       extendsKeys !== undefined && !isEqual(extendsKeys, config.extends ?? []);

@@ -97,6 +97,16 @@ export const CONSTANT_METADATA_FIELDS: ReadonlySet<string> = new Set([
   "archived",
 ]);
 
+// Config-only fields whose change affects the value the SDK resolves (so they
+// must require full review when approval is enabled, like `value`). Constants
+// never carry these, so they're inert for constant revisions.
+const CONFIG_CONTENT_FIELDS: ReadonlySet<string> = new Set([
+  "schema",
+  "parent",
+  "extends",
+  "extensible",
+]);
+
 /**
  * Returns true when every proposed change in the revision touches a constant
  * metadata field (per `CONSTANT_METADATA_FIELDS`). An empty proposed-changes
@@ -133,12 +143,16 @@ export const getConstantRevisionChange = (
     ops,
   ) as Pick<ConstantInterface, "value" | "environmentValues">;
 
-  // A config's `schema` (field definitions) is a content change like `value`:
-  // it changes what the SDK resolves, so it requires full review when approval
-  // is enabled rather than counting as metadata.
-  const schemaChanged = ops.some((op) => op.path.split("/")[1] === "schema");
+  // Config-only content fields that change what the SDK resolves, so they need
+  // full review when approval is enabled rather than metadata-only treatment:
+  // `schema` (field definitions) plus the lineage/extensibility fields, which
+  // shift the effective resolved value. Constants never carry these ops, so
+  // this is a no-op for them.
+  const contentChanged = ops.some((op) =>
+    CONFIG_CONTENT_FIELDS.has(op.path.split("/")[1]),
+  );
   const valueChanged =
-    (snapshot.value ?? "") !== (patched.value ?? "") || schemaChanged;
+    (snapshot.value ?? "") !== (patched.value ?? "") || contentChanged;
 
   const oldEnvs = snapshot.environmentValues ?? {};
   const newEnvs = patched.environmentValues ?? {};
