@@ -15,7 +15,7 @@ import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
-import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
+import CreateExperimentModal from "@/components/Experiment/CreateExperimentModal";
 import Button from "@/components/Button";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
@@ -108,10 +108,9 @@ const ExperimentsGetStarted = (): React.ReactElement => {
         )}
 
         {designExperimentOpen && (
-          <NewExperimentForm
+          <CreateExperimentModal
             onClose={() => setDesignExperimentOpen(false)}
             source={"get-started"}
-            isNewExperiment={true}
           />
         )}
 
