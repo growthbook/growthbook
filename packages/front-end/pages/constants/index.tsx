@@ -122,8 +122,8 @@ export default function ConstantsPage(): React.ReactElement {
     items: constantItems,
     searchFields: ["name^3", "key^2", "description^2", "ownerName"],
     localStorageKey: "constants",
-    defaultSortField: "name",
-    defaultSortDir: 1,
+    defaultSortField: "dateUpdated",
+    defaultSortDir: -1,
     pageSize: 50,
     updateSearchQueryOnChange: true,
     filterResults: !showArchived

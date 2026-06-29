@@ -122,8 +122,8 @@ export default function ConfigsPage(): React.ReactElement {
     items: configItems,
     searchFields: ["name^3", "key^2", "description^2", "ownerName"],
     localStorageKey: "configs",
-    defaultSortField: "name",
-    defaultSortDir: 1,
+    defaultSortField: "dateUpdated",
+    defaultSortDir: -1,
     pageSize: 50,
     updateSearchQueryOnChange: true,
     filterResults: !showArchived
