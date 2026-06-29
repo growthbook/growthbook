@@ -48,12 +48,14 @@ export default function MetricsSettings() {
                 append="days"
                 containerClassName="mb-0"
                 disabled={hasFileConfig()}
-                helpText="Amount of historical data to use on the metric analysis page."
                 {...form.register("metricAnalysisDays", {
                   valueAsNumber: true,
                 })}
               />
             </Box>
+            <small className="form-text text-muted">
+              Amount of historical data to use on the metric analysis page.
+            </small>
             {metricAnalysisDaysWarningMsg && (
               <Callout status="warning" mt="2">
                 {metricAnalysisDaysWarningMsg}

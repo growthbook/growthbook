@@ -143,7 +143,7 @@ export default function ExperimentSettings({
               <Flex mb="2">
                 <label>
                   <Text size="3" className="font-weight-semibold">
-                    Minimum experiment length
+                    Minimum length for imported experiments
                   </Text>
                 </label>
               </Flex>
@@ -155,7 +155,6 @@ export default function ExperimentSettings({
                   min="0"
                   max="31"
                   disabled={hasFileConfig()}
-                  helpText="Applied when importing past experiments."
                   {...form.register("pastExperimentsMinLength", {
                     valueAsNumber: true,
                     min: 0,
@@ -163,6 +162,10 @@ export default function ExperimentSettings({
                   })}
                 />
               </Box>
+              <small className="form-text text-muted">
+                When importing past experiments from a Data Source, GrowthBook
+                skips any that ran for fewer than this many days.
+              </small>
             </Box>
 
             {/* Pre-computed dimension breakdowns */}
