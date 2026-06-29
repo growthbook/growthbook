@@ -512,7 +512,7 @@ export const putConfigRevisionProjectionValidator = {
   operationId: "putConfigRevisionProjection",
   summary: "Set (or update) a config's per-source render projection on a draft",
   description:
-    'Stages a per-source render projection on the draft, AND the schema it implies. Provide a named `schema` source (`{ type: "typescript" | "protobuf" | "json-schema", value }`) for the consuming codebase identified by `source`: GrowthBook derives the config\'s canonical schema from it (so the change projects into the Config) and captures that source\'s named-type structure under `renderProjections[source]`. Both are staged on the draft and published through the normal flow. Pass `version: "new"` to auto-create a draft. Lossy conversions degrade with `warnings`.',
+    'Stages a per-source render projection on the draft, AND the schema it implies. Provide a named `schema` source (`{ type: "typescript" | "protobuf" | "python" | "go" | "rust" | "json-schema", value }`) for the consuming codebase identified by `source`: GrowthBook derives the config\'s canonical schema from it (so the change projects into the Config) and captures that source\'s named-type structure under `renderProjections[source]`. Both are staged on the draft and published through the normal flow. Pass `version: "new"` to auto-create a draft. Lossy conversions degrade with `warnings`.',
   tags: ["config-revisions"],
   paramsSchema: revisionParams,
   bodySchema: z

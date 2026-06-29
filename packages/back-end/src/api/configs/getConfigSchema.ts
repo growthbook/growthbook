@@ -8,6 +8,9 @@ import {
   fieldsToJsonSchema,
   fieldsToTsType,
   fieldsToProto,
+  fieldsToGolang,
+  fieldsToRust,
+  fieldsToPython,
   stringToBoolean,
 } from "shared/util";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -71,34 +74,36 @@ export const getConfigSchema = createApiRequestHandler(
     ? config.renderProjections?.[req.query.source]
     : undefined;
 
+  // Typed-code render formats share the same `(fields, opts)` signature; a
+  // projection reproduces that consumer's named types. JSON Schema is separate
+  // (it returns a native object, not a source string).
+  const codeRenderers = {
+    typescript: fieldsToTsType,
+    protobuf: fieldsToProto,
+    python: fieldsToPython,
+    go: fieldsToGolang,
+    rust: fieldsToRust,
+  } as const;
+
   const schema =
-    format === "typescript"
+    format in codeRenderers
       ? {
-          type: "typescript" as const,
-          value: fieldsToTsType(fields, {
+          type: format as keyof typeof codeRenderers,
+          value: codeRenderers[format as keyof typeof codeRenderers](fields, {
             name: toPascalCase(config.key),
             additionalProperties,
             projection,
           }),
         }
-      : format === "protobuf"
-        ? {
-            type: "protobuf" as const,
-            value: fieldsToProto(fields, {
-              name: toPascalCase(config.key),
+      : {
+          type: "json-schema" as const,
+          value: JSON.parse(
+            fieldsToJsonSchema(fields, {
+              type: "object",
               additionalProperties,
-              projection,
             }),
-          }
-        : {
-            type: "json-schema" as const,
-            value: JSON.parse(
-              fieldsToJsonSchema(fields, {
-                type: "object",
-                additionalProperties,
-              }),
-            ),
-          };
+          ),
+        };
 
   return {
     schema,

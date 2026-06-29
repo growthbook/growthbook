@@ -135,14 +135,20 @@ export const configSchemaFormatValidator = z.enum([
   "json-schema",
   "typescript",
   "protobuf",
+  "python",
+  "go",
+  "rust",
 ]);
 
 // Public schema-render formats. SimpleSchema is internal-only; the external API
-// speaks JSON Schema (canonical) plus rendered TypeScript / Protobuf.
+// speaks JSON Schema (canonical) plus the rendered typed-code languages.
 export const configSchemaRenderFormatValidator = z.enum([
   "json-schema",
   "typescript",
   "protobuf",
+  "python",
+  "go",
+  "rust",
 ]);
 
 // A JSON Schema document — an object, open by nature, so typed loosely. The
@@ -184,6 +190,28 @@ export const configSchemaSourceValidator = namedSchema(
         value: z
           .string()
           .describe("Protobuf (proto3) source — a `message` definition."),
+      })
+      .strict(),
+    z
+      .object({
+        type: z.literal("python"),
+        value: z
+          .string()
+          .describe("Python source — a Pydantic `BaseModel` class."),
+      })
+      .strict(),
+    z
+      .object({
+        type: z.literal("go"),
+        value: z.string().describe("Go source — a `struct` definition."),
+      })
+      .strict(),
+    z
+      .object({
+        type: z.literal("rust"),
+        value: z
+          .string()
+          .describe("Rust source — a serde `struct` definition."),
       })
       .strict(),
   ]),
@@ -323,13 +351,13 @@ const postConfigApiBody = z
     owner: optionalOwnerInputField,
     schema: configSchemaSourceValidator
       .describe(
-        'Field definitions for this config, as a JSON Schema document (`{ type: "json-schema", value }`), TypeScript source (`{ type: "typescript", value }`), or Protobuf definition (`{ type: "protobuf", value }`) — converted server-side in one call. Fields whose key an ancestor (via `parent`/`extends`) already owns are stripped on create (\'base wins\'); a field owned by two sibling bases is a conflict and is rejected. Omit to leave the config schema-less. Conversion warnings are returned in `warnings`.',
+        'Field definitions for this config, as a JSON Schema document (`{ type: "json-schema", value }`) or typed-code source (`{ type: "typescript" | "protobuf" | "python" | "go" | "rust", value }`) — converted server-side in one call. Fields whose key an ancestor (via `parent`/`extends`) already owns are stripped on create (\'base wins\'); a field owned by two sibling bases is a conflict and is rejected. Omit to leave the config schema-less. Conversion warnings are returned in `warnings`.',
       )
       .optional(),
     source: z
       .string()
       .describe(
-        "Optional identifier of the consuming codebase/service. When a `typescript` or `protobuf` schema is supplied, its named-type structure is captured under this source so `GET /configs/:key/schema?source=<id>&format=<typescript|protobuf>` can reproduce those names.",
+        "Optional identifier of the consuming codebase/service. When a typed-code schema (`typescript`/`protobuf`/`python`/`go`/`rust`) is supplied, its named-type structure is captured under this source so `GET /configs/:key/schema?source=<id>&format=<lang>` can reproduce those names.",
       )
       .optional(),
     extensible: z.boolean().optional(),
@@ -362,7 +390,7 @@ const updateConfigApiBody = z
     owner: ownerInputField.optional(),
     schema: configSchemaSourceValidator
       .describe(
-        "Replace this config's field definitions, as a JSON Schema document (`{ type: \"json-schema\", value }`), TypeScript source (`{ type: \"typescript\", value }`), or Protobuf definition (`{ type: \"protobuf\", value }`). Fields colliding with a published ancestor's key are stripped ('base wins'). A schema change cascades the 'base wins' normalization to descendants when published. Conversion warnings are returned in `warnings`.",
+        'Replace this config\'s field definitions, as a JSON Schema document (`{ type: "json-schema", value }`) or typed-code source (`{ type: "typescript" | "protobuf" | "python" | "go" | "rust", value }`). Fields colliding with a published ancestor\'s key are stripped (\'base wins\'). A schema change cascades the \'base wins\' normalization to descendants when published. Conversion warnings are returned in `warnings`.',
       )
       .optional(),
     source: z
@@ -552,7 +580,7 @@ export const verifyConfigSchemaValidator = {
   bodySchema: z
     .object({
       schema: configSchemaSourceValidator.describe(
-        "The schema to check against the config's stored schema — a JSON Schema document, TypeScript source, or Protobuf definition. Read-only: nothing is mutated.",
+        "The schema to check against the config's stored schema — a JSON Schema document or typed-code source (`typescript`/`protobuf`/`python`/`go`/`rust`). Read-only: nothing is mutated.",
       ),
     })
     .strict(),
@@ -710,7 +738,7 @@ export const getConfigSchemaValidator = {
       format: configSchemaRenderFormatValidator
         .optional()
         .describe(
-          "Output format. `json-schema` (default) returns a JSON Schema document; `typescript` and `protobuf` render the schema as TypeScript source or a proto3 definition.",
+          "Output format. `json-schema` (default) returns a JSON Schema document; `typescript`, `protobuf`, `python` (Pydantic), `go`, and `rust` (serde) render the schema as source in that language.",
         ),
       effective: z
         .union([z.literal("true"), z.literal("false"), z.boolean()])
@@ -722,7 +750,7 @@ export const getConfigSchemaValidator = {
         .string()
         .optional()
         .describe(
-          "Render using a previously-captured source projection (its named types). Only affects `typescript`/`protobuf` output; ignored if the source has no projection.",
+          "Render using a previously-captured source projection (its named types). Only affects the typed-code formats (`typescript`/`protobuf`/`python`/`go`/`rust`); ignored if the source has no projection.",
         ),
     })
     .strict(),

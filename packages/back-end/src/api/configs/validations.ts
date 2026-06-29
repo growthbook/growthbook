@@ -18,6 +18,9 @@ import {
   jsonSchemaStringToFields,
   tsTypesToFields,
   protoToFields,
+  golangToFields,
+  rustToFields,
+  pythonToFields,
   SchemaWarning,
   SchemaProjection,
 } from "shared/util";
@@ -317,7 +320,13 @@ export function resolveImportedSchema(args: {
       ? jsonSchemaStringToFields(source)
       : format === "protobuf"
         ? protoToFields(source)
-        : tsTypesToFields(source);
+        : format === "python"
+          ? pythonToFields(source)
+          : format === "go"
+            ? golangToFields(source)
+            : format === "rust"
+              ? rustToFields(source)
+              : tsTypesToFields(source);
   if (converted.error) {
     throw new BadRequestError(
       `Could not parse ${format} schema: ${converted.error}`,

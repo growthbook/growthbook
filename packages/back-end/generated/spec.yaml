@@ -18925,10 +18925,11 @@ paths:
                 source:
                   description: >-
                     Optional identifier of the consuming codebase/service. When
-                    a `typescript` or `protobuf` schema is supplied, its
-                    named-type structure is captured under this source so `GET
-                    /configs/:key/schema?source=<id>&format=<typescript|protobuf>`
-                    can reproduce those names.
+                    a typed-code schema
+                    (`typescript`/`protobuf`/`python`/`go`/`rust`) is supplied,
+                    its named-type structure is captured under this source so
+                    `GET /configs/:key/schema?source=<id>&format=<lang>` can
+                    reproduce those names.
                   type: string
                 extensible:
                   type: boolean
@@ -19276,18 +19277,21 @@ paths:
           in: query
           description: >-
             Output format. `json-schema` (default) returns a JSON Schema
-            document; `typescript` and `protobuf` render the schema as
-            TypeScript source or a proto3 definition.
+            document; `typescript`, `protobuf`, `python` (Pydantic), `go`, and
+            `rust` (serde) render the schema as source in that language.
           schema:
             description: >-
               Output format. `json-schema` (default) returns a JSON Schema
-              document; `typescript` and `protobuf` render the schema as
-              TypeScript source or a proto3 definition.
+              document; `typescript`, `protobuf`, `python` (Pydantic), `go`, and
+              `rust` (serde) render the schema as source in that language.
             type: string
             enum:
               - json-schema
               - typescript
               - protobuf
+              - python
+              - go
+              - rust
         - $ref: '#/components/parameters/effective'
         - $ref: '#/components/parameters/source'
       responses:
@@ -20048,13 +20052,13 @@ paths:
       description: >-
         Stages a per-source render projection on the draft, AND the schema it
         implies. Provide a named `schema` source (`{ type: "typescript" |
-        "protobuf" | "json-schema", value }`) for the consuming codebase
-        identified by `source`: GrowthBook derives the config's canonical schema
-        from it (so the change projects into the Config) and captures that
-        source's named-type structure under `renderProjections[source]`. Both
-        are staged on the draft and published through the normal flow. Pass
-        `version: "new"` to auto-create a draft. Lossy conversions degrade with
-        `warnings`.
+        "protobuf" | "python" | "go" | "rust" | "json-schema", value }`) for the
+        consuming codebase identified by `source`: GrowthBook derives the
+        config's canonical schema from it (so the change projects into the
+        Config) and captures that source's named-type structure under
+        `renderProjections[source]`. Both are staged on the draft and published
+        through the normal flow. Pass `version: "new"` to auto-create a draft.
+        Lossy conversions degrade with `warnings`.
       tags:
         - config-revisions
       parameters:
@@ -36232,13 +36236,15 @@ components:
       in: query
       description: >-
         Render using a previously-captured source projection (its named types).
-        Only affects `typescript`/`protobuf` output; ignored if the source has
-        no projection.
+        Only affects the typed-code formats
+        (`typescript`/`protobuf`/`python`/`go`/`rust`); ignored if the source
+        has no projection.
       schema:
         description: >-
           Render using a previously-captured source projection (its named
-          types). Only affects `typescript`/`protobuf` output; ignored if the
-          source has no projection.
+          types). Only affects the typed-code formats
+          (`typescript`/`protobuf`/`python`/`go`/`rust`); ignored if the source
+          has no projection.
         type: string
     search:
       name: search
@@ -42827,6 +42833,42 @@ components:
             - type
             - value
           additionalProperties: false
+        - type: object
+          properties:
+            type:
+              type: string
+              const: python
+            value:
+              description: Python source — a Pydantic `BaseModel` class.
+              type: string
+          required:
+            - type
+            - value
+          additionalProperties: false
+        - type: object
+          properties:
+            type:
+              type: string
+              const: go
+            value:
+              description: Go source — a `struct` definition.
+              type: string
+          required:
+            - type
+            - value
+          additionalProperties: false
+        - type: object
+          properties:
+            type:
+              type: string
+              const: rust
+            value:
+              description: Rust source — a serde `struct` definition.
+              type: string
+          required:
+            - type
+            - value
+          additionalProperties: false
     ConfigSchemaWarning:
       type: object
       properties:
@@ -48521,6 +48563,42 @@ components:
                   const: protobuf
                 value:
                   description: Protobuf (proto3) source — a `message` definition.
+                  type: string
+              required:
+                - type
+                - value
+              additionalProperties: false
+            - type: object
+              properties:
+                type:
+                  type: string
+                  const: python
+                value:
+                  description: Python source — a Pydantic `BaseModel` class.
+                  type: string
+              required:
+                - type
+                - value
+              additionalProperties: false
+            - type: object
+              properties:
+                type:
+                  type: string
+                  const: go
+                value:
+                  description: Go source — a `struct` definition.
+                  type: string
+              required:
+                - type
+                - value
+              additionalProperties: false
+            - type: object
+              properties:
+                type:
+                  type: string
+                  const: rust
+                value:
+                  description: Rust source — a serde `struct` definition.
                   type: string
               required:
                 - type
