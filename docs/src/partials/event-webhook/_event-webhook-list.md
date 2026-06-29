@@ -3082,6 +3082,7 @@ Triggered when a new draft revision is created for a saved group
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
+                stale?: boolean | undefined;
                 dateCreated: string;
             }[];
             activityLog: {
@@ -3196,6 +3197,7 @@ Triggered when a draft revision's proposed changes are modified (values, conditi
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
+                stale?: boolean | undefined;
                 dateCreated: string;
             }[];
             activityLog: {
@@ -3311,6 +3313,7 @@ Triggered when a draft revision is submitted for review
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
+                stale?: boolean | undefined;
                 dateCreated: string;
             }[];
             activityLog: {
@@ -3425,6 +3428,7 @@ Triggered when a draft revision is approved by a reviewer
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
+                stale?: boolean | undefined;
                 dateCreated: string;
             }[];
             activityLog: {
@@ -3545,6 +3549,7 @@ Triggered when a reviewer requests changes on a draft revision
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
+                stale?: boolean | undefined;
                 dateCreated: string;
             }[];
             activityLog: {
@@ -3665,6 +3670,7 @@ Triggered when a comment is added to a draft revision
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
+                stale?: boolean | undefined;
                 dateCreated: string;
             }[];
             activityLog: {
@@ -3785,6 +3791,7 @@ Triggered when a draft revision is discarded
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
+                stale?: boolean | undefined;
                 dateCreated: string;
             }[];
             activityLog: {
@@ -3899,6 +3906,7 @@ Triggered when a draft revision is rebased onto the latest live state
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
+                stale?: boolean | undefined;
                 dateCreated: string;
             }[];
             activityLog: {
@@ -4013,6 +4021,7 @@ Triggered when a draft revision is published. Overlaps with `savedGroup.updated`
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
+                stale?: boolean | undefined;
                 dateCreated: string;
             }[];
             activityLog: {
@@ -4127,6 +4136,7 @@ Triggered when a saved group is reverted to a previous published revision
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
+                stale?: boolean | undefined;
                 dateCreated: string;
             }[];
             activityLog: {
@@ -4242,6 +4252,7 @@ Triggered when a discarded revision is reopened
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
+                stale?: boolean | undefined;
                 dateCreated: string;
             }[];
             activityLog: {
@@ -4561,6 +4572,7 @@ Triggered when a new draft revision is created for a constant
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
+                stale?: boolean | undefined;
                 dateCreated: string;
             }[];
             activityLog: {
@@ -4675,6 +4687,7 @@ Triggered when a draft revision's proposed changes are modified (value, archive,
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
+                stale?: boolean | undefined;
                 dateCreated: string;
             }[];
             activityLog: {
@@ -4790,6 +4803,7 @@ Triggered when a draft revision is submitted for review
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
+                stale?: boolean | undefined;
                 dateCreated: string;
             }[];
             activityLog: {
@@ -4904,6 +4918,7 @@ Triggered when a draft revision is approved by a reviewer
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
+                stale?: boolean | undefined;
                 dateCreated: string;
             }[];
             activityLog: {
@@ -5024,6 +5039,7 @@ Triggered when a reviewer requests changes on a draft revision
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
+                stale?: boolean | undefined;
                 dateCreated: string;
             }[];
             activityLog: {
@@ -5144,6 +5160,7 @@ Triggered when a comment is added to a draft revision
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
+                stale?: boolean | undefined;
                 dateCreated: string;
             }[];
             activityLog: {
@@ -5264,6 +5281,7 @@ Triggered when a draft revision is discarded
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
+                stale?: boolean | undefined;
                 dateCreated: string;
             }[];
             activityLog: {
@@ -5378,6 +5396,7 @@ Triggered when a draft revision is rebased onto the latest live state
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
+                stale?: boolean | undefined;
                 dateCreated: string;
             }[];
             activityLog: {
@@ -5492,6 +5511,7 @@ Triggered when a draft revision is published. Overlaps with `constant.updated` b
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
+                stale?: boolean | undefined;
                 dateCreated: string;
             }[];
             activityLog: {
@@ -5606,6 +5626,7 @@ Triggered when a constant is reverted to a previous published revision
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
+                stale?: boolean | undefined;
                 dateCreated: string;
             }[];
             activityLog: {
@@ -5721,6 +5742,7 @@ Triggered when a discarded revision is reopened
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
+                stale?: boolean | undefined;
                 dateCreated: string;
             }[];
             activityLog: {

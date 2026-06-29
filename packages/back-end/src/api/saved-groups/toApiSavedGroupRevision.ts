@@ -22,6 +22,8 @@ function reviewsToApi(reviews: Review[] | undefined) {
     id: r.id,
     userId: r.userId,
     decision: r.decision,
+    // Whether a later cycle reset superseded this verdict (no longer active).
+    stale: !!r.stale,
     ...(r.comment ? { comment: r.comment } : {}),
     dateCreated: toIsoString(r.dateCreated),
   }));
