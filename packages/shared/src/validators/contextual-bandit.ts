@@ -3,6 +3,7 @@ import { apiBaseSchema, baseSchema } from "./base-model";
 import { banditStageType, variation } from "./experiments";
 import { namedSchema } from "./openapi-helpers";
 import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
+import { featurePrerequisite, savedGroupTargeting } from "./shared";
 
 export const variationWeightPairValidator = z.object({
   variationId: z.string(),
@@ -44,6 +45,8 @@ export const contextualBanditValidator = baseSchema
 
     coverage: z.number().min(0).max(1).optional(),
     condition: z.string().optional(),
+    savedGroups: z.array(savedGroupTargeting).optional(),
+    prerequisites: z.array(featurePrerequisite).optional(),
     seed: z.string().optional(),
     /** SDK fallback when no context match. */
     variationWeights: z.array(variationWeightPairValidator).optional(),
@@ -91,6 +94,9 @@ export const contextualBanditValidator = baseSchema
     contextualBanditScheduleUnit: z.enum(["days", "hours"]).optional(),
     contextualBanditBurnInValue: z.number().optional(),
     contextualBanditBurnInUnit: z.enum(["days", "hours"]).optional(),
+    /** Per-bandit override of the decision metric's conversion window. Null/absent = use the metric default. */
+    banditConversionWindowValue: z.number().optional().nullable(),
+    banditConversionWindowUnit: z.enum(["hours", "days"]).optional().nullable(),
     contextualBanditStage: z.enum(banditStageType).optional(),
     contextualBanditStageDateStarted: z.date().optional(),
     autoSnapshots: z.boolean().optional(),
@@ -137,6 +143,8 @@ export const apiContextualBanditValidator = namedSchema(
 
     coverage: z.number().min(0).max(1).optional(),
     condition: z.string().optional(),
+    savedGroups: z.array(savedGroupTargeting).optional(),
+    prerequisites: z.array(featurePrerequisite).optional(),
     seed: z.string().optional(),
     variationWeights: z.array(variationWeightPairValidator).optional(),
     currentLeafWeights: z.array(leafWeightValidator),
@@ -152,6 +160,8 @@ export const apiContextualBanditValidator = namedSchema(
     contextualBanditScheduleUnit: z.enum(["days", "hours"]).optional(),
     contextualBanditBurnInValue: z.number().optional(),
     contextualBanditBurnInUnit: z.enum(["days", "hours"]).optional(),
+    banditConversionWindowValue: z.number().optional().nullable(),
+    banditConversionWindowUnit: z.enum(["hours", "days"]).optional().nullable(),
     contextualBanditStage: z.enum(banditStageType).optional(),
     contextualBanditStageDateStarted: z.iso.datetime().optional(),
   }),
@@ -203,6 +213,8 @@ export const apiCreateContextualBanditBody = z.strictObject({
   contextualBanditScheduleUnit: z.enum(["days", "hours"]).optional(),
   contextualBanditBurnInValue: z.number().optional(),
   contextualBanditBurnInUnit: z.enum(["days", "hours"]).optional(),
+  banditConversionWindowValue: z.number().optional(),
+  banditConversionWindowUnit: z.enum(["hours", "days"]).optional(),
 });
 
 export type ApiCreateContextualBanditBody = z.infer<
@@ -232,12 +244,16 @@ export const apiUpdateContextualBanditBody = z.object({
   contextualBanditScheduleUnit: z.enum(["days", "hours"]).optional(),
   contextualBanditBurnInValue: z.number().optional(),
   contextualBanditBurnInUnit: z.enum(["days", "hours"]).optional(),
+  banditConversionWindowValue: z.number().optional().nullable(),
+  banditConversionWindowUnit: z.enum(["hours", "days"]).optional().nullable(),
 
   archived: z.boolean().optional(),
   status: z.enum(contextualBanditStatus).optional(),
 
   coverage: z.number().min(0).max(1).optional(),
   condition: z.string().optional(),
+  savedGroups: z.array(savedGroupTargeting).optional(),
+  prerequisites: z.array(featurePrerequisite).optional(),
   seed: z.string().optional(),
   variationWeights: z.array(variationWeightPairValidator).optional(),
 });
@@ -266,10 +282,14 @@ export const CONTEXTUAL_BANDIT_API_UPDATE_FIELDS = [
   "contextualBanditScheduleUnit",
   "contextualBanditBurnInValue",
   "contextualBanditBurnInUnit",
+  "banditConversionWindowValue",
+  "banditConversionWindowUnit",
   "archived",
   "status",
   "coverage",
   "condition",
+  "savedGroups",
+  "prerequisites",
   "seed",
   "variationWeights",
 ] as const satisfies readonly (keyof ApiUpdateContextualBanditBody)[];

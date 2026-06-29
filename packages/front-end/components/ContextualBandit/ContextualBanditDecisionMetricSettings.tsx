@@ -19,7 +19,7 @@ import FactTableModal from "@/components/FactTables/FactTableModal";
 import FactMetricModal from "@/components/FactTables/FactMetricModal";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
-function conversionWindowFromScheduleHours(scheduleHours: number): {
+export function conversionWindowFromScheduleHours(scheduleHours: number): {
   value: number;
   unit: "hours" | "days";
 } {
@@ -43,7 +43,7 @@ function conversionWindowFormValuesFromHours(hours: number): {
   return { value: Math.max(1, Math.round(hours)), unit: "hours" };
 }
 
-function conversionWindowFormValuesFromMetricWindow(
+export function conversionWindowFormValuesFromMetricWindow(
   windowSettings: MetricWindowSettings,
 ): { value: number; unit: "hours" | "days" } {
   return conversionWindowFormValuesFromHours(
@@ -56,6 +56,13 @@ export type ContextualBanditDecisionMetricSettingsProps = {
   setDisableBanditConversionWindow: (v: boolean) => void;
   project?: string;
   disabled?: boolean;
+  /**
+   * Auto-derive the conversion window from the decision metric / cadence on mount.
+   * Creation passes `true` (fresh defaults); the edit flow passes `false` so a
+   * previously-saved override isn't clobbered when the modal opens. In both cases
+   * changing the decision metric still re-derives defaults via the picker's onChange.
+   */
+  autoApplyDefaults?: boolean;
 };
 
 /**
@@ -69,6 +76,7 @@ export default function ContextualBanditDecisionMetricSettings({
   setDisableBanditConversionWindow,
   project,
   disabled = false,
+  autoApplyDefaults = true,
 }: ContextualBanditDecisionMetricSettingsProps) {
   const form = useFormContext();
   const { getExperimentMetricById, factMetrics, factTables, projects } =
@@ -191,6 +199,11 @@ export default function ContextualBanditDecisionMetricSettings({
     if (lastMetricDefaultKey.current === defaultKey) {
       return;
     }
+    // In edit mode, adopt the existing override on first run instead of clobbering it.
+    if (!autoApplyDefaults && lastMetricDefaultKey.current === null) {
+      lastMetricDefaultKey.current = defaultKey;
+      return;
+    }
     lastMetricDefaultKey.current = defaultKey;
     applyConversionWindowDefault(decisionMetricId);
     // Only re-default when the selected decision metric or its window changes.
@@ -198,7 +211,7 @@ export default function ContextualBanditDecisionMetricSettings({
   }, [decisionMetricId, decisionMetricWindowKey]);
 
   useEffect(() => {
-    if (!decisionMetricId || decisionMetricWindowKey) {
+    if (!autoApplyDefaults || !decisionMetricId || decisionMetricWindowKey) {
       return;
     }
     const { value, unit } = conversionWindowFromScheduleHours(scheduleHours);

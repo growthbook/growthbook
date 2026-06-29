@@ -153,6 +153,8 @@ export function toApiContextualBandit(
     contextualBanditQueryId: doc.contextualBanditQueryId,
     coverage: doc.coverage,
     condition: doc.condition,
+    savedGroups: doc.savedGroups,
+    prerequisites: doc.prerequisites,
     seed: doc.seed,
     variationWeights: doc.variationWeights,
     currentLeafWeights: doc.currentLeafWeights ?? [],
@@ -167,6 +169,8 @@ export function toApiContextualBandit(
     contextualBanditScheduleUnit: doc.contextualBanditScheduleUnit,
     contextualBanditBurnInValue: doc.contextualBanditBurnInValue,
     contextualBanditBurnInUnit: doc.contextualBanditBurnInUnit,
+    banditConversionWindowValue: doc.banditConversionWindowValue,
+    banditConversionWindowUnit: doc.banditConversionWindowUnit,
     contextualBanditStage: doc.contextualBanditStage,
     contextualBanditStageDateStarted:
       doc.contextualBanditStageDateStarted?.toISOString(),

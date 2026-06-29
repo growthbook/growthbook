@@ -1,7 +1,50 @@
 import { ApiContextualBanditInterface } from "shared/validators";
+import { ExperimentDataForStatusStringDates } from "shared/types/experiment";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
+
+/**
+ * Adapts a CB into the experiment-shaped data `ExperimentStatusIndicator` expects,
+ * so contextual bandits render the exact same status badge as experiments. CBs lack
+ * several experiment fields, so supply harmless defaults for the indicator.
+ */
+export function contextualBanditStatusIndicatorData(
+  cb: ApiContextualBanditInterface,
+): ExperimentDataForStatusStringDates {
+  return {
+    type: "contextual-bandit",
+    variations: cb.variations,
+    status: cb.status,
+    archived: cb.archived,
+    results: undefined,
+    analysisSummary: undefined,
+    phases: [
+      {
+        dateStarted: cb.dateStarted ?? cb.dateCreated,
+        dateEnded: cb.dateStopped ?? undefined,
+        name: "Main",
+        reason: "",
+        coverage: cb.coverage ?? 1,
+        condition: cb.condition ?? "",
+        variationWeights: cb.variations.map(
+          (v) =>
+            cb.variationWeights?.find((w) => w.variationId === v.id)?.weight ??
+            1,
+        ),
+        variations: cb.variations.map((v) => ({ id: v.id })),
+        seed: cb.seed,
+      },
+    ],
+    dismissedWarnings: [],
+    goalMetrics: cb.decisionMetric ? [cb.decisionMetric] : [],
+    secondaryMetrics: [],
+    guardrailMetrics: [],
+    datasource: cb.datasource,
+    decisionFrameworkSettings: {},
+    nextScheduledStatusUpdate: null,
+  } as unknown as ExperimentDataForStatusStringDates;
+}
 
 /** Computed-fields shape the CB list page consumes, typed off `ApiContextualBanditInterface`. */
 export type ComputedContextualBanditInterface = ApiContextualBanditInterface & {

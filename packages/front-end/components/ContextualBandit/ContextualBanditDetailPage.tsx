@@ -5,13 +5,13 @@ import { date } from "shared/dates";
 import { getMetricLink } from "shared/experiments";
 import { ApiContextualBanditInterface } from "shared/validators";
 import { LinkedFeatureInfo } from "shared/types/experiment";
-import type { RadixColor } from "@/ui/HelperText";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
+import { contextualBanditStatusIndicatorData } from "@/services/contextualBandits";
+import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
-import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import Link from "@/ui/Link";
 import ConfirmDialog from "@/ui/ConfirmDialog";
@@ -22,6 +22,7 @@ import Owner from "@/components/Avatar/Owner";
 import { tagLinkProps } from "@/services/search";
 import { AttributeBadge } from "@/components/Features/AttributeBadge";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
+import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import {
   DropdownMenu,
@@ -34,12 +35,6 @@ import ContextualBanditResultsTable from "@/components/ContextualBandit/Contextu
 import ContextualBanditVariations from "@/components/ContextualBandit/ContextualBanditVariations";
 import ContextualBanditLinkedFeatures from "@/components/ContextualBandit/ContextualBanditLinkedFeatures";
 import { useContextualBanditQueries } from "@/hooks/useContextualBanditQueries";
-
-const STATUS_COLOR: Record<string, RadixColor> = {
-  draft: "gray",
-  running: "green",
-  stopped: "amber",
-};
 
 /** Experiment-style Frame section with a header + optional edit affordance. */
 function OverviewSection({
@@ -83,10 +78,9 @@ export default function ContextualBanditDetailPage({
   mutate,
   canRun = false,
   editOverview,
-  editMetrics,
-  editAnalysisSettings,
+  editAnalysisMetrics,
   editVariations,
-  editTargeting,
+  editTrafficTargeting,
   editTags,
   editProject,
   editDescription,
@@ -100,10 +94,9 @@ export default function ContextualBanditDetailPage({
   mutate: () => void;
   canRun?: boolean;
   editOverview?: () => void;
-  editMetrics?: () => void;
-  editAnalysisSettings?: () => void;
+  editAnalysisMetrics?: () => void;
   editVariations?: () => void;
-  editTargeting?: () => void;
+  editTrafficTargeting?: () => void;
   editTags?: () => void;
   editProject?: () => void;
   editDescription?: () => void;
@@ -149,9 +142,46 @@ export default function ContextualBanditDetailPage({
   const metricName = (id: string) => getExperimentMetricById(id)?.name ?? id;
 
   const coveragePct = cb.coverage != null ? Math.round(cb.coverage * 100) : 100;
-  const splitLabel = cb.variations
-    .map((_, i) => formatWeight(weightForIndex(i)))
-    .join(" / ");
+
+  const formatConversionWindow = (value: number, unit: string): string =>
+    `${value} ${value === 1 ? unit.replace(/s$/, "") : unit}`;
+
+  const decisionMetricObj = cb.decisionMetric
+    ? getExperimentMetricById(cb.decisionMetric)
+    : null;
+  const decisionMetricWindow =
+    decisionMetricObj?.windowSettings?.type === "conversion"
+      ? decisionMetricObj.windowSettings
+      : null;
+  const conversionWindowOverride =
+    (cb.banditConversionWindowValue ?? null) !== null &&
+    (cb.banditConversionWindowUnit ?? null) !== null
+      ? formatConversionWindow(
+          cb.banditConversionWindowValue as number,
+          cb.banditConversionWindowUnit as string,
+        )
+      : null;
+
+  const hasConfiguredTargeting =
+    (!!cb.condition && cb.condition !== "{}") ||
+    (cb.savedGroups?.length ?? 0) > 0 ||
+    (cb.prerequisites?.length ?? 0) > 0;
+
+  const formatExploratoryStage = (
+    value?: number,
+    unit?: "days" | "hours",
+  ): string => {
+    const v = value ?? 1;
+    const base = (unit ?? "days") === "days" ? "day" : "hour";
+    return `${v} ${base}${v !== 1 ? "s" : ""}`;
+  };
+  const formatUpdateCadence = (
+    value?: number,
+    unit?: "days" | "hours",
+  ): string => {
+    const v = value ?? 1;
+    return `Every ${v} ${(unit ?? "days") === "days" ? "days" : "hours"}`;
+  };
 
   const start = async () => {
     await apiCall(`${updateEndpoint}/start`, { method: "POST" });
@@ -192,13 +222,9 @@ export default function ContextualBanditDetailPage({
             display="inline-block"
             style={{ userSelect: "none" }}
           >
-            <Badge
-              color={STATUS_COLOR[cb.status] ?? "gray"}
-              label={cb.status}
+            <ExperimentStatusIndicator
+              experimentData={contextualBanditStatusIndicatorData(cb)}
             />
-            {cb.archived ? (
-              <Badge ml="1" color="gray" label="archived" />
-            ) : null}
           </Box>
         </Box>
 
@@ -396,10 +422,13 @@ export default function ContextualBanditDetailPage({
               mutate={linkedFeaturesMutate}
             />
 
-            <OverviewSection title="Traffic Allocation" onEdit={editTargeting}>
+            <OverviewSection
+              title="Traffic & Targeting"
+              onEdit={editTrafficTargeting}
+            >
               <div className="row">
                 <DetailSectionColumn label="Traffic">
-                  {coveragePct}% included, {splitLabel} split
+                  {coveragePct}% included
                 </DetailSectionColumn>
                 <DetailSectionColumn label="Assignment Attribute">
                   <div className="d-flex flex-wrap align-items-center gap-1">
@@ -407,23 +436,46 @@ export default function ContextualBanditDetailPage({
                   </div>
                 </DetailSectionColumn>
               </div>
-            </OverviewSection>
-
-            <OverviewSection title="Targeting" onEdit={editTargeting}>
-              <div className="row">
-                <DetailSectionColumn label="Attribute Targeting">
-                  {cb.condition && cb.condition !== "{}" ? (
-                    <ConditionDisplay condition={cb.condition} />
-                  ) : (
-                    <em>None</em>
-                  )}
-                </DetailSectionColumn>
+              <div className="row mt-3">
+                {hasConfiguredTargeting ? (
+                  <>
+                    <DetailSectionColumn label="Attribute Targeting">
+                      {cb.condition && cb.condition !== "{}" ? (
+                        <ConditionDisplay condition={cb.condition} />
+                      ) : (
+                        <Text color="text-mid">--</Text>
+                      )}
+                    </DetailSectionColumn>
+                    <DetailSectionColumn label="Saved Group Targeting">
+                      {cb.savedGroups?.length ? (
+                        <SavedGroupTargetingDisplay
+                          savedGroups={cb.savedGroups}
+                        />
+                      ) : (
+                        <Text color="text-mid">--</Text>
+                      )}
+                    </DetailSectionColumn>
+                    <DetailSectionColumn label="Prerequisite Targeting">
+                      {cb.prerequisites?.length ? (
+                        <ConditionDisplay prerequisites={cb.prerequisites} />
+                      ) : (
+                        <Text color="text-mid">--</Text>
+                      )}
+                    </DetailSectionColumn>
+                  </>
+                ) : (
+                  <DetailSectionColumn label="Targeting">
+                    <Text color="text-mid">
+                      No targeting (Contextual Bandit will include all traffic)
+                    </Text>
+                  </DetailSectionColumn>
+                )}
               </div>
             </OverviewSection>
 
             <OverviewSection
-              title="Analysis Configuration"
-              onEdit={editAnalysisSettings}
+              title="Analysis & Metrics"
+              onEdit={editAnalysisMetrics}
             >
               <div className="row">
                 <DetailSectionColumn label="Data Source">
@@ -438,17 +490,39 @@ export default function ContextualBanditDetailPage({
                     : "—"}
                 </DetailSectionColumn>
               </div>
-            </OverviewSection>
-
-            <OverviewSection
-              title="Metrics"
-              onEdit={editMetrics}
-              editLabel="Edit Metrics"
-            >
-              <div className="row">
+              <div className="row mt-3">
                 <DetailSectionColumn label="Decision Metric">
                   {renderMetricList(
                     cb.decisionMetric ? [cb.decisionMetric] : [],
+                  )}
+                </DetailSectionColumn>
+                <DetailSectionColumn label="Conversion Window">
+                  {conversionWindowOverride ? (
+                    conversionWindowOverride
+                  ) : decisionMetricWindow ? (
+                    <>
+                      {formatConversionWindow(
+                        decisionMetricWindow.windowValue,
+                        decisionMetricWindow.windowUnit,
+                      )}{" "}
+                      <Text color="text-low">(metric default)</Text>
+                    </>
+                  ) : (
+                    <em>None</em>
+                  )}
+                </DetailSectionColumn>
+              </div>
+              <div className="row mt-3">
+                <DetailSectionColumn label="Exploratory Stage">
+                  {formatExploratoryStage(
+                    cb.contextualBanditBurnInValue,
+                    cb.contextualBanditBurnInUnit,
+                  )}
+                </DetailSectionColumn>
+                <DetailSectionColumn label="Update Cadence">
+                  {formatUpdateCadence(
+                    cb.contextualBanditScheduleValue,
+                    cb.contextualBanditScheduleUnit,
                   )}
                 </DetailSectionColumn>
               </div>

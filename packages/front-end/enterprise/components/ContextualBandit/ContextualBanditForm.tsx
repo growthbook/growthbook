@@ -22,7 +22,6 @@ import {
 import { kebabCase } from "lodash";
 import { Box, Separator } from "@radix-ui/themes";
 import Callout from "@/ui/Callout";
-import Text from "@/ui/Text";
 import { useWatching } from "@/services/WatchProvider";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
@@ -47,13 +46,10 @@ import SelectField, {
 } from "@/components/Forms/SelectField";
 import { validateSavedGroupTargeting } from "@/components/Features/SavedGroupTargetingField";
 import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
-import {
-  AttributeOptionWithTooltip,
-  type AttributeOptionForTooltip,
-} from "@/components/Features/AttributeOptionTooltip";
 import { useExperiments } from "@/hooks/useExperiments";
 import { useContextualBanditQueries } from "@/hooks/useContextualBanditQueries";
 import ContextualBanditAnalysisFields from "@/components/ContextualBandit/ContextualBanditAnalysisFields";
+import ContextualBanditAssignmentAttributeSelect from "@/components/ContextualBandit/ContextualBanditAssignmentAttributeSelect";
 import Checkbox from "@/ui/Checkbox";
 import DatePicker from "@/components/DatePicker";
 import {
@@ -147,7 +143,6 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
   const hashAttribute = hashAttributes.includes("id")
     ? "id"
     : hashAttributes[0] || "id";
-  const hasHashAttributes = hashAttributes.length > 0;
 
   const initialHashAttribute = initialValue?.hashAttribute || hashAttribute;
 
@@ -409,6 +404,15 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
       cbQueries.find((q) => q.id === data.exposureQueryId)
         ?.targetingAttributeColumns ?? [];
 
+    const banditConversionWindowValue =
+      shouldIncludeConversionWindow && data.banditConversionWindowValue
+        ? Number(data.banditConversionWindowValue)
+        : undefined;
+    const banditConversionWindowUnit =
+      shouldIncludeConversionWindow && data.banditConversionWindowUnit
+        ? data.banditConversionWindowUnit
+        : undefined;
+
     const createBody: ApiCreateContextualBanditBody = {
       name: data.name ?? "",
       description: data.description,
@@ -433,6 +437,8 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
       contextualBanditScheduleUnit: data.banditScheduleUnit,
       contextualBanditBurnInValue: data.banditBurnInValue,
       contextualBanditBurnInUnit: data.banditBurnInUnit,
+      banditConversionWindowValue,
+      banditConversionWindowUnit,
 
       contextualAttributes: submitContextualAttributes,
     };
@@ -567,39 +573,7 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
             <Separator size="4" my="5" />
             {(isNewExperiment || duplicate) && (
               <>
-                <div className="mb-4">
-                  <Text as="label" weight="semibold" mb="1">
-                    Assign Variation by Attribute
-                  </Text>
-                  <SelectField
-                    withRadixThemedPortal
-                    containerClassName="flex-1"
-                    options={attributeSchema
-                      .filter((s) => !hasHashAttributes || s.hashAttribute)
-                      .map((s) => ({
-                        label: s.property,
-                        value: s.property,
-                        description: s.description,
-                        tags: s.tags,
-                        datatype: s.datatype,
-                        hashAttribute: s.hashAttribute,
-                      }))}
-                    value={form.watch("hashAttribute") ?? ""}
-                    onChange={(v) => {
-                      form.setValue("hashAttribute", v);
-                    }}
-                    formatOptionLabel={(o, meta) => {
-                      return (
-                        <AttributeOptionWithTooltip
-                          option={o as AttributeOptionForTooltip}
-                          context={meta.context}
-                        >
-                          {o.label}
-                        </AttributeOptionWithTooltip>
-                      );
-                    }}
-                  />
-                </div>
+                <ContextualBanditAssignmentAttributeSelect project={project} />
 
                 <FeatureVariationsInput
                   simple={true}

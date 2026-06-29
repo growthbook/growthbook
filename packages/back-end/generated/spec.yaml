@@ -28559,6 +28559,17 @@ paths:
                   enum:
                     - days
                     - hours
+                banditConversionWindowValue:
+                  anyOf:
+                    - type: number
+                    - type: 'null'
+                banditConversionWindowUnit:
+                  anyOf:
+                    - type: string
+                      enum:
+                        - hours
+                        - days
+                    - type: 'null'
                 archived:
                   type: boolean
                 status:
@@ -28573,6 +28584,38 @@ paths:
                   maximum: 1
                 condition:
                   type: string
+                savedGroups:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      match:
+                        type: string
+                        enum:
+                          - all
+                          - none
+                          - any
+                      ids:
+                        type: array
+                        items:
+                          type: string
+                    required:
+                      - match
+                      - ids
+                    additionalProperties: false
+                prerequisites:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      condition:
+                        type: string
+                    required:
+                      - id
+                      - condition
+                    additionalProperties: false
                 seed:
                   type: string
                 variationWeights:
@@ -28687,6 +28730,13 @@ paths:
                   enum:
                     - days
                     - hours
+                banditConversionWindowValue:
+                  type: number
+                banditConversionWindowUnit:
+                  type: string
+                  enum:
+                    - hours
+                    - days
               required:
                 - name
                 - trackingKey
@@ -44726,6 +44776,38 @@ components:
           maximum: 1
         condition:
           type: string
+        savedGroups:
+          type: array
+          items:
+            type: object
+            properties:
+              match:
+                type: string
+                enum:
+                  - all
+                  - none
+                  - any
+              ids:
+                type: array
+                items:
+                  type: string
+            required:
+              - match
+              - ids
+            additionalProperties: false
+        prerequisites:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              condition:
+                type: string
+            required:
+              - id
+              - condition
+            additionalProperties: false
         seed:
           type: string
         variationWeights:
@@ -44807,6 +44889,17 @@ components:
           enum:
             - days
             - hours
+        banditConversionWindowValue:
+          anyOf:
+            - type: number
+            - type: 'null'
+        banditConversionWindowUnit:
+          anyOf:
+            - type: string
+              enum:
+                - hours
+                - days
+            - type: 'null'
         contextualBanditStage:
           type: string
           enum:

@@ -19,10 +19,9 @@ import Callout from "@/ui/Callout";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
 import ContextualBanditDetailPage from "@/components/ContextualBandit/ContextualBanditDetailPage";
 import ContextualBanditDescriptionModal from "@/components/ContextualBandit/ContextualBanditDescriptionModal";
-import ContextualBanditMetricsModal from "@/components/ContextualBandit/ContextualBanditMetricsModal";
 import ContextualBanditOverviewModal from "@/components/ContextualBandit/ContextualBanditOverviewModal";
-import ContextualBanditAnalysisSettingsModal from "@/components/ContextualBandit/ContextualBanditAnalysisSettingsModal";
-import ContextualBanditTargetingModal from "@/components/ContextualBandit/ContextualBanditTargetingModal";
+import ContextualBanditAnalysisMetricsModal from "@/components/ContextualBandit/ContextualBanditAnalysisMetricsModal";
+import ContextualBanditTrafficTargetingModal from "@/components/ContextualBandit/ContextualBanditTrafficTargetingModal";
 import ContextualBanditVariationsModal from "@/components/ContextualBandit/ContextualBanditVariationsModal";
 import LinkFeatureToContextualBanditModal from "@/components/Features/FeatureModal/LinkFeatureToContextualBanditModal";
 
@@ -36,11 +35,11 @@ const ContextualBanditPage = (): ReactElement => {
   const { apiCall } = useAuth();
 
   const [overviewModalOpen, setOverviewModalOpen] = useState(false);
-  const [metricsModalOpen, setMetricsModalOpen] = useState(false);
-  const [analysisSettingsModalOpen, setAnalysisSettingsModalOpen] =
+  const [analysisMetricsModalOpen, setAnalysisMetricsModalOpen] =
     useState(false);
   const [variationsModalOpen, setVariationsModalOpen] = useState(false);
-  const [targetingModalOpen, setTargetingModalOpen] = useState(false);
+  const [trafficTargetingModalOpen, setTrafficTargetingModalOpen] =
+    useState(false);
   const [tagsModalOpen, setTagsModalOpen] = useState(false);
   const [projectModalOpen, setProjectModalOpen] = useState(false);
   const [descriptionModalOpen, setDescriptionModalOpen] = useState(false);
@@ -110,15 +109,14 @@ const ContextualBanditPage = (): ReactElement => {
           mutate={mutate}
           canRun={canRun}
           editOverview={canEdit ? () => setOverviewModalOpen(true) : undefined}
-          editMetrics={canEdit ? () => setMetricsModalOpen(true) : undefined}
-          editAnalysisSettings={
-            canEdit ? () => setAnalysisSettingsModalOpen(true) : undefined
+          editAnalysisMetrics={
+            canEdit ? () => setAnalysisMetricsModalOpen(true) : undefined
           }
           editVariations={
             canEdit ? () => setVariationsModalOpen(true) : undefined
           }
-          editTargeting={
-            canEdit ? () => setTargetingModalOpen(true) : undefined
+          editTrafficTargeting={
+            canEdit ? () => setTrafficTargetingModalOpen(true) : undefined
           }
           editTags={canEdit ? () => setTagsModalOpen(true) : undefined}
           editProject={canEdit ? () => setProjectModalOpen(true) : undefined}
@@ -149,18 +147,11 @@ const ContextualBanditPage = (): ReactElement => {
           close={() => setDescriptionModalOpen(false)}
         />
       )}
-      {metricsModalOpen && (
-        <ContextualBanditMetricsModal
+      {analysisMetricsModalOpen && (
+        <ContextualBanditAnalysisMetricsModal
           cb={cb}
           mutate={mutate}
-          close={() => setMetricsModalOpen(false)}
-        />
-      )}
-      {analysisSettingsModalOpen && (
-        <ContextualBanditAnalysisSettingsModal
-          cb={cb}
-          mutate={mutate}
-          close={() => setAnalysisSettingsModalOpen(false)}
+          close={() => setAnalysisMetricsModalOpen(false)}
         />
       )}
       {variationsModalOpen && (
@@ -170,11 +161,11 @@ const ContextualBanditPage = (): ReactElement => {
           close={() => setVariationsModalOpen(false)}
         />
       )}
-      {targetingModalOpen && (
-        <ContextualBanditTargetingModal
+      {trafficTargetingModalOpen && (
+        <ContextualBanditTrafficTargetingModal
           cb={cb}
           mutate={mutate}
-          close={() => setTargetingModalOpen(false)}
+          close={() => setTrafficTargetingModalOpen(false)}
         />
       )}
       {tagsModalOpen && (

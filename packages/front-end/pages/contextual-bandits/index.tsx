@@ -3,9 +3,9 @@ import { date, datetime } from "shared/dates";
 import Link from "next/link";
 import clsx from "clsx";
 import { Box, Flex } from "@radix-ui/themes";
-import { ExperimentDataForStatusStringDates } from "shared/types/experiment";
 import {
   ComputedContextualBanditInterface,
+  contextualBanditStatusIndicatorData,
   useContextualBanditSearch,
 } from "@/services/contextualBandits";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -401,47 +401,10 @@ const ContextualBanditsPage = (): React.ReactElement => {
                           {date(e.date)}
                         </td>
                         <td className="nowrap" data-title="Status:">
-                          {/* CB lacks several experiment fields; supply harmless defaults for the indicator. */}
                           <ExperimentStatusIndicator
-                            experimentData={
-                              {
-                                type: "contextual-bandit",
-                                variations: e.variations,
-                                status: e.status,
-                                archived: e.archived,
-                                results: undefined,
-                                analysisSummary: undefined,
-                                phases: [
-                                  {
-                                    dateStarted: e.dateStarted ?? e.dateCreated,
-                                    dateEnded: e.dateStopped ?? undefined,
-                                    name: "Main",
-                                    reason: "",
-                                    coverage: e.coverage ?? 1,
-                                    condition: e.condition ?? "",
-                                    variationWeights: e.variations.map(
-                                      (v) =>
-                                        e.variationWeights?.find(
-                                          (w) => w.variationId === v.id,
-                                        )?.weight ?? 1,
-                                    ),
-                                    variations: e.variations.map((v) => ({
-                                      id: v.id,
-                                    })),
-                                    seed: e.seed,
-                                  },
-                                ],
-                                dismissedWarnings: [],
-                                goalMetrics: e.decisionMetric
-                                  ? [e.decisionMetric]
-                                  : [],
-                                secondaryMetrics: [],
-                                guardrailMetrics: [],
-                                datasource: e.datasource,
-                                decisionFrameworkSettings: {},
-                                nextScheduledStatusUpdate: null,
-                              } as unknown as ExperimentDataForStatusStringDates
-                            }
+                            experimentData={contextualBanditStatusIndicatorData(
+                              e,
+                            )}
                           />
                         </td>
                       </tr>
