@@ -14,7 +14,9 @@ import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import Field from "@/components/Forms/Field";
-import { FIVE_LINES_HEIGHT } from "@/components/Forms/CodeTextArea";
+import CodeTextArea, {
+  FIVE_LINES_HEIGHT,
+} from "@/components/Forms/CodeTextArea";
 import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import FeatureValueField from "@/components/Features/FeatureValueField";
@@ -59,9 +61,20 @@ export default function FieldDefForm({
   onSave: (field: SchemaField, value?: unknown) => void | Promise<void>;
 }): React.ReactElement {
   // Normalize so a raw schema that's really a simple type opens in simple mode.
-  const [field, setField] = useState<SchemaField>(() =>
-    normalizeField(initial),
-  );
+  // Pretty-print a raw schema once on open so imported/minified schemas show with
+  // readable whitespace in the code editor (typing afterward is preserved as-is).
+  const [field, setField] = useState<SchemaField>(() => {
+    const nf = normalizeField(initial);
+    if (nf.jsonSchema === undefined) return nf;
+    try {
+      return {
+        ...nf,
+        jsonSchema: JSON.stringify(JSON.parse(nf.jsonSchema), null, 2),
+      };
+    } catch {
+      return nf;
+    }
+  });
   const [valueText, setValueText] = useState(initialValue);
   const [valueIsNull, setValueIsNull] = useState(initialNull);
   const [valueIsUndefined, setValueIsUndefined] = useState(false);
@@ -331,11 +344,15 @@ export default function FieldDefForm({
   const body = advanced ? (
     <Box mt="2">
       {descriptionField}
-      <Field
-        textarea
-        minRows={5}
+      <CodeTextArea
+        language="json"
         value={field.jsonSchema ?? ""}
-        onChange={(e) => setField({ ...field, jsonSchema: e.target.value })}
+        setValue={(v) => setField({ ...field, jsonSchema: v })}
+        minLines={8}
+        maxLines={30}
+        resizable
+        showCopyButton
+        showFullscreenButton
         containerStyle={{ marginBottom: 0 }}
       />
       <Text size="small" color="text-low">

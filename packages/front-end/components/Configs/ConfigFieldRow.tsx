@@ -8,6 +8,7 @@ import {
   PiArrowBendLeftUp,
   PiPencil,
   PiPlusBold,
+  PiMagnifyingGlass,
 } from "react-icons/pi";
 import Text from "@/ui/Text";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -15,11 +16,13 @@ import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import Link from "@/ui/Link";
 import Checkbox from "@/ui/Checkbox";
+import { Popover } from "@/ui/Popover";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import SelectField from "@/components/Forms/SelectField";
 import { FIVE_LINES_HEIGHT } from "@/components/Forms/CodeTextArea";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import ValueDisplay from "@/components/Features/ValueDisplay";
+import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   FIELD_GRID_TEMPLATE,
@@ -27,6 +30,7 @@ import {
   fieldTypeLabel,
   fieldValueType,
   fieldIsNullable,
+  fieldSchemaPreview,
   normalizeField,
   valueToDisplayString,
 } from "@/components/Configs/fieldSchema";
@@ -88,6 +92,9 @@ export default function ConfigFieldRow({
   // floats just above it; give the row extra headroom so it doesn't crowd the
   // row above.
   const hasJsonEditor = editing && fieldValueType(nf) === "json";
+  // A terse type label (e.g. "advanced", "array", "enum<string>") hides the real
+  // shape/validation; offer a click-to-inspect popover with the full JSON Schema.
+  const schemaPreview = fieldSchemaPreview(f.field);
 
   return (
     <Grid
@@ -282,10 +289,71 @@ export default function ConfigFieldRow({
         </Flex>
       </Box>
       <Box style={{ minWidth: 0 }}>
-        <Flex align="center" style={{ minHeight: 32 }}>
-          <code style={{ color: "var(--slate-9)", fontSize: "0.8em" }}>
+        <Flex align="center" gap="1" style={{ minHeight: 32, minWidth: 0 }}>
+          <code
+            style={{
+              color: "var(--slate-9)",
+              fontSize: "0.8em",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
             {fieldTypeLabel(nf)}
           </code>
+          {schemaPreview && (
+            <Popover
+              side="left"
+              align="start"
+              showCloseButton
+              triggerAsChild
+              trigger={
+                <IconButton
+                  variant="ghost"
+                  color="gray"
+                  size="1"
+                  radius="full"
+                  highContrast
+                  title="View JSON Schema"
+                  aria-label="View JSON Schema"
+                  style={{ flexShrink: 0 }}
+                >
+                  <PiMagnifyingGlass />
+                </IconButton>
+              }
+              content={
+                <Box style={{ maxWidth: 440 }}>
+                  <div
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 600,
+                      letterSpacing: 0.3,
+                      textTransform: "uppercase",
+                      color: "var(--slate-11)",
+                      marginBottom: 6,
+                    }}
+                  >
+                    JSON Schema
+                  </div>
+                  <Box
+                    style={{
+                      maxHeight: 360,
+                      overflow: "auto",
+                      background: "var(--slate-a2)",
+                      padding: "8px 10px",
+                      borderRadius: 6,
+                    }}
+                  >
+                    <InlineCode
+                      language="json"
+                      code={schemaPreview}
+                      fontSize="12px"
+                    />
+                  </Box>
+                </Box>
+              }
+            />
+          )}
         </Flex>
       </Box>
       <Box style={{ minWidth: 0 }}>

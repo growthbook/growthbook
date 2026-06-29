@@ -6,6 +6,7 @@ import {
   normalizeField,
   presetKeyFromField,
   presetSchemaString,
+  simpleSchemaFieldToJSONSchema,
 } from "shared/util";
 
 // The schema/value conversion core lives in `shared/util/config-schema` so the
@@ -180,6 +181,21 @@ export function fieldTypeLabel(f: SchemaField | null): string {
   else label = reduced.type;
   if (fieldIsNullable(reduced)) label += " | null";
   return label;
+}
+
+// Pretty-printed JSON Schema for a single field (raw schema verbatim, else
+// derived from the simple form). Returns null when there's nothing beyond a bare
+// `type` worth inspecting (`description`/`default` already surface elsewhere), so
+// rows only offer a schema inspector when the type label hides real structure or
+// validation (nested object/array, enum, bounds, format, unions, …).
+export function fieldSchemaPreview(f: SchemaField | null): string | null {
+  if (!f) return null;
+  const node = simpleSchemaFieldToJSONSchema(normalizeField(f));
+  const interesting = Object.keys(node).filter(
+    (k) => k !== "type" && k !== "description" && k !== "default",
+  );
+  if (interesting.length === 0) return null;
+  return JSON.stringify(node, null, 2);
 }
 
 export function typeDefault(field: SchemaField | null): unknown {

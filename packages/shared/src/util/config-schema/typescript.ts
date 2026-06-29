@@ -340,8 +340,11 @@ function unquote(raw: string): string {
 const STRING_LITERAL_RE = /^"(?:[^"\\]|\\.)*"$|^'(?:[^'\\]|\\.)*'$/;
 
 // Cap how deep we'll recurse building a nested schema; beyond this we bail to the
-// bare object/array preset rather than risk a pathological/expensive parse.
-const MAX_NEST_DEPTH = 3;
+// bare object/array preset rather than risk a pathological/expensive parse. Only
+// CONTAINER nesting (objects/arrays) counts against this — leaf types (scalars,
+// enums, literals) resolve at any depth, so a deeply-nested string-enum isn't
+// clipped just for sitting one level too far down.
+const MAX_NEST_DEPTH = 6;
 
 // Strip one balanced layer of wrapping parens: "(a | b)" -> "a | b".
 function stripParens(t: string): string {
@@ -360,17 +363,20 @@ function stripParens(t: string): string {
 
 // Recursively build a JSON Schema node for a TS type, so nested objects/arrays
 // survive import as real nested schemas (not the bare `{type:object}` preset).
-// Returns null to BAIL — the caller falls back to the bare preset — on depth
-// overflow, an open-ended shape (Record/object/any), a mixed union, an
+// Returns null to BAIL — the caller falls back to the bare preset — on container
+// depth overflow, an open-ended shape (Record/object/any), a mixed union, an
 // unparseable member, an unresolved reference, or a reference cycle. Bailing is
-// deliberate: an imperfect nested type degrades to opaque rather than wrong.
+// deliberate: an imperfect nested type degrades to opaque rather than wrong. When
+// an array survives but its item type can't be resolved, the array is kept and an
+// `unresolved-type` warning is pushed (rather than silently dropping `items`).
 function tsTypeToSchemaNode(
   expr: string,
   decls: Map<string, TsDeclaration> | undefined,
   seen: Set<string>,
   depth: number,
+  path: string,
+  warnings: SchemaWarning[],
 ): Record<string, unknown> | null {
-  if (depth > MAX_NEST_DEPTH) return null;
   const e = stripParens(
     expr
       .trim()
@@ -392,37 +398,14 @@ function tsTypeToSchemaNode(
       ? { ...node, type: [node.type, "null"] }
       : node;
 
+  // Leaves (string-literal unions, scalars, literals) resolve at ANY depth — the
+  // depth cap below bounds CONTAINER nesting only, not leaf types.
   if (nonNull.every((p) => STRING_LITERAL_RE.test(p))) {
     return withNull({ type: "string", enum: nonNull.map(unquote) });
   }
   if (nonNull.length !== 1) return null;
   const t = stripParens(nonNull[0]);
 
-  const arrSuffix = /^(.+)\[\]$/.exec(t);
-  const arrGeneric =
-    /^(?:readonly\s+)?(?:Array|ReadonlyArray)<([\s\S]+)>$/.exec(t);
-  if (arrSuffix || arrGeneric) {
-    const inner = (
-      arrSuffix ? arrSuffix[1] : (arrGeneric as RegExpExecArray)[1]
-    ).trim();
-    const items = tsTypeToSchemaNode(inner, decls, seen, depth + 1);
-    return withNull(items ? { type: "array", items } : { type: "array" });
-  }
-  if (t.startsWith("[")) return null; // tuple — bail
-  if (
-    /^Record<[\s\S]*>$/.test(t) ||
-    t === "object" ||
-    t === "any" ||
-    t === "unknown"
-  ) {
-    return null; // open-ended — bail
-  }
-  if (t.startsWith("{")) {
-    const { body } = extractObjectBody(t);
-    if (body === null) return null;
-    const node = objectBodyToSchemaNode(body, decls, seen, depth + 1);
-    return node ? withNull(node) : null;
-  }
   switch (t) {
     case "string":
       return withNull({ type: "string" });
@@ -437,6 +420,59 @@ function tsTypeToSchemaNode(
   if (STRING_LITERAL_RE.test(t)) {
     return withNull({ type: "string", enum: [unquote(t)] });
   }
+
+  // Below here the type is a container or a reference — the depth cap applies.
+  if (depth > MAX_NEST_DEPTH) return null;
+
+  const arrSuffix = /^(.+)\[\]$/.exec(t);
+  const arrGeneric =
+    /^(?:readonly\s+)?(?:Array|ReadonlyArray)<([\s\S]+)>$/.exec(t);
+  if (arrSuffix || arrGeneric) {
+    const inner = (
+      arrSuffix ? arrSuffix[1] : (arrGeneric as RegExpExecArray)[1]
+    ).trim();
+    const items = tsTypeToSchemaNode(
+      inner,
+      decls,
+      seen,
+      depth + 1,
+      path,
+      warnings,
+    );
+    if (!items) {
+      warnings.push({
+        code: "unresolved-type",
+        path,
+        message: `${
+          path || "(root)"
+        }: array item type "${inner}" couldn't be resolved; items left untyped.`,
+      });
+      return withNull({ type: "array" });
+    }
+    return withNull({ type: "array", items });
+  }
+  if (t.startsWith("[")) return null; // tuple — bail
+  if (
+    /^Record<[\s\S]*>$/.test(t) ||
+    t === "object" ||
+    t === "any" ||
+    t === "unknown"
+  ) {
+    return null; // open-ended — bail
+  }
+  if (t.startsWith("{")) {
+    const { body } = extractObjectBody(t);
+    if (body === null) return null;
+    const node = objectBodyToSchemaNode(
+      body,
+      decls,
+      seen,
+      depth + 1,
+      path,
+      warnings,
+    );
+    return node ? withNull(node) : null;
+  }
   const decl = decls?.get(t);
   if (decl) {
     if (seen.has(t)) return null; // cycle — bail
@@ -448,6 +484,8 @@ function tsTypeToSchemaNode(
         decls,
         nextSeen,
         depth + 1,
+        path,
+        warnings,
       );
       return node ? withNull(node) : null;
     }
@@ -456,6 +494,8 @@ function tsTypeToSchemaNode(
       decls,
       nextSeen,
       depth,
+      path,
+      warnings,
     );
     return aliasNode ? withNull(aliasNode) : null;
   }
@@ -470,6 +510,8 @@ function objectBodyToSchemaNode(
   decls: Map<string, TsDeclaration> | undefined,
   seen: Set<string>,
   depth: number,
+  path: string,
+  warnings: SchemaWarning[],
 ): Record<string, unknown> | null {
   if (depth > MAX_NEST_DEPTH) return null;
   const members = tokenizeMembers(body);
@@ -481,9 +523,16 @@ function objectBodyToSchemaNode(
       /^(?:readonly\s+)?("[^"]*"|'[^']*'|\[[^\]]*\]|[A-Za-z_$][\w$]*)(\??)\s*:\s*([\s\S]+)$/,
     );
     if (!m || m[1].startsWith("[")) return null;
-    const node = tsTypeToSchemaNode(m[3], decls, seen, depth);
-    if (!node) return null;
     const key = unquote(m[1]);
+    const node = tsTypeToSchemaNode(
+      m[3],
+      decls,
+      seen,
+      depth,
+      path ? `${path}.${key}` : key,
+      warnings,
+    );
+    if (!node) return null;
     properties[key] = node;
     if (m[2] !== "?") required.push(key);
   }
@@ -580,7 +629,7 @@ function objectBodyToDocument(
       .trim()
       .replace(/[;,]+$/, "")
       .trim();
-    let node = tsTypeToSchemaNode(t, decls, new Set(), 1);
+    let node = tsTypeToSchemaNode(t, decls, new Set(), 1, key, warnings);
     if (!node) {
       node = fallbackNode(t, decls);
       warnings.push({

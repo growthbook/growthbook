@@ -486,6 +486,37 @@ describe("tsTypesToFields", () => {
     // Resolves without hanging; the cyclic alias degrades to a value/any.
     expect(fields[0].key).toBe("x");
   });
+
+  it("keeps a deeply-nested string-literal-union array item (leaves ignore the depth cap)", () => {
+    const { fields, warnings } = parse(`
+      type RetryPolicy = {
+        retryOn: ("5xx" | "timeout" | "network")[];
+      };
+      interface AppConfig {
+        http: { retry: RetryPolicy };
+      }
+    `);
+    const http = fields.find((f) => f.key === "http");
+    const node = JSON.parse(http?.jsonSchema as string);
+    expect(node.properties.retry.properties.retryOn).toEqual({
+      type: "array",
+      items: { type: "string", enum: ["5xx", "timeout", "network"] },
+    });
+    expect(warnings).toHaveLength(0);
+  });
+
+  it("warns (not silently) when an array item type can't be resolved", () => {
+    const { fields, warnings } = parse(`
+      interface AppConfig { ids: Widget[] }
+    `);
+    const ids = fields.find((f) => f.key === "ids");
+    expect(JSON.parse(ids?.jsonSchema as string)).toEqual({ type: "array" });
+    expect(
+      warnings.some(
+        (w) => w.code === "unresolved-type" && /array item/.test(w.message),
+      ),
+    ).toBe(true);
+  });
 });
 
 describe("fieldsToTsType", () => {
