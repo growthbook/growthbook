@@ -20,7 +20,7 @@ RUN \
   && poetry build \
   && poetry export -f requirements.txt --output requirements.txt \
   && pip install --no-cache-dir -r requirements.txt \
-  && pip install --no-cache-dir dist/*.whl ddtrace==4.3.2 "cryptography>=46.0.6,<47"
+  && pip install --no-cache-dir dist/*.whl ddtrace==4.3.2 "cryptography>=48.0.1,<49"
 # cryptography version is specified above to override transitive dependency and fix vulnerability
 
 # Strip poetry and its build-time-only footprint so non-runtime deps don't ship in the venv.
