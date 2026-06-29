@@ -43,6 +43,7 @@ const IdeaForm: FC<{
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       header={edit ? "Edit Idea" : "New Idea"}
       close={close}

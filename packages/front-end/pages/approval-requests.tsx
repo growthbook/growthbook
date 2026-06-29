@@ -535,7 +535,9 @@ const ApprovalRequests: FC = () => {
         </Heading>
         <Text color="text-low">
           Review changes across your organization that require approval.{" "}
-          <DocLink docSection="publishingAndApprovalFlows">View Docs</DocLink>
+          <DocLink useRadix={false} docSection="publishingAndApprovalFlows">
+            View Docs
+          </DocLink>
         </Text>
       </Box>
 

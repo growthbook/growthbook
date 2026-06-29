@@ -705,7 +705,6 @@ function UrlCard({
           {canEdit && (
             <DeleteButton
               className="btn-sm ml-4"
-              useRadix={true}
               text="Remove"
               stopPropagation={true}
               onClick={() => onDeleteChangeset()}
@@ -714,6 +713,7 @@ function UrlCard({
           )}
           {canEdit && experiment.status === "draft" && (
             <OpenVisualEditorLink
+              useRadix={false}
               visualChangeset={vc}
               useLink
               button={<Button variant="ghost">Launch visual editor</Button>}
