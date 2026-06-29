@@ -16,6 +16,7 @@ import {
   ConfigChainNode,
   simpleToJSONSchema,
   fieldsToTsType,
+  fieldsToProto,
   getConfigSubtree,
 } from "shared/util";
 import {
@@ -132,8 +133,10 @@ type ConfigExportPayloads = {
   resolvedValue: string;
   ownSchemaJson: string;
   ownSchemaTs: string;
+  ownSchemaProto: string;
   effectiveSchemaJson: string;
   effectiveSchemaTs: string;
+  effectiveSchemaProto: string;
 };
 
 // Export-as dropdown, modeled on the review "Copy as" widget: copies the
@@ -202,10 +205,12 @@ function ConfigExportMenu({ payloads }: { payloads: ConfigExportPayloads }) {
       <DropdownMenuGroup label="Schema">
         {item("JSON Schema", null, payloads.ownSchemaJson)}
         {item("TypeScript", null, payloads.ownSchemaTs)}
+        {item("Protobuf", null, payloads.ownSchemaProto)}
       </DropdownMenuGroup>
       <DropdownMenuGroup label="Resolved schema">
         {item("JSON Schema", null, payloads.effectiveSchemaJson)}
         {item("TypeScript", null, payloads.effectiveSchemaTs)}
+        {item("Protobuf", null, payloads.effectiveSchemaProto)}
       </DropdownMenuGroup>
     </DropdownMenu>
   );
@@ -520,8 +525,14 @@ export default function ConfigDetailPage(): React.ReactElement {
       ownSchemaTs: fieldsToTsType(ownFields, {
         additionalProperties: effectiveExtensible,
       }),
+      ownSchemaProto: fieldsToProto(ownFields, {
+        additionalProperties: effectiveExtensible,
+      }),
       effectiveSchemaJson: schemaToJson(resolved.effectiveSchema),
       effectiveSchemaTs: fieldsToTsType(resolved.effectiveSchema, {
+        additionalProperties: effectiveExtensible,
+      }),
+      effectiveSchemaProto: fieldsToProto(resolved.effectiveSchema, {
         additionalProperties: effectiveExtensible,
       }),
     };
