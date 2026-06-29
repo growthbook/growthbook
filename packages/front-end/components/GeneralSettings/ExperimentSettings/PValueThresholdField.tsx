@@ -69,7 +69,7 @@ export default function PValueThresholdField<
   form,
   name,
   disabled = false,
-  label = "P-value threshold",
+  label = "p-value threshold",
   defaultValue,
   helpTextAppend,
   containerClassName = "mb-3",

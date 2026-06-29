@@ -249,7 +249,7 @@ export default function ConstantModal({
           label="Project"
           value={form.watch("project")}
           options={projectOptions}
-          initialOption="All projects"
+          initialOption="All Projects"
           onChange={(v) => form.setValue("project", v)}
         />
       )}

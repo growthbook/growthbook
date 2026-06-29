@@ -323,7 +323,7 @@ export default function ApprovalFlowSettings() {
             </Heading>
 
             <Text as="p" size="medium" mb="4" color="text-low">
-              All changes to saved groups are tracked as revisions. Requiring
+              All changes to Saved Groups are tracked as revisions. Requiring
               approvals adds a review step before any change goes live.
             </Text>
 
@@ -387,8 +387,8 @@ export default function ApprovalFlowSettings() {
                     />
                     <Checkbox
                       id="toggle-saved-group-block-self-approval"
-                      label="Require approval from a non-editor"
-                      description="Anyone who edited the draft is blocked from approving it. A separate reviewer must approve before publishing."
+                      label="Block contributors from self-approving"
+                      description="Prevents anyone who edited a draft from approving it. Requires a separate reviewer."
                       value={
                         !!form.watch(
                           `approvalFlows.savedGroups.0.blockSelfApproval`,
@@ -404,7 +404,7 @@ export default function ApprovalFlowSettings() {
                     <Checkbox
                       id="toggle-saved-group-autopublish-on-approval"
                       label="Allow approve & publish in one step"
-                      description="Adds an 'Approve & Publish' option so reviewers with publish access can approve and publish a saved group change together."
+                      description="Adds an 'Approve & Publish' option so reviewers with publish access can approve and publish a Saved Group change together."
                       value={
                         !!form.watch(
                           `approvalFlows.savedGroups.0.autopublishOnApproval`,
@@ -433,7 +433,7 @@ export default function ApprovalFlowSettings() {
               <Checkbox
                 id="toggle-reverts-bypass-approval"
                 label="Allow reverts without approval"
-                description="When enabled, anyone with publish permission can revert to a previously published revision and publish it immediately, even when approvals are required for other changes. Reverts restore an already-reviewed state, so the revert dialog defaults to 'Publish now'. Applies to features and saved groups."
+                description="When enabled, anyone with publish permission can revert to a previously published revision and publish it immediately, even when approvals are required for other changes. Reverts restore an already-reviewed state, so the revert dialog defaults to 'Publish now'. Applies to features and Saved Groups."
                 value={!!form.watch("revertsBypassApproval")}
                 setValue={(v) => form.setValue("revertsBypassApproval", v)}
               />

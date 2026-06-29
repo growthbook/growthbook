@@ -732,7 +732,7 @@ const MetricForm: FC<MetricFormProps> = ({
                     />
                   </>
                 }
-                placeholder="All projects"
+                placeholder="All Projects"
                 value={value.projects || []}
                 options={projectOptions}
                 onChange={(v) => form.setValue("projects", v)}

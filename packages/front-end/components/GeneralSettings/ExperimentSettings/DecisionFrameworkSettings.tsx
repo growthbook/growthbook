@@ -107,7 +107,7 @@ const DecisionFrameworkSettings = () => {
           <Box>
             <Text wrap="nowrap">
               <DocLink docSection={"experimentDecisionFramework"}>
-                View Docs
+                View docs
               </DocLink>
             </Text>
           </Box>
@@ -150,7 +150,7 @@ const DecisionFrameworkSettings = () => {
             <>
               <Box mt="3" mb="3">
                 <Heading size="2">
-                  Minimum experiment runtime
+                  Minimum Experiment Runtime
                   <Tooltip content="Estimated duration and shipping recommendations are not made until an experiment has been running for this many days.">
                     <Flex
                       ml="2"

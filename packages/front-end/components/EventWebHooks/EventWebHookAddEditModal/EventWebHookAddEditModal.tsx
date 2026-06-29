@@ -362,7 +362,7 @@ const EventWebHookAddEditSettings = ({
               label={
                 <FilterLabel
                   name="Projects"
-                  allLabel="Receive notifications for all Projects"
+                  allLabel="Receive notifications for all projects"
                   isAll={!selectedProjects.length}
                   disabled={!selectedProjects.length}
                   onSelectAll={() => form.setValue("projects", [])}

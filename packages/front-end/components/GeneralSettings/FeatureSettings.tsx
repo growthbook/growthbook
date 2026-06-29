@@ -73,7 +73,7 @@ export default function FeatureSettings() {
                       <p>
                         Feature targeting conditions referencing{" "}
                         <code>secureString</code> attributes will be anonymized
-                        via SHA-256 hashing. When evaluating feature flags in a
+                        via SHA-256 hashing. When evaluating Feature Flags in a
                         public or insecure environment (such as a browser),
                         hashing provides an additional layer of security through
                         obfuscation. This allows you to target users based on
@@ -112,7 +112,7 @@ export default function FeatureSettings() {
           <Box mb="6" width="100%">
             <Text as="label" htmlFor="featureKeyExample" mb="2">
               <Text size="3" className="font-weight-semibold">
-                Feature Key Example (Optional)
+                Feature key example (optional)
               </Text>
             </Text>
             <Text as="p" mb="2" size="2">
@@ -133,7 +133,7 @@ export default function FeatureSettings() {
               size="3"
               className="font-weight-semibold"
             >
-              Feature Key Regex Validator (Optional)
+              Feature key regex validator (optional)
             </Text>
             <Text as="p" mb="2" size="2">
               When using the create feature modal, this will validate the
@@ -153,8 +153,8 @@ export default function FeatureSettings() {
             <Box mb="6" width="100%">
               <Checkbox
                 id="toggle-requireProjectForFeatures"
-                label="Require Project for all new Features"
-                description="If enabled, users will be required to select a project when creating a feature flag."
+                label="Require project for all new features"
+                description="If enabled, users will be required to select a project when creating a Feature Flag."
                 value={!!form.watch("requireProjectForFeatures")}
                 setValue={(value) =>
                   form.setValue("requireProjectForFeatures", value, {
@@ -225,7 +225,7 @@ export default function FeatureSettings() {
           <Box mb="5">
             <SelectField
               id="preferredEnvironment"
-              label="Preferred environment for feature pages:"
+              label="Preferred environment for feature pages"
               labelClassName="font-weight-semibold"
               value={form.watch("preferredEnvironment") || ""}
               isClearable
@@ -235,7 +235,7 @@ export default function FeatureSettings() {
                   value: "",
                 },
                 {
-                  label: "All Environments",
+                  label: "All environments",
                   value: FEATURE_RULES_ALL_ENVS,
                 },
                 ...environments.map((env) => ({
@@ -263,7 +263,7 @@ export default function FeatureSettings() {
               <Checkbox
                 id="toggle-codeReferences"
                 label="Enable code references"
-                description="Displays code references for feature flags in the GrowthBook UI"
+                description="Displays code references for Feature Flags in the GrowthBook UI."
                 value={!!form.watch("codeReferencesEnabled")}
                 setValue={(value) =>
                   form.setValue("codeReferencesEnabled", value)
@@ -355,7 +355,7 @@ export default function FeatureSettings() {
                   </Box>
                   <Box mb="5">
                     <Field
-                      label="Only show code refs from the following branches (comma-separated, optional):"
+                      label="Only show code refs from the following branches (comma-separated, optional)"
                       type="text"
                       placeholder="main, qa, dev"
                       value={codeRefsBranchesToFilterStr}
@@ -367,7 +367,7 @@ export default function FeatureSettings() {
 
                   <Box mb="5">
                     <SelectField
-                      label="Platform (to allow direct linking, optional):"
+                      label="Platform (to allow direct linking, optional)"
                       labelClassName="font-weight-semibold"
                       containerClassName="mb-0"
                       value={form.watch("codeRefsPlatformUrl") || ""}

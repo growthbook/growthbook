@@ -622,7 +622,7 @@ const NewDataSourceForm: FC<{
                   />
                 </>
               }
-              placeholder="All projects"
+              placeholder="All Projects"
               value={connectionInfo.projects || []}
               options={projectOptions}
               onChange={(v) => onManualChange("projects", v)}

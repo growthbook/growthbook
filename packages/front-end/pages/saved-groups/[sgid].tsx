@@ -1187,11 +1187,11 @@ export default function EditSavedGroupPage() {
                           (p) =>
                             projects.find((proj) => proj.id === p)?.name || p,
                         )
-                        .join(", ") || "All projects"}
+                        .join(", ") || "All Projects"}
                     </Text>
                   ) : (
                     <Text weight="regular" color="text-mid">
-                      All projects
+                      All Projects
                     </Text>
                   )
                 }
