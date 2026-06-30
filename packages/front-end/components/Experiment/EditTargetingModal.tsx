@@ -12,7 +12,12 @@ import SelectField from "@/components/Forms/SelectField";
 import Switch from "@/ui/Switch";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
-import HashVersionSelector from "./HashVersionSelector";
+import Text from "@/ui/Text";
+import useSDKConnections from "@/hooks/useSDKConnections";
+import SDKCapabilityWarning from "@/components/Features/SDKCapabilityWarning";
+import HashVersionSelector, {
+  allConnectionsSupportBucketingV2,
+} from "./HashVersionSelector";
 import MakeChangesFlow from "./MakeChangesFlow";
 import { useExperimentTargetingForm } from "./useExperimentTargetingForm";
 
@@ -40,6 +45,12 @@ export default function EditTargetingModal({
 
   const environments = useEnvironments();
   const envs = environments.map((e) => e.id);
+
+  const { data: sdkConnectionsData } = useSDKConnections();
+  const hasSDKWithNoBucketingV2 = !allConnectionsSupportBucketingV2(
+    sdkConnectionsData?.connections,
+    experiment.project,
+  );
 
   const attributeSchema = useAttributeSchema(false, experiment.project);
   const hasHashAttributes =
@@ -91,6 +102,16 @@ export default function EditTargetingModal({
         <div className="pt-2">
           {simpleExperimentFlow ? (
             <>
+              {experiment.hashVersion === 1 && (
+                <SDKCapabilityWarning
+                  capability="bucketingV2"
+                  project={experiment.project}
+                  someMessage="Using V1 hashing algorithm as some of your SDK Connections may not support V2 hashing."
+                  noneMessage="Using V1 hashing algorithm as none of your SDK Connections support V2 hashing."
+                  size="medium"
+                  mb="6"
+                />
+              )}
               <SelectField
                 withRadixThemedPortal
                 containerClassName="flex-1"
@@ -118,13 +139,21 @@ export default function EditTargetingModal({
               />
               {orgStickyBucketing ? (
                 <Switch
-                  mt="4"
-                  mb="2"
-                  label="Disable Sticky Bucketing"
-                  description="Do not persist variation assignments for this experiment (overrides your organization settings)"
-                  value={!!form.watch("disableStickyBucketing")}
+                  my="6"
+                  label={
+                    <>
+                      <Text weight="medium" color="text-high">
+                        Sticky Bucketing
+                      </Text>{" "}
+                      <Text color="text-high">
+                        (Organization default: Enabled)
+                      </Text>
+                    </>
+                  }
+                  description="Keep users in their assigned variation even when experiment traffic, targeting, or rollout settings change."
+                  value={!form.watch("disableStickyBucketing")}
                   onChange={(v) => {
-                    form.setValue("disableStickyBucketing", v);
+                    form.setValue("disableStickyBucketing", !v);
                   }}
                 />
               ) : null}
@@ -134,11 +163,13 @@ export default function EditTargetingModal({
                   attributeSchema={attributeSchema}
                 />
               )}
-              <HashVersionSelector
-                value={form.watch("hashVersion")}
-                onChange={(v) => form.setValue("hashVersion", v)}
-                project={experiment.project}
-              />
+              {!hasSDKWithNoBucketingV2 && experiment.hashVersion === 1 && (
+                <HashVersionSelector
+                  value={form.watch("hashVersion")}
+                  onChange={(v) => form.setValue("hashVersion", v)}
+                  project={experiment.project}
+                />
+              )}
             </>
           ) : null}
 
