@@ -6,6 +6,8 @@ import { EventWebHookModel } from "back-end/src/models/EventWebhookModel";
 import { snoozeSlackExperimentNotifications } from "back-end/src/models/SlackNotificationSnoozeModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
+import { logger } from "back-end/src/util/logger";
+import { handleSlackAssistantMention } from "back-end/src/services/slack/slackAssistant";
 
 type SlackRequest = Request & {
   rawBody?: string;
@@ -16,6 +18,14 @@ const router = express.Router();
 
 const slackBodyParser = bodyParser.urlencoded({
   extended: false,
+  verify: (req: Request & { rawBody?: string }, _res, buf) => {
+    req.rawBody = buf.toString("utf8");
+  },
+});
+
+// The Events API posts JSON (slash commands/interactions are urlencoded). We
+// still capture the raw body so the signature check works.
+const slackJsonParser = bodyParser.json({
   verify: (req: Request & { rawBody?: string }, _res, buf) => {
     req.rawBody = buf.toString("utf8");
   },
@@ -159,6 +169,86 @@ router.post(
       response_type: "ephemeral",
       text: "Snoozed GrowthBook notifications for this experiment for 24 hours.",
     });
+  },
+);
+
+// ---------------------------------------------------------------------------
+// Events API — app_mention drives the interactive assistant.
+// ---------------------------------------------------------------------------
+
+type SlackEventPayload = {
+  type?: string;
+  challenge?: string;
+  team_id?: string;
+  event_id?: string;
+  authorizations?: { user_id?: string }[];
+  event?: {
+    type?: string;
+    subtype?: string;
+    bot_id?: string;
+    user?: string;
+    text?: string;
+    channel?: string;
+    ts?: string;
+    thread_ts?: string;
+  };
+};
+
+// In-memory guard against double-processing if Slack ever re-delivers an event.
+// We ACK in <3s so retries are rare; this just makes a duplicate a no-op.
+const processedSlackEventIds = new Set<string>();
+function isDuplicateSlackEvent(eventId?: string): boolean {
+  if (!eventId) return false;
+  if (processedSlackEventIds.has(eventId)) return true;
+  processedSlackEventIds.add(eventId);
+  // Bounded — clearing wholesale is fine; the worst case is re-answering an
+  // event that was delivered more than ~2000 events ago.
+  if (processedSlackEventIds.size > 2000) processedSlackEventIds.clear();
+  return false;
+}
+
+router.post(
+  "/events",
+  slackJsonParser,
+  (req: SlackRequest, res: Response): void => {
+    if (!verifySlackSignature(req)) {
+      res.status(401).json({ text: "Invalid Slack signature." });
+      return;
+    }
+
+    const payload = req.body as unknown as SlackEventPayload;
+
+    // URL verification handshake performed when the Request URL is saved.
+    if (payload.type === "url_verification") {
+      res.status(200).json({ challenge: payload.challenge });
+      return;
+    }
+
+    // ACK immediately — Slack requires a 200 within 3s; the agent runs async.
+    res.status(200).send("");
+
+    if (payload.type !== "event_callback") return;
+    const event = payload.event;
+    if (!event) return;
+
+    // Skip bot/system messages (incl. our own replies) to avoid loops.
+    if (event.bot_id || event.subtype) return;
+    if (isDuplicateSlackEvent(payload.event_id)) return;
+
+    if (event.type === "app_mention") {
+      if (!event.user || !event.channel || !event.ts || !event.text) return;
+      void handleSlackAssistantMention({
+        teamId: payload.team_id || "",
+        channelId: event.channel,
+        slackUserId: event.user,
+        text: event.text,
+        messageTs: event.ts,
+        threadTs: event.thread_ts,
+        botUserId: payload.authorizations?.[0]?.user_id,
+      }).catch((e) =>
+        logger.error(e, "Slack assistant mention handler failed"),
+      );
+    }
   },
 );
 

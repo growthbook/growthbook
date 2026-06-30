@@ -23,8 +23,11 @@ import { fetch } from "back-end/src/util/http.util";
 
 const SLACK_AUTHORIZE_URL = "https://slack.com/oauth/v2/authorize";
 const SLACK_OAUTH_ACCESS_URL = "https://slack.com/api/oauth.v2.access";
+// `app_mentions:read` lets the interactive assistant receive @-mention events
+// via the Events API; the rest cover incoming-webhook notifications, slash
+// commands, posting replies (chat:write), and identity mapping (users:read*).
 const SLACK_OAUTH_SCOPE =
-  "incoming-webhook,commands,chat:write,users:read,users:read.email";
+  "incoming-webhook,commands,chat:write,users:read,users:read.email,app_mentions:read";
 const SLACK_OAUTH_STATE_MAX_AGE_MS = 10 * 60 * 1000;
 const DEFAULT_SLACK_EVENTS = ["feature.*", "experiment.*"];
 

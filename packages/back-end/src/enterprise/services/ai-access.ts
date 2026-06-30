@@ -10,41 +10,71 @@ type OrgAIPromptConfig = Awaited<
 >;
 
 /**
- * Runs premium-feature, AI-enabled, and rate-limit checks.
- * Returns false (and writes an error response) if the request should be rejected.
+ * Result of the AI access checks. `ok: false` carries the HTTP-style status
+ * and message a transport should surface (SSE writes it to `res`; the headless
+ * runner returns it to its caller).
+ */
+export type AccessGateResult =
+  | { ok: true }
+  | { ok: false; status: number; message: string; retryAfter?: number };
+
+/**
+ * Pure premium-feature, AI-enabled, and rate-limit checks. No transport
+ * coupling — callers decide how to surface a denial.
+ */
+export async function checkAccessGates(
+  context: ReqContext,
+): Promise<AccessGateResult> {
+  if (!orgHasPremiumFeature(context.org, "ai-suggestions")) {
+    return {
+      ok: false,
+      status: 403,
+      message: "Your plan does not support AI features.",
+    };
+  }
+
+  const { aiEnabled } = getAISettingsForOrg(context);
+  if (!aiEnabled) {
+    return {
+      ok: false,
+      status: 404,
+      message: "AI configuration not set or enabled",
+    };
+  }
+
+  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(context.org);
+  if (secondsUntilReset > 0) {
+    return {
+      ok: false,
+      status: 429,
+      message: "Over AI usage limits",
+      retryAfter: secondsUntilReset,
+    };
+  }
+
+  return { ok: true };
+}
+
+/**
+ * Runs the access gates and writes an error response if the request should be
+ * rejected. Returns false when rejected. Thin SSE/HTTP wrapper over
+ * {@link checkAccessGates}.
  */
 export async function runAccessGates(
   context: ReqContext,
   res: Response,
 ): Promise<boolean> {
-  if (!orgHasPremiumFeature(context.org, "ai-suggestions")) {
-    res.status(403).json({
-      status: 403,
-      message: "Your plan does not support AI features.",
-    });
-    return false;
-  }
+  const result = await checkAccessGates(context);
+  if (result.ok) return true;
 
-  const { aiEnabled } = getAISettingsForOrg(context);
-  if (!aiEnabled) {
-    res.status(404).json({
-      status: 404,
-      message: "AI configuration not set or enabled",
-    });
-    return false;
-  }
-
-  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(context.org);
-  if (secondsUntilReset > 0) {
-    res.status(429).json({
-      status: 429,
-      message: "Over AI usage limits",
-      retryAfter: secondsUntilReset,
-    });
-    return false;
-  }
-
-  return true;
+  res.status(result.status).json({
+    status: result.status,
+    message: result.message,
+    ...(result.retryAfter !== undefined
+      ? { retryAfter: result.retryAfter }
+      : {}),
+  });
+  return false;
 }
 
 /**
