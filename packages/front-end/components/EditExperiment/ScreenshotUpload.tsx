@@ -76,8 +76,6 @@ const ScreenshotUpload = ({
           },
         );
 
-        setLoading((previous) => previous - 1);
-
         onSuccess(variation, {
           path: fileURL,
           description: "",
