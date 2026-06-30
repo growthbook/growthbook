@@ -348,7 +348,10 @@ export type MetricExplorerBlockInterface = z.infer<
 const explorationBlockCommon = {
   explorerAnalysisId: z.string(),
   comparison: blockComparisonValidator.optional(),
-  comparisonExplorerAnalysisId: z.string().optional(),
+  comparisonExplorerAnalysisId: z.preprocess(
+    (value) => (value === null ? undefined : value),
+    z.string().optional(),
+  ),
 };
 
 const metricExplorationBlockInterface = baseBlockInterface.extend({
