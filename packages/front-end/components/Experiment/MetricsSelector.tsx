@@ -133,6 +133,7 @@ const MetricsSelector: FC<{
     factMetrics,
     factTables,
     getExperimentMetricById,
+    getMetricById,
     getDatasourceById,
     mutateDefinitions,
   } = useDefinitions();
@@ -245,7 +246,7 @@ const MetricsSelector: FC<{
         : []),
     ];
 
-    return options
+    const filtered = options
       .filter((m) => (datasource ? m.datasource === datasource : true))
       .filter((m) =>
         datasourceSettings && userIdType && m.userIdTypes.length
@@ -253,6 +254,32 @@ const MetricsSelector: FC<{
           : true,
       )
       .filter((m) => isProjectListValidForProject(m.projects, project));
+
+    if (noLegacyMetrics) {
+      const includedIds = new Set(filtered.map((m) => m.id));
+      const selectedSet = new Set(selected);
+      for (const id of selectedSet) {
+        if (includedIds.has(id)) continue;
+        const metric = getMetricById(id);
+        if (!metric) continue;
+        filtered.push({
+          id: metric.id,
+          name: metric.name,
+          description: metric.description || "",
+          datasource: metric.datasource || "",
+          tags: metric.tags || [],
+          projects: metric.projects || [],
+          factTables: [],
+          userIdTypes: metric.userIdTypes || [],
+          isGroup: false,
+          managedBy: metric.managedBy,
+          disabled: true,
+          disabledReason: "Legacy metric (remove to use Incremental Refresh)",
+        });
+      }
+    }
+
+    return filtered;
   }, [
     metrics,
     factMetrics,
@@ -269,6 +296,8 @@ const MetricsSelector: FC<{
     excludeQuantiles,
     filterConversionWindowMetrics,
     getMetricDisabledInfo,
+    selected,
+    getMetricById,
   ]);
 
   // O(1) lookup map for filteredOptions by id
