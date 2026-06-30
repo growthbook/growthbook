@@ -20,15 +20,21 @@ RUN \
   && poetry build \
   && poetry export -f requirements.txt --output requirements.txt \
   && pip install --no-cache-dir -r requirements.txt \
-  && pip install --no-cache-dir dist/*.whl ddtrace==4.3.2 "cryptography>=48.0.1,<49"
-# cryptography version is specified above to override transitive dependency and fix vulnerability
+  && pip install --no-cache-dir dist/*.whl ddtrace==4.3.2
 
 # Strip poetry and its build-time-only footprint so non-runtime deps don't ship in the venv.
 # These are poetry's own dependencies, not gbstats' (`poetry install --without dev` above already
-# drops gbstats' dev group): poetry pulls in dulwich, keyring and jaraco.classes, and
-# setuptools/wheel are build tooling. Removing them also keeps their CVEs out of the image —
-# e.g. dulwich (CVE-2026-42305 / GHSA-897w-fcg9-f6xj).
-RUN pip uninstall -y poetry poetry-core poetry-plugin-export keyring jaraco.classes setuptools wheel dulwich
+# drops gbstats' dev group): poetry pulls in dulwich, keyring (and its credential-store backend
+# SecretStorage -> jeepney -> cryptography) and jaraco.classes, and setuptools/wheel are build
+# tooling. Removing them keeps their CVEs out of the image — e.g. dulwich (CVE-2026-42305 /
+# GHSA-897w-fcg9-f6xj) and cryptography, which gbstats has no runtime need for. cryptography
+# used to be version-pinned above to dodge its CVEs; uninstalling it ends that treadmill.
+RUN pip uninstall -y poetry poetry-core poetry-plugin-export keyring jaraco.classes setuptools wheel dulwich cryptography SecretStorage jeepney
+
+# Guard against dependency drift: gbstats must still import using only the runtime deps, and the
+# distributions stripped above must stay absent. Fails the build if a future dep change needs one
+# of them or pulls one back in. See the script for details.
+RUN python check_stripped_deps.py
 
 # Build the nodejs app
 FROM node:${NODE_MAJOR}-slim AS nodebuild
