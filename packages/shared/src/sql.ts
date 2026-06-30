@@ -1,8 +1,41 @@
 import { format as sqlFormat } from "sql-formatter";
 import { SqlResultChunkInterface } from "../types/query";
-import { FormatDialect } from "../types/sql";
+import { FormatDialect, SqlDialect, StringMatchFn } from "../types/sql";
 import { FormatError } from "../types/error";
 import { parseEnvInt } from "./util/numbers";
+
+/**
+ * Creates a function that builds a string-match condition (LIKE or a warehouse-native equivalent).
+ *
+ * This is needed because in some dialects, _ and \ are treated as wildcard characters for LIKE,
+ * and we want to escape them correctly to we can match them literally.
+ */
+export function createLikeStringMatchFn({
+  escapeStringLiteral,
+  escapeWildcards = (value: string) => value.replace(/([%_\\])/g, "\\$1"),
+  emitEscapeClause,
+}: {
+  escapeStringLiteral: (s: string) => string;
+  escapeWildcards?: (s: string) => string;
+  emitEscapeClause: boolean;
+}): StringMatchFn {
+  return (columnExpr, operator, value) => {
+    const pattern = escapeStringLiteral(escapeWildcards(value));
+    const escapeClause = emitEscapeClause
+      ? ` ESCAPE '${escapeStringLiteral("\\")}'`
+      : "";
+    switch (operator) {
+      case "starts_with":
+        return `${columnExpr} LIKE '${pattern}%'${escapeClause}`;
+      case "ends_with":
+        return `${columnExpr} LIKE '%${pattern}'${escapeClause}`;
+      case "contains":
+        return `${columnExpr} LIKE '%${pattern}%'${escapeClause}`;
+      case "not_contains":
+        return `${columnExpr} NOT LIKE '%${pattern}%'${escapeClause}`;
+    }
+  };
+}
 
 export const SQL_ROW_LIMIT = 1000;
 
@@ -84,18 +117,26 @@ export function ensureLimit(sql: string, limit: number): string {
 }
 
 export function isReadOnlySQL(sql: string) {
-  const { strippedSql } = stripCommentsAndStrings(sql);
+  const { strippedSql } = stripCommentsAndStrings(sql, true);
 
   // Check the first keyword (e.g. "select", "with", etc.)
   return !!strippedSql.match(/^\s*(with|select|explain|show|describe|desc)\b/i);
 }
 
-export function isMultiStatementSQL(sql: string) {
-  const { strippedSql, parseError } = stripCommentsAndStrings(sql);
+export function usesBackslashStringEscapes(
+  dialect: Pick<SqlDialect, "escapeStringLiteral">,
+): boolean {
+  return dialect.escapeStringLiteral("\\") !== "\\";
+}
 
-  // If there was a parse error, search the original string for semicolons
+export function isMultiStatementSQL(sql: string, backslashEscapes: boolean) {
+  const { strippedSql, parseError } = stripCommentsAndStrings(
+    sql,
+    backslashEscapes,
+  );
   if (parseError) {
-    // Ignore final trailing semicolon when searching to avoid common false positive
+    // Parse failed, so string boundaries are unknown. Stay conservative and
+    // treat any non-trailing semicolon as a statement separator.
     return sql.replace(/;\s*$/, "").includes(";");
   }
   // Otherwise, search the stripped SQL for semicolons
@@ -104,7 +145,10 @@ export function isMultiStatementSQL(sql: string) {
   }
 }
 
-function stripCommentsAndStrings(sql: string): {
+function stripCommentsAndStrings(
+  sql: string,
+  backslashEscapes: boolean,
+): {
   strippedSql: string;
   parseError: boolean;
 } {
@@ -125,7 +169,7 @@ function stripCommentsAndStrings(sql: string): {
     const nextChar = i + 1 < n ? sql[i + 1] : null;
 
     if (state === "singleQuote") {
-      if (char === "\\") {
+      if (backslashEscapes && char === "\\") {
         // Skip escaped character (e.g. \' or \\)
         i++;
       } else if (char === "'") {
@@ -133,7 +177,7 @@ function stripCommentsAndStrings(sql: string): {
         state = null;
       }
     } else if (state === "doubleQuote") {
-      if (char === "\\") {
+      if (backslashEscapes && char === "\\") {
         // Skip escaped character (e.g. \" or \\)
         i++;
       } else if (char === '"') {
@@ -209,7 +253,12 @@ export function encodeSQLResults(
     return [];
   }
 
-  const columns = Object.keys(results[0]);
+  const columns = Array.from(
+    results.reduce((acc, row) => {
+      Object.keys(row).forEach((column) => acc.add(column));
+      return acc;
+    }, new Set<string>()),
+  );
   const encodedResults: SqlResultChunkData[] = [];
 
   function createChunk(): SqlResultChunkData {
@@ -239,7 +288,7 @@ export function encodeSQLResults(
   for (const row of results) {
     currentChunk.numRows++;
     for (const col of columns) {
-      const value = row[col];
+      const value = row[col] ?? null;
       currentChunk.data[col].push(value);
       currentChunkSize += getSize(value);
     }

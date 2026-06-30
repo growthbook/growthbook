@@ -352,6 +352,7 @@ function generateRowFilterSQL(
         rowFilter: filter,
         factTable,
         escapeStringLiteral: helpers.escapeStringLiteral,
+        stringMatch: helpers.stringMatch,
         jsonExtract: helpers.jsonExtract,
         evalBoolean: helpers.evalBoolean,
       });
@@ -565,7 +566,7 @@ function getUnitAggregationExpr(
     case "hll merge":
       return helpers.hllCardinality(helpers.hllReaggregate(alias));
     case "kll merge":
-      return helpers.kllMergePartial(alias);
+      return helpers.quantileSketchMergePartial(alias);
     case undefined:
       return `SUM(${alias})`;
   }
@@ -589,8 +590,8 @@ function getRollupAggregationExpr(
   // Quantiles
   if (metric.metricType === "quantile" && metric.quantileSettings) {
     if (columnRef.aggregation === "kll merge") {
-      return helpers.kllExtractPoint(
-        helpers.kllMergePartial(alias),
+      return helpers.quantileSketchExtractPoint(
+        helpers.quantileSketchMergePartial(alias),
         metric.quantileSettings.quantile,
       );
     }

@@ -160,6 +160,7 @@ export default function AddLinkedChanges({
   setUrlRedirectModal: (state: boolean) => unknown;
 }) {
   if (experiment.status !== "draft") return null;
+  if (experiment.nextScheduledStatusUpdate) return null;
   if (experiment.archived) return null;
   // Already has linked changes
   if (numLinkedChanges && numLinkedChanges > 0) return null;
@@ -182,16 +183,16 @@ export default function AddLinkedChanges({
   const possibleSections = Object.keys(sections);
 
   return (
-    <Box className="appbox" p="5" my="5">
+    <>
       {numLinkedChanges > 0 ? (
         <>
-          <Heading as="h4" size="small">
+          <Heading color="text-high" as="h4" size="small">
             Add Implementation
           </Heading>
         </>
       ) : (
         <>
-          <Heading as="h4" size="small">
+          <Heading color="text-high" as="h4" size="small">
             Select an Implementation
           </Heading>
         </>
@@ -210,6 +211,6 @@ export default function AddLinkedChanges({
           );
         })}
       </Box>
-    </Box>
+    </>
   );
 }

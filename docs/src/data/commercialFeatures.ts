@@ -65,6 +65,10 @@ export default {
     plan: "enterprise",
     displayName: "Environment Inheritance",
   },
+  "events-forwarder": {
+    plan: "pro",
+    displayName: "Events Forwarder",
+  },
   "experiment-impact": {
     plan: "enterprise",
     displayName: "Experiment Impact",
@@ -178,7 +182,7 @@ export default {
     displayName: "Quantile Metrics",
   },
   "ramp-schedules": {
-    plan: "enterprise",
+    plan: "pro",
     displayName: "Ramp Schedules",
   },
   redirects: {
@@ -201,6 +205,10 @@ export default {
     plan: "enterprise",
     displayName: "Require Project For Features Setting",
   },
+  "require-project-for-sdk-connections-setting": {
+    plan: "enterprise",
+    displayName: "Require Project For Sdk Connections Setting",
+  },
   "retention-metrics": {
     plan: "pro",
     displayName: "Retention Metrics",
@@ -216,6 +224,10 @@ export default {
   "schedule-feature-flag": {
     plan: "pro",
     displayName: "Schedule Feature Flag",
+  },
+  "scheduled-revisions": {
+    plan: "enterprise",
+    displayName: "Scheduled Revisions",
   },
   scim: {
     plan: "enterprise",

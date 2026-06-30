@@ -1,42 +1,14 @@
-import { Isolate, Context, Reference, ExternalCopy } from "isolated-vm";
-import { RequestInit } from "node-fetch";
 import { CustomHookInterface, CustomHookType } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import { parseEnvInt } from "shared/util";
-import { cancellableFetch } from "back-end/src/util/http.util";
+import { SoftWarningError } from "back-end/src/util/errors";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import { ReqContextClass } from "back-end/src/services/context";
 import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
+import { runInSandbox } from "./sandbox-pool";
 
-// Default memory limit in MB
-const MEMORY_MB = parseEnvInt(process.env.CUSTOM_HOOK_MEMORY_MB, 32, {
-  min: 1,
-  name: "CUSTOM_HOOK_MEMORY_MB",
-});
-// Max active CPU time (excluding fetch)
-const CPU_TIMEOUT_MS = parseEnvInt(
-  process.env.CUSTOM_HOOK_CPU_TIMEOUT_MS,
-  100,
-  {
-    min: 1,
-    name: "CUSTOM_HOOK_CPU_TIMEOUT_MS",
-  },
-);
-// Max total run time (including fetch)
-const WALL_TIMEOUT_MS = parseEnvInt(
-  process.env.CUSTOM_HOOK_WALL_TIMEOUT_MS,
-  5000,
-  { min: 1, name: "CUSTOM_HOOK_WALL_TIMEOUT_MS" },
-);
-// Max response size from fetch calls (default 500KB)
-const MAX_FETCH_RESP_SIZE = parseEnvInt(
-  process.env.CUSTOM_HOOK_MAX_FETCH_RESP_SIZE,
-  500 * 1024,
-  { min: 1, name: "CUSTOM_HOOK_MAX_FETCH_RESP_SIZE" },
-);
+// Custom hook orchestration; sandboxed JS runs in the child-process pool (sandbox-pool.ts).
 
-// Export wrapped calls for each hook type
 export async function runValidateFeatureHooks({
   context,
   feature,
@@ -51,6 +23,7 @@ export async function runValidateFeatureHooks({
     "validateFeature",
     { feature },
     feature.project,
+    feature.id,
     original ? { feature: original } : undefined,
   );
 }
@@ -71,18 +44,12 @@ export async function runValidateFeatureRevisionHooks({
     "validateFeatureRevision",
     { feature, revision },
     feature.project,
+    feature.id,
     {
       feature,
       revision: original,
     },
   );
-}
-
-export interface SandboxEvalResult {
-  ok: boolean;
-  error?: string;
-  returnVal?: unknown;
-  log?: string;
 }
 
 // Private methods
@@ -91,6 +58,7 @@ async function _runCustomHooks(
   hookType: CustomHookType,
   functionArgs: Record<string, unknown>,
   project: string = "",
+  featureId: string = "",
   originalFunctionArgs?: Record<string, unknown>,
 ) {
   // Skip on cloud
@@ -103,6 +71,9 @@ async function _runCustomHooks(
     return;
   }
 
+  // Admin context has no `req` so must read from original context instead
+  const ignoreWarnings = context.ignoreWarnings;
+
   // Get an admin version of the context
   // We don't want the user's permissions to affect which hooks are executed
   const adminContext = getContextForAgendaJobByOrgObject(context.org);
@@ -110,19 +81,25 @@ async function _runCustomHooks(
   const hooks = await adminContext.models.customHooks.getByHook(
     hookType,
     project,
+    featureId,
   );
+
+  const allWarnings: string[] = [];
   for (const hook of hooks) {
-    const res = await _runCustomHook(
+    const { error, warnings } = await _runCustomHook(
       adminContext,
       hook,
       functionArgs,
       originalFunctionArgs,
     );
-    if (!res.ok) {
-      const message =
-        (res.error || "Custom hook error") + (res.log ? `\n${res.log}` : "");
-      throw new Error(message);
+    if (error) {
+      throw new Error(error);
     }
+    allWarnings.push(...warnings);
+  }
+
+  if (allWarnings.length && !ignoreWarnings) {
+    throw new SoftWarningError(allWarnings.join("\n"), allWarnings);
   }
 }
 
@@ -131,186 +108,39 @@ async function _runCustomHook(
   hook: CustomHookInterface,
   functionArgs: Record<string, unknown>,
   originalFunctionArgs?: Record<string, unknown>,
-) {
-  const res = await sandboxEval(hook.code, functionArgs);
+): Promise<{ error?: string; warnings: string[] }> {
+  const res = await runInSandbox(hook.code, functionArgs);
 
   if (res.ok) {
     context.models.customHooks.logSuccess(hook);
   } else {
     context.models.customHooks.logFailure(hook);
+  }
 
-    // Try the original args if provided
+  // A thrown error is a hard block and always wins over any warnings.
+  if (!res.ok) {
+    // Incremental: ignore the hook if this same error already existed before the change.
     if (originalFunctionArgs && hook.incrementalChangesOnly) {
-      const originalRes = await sandboxEval(hook.code, originalFunctionArgs);
+      const originalRes = await runInSandbox(hook.code, originalFunctionArgs);
       if (!originalRes.ok && originalRes.error === res.error) {
-        // If it was also failing before this change, then ignore this hook
-        return {
-          ...res,
-          ok: true,
-        };
+        return { warnings: [] };
       }
     }
+
+    const error =
+      (res.error || "Custom hook error") + (res.log ? `\n${res.log}` : "");
+    return { error, warnings: [] };
   }
 
-  return res;
-}
+  let warnings = res.warnings;
 
-export async function sandboxEval(
-  functionBody: string,
-  functionArgs: Record<string, unknown>,
-  {
-    memoryLimitMB,
-    cpuTimeoutMS,
-    wallTimeoutMS,
-    maxFetchRespSize,
-  }: {
-    memoryLimitMB?: number;
-    cpuTimeoutMS?: number;
-    wallTimeoutMS?: number;
-    maxFetchRespSize?: number;
-  } = {},
-): Promise<SandboxEvalResult> {
-  // Sanity check. This should be handled by the caller already
-  // isolated-vm is not 100% safe in a multi-tenant environment, but should be fine when self-hosting
-  if (IS_CLOUD) {
-    return {
-      ok: false,
-      error: "Custom hooks are not supported in GrowthBook Cloud",
-    };
-  }
-
-  const isolate = new Isolate({
-    memoryLimit: memoryLimitMB ?? MEMORY_MB,
-  });
-
-  const logs: string[] = [];
-
-  try {
-    const isolateCtx: Context = await isolate.createContext();
-    const jail = isolateCtx.global;
-    await jail.set("global", jail.derefInto());
-
-    // Same fetch function we use for webhooks (Smokescreen server, max size, timeout)
-    const hostFetch = async (url: string, opts: RequestInit = {}) => {
-      const res = await cancellableFetch(url, opts, {
-        maxContentSize: maxFetchRespSize ?? MAX_FETCH_RESP_SIZE,
-        maxTimeMs: wallTimeoutMS ?? WALL_TIMEOUT_MS,
-      });
-
-      return {
-        ok: res.responseWithoutBody.ok,
-        status: res.responseWithoutBody.status,
-        statusText: res.responseWithoutBody.statusText,
-        _body: res.stringBody,
-      };
-    };
-
-    // Host -> isolate bridge for fetch
-    const fetchRef = new Reference(
-      async (url: string, opts: RequestInit = {}) => {
-        try {
-          const resp = await hostFetch(String(url), opts || {});
-          return new ExternalCopy(resp).copyInto();
-        } catch (err) {
-          return new ExternalCopy({
-            _error: String(err.message || err),
-          }).copyInto();
-        }
-      },
-    );
-
-    // Host -> isolate bridge for logging
-    const logRef = new Reference((...args: unknown[]) => {
-      logs.push(args.map(String).join(" "));
-    });
-
-    await jail.set("hostFetch", fetchRef);
-    await jail.set("hostLog", logRef);
-
-    // Inject shims for console.log and fetch
-    // We aren't aiming for a 100% complete implementation
-    // We just need something good enough so copy/pasted code works
-    const shimCode = `
-      (function() {
-        const stringifyLogArgs = (args) => args.map(arg => {
-          if (typeof arg === "string") return arg;
-          try {
-            return JSON.stringify(arg);
-          } catch {
-            return String(arg);
-          }
-        });
-
-        globalThis.console = {
-          log: (...args) => hostLog.applyIgnored(undefined, ["[log]", ...stringifyLogArgs(args)]),
-          error: (...args) => hostLog.applyIgnored(undefined, ["[error]", ...stringifyLogArgs(args)]),
-          debug: (...args) => hostLog.applyIgnored(undefined, ["[debug]", ...stringifyLogArgs(args)])
-        };
-        globalThis.fetch = async (...args) => {
-          const { _body, _error, ...rest } = await hostFetch.apply(undefined, args, {
-            arguments: { copy: true },
-            result: { copy: true, promise: true },
-          });
-          if (_error) {
-            throw new Error(_error);
-          }
-          return {
-            ...rest,
-            text: async () => _body,
-            json: async () => JSON.parse(_body),
-          };
-        };
-      })();
-    `;
-    await isolate.compileScript(shimCode).then((s) => s.run(isolateCtx));
-
-    // Wrap user body into a function and make individual arg keys available as variables
-    const wrapped = `
-      globalThis.__user_func = async function({${Object.keys(functionArgs).join(", ")}}) {
-        ${functionBody}
-      };
-      "__ready__";
-    `;
-    await isolate.compileScript(wrapped).then((s) => s.run(isolateCtx));
-
-    const funcRef = (await jail.get("__user_func", {
-      reference: true,
-    })) as Reference;
-
-    if (!funcRef) {
-      throw new Error("Compilation error");
-    }
-
-    const dataCopy = new ExternalCopy(functionArgs).copyInto();
-
-    // Race between CPU-limited call and wall-clock timeout
-    const resultPromise = funcRef.apply(undefined, [dataCopy], {
-      arguments: { copy: true },
-      result: { copy: true, promise: true },
-      timeout: cpuTimeoutMS ?? CPU_TIMEOUT_MS,
-    });
-
-    const wallTimeout = new Promise<never>((_, reject) =>
-      setTimeout(
-        () => reject(new Error("Execution timed out")),
-        wallTimeoutMS ?? WALL_TIMEOUT_MS,
-      ),
-    );
-
-    const returnVal = await Promise.race([resultPromise, wallTimeout]);
-    return { ok: true, returnVal, log: logs.join("\n") };
-  } catch (err) {
-    const message = err.message || err || "";
-    return {
-      ok: false,
-      error: message ? `Custom hook: ${message}` : "Custom hook error",
-      log: logs.join("\n"),
-    };
-  } finally {
-    try {
-      isolate.dispose();
-    } catch {
-      /* ignore */
+  // Incremental: drop warnings that were already present before this change.
+  if (warnings.length && originalFunctionArgs && hook.incrementalChangesOnly) {
+    const originalRes = await runInSandbox(hook.code, originalFunctionArgs);
+    if (originalRes.ok) {
+      warnings = warnings.filter((w) => !originalRes.warnings.includes(w));
     }
   }
+
+  return { warnings };
 }

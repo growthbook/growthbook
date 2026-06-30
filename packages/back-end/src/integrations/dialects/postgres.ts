@@ -1,3 +1,4 @@
+import { createLikeStringMatchFn } from "shared/sql";
 import type { SqlDialect } from "shared/types/sql";
 import { defaultPercentileCapSelectClause } from "back-end/src/integrations/sql/clauses/percentile-cap-select-clause";
 import { baseDialect } from "./base";
@@ -5,6 +6,10 @@ import { baseDialect } from "./base";
 export const postgresDialect: SqlDialect = {
   ...baseDialect,
   formatDialect: "postgresql",
+  stringMatch: createLikeStringMatchFn({
+    escapeStringLiteral: baseDialect.escapeStringLiteral,
+    emitEscapeClause: false,
+  }),
   dateDiff: (startCol: string, endCol: string) =>
     `${endCol}::DATE - ${startCol}::DATE`,
   castToFloat: (col: string) => `${col}::float`,
@@ -27,4 +32,16 @@ export const postgresDialect: SqlDialect = {
       metricTable,
       where,
     ),
+  unpivotLabeledPairs: (pairs) => {
+    const valueRows = pairs
+      .map((p) => `('${p.keyLiteral}', ${p.valueSql})`)
+      .join(", ");
+    return {
+      fromContinuation: `CROSS JOIN LATERAL (
+        VALUES ${valueRows}
+      ) AS __col(column_name, value)`,
+      keyExpr: "__col.column_name",
+      valueExpr: "__col.value",
+    };
+  },
 };

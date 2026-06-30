@@ -21,7 +21,7 @@ import useProjectOptions from "@/hooks/useProjectOptions";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
-import MinSDKVersionsList from "./MinSDKVersionsList";
+import SDKCapabilityWarning from "./SDKCapabilityWarning";
 import TagsField from "./FeatureModal/TagsField";
 
 export interface Props {
@@ -40,7 +40,7 @@ const DATA_TYPE_TO_DESCRIPTION: Record<SDKAttributeType, string> = {
   "secureString[]": "Useful for passing multiple values securely",
 };
 export default function AttributeModal({ close, attribute }: Props) {
-  const { projects, project } = useDefinitions();
+  const { projects, project, datasources } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
   const { refreshOrganization } = useUser();
 
@@ -68,6 +68,13 @@ export default function AttributeModal({ close, attribute }: Props) {
   const title = attribute ? `Edit Attribute: ${attribute}` : `Create Attribute`;
 
   const datatype = form.watch("datatype");
+
+  // Attribute changes only affect warehouse analyses for JSON-column managed warehouses.
+  const hasJsonManagedWarehouse = datasources.some(
+    (d) => d.type === "growthbook_clickhouse" && d.settings.useJsonColumns,
+  );
+  const propertyChanged = !!attribute && form.watch("property") !== attribute;
+  const datatypeChanged = !!attribute && datatype !== current?.datatype;
 
   const hashAttributeDataTypes: SDKAttributeType[] = [
     "string",
@@ -99,14 +106,20 @@ export default function AttributeModal({ close, attribute }: Props) {
         { projects: selectedProjects },
       )
     : permissionsUtil.canCreateAttribute({ projects: selectedProjects });
-  const ctaDisabledMessage = !hasProjectPermission
-    ? !selectedProjects.length && projectOptions.length > 0
-      ? "Select a project to continue."
-      : `You don't have permission to ${attribute ? "update" : "create"} attributes.`
-    : undefined;
+  let ctaDisabledMessage: string | undefined;
+  if (!hasProjectPermission) {
+    if (!selectedProjects.length && projectOptions.length > 0) {
+      ctaDisabledMessage = "Select a project to continue.";
+    } else {
+      ctaDisabledMessage = `You don't have permission to ${
+        attribute ? "update" : "create"
+      } attributes.`;
+    }
+  }
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       open={true}
       close={close}
@@ -176,11 +189,19 @@ export default function AttributeModal({ close, attribute }: Props) {
         required={true}
         {...form.register("property")}
       />
-      {attribute && form.watch("property") !== attribute ? (
+      {propertyChanged ? (
         <Callout status="warning">
           Be careful changing the attribute name. Any existing targeting
           conditions that use this attribute will NOT be updated automatically
           and will still reference the old attribute name.
+          {hasJsonManagedWarehouse ? (
+            <span style={{ display: "block", marginTop: "var(--space-2)" }}>
+              Renaming doesn&apos;t migrate historical data. Events already sent
+              under the old name keep that name in the Managed Warehouse and
+              will read as null for this attribute; only events your SDK sends
+              under the new name will populate it going forward.
+            </span>
+          ) : null}
         </Callout>
       ) : null}
       <div className="form-group">
@@ -289,6 +310,14 @@ export default function AttributeModal({ close, attribute }: Props) {
           </>
         }
       />
+      {hasJsonManagedWarehouse && datatypeChanged ? (
+        <Callout status="info" mt="2" mb="2">
+          Changing the data type won&apos;t break existing Managed Warehouse
+          analyses, but historical events whose value doesn&apos;t match the new
+          type are treated as null and dropped from results, so metrics may
+          shift.
+        </Callout>
+      ) : null}
       {datatype === "string" && (
         <>
           <SelectField
@@ -305,17 +334,11 @@ export default function AttributeModal({ close, attribute }: Props) {
             helpText="Affects the targeting attribute UI and string comparison logic. More formats coming soon."
           />
           {form.watch("format") === "version" && (
-            <Callout status="warning" contentsAs="div">
-              <strong>Warning:</strong> Version string attributes are only
-              supported in{" "}
-              <Tooltip
-                body={<MinSDKVersionsList capability="semverTargeting" />}
-              >
-                <span className="text-primary">some SDK versions</span>
-              </Tooltip>
-              . Do not use this format if you are using an incompatible SDK as
-              it will break any filtering based on the attribute.
-            </Callout>
+            <SDKCapabilityWarning
+              capability="semverTargeting"
+              someMessage="Some of your SDK Connections do not support version string comparisons. Targeting conditions using this attribute may not work correctly for those connections."
+              noneMessage="None of your SDK Connections support version string comparisons. Do not use this format as it will break targeting conditions based on this attribute."
+            />
           )}
 
           {!form.watch("format") && (

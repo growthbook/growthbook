@@ -14,7 +14,6 @@ import { BsGear, BsThreeDotsVertical } from "react-icons/bs";
 import { IdeaInterface } from "shared/types/idea";
 import { date } from "shared/dates";
 import { formatAIRateLimitRetryMessage } from "shared/ai";
-import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { isBinomialMetric } from "shared/experiments";
 import { useGrowthBook } from "@growthbook/growthbook-react";
@@ -57,7 +56,6 @@ import { GBCuped, GBEdit } from "@/components/Icons";
 import Switch from "@/ui/Switch";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useCurrency } from "@/hooks/useCurrency";
-import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
 import { useUser } from "@/services/UserContext";
 import PageHead from "@/components/Layout/PageHead";
 import { capitalizeFirstLetter } from "@/services/utils";
@@ -85,7 +83,7 @@ const MetricPage: FC = () => {
     segments,
   } = useDefinitions();
   const settings = useOrgSettings();
-  const { organization, getOwnerDisplay } = useUser();
+  const { getOwnerDisplay } = useUser();
   const gb = useGrowthBook<AppFeatures>();
 
   const [editModalOpen, setEditModalOpen] = useState<boolean | number>(false);
@@ -429,23 +427,6 @@ const MetricPage: FC = () => {
         </div>
       )}
 
-      {metric.projects?.includes(
-        getDemoDatasourceProjectIdForOrganization(organization.id),
-      ) && (
-        <div className="alert alert-info mb-3 d-flex align-items-center mt-3">
-          <div className="flex-1">
-            This metric is part of our sample dataset. You can safely delete
-            this once you are done exploring.
-          </div>
-          <div style={{ width: 180 }} className="ml-2">
-            <DeleteDemoDatasourceButton
-              onDelete={() => router.push("/metrics")}
-              source="metric"
-            />
-          </div>
-        </div>
-      )}
-
       <Flex align="start" justify="between" gap="2" mb="2">
         <Flex align="center" gap="3" style={{ marginTop: "-4px" }}>
           <Heading size="x-large" as="h1" mb="0">
@@ -691,6 +672,7 @@ const MetricPage: FC = () => {
                             }}
                           >
                             <RunQueriesButton
+                              useRadixButton={false}
                               icon="refresh"
                               cta={analysis ? "Refresh Data" : "Run Analysis"}
                               mutate={mutate}
