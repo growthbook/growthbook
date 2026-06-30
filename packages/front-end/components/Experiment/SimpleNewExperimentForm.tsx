@@ -41,6 +41,8 @@ import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
 import { getDefaultVariations } from "@/components/Experiment/NewExperimentForm";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import SDKCapabilityWarning from "@/components/Features/SDKCapabilityWarning";
+import { allConnectionsSupportBucketingV2 } from "@/components/Experiment/HashVersionSelector";
+import useSDKConnections from "@/hooks/useSDKConnections";
 
 export type SimpleNewExperimentFormProps = {
   onClose?: () => void;
@@ -144,6 +146,7 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
   } = useTemplates();
   const { experimentsMap, holdoutsMap } = useHoldouts();
   const { demoDataSourceId } = useDemoDataSourceProject();
+  const { data: sdkConnectionsData } = useSDKConnections();
 
   const showSwitchToOldExpCreate = useFeatureIsOn(
     "show-switch-to-old-exp-create",
@@ -332,6 +335,12 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
       throw new Error("You must select an assignment attribute");
     }
 
+    const hasSDKWithNoBucketingV2 = !allConnectionsSupportBucketingV2(
+      sdkConnectionsData?.connections,
+      project,
+    );
+    const hashVersion = hasSDKWithNoBucketingV2 ? 1 : 2;
+
     const datasource = getAutoDatasourceId({
       datasources,
       demoDataSourceId,
@@ -355,6 +364,7 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
       name,
       hypothesis: rawValue.hypothesis || "",
       hashAttribute,
+      hashVersion,
       datasource,
       exposureQueryId,
       templateId: rawValue.templateId || "",
