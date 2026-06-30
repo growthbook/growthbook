@@ -324,15 +324,9 @@ function attributeDatatypeToFactColumnType(
 export function getManagedWarehouseAttributesJsonFields(
   attributeSchema: SDKAttributeSchema | undefined,
   extraIdentifiers: string[] = [],
-  migratedColumns: MaterializedColumn[] = [],
 ): JSONColumnFields {
   const identifiers = new Set(
     getManagedWarehouseCustomIdentifiers(attributeSchema, extraIdentifiers),
-  );
-  // Preserved dimensions are re-exposed as top-level aliases, so exclude them here to
-  // avoid representing the same column twice (once as a pseudo-field, once as a column).
-  const migratedSourceFields = new Set(
-    migratedColumns.map((c) => c.sourceField),
   );
   const fields: JSONColumnFields = {};
   for (const a of attributeSchema || []) {
@@ -344,8 +338,6 @@ export function getManagedWarehouseAttributesJsonFields(
       continue;
     // Aliased out to a top-level identifier column.
     if (identifiers.has(a.property)) continue;
-    // Aliased out to a top-level column preserved from a legacy migration.
-    if (migratedSourceFields.has(a.property)) continue;
     fields[a.property] = {
       datatype: attributeDatatypeToFactColumnType(a.datatype),
     };
@@ -607,7 +599,6 @@ export function getManagedWarehouseEventsFactTableColumns(
   const jsonFields = getManagedWarehouseAttributesJsonFields(
     attributeSchema,
     extraIdentifiers,
-    dimensionAliases,
   );
   const base: ManagedWarehouseFactColumn[] =
     MANAGED_WAREHOUSE_EVENTS_BASE_COLUMNS.map((c) =>
@@ -623,7 +614,8 @@ export function getManagedWarehouseEventsFactTableColumns(
       }),
     );
   // Preserved dimensions are real top-level columns (via the SELECT alias), so a bare
-  // metric ref to one validates without any rewrite.
+  // metric ref to one validates without any rewrite. A live attribute also remains an
+  // `attributes.<field>` JSON field; that duplicate listing is harmless (both resolve).
   const dimensions: ManagedWarehouseFactColumn[] = dimensionAliases.map(
     (col) => ({ column: col.columnName, datatype: col.datatype }),
   );

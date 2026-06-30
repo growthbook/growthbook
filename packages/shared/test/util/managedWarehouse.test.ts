@@ -444,7 +444,7 @@ describe("getManagedWarehouseEventsFactTableColumns", () => {
     });
   });
 
-  it("appends a top-level column per preserved dimension and drops it from JSON fields", () => {
+  it("appends a top-level column per preserved dimension", () => {
     const schema: SDKAttributeSchema = [
       { property: "browser", datatype: "enum", enum: "chrome,safari" },
       { property: "plan", datatype: "string" },
@@ -463,9 +463,14 @@ describe("getManagedWarehouseEventsFactTableColumns", () => {
       column: "revenue",
       datatype: "number",
     });
-    // Re-exposed as top-level columns, so NOT also represented as JSON pseudo-fields.
+    // A live attribute stays in `attributes` JSON fields too — the top-level alias and
+    // the pseudo-field both resolve to the same data (accepted, data-driven duplication).
     const attributes = columns.find((c) => c.column === "attributes");
-    expect(attributes?.jsonFields).toEqual({ browser: { datatype: "string" } });
+    expect(attributes?.jsonFields).toEqual({
+      browser: { datatype: "string" },
+      plan: { datatype: "string" },
+      revenue: { datatype: "number" },
+    });
   });
 });
 
@@ -491,27 +496,6 @@ describe("getManagedWarehouseAttributesJsonFields", () => {
 
   it("returns an empty object when there are no JSON attributes", () => {
     expect(getManagedWarehouseAttributesJsonFields(undefined)).toEqual({});
-  });
-
-  it("excludes preserved dimensions (re-exposed as top-level aliases) by sourceField", () => {
-    const schema: SDKAttributeSchema = [
-      { property: "plan", datatype: "string" },
-      { property: "browser", datatype: "enum", enum: "chrome,safari" },
-    ];
-    expect(
-      getManagedWarehouseAttributesJsonFields(
-        schema,
-        [],
-        [
-          {
-            columnName: "plan",
-            sourceField: "plan",
-            datatype: "string",
-            type: "dimension",
-          },
-        ],
-      ),
-    ).toEqual({ browser: { datatype: "string" } });
   });
 });
 
