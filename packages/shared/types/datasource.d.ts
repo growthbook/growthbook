@@ -339,6 +339,17 @@ export interface GrowthbookClickhouseSettings extends DataSourceSettings {
    * them rather than regenerating identifiers from the schema alone.
    */
   migratedIdentifiers?: string[];
+  /**
+   * Non-identifier materialized columns (dimensions) preserved from a legacy warehouse
+   * during the JSON migration. Like `migratedIdentifiers`, each is re-exposed as a
+   * top-level SELECT alias out of the `attributes` JSON column (`attributes.<sourceField>
+   * AS <columnName>`, cast to its declared datatype) so bare references to it — raw-SQL
+   * fact filters, `sql_expr` row filters, exposure breakdowns, fact-table-routed metrics —
+   * keep resolving without rewriting any stored SQL. Persisted so the attribute-change
+   * sync re-emits the aliases. The column lives only as this alias (excluded from the
+   * `attributes` JSON pseudo-fields) so it isn't represented twice.
+   */
+  migratedColumns?: MaterializedColumn[];
 }
 
 interface DataSourceBase {

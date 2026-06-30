@@ -1,6 +1,7 @@
 import type {
   DataSourceInterface,
   ExposureQuery,
+  MaterializedColumn,
   UserIdType,
 } from "shared/types/datasource";
 import type {
@@ -321,9 +322,15 @@ function attributeDatatypeToFactColumnType(
 export function getManagedWarehouseAttributesJsonFields(
   attributeSchema: SDKAttributeSchema | undefined,
   extraIdentifiers: string[] = [],
+  migratedColumns: MaterializedColumn[] = [],
 ): JSONColumnFields {
   const identifiers = new Set(
     getManagedWarehouseCustomIdentifiers(attributeSchema, extraIdentifiers),
+  );
+  // Preserved dimensions are re-exposed as top-level aliases, so exclude them here to
+  // avoid representing the same column twice (once as a pseudo-field, once as a column).
+  const migratedSourceFields = new Set(
+    migratedColumns.map((c) => c.sourceField),
   );
   const fields: JSONColumnFields = {};
   for (const a of attributeSchema || []) {
@@ -335,6 +342,8 @@ export function getManagedWarehouseAttributesJsonFields(
       continue;
     // Aliased out to a top-level identifier column.
     if (identifiers.has(a.property)) continue;
+    // Aliased out to a top-level column preserved from a legacy migration.
+    if (migratedSourceFields.has(a.property)) continue;
     fields[a.property] = {
       datatype: attributeDatatypeToFactColumnType(a.datatype),
     };
@@ -404,16 +413,66 @@ function customIdentifierAliasClause(
   );
 }
 
-// SQL for the `ch_events` fact table: `SELECT *` exposes the standard + JSON
-// columns; custom identifiers are aliased out of the JSON so they can be join keys.
+// Non-identifier materialized columns (dimensions) preserved from a legacy migration,
+// re-exposed as top-level SELECT aliases out of `attributes` (under their legacy column
+// name) so bare references keep resolving. Drops any whose name collides with a custom
+// identifier alias (identifiers win) and de-dupes by column name to keep the SELECT valid.
+function getMigratedDimensionAliasColumns(
+  attributeSchema: SDKAttributeSchema | undefined,
+  extraIdentifiers: string[],
+  migratedColumns: MaterializedColumn[],
+): MaterializedColumn[] {
+  const identifiers = new Set(
+    getManagedWarehouseCustomIdentifiers(attributeSchema, extraIdentifiers),
+  );
+  const seen = new Set<string>();
+  const out: MaterializedColumn[] = [];
+  for (const col of migratedColumns) {
+    if (identifiers.has(col.columnName)) continue;
+    if (seen.has(col.columnName)) continue;
+    seen.add(col.columnName);
+    out.push(col);
+  }
+  // Sort for deterministic SQL (stable across persisted-order changes).
+  out.sort((a, b) =>
+    a.columnName < b.columnName ? -1 : a.columnName > b.columnName ? 1 : 0,
+  );
+  return out;
+}
+
+// Alias a preserved dimension out of the `attributes` JSON column under its legacy
+// column name. Numeric columns coerce via toFloat64OrNull (mirroring SqlIntegration's
+// jsonExtract numeric path); everything else casts to Nullable(String), like identifiers.
+function migratedColumnSelectExpr(col: MaterializedColumn): string {
+  const path = `${MANAGED_WAREHOUSE_ATTRIBUTES_COLUMN}.${chIdentifier(
+    col.sourceField,
+  )}::Nullable(String)`;
+  const expr = col.datatype === "number" ? `toFloat64OrNull(${path})` : path;
+  return `${expr} AS ${chIdentifier(col.columnName)}`;
+}
+
+function migratedColumnAliasClause(cols: MaterializedColumn[]): string {
+  if (!cols.length) return "";
+  return ",\n  " + cols.map(migratedColumnSelectExpr).join(",\n  ");
+}
+
+// SQL for the `ch_events` fact table: `SELECT *` exposes the standard + JSON columns;
+// custom identifiers are aliased out of the JSON so they can be join keys, and preserved
+// dimensions are aliased out under their legacy names so bare references keep resolving.
 export function buildManagedWarehouseEventsFactTableSql(
   attributeSchema: SDKAttributeSchema | undefined,
   extraIdentifiers: string[] = [],
+  migratedColumns: MaterializedColumn[] = [],
 ): string {
+  const dimensionAliases = getMigratedDimensionAliasColumns(
+    attributeSchema,
+    extraIdentifiers,
+    migratedColumns,
+  );
   return `SELECT *${customIdentifierAliasClause(
     attributeSchema,
     extraIdentifiers,
-  )}
+  )}${migratedColumnAliasClause(dimensionAliases)}
 FROM ${MANAGED_WAREHOUSE_EVENTS_TABLE}
 WHERE timestamp BETWEEN '{{startDate}}' AND '{{endDate}}'`;
 }
@@ -422,22 +481,37 @@ WHERE timestamp BETWEEN '{{startDate}}' AND '{{endDate}}'`;
 export function buildManagedWarehouseExposureQueries(
   attributeSchema: SDKAttributeSchema | undefined,
   extraIdentifiers: string[] = [],
+  migratedColumns: MaterializedColumn[] = [],
 ): ExposureQuery[] {
+  const dimensionAliases = getMigratedDimensionAliasColumns(
+    attributeSchema,
+    extraIdentifiers,
+    migratedColumns,
+  );
   const query = `SELECT *${customIdentifierAliasClause(
     attributeSchema,
     extraIdentifiers,
-  )}
+  )}${migratedColumnAliasClause(dimensionAliases)}
 FROM ${MANAGED_WAREHOUSE_EXPERIMENT_VIEWS_TABLE}
 WHERE
   experiment_id LIKE '{{ experimentId }}'
   AND timestamp BETWEEN '{{startDate}}' AND '{{endDate}}'`;
+
+  // Re-expose preserved dimensions as breakdown options so pre-migration custom
+  // breakdowns keep working (the aliased columns resolve in the query above).
+  const dimensions = [
+    ...MANAGED_WAREHOUSE_DEFAULT_DIMENSIONS,
+    ...dimensionAliases
+      .map((c) => c.columnName)
+      .filter((c) => !MANAGED_WAREHOUSE_DEFAULT_DIMENSIONS.includes(c)),
+  ];
 
   return getManagedWarehouseUserIdTypes(attributeSchema, extraIdentifiers).map(
     (identifier) => ({
       id: identifier,
       name: identifier,
       userIdType: identifier,
-      dimensions: MANAGED_WAREHOUSE_DEFAULT_DIMENSIONS,
+      dimensions,
       query,
     }),
   );
@@ -475,15 +549,22 @@ const MANAGED_WAREHOUSE_EVENTS_BASE_COLUMNS: ManagedWarehouseFactColumn[] = [
   { column: "url_path", datatype: "string" },
 ];
 
-// Base columns (with non-identifier attributes attached as `attributes` JSON
-// fields) plus one String column per custom identifier.
+// Base columns (with non-identifier attributes attached as `attributes` JSON fields)
+// plus one column per custom identifier and one per preserved (migrated) dimension.
 export function getManagedWarehouseEventsFactTableColumns(
   attributeSchema: SDKAttributeSchema | undefined,
   extraIdentifiers: string[] = [],
+  migratedColumns: MaterializedColumn[] = [],
 ): ManagedWarehouseFactColumn[] {
+  const dimensionAliases = getMigratedDimensionAliasColumns(
+    attributeSchema,
+    extraIdentifiers,
+    migratedColumns,
+  );
   const jsonFields = getManagedWarehouseAttributesJsonFields(
     attributeSchema,
     extraIdentifiers,
+    dimensionAliases,
   );
   const base: ManagedWarehouseFactColumn[] =
     MANAGED_WAREHOUSE_EVENTS_BASE_COLUMNS.map((c) =>
@@ -498,5 +579,10 @@ export function getManagedWarehouseEventsFactTableColumns(
         datatype: "string",
       }),
     );
-  return [...base, ...custom];
+  // Preserved dimensions are real top-level columns (via the SELECT alias), so a bare
+  // metric ref to one validates without any rewrite.
+  const dimensions: ManagedWarehouseFactColumn[] = dimensionAliases.map(
+    (col) => ({ column: col.columnName, datatype: col.datatype }),
+  );
+  return [...base, ...custom, ...dimensions];
 }

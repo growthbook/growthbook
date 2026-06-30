@@ -43,10 +43,8 @@ import {
   updateMaterializedColumnsInClickhouse,
 } from "back-end/src/services/licenseServerManagedClickhouse";
 import {
-  buildMaterializedColumnJsonFields,
-  buildMaterializedColumnRewriteMap,
+  getMigratedDimensionColumns,
   resolveMigrationFinalState,
-  rewriteFactMetricColumns,
 } from "back-end/src/util/migrateManagedWarehouseColumns";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import SqlIntegration from "back-end/src/integrations/SqlIntegration";
@@ -387,9 +385,12 @@ export async function syncManagedWarehouseIdentifiers(
     return;
   }
 
-  // Custom identifiers preserved from a legacy migration (non-hashAttribute join keys).
-  // Threaded through every builder so they survive attribute-schema regeneration.
+  // Custom identifiers + dimensions preserved from a legacy migration. Threaded through
+  // every builder so they survive attribute-schema regeneration: identifiers become
+  // top-level join-key aliases, dimensions become top-level aliases under their legacy
+  // names (so bare references keep resolving).
   const extraIdentifiers = datasource.settings.migratedIdentifiers || [];
+  const migratedColumns = datasource.settings.migratedColumns || [];
 
   const newUserIdTypes = getManagedWarehouseUserIdTypes(
     attributeSchema,
@@ -416,6 +417,7 @@ export async function syncManagedWarehouseIdentifiers(
           exposure: buildManagedWarehouseExposureQueries(
             attributeSchema,
             extraIdentifiers,
+            migratedColumns,
           ),
         },
       },
@@ -433,6 +435,7 @@ export async function syncManagedWarehouseIdentifiers(
   const desiredColumns = getManagedWarehouseEventsFactTableColumns(
     attributeSchema,
     extraIdentifiers,
+    migratedColumns,
   );
   const desiredColumnNames = new Set(desiredColumns.map((c) => c.column));
 
@@ -510,6 +513,7 @@ export async function syncManagedWarehouseIdentifiers(
   const newSql = buildManagedWarehouseEventsFactTableSql(
     attributeSchema,
     extraIdentifiers,
+    migratedColumns,
   );
 
   // Skip the write when nothing changed (e.g. a tag/description-only edit on an
@@ -545,44 +549,6 @@ export async function syncManagedWarehouseIdentifiersOnAttributeChange(
       e,
       "Failed to sync managed warehouse identifiers after attribute change",
     );
-  }
-}
-
-// Rewrite fact-metric column refs that pointed at dropped (non-identifier,
-// non-reserved) materialized columns to their `attributes.<sourceField>` JSON path.
-// A metric that can't be re-saved (e.g. an aggregation no longer valid on the JSON
-// column) is logged and skipped so one bad metric never blocks the migration.
-async function rewriteManagedWarehouseFactMetrics(
-  context: ReqContext | ApiReqContext,
-  datasourceId: string,
-  rewriteMap: Record<string, string>,
-): Promise<void> {
-  if (!Object.keys(rewriteMap).length) return;
-
-  // The seed step just edited the `attributes` JSON fields via FactTableModel,
-  // bypassing FactMetricModel's fact-table cache — drop it so re-save validation
-  // sees the migrated datatypes (otherwise e.g. count-distinct on a now-typed JSON
-  // field is wrongly rejected against the stale, untyped fact table).
-  context.models.factMetrics.clearFactTableCache();
-
-  const factMetrics = await context.models.factMetrics.getAllSorted({
-    datasourceId,
-  });
-  for (const metric of factMetrics) {
-    const updates = rewriteFactMetricColumns(
-      metric,
-      rewriteMap,
-      MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID,
-    );
-    if (!updates) continue;
-    try {
-      await context.models.factMetrics.update(metric, updates);
-    } catch (e) {
-      logger.error(
-        e,
-        `Managed warehouse migration: fact metric ${metric.id} needs manual fixup`,
-      );
-    }
   }
 }
 
@@ -641,7 +607,9 @@ export async function migrateManagedWarehouseToJson(
     .map((u) => u.userIdType)
     .filter((t) => !builtins.has(t) && !schemaIdentifiers.has(t));
 
-  const rewriteMap = buildMaterializedColumnRewriteMap(
+  // Non-identifier dimensions to preserve as top-level aliases (so bare references in
+  // raw-SQL filters, exposure breakdowns, and fact-table-routed metrics keep resolving).
+  const migratedColumns = getMigratedDimensionColumns(
     matColumns,
     MANAGED_WAREHOUSE_RESERVED_COLUMN_NAMES,
   );
@@ -649,7 +617,7 @@ export async function migrateManagedWarehouseToJson(
   // Enter the transient "migrating" state (still provisioned) so in-flight usage
   // degrades to "warehouse upgrading" instead of hitting tables mid-recreate, and flip
   // the flag (the license server reads `useJsonColumns` to pick the JSON DDL). Record the
-  // preserved identifiers up front so the sync (below) aliases them. Keep
+  // preserved identifiers + dimensions up front so the sync (below) aliases them. Keep
   // `materializedColumns` until the end so a crash before the final clear is re-runnable.
   await updateDataSource(
     context,
@@ -660,6 +628,7 @@ export async function migrateManagedWarehouseToJson(
         useJsonColumns: true,
         migrating: true,
         migratedIdentifiers,
+        migratedColumns,
       },
     },
     // Never run live exposure-query validation here: the warehouse is about to be
@@ -673,17 +642,10 @@ export async function migrateManagedWarehouseToJson(
     await dangerousRecreateClickhouseTables(datasource.organization);
     recreated = true;
     // Regenerate the ch_events fact table + datasource userIdTypes/exposure queries.
+    // The sync re-exposes the preserved identifiers and dimensions as top-level aliases
+    // (from migratedIdentifiers/migratedColumns), so existing metric refs keep resolving
+    // against real columns — no metric rewrite needed.
     await syncManagedWarehouseIdentifiers(context);
-    // Preserve each rewritten materialized column's datatype as an `attributes` JSON
-    // field so rewritten metric refs pass the same aggregation validation they passed
-    // as real top-level columns (otherwise the field's datatype reads as unknown).
-    await seedMigratedAttributesJsonFields(context, matColumns);
-    // Rewrite metric refs (before clearing, so a crash here keeps the mapping intact).
-    await rewriteManagedWarehouseFactMetrics(
-      context,
-      datasource.id,
-      rewriteMap,
-    );
     // Clear materializedColumns (re-fetch: sync mutated the datasource settings).
     const updated =
       await dangerouslyGetGrowthbookDatasourceBypassPermission(context);
@@ -739,39 +701,4 @@ export async function migrateManagedWarehouseToJson(
       }
     }
   }
-}
-
-// Merge the materialized columns' declared datatypes into the `attributes` JSON
-// column's `jsonFields` so rewritten metric refs resolve to a known datatype.
-// Existing (schema-derived / data-discovered) fields win; matcol types fill gaps.
-async function seedMigratedAttributesJsonFields(
-  context: ReqContext | ApiReqContext,
-  materializedColumns: MaterializedColumn[],
-): Promise<void> {
-  const migratedJsonFields = buildMaterializedColumnJsonFields(
-    materializedColumns,
-    MANAGED_WAREHOUSE_RESERVED_COLUMN_NAMES,
-  );
-  if (!Object.keys(migratedJsonFields).length) return;
-
-  const ft = await dangerouslyGetFactTableByIdBypassPermission(
-    context.org.id,
-    MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID,
-  );
-  const attributesCol = ft?.columns.find(
-    (c) => c.column === MANAGED_WAREHOUSE_ATTRIBUTES_COLUMN,
-  );
-  if (!ft || !attributesCol) return;
-
-  const merged = { ...migratedJsonFields, ...attributesCol.jsonFields };
-  if (isEqual(merged, attributesCol.jsonFields || {})) return;
-
-  const newColumns = ft.columns.map((c) =>
-    c.column === MANAGED_WAREHOUSE_ATTRIBUTES_COLUMN
-      ? { ...c, jsonFields: merged }
-      : c,
-  );
-  await dangerouslySyncManagedWarehouseFactTable(context, ft, {
-    columns: newColumns,
-  });
 }

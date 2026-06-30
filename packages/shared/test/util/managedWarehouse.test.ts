@@ -1,4 +1,5 @@
 import { SDKAttributeSchema } from "../../types/organization";
+import { MaterializedColumn } from "../../types/datasource";
 import {
   buildManagedWarehouseEventsFactTableSql,
   buildManagedWarehouseExposureQueries,
@@ -160,6 +161,22 @@ const defaultSchema: SDKAttributeSchema = [
   { property: "browser", datatype: "enum", enum: "chrome,safari" },
 ];
 
+// Non-identifier dimensions preserved from a legacy migration.
+const migratedDims: MaterializedColumn[] = [
+  {
+    columnName: "plan",
+    sourceField: "plan",
+    datatype: "string",
+    type: "dimension",
+  },
+  {
+    columnName: "revenue",
+    sourceField: "revenue",
+    datatype: "number",
+    type: "dimension",
+  },
+];
+
 describe("getManagedWarehouseCustomIdentifiers", () => {
   it("returns no custom identifiers for the default schema (id folds into device_id)", () => {
     expect(getManagedWarehouseCustomIdentifiers(defaultSchema)).toEqual([]);
@@ -314,6 +331,39 @@ describe("buildManagedWarehouseEventsFactTableSql", () => {
       "attributes.`company id`::Nullable(String) AS `company id`",
     );
   });
+
+  it("aliases preserved dimensions out of the attributes JSON column", () => {
+    const sql = buildManagedWarehouseEventsFactTableSql(
+      defaultSchema,
+      [],
+      migratedDims,
+    );
+    // String dimension casts to Nullable(String); numeric coerces via toFloat64OrNull.
+    expect(sql).toContain("attributes.plan::Nullable(String) AS plan");
+    expect(sql).toContain(
+      "toFloat64OrNull(attributes.revenue::Nullable(String)) AS revenue",
+    );
+  });
+
+  it("drops a migrated dimension whose name collides with a custom identifier", () => {
+    const schema: SDKAttributeSchema = [
+      { property: "plan", datatype: "string", hashAttribute: true },
+    ];
+    const sql = buildManagedWarehouseEventsFactTableSql(
+      schema,
+      [],
+      [
+        {
+          columnName: "plan",
+          sourceField: "plan",
+          datatype: "string",
+          type: "dimension",
+        },
+      ],
+    );
+    // `plan` is aliased once (as the identifier), not twice.
+    expect(sql.match(/AS plan\b/g)?.length).toBe(1);
+  });
 });
 
 describe("buildManagedWarehouseExposureQueries", () => {
@@ -341,6 +391,20 @@ describe("buildManagedWarehouseExposureQueries", () => {
       expect(q.query).toContain(
         "attributes.company_id::Nullable(String) AS company_id",
       );
+    });
+  });
+
+  it("aliases preserved dimensions and lists them as breakdown dimensions", () => {
+    const queries = buildManagedWarehouseExposureQueries(
+      defaultSchema,
+      [],
+      migratedDims,
+    );
+    queries.forEach((q) => {
+      expect(q.query).toContain("attributes.plan::Nullable(String) AS plan");
+      expect(q.dimensions).toContain("geo_country"); // defaults still present
+      expect(q.dimensions).toContain("plan"); // preserved breakdown
+      expect(q.dimensions).toContain("revenue");
     });
   });
 });
@@ -375,6 +439,30 @@ describe("getManagedWarehouseEventsFactTableColumns", () => {
       browser: { datatype: "string" },
     });
   });
+
+  it("appends a top-level column per preserved dimension and drops it from JSON fields", () => {
+    const schema: SDKAttributeSchema = [
+      { property: "browser", datatype: "enum", enum: "chrome,safari" },
+      { property: "plan", datatype: "string" },
+      { property: "revenue", datatype: "number" },
+    ];
+    const columns = getManagedWarehouseEventsFactTableColumns(
+      schema,
+      [],
+      migratedDims,
+    );
+    expect(columns.find((c) => c.column === "plan")).toEqual({
+      column: "plan",
+      datatype: "string",
+    });
+    expect(columns.find((c) => c.column === "revenue")).toEqual({
+      column: "revenue",
+      datatype: "number",
+    });
+    // Re-exposed as top-level columns, so NOT also represented as JSON pseudo-fields.
+    const attributes = columns.find((c) => c.column === "attributes");
+    expect(attributes?.jsonFields).toEqual({ browser: { datatype: "string" } });
+  });
 });
 
 describe("getManagedWarehouseAttributesJsonFields", () => {
@@ -399,5 +487,26 @@ describe("getManagedWarehouseAttributesJsonFields", () => {
 
   it("returns an empty object when there are no JSON attributes", () => {
     expect(getManagedWarehouseAttributesJsonFields(undefined)).toEqual({});
+  });
+
+  it("excludes preserved dimensions (re-exposed as top-level aliases) by sourceField", () => {
+    const schema: SDKAttributeSchema = [
+      { property: "plan", datatype: "string" },
+      { property: "browser", datatype: "enum", enum: "chrome,safari" },
+    ];
+    expect(
+      getManagedWarehouseAttributesJsonFields(
+        schema,
+        [],
+        [
+          {
+            columnName: "plan",
+            sourceField: "plan",
+            datatype: "string",
+            type: "dimension",
+          },
+        ],
+      ),
+    ).toEqual({ browser: { datatype: "string" } });
   });
 });
