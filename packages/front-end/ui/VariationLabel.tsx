@@ -8,16 +8,13 @@ export interface VariationLabelProps {
   number: number;
   name: string;
   size?: "small" | "medium" | "large";
-  // The tooltip only reveals the name when it is truncated or hidden. Set this
-  // when the label is rendered inside an element that already has its own
-  // tooltip, to avoid a nested/duplicate tooltip.
+  // Set when rendered inside an element that already has a tooltip, to avoid nesting.
   disableTooltip?: boolean;
 }
 
-// Below this available width (px) for the name, we drop the name entirely and
-// show only the VariationNumber, relying on the tooltip to reveal the name.
+// Below this name width, hide the name and show only the number (tooltip reveals it).
 const MIN_NAME_WIDTH_PX = 24;
-// Matches the Flex `gap="1"` (var(--space-1)) between the number and the name.
+// Matches the Flex `gap="1"` between the number and the name.
 const FLEX_GAP_PX = 4;
 
 export default function VariationLabel({
@@ -26,8 +23,7 @@ export default function VariationLabel({
   size = "medium",
   disableTooltip = false,
 }: VariationLabelProps) {
-  // The root always fills the available width regardless of `hideName`, so the
-  // ResizeObserver stays attached and re-measures when the container grows.
+  // Root always fills the available width so the ResizeObserver re-measures on grow.
   const rootRef = useRef<HTMLDivElement>(null);
   const numberRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLDivElement>(null);
