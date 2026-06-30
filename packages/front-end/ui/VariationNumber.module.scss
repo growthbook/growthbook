@@ -37,9 +37,6 @@ $text-colors:
       .label {
         border-color: $border-color;
         color: $text-color;
-        @if $i == 1 {
-          padding: 0px var(--space-1, 4px);
-        }
       }
     }
   }
