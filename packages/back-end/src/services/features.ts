@@ -850,6 +850,9 @@ export type FeatureDefinitionsResponseArgs = {
   capabilities: SDKCapability[];
   usedSavedGroups: SavedGroupInterface[];
   savedGroupReferencesEnabled?: boolean;
+  // True when the caller already inlined saved groups into the feature payload
+  // (e.g. generateFeaturesPayload), making the inlining pass below a no-op.
+  featuresHaveInlinedSavedGroups?: boolean;
   organization: OrganizationInterface;
 };
 export async function getFeatureDefinitionsResponse({
@@ -864,6 +867,7 @@ export async function getFeatureDefinitionsResponse({
   capabilities,
   usedSavedGroups,
   savedGroupReferencesEnabled,
+  featuresHaveInlinedSavedGroups,
   organization,
 }: FeatureDefinitionsResponseArgs): Promise<{
   features: Record<string, FeatureDefinition>;
@@ -875,6 +879,7 @@ export async function getFeatureDefinitionsResponse({
   encryptedSavedGroups?: string;
 }> {
   const needsSavedGroupInlining =
+    !featuresHaveInlinedSavedGroups &&
     (!capabilities.includes("savedGroupReferences") ||
       !savedGroupReferencesEnabled) &&
     (usedSavedGroups?.length ?? 0) > 0 &&
@@ -964,7 +969,9 @@ export async function getFeatureDefinitionsResponse({
   if (!encryptPayload || !encryptionKey) {
     return {
       features: processedFeatures,
-      ...(experiments !== undefined && { experiments: processedExperiments }),
+      ...(processedExperiments !== undefined && {
+        experiments: processedExperiments,
+      }),
       dateUpdated,
       savedGroups: savedGroupsForPayload,
     };
@@ -985,7 +992,7 @@ export async function getFeatureDefinitionsResponse({
 
   return {
     features: {},
-    ...(experiments !== undefined && { experiments: [] }),
+    ...(processedExperiments !== undefined && { experiments: [] }),
     dateUpdated,
     encryptedFeatures,
     ...(encryptedExperiments !== undefined && { encryptedExperiments }),
@@ -1108,6 +1115,12 @@ export async function buildSDKPayloadForConnection(
     };
   }
 
+  // Single source of truth: drives both generateFeaturesPayload's saved-group
+  // expansion and the featuresHaveInlinedSavedGroups flag passed downstream.
+  const resolvedSavedGroupReferencesEnabled =
+    !!savedGroupReferencesEnabled &&
+    capabilities.includes("savedGroupReferences");
+
   const projectList = projects && projects.length > 0 ? projects : [];
   const filteredFeatures =
     projectList.length > 0
@@ -1163,9 +1176,7 @@ export async function buildSDKPayloadForConnection(
     safeRolloutMap: data.safeRolloutMap,
     holdoutsMap: holdoutsMapForConnection,
     capabilities,
-    savedGroupReferencesEnabled:
-      !!savedGroupReferencesEnabled &&
-      capabilities.includes("savedGroupReferences"),
+    savedGroupReferencesEnabled: resolvedSavedGroupReferencesEnabled,
     organization: context.org,
     savedGroupsMap,
     includeRuleIds,
@@ -1193,9 +1204,7 @@ export async function buildSDKPayloadForConnection(
     environment,
     prereqStateCache,
     capabilities,
-    savedGroupReferencesEnabled:
-      !!savedGroupReferencesEnabled &&
-      capabilities.includes("savedGroupReferences"),
+    savedGroupReferencesEnabled: resolvedSavedGroupReferencesEnabled,
     organization: context.org,
     savedGroupsMap,
     includeExperimentNames,
@@ -1246,9 +1255,8 @@ export async function buildSDKPayloadForConnection(
     secureAttributeSalt,
     capabilities,
     usedSavedGroups,
-    savedGroupReferencesEnabled:
-      !!savedGroupReferencesEnabled &&
-      capabilities.includes("savedGroupReferences"),
+    savedGroupReferencesEnabled: resolvedSavedGroupReferencesEnabled,
+    featuresHaveInlinedSavedGroups: !resolvedSavedGroupReferencesEnabled,
     organization: context.org,
   });
 }

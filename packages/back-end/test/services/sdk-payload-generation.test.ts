@@ -467,6 +467,60 @@ describe("SDK payload generation (exhaustive connection matrix)", () => {
   );
 });
 
+describe("SDK payload generation (shared rawData mutation safety)", () => {
+  // refreshSDKPayloadCache builds many connections from one shared rawData
+  // (run concurrently). The non-hashing fast path returns payload objects
+  // without cloning, so a connection that hashes secure attributes must not
+  // mutate the shared saved groups and corrupt a sibling connection.
+  function hashingContext() {
+    return minimalContext({
+      settings: {
+        secureAttributeSalt: "salt",
+        attributeSchema: [
+          { property: "x", datatype: "secureString", hashAttribute: true },
+        ],
+      },
+    });
+  }
+
+  const referencesConnection = (
+    hashSecureAttributes: boolean,
+  ): ConnectionPayloadOptions => ({
+    capabilities: ["savedGroupReferences", "bucketingV2"],
+    environment: "production",
+    projects: [],
+    savedGroupReferencesEnabled: true,
+    hashSecureAttributes,
+  });
+
+  it("hashing one connection does not mutate saved groups shared with siblings", async () => {
+    const ctx = hashingContext();
+    const data = basicMatrixData();
+    const originalValues = cloneDeep(data.savedGroups[0].values);
+
+    const hashingOut = await buildSDKPayloadForConnection({
+      context: ctx,
+      connection: referencesConnection(true),
+      data,
+    });
+
+    // Sanity: the hashing pass actually ran (otherwise this proves nothing).
+    expect(hashingOut.savedGroups?.sg1).toBeDefined();
+    expect(hashingOut.savedGroups?.sg1).not.toEqual(originalValues);
+
+    // The shared rawData must be untouched by the hashing pass.
+    expect(data.savedGroups[0].values).toEqual(originalValues);
+
+    // A sibling connection over the same rawData sees clean, unhashed values.
+    const plainOut = await buildSDKPayloadForConnection({
+      context: ctx,
+      connection: referencesConnection(false),
+      data,
+    });
+    expect(plainOut.savedGroups?.sg1).toEqual(originalValues);
+  });
+});
+
 describe("SDK payload generation (scenario-specific)", () => {
   it("holdout definitions merged when prerequisites capability", async () => {
     const ctx = minimalContext();
