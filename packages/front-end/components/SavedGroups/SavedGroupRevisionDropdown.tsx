@@ -11,11 +11,28 @@ export interface Props {
   context?: "header";
 }
 
-// Thin wrapper around the shared, entity-agnostic RevisionDropdown. Kept so
-// existing saved-group call sites don't have to change.
+// Thin saved-group wrapper around the shared Revision-model <RevisionDropdown>:
+// it simply scopes the "show discarded" preference by the saved-group id (via
+// entityId). All mapping/rendering lives in the one shared component so the two
+// can't drift — kept only so saved-group call sites read in their own vocabulary.
 export default function SavedGroupRevisionDropdown({
   savedGroupId,
-  ...rest
+  allRevisions,
+  selectedRevisionId,
+  onSelectRevision,
+  requiresApproval,
+  draftsOnly,
+  context,
 }: Props) {
-  return <RevisionDropdown entityId={savedGroupId} {...rest} />;
+  return (
+    <RevisionDropdown
+      entityId={savedGroupId}
+      allRevisions={allRevisions}
+      selectedRevisionId={selectedRevisionId}
+      onSelectRevision={onSelectRevision}
+      requiresApproval={requiresApproval}
+      draftsOnly={draftsOnly}
+      context={context}
+    />
+  );
 }

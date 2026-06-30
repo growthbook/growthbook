@@ -169,6 +169,12 @@ export interface ModelConfig<
     fields: Partial<Record<IndexableFieldPath<z.infer<T>>, 1 | -1>>;
     unique?: boolean;
     sparse?: boolean;
+    // Explicit index name (required for partial indexes so they can be matched
+    // for removal and so dup-key errors can be identified).
+    name?: string;
+    // Build a partial index — only documents matching this filter are indexed.
+    // Enables e.g. a unique constraint scoped to a subset of rows.
+    partialFilterExpression?: Record<string, unknown>;
   }[];
   // NB: Names of indexes to remove
   indexesToRemove?: string[];
@@ -1284,6 +1290,10 @@ export abstract class BaseModel<
           .createIndex(index.fields as { [key: string]: number }, {
             unique: !!index.unique,
             sparse: !!index.sparse,
+            ...(index.name ? { name: index.name } : {}),
+            ...(index.partialFilterExpression
+              ? { partialFilterExpression: index.partialFilterExpression }
+              : {}),
           })
           .catch((err) => {
             logger.error(

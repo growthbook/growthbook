@@ -34,7 +34,6 @@ import {
   ExperimentSortBy,
   SetExperimentSortBy,
 } from "shared/experiments";
-import { HiBadgeCheck } from "react-icons/hi";
 import Link from "@/ui/Link";
 import { useExperimentTableRows } from "@/hooks/useExperimentTableRows";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -43,6 +42,7 @@ import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import ResultsTable from "@/components/Experiment/ResultsTable";
+import { OfficialBadge } from "@/components/Metrics/MetricName";
 import styles from "./CompactResults.module.scss";
 import { ExperimentTab } from "./TabbedPage";
 import MultipleExposureWarning from "./MultipleExposureWarning";
@@ -737,15 +737,13 @@ export function getRenderLabelColumn({
                       {label.includes(" ")
                         ? label.slice(label.lastIndexOf(" ") + 1)
                         : label}
-                      {metric.managedBy ? (
-                        <HiBadgeCheck
-                          style={{
-                            marginTop: "-2px",
-                            marginLeft: "2px",
-                            color: "var(--blue-11)",
-                          }}
-                        />
-                      ) : null}
+                      <OfficialBadge
+                        type="metric"
+                        managedBy={metric.managedBy || ""}
+                        color="var(--blue-11)"
+                        disableTooltip={false}
+                        leftGap={false}
+                      />
                       <PiArrowSquareOut
                         className={styles.metricExternalLinkIcon}
                         size={14}
@@ -760,15 +758,13 @@ export function getRenderLabelColumn({
                     target="_blank"
                   >
                     {label}
-                    {metric.managedBy ? (
-                      <HiBadgeCheck
-                        style={{
-                          marginTop: "-2px",
-                          marginLeft: "2px",
-                          color: "var(--blue-11)",
-                        }}
-                      />
-                    ) : null}
+                    <OfficialBadge
+                      type="metric"
+                      managedBy={metric.managedBy || ""}
+                      color="var(--blue-11)"
+                      disableTooltip={false}
+                      leftGap={false}
+                    />
                     <PiArrowSquareOut
                       className={styles.metricExternalLinkIcon}
                       size={14}
