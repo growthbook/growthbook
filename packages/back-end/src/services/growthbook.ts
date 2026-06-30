@@ -1,8 +1,8 @@
 import { GrowthBookClient, setPolyfills } from "@growthbook/growthbook";
 import * as EventSource from "eventsource";
+import { AppFeatures } from "shared/types/app-features";
 import { logger } from "back-end/src/util/logger";
 import { GB_SDK_ID, IS_CLOUD, IS_MULTI_ORG } from "back-end/src/util/secrets";
-import { AppFeatures } from "back-end/types/app-features";
 
 // Set up Node.js polyfills for streaming support
 setPolyfills({ EventSource });

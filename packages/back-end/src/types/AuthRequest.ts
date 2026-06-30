@@ -10,7 +10,7 @@ import {
 } from "shared/types/organization";
 import { TeamInterface } from "shared/types/team";
 import { UserInterface } from "shared/types/user";
-import { AppFeatures } from "back-end/types/app-features";
+import { AppFeatures } from "shared/types/app-features";
 
 export type PermissionFunctions = {
   checkPermissions(permission: GlobalPermission): void;
