@@ -15,15 +15,22 @@ type ManagedWarehouseDatasourceDoc = {
   settings?: { useJsonColumns?: boolean; hasBeenProvisioned?: boolean };
 };
 
-// Provisioned managed warehouses still on the legacy materialized-column model.
-// A migrated warehouse sets useJsonColumns=true and drops out, so this set
-// shrinks monotonically until the drain is complete. countDocuments on this
-// filter is also the cutover gate: once it holds at 0, the legacy code paths
-// can be removed.
+// Provisioned managed warehouses that aren't fully migrated yet. Mirrors
+// isManagedWarehouseAwaitingJsonMigration (useJsonColumns not set OR materializedColumns
+// not yet cleared) plus a stuck-after-success `migrating: true`, so partially-migrated
+// and stuck warehouses are still drained even if they're never queried. A fully migrated
+// warehouse (useJsonColumns set, materializedColumns cleared, not migrating) drops out, so
+// this set shrinks monotonically. countDocuments on this filter is also the cutover gate:
+// once it holds at 0 there are no partial migrations left, so the legacy code paths can be
+// removed.
 const LEGACY_FILTER = {
   type: "growthbook_clickhouse",
-  "settings.useJsonColumns": { $ne: true },
   "settings.hasBeenProvisioned": { $ne: false },
+  $or: [
+    { "settings.useJsonColumns": { $ne: true } },
+    { "settings.materializedColumns.0": { $exists: true } },
+    { "settings.migrating": true },
+  ],
 } as const;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
