@@ -88,7 +88,13 @@ function EditTrafficForm({
     }
   >({
     defaultValues: {
-      variations: experiment.variations,
+      variations: getLatestPhaseVariations(experiment).map((v) => ({
+        id: v.id,
+        key: v.key,
+        name: v.name,
+        description: v.description,
+        screenshots: v.screenshots,
+      })),
       variationWeights:
         latestPhase?.variationWeights ??
         getEqualWeights(experiment.variations.length, 4),

@@ -146,7 +146,8 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
   } = useTemplates();
   const { experimentsMap, holdoutsMap } = useHoldouts();
   const { demoDataSourceId } = useDemoDataSourceProject();
-  const { data: sdkConnectionsData } = useSDKConnections();
+  const { data: sdkConnectionsData, isLoading: sdkConnectionsLoading } =
+    useSDKConnections();
 
   const showSwitchToOldExpCreate = useFeatureIsOn(
     "show-switch-to-old-exp-create",
@@ -415,7 +416,7 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
       header="Create Experiment"
       cta="Create"
       size="lg"
-      ctaEnabled={hasProjectPermission}
+      ctaEnabled={hasProjectPermission && !sdkConnectionsLoading}
       submit={onSubmit}
       close={() => onClose?.()}
       trackingEventModalType="simple-new-experiment-create"
