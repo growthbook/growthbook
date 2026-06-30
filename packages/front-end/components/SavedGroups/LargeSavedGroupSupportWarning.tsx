@@ -7,6 +7,7 @@ import { useUser } from "@/services/UserContext";
 import Callout from "@/ui/Callout";
 import { IncompatibleSDKsPopover } from "@/components/Features/SDKCapabilityWarning";
 import Text from "@/ui/Text";
+
 interface LargeSavedGroupSupport {
   hasLargeSavedGroupFeature: boolean;
   unsupportedConnections: SDKConnectionInterface[];

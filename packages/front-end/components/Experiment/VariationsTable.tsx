@@ -283,9 +283,11 @@ export function VariationBox({
                 size="1"
                 color="violet"
                 onClick={() => {
-                  experiment.status === "running"
-                    ? onEditMetadata(i)
-                    : onEditTraffic(i);
+                  if (experiment.status === "running") {
+                    onEditMetadata(i);
+                  } else {
+                    onEditTraffic(i);
+                  }
                 }}
                 aria-label="Edit variation"
               >

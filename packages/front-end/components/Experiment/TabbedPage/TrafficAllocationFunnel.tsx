@@ -148,11 +148,9 @@ function VariationFork({ count, label }: { count: number; label?: ReactNode }) {
             display={cellDisplay(i)}
             className={styles.cell}
           >
-            {/* Left half of the horizontal bus */}
             {i > 0 ? (
               <Box className={clsx(styles.busSegment, styles.busSegmentLeft)} />
             ) : null}
-            {/* Right half of the horizontal bus */}
             {i < cols - 1 ? (
               <Box
                 display={rightSegDisplay(i)}
@@ -315,34 +313,31 @@ export default function TrafficAllocationFunnel({
             disabled={!safeToEdit}
           >
             {!isHoldout ? (
-              <Flex direction="column" gap="3">
-                <div>
-                  <Text weight="semibold" color="text-high">
-                    Included in this experiment:{" "}
-                    <Text color="text-high" weight="regular">
-                      {Math.round(phase.coverage * 100)}%
-                    </Text>
+              <Box>
+                <Text weight="semibold" color="text-high">
+                  Included in this experiment:{" "}
+                  <Text color="text-high" weight="regular">
+                    {Math.round(phase.coverage * 100)}%
                   </Text>
+                </Text>
+                <Box
+                  mt="3"
+                  overflow="hidden"
+                  style={{
+                    height: 8,
+                    borderRadius: 4,
+                    backgroundColor: "var(--gray-a4)",
+                  }}
+                >
                   <Box
-                    mt="3"
-                    height="8px"
-                    overflow="hidden"
                     style={{
-                      height: 8,
-                      borderRadius: 4,
-                      backgroundColor: "var(--gray-a4)",
+                      width: `${Math.min(100, Math.max(0, phase.coverage * 100))}%`,
+                      height: "100%",
+                      backgroundColor: "var(--violet-9)",
                     }}
-                  >
-                    <Box
-                      style={{
-                        width: `${Math.min(100, Math.max(0, phase.coverage * 100))}%`,
-                        height: "100%",
-                        backgroundColor: "var(--violet-9)",
-                      }}
-                    />
-                  </Box>
-                </div>
-              </Flex>
+                  />
+                </Box>
+              </Box>
             ) : (
               <Flex direction="column" gap="1">
                 <Text color="text-mid">
