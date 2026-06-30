@@ -7,7 +7,7 @@ import { useRouter } from "next/router";
 import React, { useState } from "react";
 import { FaInfoCircle } from "react-icons/fa";
 import { BsLightningFill, BsThreeDotsVertical } from "react-icons/bs";
-import { PiPencilSimpleFill } from "react-icons/pi";
+import { PiArrowSquareOut, PiPencilSimpleFill } from "react-icons/pi";
 import { Flex, IconButton } from "@radix-ui/themes";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useAuth } from "@/services/auth";
@@ -31,6 +31,9 @@ import {
 } from "@/ui/DropdownMenu";
 import { capitalizeFirstLetter } from "@/services/utils";
 import Text from "@/ui/Text";
+import Link from "@/ui/Link";
+import { docUrl } from "@/components/DocLink";
+import { languageMapping } from "@/components/Features/SDKConnections/SDKLanguageLogo";
 
 export default function SDKConnectionPage() {
   const router = useRouter();
@@ -77,6 +80,11 @@ export default function SDKConnectionPage() {
     connection.languages?.[0],
     "bucketingV2",
   );
+
+  const sdkLanguage = connection.languages?.[0];
+  const sdkDocSection = sdkLanguage
+    ? languageMapping[sdkLanguage]?.docs
+    : undefined;
 
   const canDuplicate = permissionsUtil.canCreateSDKConnection(connection);
   const canUpdate = permissionsUtil.canUpdateSDKConnection(connection, {});
@@ -190,15 +198,6 @@ export default function SDKConnectionPage() {
         )}
       </Flex>
 
-      {!supportsBucketingV2 && (
-        <Callout status="warning" mb="3">
-          This SDK version doesn&apos;t support V2 hashing. Until it&apos;s
-          upgraded, new experiments in the same project as this connection will
-          fall back to the V1 hashing algorithm. To enable V2 hashing, upgrade
-          to <Text weight="semibold">{bucketingV2IntroducedVersion}</Text> or
-          later.
-        </Callout>
-      )}
       <ConnectionDiagram
         connection={connection}
         mutate={mutate}
@@ -234,6 +233,22 @@ export default function SDKConnectionPage() {
           </Tooltip>
         </div>
       </div>
+      {!supportsBucketingV2 && (
+        <Callout status="warning" mb="3">
+          <Text weight="semibold">
+            Upgrade to {bucketingV2IntroducedVersion}+ for V2 hashing.
+          </Text>{" "}
+          Until then, new experiments in this connection&apos;s projects fall
+          back to V1.{" "}
+          <Link
+            href={docUrl(sdkDocSection ?? "sdks")}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            View docs <PiArrowSquareOut size={15} />
+          </Link>
+        </Callout>
+      )}
       <SdkWebhooks connection={connection} />
       <div className="mt-4">
         <CodeSnippetModal
