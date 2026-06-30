@@ -44,8 +44,6 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import PageHead from "@/components/Layout/PageHead";
 import Owner from "@/components/Avatar/Owner";
 import Markdown from "@/components/Markdown/Markdown";
-// eslint-disable-next-line no-restricted-imports
-import Modal from "@/components/Modal";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Badge from "@/ui/Badge";
@@ -65,8 +63,11 @@ import {
 } from "@/ui/DropdownMenu";
 import RevisionDropdown from "@/components/Revision/RevisionDropdown";
 import RevisionSummaryCard from "@/components/Revision/RevisionSummaryCard";
-import RevisionDetail from "@/components/Revision/RevisionDetail";
+import ReviewAndPublishTab from "@/components/Revision/ReviewAndPublishTab";
 import CompareRevisionsModal from "@/components/Revision/CompareRevisionsModal";
+import EditRevisionDescriptionModal from "@/components/Reviews/EditRevisionDescriptionModal";
+import { draftStatusTooltip } from "@/components/Reviews/RevisionStatusBadge";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import AuditHistoryExplorerModal from "@/components/AuditHistoryExplorer/AuditHistoryExplorerModal";
 import { OVERFLOW_SECTION_LABEL } from "@/components/AuditHistoryExplorer/useAuditDiff";
 import {
@@ -78,13 +79,10 @@ import {
   getConstantValuesBadges,
   getConstantSchemaBadges,
 } from "@/components/Constants/ConstantDiffRenders";
-import {
-  ConstantConflictModal,
-  useConstantMergeResult,
-} from "@/components/Constants/useConstantConflictModal";
 import { useConstantRevision } from "@/hooks/useConstantRevision";
 import { useConfigFamilyReferences } from "@/hooks/useConstantReferences";
-import ConstantArchiveModal from "@/components/Constants/ConstantArchiveModal";
+import ConfigArchiveModal from "@/components/Configs/ConfigArchiveModal";
+import ConfigRevertModal from "@/components/Configs/ConfigRevertModal";
 import { ConstantRevisionContext } from "@/components/Constants/useConstantDraftTarget";
 import ConfigModal from "@/components/Configs/ConfigModal";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
@@ -249,12 +247,15 @@ export default function ConfigDetailPage(): React.ReactElement {
     projects,
     mutateDefinitions,
   } = useDefinitions();
-  const { organization, userId, hasCommercialFeature } = useUser();
+  const { organization, hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
 
   const [editInfoOpen, setEditInfoOpen] = useState(false);
-  const [conflictOpen, setConflictOpen] = useState(false);
-  const [showChangesModal, setShowChangesModal] = useState(false);
+  const [confirmRevert, setConfirmRevert] = useState(false);
+  const [revisionToRevert, setRevisionToRevert] = useState<Revision | null>(
+    null,
+  );
+  const [editDescriptionModal, setEditDescriptionModal] = useState(false);
   const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [showAuditModal, setShowAuditModal] = useState(false);
   const [compareOpen, setCompareOpen] = useState(false);
@@ -264,9 +265,9 @@ export default function ConfigDetailPage(): React.ReactElement {
   const [showCreateChild, setShowCreateChild] = useState(false);
   const [composeAdding, setComposeAdding] = useState(false);
 
-  const [activeTab, setActiveTab] = useState<"form" | "json" | "resolved">(
-    "form",
-  );
+  const [activeTab, setActiveTab] = useState<
+    "form" | "json" | "resolved" | "review"
+  >("form");
   const [editKey, setEditKey] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const [editError, setEditError] = useState<string | null>(null);
@@ -296,9 +297,9 @@ export default function ConfigDetailPage(): React.ReactElement {
     setComposeAdding(false);
     setShowOverrides(false);
     // Also close any modal carried over from the previous config.
-    setShowChangesModal(false);
     setCompareOpen(false);
-    setConflictOpen(false);
+    setConfirmRevert(false);
+    setEditDescriptionModal(false);
     setShowArchiveModal(false);
     setShowAuditModal(false);
     setEditInfoOpen(false);
@@ -326,6 +327,12 @@ export default function ConfigDetailPage(): React.ReactElement {
     handleReopen,
     mutateRevisions,
   } = useConstantRevision(config?.id, mutate, config, "config");
+
+  // Open-draft counts by status, for the Review & Publish tab badge tooltip.
+  const draftStatusCounts: Partial<Record<string, number>> = {};
+  for (const r of openRevisions) {
+    draftStatusCounts[r.status] = (draftStatusCounts[r.status] ?? 0) + 1;
+  }
 
   const { references: familyReferences, loading: familyReferencesLoading } =
     useConfigFamilyReferences(config?.id);
@@ -456,13 +463,6 @@ export default function ConfigDetailPage(): React.ReactElement {
         value: f.value === undefined ? undefined : squashConstants(f.value),
       })),
     [resolved.fields, squashConstants],
-  );
-
-  const mergeResult = useConstantMergeResult(
-    config,
-    selectedRevision,
-    isDraft,
-    "config",
   );
 
   const parentKey = useMemo(() => {
@@ -1298,10 +1298,8 @@ export default function ConfigDetailPage(): React.ReactElement {
               selectedRevision={selectedRevision}
               entityNoun="config"
               hasRevisions={allRevisions.length > 0}
-              metadataReviewRequired={metadataReviewRequired}
-              requiresApproval={selectedRevisionRequiresApproval}
-              mergeResult={mergeResult}
-              currentUserId={userId}
+              canEditTitle={canUpdate}
+              canEditDescription={canUpdate}
               fallbackOwnerId={config.owner}
               fallbackDateCreated={config.dateCreated}
               onSelectRevision={selectRevision}
@@ -1312,17 +1310,11 @@ export default function ConfigDetailPage(): React.ReactElement {
                 });
                 await mutateRevisions();
               }}
-              onReopen={async (revisionId) => {
-                await handleReopen(revisionId);
-              }}
-              onDiscard={async (revisionId) => {
-                await handleDiscard(revisionId);
-              }}
               onNewDraft={canUpdate ? handleNewDraft : undefined}
-              onCompare={() => setCompareOpen(true)}
-              onFixConflicts={() => setConflictOpen(true)}
-              onReviewPublish={() => setShowChangesModal(true)}
-              promptDraftWhenLive
+              onReviewPublish={() => setActiveTab("review")}
+              onEditDescription={
+                canUpdate ? () => setEditDescriptionModal(true) : undefined
+              }
             />
 
             <Box mb="4" pb="5" px="6" className="appbox">
@@ -1335,7 +1327,9 @@ export default function ConfigDetailPage(): React.ReactElement {
                       ? "json"
                       : v === "resolved"
                         ? "resolved"
-                        : "form",
+                        : v === "review"
+                          ? "review"
+                          : "form",
                   );
                 }}
               >
@@ -1346,6 +1340,21 @@ export default function ConfigDetailPage(): React.ReactElement {
                     <TabsTrigger value="form">Form</TabsTrigger>
                     <TabsTrigger value="json">JSON</TabsTrigger>
                     <TabsTrigger value="resolved">Resolved</TabsTrigger>
+                    <TabsTrigger value="review">
+                      Review &amp; Publish
+                      {openRevisions.length > 0 && (
+                        <Tooltip body={draftStatusTooltip(draftStatusCounts)}>
+                          <Badge
+                            label={String(openRevisions.length)}
+                            color="red"
+                            variant="solid"
+                            radius="full"
+                            ml="2"
+                            style={{ minWidth: 18, height: 18 }}
+                          />
+                        </Tooltip>
+                      )}
+                    </TabsTrigger>
                     {/* stopPropagation so these controls don't feed the TabsList's roving focus. */}
                     <Flex
                       align="center"
@@ -1540,45 +1549,41 @@ export default function ConfigDetailPage(): React.ReactElement {
                     }
                   />
                 )}
+
+                {activeTab === "review" && (
+                  <ReviewAndPublishTab<ConfigInterface>
+                    revision={selectedRevision ?? null}
+                    allRevisions={allRevisions}
+                    currentState={config}
+                    diffConfig={REVISION_CONFIG_DIFF_CONFIG}
+                    entityName={config.name}
+                    entityNoun="config"
+                    requiresApproval={selectedRevisionRequiresApproval}
+                    canEditEntity={canUpdate}
+                    canBypassApproval={canBypassApproval}
+                    selectRevision={selectRevision}
+                    onPublish={handlePublish}
+                    onDiscard={handleDiscard}
+                    onReopen={handleReopen}
+                    onRevert={(rev) => {
+                      setRevisionToRevert(rev);
+                      setConfirmRevert(true);
+                    }}
+                    onCompareRevisions={
+                      allRevisions.length >= 2
+                        ? () => setCompareOpen(true)
+                        : undefined
+                    }
+                    mutate={async () => {
+                      await Promise.all([mutateRevisions(), mutate()]);
+                    }}
+                  />
+                )}
               </Tabs>
             </Box>
           </Box>
         </Flex>
       </Box>
-
-      {showChangesModal && selectedRevision && (
-        <Modal
-          header={selectedRevision.title || "Revision"}
-          trackingEventModalType="config-revision-changes"
-          close={() => setShowChangesModal(false)}
-          open={showChangesModal}
-          dismissible
-          size="max"
-          hideCta={true}
-          closeCta="Close"
-          useRadixButton={true}
-        >
-          <RevisionDetail<ConfigInterface>
-            diffConfig={REVISION_CONFIG_DIFF_CONFIG}
-            revision={selectedRevision}
-            currentState={config}
-            mutate={async () => {
-              await Promise.all([mutateRevisions(), mutate()]);
-            }}
-            setCurrentRevision={(r) => selectRevision(r)}
-            onPublish={async (revisionId) => {
-              await handlePublish(revisionId);
-            }}
-            onReopen={async (revisionId) => {
-              await handleReopen(revisionId);
-            }}
-            allRevisions={allRevisions}
-            requiresApproval={selectedRevisionRequiresApproval}
-            closeModal={() => setShowChangesModal(false)}
-            canUpdateEntity={(s) => permissionsUtil.canUpdateConfig(s, {})}
-          />
-        </Modal>
-      )}
 
       {editInfoOpen && (
         <ConfigModal
@@ -1592,9 +1597,8 @@ export default function ConfigDetailPage(): React.ReactElement {
       )}
 
       {showArchiveModal && (
-        <ConstantArchiveModal
-          constant={displayedConfig}
-          entity="configs"
+        <ConfigArchiveModal
+          config={displayedConfig}
           revisionCtx={revisionCtx}
           onSaved={onRevisionCreated}
           selectFlow={selectRevision}
@@ -1661,13 +1665,33 @@ export default function ConfigDetailPage(): React.ReactElement {
         />
       )}
 
-      {conflictOpen && selectedRevision && (
-        <ConstantConflictModal
-          constant={config}
-          selectedRevision={selectedRevision}
-          close={() => setConflictOpen(false)}
-          mutate={async () => {
-            await Promise.all([mutateRevisions(), mutate()]);
+      {confirmRevert && revisionToRevert && (
+        <ConfigRevertModal
+          config={config}
+          revision={revisionToRevert}
+          allRevisions={allRevisions}
+          diffConfig={REVISION_CONFIG_DIFF_CONFIG}
+          revertsBypassApproval={!!settings.revertsBypassApproval}
+          approvalRequired={approvalRequired}
+          canBypassApproval={canBypassApproval}
+          close={() => setConfirmRevert(false)}
+          onRevisionCreated={async (rev) => {
+            await onRevisionCreated(rev);
+            setConfirmRevert(false);
+          }}
+        />
+      )}
+
+      {editDescriptionModal && selectedRevision && (
+        <EditRevisionDescriptionModal
+          initialValue={selectedRevision.comment || ""}
+          close={() => setEditDescriptionModal(false)}
+          onSubmit={async (description) => {
+            await apiCall(`/revision/${selectedRevision.id}/description`, {
+              method: "PATCH",
+              body: JSON.stringify({ description }),
+            });
+            await mutateRevisions();
           }}
         />
       )}
