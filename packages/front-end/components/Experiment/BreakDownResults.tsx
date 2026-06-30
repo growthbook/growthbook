@@ -249,14 +249,7 @@ const BreakDownResults: FC<{
       {tables.map((table, i) => {
         return (
           <Fragment key={table.metric.id + "_" + i}>
-            <Text
-              size="large"
-              weight="semibold"
-              color="text-high"
-              mt="2"
-              mb="1"
-              ml="2"
-            >
+            <Text size="large" weight="semibold" color="text-high" ml="2">
               {table.rows[0]?.resultGroup === "goal"
                 ? "Goal Metric"
                 : table.rows[0]?.resultGroup === "secondary"
