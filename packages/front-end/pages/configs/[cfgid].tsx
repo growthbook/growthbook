@@ -17,6 +17,9 @@ import {
   simpleToJSONSchema,
   fieldsToTsType,
   fieldsToProto,
+  fieldsToGolang,
+  fieldsToRust,
+  fieldsToPython,
   getConfigSubtree,
   computeConfigReconciliationPreview,
   SchemaProjection,
@@ -58,6 +61,7 @@ import {
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownSubMenu,
 } from "@/ui/DropdownMenu";
 import RevisionDropdown from "@/components/Revision/RevisionDropdown";
 import RevisionSummaryCard from "@/components/Revision/RevisionSummaryCard";
@@ -128,18 +132,35 @@ type ResolvedResponse = {
   > & { source: ConstantSource })[];
 };
 
+// Schema export formats offered in the Copy Config submenus + payload map keys.
+const SCHEMA_EXPORT_FORMATS: { id: string; label: string }[] = [
+  { id: "json", label: "JSON Schema" },
+  { id: "typescript", label: "TypeScript" },
+  { id: "protobuf", label: "Protobuf" },
+  { id: "python", label: "Python" },
+  { id: "go", label: "Go" },
+  { id: "rust", label: "Rust" },
+];
+
+const SCHEMA_LANG_LABEL: Record<string, string> = {
+  typescript: "TypeScript",
+  protobuf: "Protobuf",
+  python: "Python",
+  go: "Go",
+  rust: "Rust",
+  "json-schema": "JSON Schema",
+};
+
 // The strings the Export menu copies. All are derived from the displayed
 // revision, so the export is revision-sensitive (drafts export their proposed
-// state, the live revision exports live).
+// state, the live revision exports live). Schemas are keyed by format id; named
+// projections (a consumer's captured types) are listed separately.
 type ConfigExportPayloads = {
   ownValue: string;
   resolvedValue: string;
-  ownSchemaJson: string;
-  ownSchemaTs: string;
-  ownSchemaProto: string;
-  effectiveSchemaJson: string;
-  effectiveSchemaTs: string;
-  effectiveSchemaProto: string;
+  ownSchema: Record<string, string>;
+  effectiveSchema: Record<string, string>;
+  ownProjections: { source: string; label: string; text: string }[];
 };
 
 // Export-as dropdown, modeled on the review "Copy as" widget: copies the
@@ -205,16 +226,26 @@ function ConfigExportMenu({ payloads }: { payloads: ConfigExportPayloads }) {
         )}
       </DropdownMenuGroup>
       <DropdownMenuSeparator />
-      <DropdownMenuGroup label="Schema">
-        {item("JSON Schema", null, payloads.ownSchemaJson)}
-        {item("TypeScript", null, payloads.ownSchemaTs)}
-        {item("Protobuf", null, payloads.ownSchemaProto)}
-      </DropdownMenuGroup>
-      <DropdownMenuGroup label="Resolved schema">
-        {item("JSON Schema", null, payloads.effectiveSchemaJson)}
-        {item("TypeScript", null, payloads.effectiveSchemaTs)}
-        {item("Protobuf", null, payloads.effectiveSchemaProto)}
-      </DropdownMenuGroup>
+      <DropdownSubMenu trigger="Schema">
+        {SCHEMA_EXPORT_FORMATS.map((f) => (
+          <React.Fragment key={f.id}>
+            {item(f.label, null, payloads.ownSchema[f.id])}
+          </React.Fragment>
+        ))}
+        {payloads.ownProjections.length > 0 && <DropdownMenuSeparator />}
+        {payloads.ownProjections.map((p) => (
+          <React.Fragment key={p.source}>
+            {item(p.label, "Named projection", p.text)}
+          </React.Fragment>
+        ))}
+      </DropdownSubMenu>
+      <DropdownSubMenu trigger="Resolved schema">
+        {SCHEMA_EXPORT_FORMATS.map((f) => (
+          <React.Fragment key={f.id}>
+            {item(f.label, null, payloads.effectiveSchema[f.id])}
+          </React.Fragment>
+        ))}
+      </DropdownSubMenu>
     </DropdownMenu>
   );
 }
@@ -568,27 +599,53 @@ export default function ConfigDetailPage(): React.ReactElement {
     }
 
     const ownFields = displayedConfig?.schema?.fields ?? [];
+    const ap = effectiveExtensible;
+    // Render a field set in a given format. JSON Schema is pretty-printed; the
+    // typed-code languages go through their converter (projection-aware).
+    const codeRenderers: Record<
+      string,
+      (f: SchemaField[], p?: SchemaProjection) => string
+    > = {
+      typescript: (f, p) =>
+        fieldsToTsType(f, { additionalProperties: ap, projection: p }),
+      protobuf: (f, p) =>
+        fieldsToProto(f, { additionalProperties: ap, projection: p }),
+      python: (f, p) =>
+        fieldsToPython(f, { additionalProperties: ap, projection: p }),
+      go: (f, p) =>
+        fieldsToGolang(f, { additionalProperties: ap, projection: p }),
+      rust: (f, p) =>
+        fieldsToRust(f, { additionalProperties: ap, projection: p }),
+    };
+    const renderAll = (fields: SchemaField[]): Record<string, string> => {
+      const out: Record<string, string> = { json: schemaToJson(fields) };
+      for (const [id, render] of Object.entries(codeRenderers)) {
+        out[id] = render(fields);
+      }
+      return out;
+    };
+
+    const projections = displayedConfig?.renderProjections ?? {};
+    const ownProjections = Object.entries(projections).map(([source, p]) => ({
+      source,
+      label: `${source} (${SCHEMA_LANG_LABEL[p.language] ?? p.language})`,
+      text: (codeRenderers[p.language] ?? codeRenderers.typescript)(
+        ownFields,
+        p,
+      ),
+    }));
+
     return {
       ownValue: prettyJSON(displayedConfig?.value ?? "{}"),
       resolvedValue: JSON.stringify(squashConstants(resolvedObj), null, 2),
-      ownSchemaJson: schemaToJson(ownFields),
-      ownSchemaTs: fieldsToTsType(ownFields, {
-        additionalProperties: effectiveExtensible,
-      }),
-      ownSchemaProto: fieldsToProto(ownFields, {
-        additionalProperties: effectiveExtensible,
-      }),
-      effectiveSchemaJson: schemaToJson(resolved.effectiveSchema),
-      effectiveSchemaTs: fieldsToTsType(resolved.effectiveSchema, {
-        additionalProperties: effectiveExtensible,
-      }),
-      effectiveSchemaProto: fieldsToProto(resolved.effectiveSchema, {
-        additionalProperties: effectiveExtensible,
-      }),
+      ownSchema: renderAll(ownFields),
+      effectiveSchema: renderAll(resolved.effectiveSchema),
+      ownProjections,
     };
   }, [
     displayedConfig?.value,
     displayedConfig?.schema,
+    displayedConfig?.renderProjections,
     resolved,
     effectiveExtensible,
     squashConstants,
