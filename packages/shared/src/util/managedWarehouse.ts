@@ -1,6 +1,8 @@
 import type {
   DataSourceInterface,
+  DataSourceSettings,
   ExposureQuery,
+  GrowthbookClickhouseSettings,
   MaterializedColumn,
   UserIdType,
 } from "shared/types/datasource";
@@ -454,6 +456,47 @@ function migratedColumnSelectExpr(col: MaterializedColumn): string {
 function migratedColumnAliasClause(cols: MaterializedColumn[]): string {
   if (!cols.length) return "";
   return ",\n  " + cols.map(migratedColumnSelectExpr).join(",\n  ");
+}
+
+/**
+ * The SELECT-list alias clause (custom identifiers + preserved dimensions) for a
+ * MIGRATED managed warehouse, derived from datasource settings alone. Lets callers
+ * without the org attribute schema — e.g. Product Analytics `data_source` explorations
+ * that query a per-org table directly — re-expose former columns the same way the
+ * `ch_events` fact table does, so bare references keep resolving.
+ *
+ * Returns "" unless `useJsonColumns` is set: on a pre-migration warehouse these columns
+ * are still physical, so `SELECT *, attributes.x AS x` would duplicate a column. Only
+ * apply it to per-org tables that carry the `attributes` JSON column (events /
+ * experiment_views) — the caller is responsible for that check.
+ */
+export function buildManagedWarehouseAttributeAliasClause(
+  settings: DataSourceSettings | null | undefined,
+): string {
+  const s = settings as GrowthbookClickhouseSettings | null | undefined;
+  if (!s?.useJsonColumns) return "";
+
+  const builtins = new Set<string>(MANAGED_WAREHOUSE_BUILTIN_IDENTIFIERS);
+  const customIdentifiers = (s.userIdTypes || [])
+    .map((u) => u.userIdType)
+    .filter((t) => !builtins.has(t));
+  const identifierSet = new Set(customIdentifiers);
+
+  const seen = new Set<string>();
+  const dimensions: MaterializedColumn[] = [];
+  for (const col of s.migratedColumns || []) {
+    if (identifierSet.has(col.columnName)) continue;
+    if (seen.has(col.columnName)) continue;
+    seen.add(col.columnName);
+    dimensions.push(col);
+  }
+
+  const exprs = [
+    ...customIdentifiers.map(customIdentifierSelectExpr),
+    ...dimensions.map(migratedColumnSelectExpr),
+  ];
+  if (!exprs.length) return "";
+  return ",\n  " + exprs.join(",\n  ");
 }
 
 // SQL for the `ch_events` fact table: `SELECT *` exposes the standard + JSON columns;

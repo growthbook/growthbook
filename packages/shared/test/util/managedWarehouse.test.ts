@@ -1,6 +1,10 @@
 import { SDKAttributeSchema } from "../../types/organization";
-import { MaterializedColumn } from "../../types/datasource";
 import {
+  GrowthbookClickhouseSettings,
+  MaterializedColumn,
+} from "../../types/datasource";
+import {
+  buildManagedWarehouseAttributeAliasClause,
   buildManagedWarehouseEventsFactTableSql,
   buildManagedWarehouseExposureQueries,
   getManagedWarehouseAttributesJsonFields,
@@ -508,5 +512,82 @@ describe("getManagedWarehouseAttributesJsonFields", () => {
         ],
       ),
     ).toEqual({ browser: { datatype: "string" } });
+  });
+});
+
+describe("buildManagedWarehouseAttributeAliasClause", () => {
+  const migratedSettings: GrowthbookClickhouseSettings = {
+    useJsonColumns: true,
+    userIdTypes: [
+      { userIdType: "user_id", description: "" },
+      { userIdType: "device_id", description: "" },
+      { userIdType: "company_id", description: "" },
+    ],
+    migratedColumns: [
+      {
+        columnName: "plan",
+        sourceField: "plan",
+        datatype: "string",
+        type: "dimension",
+      },
+      {
+        columnName: "revenue",
+        sourceField: "revenue",
+        datatype: "number",
+        type: "dimension",
+      },
+    ],
+  };
+
+  it("aliases custom identifiers and preserved dimensions for a migrated warehouse", () => {
+    const clause = buildManagedWarehouseAttributeAliasClause(migratedSettings);
+    // custom identifier (not the built-ins)
+    expect(clause).toContain(
+      "attributes.company_id::Nullable(String) AS company_id",
+    );
+    expect(clause).not.toContain("AS user_id");
+    expect(clause).not.toContain("AS device_id");
+    // dimensions (numeric coerces via toFloat64OrNull)
+    expect(clause).toContain("attributes.plan::Nullable(String) AS plan");
+    expect(clause).toContain(
+      "toFloat64OrNull(attributes.revenue::Nullable(String)) AS revenue",
+    );
+  });
+
+  it("returns empty for a pre-migration warehouse (columns still physical)", () => {
+    expect(
+      buildManagedWarehouseAttributeAliasClause({
+        ...migratedSettings,
+        useJsonColumns: false,
+      }),
+    ).toBe("");
+  });
+
+  it("returns empty when there are no custom identifiers or dimensions", () => {
+    expect(
+      buildManagedWarehouseAttributeAliasClause({
+        useJsonColumns: true,
+        userIdTypes: [
+          { userIdType: "user_id", description: "" },
+          { userIdType: "device_id", description: "" },
+        ],
+      } as GrowthbookClickhouseSettings),
+    ).toBe("");
+  });
+
+  it("does not alias a dimension that collides with a custom identifier", () => {
+    const clause = buildManagedWarehouseAttributeAliasClause({
+      useJsonColumns: true,
+      userIdTypes: [{ userIdType: "company_id", description: "" }],
+      migratedColumns: [
+        {
+          columnName: "company_id",
+          sourceField: "company_id",
+          datatype: "string",
+          type: "dimension",
+        },
+      ],
+    } as GrowthbookClickhouseSettings);
+    expect(clause.match(/AS company_id\b/g)?.length).toBe(1);
   });
 });
