@@ -1,9 +1,12 @@
+import type { AuditInterfaceInput } from "shared/types/audit";
+import type { OrganizationInterface } from "shared/types/organization";
 import {
   autoMerge,
   fillRevisionFromFeature,
   filterEnvironmentsByFeature,
   liveRevisionFromFeature,
   MergeStrategy,
+  pruneOrphanedRampActions,
   resetReviewOnChange,
 } from "shared/util";
 import type { FeatureRule } from "shared/types/feature";
@@ -11,6 +14,7 @@ import {
   RevisionMetadata,
   postFeatureRevisionRebaseValidator,
 } from "shared/validators";
+import type { ApiReqContext } from "back-end/types/api";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import {
@@ -19,7 +23,7 @@ import {
 } from "back-end/src/models/FeatureRevisionModel";
 import {
   getLiveAndBaseRevisionsForFeature,
-  revisionToApiInterface,
+  toApiRevision,
 } from "back-end/src/services/features";
 import { dispatchFeatureRevisionEvent } from "back-end/src/services/featureRevisionEvents";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
@@ -27,28 +31,46 @@ import { getEnvironments } from "back-end/src/util/organization.util";
 import {
   BadRequestError,
   ConflictError,
+  MergeConflictError,
   NotFoundError,
 } from "back-end/src/util/errors";
+import { maybeAutoPublishFeatureRevision } from "./autoPublishOnApproval";
 import { isDraftStatus } from "./validations";
 
-export const postFeatureRevisionRebase = createApiRequestHandler(
-  postFeatureRevisionRebaseValidator,
-)(async (req) => {
-  const feature = await getFeature(req.context, req.params.id);
+export type RebaseRequestBody = {
+  conflictResolutions?: Record<string, unknown>;
+  expectedLiveVersion?: number;
+  expectedDraftDateUpdated?: string;
+};
+
+// Shared compute phase for the rebase and rebase-preview endpoints: loads,
+// validates permissions/status/concurrency guards, and runs the three-way
+// merge with the supplied resolutions. Performs no writes.
+export async function computeRebaseMerge(
+  context: ApiReqContext,
+  organization: OrganizationInterface,
+  params: { id: string; version: number },
+  body: RebaseRequestBody,
+) {
+  const feature = await getFeature(context, params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
+  // The preview requires the same permission as the rebase itself: it is a
+  // planning step for that write, and accepting arbitrary resolutions makes
+  // it more than a passive read.
   if (
-    !req.context.permissions.canUpdateFeature(feature, {}) ||
-    !req.context.permissions.canManageFeatureDrafts(feature)
+    !context.permissions.canUpdateFeature(feature, {}) ||
+    !context.permissions.canManageFeatureDrafts(feature)
   ) {
-    req.context.permissions.throwPermissionError();
+    context.permissions.throwPermissionError();
   }
 
   const revision = await getRevision({
-    context: req.context,
-    organization: req.organization.id,
+    context,
+    organization: organization.id,
     featureId: feature.id,
-    version: req.params.version,
+    feature,
+    version: params.version,
   });
   if (!revision) throw new NotFoundError("Could not find feature revision");
 
@@ -58,38 +80,80 @@ export const postFeatureRevisionRebase = createApiRequestHandler(
     );
   }
 
-  const allEnvironments = getEnvironments(req.context.org);
+  // Optimistic concurrency for the draft side: resolutions were authored
+  // against specific draft content. Any draft mutation bumps `dateUpdated`,
+  // so a timestamp mismatch means the resolutions may no longer apply to what
+  // the caller reviewed.
+  if (body.expectedDraftDateUpdated !== undefined) {
+    const expected = new Date(body.expectedDraftDateUpdated).getTime();
+    if (Number.isNaN(expected)) {
+      throw new BadRequestError(
+        "expectedDraftDateUpdated must be a valid date-time string",
+      );
+    }
+    if (expected !== revision.dateUpdated.getTime()) {
+      throw new ConflictError(
+        `The draft was modified at ${revision.dateUpdated.toISOString()} (expected ${new Date(
+          expected,
+        ).toISOString()}). Re-check the merge status and resubmit resolutions against the current draft.`,
+      );
+    }
+  }
+
+  const allEnvironments = getEnvironments(context.org);
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const environmentIds = environments.map((e) => e.id);
 
   const { live, base } = await getLiveAndBaseRevisionsForFeature({
-    context: req.context,
+    context,
     feature,
     revision,
   });
+
+  // Optimistic concurrency: resolutions were authored against a specific live
+  // version. If live moved since, the conflict keys may now refer to different
+  // content — refuse rather than apply resolutions to the wrong conflicts.
+  if (
+    body.expectedLiveVersion !== undefined &&
+    body.expectedLiveVersion !== live.version
+  ) {
+    throw new ConflictError(
+      `The live version is now #${live.version} (expected #${body.expectedLiveVersion}). Re-check the merge status and resubmit resolutions against the current conflicts.`,
+    );
+  }
 
   const mergeResult = autoMerge(
     liveRevisionFromFeature(live, feature),
     fillRevisionFromFeature(base, feature),
     revision,
     environmentIds,
-    (req.body.conflictResolutions ?? {}) as Record<string, MergeStrategy>,
+    (body.conflictResolutions ?? {}) as Record<string, MergeStrategy>,
   );
 
+  return { feature, revision, live, environmentIds, mergeResult };
+}
+
+export async function rebaseFeatureRevision(
+  context: ApiReqContext,
+  organization: OrganizationInterface,
+  params: { id: string; version: number },
+  body: RebaseRequestBody,
+  audit: (input: AuditInterfaceInput) => Promise<void>,
+) {
+  const { feature, revision, live, environmentIds, mergeResult } =
+    await computeRebaseMerge(context, organization, params, body);
+
   if (!mergeResult.success) {
-    throw new ConflictError(
+    throw new MergeConflictError(
       "Unresolved conflicts remain — provide strategies for all conflicting keys",
       mergeResult.conflicts,
     );
   }
 
-  const newRules: Record<string, FeatureRule[]> = {};
+  const newRules: FeatureRule[] =
+    mergeResult.result.rules ?? feature.rules ?? [];
   const newEnvironmentsEnabled: Record<string, boolean> = {};
   environmentIds.forEach((env) => {
-    newRules[env] =
-      mergeResult.result.rules?.[env] ??
-      feature.environmentSettings?.[env]?.rules ??
-      [];
     newEnvironmentsEnabled[env] =
       mergeResult.result.environmentsEnabled?.[env] ??
       feature.environmentSettings?.[env]?.enabled ??
@@ -110,11 +174,22 @@ export const postFeatureRevisionRebase = createApiRequestHandler(
     ? { ...featureMetadataSnapshot, ...mergeResult.result.metadata }
     : featureMetadataSnapshot;
 
+  // The merge can drop a rule that a pending ramp action targets (e.g. live
+  // deleted it). Prune those orphaned actions rather than carrying dead
+  // intent forward; the prune is recorded in the rebase log entry below.
+  const { kept: keptRampActions, pruned: prunedRampActions } =
+    pruneOrphanedRampActions(revision.rampActions, newRules);
+
   // A rebase that actually pulls in upstream changes must re-trigger review
   // per org policy — the prior approval was for pre-rebase content.
+  // The merged result carries rules as a whole array, so when the rebase
+  // produced a new one we treat every env the feature is in as potentially
+  // changed for review-reset purposes. (Per-env keys only reflected which
+  // envs had explicit overrides, not which rules actually changed.)
+  const rulesChanged = mergeResult.result.rules !== undefined;
   const changedEnvsFromRebase = Array.from(
     new Set([
-      ...Object.keys(mergeResult.result.rules ?? {}),
+      ...(rulesChanged ? environmentIds : []),
       ...Object.keys(mergeResult.result.environmentsEnabled ?? {}),
     ]),
   );
@@ -122,11 +197,11 @@ export const postFeatureRevisionRebase = createApiRequestHandler(
     feature,
     changedEnvironments: changedEnvsFromRebase,
     defaultValueChanged: mergeResult.result.defaultValue !== undefined,
-    settings: req.organization.settings,
+    settings: organization.settings,
   });
 
   await updateRevision(
-    req.context,
+    context,
     feature,
     revision,
     {
@@ -142,25 +217,33 @@ export const postFeatureRevisionRebase = createApiRequestHandler(
         "holdout" in mergeResult.result
           ? mergeResult.result.holdout
           : (feature.holdout ?? null),
+      ...(prunedRampActions.length > 0 ? { rampActions: keptRampActions } : {}),
     },
     {
-      user: req.context.auditUser,
+      user: context.auditUser,
       action: "rebase",
       subject: `on top of revision #${live.version}`,
-      value: JSON.stringify(mergeResult.result),
+      value: JSON.stringify(
+        prunedRampActions.length > 0
+          ? { ...mergeResult.result, prunedRampActions }
+          : mergeResult.result,
+      ),
     },
     resetReview,
+    // Rebase is permitted while a "lock edits" schedule is active.
+    { bypassScheduleLock: true },
   );
 
   const updated = await getRevision({
-    context: req.context,
-    organization: req.organization.id,
+    context,
+    organization: organization.id,
     featureId: feature.id,
-    version: req.params.version,
+    feature,
+    version: params.version,
   });
   const finalRevision = updated ?? revision;
 
-  await req.audit({
+  await audit({
     event: "feature.revision.rebase",
     entity: { object: "feature", id: feature.id },
     details: auditDetailsUpdate(
@@ -171,12 +254,33 @@ export const postFeatureRevisionRebase = createApiRequestHandler(
   });
 
   await dispatchFeatureRevisionEvent(
-    req.context,
+    context,
     feature,
     finalRevision,
     "revision.rebased",
     { baseVersion: live.version },
   );
 
-  return { revision: revisionToApiInterface(finalRevision) };
+  // A clean rebase (no review reset) keeps an approved+armed draft approved;
+  // re-fire auto-publish so it merges now it's rebased onto live.
+  const publishedRevision = await maybeAutoPublishFeatureRevision(
+    context,
+    feature,
+    finalRevision,
+  );
+
+  return { feature, revision: publishedRevision };
+}
+
+export const postFeatureRevisionRebase = createApiRequestHandler(
+  postFeatureRevisionRebaseValidator,
+)(async (req) => {
+  const { feature, revision } = await rebaseFeatureRevision(
+    req.context,
+    req.organization,
+    req.params,
+    req.body,
+    req.audit,
+  );
+  return { revision: toApiRevision(revision, req.context, feature) };
 });

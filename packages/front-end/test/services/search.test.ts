@@ -2,7 +2,13 @@ import React from "react";
 import { useRouter } from "next/router";
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { filterSearchTerm, transformQuery, useSearch } from "@/services/search";
+import {
+  buildFilterUrl,
+  filterSearchTerm,
+  tagFilterOnClick,
+  transformQuery,
+  useSearch,
+} from "@/services/search";
 
 vi.mock("next/router", () => ({
   useRouter: vi.fn(),
@@ -183,6 +189,183 @@ describe("useSearch", () => {
       });
     });
   });
+
+  describe("buildFilterUrl", () => {
+    // Resolves the value that useSearch would see by extracting ?q= from the built URL.
+    const extractQ = (url: string): string => {
+      const search = url.includes("?") ? url.split("?")[1] : "";
+      const params = new URLSearchParams(search);
+      return params.get("q") ?? "";
+    };
+
+    const parseBuiltUrl = (value: string) =>
+      transformQuery(extractQ(buildFilterUrl("/features", "tag", value)), [
+        "tag",
+      ]);
+
+    it("round-trips a simple slug tag", () => {
+      expect(parseBuiltUrl("team-platform")).toEqual({
+        searchTerm: "",
+        syntaxFilters: [
+          {
+            field: "tag",
+            operator: "",
+            negated: false,
+            values: ["team-platform"],
+          },
+        ],
+      });
+    });
+
+    it("round-trips values containing reserved operator prefixes", () => {
+      // Without quoting these would parse as negation/operators instead of literal values.
+      for (const value of ["!foo", "^bar", ">baz", "<qux", "=zip", "~hey"]) {
+        expect(parseBuiltUrl(value)).toEqual({
+          searchTerm: "",
+          syntaxFilters: [
+            {
+              field: "tag",
+              operator: "",
+              negated: false,
+              values: [value],
+            },
+          ],
+        });
+      }
+    });
+
+    it("round-trips values with whitespace, commas, and colons", () => {
+      for (const value of ["my tag", "a,b", "key:value", "foo bar, baz"]) {
+        expect(parseBuiltUrl(value)).toEqual({
+          searchTerm: "",
+          syntaxFilters: [
+            {
+              field: "tag",
+              operator: "",
+              negated: false,
+              values: [value],
+            },
+          ],
+        });
+      }
+    });
+
+    it("strips embedded double-quotes (parser cannot escape them)", () => {
+      // Not a round-trip: the parser's `"[^"]*"` has no escape mechanism, so we drop inner quotes.
+      expect(parseBuiltUrl(`a"b"c`)).toEqual({
+        searchTerm: "",
+        syntaxFilters: [
+          { field: "tag", operator: "", negated: false, values: ["abc"] },
+        ],
+      });
+    });
+
+    it("URL-encodes the query param", () => {
+      const url = buildFilterUrl("/features", "tag", "team-platform");
+      expect(url).toBe("/features?q=tag%3A%22team-platform%22");
+    });
+  });
+
+  describe("tagFilterOnClick", () => {
+    const makeEvent = (
+      overrides: Partial<React.MouseEvent> = {},
+    ): React.MouseEvent =>
+      ({
+        preventDefault: vi.fn(),
+        metaKey: false,
+        ctrlKey: false,
+        shiftKey: false,
+        altKey: false,
+        ...overrides,
+      }) as unknown as React.MouseEvent;
+
+    const apply = (
+      currentValue: string,
+      tag: string,
+    ): { next: string; event: React.MouseEvent } => {
+      const setSearchValue = vi.fn<(value: string) => void>();
+      const event = makeEvent();
+      tagFilterOnClick(currentValue, setSearchValue)(tag, event);
+      expect(setSearchValue).toHaveBeenCalledTimes(1);
+      return { next: setSearchValue.mock.calls[0][0], event };
+    };
+
+    it("calls preventDefault on a plain left click", () => {
+      const { event } = apply("", "foo");
+      expect(event.preventDefault).toHaveBeenCalledTimes(1);
+    });
+
+    it.each([
+      ["metaKey", { metaKey: true }],
+      ["ctrlKey", { ctrlKey: true }],
+      ["shiftKey", { shiftKey: true }],
+      ["altKey", { altKey: true }],
+    ])(
+      "falls through (no preventDefault, no setSearchValue) for %s click",
+      (_label, overrides) => {
+        const setSearchValue = vi.fn<(value: string) => void>();
+        const event = makeEvent(overrides);
+        tagFilterOnClick("owner:alice", setSearchValue)("team-platform", event);
+        expect(event.preventDefault).not.toHaveBeenCalled();
+        expect(setSearchValue).not.toHaveBeenCalled();
+      },
+    );
+
+    it("adds a tag clause when the search is empty", () => {
+      expect(apply("", "team-platform").next).toBe(`tag:"team-platform"`);
+    });
+
+    it("appends a tag clause when no existing tag clause is present", () => {
+      expect(apply("owner:alice some-text", "team-platform").next).toBe(
+        `owner:alice some-text tag:"team-platform"`,
+      );
+    });
+
+    it("replaces an existing unquoted tag clause", () => {
+      expect(apply("tag:foo owner:alice", "team-platform").next).toBe(
+        `owner:alice tag:"team-platform"`,
+      );
+    });
+
+    it("replaces an existing quoted tag clause", () => {
+      expect(apply(`owner:alice tag:"foo bar" baz`, "team-platform").next).toBe(
+        `owner:alice baz tag:"team-platform"`,
+      );
+    });
+
+    it("replaces a negated/operator tag clause", () => {
+      expect(apply("owner:alice tag:!^old", "new").next).toBe(
+        `owner:alice tag:"new"`,
+      );
+    });
+
+    it("replaces a comma-separated tag clause", () => {
+      expect(apply(`tag:foo,bar,"a b" rest`, "new").next).toBe(
+        `rest tag:"new"`,
+      );
+    });
+
+    it("strips embedded double-quotes from the new tag value", () => {
+      expect(apply("", `a"b"c`).next).toBe(`tag:"abc"`);
+    });
+
+    it("produces a value that parses as the expected single tag filter", () => {
+      const { next } = apply("owner:alice tag:foo free-text", "team-platform");
+      expect(transformQuery(next, ["owner", "tag"])).toEqual({
+        searchTerm: "free-text",
+        syntaxFilters: [
+          { field: "owner", operator: "", negated: false, values: ["alice"] },
+          {
+            field: "tag",
+            operator: "",
+            negated: false,
+            values: ["team-platform"],
+          },
+        ],
+      });
+    });
+  });
+
   describe("manual sorting with syntax filters", () => {
     type SearchItem = {
       id: string;
@@ -416,6 +599,92 @@ describe("useSearch", () => {
         "first row token",
         "second row token",
       ]);
+    });
+  });
+
+  describe("underscore/hyphen tokenization", () => {
+    type SearchItem = {
+      id: string;
+      name: string;
+    };
+
+    const items: SearchItem[] = [
+      { id: "1", name: "foo" },
+      { id: "2", name: "foo_bar_baz" },
+      { id: "3", name: "other_search_key" },
+      { id: "4", name: "search_test_key" },
+      { id: "5", name: "search-test-key" },
+      { id: "6", name: "test-my-key" },
+    ];
+
+    const setup = () =>
+      renderHook(() =>
+        useSearch<SearchItem>({
+          items,
+          searchFields: ["name"],
+          localStorageKey: "search-service-test-underscore",
+          defaultSortField: "name",
+        }),
+      );
+
+    const search = (value: string): string[] => {
+      const { result } = setup();
+      act(() => {
+        result.current.setSearchValue(value);
+      });
+      return result.current.filteredItems.map((i) => i.name);
+    };
+
+    it("matches a feature on an inner token", () => {
+      expect(search("bar")).toContain("foo_bar_baz");
+    });
+
+    it("requires the full multi-token query, not a partial subset", () => {
+      const names = search("foo_bar");
+      expect(names).toContain("foo_bar_baz");
+      expect(names).not.toContain("foo");
+    });
+
+    it("matches a multi-token substring in the middle of a key", () => {
+      const names = search("test_key");
+      expect(names).toEqual(
+        expect.arrayContaining(["search_test_key", "search-test-key"]),
+      );
+      // tokens must be contiguous: test-my-key has "test" and "key" but not "test_key"
+      expect(names).not.toContain("test-my-key");
+      expect(names).not.toContain("other_search_key");
+    });
+
+    it("treats hyphens and underscores interchangeably", () => {
+      expect(search("test-key")).toEqual(
+        expect.arrayContaining(["search_test_key", "search-test-key"]),
+      );
+    });
+
+    it("handles long punctuation-dense fields without quadratic suffix blowup", () => {
+      // A saved-group condition can be a single whitespace-free JSON string
+      // with thousands of punctuation-separated parts. Suffix expansion on
+      // that is O(parts²) and OOMs the tab; the tokenizer must cap it while
+      // still indexing individual parts so single-word search keeps working.
+      const values = Array.from({ length: 5000 }, (_, i) => `"v${i}"`).join(
+        ",",
+      );
+      const longItems = [
+        { id: "1", name: "small", condition: `{"x":1}` },
+        { id: "2", name: "big", condition: `{"attr":{"$in":[${values}]}}` },
+      ];
+      const { result } = renderHook(() =>
+        useSearch<{ id: string; name: string; condition: string }>({
+          items: longItems,
+          searchFields: ["name", "condition"],
+          localStorageKey: "search-service-test-long-condition",
+          defaultSortField: "name",
+        }),
+      );
+      act(() => {
+        result.current.setSearchValue("v4321");
+      });
+      expect(result.current.filteredItems.map((i) => i.name)).toEqual(["big"]);
     });
   });
 

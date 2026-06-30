@@ -56,10 +56,16 @@ import { checkSrm, chi2pvalue } from "back-end/src/util/stats";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { logger } from "back-end/src/util/logger";
 import { QueryMap } from "back-end/src/queryRunners/QueryRunner";
+import {
+  filterParentQueryMap,
+  parseUnitDimQueryName,
+} from "back-end/src/queryRunners/unitDimensionQueryNaming";
 import { updateSnapshotAnalysis } from "back-end/src/models/ExperimentSnapshotModel";
 import { Context } from "back-end/src/models/BaseModel";
-import { MAX_ROWS_UNIT_AGGREGATE_QUERY } from "back-end/src/integrations/SqlIntegration";
-import { MAX_METRICS_PER_QUERY } from "back-end/src/services/experimentQueries/constants";
+import {
+  MAX_METRICS_PER_QUERY,
+  MAX_ROWS_UNIT_AGGREGATE_QUERY,
+} from "back-end/src/services/experimentQueries/constants";
 import { applyMetricOverrides } from "back-end/src/util/integration";
 import { statsServerPool } from "back-end/src/services/python";
 import { metrics } from "back-end/src/util/metrics";
@@ -102,7 +108,9 @@ export function getAnalysisSettingsForStatsEngine(
         : MAX_DIMENSIONS,
     traffic_percentage: coverage,
     num_goal_metrics: settings.numGoalMetrics,
+    num_guardrail_metrics: settings.numGuardrailMetrics ?? 0,
     one_sided_intervals: !!settings.oneSidedIntervals,
+    use_covariate_as_response: !!settings.useCovariateAsResponse,
     post_stratification_enabled: !!settings.postStratificationEnabled,
   };
 
@@ -143,6 +151,11 @@ export async function runStatsEngine(
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          ...(process.env.PYTHON_SERVER_AUTH_TOKEN
+            ? {
+                Authorization: `Bearer ${process.env.PYTHON_SERVER_AUTH_TOKEN}`,
+              }
+            : {}),
         },
         body: JSON.stringify(statsData),
       },
@@ -391,6 +404,11 @@ export function getMetricsAndQueryDataForStatsEngine(
   // One query for each metric (or group of metrics)
   else {
     queryData.forEach((query, key) => {
+      // Skip precomputed unit dimension queries
+      // while they are executed here, they are used by per–unit-dimension analyses
+      if (parseUnitDimQueryName(key)) {
+        return;
+      }
       // Multi-metric query
       if (
         key.match(/group_/) ||
@@ -645,8 +663,9 @@ export async function analyzeExperimentResults({
   results: ExperimentReportResults[];
   banditResult?: BanditResult;
 }> {
+  const parentQueryData = filterParentQueryMap(queryData);
   const mdat = getMetricsAndQueryDataForStatsEngine(
-    queryData,
+    parentQueryData,
     metricMap,
     snapshotSettings,
   );

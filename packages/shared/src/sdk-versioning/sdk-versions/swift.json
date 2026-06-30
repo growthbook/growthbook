@@ -1,6 +1,14 @@
 {
   "versions": [
     {
+      "version": "1.1.4",
+      "capabilities": ["namespacesV2"]
+    },
+    {
+      "version": "1.1.1",
+      "capabilities": ["caseInsensitiveMembership", "caseInsensitiveRegex"]
+    },
+    {
       "version": "1.0.95"
     },
     {

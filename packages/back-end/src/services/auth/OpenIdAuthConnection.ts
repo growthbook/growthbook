@@ -316,8 +316,14 @@ export class OpenIdAuthConnection implements AuthConnection {
 }
 
 async function getConnectionFromRequest(req: Request, res: Response) {
-  // First, get the connection info
+  // First, get the connection info from either the cookie or the header
   let ssoConnectionId = SSOConnectionIdCookie.getValue(req);
+  if (!ssoConnectionId) {
+    const headerValue = req.headers["x-sso-connection-id"];
+    if (headerValue && typeof headerValue === "string") {
+      ssoConnectionId = headerValue;
+    }
+  }
 
   let persistSSOConnectionId = false;
 
@@ -335,7 +341,12 @@ async function getConnectionFromRequest(req: Request, res: Response) {
   }
 
   let connection: SSOConnectionInterface;
-  if (IS_CLOUD && ssoConnectionId.startsWith("vercel:")) {
+  if (
+    IS_CLOUD &&
+    VERCEL_CLIENT_ID &&
+    VERCEL_CLIENT_SECRET &&
+    ssoConnectionId.startsWith("vercel:")
+  ) {
     connection = {
       id: ssoConnectionId,
       clientId: VERCEL_CLIENT_ID,

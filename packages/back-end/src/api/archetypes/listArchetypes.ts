@@ -1,5 +1,6 @@
 import { listArchetypesValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { resolveOwnerEmails } from "back-end/src/services/owner";
 import {
   getAllArchetypes,
   toArchetypeApiInterface,
@@ -7,6 +8,12 @@ import {
 
 export const listArchetypes = createApiRequestHandler(listArchetypesValidator)(
   async (req) => {
+    if (!req.context.hasPremiumFeature("archetypes")) {
+      req.context.throwPlanDoesNotAllowError(
+        "Archetypes require a premium plan.",
+      );
+    }
+
     const archetypes = await getAllArchetypes(
       req.context.org.id,
       req.context.userId,
@@ -16,8 +23,11 @@ export const listArchetypes = createApiRequestHandler(listArchetypesValidator)(
     );
 
     return {
-      archetypes: filteredArchetypes.map((archetype) =>
-        toArchetypeApiInterface(archetype),
+      archetypes: await resolveOwnerEmails(
+        filteredArchetypes.map((archetype) =>
+          toArchetypeApiInterface(archetype),
+        ),
+        req.context,
       ),
     };
   },

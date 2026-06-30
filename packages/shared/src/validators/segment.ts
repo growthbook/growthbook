@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { ownerField, ownerInputField } from "./owner-field";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
+import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
 import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
 
 import { namedSchema } from "./openapi-helpers";
@@ -15,7 +16,7 @@ export const segmentValidator = z
     dateCreated: z.date(),
     dateUpdated: z.date(),
     name: z.string(),
-    description: z.string(),
+    description: z.string().max(MAX_DESCRIPTION_LENGTH),
     userIdType: z.string(),
     type: z.enum(TYPES),
     managedBy: z.enum(["", "api", "config"]).optional(),
@@ -49,10 +50,11 @@ export const apiSegmentValidator = namedSchema(
     .object({
       id: z.string(),
       owner: ownerField,
+      ownerEmail: ownerEmailField,
       datasourceId: z.string(),
       identifierType: z.string(),
       name: z.string(),
-      description: z.string().optional(),
+      description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
       query: z.string().optional(),
       dateCreated: z.string(),
       dateUpdated: z.string(),
@@ -77,7 +79,11 @@ const postSegmentBody = z
   .object({
     name: z.string().describe("Name of the segment"),
     owner: ownerInputField.optional(),
-    description: z.string().describe("Description of the segment").optional(),
+    description: z
+      .string()
+      .max(MAX_DESCRIPTION_LENGTH)
+      .describe("Description of the segment")
+      .optional(),
     datasourceId: z
       .string()
       .describe("ID of the datasource this segment belongs to"),

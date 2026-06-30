@@ -1,10 +1,16 @@
 import { FC } from "react";
+import { Separator } from "@radix-ui/themes";
 import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
 } from "shared/types/experiment";
 import { useForm } from "react-hook-form";
-import { validateAndFixCondition } from "shared/util";
+import {
+  getNamespaceRanges,
+  isMultiRangeNamespaceFormat,
+  NamespaceValue,
+  validateAndFixCondition,
+} from "shared/util";
 import { getEqualWeights, getLatestPhaseVariations } from "shared/experiments";
 import { datetime } from "shared/dates";
 import { useAuth } from "@/services/auth";
@@ -52,11 +58,26 @@ const NewPhaseForm: FC<{
       condition: prevPhase.condition || "",
       savedGroups: prevPhase.savedGroups || [],
       seed: prevPhase.seed || "",
-      namespace: {
-        enabled: prevPhase.namespace?.enabled || false,
-        name: prevPhase.namespace?.name || "",
-        range: prevPhase.namespace?.range || [0, 0.5],
-      },
+      namespace: (() => {
+        const prevNs = prevPhase.namespace
+          ? (prevPhase.namespace as NamespaceValue)
+          : undefined;
+        return {
+          enabled: prevNs?.enabled || false,
+          name: prevNs?.name || "",
+          // Handle both old (single range) and new (multiple ranges) formats
+          ranges: prevNs
+            ? getNamespaceRanges(prevNs)
+            : ([[0, 0.5]] as [number, number][]),
+          // Preserve format and hashAttribute so submit is correct even if the
+          // user never re-interacts with the NamespaceSelector dropdown.
+          format: prevNs?.format,
+          hashAttribute:
+            prevNs && isMultiRangeNamespaceFormat(prevNs)
+              ? prevNs.hashAttribute
+              : undefined,
+        };
+      })(),
     },
   });
 
@@ -99,6 +120,7 @@ const NewPhaseForm: FC<{
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType="new-phase-form"
       trackingEventModalSource={source}
       header={firstPhase ? "Start Experiment" : "New Experiment Phase"}
@@ -149,6 +171,8 @@ const NewPhaseForm: FC<{
         />
       )}
 
+      {hasLinkedChanges && <Separator size="4" my="5" />}
+
       {hasLinkedChanges && (
         <ConditionInput
           defaultValue={form.watch("condition")}
@@ -183,6 +207,8 @@ const NewPhaseForm: FC<{
           form={form}
           featureId={experiment.trackingKey}
           trackingKey={experiment.trackingKey}
+          experimentHashAttribute={experiment.hashAttribute}
+          fallbackAttribute={experiment.fallbackAttribute}
         />
       )}
     </Modal>

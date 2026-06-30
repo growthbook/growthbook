@@ -3,10 +3,10 @@ import { useForm } from "react-hook-form";
 import { useAuth } from "@/services/auth";
 import usePermissions from "@/hooks/usePermissions";
 import Field from "@/components/Forms/Field";
-import Modal from "@/components/Modal";
 import { useUser } from "@/services/UserContext";
 import SelectField from "@/components/Forms/SelectField";
 import { isCloud, isMultiOrg } from "@/services/env";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
 const EditOrganizationModal: FC<{
   name: string;
@@ -38,7 +38,7 @@ const EditOrganizationModal: FC<{
   });
 
   return (
-    <Modal
+    <ModalStandard
       trackingEventModalType=""
       header="Edit Organization"
       open={true}
@@ -131,7 +131,7 @@ const EditOrganizationModal: FC<{
           title={canEdit ? "" : "Only admins can change this"}
         />
       )}
-    </Modal>
+    </ModalStandard>
   );
 };
 export default EditOrganizationModal;

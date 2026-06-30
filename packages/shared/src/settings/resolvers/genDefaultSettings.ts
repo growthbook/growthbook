@@ -1,5 +1,6 @@
 import { MemberRoleInfo, MetricDefaults } from "shared/types/organization";
 import {
+  DEFAULT_CONFIDENCE_LEVEL,
   DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS,
   DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS,
   DEFAULT_METRIC_CAPPING,
@@ -21,10 +22,11 @@ import {
   DEFAULT_SRM_THRESHOLD,
   DEFAULT_USE_STICKY_BUCKETING,
   DEFAULT_MAX_METRIC_SLICE_LEVELS,
+  DEFAULT_TOP_VALUES_LOOKBACK_VALUE,
+  DEFAULT_TOP_VALUES_LOOKBACK_UNIT,
 } from "../../constants";
 import { Settings } from "../types";
 
-export const DEFAULT_CONFIDENCE_LEVEL = 0.95;
 export const DEFAULT_ATTRIBUTION_MODEL = "firstExposure";
 export const DEFAULT_ROLE: MemberRoleInfo = {
   environments: [],
@@ -105,6 +107,8 @@ export default function genDefaultSettings(): Settings {
     experimentMinLengthDays: DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS,
     experimentMaxLengthDays: DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS,
     maxMetricSliceLevels: DEFAULT_MAX_METRIC_SLICE_LEVELS,
+    topValuesLookbackValue: DEFAULT_TOP_VALUES_LOOKBACK_VALUE,
+    topValuesLookbackUnit: DEFAULT_TOP_VALUES_LOOKBACK_UNIT,
     useStickyBucketing: DEFAULT_USE_STICKY_BUCKETING,
     targetMDE: DEFAULT_TARGET_MDE,
   };

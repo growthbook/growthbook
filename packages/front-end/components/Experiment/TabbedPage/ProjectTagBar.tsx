@@ -5,6 +5,7 @@ import { PiWarning } from "react-icons/pi";
 import { HoldoutInterfaceStringDates } from "shared/validators";
 import Text from "@/ui/Text";
 import SortedTags from "@/components/Tags/SortedTags";
+import { tagLinkProps } from "@/services/search";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Owner from "@/components/Avatar/Owner";
@@ -238,6 +239,7 @@ export default function ProjectTagBar({
             tags={experiment.tags}
             useFlex
             shouldShowEllipsis={false}
+            {...tagLinkProps("experiments")}
           />
         )}
         {editTags && experiment.tags?.length === 0 && (
@@ -274,16 +276,20 @@ export default function ProjectTagBar({
         <Metadata label="Owner" value={renderOwner()} />
         <Metadata label="Created" value={createdDate} />
         {showRuntime && (
-          <Tooltip body={renderTotalRuntimeTooltip()}>
-            <Metadata
-              label={
-                hasMultiplePhases && experiment.type !== "holdout"
-                  ? "Latest Phase"
-                  : "Runtime"
-              }
-              value={renderRuntime()}
-            />
-          </Tooltip>
+          <Metadata
+            label={
+              hasMultiplePhases && experiment.type !== "holdout"
+                ? "Latest Phase"
+                : "Runtime"
+            }
+            value={
+              <Tooltip body={renderTotalRuntimeTooltip()}>
+                <Text weight="regular" color="text-mid">
+                  {renderRuntime()}
+                </Text>
+              </Tooltip>
+            }
+          />
         )}
       </Flex>
       <div className="row mt-2">

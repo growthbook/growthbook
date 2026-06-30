@@ -11,10 +11,12 @@ import {
   ArchetypeAttributeValues,
   ArchetypeInterface,
 } from "shared/types/archetype";
-import { FeatureTestResult } from "shared/types/feature";
-import Link from "next/link";
+import { FeatureInterface, FeatureTestResult } from "shared/types/feature";
+import { featureHasEnvironment } from "shared/util";
 import { FaChevronRight, FaInfoCircle } from "react-icons/fa";
-import { FiAlertTriangle } from "react-icons/fi";
+import { Box, Flex } from "@radix-ui/themes";
+import Link from "@/ui/Link";
+import Callout from "@/ui/Callout";
 import { useEnvironments } from "@/services/features";
 import { useSearch } from "@/services/search";
 import { useFeatureMetaInfo } from "@/hooks/useFeatureMetaInfo";
@@ -92,11 +94,20 @@ export const SimulateFeatureValues: FC<{
     },
   });
 
+  const envFilteredItems = useMemo(() => {
+    if (selectedEnvironment === "all") return items;
+    const env = environments.find((e) => e.id === selectedEnvironment);
+    if (!env) return items;
+    return items.filter((f) =>
+      featureHasEnvironment(f as unknown as FeatureInterface, env),
+    );
+  }, [items, environments, selectedEnvironment]);
+
   const featureItems = useMemo(() => {
     const start = (currentPage - 1) * NUM_PER_PAGE;
     const end = start + NUM_PER_PAGE;
-    return items.slice(start, end);
-  }, [items, currentPage]);
+    return envFilteredItems.slice(start, end);
+  }, [envFilteredItems, currentPage]);
 
   // refresh the results of the assignment of features for the attributes set
   const refreshResults = useCallback(() => {
@@ -166,7 +177,10 @@ export const SimulateFeatureValues: FC<{
     return <div>No environments added</div>;
   }
   let attributeText = (
-    <>Select Archetype or edit user attributes to see feature results.</>
+    <>
+      Click <strong>Set Attributes</strong> to select an Archetype or manually
+      enter attribute values to see simulated feature results.
+    </>
   );
   let attributeNodes: ReactNode[] = [];
   if (attributes && Object.keys(attributes).length > 0) {
@@ -204,24 +218,9 @@ export const SimulateFeatureValues: FC<{
   const featureTableResults = (
     <>
       <div className="mb-3">
-        <div className="row mb-3">
-          <div className="col">
-            <div className="border border-primary appbox p-3">
-              {attributeText} {attributeNodes}{" "}
-              <a
-                href="#"
-                className="ml-2"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setEditAttributesModalOpen(true);
-                }}
-              >
-                ({attributes && Object.keys(attributes).length ? "edit" : "set"}
-                )
-              </a>
-            </div>
-          </div>
-        </div>
+        <Callout status="info" mb="5">
+          {attributeText} {attributeNodes}
+        </Callout>
 
         <div
           style={{
@@ -293,7 +292,7 @@ export const SimulateFeatureValues: FC<{
                         </Link>
                       </td>
                       <td>
-                        <SortedTags tags={feature?.tags || []} />
+                        <SortedTags tags={feature?.tags || []} useFlex />
                       </td>
                       {selectedEnvironment !== "all" ? (
                         (() => {
@@ -345,16 +344,16 @@ export const SimulateFeatureValues: FC<{
                   </Fragment>
                 );
               })}
-              {!items.length && (
+              {!envFilteredItems.length && (
                 <tr>
                   <td colSpan={numColumns}>No matching features</td>
                 </tr>
               )}
             </tbody>
           </table>
-          {Math.ceil(items.length / NUM_PER_PAGE) > 1 && (
+          {Math.ceil(envFilteredItems.length / NUM_PER_PAGE) > 1 && (
             <Pagination
-              numItemsTotal={items.length}
+              numItemsTotal={envFilteredItems.length}
               currentPage={currentPage}
               perPage={NUM_PER_PAGE}
               onPageChange={(d) => {
@@ -364,38 +363,35 @@ export const SimulateFeatureValues: FC<{
           )}
         </div>
       </div>
-      <div className="alert-info mt-5 mb-5 p-3 cursor-pointer align-items-center">
-        <div
-          className="d-flex"
+      <Callout status="info" mt="5" mb="5" contentsAs="div">
+        <Flex
+          align="center"
+          gap="3"
           onClick={(e) => {
             e.preventDefault();
             setOpenWarning(!openWarning);
           }}
+          style={{ cursor: "pointer" }}
         >
-          <div className="p-2 pr-3">
-            <FiAlertTriangle />
-          </div>
-          <div>
+          <Box flexGrow="1">
             These results use the JS SDK, which supports the V2 hashing
             algorithm. If you use one of the older or unsupported SDKs, you may
             want to change the hashing algorithm of the experiment to v1 to
             ensure accurate results. Click for more info.
-          </div>
-          <div className="p-2">
-            <FaChevronRight
-              style={{
-                transform: `rotate(${openWarning ? "90deg" : "0deg"})`,
-              }}
-            />
-          </div>
-        </div>
+          </Box>
+          <FaChevronRight
+            style={{
+              transform: `rotate(${openWarning ? "90deg" : "0deg"})`,
+            }}
+          />
+        </Flex>
         {openWarning && (
-          <div className="p-3">
+          <Box mt="3">
             The following SDK versions support V2 hashing:
             <MinSDKVersionsList capability="bucketingV2" />
-          </div>
+          </Box>
         )}
-      </div>
+      </Callout>
     </>
   );
 
@@ -421,6 +417,7 @@ export const SimulateFeatureValues: FC<{
           archetype={archetype}
           archetypeMap={archetypeMap}
           attributes={attributes}
+          selectedEnvironment={selectedEnvironment}
           close={() => {
             setEditAttributesModalOpen(false);
           }}

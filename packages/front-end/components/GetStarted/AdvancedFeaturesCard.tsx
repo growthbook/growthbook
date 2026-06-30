@@ -1,5 +1,5 @@
 import { AspectRatio, Box, Text } from "@radix-ui/themes";
-import { CommercialFeature } from "shared/src/enterprise/license-consts";
+import { CommercialFeature } from "shared/enterprise";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { DocSection, DocLink } from "@/components/DocLink";
 import Link from "@/ui/Link";
@@ -59,7 +59,9 @@ export default function AdvancedFeaturesCard({
     <Box width="100%" height="100%">
       <AspectRatio ratio={16 / 9}>
         {docSection ? (
-          <DocLink docSection={docSection}>{card}</DocLink>
+          <DocLink useRadix={false} docSection={docSection}>
+            {card}
+          </DocLink>
         ) : (
           <Link href={href}>{card}</Link>
         )}

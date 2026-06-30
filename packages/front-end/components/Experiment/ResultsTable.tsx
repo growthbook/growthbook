@@ -19,6 +19,7 @@ import {
 import {
   DifferenceType,
   PValueCorrection,
+  SignificanceThresholds,
   StatsEngine,
 } from "shared/types/stats";
 import {
@@ -26,6 +27,7 @@ import {
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import { getValidDate } from "shared/dates";
+import { MetricTimeSeries } from "shared/validators";
 import { Flex } from "@radix-ui/themes";
 import {
   ExperimentMetricInterface,
@@ -43,8 +45,6 @@ import {
   useDomain,
 } from "@/services/experiments";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import useConfidenceLevels from "@/hooks/useConfidenceLevels";
-import usePValueThreshold from "@/hooks/usePValueThreshold";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { useCurrency } from "@/hooks/useCurrency";
 import PValueColumn from "@/components/Experiment/PValueColumn";
@@ -70,6 +70,7 @@ import VariationChooserColumnLabel from "./VariationChooserColumnLabel";
 export type ResultsTableProps = {
   id: string;
   experimentId: string;
+  significanceThresholds: SignificanceThresholds;
   variations: ExperimentReportVariation[];
   variationFilter?: number[];
   setVariationFilter?: (variationFilter: number[]) => void;
@@ -131,6 +132,15 @@ export type ResultsTableProps = {
   visibleTimeSeriesRowIds?: string[];
   onVisibleTimeSeriesRowIdsChange?: (ids: string[]) => void;
   timeSeriesMessage?: string;
+  preloadedTimeSeries?: MetricTimeSeries;
+  dimensionId?: string;
+  dimensionValue?: string;
+  valueColumnWidth?: number;
+  labelMaxWidth?: number;
+  // When the underlying analysis uses one-sided intervals (e.g. safe
+  // rollouts), render CIs as one-sided: a single bound + open side, with the
+  // domain/range anchored at 0 rather than the fake (±Infinity) bound.
+  oneSided?: boolean;
 };
 
 const ROW_HEIGHT = 46;
@@ -154,6 +164,7 @@ export enum RowError {
 export default function ResultsTable({
   id,
   experimentId,
+  significanceThresholds,
   isLatestPhase,
   phase,
   status,
@@ -199,6 +210,12 @@ export default function ResultsTable({
   visibleTimeSeriesRowIds: visibleTimeSeriesRowIdsProp,
   onVisibleTimeSeriesRowIdsChange,
   timeSeriesMessage,
+  preloadedTimeSeries,
+  dimensionId,
+  dimensionValue,
+  valueColumnWidth = 130,
+  labelMaxWidth = 75,
+  oneSided = false,
 }: ResultsTableProps) {
   if (variationFilter?.includes(baselineRow)) {
     variationFilter = variationFilter.filter((v) => v !== baselineRow);
@@ -299,15 +316,11 @@ export default function ResultsTable({
     ssrPolyfills?.useOrganizationMetricDefaults?.() ||
     _useOrganizationMetricDefaults;
 
-  const _confidenceLevels = useConfidenceLevels();
-  const _pValueThreshold = usePValueThreshold();
   const _displayCurrency = useCurrency();
   const _orgSettings = useOrgSettings();
 
-  const { ciUpper, ciLower } =
-    ssrPolyfills?.useConfidenceLevels?.() || _confidenceLevels;
-  const pValueThreshold =
-    ssrPolyfills?.usePValueThreshold?.() || _pValueThreshold;
+  const { bayesianConfidenceLevels, pValueThreshold } = significanceThresholds;
+  const { ciUpper, ciLower } = bayesianConfidenceLevels;
   const displayCurrency = ssrPolyfills?.useCurrency?.() || _displayCurrency;
   const orgSettings = ssrPolyfills?.useOrgSettings?.() || _orgSettings;
 
@@ -411,7 +424,7 @@ export default function ResultsTable({
   );
   const compactResults = filteredVariations.length <= 2;
 
-  const domain = useDomain(filteredVariations, rows, differenceType);
+  const domain = useDomain(filteredVariations, rows, differenceType, oneSided);
 
   const rowsResults: (RowResults | "query error" | RowError | null)[][] =
     useMemo(() => {
@@ -572,7 +585,7 @@ export default function ResultsTable({
                       <>
                         {columnsToDisplay.includes("Baseline Average") && (
                           <th
-                            style={{ width: 130 * tableCellScale }}
+                            style={{ width: valueColumnWidth * tableCellScale }}
                             className={clsx("axis-col label", {
                               noStickyHeader,
                             })}
@@ -589,12 +602,13 @@ export default function ResultsTable({
                                 !isHoldout && snapshot?.dimension !== "pre:date"
                               }
                               isHoldout={isHoldout}
+                              labelMaxWidth={labelMaxWidth}
                             />
                           </th>
                         )}
                         {columnsToDisplay.includes("Variation Averages") && (
                           <th
-                            style={{ width: 130 * tableCellScale }}
+                            style={{ width: valueColumnWidth * tableCellScale }}
                             className={clsx("axis-col label", {
                               noStickyHeader,
                             })}
@@ -608,6 +622,7 @@ export default function ResultsTable({
                                 !isHoldout && snapshot?.dimension !== "pre:date"
                               }
                               isHoldout={isHoldout}
+                              labelMaxWidth={labelMaxWidth}
                             />
                           </th>
                         )}
@@ -1099,6 +1114,7 @@ export default function ResultsTable({
                                                 resultsHighlightClassname,
                                               )}
                                               metric={row.metric}
+                                              pValueThreshold={pValueThreshold}
                                               differenceType={differenceType}
                                               statsEngine={statsEngine}
                                               ssrPolyfills={ssrPolyfills}
@@ -1128,6 +1144,7 @@ export default function ResultsTable({
                                                 resultsHighlightClassname,
                                               )}
                                               metric={row.metric}
+                                              pValueThreshold={pValueThreshold}
                                               differenceType={differenceType}
                                               statsEngine={statsEngine}
                                               ssrPolyfills={ssrPolyfills}
@@ -1148,6 +1165,9 @@ export default function ResultsTable({
                                       <td className="graph-cell">
                                         {j > 0 ? (
                                           <PercentGraph
+                                            significanceThresholds={
+                                              significanceThresholds
+                                            }
                                             barType={
                                               statsEngine === "frequentist"
                                                 ? "pill"
@@ -1162,6 +1182,7 @@ export default function ResultsTable({
                                             significant={rowResults.significant}
                                             baseline={baseline}
                                             domain={domain}
+                                            oneSided={oneSided}
                                             metric={row.metric}
                                             stats={stats}
                                             id={`${id}_violin_row${i}_var${j}_${
@@ -1232,6 +1253,7 @@ export default function ResultsTable({
                                         {j > 0 ? (
                                           <ChangeColumn
                                             metric={row.metric}
+                                            pValueThreshold={pValueThreshold}
                                             stats={stats}
                                             rowResults={rowResults}
                                             differenceType={differenceType}
@@ -1287,6 +1309,7 @@ export default function ResultsTable({
                                       <div className={styles.timeSeriesCell}>
                                         <ExperimentMetricTimeSeriesGraphWrapper
                                           experimentId={experimentId}
+                                          pValueThreshold={pValueThreshold}
                                           phase={phase}
                                           metric={row.metric}
                                           differenceType={differenceType}
@@ -1302,6 +1325,12 @@ export default function ResultsTable({
                                           sliceId={row.sliceId}
                                           baselineRow={baselineRow}
                                           unavailableMessage={timeSeriesMessage}
+                                          preloadedTimeSeries={
+                                            preloadedTimeSeries
+                                          }
+                                          dimensionId={dimensionId}
+                                          dimensionValue={dimensionValue}
+                                          oneSided={oneSided}
                                         />
                                       </div>
                                     </div>
@@ -1473,7 +1502,7 @@ function getPValueTooltip(
           {tableRowAxis === "dimension"
             ? " all dimension values, goal metrics, and variations"
             : " all goal metrics and variations"}
-          . The unadjusted p-values are returned in the tooltip.
+          .
         </div>
       )}
     </>

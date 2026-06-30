@@ -1,9 +1,9 @@
 import React, { FC } from "react";
 import { useRouter } from "next/router";
-import Link from "next/link";
 import { date } from "shared/dates";
 import { FaCheck, FaTimes } from "react-icons/fa";
 import { RxIdCard } from "react-icons/rx";
+import Link from "@/ui/Link";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ProjectBadges from "@/components/ProjectBadges";
@@ -120,6 +120,7 @@ const TeamsList: FC = () => {
                       {(canManageTeam && !teamIsExternallyManaged && (
                         <>
                           <DeleteButton
+                            useRadix={false}
                             link={true}
                             useIcon={true}
                             displayName={t.name}

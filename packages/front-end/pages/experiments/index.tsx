@@ -1,23 +1,26 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/router";
 import { PiCaretDown } from "react-icons/pi";
 import { Box, Flex } from "@radix-ui/themes";
+import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import Link from "@/ui/Link";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
 import ImportExperimentModal from "@/components/Experiment/ImportExperimentModal";
 import { useExperiments } from "@/hooks/useExperiments";
+import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import LinkButton from "@/ui/LinkButton";
-import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
+import CreateExperimentModal from "@/components/Experiment/CreateExperimentModal";
 import {
   DropdownMenu,
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
 import Button from "@/ui/Button";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import ViewSampleDataButton from "@/components/GetStarted/ViewSampleDataButton";
 import EmptyState from "@/components/EmptyState";
 import Callout from "@/ui/Callout";
@@ -42,7 +45,14 @@ const isExperimentListTab = (value: string): value is ExperimentListTab => {
 };
 
 const ExperimentsPage = (): React.ReactElement => {
-  const { ready, project, projects } = useDefinitions();
+  const { ready, project, projects, datasources } = useDefinitions();
+  const { organization } = useUser();
+  const demoProjectId = getDemoDatasourceProjectIdForOrganization(
+    organization.id || "",
+  );
+  const hasNonDemoDatasource = datasources.some(
+    (d) => !d.projects?.includes(demoProjectId),
+  );
 
   const initialHashRef = useRef(
     globalThis?.window ? window.location.hash.slice(1) : "",
@@ -97,12 +107,13 @@ const ExperimentsPage = (): React.ReactElement => {
     items,
     searchInputProps,
     isFiltered,
-    SortableTH,
+    SortableTableColumnHeader,
     syntaxFilters,
     setSearchValue,
   } = useExperimentSearch({
     allExperiments,
     watchedExperimentIds: watchedExperiments,
+    localStorageKey: "experiments-page",
   });
 
   const tabCounts = useMemo(() => {
@@ -121,11 +132,7 @@ const ExperimentsPage = (): React.ReactElement => {
   }, [activeTab, items]);
 
   if (error) {
-    return (
-      <div className="alert alert-danger">
-        An error occurred: {error.message}
-      </div>
-    );
+    return <Callout status="error">An error occurred: {error.message}</Callout>;
   }
   if (loading || !ready) {
     return <LoadingOverlay />;
@@ -133,14 +140,10 @@ const ExperimentsPage = (): React.ReactElement => {
 
   const hasExperiments = allExperiments.length > 0;
 
-  // Show the View Sample Button if none of the experiments have an attached datasource
-  const showViewSampleButton = !allExperiments.some((e) => e.datasource);
+  // Only surface the sample CTA when the user has no experiments yet.
+  const showViewSampleButton = !hasExperiments;
 
   const canAddExperiment = permissionsUtil.canViewExperimentModal(
-    project,
-    projects,
-  );
-  const canAddTemplate = permissionsUtil.canViewExperimentTemplateModal(
     project,
     projects,
   );
@@ -153,20 +156,23 @@ const ExperimentsPage = (): React.ReactElement => {
         </Button>
       }
       menuPlacement="end"
+      disabled={!canAddExperiment}
     >
-      {canAddExperiment && (
-        <DropdownMenuItem onClick={() => setOpenNewExperimentModal(true)}>
-          Create New Experiment
-        </DropdownMenuItem>
-      )}
-      {canAddExperiment && (
-        <>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => setOpenImportExperimentModal(true)}>
-            Import Existing Experiment
-          </DropdownMenuItem>
-        </>
-      )}
+      <DropdownMenuItem onClick={() => setOpenNewExperimentModal(true)}>
+        Create New Experiment
+      </DropdownMenuItem>
+      <DropdownMenuSeparator />
+      <DropdownMenuItem
+        onClick={() => setOpenImportExperimentModal(true)}
+        disabled={!hasNonDemoDatasource}
+        tooltip={
+          !hasNonDemoDatasource
+            ? "Connect a data source to import existing experiments."
+            : undefined
+        }
+      >
+        Import Existing Experiment
+      </DropdownMenuItem>
     </DropdownMenu>
   );
 
@@ -180,9 +186,7 @@ const ExperimentsPage = (): React.ReactElement => {
             </div>
             <div style={{ flex: 1 }} />
             {showViewSampleButton && <ViewSampleDataButton />}
-            {(canAddExperiment || canAddTemplate) && (
-              <div className="col-auto">{addExperimentDropdownButton}</div>
-            )}
+            <div className="col-auto">{addExperimentDropdownButton}</div>
           </div>
           <CustomMarkdown page={"experimentList"} />
           {!hasExperiments && analyzeExisting ? (
@@ -199,11 +203,17 @@ const ExperimentsPage = (): React.ReactElement => {
                 </LinkButton>
               }
               rightButton={
-                canAddExperiment && (
-                  <Button onClick={() => setOpenImportExperimentModal(true)}>
+                <Tooltip
+                  body="You don't have permission to import experiments in this project."
+                  shouldDisplay={!canAddExperiment}
+                >
+                  <Button
+                    disabled={!canAddExperiment}
+                    onClick={() => setOpenImportExperimentModal(true)}
+                  >
                     Import Existing Experiment
                   </Button>
-                )
+                </Tooltip>
               }
             />
           ) : !hasExperiments && !analyzeExisting ? (
@@ -221,11 +231,17 @@ const ExperimentsPage = (): React.ReactElement => {
                   </LinkButton>
                 }
                 rightButton={
-                  canAddExperiment && (
-                    <Button onClick={() => setOpenNewExperimentModal(true)}>
+                  <Tooltip
+                    body="You don't have permission to create experiments in this project."
+                    shouldDisplay={!canAddExperiment}
+                  >
+                    <Button
+                      disabled={!canAddExperiment}
+                      onClick={() => setOpenNewExperimentModal(true)}
+                    >
                       Create New Experiment
                     </Button>
-                  )
+                  </Tooltip>
                 }
               />
               <Callout status="info">
@@ -247,36 +263,42 @@ const ExperimentsPage = (): React.ReactElement => {
                     }
                   }}
                 >
-                  <div className="row align-items-center mb-3">
-                    <div className="col-auto d-flex">
-                      <TabsList>
-                        <TabsTrigger value="all">All Experiments</TabsTrigger>
-                        {["running", "drafts", "stopped", "archived"].map(
-                          (tabValue, i) => {
-                            if (tabValue === "archived" && !hasArchived)
-                              return null;
+                  <Box mb="3">
+                    <TabsList>
+                      <TabsTrigger value="all">All Experiments</TabsTrigger>
+                      {["running", "drafts", "stopped", "archived"].map(
+                        (tabValue, i) => {
+                          if (tabValue === "archived" && !hasArchived)
+                            return null;
 
-                            return (
-                              <TabsTrigger value={tabValue} key={tabValue + i}>
-                                <span className="mr-1 ml-2">
-                                  {tabValue.slice(0, 1).toUpperCase()}
-                                  {tabValue.slice(1)}
+                          return (
+                            <TabsTrigger value={tabValue} key={tabValue + i}>
+                              {tabValue.slice(0, 1).toUpperCase()}
+                              {tabValue.slice(1)}
+                              {tabValue !== "archived" && (
+                                <span
+                                  style={{
+                                    marginLeft: "var(--space-2)",
+                                    background: "var(--gray-3)",
+                                    border: "1px solid var(--gray-6)",
+                                    borderRadius: "var(--radius-2)",
+                                    padding: "0 var(--space-2)",
+                                    fontSize: "var(--font-size-1)",
+                                    color: "var(--gray-11)",
+                                  }}
+                                >
+                                  {tabCounts[tabValue] || 0}
                                 </span>
-                                {tabValue !== "archived" && (
-                                  <span className="badge bg-white border text-dark mr-2 mb-0">
-                                    {tabCounts[tabValue] || 0}
-                                  </span>
-                                )}
-                              </TabsTrigger>
-                            );
-                          },
-                        )}
-                      </TabsList>
-                    </div>
-                  </div>
+                              )}
+                            </TabsTrigger>
+                          );
+                        },
+                      )}
+                    </TabsList>
+                  </Box>
                   <Flex
                     gap="4"
-                    align="start"
+                    align="center"
                     justify="between"
                     mb="4"
                     wrap="wrap"
@@ -298,30 +320,30 @@ const ExperimentsPage = (): React.ReactElement => {
                   <TabsContent value="all">
                     <ExperimentsListTable
                       tab="all"
-                      SortableTH={SortableTH}
+                      SortableTableColumnHeader={SortableTableColumnHeader}
                       filtered={filtered}
                       isFiltered={isFiltered}
                       project={project}
+                      searchValue={searchInputProps.value}
+                      setSearchValue={setSearchValue}
                     />
                   </TabsContent>
-                  {["running", "drafts", "stopped", "archived"].map(
-                    (tabValue) => {
-                      if (tabValue === "archived" && !hasArchived) return null;
-                      return (
-                        <TabsContent value={tabValue} key={tabValue}>
-                          <ExperimentsListTable
-                            tab={tabValue}
-                            SortableTH={SortableTH}
-                            filtered={filtered.filter(
-                              (e) => e.tab === tabValue,
-                            )}
-                            isFiltered={isFiltered}
-                            project={project}
-                          />
-                        </TabsContent>
-                      );
-                    },
-                  )}
+                  {["running", "drafts", "stopped", "archived"].map((tab) => {
+                    if (tab === "archived" && !hasArchived) return null;
+                    return (
+                      <TabsContent value={tab} key={tab}>
+                        <ExperimentsListTable
+                          tab={tab}
+                          SortableTableColumnHeader={SortableTableColumnHeader}
+                          filtered={filtered.filter((e) => e.tab === tab)}
+                          isFiltered={isFiltered}
+                          project={project}
+                          searchValue={searchInputProps.value}
+                          setSearchValue={setSearchValue}
+                        />
+                      </TabsContent>
+                    );
+                  })}
                 </Tabs>
               </>
             )
@@ -329,10 +351,9 @@ const ExperimentsPage = (): React.ReactElement => {
         </div>
       </div>
       {openNewExperimentModal && (
-        <NewExperimentForm
+        <CreateExperimentModal
           onClose={() => setOpenNewExperimentModal(false)}
           source="experiment-list"
-          isNewExperiment={true}
         />
       )}
       {openImportExperimentModal && (

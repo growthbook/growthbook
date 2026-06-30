@@ -7,12 +7,10 @@ import { setupApp } from "back-end/test/api/api.setup";
 import { insertMetric } from "back-end/src/models/MetricModel";
 import { ExperimentModel } from "back-end/src/models/ExperimentModel";
 import {
-  getConfidenceLevelsForOrg,
   getMetricDefaultsForOrg,
-  getPValueCorrectionForOrg,
-  getPValueThresholdForOrg,
+  getSignificanceSettingsForProject,
 } from "back-end/src/services/organizations";
-import { getLatestSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
+import { getLatestSuccessfulSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
 import { computeExperimentChanges } from "back-end/src/services/experimentNotifications";
 import {
   metrics,
@@ -21,15 +19,13 @@ import {
 } from "./experimentSignificance.mocks.json";
 
 jest.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
-  getLatestSnapshot: jest.fn(),
+  getLatestSuccessfulSnapshot: jest.fn(),
 }));
 
 jest.mock("back-end/src/services/organizations", () => ({
-  getConfidenceLevelsForOrg: jest.fn(),
   getEnvironmentIdsFromOrg: jest.fn(),
   getMetricDefaultsForOrg: jest.fn(),
-  getPValueCorrectionForOrg: jest.fn(),
-  getPValueThresholdForOrg: jest.fn(),
+  getSignificanceSettingsForProject: jest.fn(),
 }));
 
 const testCases = [
@@ -123,12 +119,13 @@ const testCases = [
 
 describe("Experiment Significance notifications", () => {
   const { isReady, setReqContext } = setupApp();
+  const orgId = experiments[0].organization;
 
   beforeAll(async () => {
     await isReady;
 
     const globalContext = {
-      org: { id: "org1" },
+      org: { id: orgId },
       permissions: new Permissions({
         global: {
           permissions: { createMetrics: true },
@@ -149,26 +146,24 @@ describe("Experiment Significance notifications", () => {
       }),
     );
 
-    await experiments.map(async (exp) => {
-      await ExperimentModel.create(exp);
-    });
+    await Promise.all(
+      experiments.map(async (exp) => {
+        await ExperimentModel.create(exp);
+      }),
+    );
   });
 
   it("detects significance", async () => {
     await BluebirdPromise.each(
       testCases,
       async ({ beforeSnapshot, currentSnapshot, expected, ...params }) => {
-        getLatestSnapshot.mockReturnValue(beforeSnapshot);
-        getConfidenceLevelsForOrg.mockReturnValue(
-          params.getConfidenceLevelsForOrg,
-        );
+        getLatestSuccessfulSnapshot.mockReturnValue(beforeSnapshot);
+        getSignificanceSettingsForProject.mockResolvedValue({
+          ...params.getConfidenceLevelsForOrg,
+          pValueCorrection: params.getPValueCorrectionForOrg,
+          pValueThreshold: params.getPValueThresholdForOrg,
+        });
         getMetricDefaultsForOrg.mockReturnValue(params.getMetricDefaultsForOrg);
-        getPValueCorrectionForOrg.mockReturnValue(
-          params.getPValueCorrectionForOrg,
-        );
-        getPValueThresholdForOrg.mockReturnValue(
-          params.getPValueThresholdForOrg,
-        );
 
         const experiment = ensureAndReturn(
           await ExperimentModel.findOne({ id: currentSnapshot.experiment }),
@@ -176,7 +171,7 @@ describe("Experiment Significance notifications", () => {
 
         const results = await computeExperimentChanges({
           context: {
-            org: { id: experiment.organization },
+            org: { id: orgId },
             permissions: { canReadMultiProjectResource: () => true },
             models: { metricGroups: { getAll: () => [] } },
           },

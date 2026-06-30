@@ -20,6 +20,7 @@ import {
 } from "shared/types/fact-table";
 import { ExperimentMetricInterface, isFactMetricId } from "shared/experiments";
 import { SavedGroupWithoutValues } from "shared/types/saved-group";
+import { ConstantWithoutValue } from "shared/types/constant";
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { CustomField } from "shared/types/custom-fields";
 import { DecisionCriteriaInterface } from "shared/types/experiment";
@@ -38,6 +39,9 @@ type Definitions = {
   segments: SegmentInterface[];
   projects: ProjectInterface[];
   savedGroups: SavedGroupWithoutValues[];
+  _savedGroupsIncludingArchived: SavedGroupWithoutValues[];
+  constants: ConstantWithoutValue[];
+  _constantsIncludingArchived: ConstantWithoutValue[];
   metricGroups: MetricGroupInterface[];
   customFields: CustomField[];
   tags: TagInterface[];
@@ -62,6 +66,8 @@ type DefinitionContextValue = Definitions & {
   getSegmentById: (id: string) => null | SegmentInterface;
   getProjectById: (id: string) => null | ProjectInterface;
   getSavedGroupById: (id: string) => null | SavedGroupWithoutValues;
+  getConstantById: (id: string) => null | ConstantWithoutValue;
+  getConstantByKey: (key: string) => null | ConstantWithoutValue;
   getTagById: (id: string) => null | TagInterface;
   getFactTableById: (id: string) => null | FactTableInterface;
   getFactMetricById: (id: string) => null | FactMetricInterface;
@@ -89,6 +95,9 @@ const defaultValue: DefinitionContextValue = {
   segments: [],
   tags: [],
   savedGroups: [],
+  _savedGroupsIncludingArchived: [],
+  constants: [],
+  _constantsIncludingArchived: [],
   metricGroups: [],
   customFields: [],
   projects: [],
@@ -104,6 +113,8 @@ const defaultValue: DefinitionContextValue = {
   getSegmentById: () => null,
   getProjectById: () => null,
   getSavedGroupById: () => null,
+  getConstantById: () => null,
+  getConstantByKey: () => null,
   getTagById: () => null,
   getFactTableById: () => null,
   getFactMetricById: () => null,
@@ -176,8 +187,10 @@ export const useProject = () => {
 export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
   children,
 }) => {
+  const { orgSuspended, organization } = useUser();
   const { data, error, mutate } = useApi<Definitions & { status: 200 }>(
     "/organization/definitions",
+    { shouldRun: () => !orgSuspended && !!organization?.id },
   );
 
   const [project, setProject] = useProject();
@@ -253,6 +266,37 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
     return data.factTables;
   }, [data?.factTables]);
 
+  const activeSavedGroups = useMemo(() => {
+    if (!data || !data.savedGroups) {
+      return [];
+    }
+
+    return data.savedGroups.filter((sg) => !sg.archived);
+  }, [data?.savedGroups]);
+
+  const allSavedGroups = useMemo(() => {
+    if (!data || !data.savedGroups) {
+      return [];
+    }
+
+    return data.savedGroups;
+  }, [data?.savedGroups]);
+
+  // `!data.constants` guard keeps older API responses (pre-constants) working.
+  const activeConstants = useMemo(() => {
+    if (!data || !data.constants) {
+      return [];
+    }
+    return data.constants.filter((c) => !c.archived);
+  }, [data?.constants]);
+
+  const allConstants = useMemo(() => {
+    if (!data || !data.constants) {
+      return [];
+    }
+    return data.constants;
+  }, [data?.constants]);
+
   const allTags = useMemo(() => {
     if (!data || !data.tags) {
       return [];
@@ -272,7 +316,13 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
   const getDimensionById = useGetById(data?.dimensions);
   const getSegmentById = useGetById(data?.segments);
   const getProjectById = useGetById(data?.projects);
-  const getSavedGroupById = useGetById(data?.savedGroups);
+  const getSavedGroupById = useGetById(allSavedGroups);
+  const getConstantById = useGetById(allConstants);
+  const getConstantByKey = useMemo(() => {
+    const m = new Map<string, ConstantWithoutValue>();
+    allConstants.forEach((c) => m.set(c.key, c));
+    return (key: string) => m.get(key) || null;
+  }, [allConstants]);
   const getTagById = useGetById(allTags);
   const getFactTableById = useGetById(data?.factTables);
   const getFactMetricById = useGetById(data?.factMetrics);
@@ -308,7 +358,10 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       dimensions: data.dimensions,
       segments: data.segments,
       tags: allTags,
-      savedGroups: data.savedGroups,
+      savedGroups: activeSavedGroups,
+      _savedGroupsIncludingArchived: allSavedGroups,
+      constants: activeConstants,
+      _constantsIncludingArchived: allConstants,
       metricGroups: metricGroups,
       customFields: data.customFields,
       projects: data.projects,
@@ -326,6 +379,8 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       getSegmentById,
       getProjectById,
       getSavedGroupById,
+      getConstantById,
+      getConstantByKey,
       getTagById,
       getFactTableById,
       getFactMetricById,

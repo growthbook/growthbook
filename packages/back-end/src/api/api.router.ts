@@ -19,6 +19,7 @@ import { getBuild } from "back-end/src/util/build";
 import { ApiRequestLocals } from "back-end/types/api";
 import { IS_CLOUD, SENTRY_DSN } from "back-end/src/util/secrets";
 import { featureRoutes } from "./features/features.router";
+import { featureV2Routes } from "./features/features.v2.router";
 import { experimentsRoutes } from "./experiments/experiments.router";
 import { snapshotsRoutes } from "./snapshots/snapshots.router";
 import { metricsRoutes } from "./metrics/metrics.router";
@@ -28,6 +29,7 @@ import { projectsRoutes } from "./projects/projects.router";
 import { environmentsRoutes } from "./environments/environments.router";
 import { attributesRoutes } from "./attributes/attributes.router";
 import { savedGroupsRoutes } from "./saved-groups/saved-groups.router";
+import { constantsRoutes } from "./constants/constants.router";
 import { sdkConnectionsRoutes } from "./sdk-connections/sdk-connections.router";
 import { sdkPayloadRoutes } from "./sdk-payload/sdk-payload.router";
 import { dataSourcesRoutes } from "./data-sources/data-sources.router";
@@ -40,11 +42,15 @@ import { factMetricsRoutes } from "./fact-metrics/fact-metrics.router";
 import { bulkImportRoutes } from "./bulk-import/bulk-import.router";
 import { membersRoutes } from "./members/members.router";
 import { openaiRoutes } from "./openai/openai.router";
+import { visualEditorAiRoutes } from "./visual-editor-ai/visualEditorAi.router";
 import { archetypesRoutes } from "./archetypes/archetypes.router";
 import { queriesRoutes } from "./queries/queries.router";
 import { settingsRoutes } from "./settings/settings.router";
+import { metaRoutes } from "./meta/meta.router";
 import { informationSchemaTablesRoutes } from "./information-schema-tables/information-schema-tables.router";
 import { rampSchedulesRoutes } from "./ramp-schedules/ramp-schedules.router";
+import { reportRoutes } from "./reports/reports.router";
+import { namespacesRoutes } from "./namespaces/namespaces.router";
 import { getOpenApiRoutesForApiConfig } from "./ApiModel";
 
 const API_MODELS: ModelClass[] = [
@@ -59,8 +65,13 @@ const API_MODELS: ModelClass[] = [
 ];
 
 const router = Router();
+
+router.use(bodyParser.json({ limit: "2mb" }));
+router.use(bodyParser.urlencoded({ limit: "2mb", extended: true }));
+
+// Public route for OpenAPI spec - must be registered BEFORE authentication middleware
 let openapiSpec: string;
-router.get("/openapi.yaml", (req, res) => {
+router.get("/v1/openapi.yaml", (req, res) => {
   if (!openapiSpec) {
     const file = path.join(__dirname, "..", "..", "generated", "spec.yaml");
     if (existsSync(file)) {
@@ -77,9 +88,6 @@ router.get("/openapi.yaml", (req, res) => {
   res.setHeader("Content-Type", "text/yaml");
   res.send(openapiSpec);
 });
-
-router.use(bodyParser.json({ limit: "2mb" }));
-router.use(bodyParser.urlencoded({ limit: "2mb", extended: true }));
 
 router.use(authenticateApiRequestMiddleware as RequestHandler);
 
@@ -105,13 +113,16 @@ const API_RATE_LIMIT_MAX = parseEnvInt(process.env.API_RATE_LIMIT_MAX, 60, {
   name: "API_RATE_LIMIT_MAX",
 });
 const overallRateLimit = IS_CLOUD ? 60 : API_RATE_LIMIT_MAX;
-// Rate limit API keys to 60 requests per minute
+// Rate limit API keys to 60 requests per minute. Skip for JWT requests
+// (interactive UI traffic) — those are already authed as a logged-in user
+// and applying the per-key cap would break dashboards and bulk flows.
 router.use(
   rateLimit({
     windowMs: 60 * 1000,
     max: API_RATE_LIMIT_MAX,
     standardHeaders: true,
     legacyHeaders: false,
+    skip: (req) => !!(req as Request & ApiRequestLocals).isJwtAuth,
     keyGenerator: (req) => (req as Request & ApiRequestLocals).apiKey,
     message: {
       message: `Too many requests, limit to ${overallRateLimit} per minute`,
@@ -119,17 +130,25 @@ router.use(
   }),
 );
 
-// Index health check route
-router.get("/", (req, res) => {
+// Index health check route. Registered at both `/` (mounted at `/api/`) and
+// `/v1/` (mounted at `/api/v1/`). Before #5690 the router was mounted at
+// `/api/v1` directly, so `router.get("/")` answered `/api/v1/`. #5690 moved
+// the mount to `/api` with the registration loop below self-prefixing `/v1/`
+// onto other routes, and #5804 hand-updated the openapi route similarly —
+// but this index handler was missed, leaving `/api/v1/` unrouted.
+const indexHandler: RequestHandler = (req, res) => {
   res.json({
     name: "GrowthBook API",
     apiVersion: 1,
     build: getBuild(),
   });
-});
+};
+router.get("/", indexHandler);
+router.get("/v1/", indexHandler);
 
 export const allRoutes = [
   ...featureRoutes,
+  ...featureV2Routes,
   ...archetypesRoutes,
   ...experimentsRoutes,
   ...snapshotsRoutes,
@@ -144,6 +163,7 @@ export const allRoutes = [
   ...dataSourcesRoutes,
   ...visualChangesetsRoutes,
   ...savedGroupsRoutes,
+  ...constantsRoutes,
   ...organizationsRoutes,
   ...sdkPayloadRoutes,
   ...factTablesRoutes,
@@ -153,9 +173,13 @@ export const allRoutes = [
   ...membersRoutes,
   ...queriesRoutes,
   ...settingsRoutes,
+  ...metaRoutes,
   ...informationSchemaTablesRoutes,
   ...rampSchedulesRoutes,
+  ...reportRoutes,
+  ...namespacesRoutes,
   ...openaiRoutes,
+  ...visualEditorAiRoutes,
 ];
 
 /** Tag metadata from BaseModel specs, keyed by PascalCase tag name */
@@ -184,10 +208,29 @@ allRoutes.forEach((route) => {
     return;
   }
 
-  if (route.middleware) {
-    router[route.method](route.path, route.middleware, route.handler);
+  // Prepend version prefix so v1 routes live at /v1/... and v2 at /v2/...
+  // The router is mounted at /api in app.ts, so the full path becomes
+  // /api/v1/<route> or /api/v2/<route> as appropriate.
+  const version = (route as { version?: string }).version ?? "v1";
+  const versionedPath = `/${version}${route.path}`;
+
+  const middleware: RequestHandler[] = [
+    ...(route.middleware ?? []),
+    // Emit RFC 8594 Deprecation header when the route spec provides a date.
+    ...(route.deprecationDate
+      ? [
+          ((_, res, next) => {
+            res.setHeader("Deprecation", route.deprecationDate as string);
+            next();
+          }) as RequestHandler,
+        ]
+      : []),
+  ];
+
+  if (middleware.length > 0) {
+    router[route.method](versionedPath, middleware, route.handler);
   } else {
-    router[route.method](route.path, route.handler);
+    router[route.method](versionedPath, route.handler);
   }
 });
 

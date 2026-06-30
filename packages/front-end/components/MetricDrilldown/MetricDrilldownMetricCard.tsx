@@ -14,6 +14,7 @@ import {
   isRatioMetric,
   getRowFilterSQL,
 } from "shared/experiments";
+import { createLikeStringMatchFn } from "shared/sql";
 import Metadata from "@/ui/Metadata";
 import Link from "@/ui/Link";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -55,6 +56,10 @@ function RowFilterDisplay({
               rowFilter: rf,
               factTable,
               escapeStringLiteral: (s) => s.replace(/'/g, "''"),
+              stringMatch: createLikeStringMatchFn({
+                escapeStringLiteral: (s) => s.replace(/'/g, "''"),
+                emitEscapeClause: false,
+              }),
               evalBoolean: (col, value) =>
                 `${col} IS ${value ? "TRUE" : "FALSE"}`,
               jsonExtract: (col, path) => `${col}.${path}`,

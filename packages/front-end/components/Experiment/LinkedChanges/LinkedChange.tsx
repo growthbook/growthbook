@@ -4,7 +4,6 @@ import { Box, Flex } from "@radix-ui/themes";
 import { PiArrowSquareOut } from "react-icons/pi";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
 import OpenVisualEditorLink from "@/components/OpenVisualEditorLink";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
@@ -22,7 +21,6 @@ type Props = {
   vc?: VisualChangesetInterface;
   experiment?: ExperimentInterfaceStringDates;
   children?: ReactNode;
-  state?: string;
   heading: string;
   headingLink?: string;
   onEdit?: () => void;
@@ -63,7 +61,6 @@ export default function LinkedChange({
   canEdit = false,
   additionalBadge,
   children,
-  state,
   heading,
   headingLink,
   onDelete,
@@ -83,15 +80,19 @@ export default function LinkedChange({
             {changeType === "flag" ? (
               <Link href={`/features/${feature?.id}`}>
                 <Heading as="h4" size="small" weight="medium" mb="0">
-                  {heading}
-                  <PiArrowSquareOut className="ml-2" />
+                  <Flex align="center">
+                    {heading}
+                    <PiArrowSquareOut className="ml-2" />
+                  </Flex>
                 </Heading>
               </Link>
             ) : headingLink ? (
               <Link href={headingLink}>
                 <Heading as="h4" size="small" weight="medium" mb="0">
-                  {heading}
-                  <PiArrowSquareOut className="ml-2" />
+                  <Flex align="center">
+                    {heading}
+                    <PiArrowSquareOut className="ml-2" />
+                  </Flex>
                 </Heading>
               </Link>
             ) : (
@@ -116,7 +117,6 @@ export default function LinkedChange({
               {onDelete && (
                 <DeleteButton
                   className="btn-sm ml-4"
-                  useRadix={true}
                   text="Remove"
                   stopPropagation={true}
                   onClick={() => onDelete()}
@@ -128,31 +128,21 @@ export default function LinkedChange({
                   Edit
                 </Button>
               )}
-              {vc && experiment?.status === "draft" && (
-                <OpenVisualEditorLink
-                  visualChangeset={vc}
-                  useLink={true}
-                  button={<Button variant="ghost">Launch Visual Editor</Button>}
-                />
-              )}
+              {vc &&
+                experiment?.status === "draft" &&
+                !experiment?.nextScheduledStatusUpdate && (
+                  <OpenVisualEditorLink
+                    useRadix={false}
+                    visualChangeset={vc}
+                    useLink={true}
+                    button={
+                      <Button variant="ghost">Launch Visual Editor</Button>
+                    }
+                  />
+                )}
             </Box>
           )}
         </Flex>
-        {state && state === "draft" && changeType === "flag" && (
-          <>
-            <Callout status="warning" mt="4">
-              Feature is in <strong>Draft</strong> mode and will not allow
-              experiments to run. Publish Feature from the Feature Flag detail
-              page to start.{" "}
-              <Link
-                href={`/features/${feature?.id}`}
-                onClick={(e) => e.stopPropagation()}
-              >
-                Take me there <PiArrowSquareOut className="ml-1" />
-              </Link>
-            </Callout>
-          </>
-        )}
       </Box>
       <Box mt="4">{children}</Box>
     </Box>

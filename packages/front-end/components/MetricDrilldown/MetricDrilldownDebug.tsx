@@ -4,6 +4,7 @@ import {
   DifferenceType,
   StatsEngine,
   PValueCorrection,
+  SignificanceThresholds,
   BayesianVariationResponseIndividual,
   FrequentistVariationResponseIndividual,
   BaselineResponse,
@@ -30,6 +31,7 @@ interface MetricDrilldownDebugProps {
   variationFilter?: number[];
   setVariationFilter: (filter: number[] | undefined) => void;
   experimentId: string;
+  significanceThresholds: SignificanceThresholds;
   phase: number;
   variations: ExperimentReportVariation[];
   startDate: string;
@@ -123,6 +125,7 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
   variationFilter,
   setVariationFilter,
   experimentId,
+  significanceThresholds,
   phase,
   variations,
   startDate,
@@ -133,12 +136,11 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
   sequentialTestingEnabled,
   experimentStatus,
 }) => {
-  const {
-    snapshot,
-    analysis,
-    setAnalysisSettings,
-    mutateSnapshot: mutate,
-  } = useSnapshot();
+  const { snapshot, analysis, setAnalysisSettings, mutate } = useSnapshot();
+  // Forwarded to BaselineChooserColumnLabel inside the rendered tables,
+  // which appends analyses to the current snapshot in place — bind
+  // `inPlace: true` so the heavy fetch refreshes.
+  const mutateInPlace = () => mutate({ inPlace: true });
 
   const varianceReductionRows = useMemo(() => {
     if (!row) return [];
@@ -297,6 +299,7 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
             Variance Reduction Comparison
           </Heading>
           <ResultsTable
+            significanceThresholds={significanceThresholds}
             experimentId={experimentId}
             dateCreated={reportDate}
             isLatestPhase={isLatestPhase}
@@ -328,7 +331,7 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
             snapshot={snapshot}
             analysis={analysis}
             setAnalysisSettings={setAnalysisSettings}
-            mutate={mutate}
+            mutate={mutateInPlace}
           />
         </div>
       )}
@@ -339,6 +342,7 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
             Prior Comparison
           </Heading>
           <ResultsTable
+            significanceThresholds={significanceThresholds}
             experimentId={experimentId}
             dateCreated={reportDate}
             isLatestPhase={isLatestPhase}
@@ -370,7 +374,7 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
             snapshot={snapshot}
             analysis={analysis}
             setAnalysisSettings={setAnalysisSettings}
-            mutate={mutate}
+            mutate={mutateInPlace}
           />
         </div>
       )}
@@ -381,6 +385,7 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
             Capping Comparison
           </Heading>
           <ResultsTable
+            significanceThresholds={significanceThresholds}
             experimentId={experimentId}
             dateCreated={reportDate}
             isLatestPhase={isLatestPhase}
@@ -412,7 +417,7 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
             snapshot={snapshot}
             analysis={analysis}
             setAnalysisSettings={setAnalysisSettings}
-            mutate={mutate}
+            mutate={mutateInPlace}
           />
         </div>
       )}

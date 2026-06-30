@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { ownerField } from "./owner-field";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
+import { ownerEmailField, ownerField } from "./owner-field";
 import { namedSchema } from "./openapi-helpers";
 
 // Corresponds to schemas/Archetype.yaml
@@ -11,13 +12,20 @@ export const apiArchetypeValidator = namedSchema(
       dateCreated: z.string(),
       dateUpdated: z.string(),
       name: z.string(),
-      description: z.string().optional(),
+      description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
       owner: ownerField,
+      ownerEmail: ownerEmailField,
       isPublic: z.boolean(),
       attributes: z
         .record(z.string(), z.any())
         .describe("The attributes to set when using this Archetype"),
       projects: z.array(z.string()).optional(),
+      environments: z
+        .array(z.string())
+        .optional()
+        .describe(
+          "Limit this Archetype to specific environments. Omit or leave empty to apply to all environments.",
+        ),
     })
     .strict(),
 );
@@ -28,7 +36,7 @@ export type ApiArchetype = z.infer<typeof apiArchetypeValidator>;
 const postArchetypeBody = z
   .object({
     name: z.string(),
-    description: z.string().optional(),
+    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
     isPublic: z
       .boolean()
       .describe(
@@ -39,6 +47,12 @@ const postArchetypeBody = z
       .describe("The attributes to set when using this Archetype")
       .optional(),
     projects: z.array(z.string()).optional(),
+    environments: z
+      .array(z.string())
+      .optional()
+      .describe(
+        "Limit this Archetype to specific environments. Omit or leave empty to apply to all environments.",
+      ),
   })
   .strict();
 

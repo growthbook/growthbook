@@ -8,22 +8,24 @@ import { URLRedirectInterface } from "shared/types/url-redirect";
 import { useState } from "react";
 import { HoldoutInterfaceStringDates } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
-import AddLinkedChanges from "@/components/Experiment/LinkedChanges/AddLinkedChanges";
+import { Flex } from "@radix-ui/themes";
 import LinkedChanges from "@/components/Experiment/LinkedChanges/LinkedChanges";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import VariationsTable from "@/components/Experiment/VariationsTable";
+import { useAuth } from "@/services/auth";
+import EditVariationMetadataModal from "@/components/Experiment/EditVariationMetadataModal";
 import TrafficAndTargeting from "@/components/Experiment/TabbedPage/TrafficAndTargeting";
 import AnalysisSettings from "@/components/Experiment/TabbedPage/AnalysisSettings";
+import DecisionMakingSettings from "@/components/Experiment/TabbedPage/DecisionMakingSettings";
 import Callout from "@/ui/Callout";
-import Button from "@/ui/Button";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
 import LinkedExperimentsTable from "@/components/Holdout/LinkedExperimentsTable";
 import LinkedFeaturesTable from "@/components/Holdout/LinkedFeaturesTable";
 import EditEnvironmentsModal from "@/components/Holdout/EditEnvironmentsModal";
 import Link from "@/ui/Link";
 import Badge from "@/ui/Badge";
-import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
+import Checkbox from "@/ui/Checkbox";
+import Heading from "@/ui/Heading";
 import HoldoutEnvironments from "./HoldoutEnvironments";
 
 export interface Props {
@@ -35,6 +37,7 @@ export interface Props {
   urlRedirects: URLRedirectInterface[];
   mutate: () => void;
   editTargeting?: (() => void) | null;
+  editTraffic?: (() => void) | null;
   editVariations?: (() => void) | null;
   setFeatureModal: (open: boolean) => void;
   setVisualEditorModal: (open: boolean) => void;
@@ -54,6 +57,7 @@ export default function Implementation({
   urlRedirects,
   mutate,
   editTargeting,
+  editTraffic,
   editVariations,
   setFeatureModal,
   setVisualEditorModal,
@@ -65,7 +69,11 @@ export default function Implementation({
 }: Props) {
   const [showEditEnvironmentsModal, setShowEditEnvironmentsModal] =
     useState(false);
+  const [editMetadataIndex, setEditMetadataIndex] = useState<number | null>(
+    null,
+  );
   const phases = experiment.phases || [];
+  const { apiCall } = useAuth();
 
   const permissionsUtil = usePermissionsUtil();
 
@@ -77,28 +85,40 @@ export default function Implementation({
     canEditExperiment && permissionsUtil.canRunExperiment(experiment, []);
 
   const canAddLinkedChanges =
-    hasVisualEditorPermission && experiment.status === "draft";
+    hasVisualEditorPermission &&
+    experiment.status === "draft" &&
+    !experiment.nextScheduledStatusUpdate;
 
   const hasLinkedChanges =
     experiment.hasVisualChangesets ||
     linkedFeatures.length > 0 ||
     experiment.hasURLRedirects;
 
-  const numLinkedChanges =
-    (linkedFeatures.length || 0) +
-    (visualChangesets.length || 0) +
-    (urlRedirects.length || 0);
-
   const holdoutHasLinkedExpOrFeatures =
     holdoutExperiments?.length || holdoutFeatures?.length;
-
-  const showEditVariations = editVariations;
 
   const [tab, setTab] = useState<"experiments" | "features">(
     holdoutExperiments?.length ? "experiments" : "features",
   );
 
   const isHoldout = experiment.type === "holdout";
+  const canEditHoldoutDefaultState =
+    isHoldout &&
+    !!holdout &&
+    !experiment.archived &&
+    experiment.status !== "stopped" &&
+    permissionsUtil.canUpdateHoldout(holdout, { projects: holdout.projects });
+
+  async function setHoldoutDefaultState(isDefault: boolean) {
+    if (!holdout) return;
+    await apiCall(`/holdout/${holdout.id}`, {
+      method: "PUT",
+      body: JSON.stringify({
+        skipAsDefaultHoldout: !isDefault,
+      }),
+    });
+    await mutate();
+  }
 
   return (
     <>
@@ -110,30 +130,30 @@ export default function Implementation({
           mutate={mutate}
         />
       )}
+      {editMetadataIndex !== null && canEditExperiment && (
+        <EditVariationMetadataModal
+          experiment={experiment}
+          variationIndex={editMetadataIndex}
+          close={() => setEditMetadataIndex(null)}
+          mutate={mutate}
+          source="implementation-tab"
+        />
+      )}
       <div className="my-4">
-        <h2>Implementation</h2>
-        {!isHoldout && (
-          <div className="box my-3 mb-4 px-2 py-3">
-            <div className="d-flex flex-row align-items-center justify-content-between text-dark px-3 mb-3">
-              <Heading as="h4" size="small" mb="0">
-                Variations
-              </Heading>
-              <div className="flex-1" />
-              {showEditVariations ? (
-                <Button variant="ghost" onClick={editVariations}>
-                  Edit
-                </Button>
-              ) : null}
-            </div>
-
-            <VariationsTable
-              experiment={experiment}
-              canEditExperiment={canEditExperiment}
-              mutate={mutate}
-            />
-          </div>
-        )}
-        {hasLinkedChanges && !isHoldout ? (
+        <Heading as="h2" size="large" color="text-high" mb="2">
+          Implementation
+        </Heading>
+        <TrafficAndTargeting
+          experiment={experiment}
+          editTraffic={
+            experiment.nextScheduledStatusUpdate ? null : editTraffic
+          }
+          editTargeting={
+            experiment.nextScheduledStatusUpdate ? null : editTargeting
+          }
+          phaseIndex={phases.length - 1}
+        />
+        {!isHoldout ? (
           <LinkedChanges
             linkedFeatures={linkedFeatures}
             experiment={experiment}
@@ -147,18 +167,11 @@ export default function Implementation({
             setVisualEditorModal={setVisualEditorModal}
             setFeatureModal={setFeatureModal}
             setUrlRedirectModal={setUrlRedirectModal}
+            onAddVariation={editVariations ?? undefined}
+            canEditExperiment={canEditExperiment}
+            setEditVariationIndex={setEditMetadataIndex}
           />
         ) : null}
-        {!isHoldout && (
-          <AddLinkedChanges
-            experiment={experiment}
-            numLinkedChanges={numLinkedChanges}
-            hasLinkedFeatures={linkedFeatures.length > 0}
-            setFeatureModal={setFeatureModal}
-            setVisualEditorModal={setVisualEditorModal}
-            setUrlRedirectModal={setUrlRedirectModal}
-          />
-        )}
 
         {isHoldout && holdout ? (
           <HoldoutEnvironments
@@ -233,9 +246,23 @@ export default function Implementation({
                 )}
               </>
             )}
+            <Flex align="center" justify="between" mt="3">
+              <Checkbox
+                value={!holdout.skipAsDefaultHoldout}
+                disabled={!canEditHoldoutDefaultState}
+                setValue={(isDefault) => {
+                  void setHoldoutDefaultState(isDefault);
+                }}
+                label="Use this holdout as a default for new experiments or features."
+                weight="regular"
+              />
+            </Flex>
           </div>
         ) : null}
-        {experiment.status !== "draft" && !hasLinkedChanges && !isHoldout ? (
+        {(experiment.status !== "draft" ||
+          !!experiment.nextScheduledStatusUpdate) &&
+        !hasLinkedChanges &&
+        !isHoldout ? (
           <Callout status="info" mb="4">
             This experiment has no linked GrowthBook implementation (linked
             feature flag, visual editor changes, or URL redirect).{" "}
@@ -244,16 +271,16 @@ export default function Implementation({
               : "The implementation, traffic, and targeting may be managed by an external system."}
           </Callout>
         ) : null}
-        <TrafficAndTargeting
-          experiment={experiment}
-          editTargeting={editTargeting}
-          phaseIndex={phases.length - 1}
-        />
         <AnalysisSettings
           experiment={experiment}
           mutate={mutate}
           envs={envs}
-          canEdit={!!editTargeting}
+          canEdit={!!editTargeting && !experiment.nextScheduledStatusUpdate}
+        />
+        <DecisionMakingSettings
+          experiment={experiment}
+          mutate={mutate}
+          canEdit={!!editTargeting && !experiment.nextScheduledStatusUpdate}
         />
       </div>
     </>

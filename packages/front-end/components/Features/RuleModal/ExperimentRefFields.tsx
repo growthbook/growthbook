@@ -1,12 +1,18 @@
 import { useFormContext } from "react-hook-form";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import { date } from "shared/dates";
-import Link from "next/link";
 import React from "react";
 import { PiClock } from "react-icons/pi";
-import { Box } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { getLatestPhaseVariations } from "shared/experiments";
+import {
+  parsePlainJSONObject,
+  stripDefaultsForSparse,
+  expandSparseToFull,
+} from "shared/util";
+import Link from "@/ui/Link";
 import Field from "@/components/Forms/Field";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import SelectField from "@/components/Forms/SelectField";
@@ -20,6 +26,10 @@ import { useExperiments } from "@/hooks/useExperiments";
 import ScheduleInputs from "@/components/Features/LegacyScheduleInputs";
 import HelperText from "@/ui/HelperText";
 import Callout from "@/ui/Callout";
+import RuleEnvironmentScopeField, {
+  type EnvScopeProps,
+} from "@/components/Features/RuleModal/EnvironmentScopeField";
+import SparsePatchToggle from "@/components/Features/SparsePatchToggle";
 
 export default function ExperimentRefFields({
   feature,
@@ -29,6 +39,7 @@ export default function ExperimentRefFields({
   noSchedule,
   scheduleToggleEnabled,
   setScheduleToggleEnabled,
+  envScope,
 }: {
   feature: FeatureInterface;
   existingRule: boolean;
@@ -37,6 +48,7 @@ export default function ExperimentRefFields({
   noSchedule?: boolean;
   scheduleToggleEnabled?: boolean;
   setScheduleToggleEnabled?: (b: boolean) => void;
+  envScope: EnvScopeProps;
 }) {
   const form = useFormContext();
 
@@ -76,13 +88,25 @@ export default function ExperimentRefFields({
             if (exp) {
               const controlValue = getFeatureDefaultValue(feature);
               const variationValue = getDefaultVariationValue(controlValue);
+              // When sparse is on (e.g. org default), seed each variation as a
+              // clean patch rather than the full default the rule is otherwise
+              // populated with.
+              const isSparse =
+                !!form.watch("sparse") &&
+                feature.valueType === "json" &&
+                parsePlainJSONObject(controlValue) !== null;
               form.setValue("experimentId", experimentId);
               form.setValue(
                 "variations",
-                getLatestPhaseVariations(exp).map((v, i) => ({
-                  variationId: v.id,
-                  value: i ? variationValue : controlValue,
-                })),
+                getLatestPhaseVariations(exp).map((v, i) => {
+                  const raw = i ? variationValue : controlValue;
+                  return {
+                    variationId: v.id,
+                    value: isSparse
+                      ? stripDefaultsForSparse(raw, controlValue)
+                      : raw,
+                  };
+                }),
               );
             }
           }}
@@ -150,7 +174,32 @@ export default function ExperimentRefFields({
 
       {selectedExperiment && (
         <Box px="5" pt="5" pb="1" mb="4" className="bg-highlight rounded">
-          <label className="mb-3">Variation Values</label>
+          <Flex align="center" gap="3" mb="3">
+            <label className="mb-0">Variation Values</label>
+            {feature.valueType === "json" &&
+              parsePlainJSONObject(feature.defaultValue) !== null && (
+                <SparsePatchToggle
+                  checked={!!form.watch("sparse")}
+                  onChange={(checked) => {
+                    // Rewrite every variation value so the editor isn't left
+                    // with a default-laden patch (on) or a bare patch shown as
+                    // the full value (off).
+                    const def = feature.defaultValue;
+                    (form.getValues("variations") || []).forEach(
+                      (variation, i) => {
+                        form.setValue(
+                          `variations.${i}.value`,
+                          checked
+                            ? stripDefaultsForSparse(variation.value, def)
+                            : expandSparseToFull(variation.value, def),
+                        );
+                      },
+                    );
+                    form.setValue("sparse", checked);
+                  }}
+                />
+              )}
+          </Flex>
           {getLatestPhaseVariations(selectedExperiment).map((v, i) => (
             <FeatureValueField
               key={v.id}
@@ -164,6 +213,7 @@ export default function ExperimentRefFields({
               useCodeInput={true}
               showFullscreenButton={true}
               codeInputDefaultHeight={80}
+              sparse={!!form.watch("sparse")}
             />
           ))}
         </Box>
@@ -173,9 +223,12 @@ export default function ExperimentRefFields({
         label="Description"
         textarea
         minRows={1}
+        maxLength={MAX_DESCRIPTION_LENGTH}
         {...form.register("description")}
         placeholder="Short human-readable description of the rule"
       />
+
+      <RuleEnvironmentScopeField {...envScope} my="5" />
 
       {!noSchedule && setScheduleToggleEnabled ? (
         <div className="mt-4 mb-3">

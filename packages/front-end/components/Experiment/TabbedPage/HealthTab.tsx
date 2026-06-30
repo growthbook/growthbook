@@ -1,10 +1,11 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { getLatestPhaseVariations } from "shared/experiments";
-import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { DEFAULT_DECISION_FRAMEWORK_ENABLED } from "shared/constants";
 import { Flex } from "@radix-ui/themes";
+import Link from "@/ui/Link";
 import SRMCard from "@/components/HealthTab/SRMCard";
+import CovariateImbalanceCard from "@/components/HealthTab/CovariateImbalanceCard";
 import MultipleExposuresCard from "@/components/HealthTab/MultipleExposuresCard";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -44,9 +45,10 @@ export default function HealthTab({
     error,
     dimensionless: snapshot,
     phase,
-    mutateSnapshot,
+    mutate,
     setAnalysisSettings,
   } = useSnapshot();
+
   const {
     runHealthTrafficQuery,
     decisionFrameworkEnabled,
@@ -68,6 +70,14 @@ export default function HealthTab({
       permissionsUtil.canUpdateDataSourceSettings(datasource)) ||
     false;
   const [healthIssues, setHealthIssues] = useState<IssueValue[]>([]);
+  // Cards bubble issues via effects that re-fire on every snapshot reference
+  // change, even when the underlying issue is one we've already counted. The
+  // parent badge counter (`onHealthNotify`) is just an incrementer, so without
+  // a synchronous dedupe it would drift up on every poll/refetch. A Set ref
+  // is the dedupe source of truth.
+  // Ideally we have a separate service that does the health compuatation and it
+  // doesn't happen inside each card. TODO later.
+  const seenIssueValuesRef = useRef<Set<string>>(new Set());
   const [setupModalOpen, setSetupModalOpen] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
 
@@ -83,26 +93,29 @@ export default function HealthTab({
     experiment,
     phase,
     refreshOrganization,
-    mutateSnapshot,
+    mutate,
     setAnalysisSettings,
     setLoading,
     resetResultsSettings,
   };
 
-  // Clean up notification counter & health issues before unmounting
+  // Reset the parent counter, the local issues list, and the dedupe set
+  // together whenever the snapshot identity changes (or we unmount). Keeping
+  // these three in lockstep is what guarantees the badge counts only issues
+  // present in the current snapshot.
   useEffect(() => {
     return () => {
+      seenIssueValuesRef.current = new Set();
       onSnapshotUpdate();
       setHealthIssues([]);
     };
-  }, [experiment, snapshot, onSnapshotUpdate]);
+  }, [experiment.id, snapshot?.id, onSnapshotUpdate]);
 
   const handleHealthNotification = useCallback(
     (issue: IssueValue) => {
-      setHealthIssues((prev) => {
-        const issueSet: Set<IssueValue> = new Set([...prev, issue]);
-        return [...issueSet];
-      });
+      if (seenIssueValuesRef.current.has(issue.value)) return;
+      seenIssueValuesRef.current.add(issue.value);
+      setHealthIssues((prev) => [...prev, issue]);
       onHealthNotify();
     },
     [onHealthNotify],
@@ -298,20 +311,23 @@ export default function HealthTab({
           />
         )}
       </div>
-
+      {!isBandit && (
+        <div id="covariateBalanceCheck" style={{ scrollMarginTop: "100px" }}>
+          <CovariateImbalanceCard
+            experiment={experiment}
+            variations={variations}
+            snapshot={snapshot}
+            onNotify={handleHealthNotification}
+          />
+        </div>
+      )}
       {showMultipleExposures && (
-        <div className="row">
-          <div
-            className={!isBandit ? "col-8" : "col-12"}
-            id="multipleExposures"
-            style={{ scrollMarginTop: "100px" }}
-          >
-            <MultipleExposuresCard
-              totalUsers={totalUsers}
-              onNotify={handleHealthNotification}
-              snapshot={snapshot}
-            />
-          </div>
+        <div id="multipleExposures" style={{ scrollMarginTop: "100px" }}>
+          <MultipleExposuresCard
+            totalUsers={totalUsers}
+            onNotify={handleHealthNotification}
+            snapshot={snapshot}
+          />
         </div>
       )}
 

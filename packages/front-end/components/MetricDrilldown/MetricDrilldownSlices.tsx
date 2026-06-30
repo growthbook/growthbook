@@ -8,6 +8,7 @@ import {
   DifferenceType,
   StatsEngine,
   PValueCorrection,
+  SignificanceThresholds,
 } from "shared/types/stats";
 import { ExperimentStatus } from "shared/types/experiment";
 import { ExperimentReportVariation } from "shared/types/report";
@@ -22,6 +23,7 @@ import { useTableSorting } from "@/hooks/useTableSorting";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { filterRowsForMetricDrilldown } from "./helpers";
+import { type DrilldownDimensionInfo } from "./useMetricDrilldownContext";
 
 interface MetricDrilldownSlicesProps {
   metric: ExperimentMetricInterface;
@@ -38,6 +40,7 @@ interface MetricDrilldownSlicesProps {
   setVariationFilter: (filter: number[] | undefined) => void;
   // Props for ResultsTable
   experimentId: string;
+  significanceThresholds: SignificanceThresholds;
   phase: number;
   variations: ExperimentReportVariation[];
   startDate: string;
@@ -59,6 +62,7 @@ interface MetricDrilldownSlicesProps {
   // SSR polyfills for public pages
   ssrPolyfills?: SSRPolyfills;
   hideTimeSeries?: boolean;
+  dimensionInfo?: DrilldownDimensionInfo;
 }
 
 const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
@@ -72,6 +76,7 @@ const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
   variationFilter,
   setVariationFilter,
   experimentId,
+  significanceThresholds,
   phase,
   variations,
   startDate,
@@ -89,17 +94,13 @@ const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
   setVisibleTimeSeriesRowIds,
   ssrPolyfills,
   hideTimeSeries,
+  dimensionInfo,
 }) => {
   const { hasCommercialFeature } = useUser();
 
   // Get snapshot context - this will be the local context from LocalSnapshotProvider
   // when rendered inside MetricDrilldownModal
-  const {
-    snapshot,
-    analysis,
-    setAnalysisSettings,
-    mutateSnapshot: mutate,
-  } = useSnapshot();
+  const { snapshot, analysis, setAnalysisSettings, mutate } = useSnapshot();
 
   // Check the owning org's features (via SSR data) first, then fall back to current user's org
   const hasMetricSlicesFeature =
@@ -192,6 +193,7 @@ const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
 
       <ResultsTable
         experimentId={experimentId}
+        significanceThresholds={significanceThresholds}
         dateCreated={reportDate}
         isLatestPhase={isLatestPhase}
         phase={phase}
@@ -248,7 +250,12 @@ const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
         snapshot={snapshot}
         analysis={analysis}
         setAnalysisSettings={setAnalysisSettings}
-        mutate={mutate}
+        // Forwarded to BaselineChooserColumnLabel, which appends analyses
+        // to the current snapshot in place — need `inPlace: true` so the
+        // heavy fetch refreshes (id-keyed auto-upgrade won't fire here).
+        mutate={() => mutate({ inPlace: true })}
+        dimensionId={dimensionInfo?.id}
+        dimensionValue={dimensionInfo?.rawValue}
       />
     </Box>
   );

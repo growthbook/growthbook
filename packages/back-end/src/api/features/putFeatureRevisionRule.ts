@@ -1,7 +1,8 @@
-import cloneDeep from "lodash/cloneDeep";
 import isEqual from "lodash/isEqual";
+import { ruleAppliesToEnv, resetReviewOnChange } from "shared/util";
 import {
   RevisionRampCreateAction,
+  RevisionRampUpdateAction,
   ExperimentRefRule,
   RolloutRule,
   ForceRule,
@@ -10,9 +11,9 @@ import {
   RulePatchInput,
   putFeatureRevisionRuleValidator,
 } from "shared/validators";
-import { resetReviewOnChange } from "shared/util";
 import { RevisionChanges } from "shared/types/feature-revision";
-import { revisionToApiInterface } from "back-end/src/services/features";
+import { updateRuleAtEnvIndex } from "back-end/src/util/revisionRuleOps";
+import { toApiRevision } from "back-end/src/services/features";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -27,12 +28,16 @@ import {
   isDraftStatus,
   normalizeInlineRampSchedule,
   buildScheduleRampAction,
+  validateRuleAttributes,
   validateRuleConditions,
   validateRuleReferences,
   resolveOrCreateRevision,
 } from "./validations";
 
-function applyPatch(existing: FeatureRule, patch: RulePatchInput): FeatureRule {
+export function applyPatch(
+  existing: FeatureRule,
+  patch: RulePatchInput,
+): FeatureRule {
   const type = existing.type;
 
   if (patch.type !== undefined && patch.type !== type) {
@@ -77,6 +82,7 @@ function applyPatch(existing: FeatureRule, patch: RulePatchInput): FeatureRule {
         experimentId: patch.experimentId,
       }),
       ...(patch.variations !== undefined && { variations: patch.variations }),
+      ...(patch.sparse !== undefined && { sparse: patch.sparse }),
     };
     return updated;
   }
@@ -148,6 +154,10 @@ function applyPatch(existing: FeatureRule, patch: RulePatchInput): FeatureRule {
         coverage: effectiveCoverage,
         hashAttribute: effectiveHashAttr,
         ...(patch.seed !== undefined && { seed: patch.seed }),
+        ...(patch.hashVersion !== undefined && {
+          hashVersion: patch.hashVersion,
+        }),
+        ...(patch.sparse !== undefined && { sparse: patch.sparse }),
       };
       return updated;
     } else {
@@ -163,6 +173,7 @@ function applyPatch(existing: FeatureRule, patch: RulePatchInput): FeatureRule {
           hashAttribute: effectiveHashAttr,
         }),
         ...(patch.seed !== undefined && { seed: patch.seed }),
+        ...(patch.sparse !== undefined && { sparse: patch.sparse }),
       };
       return updated;
     }
@@ -204,16 +215,21 @@ export const putFeatureRevisionRule = createApiRequestHandler(
       );
     }
 
-    const newRules = cloneDeep(revision.rules ?? {});
-    const envRules = newRules[environment] ?? [];
-    const idx = envRules.findIndex((r) => r.id === req.params.ruleId);
+    // Locate the target rule by (env, id) against the flat v2 array. We use
+    // the env-projected slice so that the mental model "rule X in env Y"
+    // still applies even though storage is flat.
+    const flatRules: FeatureRule[] = revision.rules ?? [];
+    const envProjected = flatRules.filter((r) =>
+      ruleAppliesToEnv(r, environment),
+    );
+    const idx = envProjected.findIndex((r) => r.id === req.params.ruleId);
     if (idx === -1) {
       throw new NotFoundError(
         `Rule "${req.params.ruleId}" not found in environment "${environment}"`,
       );
     }
 
-    const oldRule = envRules[idx];
+    const oldRule = envProjected[idx];
 
     // Once a safe rollout is running, block edits to fields that would
     // corrupt the running experiment.
@@ -258,18 +274,15 @@ export const putFeatureRevisionRule = createApiRequestHandler(
       Boolean(inlineRampSchedule) ||
       (!inlineRampSchedule &&
         (Boolean(schedule?.startDate) || Boolean(schedule?.endDate)));
+    let liveSchedulesForRule: Awaited<
+      ReturnType<typeof req.context.models.rampSchedules.findByTargetRule>
+    > = [];
     if (wantsNewSchedule) {
-      const liveSchedules =
+      liveSchedulesForRule =
         await req.context.models.rampSchedules.findByTargetRule(
           req.params.ruleId,
           environment,
         );
-      if (liveSchedules.length > 0) {
-        throw new BadRequestError(
-          `Rule "${req.params.ruleId}" already has a live ramp schedule.` +
-            ` Update it via PUT /api/v1/ramp-schedules/${liveSchedules[0].id}.`,
-        );
-      }
     }
     const updatedRule = applyPatch(oldRule, patch);
 
@@ -281,6 +294,23 @@ export const putFeatureRevisionRule = createApiRequestHandler(
       prerequisites:
         patch.prerequisites !== undefined ? updatedRule.prerequisites : [],
     });
+    // Attribute registration check: only validate the fields the caller
+    // actually patched. patch is the Zod-typed RulePatchInput, so condition
+    // and hashAttribute are already string | undefined. fallbackAttribute
+    // isn't on the patch schema at all.
+    const changedAttributes: {
+      condition?: string;
+      hashAttribute?: string;
+    } = {};
+    if (patch.condition !== undefined) {
+      changedAttributes.condition = patch.condition;
+    }
+    if (patch.hashAttribute !== undefined) {
+      changedAttributes.hashAttribute = patch.hashAttribute;
+    }
+    if (Object.keys(changedAttributes).length > 0) {
+      validateRuleAttributes(changedAttributes, req.context, feature.project);
+    }
     if (
       patch.condition !== undefined ||
       patch.savedGroups !== undefined ||
@@ -299,18 +329,19 @@ export const putFeatureRevisionRule = createApiRequestHandler(
       );
     }
 
-    envRules[idx] = updatedRule;
-    newRules[environment] = envRules;
+    // Fold the updated rule back into the flat array, preserving scope.
+    const { rules: newRules } = updateRuleAtEnvIndex(
+      flatRules,
+      environment,
+      idx,
+      () => updatedRule,
+    );
 
     const changes: RevisionChanges = { rules: newRules };
 
     // Priority: rampSchedule > schedule shorthand (legacy: scheduleRules).
     let resolvedRampAction = inlineRampSchedule
-      ? normalizeInlineRampSchedule(
-          inlineRampSchedule,
-          updatedRule.id,
-          environment,
-        )
+      ? normalizeInlineRampSchedule(inlineRampSchedule, updatedRule.id)
       : undefined;
     if (!resolvedRampAction && (schedule?.startDate || schedule?.endDate)) {
       const hasLegacySchedule =
@@ -328,7 +359,6 @@ export const putFeatureRevisionRule = createApiRequestHandler(
         if (schedule.startDate) updatedRule.enabled = false;
         resolvedRampAction = buildScheduleRampAction(
           updatedRule.id,
-          environment,
           schedule.startDate,
           schedule.endDate,
         );
@@ -339,9 +369,21 @@ export const putFeatureRevisionRule = createApiRequestHandler(
       const existing = revision.rampActions ?? [];
       const filtered = existing.filter(
         (a) =>
+          !("ruleId" in a) ||
           a.ruleId !== (resolvedRampAction as RevisionRampCreateAction).ruleId,
       );
-      changes.rampActions = [...filtered, resolvedRampAction];
+      const nextRampActions = [...filtered];
+      const existingLiveSchedule = liveSchedulesForRule[0];
+      if (existingLiveSchedule) {
+        nextRampActions.push({
+          ...(resolvedRampAction as RevisionRampCreateAction),
+          mode: "update",
+          rampScheduleId: existingLiveSchedule.id,
+        } as RevisionRampUpdateAction);
+      } else {
+        nextRampActions.push(resolvedRampAction);
+      }
+      changes.rampActions = nextRampActions;
     }
 
     await updateRevision(
@@ -367,6 +409,7 @@ export const putFeatureRevisionRule = createApiRequestHandler(
       context: req.context,
       organization: req.organization.id,
       featureId: feature.id,
+      feature,
       version: revision.version,
     });
     const finalRevision = updated ?? revision;
@@ -382,7 +425,7 @@ export const putFeatureRevisionRule = createApiRequestHandler(
       },
     );
 
-    return { revision: revisionToApiInterface(finalRevision) };
+    return { revision: toApiRevision(finalRevision, req.context, feature) };
   } catch (err) {
     await discardIfJustCreated(req.context, revision, created);
     throw err;

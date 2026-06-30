@@ -1,12 +1,11 @@
-import React, { FC, useMemo } from "react";
+import { FC, useMemo } from "react";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { useForm } from "react-hook-form";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import { Box } from "@radix-ui/themes";
-import Modal from "@/components/Modal";
-import Field from "@/components/Forms/Field";
-import Text from "@/ui/Text";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import Field from "@/components/Forms/Field";
 
 type EditIdentifierTypeProps = {
   dataSource: DataSourceInterfaceWithParams;
@@ -15,6 +14,8 @@ type EditIdentifierTypeProps = {
   userIdType: string;
   description?: string;
   attributes?: string[];
+  /** Event forwarder provisions hash-attribute identifier types; only description is editable. */
+  isEventForwarderManagedType?: boolean;
   onSave: (
     name: string,
     description: string,
@@ -28,6 +29,7 @@ export const EditIdentifierType: FC<EditIdentifierTypeProps> = ({
   userIdType,
   description,
   attributes,
+  isEventForwarderManagedType = false,
   onSave,
   onCancel,
 }) => {
@@ -95,43 +97,36 @@ export const EditIdentifierType: FC<EditIdentifierTypeProps> = ({
     : "";
 
   return (
-    <Modal
+    <ModalStandard
       trackingEventModalType=""
       open={true}
       submit={handleSubmit}
       close={onCancel}
       size="md"
       header={`${mode === "edit" ? "Edit" : "Add"} Identifier Type`}
-      cta="Save"
+      subheader="Define all the different units you use to split traffic in an
+            experiment"
       ctaEnabled={saveEnabled}
-      autoFocusSelector="#id-modal-identifier-type"
-      useRadixButton
     >
       <>
-        <Box mb="4">
-          <Text size="medium" color="text-mid">
-            Define all the different units you use to split traffic in an
-            experiment. Some examples: user_id, device_id, ip_address.
-          </Text>
-        </Box>
-
         <Field
           label="Identifier Type"
           {...form.register("idType")}
           pattern="^[a-z_]+$"
-          readOnly={mode === "edit"}
+          readOnly={mode === "edit" || isEventForwarderManagedType}
           required
           error={fieldError}
           helpText="Only lowercase letters and underscores allowed. For example, 'user_id' or 'device_cookie'."
         />
         <Field
           label="Description (optional)"
+          maxLength={MAX_DESCRIPTION_LENGTH}
           {...form.register("description")}
           minRows={1}
           maxRows={5}
           textarea
         />
-        {hashAttributes && (
+        {hashAttributes && !isEventForwarderManagedType && (
           <MultiSelectField
             label="Hash Attributes"
             value={form.watch("attributes")}
@@ -146,6 +141,6 @@ export const EditIdentifierType: FC<EditIdentifierTypeProps> = ({
           />
         )}
       </>
-    </Modal>
+    </ModalStandard>
   );
 };

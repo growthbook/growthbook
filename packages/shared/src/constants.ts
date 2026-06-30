@@ -1,10 +1,18 @@
 import { FactMetricType } from "shared/types/fact-table";
 import { EntityEvents } from "shared/types/audit";
+import { ApprovalFlowConfigurations } from "shared/types/organization";
+
+// The object property that carries a JSON constant's `$extends` reference list.
+// Single source of truth shared by the resolver (sdk-versioning/resolveConstants)
+// and the reference detector (validators/constant) so they can't drift.
+export const CONSTANT_EXTENDS_KEY = "$extends";
 
 export const DEFAULT_STATS_ENGINE = "bayesian" as const;
 export const DEFAULT_METRIC_HISTOGRAM_BINS = 25;
+export const DEFAULT_CONFIDENCE_LEVEL = 0.95;
 export const DEFAULT_P_VALUE_THRESHOLD = 0.05;
 export const DEFAULT_P_VALUE_CORRECTION = null;
+export const DEFAULT_P_VALUE_THRESHOLD_FOR_COVARIATE_IMBALANCE = 0.001;
 export const DEFAULT_GUARDRAIL_ALPHA = 0.05; //used for early stopping for safe
 // Metric defaults
 export const DEFAULT_METRIC_WINDOW = "conversion";
@@ -39,6 +47,8 @@ export const DEFAULT_POST_STRATIFICATION_ENABLED = true;
 // Lookback Override:
 export const DEFAULT_LOOKBACK_OVERRIDE_VALUE_UNIT = "days";
 export const DEFAULT_LOOKBACK_OVERRIDE_VALUE_DAYS = 14;
+export const DEFAULT_TOP_VALUES_LOOKBACK_VALUE = 14;
+export const DEFAULT_TOP_VALUES_LOOKBACK_UNIT = "days";
 
 // Query settings
 export const DEFAULT_TEST_QUERY_DAYS = 30;
@@ -52,6 +62,10 @@ export const NULL_DIMENSION_VALUE = "__NULL_DIMENSION";
 export const NULL_VARIATION_VALUE = "__NULL_VARIATION";
 export const NULL_DIMENSION_DISPLAY = "NULL (unset)";
 export const PRECOMPUTED_DIMENSION_PREFIX = "precomputed:";
+export const MAX_PRECOMPUTED_UNIT_DIMENSIONS = 3;
+
+// Max length for entity description fields (features, experiments, metrics, etc.)
+export const MAX_DESCRIPTION_LENGTH = 10000;
 // Colors:
 // export const variant_null = "#999";
 // export const variant_0 = "#4f69ff";
@@ -73,6 +87,7 @@ export const OWNER_JOB_TITLES = {
 export const USAGE_INTENTS = {
   featureFlags: "Feature Flags",
   experiments: "Experiments",
+  productAnalytics: "Product Analytics",
 } as const;
 
 // Health
@@ -94,6 +109,16 @@ export const FALLBACK_EXPERIMENT_MAX_LENGTH_DAYS = 180;
 export const SAFE_ROLLOUT_TRACKING_KEY_PREFIX = "srk_";
 
 export const DEFAULT_REQUIRE_PROJECT_FOR_FEATURES = false;
+export const DEFAULT_REQUIRE_PROJECT_FOR_SDK_CONNECTIONS = false;
+
+export const DEFAULT_REVISION_CONFIGURATION: ApprovalFlowConfigurations = {
+  savedGroups: [
+    {
+      required: false,
+      requireMetadataReview: true,
+    },
+  ],
+};
 
 // Default configuration for Safe Rollout
 export const SAFE_ROLLOUT_VARIATIONS = [
@@ -161,6 +186,8 @@ export const attributeDataTypes = [
 // for audits
 export const entityEvents = {
   agreement: ["create", "update", "delete"],
+  approvalFlow: ["create", "update", "delete"],
+  revision: ["create", "update", "delete"],
   aiPrompt: ["create", "update", "delete"],
   attribute: ["create", "update", "delete"],
   experiment: [
@@ -204,6 +231,7 @@ export const entityEvents = {
     "revision.requestChanges",
     "revision.comment",
     "revision.discard",
+    "revision.reopen",
     "revision.rebase",
   ],
   featureRevisionLog: ["create", "update", "delete"],
@@ -219,6 +247,7 @@ export const entityEvents = {
   organization: ["create", "update", "delete", "disable", "enable"],
   installation: ["update"],
   savedGroup: ["created", "deleted", "updated"],
+  constant: ["created", "updated", "deleted"],
   segment: ["create", "delete", "update"],
   archetype: ["created", "deleted", "updated"],
   team: ["create", "delete", "update"],
@@ -238,8 +267,15 @@ export const entityEvents = {
   customHook: ["create", "update", "delete"],
   ssoConnection: ["create", "update", "delete"],
   sqlResultChunk: ["create", "update", "delete"],
-  rampSchedule: ["create", "update", "delete"],
+  rampSchedule: [
+    "create",
+    "update",
+    "delete",
+    "step-approved",
+    "approval-bypassed",
+  ],
   rampScheduleTemplate: ["create", "update", "delete"],
+  eventForwarderConfig: ["create", "update", "delete", "teardownFailure"],
 } as const;
 
 export const entityTypes = Object.keys(entityEvents) as [keyof EntityEvents];

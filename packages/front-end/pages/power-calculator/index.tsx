@@ -37,8 +37,8 @@ const INITIAL_PAGE_SETTINGS: PageSettings = {
 const PowerCalculationPage = (): React.ReactElement => {
   const orgSettings = useOrgSettings();
 
-  const pValueThreshold = usePValueThreshold();
-  const { ciLower } = useConfidenceLevels();
+  const pValueThreshold = usePValueThreshold(undefined);
+  const { ciLower } = useConfidenceLevels(undefined);
 
   const initialJSONParams = localStorage.getItem(LOCAL_STORAGE_KEY);
 

@@ -1,7 +1,10 @@
 import uniqid from "uniqid";
 import { postDimensionValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { resolveOwnerToUserId } from "back-end/src/services/owner";
+import {
+  resolveOwnerToUserId,
+  resolveOwnerEmail,
+} from "back-end/src/services/owner";
 import {
   createDimension,
   toDimensionApiInterface,
@@ -10,6 +13,10 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 
 export const postDimension = createApiRequestHandler(postDimensionValidator)(
   async (req) => {
+    if (!req.context.permissions.canCreateDimension()) {
+      req.context.permissions.throwPermissionError();
+    }
+
     const organization = req.organization.id;
 
     const datasourceDoc = await getDataSourceById(
@@ -35,7 +42,10 @@ export const postDimension = createApiRequestHandler(postDimensionValidator)(
     });
 
     return {
-      dimension: toDimensionApiInterface(dimension),
+      dimension: await resolveOwnerEmail(
+        toDimensionApiInterface(dimension),
+        req.context,
+      ),
     };
   },
 );

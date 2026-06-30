@@ -1,28 +1,33 @@
 import { SnapshotMetric } from "shared/types/experiment-snapshot";
-import React, { DetailedHTMLProps, HTMLAttributes, useCallback } from "react";
+import React, { DetailedHTMLProps, HTMLAttributes } from "react";
 import {
   ExperimentMetricInterface,
   hasEnoughData,
   isStatSig,
 } from "shared/experiments";
-import { DifferenceType, StatsEngine } from "shared/types/stats";
-import useConfidenceLevels from "@/hooks/useConfidenceLevels";
+import {
+  DifferenceType,
+  SignificanceThresholds,
+  StatsEngine,
+} from "shared/types/stats";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
-import usePValueThreshold from "@/hooks/usePValueThreshold";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { RowResults } from "@/services/experiments";
 import AlignedGraph from "./AlignedGraph";
+import { StatusLabels } from "./ExperimentResultTooltipContent/ExperimentResultTooltipContent";
 import { useResultPopover } from "./useResultPopover";
 
 interface Props
   extends DetailedHTMLProps<HTMLAttributes<SVGPathElement>, SVGPathElement> {
   metric: ExperimentMetricInterface;
+  significanceThresholds: SignificanceThresholds;
   baseline: SnapshotMetric;
   stats: SnapshotMetric;
   domain: [number, number];
   id: string;
   barType?: "pill" | "violin";
-  barFillType?: "gradient" | "significant";
+  barFillType?: "gradient" | "significant" | "color";
+  barFillColor?: string;
   significant?: boolean;
   disabled?: boolean;
   graphWidth?: number;
@@ -45,16 +50,20 @@ interface Props
   minPercentChange?: number;
   currentMetricTotal?: number;
   pValueAdjustmentEnabled?: boolean;
+  statusLabels?: StatusLabels;
+  oneSided?: boolean;
 }
 
 export default function PercentGraph({
   metric,
+  significanceThresholds,
   baseline,
   stats,
   domain,
   id,
   barType: _barType,
   barFillType = "gradient",
+  barFillColor,
   significant,
   disabled,
   graphWidth,
@@ -77,18 +86,16 @@ export default function PercentGraph({
   minPercentChange = 0,
   currentMetricTotal = 0,
   pValueAdjustmentEnabled,
+  statusLabels,
+  oneSided = false,
 }: Props) {
   const { metricDefaults: _metricDefaults } = useOrganizationMetricDefaults();
-  const _confidenceLevels = useConfidenceLevels();
-  const _pValueThreshold = usePValueThreshold();
 
   const metricDefaults =
     ssrPolyfills?.useOrganizationMetricDefaults()?.metricDefaults ||
     _metricDefaults;
-  const { ciUpper, ciLower } =
-    ssrPolyfills?.useConfidenceLevels() || _confidenceLevels;
-  const pValueThreshold =
-    ssrPolyfills?.usePValueThreshold() || _pValueThreshold;
+  const { bayesianConfidenceLevels, pValueThreshold } = significanceThresholds;
+  const { ciUpper, ciLower } = bayesianConfidenceLevels;
 
   const enoughData = hasEnoughData(baseline, stats, metric, metricDefaults);
 
@@ -112,16 +119,13 @@ export default function PercentGraph({
 
   const showPopover = showGraph && stats?.ci;
 
-  const {
-    handleMouseEnter: popoverMouseEnter,
-    handleMouseLeave: popoverMouseLeave,
-    renderPopover,
-  } = useResultPopover({
+  const { Trigger } = useResultPopover({
     enabled: !!showPopover,
     positioning: "element",
     data: {
       stats,
       metric,
+      pValueThreshold,
       significant: significant ?? false,
       resultsStatus,
       differenceType,
@@ -134,26 +138,12 @@ export default function PercentGraph({
       minPercentChange,
       currentMetricTotal,
       pValueAdjustmentEnabled,
+      statusLabels,
     },
   });
 
-  const handleMouseEnter = useCallback(
-    (e: React.MouseEvent<SVGPathElement>) => {
-      popoverMouseEnter(e);
-    },
-    [popoverMouseEnter],
-  );
-
-  const handleMouseLeave = useCallback(
-    (e: React.MouseEvent<SVGPathElement>) => {
-      popoverMouseLeave(e);
-      onMouseLeave?.(e);
-    },
-    [popoverMouseLeave, onMouseLeave],
-  );
-
   return (
-    <>
+    <Trigger style={{ display: "flex" }}>
       <AlignedGraph
         ci={showGraph ? (stats?.ciAdjusted ?? stats.ci) : [0, 0]}
         id={id}
@@ -162,6 +152,7 @@ export default function PercentGraph({
         expected={showGraph ? stats.expected : undefined}
         barType={barType}
         barFillType={barFillType}
+        barFillColor={barFillColor}
         axisOnly={!showGraph}
         showAxis={false}
         significant={significant}
@@ -171,13 +162,12 @@ export default function PercentGraph({
         className={className}
         isHovered={isHovered}
         percent={percent}
+        oneSided={oneSided}
         onMouseMove={onMouseMove}
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
+        onMouseLeave={onMouseLeave}
         onClick={onClick}
         rowStatus={rowStatus}
       />
-      {renderPopover()}
-    </>
+    </Trigger>
   );
 }

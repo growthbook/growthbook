@@ -6,6 +6,7 @@ export const POLICIES = [
   "FeaturesFullAccess",
   "ArchetypesFullAccess",
   "FeaturesBypassApprovals",
+  "ConstantsFullAccess",
   "ExperimentsFullAccess",
   "VisualEditorFullAccess",
   "SuperDeleteReports",
@@ -46,6 +47,8 @@ export const POLICIES = [
   "CustomHooksFullAccess",
   "ManageOfficialResources",
   "GeneralDashboardsFullAccess",
+  "SessionReplayViewAccess",
+  "SessionReplayFullAccess",
 ] as const;
 
 export type Policy = (typeof POLICIES)[number];
@@ -112,6 +115,7 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
   AttributesFullAccess: ["readData", "manageTargetingAttributes"],
   EnvironmentsFullAccess: ["readData", "manageEnvironments"],
   NamespacesFullAccess: ["readData", "manageNamespaces"],
+  ConstantsFullAccess: ["readData", "manageConstants"],
   SavedGroupsFullAccess: ["readData", "manageSavedGroups"],
   SavedGroupsBypassSizeLimit: [
     "readData",
@@ -146,6 +150,12 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
     "manageOfficialResources",
     "runQueries",
   ],
+  SessionReplayViewAccess: ["readData", "viewSessionReplay"],
+  SessionReplayFullAccess: [
+    "readData",
+    "viewSessionReplay",
+    "deleteSessionReplay",
+  ],
 };
 
 export const POLICY_DISPLAY_GROUPS: { name: string; policies: Policy[] }[] = [
@@ -159,6 +169,7 @@ export const POLICY_DISPLAY_GROUPS: { name: string; policies: Policy[] }[] = [
       "FeaturesFullAccess",
       "ArchetypesFullAccess",
       "FeaturesBypassApprovals",
+      "ConstantsFullAccess",
     ],
   },
   {
@@ -191,6 +202,14 @@ export const POLICY_DISPLAY_GROUPS: { name: string; policies: Policy[] }[] = [
     policies: ["IdeasFullAccess", "PresentationsFullAccess"],
   },
   {
+    name: "Product Analytic Dashboards",
+    policies: ["GeneralDashboardsFullAccess"],
+  },
+  {
+    name: "Session Replay",
+    policies: ["SessionReplayViewAccess", "SessionReplayFullAccess"],
+  },
+  {
     name: "SDK Configuration",
     policies: [
       "SDKPayloadPublish",
@@ -219,6 +238,7 @@ export const POLICY_DISPLAY_GROUPS: { name: string; policies: Policy[] }[] = [
       "BillingFullAccess",
       "AuditLogsFullAccess",
       "DecisionCriteriaFullAccess",
+      "CustomHooksFullAccess",
     ],
   },
 ];
@@ -252,6 +272,10 @@ export const POLICY_METADATA_MAP: Record<
   FeaturesBypassApprovals: {
     displayName: "Features Bypass Approvals",
     description: "Bypass required approval checks for feature flag changes",
+  },
+  ConstantsFullAccess: {
+    displayName: "Constants Full Access",
+    description: "Create, edit, and delete constants",
   },
   ExperimentsFullAccess: {
     displayName: "Experiments Full Access",
@@ -433,6 +457,19 @@ export const POLICY_METADATA_MAP: Record<
     displayName: "General Dashboards Full Access",
     description: "Create, edit, and delete Product Analytics dashboards.",
   },
+  SessionReplayViewAccess: {
+    displayName: "Session Replay View Access",
+    description: "View and play back recorded user sessions.",
+    warning:
+      "Recordings can contain sensitive user data. Grant only to roles with a need to view replays.",
+  },
+  SessionReplayFullAccess: {
+    displayName: "Session Replay Full Access",
+    description:
+      "View, play back, and delete recorded user sessions (single, bulk, and DSR-driven deletions).",
+    warning:
+      "Includes the ability to permanently delete recorded sessions. Recordings can contain sensitive user data.",
+  },
 };
 
 export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
@@ -484,6 +521,7 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
       "EnvironmentsFullAccess",
       "NamespacesFullAccess",
       "SavedGroupsFullAccess",
+      "ConstantsFullAccess",
       "TagsFullAccess",
     ],
   },
@@ -539,6 +577,7 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
       "EnvironmentsFullAccess",
       "NamespacesFullAccess",
       "SavedGroupsFullAccess",
+      "ConstantsFullAccess",
       "TagsFullAccess",
       "DataSourceConfiguration",
       "TemplatesFullAccess",
@@ -573,6 +612,7 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
       "EnvironmentsFullAccess",
       "NamespacesFullAccess",
       "SavedGroupsFullAccess",
+      "ConstantsFullAccess",
       "TagsFullAccess",
       "DataSourceConfiguration",
       "TemplatesFullAccess",
@@ -634,6 +674,7 @@ export const PROJECT_SCOPED_PERMISSIONS = [
   "manageTargetingAttributes",
   "manageVisualChanges",
   "manageSavedGroups",
+  "manageConstants",
   "manageCustomFields",
   "manageTemplates",
   "manageExecReports",
@@ -641,6 +682,8 @@ export const PROJECT_SCOPED_PERMISSIONS = [
   "manageGeneralDashboards",
   "manageOfficialResources",
   "bypassSavedGroupSizeLimit",
+  "viewSessionReplay",
+  "deleteSessionReplay",
 ] as const;
 
 export const GLOBAL_PERMISSIONS = [

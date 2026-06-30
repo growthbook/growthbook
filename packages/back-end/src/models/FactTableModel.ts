@@ -17,6 +17,7 @@ import { ApiReqContext } from "back-end/types/api";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { projectFilterQuery } from "back-end/src/util/mongo.util";
 import { createModelAuditLogger } from "back-end/src/services/audit";
+import { deferAggregatedFactTableToNextSlot } from "back-end/src/services/aggregatedFactTables";
 
 const audit = createModelAuditLogger({
   entity: "factTable",
@@ -76,6 +77,22 @@ const factTableSchema = new mongoose.Schema({
   ],
   archived: Boolean,
   autoSliceUpdatesEnabled: Boolean,
+  aggregatedFactTableSettings: {
+    _id: false,
+    type: {
+      idTypes: [String],
+      updateTime: {
+        _id: false,
+        type: {
+          time: String,
+          timezone: String,
+        },
+      },
+      lookbackWindow: Number,
+      restateChunkDays: Number,
+    },
+    default: undefined,
+  },
   columnRefreshPending: Boolean,
 });
 
@@ -142,6 +159,7 @@ function createPropsToInterface(
     columns,
     columnsError: null,
     managedBy: props.managedBy || "",
+    aggregatedFactTableSettings: props.aggregatedFactTableSettings ?? null,
     columnRefreshPending: props.columnRefreshPending || false,
   };
 }
@@ -187,6 +205,16 @@ export async function getFactTableMap(
   const factTables = await getAllFactTablesForOrganization(context);
 
   return new Map(factTables.map((f) => [f.id, f]));
+}
+
+// WARNING: bypasses project-read permission. Use only for system-driven
+// managed-warehouse sync (see dangerouslyGetGrowthbookDatasourceBypassPermission).
+export async function dangerouslyGetFactTableByIdBypassPermission(
+  organization: string,
+  id: string,
+): Promise<FactTableInterface | null> {
+  const doc = await FactTableModel.findOne({ organization, id });
+  return doc ? toInterface(doc) : null;
 }
 
 export async function getFactTable(
@@ -241,6 +269,17 @@ export async function getAllFactTablesWithAutoSliceUpdatesEnabled(): Promise<
   return docs.map((doc) => toInterface(doc));
 }
 
+// Across all organizations; used by the nightly aggregated fact table job.
+export async function getAllFactTablesWithAggregatedTablesEnabled(): Promise<
+  FactTableInterface[]
+> {
+  const docs = await FactTableModel.find({
+    "aggregatedFactTableSettings.idTypes": { $exists: true, $ne: [] },
+    archived: { $ne: true },
+  });
+  return docs.map((doc) => toInterface(doc));
+}
+
 export async function createFactTable(
   context: ReqContext | ApiReqContext,
   data: CreateFactTableProps,
@@ -258,9 +297,13 @@ export async function createFactTable(
     context.permissions.throwPermissionError();
   }
 
-  const doc = await FactTableModel.create(
-    createPropsToInterface(context, data),
-  );
+  const factTableProps = createPropsToInterface(context, data);
+
+  // We claim this slot first to avoid a potential race condition when the FactTable is created at
+  // the same time the background job is scheduling the aggregated table update
+  await deferAggregatedFactTableToNextSlot(context, factTableProps);
+
+  const doc = await FactTableModel.create(factTableProps);
 
   const factTable = toInterface(doc);
 
@@ -274,10 +317,13 @@ export async function updateFactTable(
   factTable: FactTableInterface,
   changes: UpdateFactTableProps,
 ) {
-  // Allow changing columns even for API-managed fact tables
+  // Allow changing columns even for API-managed fact tables. Also allow
+  // system/background contexts (which have no audit user) through, e.g. the
+  // event forwarder sync.
   if (
     factTable.managedBy === "api" &&
     context.auditUser?.type !== "api_key" &&
+    context.auditUser !== null &&
     Object.keys(changes).some((k) => k !== "columns")
   ) {
     throw new Error(
@@ -370,6 +416,43 @@ export async function updateFactTableColumns(
       });
     }
   }
+}
+
+// System-driven update of the managed-warehouse events fact table (managedBy "api").
+// Unlike updateFactTable, this is allowed from internal (non-API) requests because
+// GrowthBook itself owns this table's sql/columns/userIdTypes. Used when the org's
+// identifiers (hashAttribute attributes) change.
+export async function dangerouslySyncManagedWarehouseFactTable(
+  context: ReqContext | ApiReqContext,
+  factTable: FactTableInterface,
+  changes: Pick<UpdateFactTableProps, "sql" | "columns" | "userIdTypes">,
+) {
+  if (changes.columns) {
+    const removedColumns = detectRemovedColumns(
+      factTable.columns || [],
+      changes.columns,
+    );
+    if (removedColumns.length > 0) {
+      await cleanupMetricAutoSlices({
+        context,
+        factTableId: factTable.id,
+        removedColumns,
+      });
+    }
+  }
+
+  await FactTableModel.updateOne(
+    {
+      id: factTable.id,
+      organization: factTable.organization,
+    },
+    {
+      $set: {
+        ...changes,
+        dateUpdated: new Date(),
+      },
+    },
+  );
 }
 
 // Detect columns that were removed or had auto slice disabled
@@ -703,6 +786,8 @@ export function toFactTableApiInterface(
       topValuesDate: col.topValuesDate?.toISOString(),
     })),
     managedBy: factTable.managedBy || "",
+    aggregatedFactTableSettings:
+      factTable.aggregatedFactTableSettings ?? undefined,
     dateCreated: factTable.dateCreated?.toISOString() || "",
     dateUpdated: factTable.dateUpdated?.toISOString() || "",
   };

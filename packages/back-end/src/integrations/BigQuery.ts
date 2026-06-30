@@ -4,19 +4,19 @@ import {
   bigQueryCreateTableOptions,
   bigQueryCreateTablePartitions,
 } from "shared/enterprise";
-import { DateTruncGranularity, FormatDialect } from "shared/types/sql";
+import { SqlDialect } from "shared/types/sql";
 import { format } from "shared/sql";
 import {
   ExternalIdCallback,
   InformationSchema,
   QueryResponse,
   RawInformationSchema,
-  DataType,
   QueryResponseColumnData,
   MaxTimestampMetricSourceQueryParams,
   MaxTimestampIncrementalUnitsQueryParams,
 } from "shared/types/integrations";
 import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
+import { RunQueryMetadata } from "shared/types/query";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import { formatInformationSchema } from "back-end/src/util/informationSchemas";
@@ -24,8 +24,10 @@ import { logger } from "back-end/src/util/logger";
 import {
   BigQueryDataType,
   getFactTableTypeFromBigQueryType,
+  sanitizeQueryMetadataForBigQueryLabels,
 } from "back-end/src/services/bigquery";
 import SqlIntegration from "./SqlIntegration";
+import { bigQueryDialect } from "./dialects/bigquery";
 
 export default class BigQuery extends SqlIntegration {
   params!: BigQueryConnectionParams;
@@ -37,8 +39,8 @@ export default class BigQuery extends SqlIntegration {
   isWritingTablesSupported(): boolean {
     return true;
   }
-  getFormatDialect(): FormatDialect {
-    return "bigquery";
+  getSqlDialect(): SqlDialect {
+    return bigQueryDialect;
   }
   getSensitiveParamKeys(): string[] {
     return ["privateKey"];
@@ -59,27 +61,43 @@ export default class BigQuery extends SqlIntegration {
     });
   }
 
-  async cancelQuery(externalId: string): Promise<void> {
+  async cancelQuery(
+    externalId: string,
+    metadata?: Record<string, string>,
+  ): Promise<void> {
     const client = this.getClient();
-    const job = client.job(externalId);
 
-    // Attempt to cancel job
+    // Location is required for non-US/EU multi-region datasets — without it
+    // BQ returns 404. Historical jobs without persisted location fall back
+    // to the library default.
+    const location = metadata?.location;
+    const job = location
+      ? client.job(externalId, { location })
+      : client.job(externalId);
+
+    // job.cancel() resolves when the cancel is accepted, not when the job
+    // transitions to CANCELLED. statusAtCancel often still reads RUNNING.
     const [apiResult] = await job.cancel();
-    logger.debug(
-      `Cancelled BigQuery job ${externalId} - ${JSON.stringify(
-        apiResult.job?.status,
-      )}`,
+    logger.info(
+      { externalId, location, statusAtCancel: apiResult.job?.status },
+      "BigQuery cancel request accepted",
     );
   }
 
   async runQuery(
     sql: string,
-    setExternalId?: ExternalIdCallback,
+    setExternalId: ExternalIdCallback | undefined,
+    queryMetadata: RunQueryMetadata,
   ): Promise<QueryResponse> {
     const client = this.getClient();
 
+    const labels = sanitizeQueryMetadataForBigQueryLabels(queryMetadata);
+
     const [job] = await client.createQueryJob({
-      labels: { integration: "growthbook" },
+      labels: {
+        ...labels,
+        integration: "growthbook",
+      },
       query: sql,
       useLegacySql: false,
       ...(this.params.reservation
@@ -88,7 +106,11 @@ export default class BigQuery extends SqlIntegration {
     });
 
     if (setExternalId && job.id) {
-      await setExternalId(job.id);
+      // Persist location so cancelQuery can target the right region.
+      await setExternalId(
+        job.id,
+        job.location ? { location: job.location } : undefined,
+      );
     }
 
     const [rows, _, queryResultsResponse] = await job.getQueryResults();
@@ -148,93 +170,11 @@ export default class BigQuery extends SqlIntegration {
     );
   }
 
-  addTime(
-    col: string,
-    unit: "hour" | "minute",
-    sign: "+" | "-",
-    amount: number,
-  ): string {
-    return `DATETIME_${
-      sign === "+" ? "ADD" : "SUB"
-    }(${col}, INTERVAL ${amount} ${unit.toUpperCase()})`;
-  }
-  dateTrunc(col: string, granularity: DateTruncGranularity = "day") {
-    return `date_trunc(${col}, ${granularity.toUpperCase()})`;
-  }
-  dateDiff(startCol: string, endCol: string) {
-    return `date_diff(${endCol}, ${startCol}, DAY)`;
-  }
-  formatDate(col: string): string {
-    return `format_date("%F", ${col})`;
-  }
-  formatDateTimeString(col: string): string {
-    return `format_datetime("%F %T", ${col})`;
-  }
-  castToString(col: string): string {
-    return `cast(${col} as string)`;
-  }
-  escapeStringLiteral(value: string): string {
-    return value.replace(/(['\\])/g, "\\$1");
-  }
-  castUserDateCol(column: string): string {
-    return `CAST(${column} as DATETIME)`;
-  }
-  hasCountDistinctHLL(): boolean {
+  hasQuantileSketch(): boolean {
     return true;
   }
   supportsLimitZeroColumnValidation(): boolean {
     return true;
-  }
-  hllAggregate(col: string): string {
-    return `HLL_COUNT.INIT(${col})`;
-  }
-  hllReaggregate(col: string): string {
-    return `HLL_COUNT.MERGE_PARTIAL(${col})`;
-  }
-  hllCardinality(col: string): string {
-    return `HLL_COUNT.EXTRACT(${col})`;
-  }
-  hasQuantileKLL(): boolean {
-    return true;
-  }
-  kllInit(col: string): string {
-    // Precision is hardcoded to 1000 (BigQuery default). Mixed-precision
-    // sketches merge silently with degraded accuracy, so we never parameterize it.
-    return `KLL_QUANTILES.INIT_FLOAT64(${col}, 1000)`;
-  }
-  kllMergePartial(col: string): string {
-    return `KLL_QUANTILES.MERGE_PARTIAL(${col})`;
-  }
-  kllExtractPoint(col: string, quantile: number): string {
-    return `KLL_QUANTILES.EXTRACT_POINT_FLOAT64(${col}, ${quantile})`;
-  }
-  kllExtractQuantiles(col: string, numQuantiles: number): string {
-    return `KLL_QUANTILES.EXTRACT_FLOAT64(${col}, ${numQuantiles})`;
-  }
-  kllRankApprox(
-    sketchCol: string,
-    thresholdCol: string,
-    nEventsCol: string,
-    numQuantiles: number,
-  ): string {
-    // EXTRACT_FLOAT64(sketch, N) returns N+1 points at levels {0, 1/N, ..., 1}.
-    // If the threshold is at percentile p, the count of points strictly below
-    // it is ≈ N*p, so dividing by N (not N+1) gives an unbiased estimate of p.
-    // UNNEST(NULL) yields zero rows, so COUNT(*) is 0 for users with no events.
-    const cdfArray = this.kllExtractQuantiles(sketchCol, numQuantiles);
-    const countBelow = `(SELECT COUNT(*) FROM UNNEST(${cdfArray}) AS p WHERE p < ${thresholdCol})`;
-    return `COALESCE(${countBelow} * ${nEventsCol} / ${numQuantiles}.0, 0)`;
-  }
-  approxQuantile(value: string, quantile: string | number): string {
-    const multiplier = 10000;
-    const quantileVal = Number(quantile)
-      ? Math.trunc(multiplier * Number(quantile))
-      : `${multiplier} * ${quantile}`;
-    return `APPROX_QUANTILES(${value}, ${multiplier} IGNORE NULLS)[OFFSET(CAST(${quantileVal} AS INT64))]`;
-  }
-  extractJSONField(jsonCol: string, path: string, isNumeric: boolean): string {
-    const raw = `JSON_VALUE(${jsonCol}, '$.${path}')`;
-    return isNumeric ? `CAST(${raw} AS FLOAT64)` : raw;
   }
   getDefaultDatabase() {
     return this.params.projectId || "";
@@ -285,7 +225,9 @@ export default class BigQuery extends SqlIntegration {
 
       try {
         const { rows: datasetResults } = await this.runQuery(
-          format(query, this.getFormatDialect()),
+          format(query, this.getSqlDialect().formatDialect),
+          undefined,
+          { queryType: "informationSchema" },
         );
 
         if (datasetResults.length > 0) {
@@ -304,31 +246,6 @@ export default class BigQuery extends SqlIntegration {
     }
 
     return formatInformationSchema(results as RawInformationSchema[]);
-  }
-
-  getDataType(dataType: DataType): string {
-    switch (dataType) {
-      case "string":
-        return "STRING";
-      case "integer":
-        return "INT64";
-      case "float":
-        return "FLOAT64";
-      case "boolean":
-        return "BOOL";
-      case "date":
-        return "DATE";
-      case "timestamp":
-        return "TIMESTAMP";
-      case "hll":
-        return "BYTES";
-      case "kll":
-        return "BYTES";
-      default: {
-        const _: never = dataType;
-        throw new Error(`Unsupported data type: ${dataType}`);
-      }
-    }
   }
 
   getQueryResultResponseColumns(
@@ -358,12 +275,11 @@ export default class BigQuery extends SqlIntegration {
       .map((field) => mapField(field));
   }
 
-  getCurrentTimestamp(): string {
-    return `CURRENT_TIMESTAMP()`;
-  }
-
-  createTablePartitions(columns: string[]): string {
-    return bigQueryCreateTablePartitions(columns);
+  createTablePartitions(
+    columns: string[],
+    opts?: { partitionByDate?: boolean; partitionExpirationDays?: number },
+  ): string {
+    return bigQueryCreateTablePartitions(columns, opts);
   }
 
   getMaxTimestampMetricSourceQuery(
@@ -374,9 +290,9 @@ export default class BigQuery extends SqlIntegration {
       SELECT
         MAX(max_timestamp) AS max_timestamp
         FROM ${params.metricSourceTableFullName}
-        ${params.lastMaxTimestamp ? `WHERE max_timestamp >= ${this.toTimestamp(params.lastMaxTimestamp)}` : ""}
+        ${params.lastMaxTimestamp ? `WHERE max_timestamp >= ${this.getSqlDialect().toTimestamp(params.lastMaxTimestamp)}` : ""}
       `,
-      this.getFormatDialect(),
+      this.getSqlDialect().formatDialect,
     );
   }
 
@@ -388,9 +304,9 @@ export default class BigQuery extends SqlIntegration {
       SELECT
         MAX(max_timestamp) AS max_timestamp
         FROM ${params.unitsTableFullName}
-        ${params.lastMaxTimestamp ? `WHERE max_timestamp >= ${this.toTimestamp(params.lastMaxTimestamp)}` : ""}
+        ${params.lastMaxTimestamp ? `WHERE max_timestamp >= ${this.getSqlDialect().toTimestamp(params.lastMaxTimestamp)}` : ""}
       `,
-      this.getFormatDialect(),
+      this.getSqlDialect().formatDialect,
     );
   }
 }

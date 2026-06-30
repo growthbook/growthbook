@@ -18,11 +18,11 @@ import EditPhaseModal from "@/components/Experiment/EditPhaseModal";
 import TabbedPage from "@/components/Experiment/TabbedPage";
 import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import StartAnalysisModal from "@/components/Experiment/TabbedPage/startHoldoutAnalysisModal";
 import EditHoldoutTargetingModal from "@/components/Holdout/EditHoldoutTargetingModal";
 import NewHoldoutForm from "@/components/Holdout/NewHoldoutForm";
 import StopHoldoutModal from "@/components/Holdout/StopHoldoutModal";
 import EditScheduleModal from "@/components/Holdout/EditScheduleModal";
+import StartHoldoutAnalysisModal from "@/components/Experiment/TabbedPage/StartHoldoutAnalysisModal";
 
 const HoldoutPage = (): ReactElement => {
   const permissionsUtil = usePermissionsUtil();
@@ -41,9 +41,6 @@ const HoldoutPage = (): ReactElement => {
   const [startAnalysisModalOpen, setStartAnalysisModalOpen] = useState(false);
   const [editHoldoutScheduleModalOpen, setEditHoldoutScheduleModalOpen] =
     useState(false);
-  const [checklistItemsRemaining, setChecklistItemsRemaining] = useState<
-    number | null
-  >(null);
 
   const { data, error, mutate } = useApi<{
     holdout: HoldoutInterfaceStringDates;
@@ -131,7 +128,7 @@ const HoldoutPage = (): ReactElement => {
   return (
     <>
       {startAnalysisModalOpen && (
-        <StartAnalysisModal
+        <StartHoldoutAnalysisModal
           close={() => setStartAnalysisModalOpen(false)}
           startAnalysis={startAnalysis}
         />
@@ -258,9 +255,8 @@ const HoldoutPage = (): ReactElement => {
           editPhase={editPhase}
           envs={envs}
           editTargeting={editTargeting}
-          checklistItemsRemaining={checklistItemsRemaining}
-          setChecklistItemsRemaining={setChecklistItemsRemaining}
-          editHoldoutSchedule={editHoldoutSchedule}
+          editTraffic={editTargeting}
+          editSchedule={editHoldoutSchedule}
         />
       </SnapshotProvider>
     </>

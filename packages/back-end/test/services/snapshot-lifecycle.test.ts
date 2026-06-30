@@ -6,6 +6,7 @@ import {
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
 } from "shared/types/experiment-snapshot";
+import { buildAnalysisKey } from "shared/snapshot-analysis-chunks";
 import { MetricSnapshotSettings } from "shared/types/report";
 import { ApiReqContext } from "back-end/types/api";
 import {
@@ -50,6 +51,7 @@ jest.mock("back-end/src/queryRunners/ExperimentResultsQueryRunner", () => ({
     .mockImplementation((_context, snapshot) => ({
       model: snapshot,
       startAnalysis: jest.fn(),
+      setExperimentUpdateExecutionLogger: jest.fn(),
     })),
 }));
 
@@ -61,6 +63,7 @@ jest.mock(
       .mockImplementation((_context, snapshot) => ({
         model: snapshot,
         startAnalysis: jest.fn(),
+        setExperimentUpdateExecutionLogger: jest.fn(),
       })),
   }),
 );
@@ -73,6 +76,7 @@ jest.mock(
       .mockImplementation((_context, snapshot) => ({
         model: snapshot,
         startAnalysis: jest.fn(),
+        setExperimentUpdateExecutionLogger: jest.fn(),
       })),
   }),
 );
@@ -108,6 +112,12 @@ function makeContext(): ApiReqContext {
     org: {
       id: "org_123",
       settings: {},
+    },
+    logger: {
+      info: jest.fn(),
+      warn: jest.fn(),
+      error: jest.fn(),
+      debug: jest.fn(),
     },
     models: {
       metricGroups: {
@@ -167,6 +177,9 @@ function makeAnalysisSettings(
   return {
     dimensions: [],
     statsEngine: "bayesian",
+    numGoalMetrics: 1,
+    numGuardrailMetrics: 0,
+    differenceType: "relative",
     ...overrides,
   } as ExperimentSnapshotAnalysisSettings;
 }
@@ -193,6 +206,7 @@ function makePlan(
       multipleExposures: 0,
       analyses: [
         {
+          analysisKey: buildAnalysisKey(),
           dateCreated: new Date("2025-02-01T00:00:00.000Z"),
           results: [],
           settings: defaultAnalysisSettings,
@@ -205,6 +219,8 @@ function makePlan(
     useCache: true,
     fullRefresh: false,
     settingsForSnapshotMetrics: [] as MetricSnapshotSettings[],
+    incrementalFallbackReason: null,
+    fullRefreshReason: null,
     ...overrides,
   };
 }
@@ -255,6 +271,11 @@ describe("snapshot lifecycle", () => {
     );
 
     const queryRunner = resultsQueryRunnerMock.mock.results[0].value;
+    expect(queryRunner.setExperimentUpdateExecutionLogger).toHaveBeenCalledWith(
+      expect.objectContaining({
+        plan: expect.objectContaining({ runnerKind: "results" }),
+      }),
+    );
     expect(queryRunner.startAnalysis).toHaveBeenCalledWith(
       expect.objectContaining({
         snapshotType: "standard",

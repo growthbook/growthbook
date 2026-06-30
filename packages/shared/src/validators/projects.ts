@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { statsEngines } from "shared/constants";
+import { statsEngines, MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { managedByValidator } from "./managed-by";
 import { baseSchema } from "./base-model";
 import { paginationQueryFields } from "./shared";
@@ -10,12 +10,14 @@ export const statsEnginesValidator = z.enum(statsEngines);
 
 export const projectSettingsValidator = z.object({
   statsEngine: statsEnginesValidator.optional(),
+  confidenceLevel: z.number().min(0.5).max(1).optional(),
+  pValueThreshold: z.number().gt(0).max(0.5).optional(),
 });
 
 export const projectValidator = baseSchema
   .extend({
     name: z.string(),
-    description: z.string().optional(),
+    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
     publicId: z.string().optional(),
     settings: projectSettingsValidator.optional(),
     managedBy: managedByValidator.optional(),
@@ -37,7 +39,7 @@ export const apiProjectValidator = namedSchema(
       name: z.string(),
       dateCreated: z.string().meta({ format: "date-time" }),
       dateUpdated: z.string().meta({ format: "date-time" }),
-      description: z.string().optional(),
+      description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
       publicId: z
         .string()
         .describe(
@@ -47,6 +49,8 @@ export const apiProjectValidator = namedSchema(
       settings: z
         .object({
           statsEngine: z.string().optional(),
+          confidenceLevel: z.number().optional(),
+          pValueThreshold: z.number().optional(),
         })
         .optional(),
     })
@@ -59,7 +63,7 @@ export type ApiProject = z.infer<typeof apiProjectValidator>;
 const postProjectBody = z
   .object({
     name: z.string(),
-    description: z.string().optional(),
+    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
     publicId: z
       .string()
       .describe(
@@ -69,8 +73,20 @@ const postProjectBody = z
     settings: z
       .object({
         statsEngine: z.string().describe("Stats engine.").optional(),
+        confidenceLevel: z
+          .number()
+          .describe(
+            "Bayesian chance-to-win threshold (stored as decimal, e.g. 0.95).",
+          )
+          .optional(),
+        pValueThreshold: z
+          .number()
+          .describe("Frequentist p-value threshold (e.g. 0.05).")
+          .optional(),
       })
-      .describe("Project settings.")
+      .describe(
+        "Project stats settings that, when set, override the organization settings.",
+      )
       .optional(),
   })
   .strict();
@@ -79,7 +95,11 @@ const postProjectBody = z
 const putProjectBody = z
   .object({
     name: z.string().describe("Project name.").optional(),
-    description: z.string().describe("Project description.").optional(),
+    description: z
+      .string()
+      .max(MAX_DESCRIPTION_LENGTH)
+      .describe("Project description.")
+      .optional(),
     publicId: z
       .string()
       .describe("URL-safe slug (lowercase letters, numbers, dashes).")
@@ -87,8 +107,20 @@ const putProjectBody = z
     settings: z
       .object({
         statsEngine: z.string().describe("Stats engine.").optional(),
+        confidenceLevel: z
+          .number()
+          .describe(
+            "Bayesian chance-to-win threshold (stored as decimal, e.g. 0.95).",
+          )
+          .optional(),
+        pValueThreshold: z
+          .number()
+          .describe("Frequentist p-value threshold (e.g. 0.05).")
+          .optional(),
       })
-      .describe("Project settings.")
+      .describe(
+        "Project stats settings that, when set, override the organization settings.",
+      )
       .optional(),
   })
   .strict();

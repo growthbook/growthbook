@@ -1,13 +1,14 @@
 import { z } from "zod";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { apiBaseSchema, baseSchema } from "./base-model";
-import { ownerField, ownerInputField } from "./owner-field";
+import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
 
 import { namedSchema } from "./openapi-helpers";
 
 export const metricGroupValidator = baseSchema.safeExtend({
   owner: ownerField,
   name: z.string(),
-  description: z.string(),
+  description: z.string().max(MAX_DESCRIPTION_LENGTH),
   tags: z.array(z.string()),
   projects: z.array(z.string()),
   metrics: z.array(z.string()),
@@ -19,8 +20,9 @@ export const apiMetricGroupValidator = namedSchema(
   "MetricGroup",
   apiBaseSchema.safeExtend({
     owner: ownerField,
+    ownerEmail: ownerEmailField,
     name: z.string(),
-    description: z.string(),
+    description: z.string().max(MAX_DESCRIPTION_LENGTH),
     tags: z.array(z.string()),
     projects: z.array(z.string()),
     metrics: z.array(z.string()),
@@ -31,7 +33,7 @@ export const apiMetricGroupValidator = namedSchema(
 
 export const apiCreateMetricGroupBody = z.strictObject({
   name: z.string(),
-  description: z.string(),
+  description: z.string().max(MAX_DESCRIPTION_LENGTH),
   tags: z.array(z.string()).optional(),
   projects: z.array(z.string()),
   metrics: z.array(z.string()),

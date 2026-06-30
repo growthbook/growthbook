@@ -7,6 +7,7 @@ import {
   fillRevisionFromFeature,
   getDraftAffectedEnvironments,
   getReviewSetting,
+  getFeatureAutopublishOnApproval,
   mergeResultHasChanges,
   mergeRevision,
   RevisionFields,
@@ -641,6 +642,39 @@ describe("mergeResultHasChanges with new envelopes", () => {
       }),
     ).toBe(false);
   });
+
+  // `autoMerge` only sets `rules` when revision rules diverged from base, so
+  // presence — even an explicit [] meaning "all rules deleted" — is a real change.
+  it("returns true when rules is an explicit empty array (all rules deleted)", () => {
+    expect(
+      mergeResultHasChanges({
+        success: true,
+        result: { rules: [] },
+        conflicts: [],
+      }),
+    ).toBe(true);
+  });
+
+  it("returns true when rules contains entries", () => {
+    expect(
+      mergeResultHasChanges({
+        success: true,
+        result: {
+          rules: [
+            {
+              id: "r_1",
+              type: "force",
+              value: "true",
+              description: "",
+              enabled: true,
+              allEnvironments: true,
+            },
+          ],
+        },
+        conflicts: [],
+      }),
+    ).toBe(true);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -903,6 +937,64 @@ describe("fillRevisionFromFeature", () => {
     // existing field is preserved
     expect(filled.metadata?.description).toBe("hi");
   });
+
+  it("backfills holdout from feature when revision lacks it", () => {
+    const holdout = { id: "h-1", value: "holdout-value" };
+    const feature: FeatureInterface = { ...baseFeature, holdout };
+    const revision: RevisionFields = {
+      version: 4,
+      defaultValue: "false",
+      rules: {},
+      // holdout field missing from revision
+    };
+    const filled = fillRevisionFromFeature(revision, feature);
+    expect(filled.holdout).toEqual(holdout);
+  });
+
+  it("does not overwrite explicit holdout value in revision", () => {
+    const featureHoldout = { id: "h-1", value: "feature-value" };
+    const revisionHoldout = { id: "h-2", value: "revision-value" };
+    const feature: FeatureInterface = {
+      ...baseFeature,
+      holdout: featureHoldout,
+    };
+    const revision: RevisionFields = {
+      version: 4,
+      defaultValue: "false",
+      rules: {},
+      holdout: revisionHoldout,
+    };
+    const filled = fillRevisionFromFeature(revision, feature);
+    expect(filled.holdout).toEqual(revisionHoldout);
+  });
+
+  it("does not overwrite explicit null holdout in revision (removal)", () => {
+    const featureHoldout = { id: "h-1", value: "feature-value" };
+    const feature: FeatureInterface = {
+      ...baseFeature,
+      holdout: featureHoldout,
+    };
+    const revision: RevisionFields = {
+      version: 4,
+      defaultValue: "false",
+      rules: {},
+      holdout: null, // explicit removal
+    };
+    const filled = fillRevisionFromFeature(revision, feature);
+    expect(filled.holdout).toBeNull();
+  });
+
+  it("backfills holdout as null when feature has no holdout", () => {
+    const feature: FeatureInterface = { ...baseFeature }; // no holdout
+    const revision: RevisionFields = {
+      version: 4,
+      defaultValue: "false",
+      rules: {},
+      // holdout field missing from revision
+    };
+    const filled = fillRevisionFromFeature(revision, feature);
+    expect(filled.holdout).toBeNull();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -958,6 +1050,74 @@ describe("draftDiffersFromLive", () => {
         "staging",
       ]),
     ).toBe(true);
+  });
+
+  it("returns true when holdout is added to a feature without holdout", () => {
+    const draft: RevisionFields = {
+      ...liveRevision,
+      holdout: { id: "holdout-1", value: "holdout-value" },
+    };
+    expect(
+      draftDiffersFromLive(draft, liveRevision, feature, [
+        "production",
+        "staging",
+      ]),
+    ).toBe(true);
+  });
+
+  it("returns true when holdout is removed from a feature with holdout", () => {
+    const featureWithHoldout: FeatureInterface = {
+      ...feature,
+      holdout: { id: "holdout-1", value: "holdout-value" },
+    };
+    const draft: RevisionFields = {
+      ...liveRevision,
+      holdout: null,
+    };
+    expect(
+      draftDiffersFromLive(draft, liveRevision, featureWithHoldout, [
+        "production",
+        "staging",
+      ]),
+    ).toBe(true);
+  });
+
+  it("returns true when holdout is changed to a different one", () => {
+    const featureWithHoldout: FeatureInterface = {
+      ...feature,
+      holdout: { id: "holdout-1", value: "holdout-value" },
+    };
+    const draft: RevisionFields = {
+      ...liveRevision,
+      holdout: { id: "holdout-2", value: "different-value" },
+    };
+    expect(
+      draftDiffersFromLive(draft, liveRevision, featureWithHoldout, [
+        "production",
+        "staging",
+      ]),
+    ).toBe(true);
+  });
+
+  it("returns false when holdout is unchanged", () => {
+    const featureWithHoldout: FeatureInterface = {
+      ...feature,
+      holdout: { id: "holdout-1", value: "holdout-value" },
+    };
+    const liveRevisionWithHoldout: RevisionFields = {
+      ...liveRevision,
+      holdout: { id: "holdout-1", value: "holdout-value" },
+    };
+    const draft: RevisionFields = {
+      ...liveRevisionWithHoldout,
+      holdout: { id: "holdout-1", value: "holdout-value" },
+    };
+    expect(
+      draftDiffersFromLive(draft, liveRevisionWithHoldout, featureWithHoldout, [
+        "production",
+        "staging",
+      ]),
+    ).toBe(false);
   });
 });
 
@@ -1066,6 +1226,56 @@ describe("getDraftAffectedEnvironments", () => {
         "staging",
       ]),
     ).toBe("all");
+  });
+
+  it("does not flag an environment that is missing on the base (added after base was published)", () => {
+    // base predates the "vertex" env → no key at all
+    const oldBase: RevisionFields = {
+      version: 3,
+      defaultValue: "false",
+      rules: { production: [], staging: [] },
+      environmentsEnabled: { production: true, staging: false },
+      prerequisites: [],
+    };
+    // draft snapshots all current envs; the user only changed staging rules
+    const revision: RevisionFields = {
+      ...oldBase,
+      version: 4,
+      rules: {
+        ...oldBase.rules,
+        staging: [{ type: "force", id: "r1", description: "", value: "x" }],
+      },
+      environmentsEnabled: { production: true, staging: false, vertex: false },
+    };
+    expect(
+      getDraftAffectedEnvironments(revision, oldBase, [
+        "production",
+        "staging",
+        "vertex",
+      ]),
+    ).toEqual(["staging"]);
+  });
+
+  it("still flags an environment missing on the base when the draft enables it", () => {
+    const oldBase: RevisionFields = {
+      version: 3,
+      defaultValue: "false",
+      rules: { production: [], staging: [] },
+      environmentsEnabled: { production: true, staging: false },
+      prerequisites: [],
+    };
+    const revision: RevisionFields = {
+      ...oldBase,
+      version: 4,
+      environmentsEnabled: { production: true, staging: false, vertex: true },
+    };
+    expect(
+      getDraftAffectedEnvironments(revision, oldBase, [
+        "production",
+        "staging",
+        "vertex",
+      ]),
+    ).toEqual(["vertex"]);
   });
 
   it('collapses to "all" when every environment is affected', () => {
@@ -1196,6 +1406,40 @@ describe("autoMerge with holdout field", () => {
     const result = autoMerge(live, base, revision, [], {});
     expect(result.success).toBe(true);
     if (result.success) expect("holdout" in result.result).toBe(false);
+  });
+
+  it("no-divergence: detects holdout removal when base is backfilled via fillRevisionFromFeature", () => {
+    // This is the real-world bug scenario:
+    // 1. Feature has a holdout
+    // 2. Base revision was created before holdout tracking (no holdout field)
+    // 3. Draft revision has holdout: null to remove the holdout
+    // Without fillRevisionFromFeature backfilling base.holdout, autoMerge compares
+    // null vs undefined (→ null) and sees no change.
+    const featureWithHoldout: FeatureInterface = {
+      ...baseFeature,
+      holdout: holdout1,
+    };
+    const baseWithoutHoldoutField: RevisionFields = {
+      ...base,
+      // holdout field is NOT present (legacy revision)
+    };
+    const filledBase = fillRevisionFromFeature(
+      baseWithoutHoldoutField,
+      featureWithHoldout,
+    );
+    const liveWithHoldout: RevisionFields = { ...live, holdout: holdout1 };
+    const revision: RevisionFields = { ...base, version: 4, holdout: null };
+
+    // With fillRevisionFromFeature, base now has holdout from feature
+    expect(filledBase.holdout).toEqual(holdout1);
+
+    // autoMerge should detect the removal
+    const result = autoMerge(liveWithHoldout, filledBase, revision, [], {});
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect("holdout" in result.result).toBe(true);
+      expect(result.result.holdout).toBeNull();
+    }
   });
 
   it("no-divergence: omits holdout when value unchanged (same id)", () => {
@@ -1746,4 +1990,64 @@ describe("getReviewSetting", () => {
     const result = getReviewSetting([projectRule, catchAll], featureInProjA);
     expect(result?.blockSelfApproval).toBe(true);
   });
+});
+
+describe("getFeatureAutopublishOnApproval", () => {
+  const featureInProjA: FeatureInterface = {
+    ...baseFeature,
+    project: "proj-a",
+  };
+  const featureInProjB: FeatureInterface = {
+    ...baseFeature,
+    project: "proj-b",
+  };
+
+  it("returns true when the matching rule has autopublishOnApproval on", () => {
+    const rule = makeReviewSetting({ autopublishOnApproval: true });
+    expect(getFeatureAutopublishOnApproval([rule], featureInProjA)).toBe(true);
+  });
+
+  it("returns false when the matching rule has autopublishOnApproval off", () => {
+    const rule = makeReviewSetting({ autopublishOnApproval: false });
+    expect(getFeatureAutopublishOnApproval([rule], featureInProjA)).toBe(false);
+  });
+
+  it("returns false when the flag is absent from the rule", () => {
+    const rule = makeReviewSetting();
+    expect(getFeatureAutopublishOnApproval([rule], featureInProjA)).toBe(false);
+  });
+
+  it("returns false when no rule matches the feature's project", () => {
+    const rule = makeReviewSetting({
+      projects: ["proj-a"],
+      autopublishOnApproval: true,
+    });
+    expect(getFeatureAutopublishOnApproval([rule], featureInProjB)).toBe(false);
+  });
+
+  it("resolves the flag from the matching per-project rule", () => {
+    const ruleA = makeReviewSetting({
+      projects: ["proj-a"],
+      autopublishOnApproval: true,
+    });
+    const ruleB = makeReviewSetting({
+      projects: ["proj-b"],
+      autopublishOnApproval: false,
+    });
+    expect(
+      getFeatureAutopublishOnApproval([ruleA, ruleB], featureInProjA),
+    ).toBe(true);
+    expect(
+      getFeatureAutopublishOnApproval([ruleA, ruleB], featureInProjB),
+    ).toBe(false);
+  });
+
+  it.each([[true], [false], [undefined]] as const)(
+    "returns false for legacy boolean requireReviews shape (%s)",
+    (requireReviews) => {
+      expect(
+        getFeatureAutopublishOnApproval(requireReviews, featureInProjA),
+      ).toBe(false);
+    },
+  );
 });

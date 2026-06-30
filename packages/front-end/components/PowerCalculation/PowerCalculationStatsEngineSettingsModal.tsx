@@ -36,9 +36,9 @@ export default function PowerCalculationStatsEngineSettingsModal({
   onSubmit,
 }: Props) {
   const orgSettings = useOrgSettings();
-  const pValueThresholdOrgDefault = usePValueThreshold();
+  const pValueThresholdOrgDefault = usePValueThreshold(undefined);
   const { ciLower: ciLowerOrgDefault, ciUpper: ciUpperOrgDefault } =
-    useConfidenceLevels();
+    useConfidenceLevels(undefined);
 
   const sequentialTestingTuningParameter =
     orgSettings.sequentialTestingTuningParameter ||
@@ -65,6 +65,7 @@ export default function PowerCalculationStatsEngineSettingsModal({
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       open
       size="lg"

@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
 import { v4 as uuidv4 } from "uuid";
-import uniqid from "uniqid";
 import mongoose, { FilterQuery } from "mongoose";
 import { AnyBulkWriteOperation, Collection } from "mongodb";
 import omit from "lodash/omit";
@@ -32,7 +31,12 @@ import {
 } from "back-end/src/api/ApiModel";
 import { CrudAction } from "back-end/src/api/apiModelHandlers";
 import { dbSafeBulkWrite } from "back-end/src/util/mongo.util";
-import { resolveOwnerToUserId } from "back-end/src/services/owner";
+import { generateId } from "back-end/src/util/uuid";
+import {
+  resolveOwnerEmail,
+  resolveOwnerEmails,
+  resolveOwnerToUserId,
+} from "back-end/src/services/owner";
 
 export type Context = ApiReqContext | ReqContext;
 
@@ -159,10 +163,18 @@ export interface ModelConfig<
   auditLog?: AuditLogConfig<Entity>;
   globallyUniquePrimaryKeys?: boolean;
   skipDateUpdatedFields?: (keyof z.infer<T>)[];
+  skipAuditLogFields?: (keyof z.infer<T>)[];
   readonlyFields?: (keyof z.infer<T>)[];
   additionalIndexes?: {
     fields: Partial<Record<IndexableFieldPath<z.infer<T>>, 1 | -1>>;
     unique?: boolean;
+    sparse?: boolean;
+    // Explicit index name (required for partial indexes so they can be matched
+    // for removal and so dup-key errors can be identified).
+    name?: string;
+    // Build a partial index — only documents matching this filter are indexed.
+    // Enables e.g. a unique constraint scoped to a subset of rows.
+    partialFilterExpression?: Record<string, unknown>;
   }[];
   // NB: Names of indexes to remove
   indexesToRemove?: string[];
@@ -208,6 +220,15 @@ type ExtractCrudSchema<
       ? Validator
       : DefaultCrudValidators[Action][Slot]
     : DefaultCrudValidators[Action][Slot];
+
+// Thrown by `_updateOne` when a guarded write matches zero docs (the doc
+// changed between read and write). Caught only by `updateWithCas` to retry.
+class CasConflictError extends Error {
+  constructor() {
+    super("Compare-and-swap conflict");
+    this.name = "CasConflictError";
+  }
+}
 
 // Generic model class has everything but the actual data fetch implementation.
 // See BaseModel below for the class with explicit mongodb implementation.
@@ -417,7 +438,7 @@ export abstract class BaseModel<
     const { id } = req.params as { id: string };
     const doc = await this.getById(id);
     if (!doc) req.context.throwNotFoundError();
-    return this.toApiInterface(doc);
+    return resolveOwnerEmail(this.toApiInterface(doc), this.context);
   }
   public async handleApiCreate(
     req: ApiRequest<
@@ -429,7 +450,10 @@ export abstract class BaseModel<
   ): Promise<z.infer<ApiT>> {
     const rawBody = req.body;
     const toCreate = await this.processApiCreateBody(rawBody);
-    return this.toApiInterface(await this.create(toCreate));
+    return resolveOwnerEmail(
+      this.toApiInterface(await this.create(toCreate)),
+      this.context,
+    );
   }
   protected async processApiCreateBody(
     rawBody: unknown,
@@ -444,7 +468,10 @@ export abstract class BaseModel<
       ExtractCrudSchema<CVO, "list", "querySchema">
     >,
   ): Promise<z.infer<ApiT>[]> {
-    return (await this.getAll()).map(this.toApiInterface.bind(this));
+    return resolveOwnerEmails(
+      (await this.getAll()).map((doc) => this.toApiInterface(doc)),
+      this.context,
+    );
   }
   public async handleApiDelete(
     req: ApiRequest<
@@ -469,7 +496,10 @@ export abstract class BaseModel<
     const { id } = req.params as { id: string };
     const rawBody = req.body;
     const toUpdate = await this.processApiUpdateBody(rawBody);
-    return this.toApiInterface(await this.updateById(id, toUpdate));
+    return resolveOwnerEmail(
+      this.toApiInterface(await this.updateById(id, toUpdate)),
+      this.context,
+    );
   }
   protected async processApiUpdateBody(
     rawBody: unknown,
@@ -578,6 +608,75 @@ export abstract class BaseModel<
     }
     return this._updateOne(existing, updates, { writeOptions });
   }
+  /**
+   * Compare-and-swap update for read-modify-write hotspots (e.g. reconciling a
+   * denormalized status from an embedded array several writers touch at once).
+   * Re-reads, runs `compute`, and writes only if `guardFields` are unchanged,
+   * retrying up to `maxAttempts`. Application-level optimistic concurrency (no
+   * transactions), so it stays DocumentDB/CosmosDB compatible.
+   *
+   * Goes through canRead + `_updateOne` (canUpdate, validation, audit, hooks),
+   * which run only on the winning attempt — but `compute` may run several times,
+   * so keep it side-effect free. Returns the updated doc, or null if the doc is
+   * gone / not readable / `compute` aborts. Throws if attempts are exhausted.
+   */
+  public async updateWithCas(
+    id: string,
+    guardFields: (keyof z.infer<T>)[],
+    compute: (
+      existing: z.infer<T>,
+    ) =>
+      | PKeyUpdateProps<T, PKey, PK>
+      | null
+      | Promise<PKeyUpdateProps<T, PKey, PK> | null>,
+    options: { maxAttempts?: number; writeOptions?: WriteOptions } = {},
+  ): Promise<z.infer<T> | null> {
+    this._assertHasIdField();
+    if (!this.hasPremiumFeature()) {
+      throw new Error(
+        "Your organization does not have access to this feature.",
+      );
+    }
+    const maxAttempts = options.maxAttempts ?? 5;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      // Read raw so guard + compute share one snapshot of the stored doc.
+      const raw = (await this._dangerousGetCollection().findOne(
+        this.applyBaseQuery({ id }),
+      )) as Record<string, unknown> | null;
+      if (!raw) return null;
+
+      const existing = this.migrate(
+        this._removeMongooseFields(raw),
+      ) as z.infer<T>;
+
+      // Read gate mirrors getById/_findOne; canUpdate is enforced in _updateOne.
+      await this.populateForeignRefs([existing]);
+      if (!this.canRead(existing)) return null;
+
+      const updates = await compute(existing);
+      if (!updates) return null;
+
+      const guard = Object.fromEntries(
+        guardFields.map((f) => {
+          const v = raw[f as string];
+          return [f as string, v === undefined ? { $exists: false } : v];
+        }),
+      );
+
+      try {
+        return await this._updateOne(existing, updates, {
+          writeOptions: options.writeOptions,
+          guard,
+        });
+      } catch (e) {
+        if (e instanceof CasConflictError) continue;
+        throw e;
+      }
+    }
+    throw new Error(
+      `updateWithCas: exhausted ${maxAttempts} attempts for ${this.config.collectionName} ${id}`,
+    );
+  }
   public async delete(
     existing: z.infer<T>,
     writeOptions?: WriteOptions,
@@ -603,7 +702,7 @@ export abstract class BaseModel<
    * Internal methods that can be used by subclasses
    ***************/
   protected _generateId() {
-    return uniqid(this.config.idPrefix);
+    return generateId(this.config.idPrefix);
   }
   protected _generateUid() {
     return uuidv4().replace(/-/g, "");
@@ -789,7 +888,7 @@ export abstract class BaseModel<
       generatedIds.uid = this._generateUid();
     }
 
-    const doc = {
+    let doc = {
       ...generatedIds,
       ...props,
       organization: this.context.org.id,
@@ -813,7 +912,11 @@ export abstract class BaseModel<
 
     await this.beforeCreate(doc, writeOptions);
 
+    // insertOne mutates `doc` in place to add Mongo's `_id`. Scrub it (and the
+    // mongoose version key) with the same helper reads use, so these internals
+    // don't leak into the return value, audit log details, or hooks.
     await this._dangerousGetCollection().insertOne(doc);
+    doc = this._removeMongooseFields(doc) as z.infer<T>;
 
     if (this._auditLogger) {
       await this._auditLogger.logCreate(this.context, doc);
@@ -837,6 +940,9 @@ export abstract class BaseModel<
       auditEvent?: EventType;
       writeOptions?: WriteOptions;
       forceCanUpdate?: boolean;
+      // CAS guard: write only applies if the doc still matches these field
+      // values, else throws CasConflictError. Set via `updateWithCas`.
+      guard?: Record<string, unknown>;
     },
   ) {
     updates = this.updateValidator.parse(updates);
@@ -911,17 +1017,31 @@ export abstract class BaseModel<
 
     await this.customValidation(newDoc, doc, options?.writeOptions);
 
-    await this._dangerousGetCollection().updateOne(
+    const writeResult = await this._dangerousGetCollection().updateOne(
       {
         ...this.getPrimaryKeyFilter(doc),
         organization: this.context.org.id,
+        ...(options?.guard ?? {}),
       },
       {
         $set: allUpdates,
       },
     );
 
-    if (this._auditLogger) {
+    // CAS miss: guarded fields changed since the read. Bail before audit/hooks
+    // so the lost race is a true no-op.
+    if (options?.guard && writeResult.matchedCount === 0) {
+      throw new CasConflictError();
+    }
+
+    // Skip audit logging if only operational fields are being updated
+    const shouldSkipAuditLog =
+      this.config.skipAuditLogFields &&
+      updatedFields.every((field) =>
+        this.config.skipAuditLogFields?.includes(field),
+      );
+
+    if (this._auditLogger && !shouldSkipAuditLog) {
       await this._auditLogger.logUpdate(
         this.context,
         doc,
@@ -1169,6 +1289,11 @@ export abstract class BaseModel<
         this._dangerousGetCollection()
           .createIndex(index.fields as { [key: string]: number }, {
             unique: !!index.unique,
+            sparse: !!index.sparse,
+            ...(index.name ? { name: index.name } : {}),
+            ...(index.partialFilterExpression
+              ? { partialFilterExpression: index.partialFilterExpression }
+              : {}),
           })
           .catch((err) => {
             logger.error(

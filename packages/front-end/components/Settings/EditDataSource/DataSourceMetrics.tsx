@@ -1,10 +1,10 @@
 import React, { useState } from "react";
 import { FaArchive, FaChevronRight, FaPlus } from "react-icons/fa";
-import Link from "next/link";
 import { ago, datetime } from "shared/dates";
 import clsx from "clsx";
 import { getMetricLink } from "shared/experiments";
 import { Box, Card, Flex, Heading } from "@radix-ui/themes";
+import Link from "@/ui/Link";
 import { DocLink } from "@/components/DocLink";
 import { envAllowsCreatingMetrics } from "@/services/env";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
@@ -125,7 +125,9 @@ export default function DataSourceMetrics({
         <p className="m-0">
           Metrics are what your experiments are trying to improve (or at least
           not hurt). Below are the metrics defined from this data source.{" "}
-          <DocLink docSection="metrics">Learn more.</DocLink>
+          <DocLink useRadix={false} docSection="metrics">
+            Learn more.
+          </DocLink>
         </p>
         <Button
           variant="ghost"
@@ -230,7 +232,7 @@ export default function DataSourceMetrics({
                             </Tooltip>
                           ) : null}
                         </div>
-                        <MoreMenu className="px-2">
+                        <MoreMenu useRadix={false} className="px-2">
                           {metric.onDuplicate ? (
                             <button
                               className="btn dropdown-item py-2"

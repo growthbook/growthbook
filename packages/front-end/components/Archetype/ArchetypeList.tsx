@@ -1,6 +1,6 @@
 import React, { FC, useState } from "react";
 import { ArchetypeInterface } from "shared/types/archetype";
-import Link from "next/link";
+import Link from "@/ui/Link";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useAuth } from "@/services/auth";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -13,6 +13,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Button from "@/ui/Button";
 import { useUser } from "@/services/UserContext";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
+import Badge from "@/ui/Badge";
 
 export const ArchetypeList: FC<{
   archetypes: ArchetypeInterface[];
@@ -81,6 +82,7 @@ export const ArchetypeList: FC<{
               <tr>
                 <th>Archetype</th>
                 <th>Projects</th>
+                <th>Environments</th>
                 <th>Owner</th>
                 <th>Public</th>
                 <th style={{ width: "40px" }}></th>
@@ -89,7 +91,7 @@ export const ArchetypeList: FC<{
             <tbody>
               {archetypes.length === 0 ? (
                 <tr>
-                  <td colSpan={3}>
+                  <td colSpan={6}>
                     <div className="text-center p-3 ">
                       No archetypes created. Click the &ldquo;Add
                       Archetype&rdquo; button to create one.
@@ -162,6 +164,21 @@ export const ArchetypeList: FC<{
                         <></>
                       )}
                     </td>
+                    <td>
+                      {archetype.environments &&
+                      archetype.environments.length > 0 ? (
+                        archetype.environments.map((env, i) => (
+                          <Badge
+                            key={env}
+                            label={env}
+                            color="gray"
+                            ml={i === 0 ? "0" : "2"}
+                          />
+                        ))
+                      ) : (
+                        <Badge label="All environments" color="gray" />
+                      )}
+                    </td>
                     <td>{getOwnerDisplay(archetype.owner)}</td>
                     <td>
                       {archetype.isPublic ? (
@@ -171,7 +188,7 @@ export const ArchetypeList: FC<{
                       )}
                     </td>
                     <td className={styles.showOnHover}>
-                      <MoreMenu>
+                      <MoreMenu useRadix={false}>
                         {canEdit ? (
                           <button
                             className="dropdown-item"
@@ -184,6 +201,7 @@ export const ArchetypeList: FC<{
                         ) : null}
                         {canDelete ? (
                           <DeleteButton
+                            useRadix={false}
                             className="dropdown-item"
                             displayName="Archetype"
                             text="Delete"

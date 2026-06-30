@@ -12,11 +12,14 @@ import { RowResults } from "@/services/experiments";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { useHoverTooltip } from "@/hooks/useHoverTooltip";
 import { PopoverContent } from "@/ui/Popover";
-import ExperimentResultTooltipContent from "./ExperimentResultTooltipContent/ExperimentResultTooltipContent";
+import ExperimentResultTooltipContent, {
+  StatusLabels,
+} from "./ExperimentResultTooltipContent/ExperimentResultTooltipContent";
 
 interface ResultPopoverData {
   stats: SnapshotMetric;
   metric: ExperimentMetricInterface;
+  pValueThreshold: number;
   significant: boolean;
   resultsStatus: RowResults["resultsStatus"];
   differenceType: DifferenceType;
@@ -30,6 +33,7 @@ interface ResultPopoverData {
   currentMetricTotal: number;
   timeRemainingMs?: number;
   pValueAdjustmentEnabled?: boolean;
+  statusLabels?: StatusLabels;
 }
 
 interface UseResultPopoverOptions {
@@ -113,6 +117,7 @@ export function useResultPopover({
         <ExperimentResultTooltipContent
           stats={data.stats}
           metric={data.metric}
+          pValueThreshold={data.pValueThreshold}
           significant={data.significant}
           resultsStatus={data.resultsStatus}
           differenceType={data.differenceType}
@@ -126,6 +131,7 @@ export function useResultPopover({
           currentMetricTotal={data.currentMetricTotal}
           timeRemainingMs={data.timeRemainingMs}
           pValueAdjustmentEnabled={data.pValueAdjustmentEnabled}
+          statusLabels={data.statusLabels}
         />
       </PopoverContent>,
     );

@@ -21,6 +21,7 @@ interface Props
     HTMLTableCellElement
   > {
   metric: ExperimentMetricInterface;
+  pValueThreshold: number;
   stats: SnapshotMetric;
   rowResults: Pick<
     RowResults,
@@ -47,6 +48,7 @@ interface Props
 
 export default function ChangeColumn({
   metric,
+  pValueThreshold,
   stats,
   rowResults,
   statsEngine,
@@ -91,6 +93,7 @@ export default function ChangeColumn({
     data: {
       stats,
       metric,
+      pValueThreshold,
       significant: rowResults.significant,
       resultsStatus: rowResults.resultsStatus,
       differenceType,
@@ -151,14 +154,29 @@ export default function ChangeColumn({
     </div>
   );
 
-  return metric && rowResults.enoughData ? (
+  if (!metric) {
+    return <td {...otherProps} />;
+  }
+
+  if (!rowResults.enoughData) {
+    if (!additionalButton) {
+      return <td {...otherProps} />;
+    }
+    return (
+      <td className={clsx("results-change", className)} {...otherProps}>
+        <Flex align="center" justify="end" gap="2">
+          {additionalButton}
+        </Flex>
+      </td>
+    );
+  }
+
+  return (
     <td className={clsx("results-change", className)} {...otherProps}>
       <Flex align="center" justify="end" gap="2">
         <Trigger>{changeContent}</Trigger>
         {additionalButton}
       </Flex>
     </td>
-  ) : (
-    <td />
   );
 }

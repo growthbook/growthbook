@@ -32,14 +32,12 @@ import { Context } from "back-end/src/models/BaseModel";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
 import { logger } from "back-end/src/util/logger";
-import { getLatestSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
+import { getLatestSuccessfulSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
 import { getExperimentMetricById } from "back-end/src/services/experiments";
 import {
-  getConfidenceLevelsForOrg,
   getEnvironmentIdsFromOrg,
   getMetricDefaultsForOrg,
-  getPValueCorrectionForOrg,
-  getPValueThresholdForOrg,
+  getSignificanceSettingsForProject,
 } from "./organizations";
 import { isEmailEnabled, sendExperimentChangesEmail } from "./email";
 
@@ -133,6 +131,45 @@ export const notifyAutoUpdate = ({
       }),
   });
 
+// Fires on every failed attempt of the scheduled-status-update job (not
+// memoized). Each event carries the attempt count and whether another retry
+// will follow, so downstream channels can choose to surface only the
+// terminal failure (`willRetry: false`) if desired.
+export const notifyScheduledStatusUpdateFailed = ({
+  context,
+  experiment,
+  scheduledStatusUpdateType,
+  attempts,
+  maxAttempts,
+  willRetry,
+  reason,
+}: {
+  context: Context;
+  experiment: ExperimentInterface;
+  scheduledStatusUpdateType: "start" | "stop";
+  attempts: number;
+  maxAttempts: number;
+  willRetry: boolean;
+  reason: string;
+}) =>
+  dispatchEvent({
+    context,
+    experiment,
+    event: "warning",
+    data: {
+      object: {
+        type: "scheduled-status-update-failed",
+        experimentId: experiment.id,
+        experimentName: experiment.name,
+        scheduledStatusUpdateType,
+        attempts,
+        maxAttempts,
+        willRetry,
+        reason,
+      },
+    },
+  });
+
 export const notifyMultipleExposures = async ({
   context,
   experiment,
@@ -218,6 +255,48 @@ export const notifySrm = async ({
   return triggered && !experiment.pastNotifications?.includes("srm");
 };
 
+export const notifyNoData = async ({
+  context,
+  experiment,
+  snapshot,
+}: {
+  context: Context;
+  experiment: ExperimentInterface;
+  snapshot: ExperimentSnapshotInterface;
+}) => {
+  // Mirror the front-end "No data yet" check: the snapshot ran successfully but
+  // the default analysis returned no variation rows.
+  const analysis = getSnapshotAnalysis(snapshot);
+  const triggered =
+    snapshot.status === "success" &&
+    (analysis?.results?.[0]?.variations?.length ?? 0) === 0;
+
+  await memoizeNotification({
+    context,
+    experiment,
+    type: "no-data",
+    triggered,
+    dispatch: async () => {
+      if (!triggered) return;
+
+      await dispatchEvent({
+        context,
+        experiment,
+        event: "warning",
+        data: {
+          object: {
+            type: "no-data",
+            experimentId: experiment.id,
+            experimentName: experiment.name,
+          },
+        },
+      });
+    },
+  });
+
+  return triggered && !experiment.pastNotifications?.includes("no-data");
+};
+
 type ExperimentSignificanceChange = {
   experimentId: string;
   experimentName: string;
@@ -281,7 +360,7 @@ export const computeExperimentChanges = async ({
     return [];
   }
 
-  const lastSnapshot = await getLatestSnapshot({
+  const lastSnapshot = await getLatestSuccessfulSnapshot({
     context,
     experiment: experiment.id,
     phase: experiment.phases.length - 1,
@@ -294,10 +373,10 @@ export const computeExperimentChanges = async ({
   // TODO refactor to only do once per update
   // get the org level settings for significance:
   const statsEngine = currentAnalysis.settings.statsEngine;
-  const { ciUpper, ciLower } = getConfidenceLevelsForOrg(context);
+  const projectId = experiment.project;
+  const { ciUpper, ciLower, pValueCorrection, pValueThreshold } =
+    await getSignificanceSettingsForProject(context, projectId);
   const metricDefaults = getMetricDefaultsForOrg(context);
-  const pValueThreshold = getPValueThresholdForOrg(context);
-  const pValueCorrection = getPValueCorrectionForOrg(context);
 
   // Apply p-value correction to match what the UI and analysisSummary use,
   // so notifications don't fire for metrics that appear non-significant to users
@@ -563,6 +642,15 @@ export const notifyExperimentChange = async ({
     healthSettings,
     decisionCriteria,
   });
+
+  const triggeredNoData = await notifyNoData({
+    context,
+    experiment,
+    snapshot,
+  });
+  if (triggeredNoData) {
+    notificationsTriggered.push("no-data");
+  }
 
   if (currentStatus) {
     const triggeredMultipleExposures = await notifyMultipleExposures({

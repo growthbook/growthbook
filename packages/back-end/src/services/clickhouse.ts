@@ -1,38 +1,43 @@
-import * as crypto from "crypto";
-import { createClient as createClickhouseClient } from "@clickhouse/client";
-import generator from "generate-password";
-import { AIPromptType } from "shared/ai";
 import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
-import { SDKConnectionInterface } from "shared/types/sdk-connection";
+import {
+  buildManagedWarehouseEventsFactTableSql,
+  buildManagedWarehouseExposureQueries,
+  getManagedWarehouseEventsFactTableColumns,
+  getManagedWarehouseUserIdTypes,
+  getManagedWarehouseUserIdTypeSettings,
+  isManagedWarehouseAwaitingProvisioning,
+  MANAGED_WAREHOUSE_ATTRIBUTES_COLUMN,
+  MANAGED_WAREHOUSE_RESERVED_COLUMN_NAMES,
+} from "shared/util";
 import {
   GrowthbookClickhouseDataSource,
-  DataSourceParams,
   MaterializedColumn,
 } from "shared/types/datasource";
-import { DailyUsage } from "shared/types/organization";
-import { FactTableColumnType } from "shared/types/fact-table";
-import { parseIntWithDefault } from "shared/util";
-import {
-  CLICKHOUSE_HOST,
-  CLICKHOUSE_ADMIN_USER,
-  CLICKHOUSE_ADMIN_PASSWORD,
-  CLICKHOUSE_DATABASE,
-  CLICKHOUSE_MAIN_TABLE,
-  ENVIRONMENT,
-  IS_CLOUD,
-  CLICKHOUSE_DEV_PREFIX,
-  CLICKHOUSE_OVERAGE_TABLE,
-} from "back-end/src/util/secrets";
+import { SDKAttributeSchema } from "shared/types/organization";
+import type {
+  ExperimentEvalItem,
+  FeatureEvalItem,
+  SessionEventItem,
+} from "shared/validators";
+import { ColumnInterface } from "shared/types/fact-table";
+import { isEqual } from "lodash";
 import type { ReqContext } from "back-end/types/request";
-import { logger } from "back-end/src/util/logger";
+import type { ApiReqContext } from "back-end/types/api";
 import {
+  dangerouslyGetFactTableByIdBypassPermission,
+  dangerouslySyncManagedWarehouseFactTable,
   getFactTablesForDatasource,
   updateFactTableColumns,
 } from "back-end/src/models/FactTableModel";
 import {
-  lockDataSource,
-  unlockDataSource,
+  getGrowthbookDatasource,
+  dangerouslyGetGrowthbookDatasourceBypassPermission,
+  updateDataSource,
 } from "back-end/src/models/DataSourceModel";
+import { getSourceIntegrationObject } from "back-end/src/services/datasource";
+import SqlIntegration from "back-end/src/integrations/SqlIntegration";
+import { updateMaterializedColumnsInClickhouse } from "back-end/src/services/licenseServerManagedClickhouse";
+import { logger } from "back-end/src/util/logger";
 
 type ClickHouseDataType =
   | "DateTime"
@@ -41,33 +46,6 @@ type ClickHouseDataType =
   | "String"
   | "LowCardinality(String)";
 
-// These will eventually move to be inside of attributes
-const tempTopLevelFields: Record<string, ClickHouseDataType> = {
-  user_id: "String",
-  url: "String",
-  url_path: "String",
-  url_host: "String",
-  url_query: "String",
-  url_fragment: "String",
-  device_id: "String",
-  page_id: "String",
-  session_id: "String",
-  page_title: "String",
-  utm_source: "String",
-  utm_medium: "String",
-  utm_campaign: "String",
-  utm_term: "String",
-  utm_content: "String",
-  geo_country: "String",
-  geo_city: "String",
-  geo_lat: "Float64",
-  geo_lon: "Float64",
-  ua: "String",
-  ua_browser: "String",
-  ua_os: "String",
-  ua_device_type: "String",
-};
-
 const REMAINING_COLUMNS_SCHEMA: Record<string, ClickHouseDataType> = {
   environment: "LowCardinality(String)",
   sdk_language: "LowCardinality(String)",
@@ -75,89 +53,6 @@ const REMAINING_COLUMNS_SCHEMA: Record<string, ClickHouseDataType> = {
   event_uuid: "String",
   ip: "String",
 };
-
-function clickhouseUserId(orgId: string) {
-  // Sanity check. An orgId of `default` or another reserved word would seriously mess things up
-  if (!orgId.startsWith("org_")) {
-    throw new Error("Invalid organization id");
-  }
-
-  return ENVIRONMENT === "production"
-    ? `${orgId}`
-    : `${CLICKHOUSE_DEV_PREFIX}${orgId}`;
-}
-
-function ensureClickhouseEnvVars() {
-  if (
-    !CLICKHOUSE_HOST ||
-    !CLICKHOUSE_ADMIN_USER ||
-    !CLICKHOUSE_ADMIN_PASSWORD ||
-    !CLICKHOUSE_DATABASE ||
-    !CLICKHOUSE_MAIN_TABLE
-  ) {
-    throw new Error(
-      "Must specify necessary environment variables to interact with clickhouse.",
-    );
-  }
-}
-
-function createAdminClickhouseClient() {
-  ensureClickhouseEnvVars();
-  return createClickhouseClient({
-    host: CLICKHOUSE_HOST,
-    username: CLICKHOUSE_ADMIN_USER,
-    password: CLICKHOUSE_ADMIN_PASSWORD,
-    database: CLICKHOUSE_DATABASE,
-    application: "GrowthBook",
-    request_timeout: 3620_000,
-    clickhouse_settings: {
-      max_execution_time: 3600,
-    },
-  });
-}
-
-function getClickhouseDatatype(
-  columnType: FactTableColumnType,
-): ClickHouseDataType {
-  switch (columnType) {
-    case "date":
-      return "DateTime";
-    case "number":
-      return "Float64";
-    case "boolean":
-      return "Boolean";
-    default:
-      return "String";
-  }
-}
-
-function getClickhouseExtractClause(
-  sourceField: string,
-  columnType: FactTableColumnType,
-) {
-  // Some fields will eventually be inside attributes instead of top-level
-  // This is a temp workaround until then
-  if (tempTopLevelFields[sourceField]) {
-    const desiredDataType = getClickhouseDatatype(columnType);
-
-    // If the desired data type is different from the actual type, need to cast it
-    if (desiredDataType !== tempTopLevelFields[sourceField]) {
-      return `CAST(${sourceField} AS ${desiredDataType})`;
-    }
-
-    // Otherwise, just return the column name
-    return sourceField;
-  }
-
-  switch (columnType) {
-    case "number":
-      return `JSONExtractFloat(context_json, '${sourceField}')`;
-    case "boolean":
-      return `JSONExtractBool(context_json, '${sourceField}')`;
-    default:
-      return `JSONExtractString(context_json, '${sourceField}')`;
-  }
-}
 
 export function getReservedColumnNames(): Set<string> {
   return new Set(
@@ -173,508 +68,6 @@ export function getReservedColumnNames(): Set<string> {
     ].map((col) => col.toLowerCase()),
   );
 }
-
-type ColumnDef = {
-  source: string;
-  alias?: string;
-  datatype: ClickHouseDataType;
-};
-
-function getCreateTableColumnList(columns: ColumnDef[]): string[] {
-  return columns.map(
-    ({ source, alias, datatype }) => `${alias || source} ${datatype}`,
-  );
-}
-function getSelectColumnList(columns: ColumnDef[]): string[] {
-  return columns.map(
-    ({ source, alias }) =>
-      `${source}${alias && alias !== source ? ` as ${alias}` : ""}`,
-  );
-}
-
-function getRemainingColumnDefs(): ColumnDef[] {
-  return Object.entries(REMAINING_COLUMNS_SCHEMA).map(([colName, colType]) => ({
-    source: colName,
-    datatype: colType as ClickHouseDataType,
-  }));
-}
-
-function getMaterializedColumnDefs(
-  materializedColumns: MaterializedColumn[],
-): ColumnDef[] {
-  return materializedColumns.map(({ columnName, datatype, sourceField }) => ({
-    source: getClickhouseExtractClause(sourceField, datatype),
-    alias: columnName,
-    datatype: getClickhouseDatatype(datatype),
-  }));
-}
-
-function getMaterializedViewSQL({
-  orgId,
-  colDefs,
-  orderBy,
-  filter,
-  baseTableName,
-}: {
-  orgId: string;
-  colDefs: ColumnDef[];
-  orderBy: string;
-  filter: string;
-  baseTableName: string;
-}): {
-  createTable: string;
-  createView: string;
-  populateTable: string;
-  select: string;
-  tableName: string;
-  viewName: string;
-} {
-  const tableName = getTableName(orgId, baseTableName);
-  const viewName = getTableName(orgId, `${baseTableName}_mv`);
-
-  const createTable = `CREATE TABLE ${tableName} (
-  ${getCreateTableColumnList(colDefs).join(",\n  ")}
-) ENGINE = MergeTree()
-PARTITION BY toYYYYMM(timestamp) 
-ORDER BY ${orderBy}`;
-
-  const select = `SELECT ${getSelectColumnList(colDefs).join(", ")}
-    FROM ${CLICKHOUSE_MAIN_TABLE} 
-    WHERE (organization = '${orgId}') AND (${filter})`;
-
-  const populateTable = `INSERT INTO ${tableName} ${select}`;
-  const createView = `CREATE MATERIALIZED VIEW ${viewName} TO ${tableName} 
-DEFINER=CURRENT_USER SQL SECURITY DEFINER
-AS ${select}`;
-
-  return {
-    createTable,
-    select,
-    populateTable,
-    createView,
-    tableName,
-    viewName,
-  };
-}
-
-function getEventsSQL(
-  orgId: string,
-  materializedColumns: MaterializedColumn[],
-) {
-  return getMaterializedViewSQL({
-    orgId,
-    baseTableName: "events",
-    filter: "event_name NOT IN ('Experiment Viewed', 'Feature Evaluated')",
-    orderBy: "(event_name, timestamp)",
-    colDefs: [
-      { source: "timestamp", datatype: "DateTime" },
-      { source: "client_key", datatype: "String" },
-      { source: "event_name", datatype: "String" },
-      { source: "properties_json", alias: "properties", datatype: "String" },
-      { source: "context_json", alias: "attributes", datatype: "String" },
-      ...getRemainingColumnDefs(),
-      ...getMaterializedColumnDefs(materializedColumns),
-    ],
-  });
-}
-
-function getExperimentViewSQL(
-  orgId: string,
-  materializedColumns: MaterializedColumn[],
-) {
-  return getMaterializedViewSQL({
-    orgId,
-    baseTableName: "experiment_views",
-    filter: "event_name = 'Experiment Viewed'",
-    orderBy: "(experiment_id, timestamp)",
-    colDefs: [
-      { source: "timestamp", datatype: "DateTime" },
-      { source: "client_key", datatype: "String" },
-      {
-        source: "JSONExtractString(properties_json, 'experimentId')",
-        alias: "experiment_id",
-        datatype: "String",
-      },
-      {
-        source: "JSONExtractString(properties_json, 'variationId')",
-        alias: "variation_id",
-        datatype: "String",
-      },
-      { source: "properties_json", alias: "properties", datatype: "String" },
-      { source: "context_json", alias: "attributes", datatype: "String" },
-      ...getRemainingColumnDefs(),
-      ...getMaterializedColumnDefs(materializedColumns),
-    ],
-  });
-}
-
-function getFeatureusageSQL(orgId: string) {
-  return getMaterializedViewSQL({
-    orgId,
-    baseTableName: "feature_usage",
-    filter: "event_name = 'Feature Evaluated'",
-    orderBy: "(feature, timestamp)",
-    colDefs: [
-      { source: "timestamp", datatype: "DateTime" },
-      { source: "client_key", datatype: "String" },
-      {
-        source: "JSONExtractString(properties_json, 'feature')",
-        alias: "feature",
-        datatype: "String",
-      },
-      {
-        source: "JSONExtractString(properties_json, 'revision')",
-        alias: "revision",
-        datatype: "String",
-      },
-      {
-        source: "JSONExtractString(properties_json, 'source')",
-        alias: "source",
-        datatype: "String",
-      },
-      {
-        source: "JSONExtractString(properties_json, 'value')",
-        alias: "value",
-        datatype: "String",
-      },
-      {
-        source: "JSONExtractString(properties_json, 'ruleId')",
-        alias: "ruleId",
-        datatype: "String",
-      },
-      {
-        source: "JSONExtractString(properties_json, 'variationId')",
-        alias: "variationId",
-        datatype: "String",
-      },
-      { source: "context_json", alias: "attributes", datatype: "String" },
-      ...getRemainingColumnDefs(),
-    ],
-  });
-}
-
-async function runCommand(
-  client: ReturnType<typeof createClickhouseClient>,
-  query: string,
-): Promise<void> {
-  await client.command({ query });
-}
-
-function getTableName(orgId: string, name: string) {
-  const user = clickhouseUserId(orgId);
-  const database = user;
-  return `${database}.${name}`;
-}
-
-export async function createClickhouseUser(
-  context: ReqContext,
-  materializedColumns: MaterializedColumn[] = [],
-): Promise<DataSourceParams> {
-  const client = createAdminClickhouseClient();
-
-  const orgId = context.org.id;
-  const user = clickhouseUserId(orgId);
-  const password = generator.generate({
-    length: 30,
-    numbers: true,
-  });
-  const hashedPassword = crypto
-    .createHash("sha256")
-    .update(password)
-    .digest("hex");
-
-  const database = user;
-  logger.info(`creating Clickhouse database ${database}`);
-  // It's important this does not have "IF NOT EXISTS" to protect against race conditions
-  await runCommand(client, `CREATE DATABASE ${database}`);
-
-  logger.info(`Creating Clickhouse user ${user}`);
-  await runCommand(
-    client,
-    `CREATE USER ${user} IDENTIFIED WITH sha256_hash BY '${hashedPassword}' DEFAULT DATABASE ${database}`,
-  );
-
-  await createClickhouseTables(client, orgId, materializedColumns);
-
-  logger.info(
-    `Granting select permissions on information_schema.columns to ${user}`,
-  );
-  // For schema browser.  They can only see info on tables that they have select permissions on.
-  await runCommand(
-    client,
-    `GRANT SELECT(data_type, table_name, table_catalog, table_schema, column_name) ON information_schema.columns TO ${user}`,
-  );
-
-  const url = new URL(CLICKHOUSE_HOST);
-
-  const params = {
-    port: parseIntWithDefault(url.port, 9000),
-    url: url.toString(),
-    user: user,
-    password: password,
-    database: database,
-  };
-
-  return params;
-}
-
-export async function createClickhouseTables(
-  client: ReturnType<typeof createAdminClickhouseClient>,
-  orgId: string,
-  materializedColumns: MaterializedColumn[] = [],
-): Promise<void> {
-  const user = clickhouseUserId(orgId);
-  const database = user;
-
-  // Events table
-  const eventsSQL = getEventsSQL(orgId, materializedColumns);
-  logger.info(`Creating table ${eventsSQL.tableName}`);
-  await runCommand(client, eventsSQL.createTable);
-  logger.info(`Populating table ${eventsSQL.tableName}`);
-  await runCommand(client, eventsSQL.populateTable);
-  logger.info(`Creating materialized view ${eventsSQL.viewName}`);
-  await runCommand(client, eventsSQL.createView);
-
-  // Experiment views table
-  const experimentViewSQL = getExperimentViewSQL(orgId, materializedColumns);
-  logger.info(`Creating table ${experimentViewSQL.tableName}`);
-  await runCommand(client, experimentViewSQL.createTable);
-  logger.info(`Populating table ${experimentViewSQL.tableName}`);
-  await runCommand(client, experimentViewSQL.populateTable);
-  logger.info(`Creating materialized view ${experimentViewSQL.viewName}`);
-  await runCommand(client, experimentViewSQL.createView);
-
-  // Feature usage table
-  const featureUsageSQL = getFeatureusageSQL(orgId);
-  logger.info(`Creating table ${featureUsageSQL.tableName}`);
-  await runCommand(client, featureUsageSQL.createTable);
-  logger.info(`Populating table ${featureUsageSQL.tableName}`);
-  await runCommand(client, featureUsageSQL.populateTable);
-  logger.info(`Creating materialized view ${featureUsageSQL.viewName}`);
-  await runCommand(client, featureUsageSQL.createView);
-
-  logger.info(`Granting select permissions on ${database}.* to ${user}`);
-  await runCommand(client, `GRANT SELECT ON ${database}.* TO ${user}`);
-}
-
-export async function _dangerousRecreateClickhouseTables(
-  context: ReqContext,
-  datasource: GrowthbookClickhouseDataSource,
-): Promise<void> {
-  const client = createAdminClickhouseClient();
-
-  const orgId = context.org.id;
-  const user = clickhouseUserId(orgId);
-  const database = user;
-
-  // Backfilling data can take a while, so lock the datasource for 30 minutes
-  await lockDataSource(context, datasource, 1800);
-
-  try {
-    // Drop the entire database and recreate it
-    logger.info(`Dropping Clickhouse database ${database}`);
-    await runCommand(client, `DROP DATABASE IF EXISTS ${database}`);
-
-    logger.info(`Creating Clickhouse database ${database}`);
-    await runCommand(client, `CREATE DATABASE ${database}`);
-
-    await createClickhouseTables(
-      client,
-      orgId,
-      datasource.settings.materializedColumns || [],
-    );
-  } finally {
-    await unlockDataSource(context, datasource);
-  }
-}
-
-export async function deleteClickhouseUser(organization: string) {
-  const client = createAdminClickhouseClient();
-  const user = clickhouseUserId(organization);
-  const database = user;
-
-  logger.info(`Deleting Clickhouse user ${user}`);
-  await runCommand(client, `DROP USER IF EXISTS ${user}`);
-
-  logger.info(`Deleting Clickhouse database ${database}`);
-  await runCommand(client, `DROP DATABASE IF EXISTS ${database}`);
-}
-
-export async function addCloudSDKMapping(connection: SDKConnectionInterface) {
-  const { key, organization } = connection;
-
-  // This is not a fatal error, so just log instead of throwing
-  try {
-    const client = createAdminClickhouseClient();
-    await client.insert({
-      table: "usage.sdk_key_mapping",
-      values: [{ key, organization }],
-      format: "JSONEachRow",
-    });
-  } catch (e) {
-    logger.error(
-      e,
-      `Error inserting sdk key mapping (${key} -> ${organization})`,
-    );
-  }
-}
-
-export async function migrateOverageEventsForOrgId(orgId: string) {
-  const client = createAdminClickhouseClient();
-  await runCommand(
-    client,
-    `INSERT INTO ${CLICKHOUSE_MAIN_TABLE} SELECT * FROM ${CLICKHOUSE_OVERAGE_TABLE} WHERE organization = '${orgId}'`,
-  );
-  await runCommand(
-    client,
-    `ALTER TABLE ${CLICKHOUSE_OVERAGE_TABLE} DELETE WHERE organization = '${orgId}'`,
-  );
-}
-
-// In order to monitor usage and quality of AI responses on cloud we log each request to AI agents
-export async function logCloudAIUsage({
-  organization,
-  type,
-  model,
-  temperature,
-  numPromptTokensUsed,
-  numCompletionTokensUsed,
-  usedDefaultPrompt,
-}: {
-  organization: string;
-  model: string;
-  numPromptTokensUsed?: number;
-  numCompletionTokensUsed?: number;
-  type: AIPromptType;
-  temperature?: number;
-  usedDefaultPrompt: boolean;
-}): Promise<void> {
-  if (!IS_CLOUD) {
-    // This is only for cloud
-    return;
-  }
-
-  const env = ENVIRONMENT === "production" ? "prod" : ENVIRONMENT;
-  // As this is just for logging, there is no need to make this a fatal error if it fails
-  try {
-    const client = createAdminClickhouseClient();
-    await client.insert({
-      table: "usage.ai_usage",
-      values: [
-        {
-          env,
-          organization,
-          type,
-          model,
-          num_prompt_tokens_used: numPromptTokensUsed,
-          num_completion_tokens_used: numCompletionTokensUsed,
-          temperature,
-          used_default_prompt: usedDefaultPrompt,
-          date_created: new Date(),
-        },
-      ],
-      format: "JSONEachRow",
-    });
-  } catch (e) {
-    logger.error(e, "Failed to log AI usage to Clickhouse");
-  }
-}
-
-export async function getDailyUsageForOrg(
-  orgId: string,
-  start: Date,
-  end: Date,
-): Promise<DailyUsage[]> {
-  const client = createAdminClickhouseClient();
-
-  // orgId is coming from the back-end, so this should not be necessary, but just in case
-  const sanitizedOrgId = orgId.replace(/[^a-zA-Z0-9_-]/g, "");
-
-  const startString = start.toISOString().replace("T", " ").substring(0, 19);
-  const endString = end.toISOString().replace("T", " ").substring(0, 19);
-
-  // Don't fill forward beyond the current date
-  const fillEnd = end > new Date() ? new Date() : end;
-  const fillEndString = fillEnd
-    .toISOString()
-    .replace("T", " ")
-    .substring(0, 19);
-
-  const sql = `
-select
-  date,
-  sum(requests) as requests,
-  sum(bandwidth) as bandwidth,
-  sum(managedClickhouseEvents) as managedClickhouseEvents
-from (
-  select
-    toStartOfDay(hour) as date,
-    sum(requests) as requests,
-    sum(bandwidth) as bandwidth,
-    0 as managedClickhouseEvents
-  from usage.cdn_hourly
-  where
-    organization = '${sanitizedOrgId}'
-    AND date BETWEEN '${startString}' AND '${endString}'
-  group by date
-  
-  union all
-  
-  select
-    toStartOfDay(received_at) as date,
-    0 as requests,
-    0 as bandwidth,
-    count(1) as managedClickhouseEvents
-  from ${CLICKHOUSE_MAIN_TABLE}
-  where
-    organization = '${sanitizedOrgId}'
-    AND received_at BETWEEN '${startString}' AND '${endString}'
-  group by date
-  
-  union all
-  
-  select
-    toStartOfDay(received_at) as date,
-    0 as requests,
-    0 as bandwidth,
-    count(1) as managedClickhouseEvents
-  from ${CLICKHOUSE_OVERAGE_TABLE}
-  where
-    organization = '${sanitizedOrgId}'
-    AND received_at BETWEEN '${startString}' AND '${endString}'
-  group by date
-)
-group by date
-order by date ASC
-WITH FILL
-  FROM toDateTime('${startString}')
-  TO toDateTime('${fillEndString}')
-  STEP toIntervalDay(1)
-  `.trim();
-
-  const res = await client.query({
-    query: sql,
-    format: "JSONEachRow",
-  });
-
-  const data: {
-    date: string;
-    // These are returned as strings because they could in theory be bigger than MAX_SAFE_INTEGER
-    // That is very unlikely, and even if it happens it will still be approximately correct
-    requests: string;
-    bandwidth: string;
-    managedClickhouseEvents: string;
-  }[] = await res.json();
-
-  // Convert strings to numbers for all metrics
-  return data.map((d) => ({
-    date: d.date,
-    requests: parseIntWithDefault(d.requests, 0),
-    bandwidth: parseIntWithDefault(d.bandwidth, 0),
-    managedClickhouseEvents: parseIntWithDefault(d.managedClickhouseEvents, 0),
-  }));
-}
-
 export async function updateMaterializedColumns({
   context,
   datasource,
@@ -692,163 +85,434 @@ export async function updateMaterializedColumns({
   finalColumns: MaterializedColumn[];
   originalColumns: MaterializedColumn[];
 }) {
-  // We can only process one materialized column update at a time
-  // This should be quick, but lock it 5 minutes just in case
-  await lockDataSource(context, datasource, 300);
+  if (isManagedWarehouseAwaitingProvisioning(datasource)) {
+    return;
+  }
+  const orgId = datasource.organization;
 
-  try {
-    const client = createAdminClickhouseClient();
+  await updateMaterializedColumnsInClickhouse({
+    orgId,
+    columnsToAdd,
+    columnsToDelete,
+    columnsToRename,
+    finalColumns,
+    originalColumns,
+  });
 
-    const orgId = datasource.organization;
+  // Update the main events fact table with the new columns
+  const factTables = await getFactTablesForDatasource(context, datasource.id);
+  const ft = factTables.find(
+    (ft) => ft.id === MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID,
+  );
+  if (ft) {
+    const newColumns = [...ft.columns];
+    newColumns.forEach((col) => {
+      if (col.numberFormat === undefined) {
+        col.numberFormat = "";
+      }
+    });
 
-    const addClauses = columnsToAdd
-      .map(
-        ({ columnName, datatype }) =>
-          `ADD COLUMN IF NOT EXISTS ${columnName} ${getClickhouseDatatype(
-            datatype,
-          )}`,
-      )
-      .join(", ");
-    const dropClauses = columnsToDelete
-      .map((columnName) => `DROP COLUMN IF EXISTS ${columnName}`)
-      .join(", ");
-    const renameClauses = columnsToRename
-      .map(({ from, to }) => `RENAME COLUMN ${from} to ${to}`)
-      .join(", ");
-    const clauses = `${addClauses}${
-      columnsToAdd.length > 0 &&
-      columnsToDelete.length + columnsToRename.length > 0
-        ? ", "
-        : ""
-    }${dropClauses}${
-      columnsToDelete.length > 0 && columnsToRename.length > 0 ? ", " : ""
-    }${renameClauses}`;
-
-    // Track which columns the view should be recreated with in case of an error
-    let viewColumns = originalColumns;
-
-    // First update the main events table
-    const { tableName: eventsTableName, viewName: eventsViewName } =
-      getEventsSQL(orgId, []);
-    logger.info(
-      `Updating materialized columns; dropping view ${eventsViewName}`,
-    );
-    await runCommand(client, `DROP VIEW IF EXISTS ${eventsViewName}`);
-    let err = undefined;
-    try {
-      logger.info(`Updating table schema for ${eventsTableName}`);
-      await runCommand(client, `ALTER TABLE ${eventsTableName} ${clauses}`);
-      viewColumns = finalColumns;
-    } catch (e) {
-      logger.error(e);
-      err = e;
-    } finally {
-      logger.info(`Recreating materialized view ${eventsViewName}`);
-      const eventsSQL = getEventsSQL(orgId, viewColumns);
-      await runCommand(client, eventsSQL.createView);
-    }
-    if (err) {
-      throw err;
-    }
-
-    // Now update the experiment views table
-    const { tableName: exposureTableName, viewName: exposureViewName } =
-      getExperimentViewSQL(orgId, []);
-    logger.info(
-      `Updating materialized columns; dropping view ${exposureViewName}`,
-    );
-    await runCommand(client, `DROP VIEW IF EXISTS ${exposureViewName}`);
-    err = undefined;
-    viewColumns = originalColumns;
-    try {
-      logger.info(`Updating table schema for ${exposureTableName}`);
-      await runCommand(client, `ALTER TABLE ${exposureTableName} ${clauses}`);
-      viewColumns = finalColumns;
-    } catch (e) {
-      logger.error(e);
-      err = e;
-    } finally {
-      logger.info(`Recreating materialized view ${exposureViewName}`);
-      const experimentViewSQL = getExperimentViewSQL(orgId, viewColumns);
-      await runCommand(client, experimentViewSQL.createView);
-    }
-    if (err) {
-      throw err;
-    }
-
-    // Update the main events fact table with the new columns
-    const factTables = await getFactTablesForDatasource(context, datasource.id);
-    const ft = factTables.find(
-      (ft) => ft.id === MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID,
-    );
-    if (ft) {
-      const newColumns = [...ft.columns];
-      newColumns.forEach((col) => {
-        if (col.numberFormat === undefined) {
-          col.numberFormat = "";
-        }
-      });
-
-      columnsToAdd.forEach((col) => {
-        const existingCol = newColumns.find((c) => c.column === col.columnName);
-        if (!existingCol) {
-          newColumns.push({
-            column: col.columnName,
-            name: col.columnName,
-            datatype: col.datatype,
-            dateCreated: new Date(),
-            dateUpdated: new Date(),
-            deleted: false,
-            description: "",
-            numberFormat: "",
-          });
-        } else {
-          // If the column already exists but was previously removed, restore it.
-          existingCol.deleted = false;
-          existingCol.dateUpdated = new Date();
-        }
-      });
-      columnsToRename.forEach(({ from, to }) => {
-        const col = newColumns.find((c) => c.column === from);
-        if (col) {
-          const existingDestinationCol = newColumns.find(
-            (c) => c.column === to,
-          );
-          // Destination already exists
-          if (existingDestinationCol) {
-            // Restore destination if it had been previously removed.
-            existingDestinationCol.deleted = false;
-            existingDestinationCol.dateUpdated = new Date();
-            // Mark the old column as deleted.
-            col.deleted = true;
-            col.dateUpdated = new Date();
-          } else {
-            // Otherwise, rename in place
-            col.column = to;
-            col.name = to;
-            col.dateUpdated = new Date();
-          }
-        }
-      });
-      columnsToDelete.forEach((name) => {
-        const col = newColumns.find((c) => c.column === name);
-        if (col) {
+    columnsToAdd.forEach((col) => {
+      const existingCol = newColumns.find((c) => c.column === col.columnName);
+      if (!existingCol) {
+        newColumns.push({
+          column: col.columnName,
+          name: col.columnName,
+          datatype: col.datatype,
+          dateCreated: new Date(),
+          dateUpdated: new Date(),
+          deleted: false,
+          description: "",
+          numberFormat: "",
+        });
+      } else {
+        // If the column already exists but was previously removed, restore it.
+        existingCol.deleted = false;
+        existingCol.dateUpdated = new Date();
+      }
+    });
+    columnsToRename.forEach(({ from, to }) => {
+      const col = newColumns.find((c) => c.column === from);
+      if (col) {
+        const existingDestinationCol = newColumns.find((c) => c.column === to);
+        // Destination already exists
+        if (existingDestinationCol) {
+          // Restore destination if it had been previously removed.
+          existingDestinationCol.deleted = false;
+          existingDestinationCol.dateUpdated = new Date();
+          // Mark the old column as deleted.
           col.deleted = true;
           col.dateUpdated = new Date();
+        } else {
+          // Otherwise, rename in place
+          col.column = to;
+          col.name = to;
+          col.dateUpdated = new Date();
         }
-      });
+      }
+    });
+    columnsToDelete.forEach((name) => {
+      const col = newColumns.find((c) => c.column === name);
+      if (col) {
+        col.deleted = true;
+        col.dateUpdated = new Date();
+      }
+    });
 
-      const newIdentifierTypes = finalColumns
-        .filter((col) => col.type === "identifier")
-        .map((col) => col.columnName);
+    const newIdentifierTypes = finalColumns
+      .filter((col) => col.type === "identifier")
+      .map((col) => col.columnName);
 
-      await updateFactTableColumns(
-        ft,
-        { columns: newColumns, userIdTypes: newIdentifierTypes },
-        context,
-      );
+    await updateFactTableColumns(
+      ft,
+      { columns: newColumns, userIdTypes: newIdentifierTypes },
+      context,
+    );
+  }
+}
+
+// --- Session Replay ---
+
+export type SessionReplayRow = {
+  session_replay_id: string;
+  organization: string;
+  client_key: string;
+  user_id: string;
+  // Persistent device id from the autoAttributesPlugin gbuuid cookie.
+  // Separate from user_id (the logged-in identity) — lets sessions be
+  // grouped by browser across anonymous → authenticated transitions.
+  device_id: string;
+  s3_key: string;
+  started_at: string;
+  ended_at: string;
+  last_event_at: string;
+  duration_ms: number;
+  event_count: number;
+  error_count: number;
+  url_first: string;
+  urls_visited: string[];
+  page_title: string;
+  viewport_width: number;
+  viewport_height: number;
+  attributes: Record<string, string>;
+  // Flat key arrays aggregated across all chunks by the sessions view.
+  // Use these for filtering and list display.
+  feature_keys: string[];
+  experiment_keys: string[];
+  // Per-chunk structured eval/event history. Present on raw table rows,
+  // absent from the sessions view. Merged across chunks in application
+  // code for the detail view.
+  feature_evals?: { items: FeatureEvalItem[] };
+  experiment_evals?: { items: ExperimentEvalItem[] };
+  session_events?: { items: SessionEventItem[] };
+  country: string;
+  user_agent: string;
+  device: string;
+  browser: string;
+  created_at: string;
+};
+
+export async function listSessionReplays(
+  context: ReqContext,
+  options?: {
+    userId?: string;
+    clientKey?: string;
+    /** Pre-filter to sessions from these SDK connection keys (permission scoping) */
+    clientKeys?: string[];
+    url?: string;
+    country?: string;
+    device?: string;
+    /** Inclusive lower bound in seconds */
+    minDurationSecs?: number;
+    /** Inclusive upper bound in seconds */
+    maxDurationSecs?: number;
+    minEventCount?: number;
+    maxEventCount?: number;
+    /** Filter to sessions where this feature flag was evaluated */
+    featureKey?: string;
+    /** Filter to sessions where this experiment was exposed */
+    experimentKey?: string;
+    limit?: number;
+    offset?: number;
+  },
+): Promise<SessionReplayRow[]> {
+  const datasource = await getGrowthbookDatasource(context);
+  if (!datasource) return [];
+
+  const integration = getSourceIntegrationObject(
+    context,
+    datasource,
+  ) as SqlIntegration;
+  const conditions: string[] = [];
+
+  if (options?.userId) {
+    conditions.push(`user_id = '${escapeClickhouseString(options.userId)}'`);
+  }
+  if (options?.clientKeys?.length) {
+    const escaped = options.clientKeys
+      .map((k) => `'${escapeClickhouseString(k)}'`)
+      .join(", ");
+    conditions.push(`client_key IN (${escaped})`);
+  }
+  if (options?.clientKey) {
+    conditions.push(
+      `client_key = '${escapeClickhouseString(options.clientKey)}'`,
+    );
+  }
+  if (options?.url) {
+    conditions.push(
+      `positionCaseInsensitive(url_first, ${toClickhouseStringLiteral(options.url)}) > 0`,
+    );
+  }
+  if (options?.country) {
+    conditions.push(`country = '${escapeClickhouseString(options.country)}'`);
+  }
+  if (options?.device) {
+    conditions.push(`device = '${escapeClickhouseString(options.device)}'`);
+  }
+  if (options?.minDurationSecs !== undefined) {
+    conditions.push(
+      `duration_ms >= ${Math.round(options.minDurationSecs * 1000)}`,
+    );
+  }
+  if (options?.maxDurationSecs !== undefined) {
+    conditions.push(
+      `duration_ms <= ${Math.round(options.maxDurationSecs * 1000)}`,
+    );
+  }
+  if (options?.minEventCount !== undefined) {
+    conditions.push(`event_count >= ${Math.round(options.minEventCount)}`);
+  }
+  if (options?.maxEventCount !== undefined) {
+    conditions.push(`event_count <= ${Math.round(options.maxEventCount)}`);
+  }
+  if (options?.featureKey) {
+    const escaped = escapeClickhouseString(options.featureKey);
+    conditions.push(`has(feature_keys, '${escaped}')`);
+  }
+  if (options?.experimentKey) {
+    const escaped = escapeClickhouseString(options.experimentKey);
+    conditions.push(`has(experiment_keys, '${escaped}')`);
+  }
+
+  const limit = Math.max(1, Math.min(100, Math.floor(options?.limit ?? 100)));
+  const offset = Math.max(0, Math.floor(options?.offset ?? 0));
+  // Always exclude soft-deleted from the list; callers that explicitly want
+  // them must use a future bulk-list-by-id endpoint that doesn't go through
+  // this function. Add this BEFORE the user-supplied conditions so it can't
+  // be overridden by an empty filter.
+  const allConditions = ["deleted_at IS NULL", ...conditions];
+  const where = `WHERE ${allConditions.join(" AND ")}`;
+
+  const { rows } = await integration.runQuery(
+    `
+    SELECT *, ingested_at AS created_at
+    FROM session_replay_sessions
+    ${where}
+    ORDER BY started_at DESC
+    LIMIT ${limit}
+    OFFSET ${offset}
+  `,
+    undefined,
+    { queryType: "sessionReplayList" },
+  );
+
+  return rows as unknown as SessionReplayRow[];
+}
+
+function escapeClickhouseString(value: string): string {
+  return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+}
+
+function toClickhouseStringLiteral(value: string): string {
+  return `'${escapeClickhouseString(value)}'`;
+}
+
+export async function getSessionReplayChunksBySessionId(
+  context: ReqContext,
+  sessionId: string,
+): Promise<SessionReplayRow[]> {
+  const datasource = await getGrowthbookDatasource(context);
+  if (!datasource) return [];
+
+  const integration = getSourceIntegrationObject(
+    context,
+    datasource,
+  ) as SqlIntegration;
+  const sanitizedSessionId = sessionId.replace(/[^a-zA-Z0-9_-]/g, "");
+
+  const { rows } = await integration.runQuery(
+    `
+    SELECT *, ingested_at AS created_at
+    FROM session_replay_metadata
+    WHERE session_replay_id = '${sanitizedSessionId}' AND deleted_at IS NULL
+  `,
+    undefined,
+    { queryType: "sessionReplayDetail" },
+  );
+
+  return rows as unknown as SessionReplayRow[];
+}
+
+// Re-sync a JSON-column managed warehouse after the org's identifiers change:
+// regenerates the datasource userIdTypes/exposure queries and the `ch_events` fact
+// table so custom identifiers are aliased out of `attributes`. No-op for legacy
+// (materialized-column) warehouses or when no managed warehouse exists.
+export async function syncManagedWarehouseIdentifiers(
+  context: ReqContext | ApiReqContext,
+  // Pass the freshly-updated schema; context.org may still be stale post-mutation.
+  attributeSchema: SDKAttributeSchema | undefined = context.org.settings
+    ?.attributeSchema,
+): Promise<void> {
+  const datasource =
+    await dangerouslyGetGrowthbookDatasourceBypassPermission(context);
+  if (
+    !datasource ||
+    datasource.type !== "growthbook_clickhouse" ||
+    !datasource.settings.useJsonColumns
+  ) {
+    return;
+  }
+
+  const newUserIdTypes = getManagedWarehouseUserIdTypes(attributeSchema);
+
+  // Update datasource settings (userIdTypes + exposure queries).
+  // updateDataSource short-circuits when nothing actually changed.
+  // Skip live exposure-query validation: this is a best-effort sync and the
+  // queries are GrowthBook-authored, so an attribute change shouldn't block on
+  // (or be flagged by) a slow/unreachable warehouse.
+  await updateDataSource(
+    context,
+    datasource,
+    {
+      settings: {
+        ...datasource.settings,
+        userIdTypes: getManagedWarehouseUserIdTypeSettings(attributeSchema),
+        queries: {
+          ...datasource.settings.queries,
+          exposure: buildManagedWarehouseExposureQueries(attributeSchema),
+        },
+      },
+    },
+    { skipExposureQueryValidation: true },
+  );
+
+  // Update the events fact table sql + columns + userIdTypes
+  const ft = await dangerouslyGetFactTableByIdBypassPermission(
+    context.org.id,
+    MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID,
+  );
+  if (!ft) return;
+
+  const desiredColumns =
+    getManagedWarehouseEventsFactTableColumns(attributeSchema);
+  const desiredColumnNames = new Set(desiredColumns.map((c) => c.column));
+
+  const newColumns: ColumnInterface[] = [...ft.columns];
+  newColumns.forEach((col) => {
+    if (col.numberFormat === undefined) {
+      col.numberFormat = "";
     }
-  } finally {
-    await unlockDataSource(context, datasource);
+  });
+
+  let columnsMutated = false;
+
+  // Add new columns, restore any that were previously removed
+  desiredColumns.forEach((dc) => {
+    const existing = newColumns.find((c) => c.column === dc.column);
+    if (!existing) {
+      newColumns.push({
+        column: dc.column,
+        name: dc.column,
+        datatype: dc.datatype,
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        deleted: false,
+        description: "",
+        numberFormat: "",
+        alwaysInlineFilter: dc.alwaysInlineFilter,
+      });
+      columnsMutated = true;
+    } else if (existing.deleted) {
+      existing.deleted = false;
+      existing.dateUpdated = new Date();
+      columnsMutated = true;
+    }
+  });
+
+  // Mark removed custom identifiers as deleted. Only ever delete former
+  // identifier aliases, never real columns: a custom identifier is guaranteed
+  // non-reserved (reserved-name collisions are excluded when building
+  // identifiers), so skipping reserved columns protects every `SELECT *` column
+  // the refresh job discovered (e.g. `url`, `session_id`) from being removed on
+  // an unrelated attribute edit.
+  newColumns.forEach((col) => {
+    if (
+      !col.deleted &&
+      !desiredColumnNames.has(col.column) &&
+      !MANAGED_WAREHOUSE_RESERVED_COLUMN_NAMES.has(col.column.toLowerCase())
+    ) {
+      col.deleted = true;
+      col.dateUpdated = new Date();
+      columnsMutated = true;
+    }
+  });
+
+  // Keep the `attributes` JSON pseudo-columns in sync with the attribute schema:
+  // schema-declared fields win (so a type change propagates), while any extra
+  // fields discovered from data by the refresh job are preserved.
+  const desiredJsonFields = desiredColumns.find(
+    (c) => c.column === MANAGED_WAREHOUSE_ATTRIBUTES_COLUMN,
+  )?.jsonFields;
+  const attributesCol = newColumns.find(
+    (c) => c.column === MANAGED_WAREHOUSE_ATTRIBUTES_COLUMN,
+  );
+  if (attributesCol && desiredJsonFields) {
+    const mergedJsonFields = {
+      ...attributesCol.jsonFields,
+      ...desiredJsonFields,
+    };
+    if (!isEqual(attributesCol.jsonFields || {}, mergedJsonFields)) {
+      attributesCol.jsonFields = mergedJsonFields;
+      attributesCol.dateUpdated = new Date();
+      columnsMutated = true;
+    }
+  }
+
+  const newSql = buildManagedWarehouseEventsFactTableSql(attributeSchema);
+
+  // Skip the write when nothing changed (e.g. a tag/description-only edit on an
+  // identifier attribute) to avoid needless fact-table churn.
+  if (
+    !columnsMutated &&
+    ft.sql === newSql &&
+    isEqual(ft.userIdTypes || [], newUserIdTypes)
+  ) {
+    return;
+  }
+
+  await dangerouslySyncManagedWarehouseFactTable(context, ft, {
+    sql: newSql,
+    columns: newColumns,
+    userIdTypes: newUserIdTypes,
+  });
+}
+
+// Best-effort wrapper for attribute create/update/delete (internal + REST API):
+// a managed-warehouse sync failure must never fail the attribute change itself.
+// Runs for any attribute change (not just identifiers) so the `attributes` JSON
+// pseudo-columns track non-identifier attributes and their type changes too; the
+// underlying sync no-ops when nothing material actually changed.
+export async function syncManagedWarehouseIdentifiersOnAttributeChange(
+  context: ReqContext | ApiReqContext,
+  attributeSchema: SDKAttributeSchema | undefined,
+): Promise<void> {
+  try {
+    await syncManagedWarehouseIdentifiers(context, attributeSchema);
+  } catch (e) {
+    logger.error(
+      e,
+      "Failed to sync managed warehouse identifiers after attribute change",
+    );
   }
 }

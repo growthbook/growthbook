@@ -1,8 +1,13 @@
 import { ReactNode } from "react";
 import isEqual from "lodash/isEqual";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { FeaturePrerequisite, SavedGroupTargeting } from "shared/types/feature";
+import {
+  FeaturePrerequisite,
+  NamespaceValue,
+  SavedGroupTargeting,
+} from "shared/types/feature";
 import { getMetricLink } from "shared/experiments";
+import { calculateNamespaceCoverage, getNamespaceRanges } from "shared/util";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
 import { formatTrafficSplit } from "@/services/utils";
@@ -141,13 +146,20 @@ type PhaseTargeting = {
   savedGroups?: SavedGroupTargeting[];
   prerequisites?: unknown[];
   variationWeights?: number[];
-  namespace?: {
-    enabled: boolean;
-    name: string;
-    range: [number, number];
-  } | null;
+  namespace?: NamespaceValue | null;
   seed?: string;
 };
+
+/**
+ * Collapse a namespace to a shape-stable form for comparison. Without this,
+ * `isEqual` flags false positives whenever one side has the legacy `range`
+ * tuple and the other has multiRange `ranges` — or when derived fields like
+ * `format`/`hashAttribute` are present on only one side.
+ */
+function normalizeNsForDiff(ns: PhaseTargeting["namespace"]) {
+  if (!ns?.enabled) return null;
+  return { enabled: true, name: ns.name, ranges: getNamespaceRanges(ns) };
+}
 
 // "User targeting" — phases: condition, savedGroups, prerequisites, coverage, weights, namespace.
 export function renderUserTargetingPhases(
@@ -273,11 +285,14 @@ export function renderUserTargetingPhases(
     }
 
     // ── Namespace ─────────────────────────────────────────────────────────────
-    const nsChanged = !isEqual(preP.namespace, postP.namespace);
+    const nsChanged = !isEqual(
+      normalizeNsForDiff(preP.namespace),
+      normalizeNsForDiff(postP.namespace),
+    );
     if (nsChanged) {
       const fmtNs = (ns: PhaseTargeting["namespace"]) =>
         ns?.enabled
-          ? `${ns.name} (${percentFormatter.format(ns.range[1] - ns.range[0])})`
+          ? `${ns.name} (${percentFormatter.format(calculateNamespaceCoverage(ns))})`
           : "Global (all users)";
       sections.push(
         <ChangeField

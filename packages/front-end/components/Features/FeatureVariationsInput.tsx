@@ -17,6 +17,7 @@ import { GBAddCircle } from "@/components/Icons";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Field from "@/components/Forms/Field";
 import Link from "@/ui/Link";
+import Text from "@/ui/Text";
 import styles from "./VariationsInput.module.scss";
 import ExperimentSplitVisual from "./ExperimentSplitVisual";
 import {
@@ -53,6 +54,10 @@ export interface Props {
   simple?: boolean;
   sortableClassName?: string;
   onlySafeToEditVariationMetadata?: boolean;
+  // JSON features only. When true, each variation value is rendered as a sparse
+  // patch (merged onto the feature default). Pass-through to the value editor;
+  // callers own the sparse toggle since it's a rule-level flag.
+  sparse?: boolean;
 }
 
 export default function FeatureVariationsInput({
@@ -83,6 +88,7 @@ export default function FeatureVariationsInput({
   simple,
   sortableClassName,
   onlySafeToEditVariationMetadata,
+  sparse,
 }: Props) {
   const weights = variations?.map((v) => v.weight) || [];
   const isEqualWeights = weights?.every(
@@ -122,7 +128,11 @@ export default function FeatureVariationsInput({
 
   return (
     <div className="form-group">
-      {_label !== null ? <label>{label}</label> : null}
+      {_label !== null ? (
+        <Text as="label" weight="semibold">
+          {label}
+        </Text>
+      ) : null}
       {simple ? (
         <>
           {!hideCoverage ? (
@@ -385,6 +395,7 @@ export default function FeatureVariationsInput({
                         feature={feature}
                         showDescription={showDescriptions}
                         className={sortableClassName}
+                        sparse={sparse}
                       />
                     ))}
                   </SortableVariationsList>

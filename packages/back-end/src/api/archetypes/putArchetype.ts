@@ -1,5 +1,6 @@
 import { putArchetypeValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { resolveOwnerEmail } from "back-end/src/services/owner";
 import {
   getArchetypeById,
   toArchetypeApiInterface,
@@ -10,6 +11,12 @@ import { validatePayload } from "./validations";
 
 export const putArchetype = createApiRequestHandler(putArchetypeValidator)(
   async (req) => {
+    if (!req.context.hasPremiumFeature("archetypes")) {
+      req.context.throwPlanDoesNotAllowError(
+        "Archetypes require a premium plan.",
+      );
+    }
+
     const { id } = req.params;
     const orgId = req.organization.id;
     const archetype = await getArchetypeById(id, orgId);
@@ -39,7 +46,10 @@ export const putArchetype = createApiRequestHandler(putArchetypeValidator)(
     });
 
     return {
-      archetype: toArchetypeApiInterface(updatedArchetype),
+      archetype: await resolveOwnerEmail(
+        toArchetypeApiInterface(updatedArchetype),
+        req.context,
+      ),
     };
   },
 );
