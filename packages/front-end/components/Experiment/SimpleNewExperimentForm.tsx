@@ -8,6 +8,7 @@ import {
 } from "shared/types/datasource";
 import { getEqualWeights } from "shared/experiments";
 import { isProjectListValidForProject } from "shared/util";
+import { Flex } from "@radix-ui/themes";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
@@ -38,6 +39,7 @@ import {
 import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
 import { getDefaultVariations } from "@/components/Experiment/NewExperimentForm";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
+import SDKCapabilityWarning from "@/components/Features/SDKCapabilityWarning";
 
 export type SimpleNewExperimentFormProps = {
   onClose?: () => void;
@@ -410,6 +412,23 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
         ) : undefined
       }
     >
+      <Flex direction="column" gap="4" mb="4">
+        <Callout
+          status="info"
+          dismissible
+          id="new-experiment-create-flow-callout"
+        >
+          Other experiment configuration steps now live on the experiment
+          overview page.
+        </Callout>
+        <SDKCapabilityWarning
+          capability="bucketingV2"
+          project={selectedProject}
+          someMessage="Some of your SDK Connections may not support V2 hashing."
+          noneMessage="None of your SDK Connections support V2 hashing."
+          size="medium"
+        />
+      </Flex>
       <Field
         label="Experiment Name"
         required
@@ -420,7 +439,7 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
       {projects.length >= 1 && (
         <SelectField
           label="Project"
-          value={form.watch("project") ?? ""}
+          value={selectedProject}
           onChange={(p) => form.setValue("project", p)}
           name="project"
           initialOption={allowAllProjects ? "All Projects" : undefined}

@@ -31,7 +31,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import ExperimentsListTable from "@/components/Experiment/ExperimentsListTable";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import useURLHash from "@/hooks/useURLHash";
-import SDKCapabilityWarning from "@/components/Features/SDKCapabilityWarning";
 
 const EXPERIMENT_LIST_TABS = [
   "all",
@@ -256,14 +255,6 @@ const ExperimentsPage = (): React.ReactElement => {
           ) : (
             hasExperiments && (
               <>
-                <SDKCapabilityWarning
-                  capability="bucketingV2"
-                  project={project}
-                  someMessage="Some of your SDK Connections may not support V2 hashing."
-                  noneMessage="None of your SDK Connections support V2 hashing."
-                  size="medium"
-                  my="4"
-                />
                 <Tabs
                   value={activeTab}
                   onValueChange={(value) => {

@@ -1,4 +1,5 @@
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
+import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
 import { useRouter } from "next/router";
 import React, { useState } from "react";
 import { FaInfoCircle } from "react-icons/fa";
@@ -64,6 +65,9 @@ export default function SDKConnectionPage() {
       </div>
     );
   }
+
+  const supportsBucketingV2 =
+    getConnectionSDKCapabilities(connection).includes("bucketingV2");
 
   const canDuplicate = permissionsUtil.canCreateSDKConnection(connection);
   const canUpdate = permissionsUtil.canUpdateSDKConnection(connection, {});
@@ -177,6 +181,13 @@ export default function SDKConnectionPage() {
         )}
       </Flex>
 
+      {!supportsBucketingV2 && (
+        <Callout status="warning" mb="3">
+          This SDK version doesn&apos;t support V2 hashing. Until it&apos;s
+          upgraded, new experiments in the same projects as this connection will
+          fall back to the V1 hashing algorithm.
+        </Callout>
+      )}
       <ConnectionDiagram
         connection={connection}
         mutate={mutate}

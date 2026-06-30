@@ -108,6 +108,7 @@ export default function EditTargetingModal({
                   project={experiment.project}
                   someMessage="Using V1 hashing algorithm as some of your SDK Connections may not support V2 hashing."
                   noneMessage="Using V1 hashing algorithm as none of your SDK Connections support V2 hashing."
+                  popoverTriggerText="Show incompatible SDKs"
                   size="medium"
                   mb="6"
                 />
