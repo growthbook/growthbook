@@ -1,6 +1,7 @@
 import { FC, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { useRouter } from "next/router";
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   DataSourceInterfaceWithParams,
@@ -143,6 +144,10 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
   } = useTemplates();
   const { experimentsMap, holdoutsMap } = useHoldouts();
   const { demoDataSourceId } = useDemoDataSourceProject();
+
+  const showSwitchToOldExpCreate = useFeatureIsOn(
+    "show-switch-to-old-exp-create",
+  );
 
   const initialProject = ctxProject || "";
 
@@ -406,7 +411,7 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
       trackingEventModalType="simple-new-experiment-create"
       trackingEventModalSource={source}
       headerAction={
-        onSwitchToLegacy ? (
+        onSwitchToLegacy && showSwitchToOldExpCreate ? (
           <Link onClick={onSwitchToLegacy} color="gray">
             Switch to old experience
           </Link>
@@ -414,14 +419,16 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
       }
     >
       <Flex direction="column" gap="4" mb="4">
-        <Callout
-          status="info"
-          dismissible
-          id="new-experiment-create-flow-callout"
-        >
-          Other experiment configuration steps now live on the experiment
-          overview page.
-        </Callout>
+        {showSwitchToOldExpCreate && (
+          <Callout
+            status="info"
+            dismissible
+            id="new-experiment-create-flow-callout"
+          >
+            Other experiment configuration steps now live on the experiment
+            overview page.
+          </Callout>
+        )}
         <SDKCapabilityWarning
           capability="bucketingV2"
           project={selectedProject}
