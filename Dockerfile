@@ -29,7 +29,8 @@ RUN \
 # tooling. Removing them keeps their CVEs out of the image — e.g. dulwich (CVE-2026-42305 /
 # GHSA-897w-fcg9-f6xj) and cryptography, which gbstats has no runtime need for. cryptography
 # used to be version-pinned above to dodge its CVEs; uninstalling it ends that treadmill.
-RUN pip uninstall -y poetry poetry-core poetry-plugin-export keyring jaraco.classes setuptools wheel dulwich cryptography SecretStorage jeepney
+# The package list is sourced from check_stripped_deps.STRIPPED so it can't drift from the guard.
+RUN pip uninstall -y $(python -c "from check_stripped_deps import STRIPPED; print(*STRIPPED)")
 
 # Guard against dependency drift: gbstats must still import using only the runtime deps, and the
 # distributions stripped above must stay absent. Fails the build if a future dep change needs one

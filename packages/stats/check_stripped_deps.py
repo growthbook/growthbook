@@ -22,12 +22,11 @@ import importlib.metadata
 import pkgutil
 import sys
 
-import gbstats
-
-# Distributions stripped from the runtime image. Keep in sync with the
-# `pip uninstall` list in the Dockerfile. cryptography, SecretStorage and jeepney
-# are poetry's keyring footprint (poetry -> keyring -> SecretStorage ->
-# cryptography), not gbstats runtime deps.
+# Distributions stripped from the runtime image — the single source of truth. The
+# Dockerfile's `pip uninstall` line generates its arguments from this list, and the
+# guard below asserts they ended up absent, so the two can't drift apart.
+# cryptography, SecretStorage and jeepney are poetry's keyring footprint
+# (poetry -> keyring -> SecretStorage -> cryptography), not gbstats runtime deps.
 STRIPPED = [
     "cryptography",
     "SecretStorage",
@@ -52,6 +51,8 @@ def is_installed(distribution: str) -> bool:
 
 
 def main() -> None:
+    import gbstats
+
     for mod in pkgutil.walk_packages(gbstats.__path__, "gbstats."):
         importlib.import_module(mod.name)
 
