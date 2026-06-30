@@ -6,11 +6,20 @@ import { logger } from "back-end/src/util/logger";
 const MIGRATE_MANAGED_WAREHOUSE = "migrateManagedWarehouse";
 type MigrateManagedWarehouseJob = Job<{ organization: string }>;
 
+// Cap concurrent migrations per instance. Each one triggers a license-server
+// table recreate plus a burst of Mongo writes, so we keep the proactive sweep
+// (and lazy on-read triggers) from running too many at once.
+const MIGRATE_CONCURRENCY = 2;
+
 let agenda: Agenda;
 
 export default function (ag: Agenda) {
   agenda = ag;
-  agenda.define(MIGRATE_MANAGED_WAREHOUSE, migrateManagedWarehouse);
+  agenda.define(
+    MIGRATE_MANAGED_WAREHOUSE,
+    { concurrency: MIGRATE_CONCURRENCY, lockLimit: MIGRATE_CONCURRENCY },
+    migrateManagedWarehouse,
+  );
 }
 
 // Enqueue a one-time migration for an org's managed warehouse. Deduplicated per

@@ -27,6 +27,7 @@ import updateAggregatedFactTablesJob from "back-end/src/jobs/updateAggregatedFac
 import addRampScheduleJob from "back-end/src/jobs/updateRampSchedules";
 import addScheduledPublishJob from "back-end/src/jobs/updateScheduledPublishes";
 import addMigrateManagedWarehouseJob from "back-end/src/jobs/migrateManagedWarehouse";
+import addSweepManagedWarehouseMigrationsJob from "back-end/src/jobs/sweepManagedWarehouseMigrations";
 import { initRampScheduleHooks } from "back-end/src/services/rampSchedule";
 
 export async function queueInit() {
@@ -55,6 +56,7 @@ export async function queueInit() {
   addRampScheduleJob(agenda);
   addScheduledPublishJob(agenda);
   addMigrateManagedWarehouseJob(agenda);
+  await addSweepManagedWarehouseMigrationsJob(agenda);
   initRampScheduleHooks();
   // Make sure we have index needed to delete efficiently
   agenda._collection
