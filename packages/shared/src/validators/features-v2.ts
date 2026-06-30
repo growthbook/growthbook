@@ -4,6 +4,7 @@ import {
   apiPaginationFieldsValidator,
   booleanQueryField,
   paginationQueryFields,
+  schemaValidationQueryFields,
   skipPaginationQueryField,
 } from "./shared";
 import { ownerInputField, optionalOwnerInputField } from "./owner-field";
@@ -666,7 +667,7 @@ export const listFeaturesV2Validator = {
 
 export const postFeatureV2Validator = {
   bodySchema: postFeatureBodyV2,
-  querySchema: z.never(),
+  querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
   paramsSchema: z.never(),
   responseSchema: featureV2ResponseSchema,
   summary: "Create a single feature",
@@ -706,7 +707,7 @@ export const getFeatureV2Validator = {
 
 export const updateFeatureV2Validator = {
   bodySchema: updateFeatureBodyV2,
-  querySchema: z.never(),
+  querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
   paramsSchema: idParams,
   responseSchema: featureV2ResponseSchema,
   summary: "Partially update a feature",
