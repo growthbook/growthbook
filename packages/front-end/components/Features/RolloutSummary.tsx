@@ -2,6 +2,7 @@ import { FeatureInterface } from "shared/types/feature";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import ValidateValue from "@/components/Features/ValidateValue";
 import Badge from "@/ui/Badge";
+import { AttributeBadge } from "./AttributeBadge";
 import ValueDisplay from "./ValueDisplay";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -14,23 +15,22 @@ export default function RolloutSummary({
   coverage,
   feature,
   hashAttribute,
+  sparse = false,
 }: {
   value: string;
   coverage: number;
   feature: FeatureInterface;
   hashAttribute: string;
+  monitored?: boolean;
+  sparse?: boolean;
 }) {
+  const displayCoverage = coverage;
   const type = feature.valueType;
   return (
     <Box>
       <Flex direction="row" gap="2" mb="3">
         <Text weight="medium">SAMPLE</Text> by{" "}
-        <Badge
-          color="gray"
-          label={
-            <Text style={{ color: "var(--slate-12)" }}>{hashAttribute}</Text>
-          }
-        />
+        <AttributeBadge attributeId={hashAttribute} />
       </Flex>
       <Box className="mb-3">
         <Flex gap="3" align="center">
@@ -57,7 +57,7 @@ export default function RolloutSummary({
               <Box
                 className="progress-bar"
                 style={{
-                  width: coverage * 100 + "%",
+                  width: displayCoverage * 100 + "%",
                   top: "0",
                   left: "0",
                   position: "absolute",
@@ -74,7 +74,7 @@ export default function RolloutSummary({
               mr="2"
               label={
                 <Text style={{ color: "var(--slate-12)" }}>
-                  {percentFormatter.format(coverage)}
+                  {percentFormatter.format(displayCoverage)}
                 </Text>
               }
             />
@@ -87,7 +87,13 @@ export default function RolloutSummary({
           <Text weight="medium">SERVE</Text>
         </Box>
         <Box flexGrow="1">
-          <ValueDisplay value={value} type={type} showFullscreenButton={true} />
+          <ValueDisplay
+            value={value}
+            type={type}
+            showFullscreenButton={true}
+            sparse={sparse}
+            defaultValue={feature.defaultValue}
+          />
         </Box>
       </Flex>
       <ValidateValue value={value} feature={feature} />

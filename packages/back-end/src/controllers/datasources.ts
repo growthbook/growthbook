@@ -1,7 +1,14 @@
 import { Response } from "express";
 import cloneDeep from "lodash/cloneDeep";
+import isEqual from "lodash/isEqual";
 import * as bq from "@google-cloud/bigquery";
 import { SQL_ROW_LIMIT } from "shared/sql";
+import {
+  isEventForwarderAllowedUserIdTypesChange,
+  getEventForwarderDatasourceParams,
+  buildManagedWarehouseExposureQueries,
+  getManagedWarehouseUserIdTypeSettings,
+} from "shared/util";
 import {
   PIPELINE_MODE_SUPPORTED_DATA_SOURCE_TYPES,
   getPipelineValidationCreateTableQuery,
@@ -10,9 +17,14 @@ import {
   type PipelineValidationResults,
 } from "shared/enterprise";
 import { TemplateVariables } from "shared/types/sql";
-import { factTableColumnTypes } from "shared/validators";
+import {
+  eventForwarderAccessTestCreateBodySchema,
+  eventForwarderAccessTestEditBodySchema,
+  factTableColumnTypes,
+} from "shared/validators";
 import { AutoMetricToCreate } from "shared/types/integrations";
 import { AuditUserLoggedIn } from "shared/types/audit";
+import { EventForwarderConfigDraft } from "shared/types/event-forwarder";
 import {
   DataSourceParams,
   DataSourceType,
@@ -27,13 +39,14 @@ import {
   GrowthbookClickhouseSettings,
 } from "shared/types/datasource";
 import { GoogleAnalyticsParams } from "shared/types/integrations/googleanalytics";
+import type { ClickHouseConnectionParams } from "shared/types/integrations/clickhouse";
 import { FactTableColumnType } from "shared/types/fact-table";
+import { SDKAttributeSchema } from "shared/types/organization";
 import { SQLExecutionError } from "back-end/src/util/errors";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import {
   getSourceIntegrationObject,
-  getNonSensitiveParams,
   mergeParams,
   encryptParams,
   testQuery,
@@ -42,11 +55,37 @@ import {
   runFreeFormQuery,
   runUserExposureQuery,
 } from "back-end/src/services/datasource";
+import {
+  getEventForwarderForDatasource,
+  hasAnyEventForwarderConfig,
+  syncEventForwarderConfigFromDatasource,
+  toEventForwarderConfigDraft,
+} from "back-end/src/services/eventForwarder/config";
+import {
+  syncEventForwarderAfterDatasourceUpdate,
+  deleteEventForwarderConfigForDatasource,
+} from "back-end/src/services/eventForwarder/datasourceLifecycle";
+import {
+  getDataSourcesWithParams,
+  getDataSourceWithParams,
+} from "back-end/src/services/datasourceResponse";
+import {
+  buildEventForwarderAccessTestDatasource,
+  runEventForwarderAccessTest,
+} from "back-end/src/services/eventForwarder/writeAccess";
+import {
+  pauseEventForwarderThroughLicenseServer,
+  provisionEventForwarderThroughLicenseServer,
+  resumeEventForwarderThroughLicenseServer,
+  syncEventForwarderStatusFromLicenseServer,
+} from "back-end/src/services/eventForwarder/connector";
 import { getOauth2Client } from "back-end/src/integrations/GoogleAnalytics";
 import SqlIntegration from "back-end/src/integrations/SqlIntegration";
 import {
   getQueriesByDatasource,
   getQueriesByIds,
+  getQueryById,
+  updateQueryIfRunning,
 } from "back-end/src/models/QueryModel";
 import { findDimensionsByDataSource } from "back-end/src/models/DimensionModel";
 import {
@@ -66,14 +105,13 @@ import {
   getDimensionSlicesById,
 } from "back-end/src/models/DimensionSlicesModel";
 import { DimensionSlicesQueryRunner } from "back-end/src/queryRunners/DimensionSlicesQueryRunner";
-import { SourceIntegrationInterface } from "back-end/src/types/Integration";
+import { logger } from "back-end/src/util/logger";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
-  _dangerousRecreateClickhouseTables,
-  createClickhouseUser,
   getReservedColumnNames,
   updateMaterializedColumns,
 } from "back-end/src/services/clickhouse";
+import { dangerousRecreateClickhouseTables } from "back-end/src/services/licenseServerManagedClickhouse";
 import { UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { getExperimentsByTrackingKeys } from "back-end/src/models/ExperimentModel";
 
@@ -161,18 +199,7 @@ export async function getDataSources(req: AuthRequest, res: Response) {
 
   res.status(200).json({
     status: 200,
-    datasources: datasources.map((d) => {
-      const integration = getSourceIntegrationObject(context, d);
-      return {
-        id: d.id,
-        name: d.name,
-        description: d.description,
-        type: d.type,
-        settings: d.settings,
-        projects: d.projects ?? [],
-        params: getNonSensitiveParams(integration),
-      };
-    }),
+    datasources: await getDataSourcesWithParams(context, datasources),
   });
 }
 
@@ -185,22 +212,7 @@ export async function getDataSource(
 
   const integration = await getIntegrationFromDatasourceId(context, id);
 
-  res.status(200).json(getDataSourceWithParams(integration));
-}
-
-function getDataSourceWithParams(
-  integration: SourceIntegrationInterface,
-): DataSourceInterfaceWithParams {
-  const datasource = integration.datasource;
-
-  // eslint-disable-next-line
-  const { params, ...otherFields } = datasource;
-
-  return {
-    ...otherFields,
-    params: getNonSensitiveParams(integration),
-    decryptionError: integration.decryptionError,
-  };
+  res.status(200).json(await getDataSourceWithParams(context, integration));
 }
 
 export async function postDataSources(
@@ -211,6 +223,7 @@ export async function postDataSources(
     params: DataSourceParams;
     settings: DataSourceSettings;
     projects?: string[];
+    eventForwarderConfig?: EventForwarderConfigDraft | null;
   }>,
   res: Response<
     | {
@@ -225,7 +238,8 @@ export async function postDataSources(
   >,
 ) {
   const context = getContextFromReq(req);
-  const { name, description, type, params, projects } = req.body;
+  const { name, description, type, params, projects, eventForwarderConfig } =
+    req.body;
   const settings = req.body.settings || {};
 
   if (!context.permissions.canCreateDataSource({ projects, type })) {
@@ -251,13 +265,29 @@ export async function postDataSources(
       description,
       projects,
     );
+    const eventForwarderDatasourceParams = getEventForwarderDatasourceParams(
+      datasource.type,
+      params,
+    );
 
+    const syncedEventForwarderConfig =
+      await syncEventForwarderConfigFromDatasource({
+        context,
+        datasource,
+        draft: eventForwarderConfig,
+        datasourceParams: eventForwarderDatasourceParams,
+      });
+    await provisionEventForwarderThroughLicenseServer(
+      context,
+      syncedEventForwarderConfig,
+      eventForwarderDatasourceParams,
+    );
     const integration = getSourceIntegrationObject(context, datasource);
 
     res.status(200).json({
       status: 200,
       id: datasource.id,
-      datasource: getDataSourceWithParams(integration),
+      datasource: await getDataSourceWithParams(context, integration),
     });
   } catch (e) {
     req.log.error(e, "Failed to create data source");
@@ -298,49 +328,18 @@ export async function postManagedWarehouse(
     context.permissions.throwPermissionError();
   }
 
-  // Start out with some default materialized columns
-  // These can be changed by the user later
-  const identifiers = ["device_id", "user_id"];
-  const dimensions = [
-    "geo_country",
-    "ua_browser",
-    "ua_os",
-    "ua_device_type",
-    "utm_source",
-    "utm_medium",
-    "utm_campaign",
-  ];
-  const materializedColumns: MaterializedColumn[] = [
-    ...identifiers.map(
-      (id) =>
-        ({
-          sourceField: id,
-          columnName: id,
-          datatype: "string",
-          type: "identifier",
-        }) as const,
-    ),
-    ...dimensions.map(
-      (dim) =>
-        ({
-          sourceField: dim,
-          columnName: dim,
-          datatype: "string",
-          type: "dimension",
-        }) as const,
-    ),
-    {
-      sourceField: "url_path",
-      columnName: "url_path",
-      datatype: "string",
-      type: "",
-    },
-  ];
-
-  const params = await createClickhouseUser(context, materializedColumns);
-  const datasourceSettings = getManagedWarehouseSettings(
-    materializedColumns,
-    {},
+  const params: ClickHouseConnectionParams = {
+    url: "https://managed-warehouse-placeholder.invalid",
+    port: 443,
+    username: "pending_provisioning",
+    password: "pending_provisioning",
+    database: "pending_provisioning",
+  };
+  // New warehouses use native ClickHouse JSON columns. Identifiers and exposure
+  // queries are derived from the org's hashAttribute attributes.
+  const datasourceSettings = getManagedWarehouseJsonSettings(
+    context.org.settings?.attributeSchema,
+    { hasBeenProvisioned: false },
   );
 
   const datasource = await createDataSource(
@@ -357,7 +356,7 @@ export async function postManagedWarehouse(
   res.status(200).json({
     status: 200,
     id: "managed_warehouse",
-    datasource: getDataSourceWithParams(integration),
+    datasource: await getDataSourceWithParams(context, integration),
   });
 }
 
@@ -371,6 +370,7 @@ export async function putDataSource(
       settings?: DataSourceSettings;
       projects?: string[];
       metricsToCreate?: AutoMetricToCreate[];
+      eventForwarderConfig?: EventForwarderConfigDraft | null;
     },
     { id: string }
   >,
@@ -378,6 +378,7 @@ export async function putDataSource(
     | {
         status: 200;
         datasource: DataSourceInterfaceWithParams;
+        eventForwarderWarning?: string;
       }
     | {
         status: 400 | 403 | 404;
@@ -421,6 +422,7 @@ export async function putDataSource(
     settings,
     projects,
     metricsToCreate,
+    eventForwarderConfig,
   } = req.body;
 
   const datasource = await getDataSourceById(context, id);
@@ -459,6 +461,15 @@ export async function putDataSource(
     return;
   }
 
+  if (eventForwarderConfig === null) {
+    res.status(400).json({
+      status: 400,
+      message:
+        "Cannot remove an Event Forwarder via datasource update. Use DELETE /datasource/:id/event-forwarder instead.",
+    });
+    return;
+  }
+
   if (metricsToCreate?.length) {
     await queueCreateAutoGeneratedMetrics(
       datasource.id,
@@ -480,6 +491,27 @@ export async function putDataSource(
     }
 
     if (settings) {
+      const existingEventForwarder = await getEventForwarderForDatasource(
+        context,
+        datasource.id,
+      );
+      if (existingEventForwarder && settings.userIdTypes !== undefined) {
+        const existingUserIdTypes = datasource.settings?.userIdTypes ?? [];
+        if (
+          !isEqual(settings.userIdTypes, existingUserIdTypes) &&
+          !isEventForwarderAllowedUserIdTypesChange(
+            existingUserIdTypes,
+            settings.userIdTypes,
+          )
+        ) {
+          res.status(400).json({
+            status: 400,
+            message:
+              "Identifier types cannot be changed while an Event Forwarder is configured for this data source.",
+          });
+          return;
+        }
+      }
       updates.settings = settings;
     }
 
@@ -511,14 +543,42 @@ export async function putDataSource(
 
     await updateDataSource(context, datasource, updates);
 
-    const integration = getSourceIntegrationObject(context, {
+    const updatedDatasource = {
       ...datasource,
       ...updates,
-    });
+    };
+
+    const integration = getSourceIntegrationObject(context, updatedDatasource);
+    const eventForwarderDatasourceParams = getEventForwarderDatasourceParams(
+      updatedDatasource.type,
+      integration.params,
+    );
+
+    // The datasource update above has already been committed. Run the Event
+    // Forwarder sync in its own try/catch so that a sync failure isn't reported
+    // back as a failed datasource update — the EF sync records its own "error"
+    // status on the Event Forwarder config, so we surface a non-blocking warning
+    // here instead of returning a misleading HTTP 400 for an operation that
+    // partially succeeded.
+    let eventForwarderWarning: string | undefined;
+    try {
+      await syncEventForwarderAfterDatasourceUpdate({
+        context,
+        datasource: updatedDatasource,
+        eventForwarderConfig,
+        datasourceParams: eventForwarderDatasourceParams,
+        didUpdateDatasourceParams: !!params,
+      });
+    } catch (e) {
+      req.log.error(e, "Data source updated, but Event Forwarder sync failed");
+      eventForwarderWarning =
+        e.message || "Event Forwarder sync failed. Please try again.";
+    }
 
     res.status(200).json({
       status: 200,
-      datasource: getDataSourceWithParams(integration),
+      datasource: await getDataSourceWithParams(context, integration),
+      ...(eventForwarderWarning ? { eventForwarderWarning } : {}),
     });
   } catch (e) {
     req.log.error(e, "Failed to update data source");
@@ -527,6 +587,471 @@ export async function putDataSource(
       message: e.message || "An error occurred",
     });
   }
+}
+
+export async function putEventForwarderForDataSource(
+  req: AuthRequest<unknown, { id: string }>,
+  res: Response,
+) {
+  const parsed = eventForwarderAccessTestEditBodySchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({
+      status: 400,
+      message: parsed.error.issues.map((i) => i.message).join("; "),
+    });
+  }
+  if (!parsed.data.eventForwarderConfig) {
+    return res.status(400).json({
+      status: 400,
+      message: "Event Forwarder config is required.",
+    });
+  }
+
+  const context = getContextFromReq(req);
+  const datasource = await getDataSourceById(context, req.params.id);
+  if (!datasource) {
+    return res.status(404).json({
+      status: 404,
+      message: "Cannot find data source",
+    });
+  }
+
+  if (!context.permissions.canUpdateDataSourceSettings(datasource)) {
+    context.permissions.throwPermissionError();
+  }
+  if (
+    parsed.data.params &&
+    !context.permissions.canUpdateDataSourceParams(datasource)
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
+  const existingEventForwarderConfig = await getEventForwarderForDatasource(
+    context,
+    datasource.id,
+  );
+  const projects = datasource.projects ?? [];
+  if (existingEventForwarderConfig) {
+    if (
+      !context.permissions.canUpdateEventForwarderConfig(
+        existingEventForwarderConfig,
+        {
+          ...existingEventForwarderConfig,
+          projects,
+        },
+      )
+    ) {
+      context.permissions.throwPermissionError();
+    }
+  } else if (!context.permissions.canCreateEventForwarderConfig({ projects })) {
+    context.permissions.throwPermissionError();
+  }
+
+  try {
+    const integration = getSourceIntegrationObject(context, datasource);
+    const updates: Partial<DataSourceInterface> = { dateUpdated: new Date() };
+
+    if (parsed.data.params) {
+      mergeParams(integration, parsed.data.params as Partial<DataSourceParams>);
+      await integration.testConnection();
+      updates.params = encryptParams(integration.params as DataSourceParams);
+    }
+
+    await updateDataSource(context, datasource, updates);
+
+    const updatedDatasource = {
+      ...datasource,
+      ...updates,
+    };
+    const eventForwarderDatasourceParams = getEventForwarderDatasourceParams(
+      updatedDatasource.type,
+      integration.params as DataSourceParams,
+    );
+    const restartAfterProvision =
+      !!existingEventForwarderConfig?.connectorName?.trim();
+    const syncedEventForwarderConfig =
+      await syncEventForwarderConfigFromDatasource({
+        context,
+        datasource: updatedDatasource,
+        draft: parsed.data.eventForwarderConfig as EventForwarderConfigDraft,
+        datasourceParams: eventForwarderDatasourceParams,
+      });
+    await provisionEventForwarderThroughLicenseServer(
+      context,
+      syncedEventForwarderConfig,
+      eventForwarderDatasourceParams,
+      { restartAfterProvision },
+    );
+
+    res.status(200).json({
+      status: 200,
+      datasource: await getDataSourceWithParams(
+        context,
+        getSourceIntegrationObject(context, updatedDatasource),
+      ),
+    });
+  } catch (e) {
+    req.log.error(e, "Failed to update event forwarder");
+    res.status(400).json({
+      status: 400,
+      message: e.message || "An error occurred",
+    });
+  }
+}
+
+export async function getEventForwarderStatusForDataSource(
+  req: AuthRequest<null, { id: string }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const datasource = await getDataSourceById(context, req.params.id);
+  if (!datasource) {
+    return res.status(404).json({
+      status: 404,
+      message: "Cannot find data source",
+    });
+  }
+
+  if (!context.permissions.canUpdateDataSourceSettings(datasource)) {
+    context.permissions.throwPermissionError();
+  }
+
+  const eventForwarderConfig = await getEventForwarderForDatasource(
+    context,
+    datasource.id,
+  );
+  if (!eventForwarderConfig) {
+    return res.status(404).json({
+      status: 404,
+      message: "Cannot find event forwarder config",
+    });
+  }
+
+  if (
+    !context.permissions.canUpdateEventForwarderConfig(eventForwarderConfig, {
+      ...eventForwarderConfig,
+      projects: datasource.projects ?? [],
+    })
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
+  try {
+    const statusResponse = await syncEventForwarderStatusFromLicenseServer(
+      context,
+      eventForwarderConfig,
+    );
+    res.status(200).json(statusResponse);
+  } catch (e) {
+    req.log.error(e, "Failed to get event forwarder status");
+    res.status(400).json({
+      status: 400,
+      message: e.message || "An error occurred",
+    });
+  }
+}
+
+export async function deleteEventForwarderForDataSource(
+  req: AuthRequest<null, { id: string }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const datasource = await getDataSourceById(context, req.params.id);
+  if (!datasource) {
+    return res.status(404).json({
+      status: 404,
+      message: "Cannot find data source",
+    });
+  }
+
+  if (
+    !context.superAdmin &&
+    !context.permissions.canUpdateDataSourceSettings(datasource)
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
+  const eventForwarderConfig = await getEventForwarderForDatasource(
+    context,
+    datasource.id,
+  );
+  if (!eventForwarderConfig) {
+    return res.status(404).json({
+      status: 404,
+      message: "Cannot find event forwarder config",
+    });
+  }
+  if (
+    !context.superAdmin &&
+    !context.permissions.canDeleteEventForwarderConfig(eventForwarderConfig)
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
+  try {
+    await deleteEventForwarderConfigForDatasource(
+      context,
+      datasource,
+      eventForwarderConfig,
+    );
+
+    res.status(200).json({
+      status: 200,
+      datasource: await getDataSourceWithParams(
+        context,
+        getSourceIntegrationObject(context, datasource),
+      ),
+    });
+  } catch (e) {
+    req.log.error(e, "Failed to delete event forwarder");
+    res.status(400).json({
+      status: 400,
+      message: e.message || "An error occurred",
+    });
+  }
+}
+
+export async function postTestEventForwarderAccessForCreate(
+  req: AuthRequest,
+  res: Response,
+) {
+  const parsed = eventForwarderAccessTestCreateBodySchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({
+      status: 400,
+      message: parsed.error.issues.map((i) => i.message).join("; "),
+    });
+  }
+
+  const context = getContextFromReq(req);
+  const { type, eventForwarderConfig, projects } = parsed.data;
+  const params = parsed.data.params as unknown as DataSourceParams;
+  const eventForwarderProjects = projects ?? [];
+
+  if (!context.permissions.canCreateDataSource({ projects, type })) {
+    context.permissions.throwPermissionError();
+  }
+  if (
+    !context.permissions.canCreateEventForwarderConfig({
+      projects: eventForwarderProjects,
+    })
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
+  const datasource = buildEventForwarderAccessTestDatasource({
+    context,
+    type,
+    params,
+    projects,
+  });
+  const result = await runEventForwarderAccessTest(context, {
+    datasource,
+    params,
+    draft: eventForwarderConfig as EventForwarderConfigDraft,
+    existingModel: null,
+  });
+
+  res.status(200).json(result);
+}
+
+export async function postTestEventForwarderAccessForDatasource(
+  req: AuthRequest<unknown, { id: string }>,
+  res: Response,
+) {
+  const parsed = eventForwarderAccessTestEditBodySchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({
+      status: 400,
+      message: parsed.error.issues.map((i) => i.message).join("; "),
+    });
+  }
+
+  const context = getContextFromReq(req);
+  const datasource = await getDataSourceById(context, req.params.id);
+  if (!datasource) {
+    return res
+      .status(404)
+      .json({ status: 404, message: "Cannot find data source" });
+  }
+
+  if (
+    !context.permissions.canUpdateDataSourceSettings(datasource) ||
+    !context.permissions.canRunPipelineValidationQueries(datasource)
+  ) {
+    context.permissions.throwPermissionError();
+  }
+  if (
+    parsed.data.params &&
+    !context.permissions.canUpdateDataSourceParams(datasource)
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
+  const integration = getSourceIntegrationObject(context, datasource);
+  if (parsed.data.params) {
+    mergeParams(integration, parsed.data.params as Partial<DataSourceParams>);
+  }
+
+  const existingEventForwarderConfig = await getEventForwarderForDatasource(
+    context,
+    datasource.id,
+  );
+  const draft =
+    (parsed.data.eventForwarderConfig as
+      | EventForwarderConfigDraft
+      | undefined) ?? toEventForwarderConfigDraft(existingEventForwarderConfig);
+  if (!draft) {
+    return res.status(400).json({
+      status: 400,
+      message: "Event Forwarder is not configured for this data source.",
+    });
+  }
+
+  const candidateDatasource = {
+    ...datasource,
+    params: encryptParams(integration.params as DataSourceParams),
+  } as DataSourceInterface;
+  const result = await runEventForwarderAccessTest(context, {
+    datasource: candidateDatasource,
+    params: integration.params as DataSourceParams,
+    draft,
+    existingModel: existingEventForwarderConfig,
+  });
+
+  res.status(200).json(result);
+}
+
+export async function postPauseEventForwarder(
+  req: AuthRequest<null, { id: string }>,
+  res: Response<
+    | { status: 200 }
+    | {
+        status: 400 | 403 | 404;
+        message: string;
+      }
+  >,
+) {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+  const datasource = await getDataSourceById(context, id);
+  if (!datasource) {
+    res.status(404).json({
+      status: 404,
+      message: "Cannot find data source",
+    });
+    return;
+  }
+
+  if (!context.permissions.canUpdateDataSourceSettings(datasource)) {
+    context.permissions.throwPermissionError();
+  }
+
+  const eventForwarderConfig = await getEventForwarderForDatasource(
+    context,
+    datasource.id,
+  );
+  if (!eventForwarderConfig) {
+    res.status(404).json({
+      status: 404,
+      message: "Cannot find event forwarder config",
+    });
+    return;
+  }
+
+  if (eventForwarderConfig.status !== "ready") {
+    res.status(400).json({
+      status: 400,
+      message: "Only ready event forwarders can be paused",
+    });
+    return;
+  }
+
+  try {
+    await pauseEventForwarderThroughLicenseServer(
+      context,
+      eventForwarderConfig,
+    );
+    res.status(200).json({ status: 200 });
+  } catch (e) {
+    req.log.error(e, "Failed to pause event forwarder");
+    res.status(400).json({
+      status: 400,
+      message: e.message || "An error occurred",
+    });
+  }
+}
+
+export async function postResumeEventForwarder(
+  req: AuthRequest<null, { id: string }>,
+  res: Response<
+    | { status: 200 }
+    | {
+        status: 400 | 403 | 404;
+        message: string;
+      }
+  >,
+) {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+  const datasource = await getDataSourceById(context, id);
+  if (!datasource) {
+    res.status(404).json({
+      status: 404,
+      message: "Cannot find data source",
+    });
+    return;
+  }
+
+  if (!context.permissions.canUpdateDataSourceSettings(datasource)) {
+    context.permissions.throwPermissionError();
+  }
+
+  const eventForwarderConfig = await getEventForwarderForDatasource(
+    context,
+    datasource.id,
+  );
+  if (!eventForwarderConfig) {
+    res.status(404).json({
+      status: 404,
+      message: "Cannot find event forwarder config",
+    });
+    return;
+  }
+
+  if (eventForwarderConfig.status !== "paused") {
+    res.status(400).json({
+      status: 400,
+      message: "Only paused event forwarders can be resumed",
+    });
+    return;
+  }
+
+  try {
+    await resumeEventForwarderThroughLicenseServer(
+      context,
+      eventForwarderConfig,
+    );
+    res.status(200).json({ status: 200 });
+  } catch (e) {
+    req.log.error(e, "Failed to resume event forwarder");
+    res.status(400).json({
+      status: 400,
+      message: e.message || "An error occurred",
+    });
+  }
+}
+
+export async function getEventForwarderConnected(
+  req: AuthRequest,
+  res: Response<{ status: 200; hasEventForwarder: boolean }>,
+) {
+  const context = getContextFromReq(req);
+
+  res.status(200).json({
+    status: 200,
+    hasEventForwarder: await hasAnyEventForwarderConfig(context),
+  });
 }
 
 /**
@@ -622,6 +1147,8 @@ export async function postValidatePipelineSettings(
         tableFullName: fullTestTablePath,
         integration,
       }),
+      undefined,
+      "pipelineValidation",
     );
     results.create.result = "success";
   } catch (e) {
@@ -645,6 +1172,8 @@ export async function postValidatePipelineSettings(
             tableFullName: fullTestTablePath,
             integration,
           }),
+          undefined,
+          "pipelineValidation",
         );
         results.insert = { result: "success" };
       } catch (e) {
@@ -674,6 +1203,8 @@ export async function postValidatePipelineSettings(
             tableFullName: fullTestTablePath,
             integration,
           }),
+          undefined,
+          "pipelineValidation",
         );
         results.drop = { result: "success" };
       } catch (e) {
@@ -808,13 +1339,15 @@ export async function testLimitedQuery(
     query: string;
     datasourceId: string;
     templateVariables?: TemplateVariables;
+    timestampColumn?: string;
     limit?: number;
   }>,
   res: Response,
 ) {
   const context = getContextFromReq(req);
 
-  const { query, datasourceId, templateVariables, limit } = req.body;
+  const { query, datasourceId, templateVariables, timestampColumn, limit } =
+    req.body;
 
   // Sanity check to prevent potential abuse
   if (limit && limit > SQL_ROW_LIMIT) {
@@ -840,6 +1373,7 @@ export async function testLimitedQuery(
     query,
     templateVariables,
     maxLimit,
+    timestampColumn,
   );
 
   res.status(200).json({
@@ -871,7 +1405,7 @@ export async function runQuery(
     });
   }
 
-  const { results, sql, duration, error } = await runFreeFormQuery(
+  const { results, sql, duration, error, columns } = await runFreeFormQuery(
     context,
     datasource,
     query,
@@ -884,6 +1418,7 @@ export async function runQuery(
     results,
     sql,
     error,
+    columns,
   });
 }
 
@@ -1017,6 +1552,67 @@ export async function getDataSourceQueries(
     status: 200,
     queries,
   });
+}
+
+export async function cancelDataSourceQuery(
+  req: AuthRequest<null, { id: string; queryId: string }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const { id: datasourceId, queryId } = req.params;
+
+  const datasource = await getDataSourceById(context, datasourceId);
+  if (!datasource) {
+    throw new Error("Could not find datasource");
+  }
+
+  req.checkPermissions(
+    "runQueries",
+    datasource?.projects?.length ? datasource.projects : [],
+  );
+
+  const query = await getQueryById(context, queryId);
+  if (!query) {
+    throw new Error("Could not find query");
+  }
+  if (query.datasource !== datasourceId) {
+    throw new Error("Query does not belong to this datasource");
+  }
+  if (query.status !== "running") {
+    throw new Error("Only running queries can be cancelled");
+  }
+
+  const integration = await getIntegrationFromDatasourceId(
+    context,
+    datasourceId,
+    true,
+  );
+
+  if (integration.cancelQuery && query.externalId) {
+    try {
+      await integration.cancelQuery(query.externalId, query.externalIdMetadata);
+    } catch (e: unknown) {
+      // Log but continue - we'll still mark the query as failed
+      const msg = e instanceof Error ? e.message : String(e);
+      logger.debug(e, `Failed to cancel query on warehouse: ${msg}`);
+    }
+  }
+
+  const cancelledBy =
+    req.email || req.currentUser?.email || req.userId || "unknown";
+
+  const updated = await updateQueryIfRunning(context, query, {
+    status: "failed",
+    finishedAt: new Date(),
+    error: `Query cancelled by user (${cancelledBy})`,
+  });
+  if (!updated) {
+    throw new Error(
+      "Query is no longer in running state and cannot be cancelled",
+    );
+  }
+
+  res.status(200).json({ status: 200 });
 }
 
 export async function getDimensionSlices(
@@ -1161,6 +1757,12 @@ export async function postMaterializedColumn(
     );
   }
 
+  if (datasource.settings.useJsonColumns) {
+    throw new Error(
+      "Materialized columns are not used for JSON-column managed warehouses. Identifiers are derived from your organization's attributes.",
+    );
+  }
+
   const originalColumns = datasource.settings.materializedColumns || [];
   const finalColumns = [...originalColumns, newColumn];
 
@@ -1199,7 +1801,7 @@ export async function postMaterializedColumn(
 
     res.status(200).json({
       status: 200,
-      datasource: getDataSourceWithParams(integration),
+      datasource: await getDataSourceWithParams(context, integration),
     });
   } catch (e) {
     req.log.error(e, "Failed to update data source");
@@ -1238,6 +1840,12 @@ export async function updateMaterializedColumn(
   if (datasource.type !== "growthbook_clickhouse") {
     throw new Error(
       "Can only manage materialized columns for growthbook-clickhouse datasources",
+    );
+  }
+
+  if (datasource.settings.useJsonColumns) {
+    throw new Error(
+      "Materialized columns are not used for JSON-column managed warehouses. Identifiers are derived from your organization's attributes.",
     );
   }
 
@@ -1326,7 +1934,7 @@ export async function updateMaterializedColumn(
 
     res.status(200).json({
       status: 200,
-      datasource: getDataSourceWithParams(integration),
+      datasource: await getDataSourceWithParams(context, integration),
     });
   } catch (e) {
     req.log.error(e, "Failed to update data source");
@@ -1356,6 +1964,12 @@ export async function deleteMaterializedColumn(
   if (datasource.type !== "growthbook_clickhouse") {
     throw new Error(
       "Can only manage materialized columns for growthbook-clickhouse datasources",
+    );
+  }
+
+  if (datasource.settings.useJsonColumns) {
+    throw new Error(
+      "Materialized columns are not used for JSON-column managed warehouses. Identifiers are derived from your organization's attributes.",
     );
   }
 
@@ -1395,7 +2009,7 @@ export async function deleteMaterializedColumn(
 
     res.status(200).json({
       status: 200,
-      datasource: getDataSourceWithParams(integration),
+      datasource: await getDataSourceWithParams(context, integration),
     });
   } catch (e) {
     req.log.error(e, "Failed to update data source");
@@ -1431,7 +2045,7 @@ export async function postRecreateManagedWarehouse(
     );
   }
 
-  await _dangerousRecreateClickhouseTables(context, datasource);
+  await dangerousRecreateClickhouseTables(context.org.id);
 
   res.status(200).json({
     status: 200,
@@ -1563,6 +2177,25 @@ function sanitizeMatColumnName(userInput: string) {
   return userInput;
 }
 
+// Managed-warehouse settings for the JSON-columns model: identifiers and exposure
+// queries derive from the org's hashAttribute attributes.
+function getManagedWarehouseJsonSettings(
+  attributeSchema: SDKAttributeSchema | undefined,
+  existing: GrowthbookClickhouseDataSource["settings"],
+): GrowthbookClickhouseSettings {
+  return {
+    ...existing,
+    useJsonColumns: true,
+    materializedColumns: undefined,
+    userIdTypes: getManagedWarehouseUserIdTypeSettings(attributeSchema),
+    queries: {
+      ...existing.queries,
+      exposure: buildManagedWarehouseExposureQueries(attributeSchema),
+    },
+  };
+}
+
+// @deprecated Legacy materialized-columns model; used only when `useJsonColumns` is unset.
 function getManagedWarehouseSettings(
   materializedColumns: MaterializedColumn[],
   existing: GrowthbookClickhouseDataSource["settings"],
@@ -1600,22 +2233,13 @@ function generateManagedWarehouseExposureQueries(
     .map((c) => c.columnName);
 
   return identifiers.map((identifier) => {
-    const cols = [
-      identifier,
-      "timestamp",
-      "experiment_id",
-      "variation_id",
-      ...dimensions,
-    ];
-
     return {
       id: identifier,
       dimensions,
       name: identifier,
       userIdType: identifier,
       query: `
-SELECT 
-  ${cols.join(",\n  ")}
+SELECT *
 FROM experiment_views
 WHERE
   experiment_id LIKE '{{ experimentId }}'

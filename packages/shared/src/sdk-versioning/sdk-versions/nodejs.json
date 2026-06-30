@@ -1,6 +1,9 @@
 {
   "versions": [
     {
+      "version": "1.6.5"
+    },
+    {
       "version": "1.6.4",
       "capabilities": ["caseInsensitiveMembership"]
     },
@@ -90,7 +93,7 @@
     },
     {
       "version": "0.0.0",
-      "capabilities": ["looseUnmarshalling"]
+      "capabilities": ["looseUnmarshalling", "namespacesV2"]
     }
   ]
 }

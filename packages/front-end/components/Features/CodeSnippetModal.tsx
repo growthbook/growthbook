@@ -10,9 +10,9 @@ import {
   FaExclamationTriangle,
 } from "react-icons/fa";
 import { FeatureInterface } from "shared/types/feature";
-import Link from "next/link";
 import { getLatestSDKVersion } from "shared/sdk-versioning";
 import { PiPackage } from "react-icons/pi";
+import Link from "@/ui/Link";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { getApiHost, getCdnHost } from "@/services/env";
 import Code from "@/components/SyntaxHighlighting/Code";
@@ -202,6 +202,7 @@ export default function CodeSnippetModal({
         />
       )}
       <Modal
+        useRadixButton={false}
         trackingEventModalType=""
         close={close}
         secondaryCTA={secondaryCTA}
@@ -273,6 +274,7 @@ export default function CodeSnippetModal({
                 contribute it back to the community!{" "}
               </p>
               <DocLink
+                useRadix={false}
                 docSection="buildYourOwn"
                 className="btn btn-outline-primary"
               >
@@ -283,8 +285,10 @@ export default function CodeSnippetModal({
             <p>
               Below is some starter code to integrate GrowthBook into your app.
               Read the{" "}
-              <DocLink docSection={docs}>{docLabel || label} docs</DocLink> for
-              more details.
+              <DocLink useRadix={false} docSection={docs}>
+                {docLabel || label} docs
+              </DocLink>{" "}
+              for more details.
             </p>
           )}
           {!language.match(/^nocode/) && (

@@ -1,4 +1,5 @@
 import { useRouter } from "next/router";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import React, { FC, useEffect, useState } from "react";
 import { ExperimentTemplateInterface } from "shared/types/experiment";
 import { FormProvider, useForm } from "react-hook-form";
@@ -128,6 +129,8 @@ const TemplateForm: FC<Props> = ({
     ? getDatasourceById(form.watch("datasource") ?? "")
     : null;
 
+  const selectedProject = form.watch("project");
+
   const { apiCall } = useAuth();
 
   const onSubmit = form.handleSubmit(async (rawValue) => {
@@ -201,6 +204,9 @@ const TemplateForm: FC<Props> = ({
     .map((p) => ({ value: p.id, label: p.name }));
 
   const allowAllProjects = permissionsUtils.canViewExperimentModal();
+  const hasProjectPermission = selectedProject
+    ? permissionsUtils.canViewExperimentModal(selectedProject)
+    : allowAllProjects;
 
   const exposureQueryId = form.getValues("exposureQueryId");
 
@@ -229,13 +235,21 @@ const TemplateForm: FC<Props> = ({
   return (
     <FormProvider {...form}>
       <PagedModal
+        useRadixButton={false}
         trackingEventModalType={trackingEventModalType}
         trackingEventModalSource={source}
         header={header}
         close={onClose}
         submit={onSubmit}
         cta={"Save"}
-        ctaEnabled={canSubmit}
+        ctaEnabled={canSubmit && hasProjectPermission}
+        disabledMessage={
+          !hasProjectPermission
+            ? !selectedProject && availableProjects.length > 0
+              ? "Select a project to continue."
+              : "You don't have permission to create experiment templates."
+            : undefined
+        }
         closeCta="Cancel"
         size="lg"
         step={step}
@@ -304,6 +318,7 @@ const TemplateForm: FC<Props> = ({
               label="Experiment Description"
               textarea
               minRows={1}
+              maxLength={MAX_DESCRIPTION_LENGTH}
               {...form.register("description")}
               placeholder={"Short human-readable description of the experiment"}
             />
@@ -326,7 +341,7 @@ const TemplateForm: FC<Props> = ({
                     }}
                     currentCustomFields={form.watch("customFields") || {}}
                     section={"experiment"}
-                    project={form.watch("project")}
+                    project={selectedProject}
                   />
                 </div>
               )}

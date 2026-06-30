@@ -6,6 +6,7 @@ export const POLICIES = [
   "FeaturesFullAccess",
   "ArchetypesFullAccess",
   "FeaturesBypassApprovals",
+  "ConstantsFullAccess",
   "ExperimentsFullAccess",
   "VisualEditorFullAccess",
   "SuperDeleteReports",
@@ -30,6 +31,7 @@ export const POLICIES = [
   "NorthStarMetricFullAccess",
   "TeamManagementFullAccess",
   "ProjectsFullAccess",
+  "ProjectAdminAccess",
   "TagsFullAccess",
   "APIKeysFullAccess",
   "IntegrationsFullAccess",
@@ -45,6 +47,8 @@ export const POLICIES = [
   "CustomHooksFullAccess",
   "ManageOfficialResources",
   "GeneralDashboardsFullAccess",
+  "SessionReplayViewAccess",
+  "SessionReplayFullAccess",
 ] as const;
 
 export type Policy = (typeof POLICIES)[number];
@@ -111,6 +115,7 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
   AttributesFullAccess: ["readData", "manageTargetingAttributes"],
   EnvironmentsFullAccess: ["readData", "manageEnvironments"],
   NamespacesFullAccess: ["readData", "manageNamespaces"],
+  ConstantsFullAccess: ["readData", "manageConstants"],
   SavedGroupsFullAccess: ["readData", "manageSavedGroups"],
   SavedGroupsBypassSizeLimit: [
     "readData",
@@ -120,7 +125,13 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
   GeneralSettingsFullAccess: ["readData", "organizationSettings"],
   NorthStarMetricFullAccess: ["readData", "manageNorthStarMetric"],
   TeamManagementFullAccess: ["readData", "manageTeam"],
-  ProjectsFullAccess: ["readData", "manageProjects"],
+  ProjectsFullAccess: [
+    "readData",
+    "manageProjects",
+    "createProjects",
+    "deleteProjects",
+  ],
+  ProjectAdminAccess: ["readData", "manageProjects"],
   TagsFullAccess: ["readData", "manageTags"],
   APIKeysFullAccess: ["readData", "manageApiKeys"],
   IntegrationsFullAccess: ["readData", "manageIntegrations"],
@@ -139,6 +150,12 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
     "manageOfficialResources",
     "runQueries",
   ],
+  SessionReplayViewAccess: ["readData", "viewSessionReplay"],
+  SessionReplayFullAccess: [
+    "readData",
+    "viewSessionReplay",
+    "deleteSessionReplay",
+  ],
 };
 
 export const POLICY_DISPLAY_GROUPS: { name: string; policies: Policy[] }[] = [
@@ -152,6 +169,7 @@ export const POLICY_DISPLAY_GROUPS: { name: string; policies: Policy[] }[] = [
       "FeaturesFullAccess",
       "ArchetypesFullAccess",
       "FeaturesBypassApprovals",
+      "ConstantsFullAccess",
     ],
   },
   {
@@ -184,6 +202,14 @@ export const POLICY_DISPLAY_GROUPS: { name: string; policies: Policy[] }[] = [
     policies: ["IdeasFullAccess", "PresentationsFullAccess"],
   },
   {
+    name: "Product Analytic Dashboards",
+    policies: ["GeneralDashboardsFullAccess"],
+  },
+  {
+    name: "Session Replay",
+    policies: ["SessionReplayViewAccess", "SessionReplayFullAccess"],
+  },
+  {
     name: "SDK Configuration",
     policies: [
       "SDKPayloadPublish",
@@ -204,6 +230,7 @@ export const POLICY_DISPLAY_GROUPS: { name: string; policies: Policy[] }[] = [
       "CustomRolesFullAccess",
       "CustomFieldsFullAccess",
       "ProjectsFullAccess",
+      "ProjectAdminAccess",
       "TagsFullAccess",
       "APIKeysFullAccess",
       "IntegrationsFullAccess",
@@ -211,6 +238,7 @@ export const POLICY_DISPLAY_GROUPS: { name: string; policies: Policy[] }[] = [
       "BillingFullAccess",
       "AuditLogsFullAccess",
       "DecisionCriteriaFullAccess",
+      "CustomHooksFullAccess",
     ],
   },
 ];
@@ -244,6 +272,10 @@ export const POLICY_METADATA_MAP: Record<
   FeaturesBypassApprovals: {
     displayName: "Features Bypass Approvals",
     description: "Bypass required approval checks for feature flag changes",
+  },
+  ConstantsFullAccess: {
+    displayName: "Constants Full Access",
+    description: "Create, edit, and delete constants",
   },
   ExperimentsFullAccess: {
     displayName: "Experiments Full Access",
@@ -335,7 +367,6 @@ export const POLICY_METADATA_MAP: Record<
     displayName: "Saved Groups Bypass Size Limit",
     description: "Bypass org-defined size limits for saved groups",
   },
-
   GeneralSettingsFullAccess: {
     displayName: "General Settings Full Access",
     description: "Edit organization general settings",
@@ -352,7 +383,17 @@ export const POLICY_METADATA_MAP: Record<
   },
   ProjectsFullAccess: {
     displayName: "Projects Full Access",
-    description: "Create, edit, and delete projects",
+    description:
+      "Create, edit, and delete projects and change project roles for other members. Can be applied at the global or project level.",
+    warning:
+      "Can be used to create new project admins and adjust project roles for other members",
+  },
+  ProjectAdminAccess: {
+    displayName: "Project Admin Access",
+    description:
+      "Manage project settings and change project roles for other members.",
+    warning:
+      "Can be used to create new project admins and adjust project roles for other members",
   },
   TagsFullAccess: {
     displayName: "Tags Full Access",
@@ -416,22 +457,38 @@ export const POLICY_METADATA_MAP: Record<
     displayName: "General Dashboards Full Access",
     description: "Create, edit, and delete Product Analytics dashboards.",
   },
+  SessionReplayViewAccess: {
+    displayName: "Session Replay View Access",
+    description: "View and play back recorded user sessions.",
+    warning:
+      "Recordings can contain sensitive user data. Grant only to roles with a need to view replays.",
+  },
+  SessionReplayFullAccess: {
+    displayName: "Session Replay Full Access",
+    description:
+      "View, play back, and delete recorded user sessions (single, bulk, and DSR-driven deletions).",
+    warning:
+      "Includes the ability to permanently delete recorded sessions. Recordings can contain sensitive user data.",
+  },
 };
 
 export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
   noaccess: {
     id: "noaccess",
+    displayName: "No Access",
     description:
       "Cannot view any features or experiments. Most useful when combined with project-scoped roles.",
     policies: [],
   },
   readonly: {
     id: "readonly",
+    displayName: "Read Only",
     description: "View all features and experiment results",
     policies: ["ReadData"],
   },
   collaborator: {
     id: "collaborator",
+    displayName: "Collaborator",
     description: "Add comments and contribute ideas",
     policies: [
       "ReadData",
@@ -442,11 +499,13 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
   },
   visualEditor: {
     id: "visualEditor",
+    displayName: "Visual Editor",
     description: "Make visual changes for an experiment",
     policies: ["ReadData", "VisualEditorFullAccess"],
   },
   engineer: {
     id: "engineer",
+    displayName: "Engineer",
     description: "Manage features",
     policies: [
       "ReadData",
@@ -462,11 +521,13 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
       "EnvironmentsFullAccess",
       "NamespacesFullAccess",
       "SavedGroupsFullAccess",
+      "ConstantsFullAccess",
       "TagsFullAccess",
     ],
   },
   analyst: {
     id: "analyst",
+    displayName: "Analyst",
     description: "Analyze experiments",
     policies: [
       "ReadData",
@@ -492,6 +553,7 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
   },
   experimenter: {
     id: "experimenter",
+    displayName: "Experimenter",
     description: "Manage features AND Analyze experiments",
     policies: [
       "ReadData",
@@ -515,6 +577,7 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
       "EnvironmentsFullAccess",
       "NamespacesFullAccess",
       "SavedGroupsFullAccess",
+      "ConstantsFullAccess",
       "TagsFullAccess",
       "DataSourceConfiguration",
       "TemplatesFullAccess",
@@ -523,8 +586,46 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
       "GeneralDashboardsFullAccess",
     ],
   },
+  gbDefault_projectAdmin: {
+    id: "gbDefault_projectAdmin",
+    displayName: "Project Admin",
+    description: "Manage project settings and project member's project role.",
+    policies: [
+      "ReadData",
+      "Comments",
+      "FeaturesFullAccess",
+      "ExperimentsFullAccess",
+      "VisualEditorFullAccess",
+      "ArchetypesFullAccess",
+      "RunQueries",
+      "SqlExplorerFullAccess",
+      "MetricsFullAccess",
+      "FactTablesFullAccess",
+      "FactMetricsFullAccess",
+      "DimensionsFullAccess",
+      "SegmentsFullAccess",
+      "IdeasFullAccess",
+      "PresentationsFullAccess",
+      "SDKPayloadPublish",
+      "SDKConnectionsFullAccess",
+      "AttributesFullAccess",
+      "EnvironmentsFullAccess",
+      "NamespacesFullAccess",
+      "SavedGroupsFullAccess",
+      "ConstantsFullAccess",
+      "TagsFullAccess",
+      "DataSourceConfiguration",
+      "TemplatesFullAccess",
+      "DecisionCriteriaFullAccess",
+      "HoldoutsFullAccess",
+      "GeneralDashboardsFullAccess",
+      "FeaturesBypassApprovals",
+      "ProjectAdminAccess",
+    ],
+  },
   admin: {
     id: "admin",
+    displayName: "Admin",
     description:
       "All access + invite teammates and configure organization settings",
     policies: [...POLICIES],
@@ -557,6 +658,8 @@ export const PROJECT_SCOPED_PERMISSIONS = [
   "manageFeatures",
   "manageArchetype",
   "manageProjects",
+  "createProjects",
+  "deleteProjects",
   "createAnalyses",
   "createSegments",
   "createIdeas",
@@ -571,6 +674,7 @@ export const PROJECT_SCOPED_PERMISSIONS = [
   "manageTargetingAttributes",
   "manageVisualChanges",
   "manageSavedGroups",
+  "manageConstants",
   "manageCustomFields",
   "manageTemplates",
   "manageExecReports",
@@ -578,6 +682,8 @@ export const PROJECT_SCOPED_PERMISSIONS = [
   "manageGeneralDashboards",
   "manageOfficialResources",
   "bypassSavedGroupSizeLimit",
+  "viewSessionReplay",
+  "deleteSessionReplay",
 ] as const;
 
 export const GLOBAL_PERMISSIONS = [

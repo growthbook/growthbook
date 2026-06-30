@@ -30,7 +30,11 @@ import { deleteAllFactTablesForAProject } from "back-end/src/models/FactTableMod
 
 // region POST /projects
 
-type CreateProjectRequest = AuthRequest<{ name: string; description: string }>;
+type CreateProjectRequest = AuthRequest<{
+  name: string;
+  description?: string;
+  publicId?: string;
+}>;
 
 type CreateProjectResponse = {
   status: 200;
@@ -55,11 +59,12 @@ export const postProject = async (
   if (!context.permissions.canCreateProjects()) {
     context.permissions.throwPermissionError();
   }
-  const { name, description } = req.body;
+  const { name, description, publicId } = req.body;
 
   const doc = await context.models.projects.create({
     name,
     description,
+    publicId,
   });
 
   res.status(200).json({
@@ -112,11 +117,12 @@ export const putProject = async (
     return;
   }
 
-  const { name, description } = req.body;
+  const { name, description, publicId } = req.body;
 
   await context.models.projects.updateById(id, {
     name,
     description,
+    publicId,
   });
 
   res.status(200).json({
@@ -175,6 +181,7 @@ export const deleteProject = async (
       }
 
       await deleteAllDataSourcesForAProject({
+        context,
         projectId: id,
         organizationId: org.id,
       });
@@ -283,6 +290,13 @@ export const deleteProject = async (
     await context.models.savedGroups.removeProjectIdFromAllGroups(id);
   } catch (e) {
     failedToDeleteResources.push("saved groups");
+  }
+
+  // Clean up constants
+  try {
+    await context.models.constants.removeProjectIdFromAll(id);
+  } catch (e) {
+    failedToDeleteResources.push("constants");
   }
 
   // TODO: other resources to clean up

@@ -9,11 +9,8 @@ import {
   blockHasFieldOfType,
   dashboardBlockHasIds,
   apiCreateDashboardBody,
-  apiDashboardInterface,
   ApiDashboardInterface,
   ApiGetDashboardsForExperimentReturn,
-  apiGetDashboardsForExperimentReturn,
-  apiGetDashboardsForExperimentValidator,
   apiUpdateDashboardBody,
   dashboardInterface,
   DashboardInterface,
@@ -22,9 +19,13 @@ import {
   LegacyDashboardBlockInterface,
   convertPinnedSlicesToSliceTags,
   isDifferenceType,
+  BlockLayout,
+  DASHBOARD_GRID_COLS,
+  getBlockSizeBounds,
 } from "shared/enterprise";
 import omit from "lodash/omit";
 import { getValidDate } from "shared/dates";
+import { defaultPrimaryKeyShape } from "shared/validators";
 import {
   MakeModelClass,
   ScopedFilterQuery,
@@ -35,6 +36,12 @@ import {
   ToInterface,
 } from "back-end/src/util/mongo.util";
 import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
+import {
+  dashboardApiSpec,
+  getDashboardsForExperimentEndpoint,
+} from "back-end/src/api/specs/dashboard.spec";
+import { determineNextDate } from "back-end/src/services/experiments";
+import { shouldRecalculateNextUpdate } from "back-end/src/enterprise/services/dashboards";
 
 export type DashboardDocument = mongoose.Document & DashboardInterface;
 type LegacyDashboardDocument = Omit<
@@ -57,7 +64,7 @@ const BaseClass = MakeModelClass({
     updateEvent: "dashboard.update",
     deleteEvent: "dashboard.delete",
   },
-  globallyUniqueIds: true,
+  globallyUniquePrimaryKeys: true,
   additionalIndexes: [
     { fields: { organization: 1, experimentId: 1 }, unique: false },
   ],
@@ -67,23 +74,10 @@ const BaseClass = MakeModelClass({
   },
   apiConfig: {
     modelKey: "dashboards",
-    modelSingular: "dashboard",
-    modelPlural: "dashboards",
-    apiInterface: apiDashboardInterface,
-    schemas: {
-      createBody: apiCreateDashboardBody,
-      updateBody: apiUpdateDashboardBody,
-    },
-    pathBase: "/dashboards",
-    includeDefaultCrud: true,
+    openApiSpec: dashboardApiSpec,
     customHandlers: [
       defineCustomApiHandler({
-        pathFragment: "/by-experiment/:experimentId",
-        verb: "get",
-        operationId: "getDashboardsForExperiment",
-        validator: apiGetDashboardsForExperimentValidator,
-        zodReturnObject: apiGetDashboardsForExperimentReturn,
-        summary: "Get all dashboards for an experiment",
+        ...getDashboardsForExperimentEndpoint,
         reqHandler: async (
           req,
         ): Promise<ApiGetDashboardsForExperimentReturn> => ({
@@ -100,16 +94,27 @@ const BaseClass = MakeModelClass({
 
 export const toInterface: ToInterface<DashboardInterface> = (doc) => {
   const dashboard = removeMongooseFields(doc);
-  dashboard.blocks = dashboard.blocks.map(blockToInterface);
+  const cols = dashboard.grid?.cols ?? DASHBOARD_GRID_COLS;
+  dashboard.blocks = normalizeLayouts(
+    dashboard.blocks.map(blockToInterface),
+    cols,
+  );
   return dashboard;
 };
 
 export class DashboardModel extends BaseClass {
   public async findByExperiment(
     experimentId: string,
-    additionalFilter: ScopedFilterQuery<typeof dashboardInterface> = {},
+    additionalFilter: ScopedFilterQuery<
+      typeof dashboardInterface,
+      typeof defaultPrimaryKeyShape
+    > = {},
   ): Promise<DashboardInterface[]> {
     return this._find({ experimentId, ...additionalFilter });
+  }
+
+  public async getAllNonExperimentDashboards(): Promise<DashboardInterface[]> {
+    return this._find({ experimentId: null });
   }
 
   public static async getDashboardsToUpdate(): Promise<
@@ -369,13 +374,41 @@ export class DashboardModel extends BaseClass {
         newIdMapping[oldId] = id;
       }
     }
-    doc.blocks = doc.blocks.map((block) => {
-      if (!blockHasFieldOfType(block, "savedQueryId", isString)) return block;
-      return {
-        ...block,
-        savedQueryId: newIdMapping[block.savedQueryId] ?? block.savedQueryId,
-      };
-    });
+    doc.blocks = normalizeLayouts(
+      doc.blocks.map((block) => {
+        if (!blockHasFieldOfType(block, "savedQueryId", isString)) return block;
+        return {
+          ...block,
+          savedQueryId: newIdMapping[block.savedQueryId] ?? block.savedQueryId,
+        };
+      }),
+      doc.grid?.cols,
+    );
+  }
+
+  protected async beforeUpdate(
+    existing: DashboardDocument,
+    updates: UpdateProps<DashboardDocument>,
+    _newDoc: DashboardDocument,
+  ) {
+    // Recalculate nextUpdate if auto-updates are enabled and schedule is being updated
+    if (updates.enableAutoUpdates === false) {
+      // Auto-updates being disabled - clear the nextUpdate
+      updates.nextUpdate = undefined;
+    } else if (shouldRecalculateNextUpdate(updates, existing)) {
+      // Recalculate nextUpdate based on the schedule
+      const schedule = updates.updateSchedule ?? existing.updateSchedule;
+      updates.nextUpdate = schedule
+        ? (determineNextDate(schedule) ?? undefined)
+        : undefined;
+    }
+    // Always clamp/fill in block layouts on write so the persisted state can
+    // never exceed grid bounds, regardless of which caller produced the update
+    if (updates.blocks) {
+      const cols =
+        updates.grid?.cols ?? existing.grid?.cols ?? DASHBOARD_GRID_COLS;
+      updates.blocks = normalizeLayouts(updates.blocks, cols);
+    }
   }
 
   public toApiInterface(dashboard: DashboardInterface): ApiDashboardInterface {
@@ -420,7 +453,7 @@ export class DashboardModel extends BaseClass {
       experimentId: experimentId || undefined,
       title,
       projects,
-      blocks: createdBlocks,
+      blocks: normalizeLayouts(createdBlocks),
     };
   }
   protected async processApiUpdateBody(rawBody: unknown) {
@@ -438,7 +471,7 @@ export class DashboardModel extends BaseClass {
             : generateDashboardBlockIds(this.context.org.id, blockData),
         ),
       );
-      updates.blocks = createdBlocks;
+      updates.blocks = normalizeLayouts(createdBlocks);
     }
     return updates;
   }
@@ -731,4 +764,51 @@ export function fromBlockApiInterface(
     default:
       return apiBlock;
   }
+}
+
+const clamp = (value: number, min: number, max: number): number =>
+  Math.max(min, Math.min(max, value));
+
+// Normalize block layouts: fill in per-type defaults for blocks without a
+// layout (stacked beneath existing blocks) and clamp w/x/y to grid bounds.
+// Height is intentionally unclamped - users can grow a block as tall as they
+// need. Per-type drag/resize minimums are NOT persisted - they live in
+// DEFAULT_BLOCK_SIZE_BY_TYPE and are injected at render time on the client.
+export function normalizeLayouts<
+  T extends DashboardBlockInterface | CreateDashboardBlockInterface,
+>(blocks: T[], cols: number = DASHBOARD_GRID_COLS): T[] {
+  // Find the largest y+h among blocks that already have a layout; new blocks
+  // get stacked below this so we never overlap existing content.
+  let nextY = 0;
+  const clampedExisting = blocks.map((block) => {
+    if (!block.layout) return block;
+    const w = clamp(block.layout.w, 1, cols);
+    const h = Math.max(1, block.layout.h);
+    const x = clamp(block.layout.x, 0, Math.max(0, cols - w));
+    const y = Math.max(0, block.layout.y);
+    const layout: BlockLayout = {
+      x,
+      y,
+      w,
+      h,
+      ...(block.layout.static ? { static: true } : {}),
+    };
+    nextY = Math.max(nextY, y + h);
+    return { ...block, layout };
+  });
+
+  return clampedExisting.map((block) => {
+    if (block.layout) return block;
+    const defaults = getBlockSizeBounds(block.type);
+    const w = clamp(defaults.w, 1, cols);
+    const h = Math.max(1, defaults.h);
+    const layout: BlockLayout = {
+      x: 0,
+      y: nextY,
+      w,
+      h,
+    };
+    nextY += h;
+    return { ...block, layout };
+  });
 }

@@ -5,11 +5,12 @@ import {
   ExperimentPhaseStringDates,
 } from "shared/types/experiment";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
-import { getSRMHealthData, getSRMValue } from "shared/health";
+import { getSRMHealthData, getBanditSRMValue } from "shared/health";
 import {
   DEFAULT_SRM_THRESHOLD,
   DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION,
 } from "shared/constants";
+import { getLatestPhaseVariations } from "shared/experiments";
 import { useUser } from "@/services/UserContext";
 import BanditSRMGraph from "@/components/HealthTab/BanditSRMGraph";
 import ButtonSelectField from "@/components/Forms/ButtonSelectField";
@@ -38,8 +39,8 @@ export default function BanditSRMCard({
   const banditEvents: BanditEvent[] = phase?.banditEvents ?? [];
   const currentEvent = banditEvents?.[banditEvents.length - 1];
 
-  const srm = getSRMValue("multi-armed-bandit", snapshot);
-  const users = experiment.variations.map(
+  const srm = getBanditSRMValue(snapshot);
+  const users = getLatestPhaseVariations(experiment).map(
     (_, i) =>
       currentEvent?.banditResult?.singleVariationResults?.[i]?.users ?? 0,
   );
@@ -47,16 +48,17 @@ export default function BanditSRMCard({
 
   const [chartMode, setChartMode] = useState<"weights" | "users">("users");
 
+  const numOfVariations = getLatestPhaseVariations(experiment).length;
   const overallHealth = useMemo(
     () =>
       getSRMHealthData({
         srm: srm ?? Infinity,
         srmThreshold,
-        numOfVariations: experiment.variations.length,
+        numOfVariations,
         totalUsersCount: totalUsers,
         minUsersPerVariation: DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION,
       }),
-    [srm, srmThreshold, experiment.variations.length, totalUsers],
+    [srm, srmThreshold, numOfVariations, totalUsers],
   );
 
   useEffect(() => {

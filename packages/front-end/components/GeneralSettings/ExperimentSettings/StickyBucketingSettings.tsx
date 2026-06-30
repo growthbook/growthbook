@@ -1,18 +1,15 @@
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
-import { Box, Flex, Heading, Text } from "@radix-ui/themes";
-import React from "react";
+import { Box, Flex, Heading } from "@radix-ui/themes";
 import { useUser } from "@/services/UserContext";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import {
-  StickyBucketingToggleWarning,
-  StickyBucketingTooltip,
-} from "@/components/Features/FallbackAttributeSelector";
+import { StickyBucketingTooltip } from "@/components/Features/FallbackAttributeSelector";
+import { DocLink } from "@/components/DocLink";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { ConnectSettingsForm } from "@/pages/settings";
-import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import { GBInfo } from "@/components/Icons";
+import SDKCapabilityWarning from "@/components/Features/SDKCapabilityWarning";
 
 export default function StickyBucketingSettings() {
   const { hasCommercialFeature } = useUser();
@@ -65,7 +62,7 @@ export default function StickyBucketingSettings() {
           </Flex>
 
           {watch("useStickyBucketing") && (
-            <Flex align="start" gap="3" mt="3">
+            <Flex align="start" gap="3" mt="0">
               <Checkbox
                 value={watch("useFallbackAttributes")}
                 setValue={(v) => setValue("useFallbackAttributes", v)}
@@ -100,15 +97,29 @@ export default function StickyBucketingSettings() {
               </Box>
             </Flex>
           )}
-          <Callout status="info" mt="3" contentsAs="div">
-            <Text size="2">
-              <StickyBucketingToggleWarning
-                showIcon={false}
-                skipMargin={true}
-                hasSDKWithStickyBucketing={hasSDKWithStickyBucketing}
-              />
-            </Text>
-          </Callout>
+
+          <SDKCapabilityWarning
+            as="helperText"
+            size="medium"
+            status="info"
+            capability="stickyBucketing"
+            popoverTriggerText="Show incompatible SDKs"
+            someMessage={
+              <>
+                Ensure that Sticky Bucketing is correctly integrated (
+                <DocLink
+                  useRadix={false}
+                  docSection="stickyBucketing"
+                  className="underline"
+                >
+                  see docs
+                </DocLink>
+                ) with your SDK.
+              </>
+            }
+            noneMessage="None of your SDK Connections support Sticky Bucketing."
+            mt="3"
+          />
         </>
       )}
     </ConnectSettingsForm>

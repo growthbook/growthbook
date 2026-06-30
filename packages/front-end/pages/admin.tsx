@@ -20,7 +20,7 @@ import { LicenseInterface } from "shared/enterprise";
 import { DataSourceInterface } from "shared/types/datasource";
 import { SSOConnectionInterface } from "shared/types/sso-connection";
 import { useForm } from "react-hook-form";
-import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
+import ReactDiffViewer, { DiffMethod } from "react-diff-viewer-continued";
 import Field from "@/components/Forms/Field";
 import Pagination from "@/components/Pagination";
 import { useUser } from "@/services/UserContext";
@@ -40,6 +40,7 @@ import ConfirmButton from "@/components/Modal/ConfirmButton";
 import SelectField from "@/components/Forms/SelectField";
 import StringArrayField from "@/components/Forms/StringArrayField";
 import Checkbox from "@/ui/Checkbox";
+import Callout from "@/ui/Callout";
 
 interface memberOrgProps {
   id: string;
@@ -153,6 +154,7 @@ function OrganizationRow({
       )}
       {clickhouseModalOpen && (
         <Modal
+          useRadixButton={false}
           open={true}
           header="Create Clickhouse Data Source"
           close={() => setClickhouseModalOpen(false)}
@@ -181,6 +183,7 @@ function OrganizationRow({
         className={clsx({
           "table-warning": current,
           "table-danger": organization.disabled,
+          "table-secondary": organization.suspended && !organization.disabled,
         })}
       >
         <td>
@@ -347,6 +350,7 @@ function OrganizationRow({
                     <div className="col-auto">
                       {managedWarehouseId ? (
                         <ConfirmButton
+                          isDestructive
                           onClick={async () => {
                             await apiCall(
                               `/datasource/${managedWarehouseId}/recreate-managed-warehouse`,
@@ -649,16 +653,14 @@ const Admin: FC = () => {
 
   if (!superAdmin) {
     return (
-      <div className="alert alert-danger">
-        Only super admins can view this page
-      </div>
+      <Callout status="error">Only super admins can view this page</Callout>
     );
   }
   if (!isCloud() && license?.plan != "enterprise") {
     return (
-      <div className="alert alert-danger">
+      <Callout status="error">
         You must be on an enterprise license to view this page
-      </div>
+      </Callout>
     );
   }
 
@@ -734,7 +736,7 @@ const Admin: FC = () => {
               </span>
             </div>
           </div>
-          {error && <div className="alert alert-danger">{error}</div>}
+          {error && <Callout status="error">{error}</Callout>}
           <div className="position-relative">
             {loading && <LoadingOverlay />}
             <table className="table appbox" style={{ tableLayout: "fixed" }}>
@@ -844,9 +846,7 @@ const Admin: FC = () => {
               </span>
             </div>
           </div>
-          {memberError && (
-            <div className="alert alert-danger">{memberError}</div>
-          )}
+          {memberError && <Callout status="error">{memberError}</Callout>}
           <div className="position-relative">
             {memberLoading && <LoadingOverlay />}
             <table className="table appbox" style={{ tableLayout: "fixed" }}>
@@ -921,6 +921,7 @@ const EditMember: FC<{
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       submit={handleSubmit}
       open={true}
@@ -1135,6 +1136,7 @@ function EditSSOModal({
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       submit={form.handleSubmit(async (data) => {
         const payload = generateSSOConnection({

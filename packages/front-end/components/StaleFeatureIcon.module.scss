@@ -1,9 +1,47 @@
-.staleIcon {
-  color: #e0ab00;
-  cursor: pointer;
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  align-self: center;
 
+  &.staleDot {
+    background: var(--amber-9);
+  }
+  &.freshDot {
+    background: var(--green-9);
+  }
+  &.permanentDot {
+    background: var(--gray-6);
+  }
+}
+
+.listTrigger {
+  cursor: pointer;
+  white-space: nowrap;
   &:hover {
-    // slightly darker yellow
-    color: #d1a000;
+    text-decoration: underline;
+  }
+}
+
+.permanentBadge {
+  cursor: pointer;
+  white-space: nowrap;
+  &:hover {
+    background-color: var(--gray-5) !important;
+  }
+}
+.staleBadge {
+  cursor: pointer;
+  white-space: nowrap;
+  &:hover {
+    background-color: var(--yellow-7) !important;
+  }
+}
+.freshBadge {
+  cursor: pointer;
+  white-space: nowrap;
+  &:hover {
+    background-color: var(--green-6) !important;
   }
 }

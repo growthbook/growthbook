@@ -99,6 +99,7 @@ export const FeatureEvaluationQueryModal: FC<FeatureEvaluationQueryProps> = ({
       )}
 
       <Modal
+        useRadixButton={false}
         trackingEventModalType=""
         open={true}
         submit={handleSubmit}

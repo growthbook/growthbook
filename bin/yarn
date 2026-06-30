@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
-# Yarn compatibility shim - translates yarn commands to pnpm
+# Yarn compatibility shim - translates yarn commands to pnpm or direct execution
 # This allows existing yarn commands to continue working
-
-echo "⚠️  Warning: This project uses pnpm. Translating yarn command to pnpm..." >&2
 
 # Get the command (first argument)
 CMD="$1"
@@ -10,16 +8,62 @@ shift
 
 case "$CMD" in
   ""|install)
+    echo "⚠️  Warning: This project uses pnpm. Translating yarn command to pnpm..." >&2
     pnpm install "$@"
     ;;
+  start)
+    node_modules/.bin/pm2-runtime start ecosystem.config.js "$@"
+    ;;
+  start:with-tracing)
+    TRACING_PROVIDER=opentelemetry node_modules/.bin/pm2-runtime start ecosystem.config.js "$@"
+    ;;
+  start:with-datadog)
+    TRACING_PROVIDER=datadog node_modules/.bin/pm2-runtime start ecosystem.config.js "$@"
+    ;;
   workspace)
-    # yarn workspace <name> <command> -> pnpm --filter <name> <command>
     WORKSPACE="$1"
     shift
-    pnpm --filter "$WORKSPACE" "$@"
+    WORKSPACE_CMD="$1"
+    shift
+    if [ "$WORKSPACE" = "back-end" ]; then
+      case "$WORKSPACE_CMD" in
+        start)
+          cd packages/back-end && node dist/server.js "$@"
+          ;;
+        start:with-tracing)
+          cd packages/back-end && node --require ./dist/tracing.opentelemetry.js dist/server.js "$@"
+          ;;
+        start:with-datadog)
+          cd packages/back-end && node --require ./dist/tracing.datadog.js dist/server.js "$@"
+          ;;
+        *)
+          echo "⚠️  Warning: This project uses pnpm. Translating yarn command to pnpm..." >&2
+          pnpm --filter "$WORKSPACE" "$WORKSPACE_CMD" "$@"
+          ;;
+      esac
+    elif [ "$WORKSPACE" = "front-end" ]; then
+      case "$WORKSPACE_CMD" in
+        start)
+          cd packages/front-end && node_modules/.bin/next start "$@"
+          ;;
+        start:with-tracing)
+          cd packages/front-end && TRACING_PROVIDER=opentelemetry node_modules/.bin/next start "$@"
+          ;;
+        start:with-datadog)
+          cd packages/front-end && TRACING_PROVIDER=datadog node_modules/.bin/next start "$@"
+          ;;
+        *)
+          echo "⚠️  Warning: This project uses pnpm. Translating yarn command to pnpm..." >&2
+          pnpm --filter "$WORKSPACE" "$WORKSPACE_CMD" "$@"
+          ;;
+      esac
+    else
+      echo "⚠️  Warning: This project uses pnpm. Translating yarn command to pnpm..." >&2
+      pnpm --filter "$WORKSPACE" "$WORKSPACE_CMD" "$@"
+    fi
     ;;
   *)
-    # Pass through other commands directly
+    echo "⚠️  Warning: This project uses pnpm. Translating yarn command to pnpm..." >&2
     pnpm "$CMD" "$@"
     ;;
 esac

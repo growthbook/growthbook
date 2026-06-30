@@ -1,10 +1,14 @@
 import { ChildProcess, spawn } from "child_process";
 import os from "os";
 import path from "path";
+import readline from "readline";
 import { randomUUID } from "crypto";
-import { CloudWatch } from "aws-sdk";
+import {
+  CloudWatchClient,
+  PutMetricDataCommand,
+} from "@aws-sdk/client-cloudwatch";
 import { createPool } from "generic-pool";
-import { stringToBoolean } from "shared/util";
+import { parseEnvInt, stringToBoolean } from "shared/util";
 import JSON5 from "json5";
 import { MultipleExperimentMetricAnalysis } from "shared/types/stats";
 import type { ExperimentDataForStatsEngine } from "shared/types/stats";
@@ -18,27 +22,6 @@ type PythonServerResponse<T> = {
   results: T;
 };
 
-function parseEnvInt(
-  value: string | undefined,
-  defaultValue: number,
-  opts?: { min?: number; max?: number; name?: string },
-): number {
-  const num = value === undefined ? defaultValue : parseInt(value);
-  if (
-    isNaN(num) ||
-    (opts?.min !== undefined && num < opts.min) ||
-    (opts?.max !== undefined && num > opts.max)
-  ) {
-    logger.warn(
-      `Invalid value for ${opts?.name || "environment variable"}: "${
-        value ?? ""
-      }". Falling back to default: ${defaultValue}`,
-    );
-    return defaultValue;
-  }
-  return num;
-}
-
 const MAX_POOL_SIZE = parseEnvInt(process.env.GB_STATS_ENGINE_POOL_SIZE, 4, {
   min: 1,
   name: "GB_STATS_ENGINE_POOL_SIZE",
@@ -47,7 +30,11 @@ const MAX_POOL_SIZE = parseEnvInt(process.env.GB_STATS_ENGINE_POOL_SIZE, 4, {
 const MIN_POOL_SIZE = parseEnvInt(
   process.env.GB_STATS_ENGINE_MIN_POOL_SIZE,
   1,
-  { min: 0, max: MAX_POOL_SIZE, name: "GB_STATS_ENGINE_MIN_POOL_SIZE" },
+  {
+    min: 0,
+    max: MAX_POOL_SIZE,
+    name: "GB_STATS_ENGINE_MIN_POOL_SIZE",
+  },
 );
 
 // The stats engine usually finishes within 1 second
@@ -58,15 +45,26 @@ const STATS_ENGINE_TIMEOUT_MS = parseEnvInt(
   { min: 1, name: "GB_STATS_ENGINE_TIMEOUT_MS" },
 );
 
-let cloudWatch: CloudWatch | null = null;
+// stats_server.py writes via json.dumps(allow_nan=True), so output is strict
+// JSON unless it contains NaN/Infinity literals — fall back to JSON5 for those.
+function parsePythonOutput<T>(line: string): T {
+  try {
+    return JSON.parse(line);
+  } catch {
+    return JSON5.parse(line);
+  }
+}
+
+let cloudWatchClient: CloudWatchClient | null = null;
 if (IS_CLOUD) {
-  cloudWatch = new CloudWatch({
+  cloudWatchClient = new CloudWatchClient({
     region: process.env.AWS_REGION || "us-east-1",
   });
 }
 
 class PythonStatsServer<Input, Output> {
   private python: ChildProcess;
+  private rl?: readline.Interface;
   private pid = -1;
   private promises: Map<
     string,
@@ -89,61 +87,56 @@ class PythonStatsServer<Input, Output> {
     logger.debug(`Python stats server (pid: ${this.pid}) started`);
     this.promises = new Map();
 
-    let buffer = "";
-    this.python.stdout?.on("data", (rawData) => {
-      buffer += rawData.toString();
+    if (this.python.stdout) {
+      this.rl = readline
+        .createInterface({ input: this.python.stdout, crlfDelay: Infinity })
+        .on("line", (line) => {
+          const output = line.trim();
+          if (!output) return;
+          try {
+            const parsed:
+              | PythonServerResponse<Output>
+              | { id: string; error: string; stack_trace?: string } =
+              parsePythonOutput(output);
 
-      // Once we have a complete line, process it
-      const lines = buffer.split("\n");
-      buffer = lines.pop() || ""; // Keep the last incomplete line in the buffer
-
-      lines.forEach((line) => {
-        const output = line.trim();
-        if (!output) return; // Skip empty lines
-        try {
-          const parsed:
-            | PythonServerResponse<Output>
-            | { id: string; error: string; stack_trace?: string } =
-            JSON5.parse(output);
-
-          if (!parsed.id) {
-            logger.error(
-              `Python stats server (pid: ${this.pid}) stdout missing 'id': ${parsed}`,
-            );
-            return;
-          }
-
-          const promise = this.promises.get(parsed.id);
-          if (!promise) {
-            logger.warn(
-              `Python stats server (pid: ${this.pid}) stdout has unknown id: ${parsed.id}`,
-              parsed,
-            );
-            return;
-          }
-
-          if ("error" in parsed) {
-            // Add stack trace to error message so we can show it on the front-end
-            const error = new Error(parsed.error || "Unknown error");
-            if (parsed.stack_trace) {
-              error.message += `\n\n${parsed.stack_trace}`;
+            if (!parsed.id) {
+              logger.error(
+                `Python stats server (pid: ${this.pid}) stdout missing 'id': ${parsed}`,
+              );
+              return;
             }
-            promise.reject(error);
-          } else {
-            promise.resolve(parsed);
-          }
 
-          // Delete promise
-          this.promises.delete(parsed.id);
-        } catch (e) {
-          logger.error(
-            `Python stats server (pid: ${this.pid}) failed to parse stdout: ${output}`,
-            e,
-          );
-          return;
-        }
-      });
-    });
+            const promise = this.promises.get(parsed.id);
+            if (!promise) {
+              logger.warn(
+                `Python stats server (pid: ${this.pid}) stdout has unknown id: ${parsed.id}`,
+                parsed,
+              );
+              return;
+            }
+
+            if ("error" in parsed) {
+              // Add stack trace to error message so we can show it on the front-end
+              const error = new Error(parsed.error || "Unknown error");
+              if (parsed.stack_trace) {
+                error.message += `\n\n${parsed.stack_trace}`;
+              }
+              promise.reject(error);
+            } else {
+              promise.resolve(parsed);
+            }
+
+            // Delete promise
+            this.promises.delete(parsed.id);
+          } catch (e) {
+            logger.error(
+              `Python stats server (pid: ${this.pid}) failed to parse stdout: ${output}`,
+              e,
+            );
+            return;
+          }
+        });
+    }
 
     this.python.stderr?.on("data", (data) => {
       const err = data.toString().trim();
@@ -170,6 +163,8 @@ class PythonStatsServer<Input, Output> {
   }
 
   destroy() {
+    this.rl?.removeAllListeners("line");
+    this.rl?.close();
     if (this.isRunning()) {
       this.python.kill();
     }
@@ -265,14 +260,15 @@ export const statsServerPool = createPool(
     testOnBorrow: true,
     evictionRunIntervalMillis: 60000,
     numTestsPerEvictionRun: 2,
+    acquireTimeoutMillis: STATS_ENGINE_TIMEOUT_MS,
   },
 );
 
-function publishPoolSizeToCloudWatch(value: number) {
-  if (!cloudWatch) return;
+async function publishPoolSizeToCloudWatch(value: number) {
+  if (!cloudWatchClient) return;
   try {
-    cloudWatch.putMetricData(
-      {
+    await cloudWatchClient.send(
+      new PutMetricDataCommand({
         Namespace: "GrowthBook/PythonStatsPool",
         MetricData: [
           {
@@ -281,22 +277,14 @@ function publishPoolSizeToCloudWatch(value: number) {
             Unit: "Count",
           },
         ],
-      },
-      (error) => {
-        if (error && ENVIRONMENT === "production") {
-          logger.error(
-            "Failed to publish Python stats pool size to CloudWatch (callback): " +
-              error.message,
-          );
-        }
-      },
+      }),
     );
   } catch (error) {
     // When not running on AWS, no need to publish to cloudwatch or warn us every minute.
     if (ENVIRONMENT === "production") {
       logger.error(
         "Failed to publish Python stats pool size to CloudWatch: " +
-          error.message,
+          (error instanceof Error ? error.message : String(error)),
       );
     }
   }

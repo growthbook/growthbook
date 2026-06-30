@@ -1,10 +1,9 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { cloneDeep } from "lodash";
+import { z } from "zod";
 import { OWNER_JOB_TITLES, USAGE_INTENTS } from "shared/constants";
 import { POLICIES, RESERVED_ROLE_IDS } from "shared/permissions";
-import { z } from "zod";
-import { TeamInterface } from "shared/types/team";
 import {
   DemographicData,
   Invite,
@@ -15,7 +14,7 @@ import {
   OrgMemberInfo,
   Role,
 } from "shared/types/organization";
-import { ApiOrganization } from "shared/types/openapi";
+import { ApiOrganization } from "shared/validators";
 import { upgradeOrganizationDoc } from "back-end/src/util/migrations";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
@@ -23,6 +22,7 @@ import {
   getCollection,
   removeMongooseFields,
 } from "back-end/src/util/mongo.util";
+import { ReqContext } from "back-end/types/request";
 
 const baseMemberFields = {
   _id: false,
@@ -83,6 +83,7 @@ const organizationSchema = new mongoose.Schema({
       ...baseMemberFields,
       email: String,
       key: String,
+      invitedBy: String,
     },
   ],
   pendingMembers: [
@@ -142,6 +143,7 @@ const organizationSchema = new mongoose.Schema({
   customRoles: {},
   deactivatedRoles: [],
   disabled: Boolean,
+  suspended: Boolean,
   setupEventTracker: String,
   trackingDisabled: Boolean,
 });
@@ -229,25 +231,25 @@ export async function createOrganization({
         { property: "utmContent", datatype: "string" },
       ],
       disablePrecomputedDimensions: false,
+      restApiBypassesReviews: false,
+      requireRebaseBeforePublish: false,
+      revertsBypassApproval: false,
+      requireReviews: [
+        {
+          requireReviewOn: false,
+          resetReviewOnChange: false,
+          environments: [],
+          projects: [],
+          featureRequireEnvironmentReview: true,
+          featureRequireMetadataReview: false,
+        },
+      ],
     },
     getStartedChecklistItems: [],
     isVercelIntegration,
     ...(restrictLoginMethod ? { restrictLoginMethod } : {}),
   });
   return toInterface(doc);
-}
-
-export async function getOrganizationIdsWithTrackingDisabled(
-  organizationIds: string[],
-) {
-  const orgs = await OrganizationModel.find(
-    {
-      id: { $in: organizationIds },
-      trackingDisabled: true,
-    },
-    { id: 1, _id: 0 },
-  );
-  return new Set(orgs.map((org) => org.id));
 }
 
 export async function findAllOrganizations(
@@ -279,13 +281,6 @@ export async function findAllOrganizations(
     : OrganizationModel.find().estimatedDocumentCount());
 
   return { organizations: docs.map(toInterface), total };
-}
-
-export async function _dangerouslyFindAllOrganizationsByIds(orgIds: string[]) {
-  const docs = await OrganizationModel.find({
-    id: { $in: orgIds },
-  });
-  return docs.map(toInterface);
 }
 
 export async function findOrganizationById(id: string) {
@@ -501,6 +496,7 @@ export const customRoleValidator = z
     id: z.string().min(2).max(64),
     description: z.string().max(100),
     policies: z.array(z.enum(POLICIES)),
+    displayName: z.string().max(64).optional(),
   })
   .strict();
 
@@ -511,6 +507,13 @@ export async function addCustomRole(org: OrganizationInterface, role: Role) {
   // Make sure role id is not reserved
   if (RESERVED_ROLE_IDS.includes(role.id)) {
     throw new Error("That role id is reserved and cannot be used");
+  }
+
+  // Make sure role id doesn't start with gbDefault_ prefix
+  if (role.id.startsWith("gbDefault_")) {
+    throw new Error(
+      "Role id cannot start with 'gbDefault_' as this prefix is reserved for default roles",
+    );
   }
 
   // Make sure role id is not already in use
@@ -565,40 +568,43 @@ function usingRole(member: MemberRoleWithProjects, role: string): boolean {
   );
 }
 
-export async function removeCustomRole(
-  org: OrganizationInterface,
-  teams: TeamInterface[],
-  id: string,
-) {
+export async function removeCustomRole(context: ReqContext, id: string) {
   // Make sure the id isn't the org's default
-  if (org.settings?.defaultRole?.role === id) {
+  if (context.org.settings?.defaultRole?.role === id) {
     throw new Error(
       "Cannot delete role. This role is set as the organization's default role.",
     );
   }
-  // Make sure no members, invites, pending members, or teams are using the role
-  if (org.members.some((m) => usingRole(m, id))) {
+  // Make sure no members, invites, pending members, api keys, or teams are using the role
+  if (context.org.members.some((m) => usingRole(m, id))) {
     throw new Error("Role is currently being used by at least one member");
   }
-  if (org.pendingMembers?.some((m) => usingRole(m, id))) {
+  if (context.org.pendingMembers?.some((m) => usingRole(m, id))) {
     throw new Error(
       "Role is currently being used by at least one pending member",
     );
   }
-  if (org.invites?.some((m) => usingRole(m, id))) {
+  if (context.org.invites?.some((m) => usingRole(m, id))) {
     throw new Error(
       "Role is currently being used by at least one invited member",
     );
   }
-  if (teams.some((team) => usingRole(team, id))) {
+  if (context.teams.some((team) => usingRole(team, id))) {
     throw new Error("Role is currently being used by at least one team");
   }
+  if (
+    (await context.models.apiKeys.dangerousGetAllApiKeysInOrg()).some(
+      (key) => key.role === id,
+    )
+  ) {
+    throw new Error("Role is currently being used by at least one API key");
+  }
 
-  const newCustomRoles = (org.customRoles || []).filter(
+  const newCustomRoles = (context.org.customRoles || []).filter(
     (role) => role.id !== id,
   );
 
-  if (newCustomRoles.length === (org.customRoles || []).length) {
+  if (newCustomRoles.length === (context.org.customRoles || []).length) {
     throw new Error("Role not found");
   }
 
@@ -606,11 +612,13 @@ export async function removeCustomRole(
     customRoles: newCustomRoles,
   };
 
-  if (org.deactivatedRoles?.includes(id)) {
-    updates.deactivatedRoles = org.deactivatedRoles.filter((r) => r !== id);
+  if (context.org.deactivatedRoles?.includes(id)) {
+    updates.deactivatedRoles = context.org.deactivatedRoles.filter(
+      (r) => r !== id,
+    );
   }
 
-  await updateOrganization(org.id, updates);
+  await updateOrganization(context.org.id, updates);
 }
 
 export async function deactivateRoleById(

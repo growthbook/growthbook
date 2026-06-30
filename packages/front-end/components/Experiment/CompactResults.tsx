@@ -18,6 +18,7 @@ import {
 import {
   DifferenceType,
   PValueCorrection,
+  SignificanceThresholds,
   StatsEngine,
 } from "shared/types/stats";
 import { FactTableInterface } from "shared/types/fact-table";
@@ -33,7 +34,6 @@ import {
   ExperimentSortBy,
   SetExperimentSortBy,
 } from "shared/experiments";
-import { HiBadgeCheck } from "react-icons/hi";
 import Link from "@/ui/Link";
 import { useExperimentTableRows } from "@/hooks/useExperimentTableRows";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -41,10 +41,8 @@ import { ExperimentTableRow } from "@/services/experiments";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
-import MetricDrilldownModal, {
-  MetricDrilldownTab,
-} from "@/components/MetricDrilldown/MetricDrilldownModal";
 import ResultsTable from "@/components/Experiment/ResultsTable";
+import { OfficialBadge } from "@/components/Metrics/MetricName";
 import styles from "./CompactResults.module.scss";
 import { ExperimentTab } from "./TabbedPage";
 import MultipleExposureWarning from "./MultipleExposureWarning";
@@ -52,6 +50,7 @@ import DataQualityWarning from "./DataQualityWarning";
 
 const CompactResults: FC<{
   experimentId: string;
+  significanceThresholds: SignificanceThresholds;
   editMetrics?: () => void;
   variations: ExperimentReportVariation[];
   variationFilter?: number[];
@@ -107,8 +106,13 @@ const CompactResults: FC<{
   ) => void;
   mutate?: () => Promise<unknown>;
   setDifferenceType?: (differenceType: DifferenceType) => void;
+  onRowClick?: (
+    row: ExperimentTableRow,
+    dimensionInfo?: { name: string; value: string },
+  ) => void;
 }> = ({
   experimentId,
+  significanceThresholds,
   editMetrics,
   variations,
   variationFilter,
@@ -155,6 +159,7 @@ const CompactResults: FC<{
   setAnalysisSettings,
   mutate,
   setDifferenceType,
+  onRowClick,
 }) => {
   const {
     getExperimentMetricById: _getExperimentMetricById,
@@ -189,13 +194,6 @@ const CompactResults: FC<{
     }));
   };
 
-  const [openMetricDrilldownModalInfo, setOpenMetricDrilldownModalInfo] =
-    useState<{
-      metricRow: ExperimentTableRow;
-      initialTab?: MetricDrilldownTab;
-      initialSliceSearchTerm?: string;
-    } | null>(null);
-
   const { rows, getChildRowCounts } = useExperimentTableRows({
     results,
     goalMetrics,
@@ -216,6 +214,7 @@ const CompactResults: FC<{
     shouldShowMetricSlices: true,
     enableExpansion: true,
     expandedMetrics,
+    pValueThreshold: significanceThresholds.pValueThreshold,
   });
 
   const expandedGoals = useMemo(
@@ -337,27 +336,6 @@ const CompactResults: FC<{
     });
   }, [rows, hasSliceFilter, expandedMetrics]);
 
-  const handleRowClick = (row: ExperimentTableRow) => {
-    // Get the main metric row (if a slice row was clicked, find its parent)
-    const metricId = row.isSliceRow ? row.parentRowId : row.metric.id;
-    const mainMetricRow = !row.isSliceRow
-      ? row
-      : rows.find((r) => r.metric.id === metricId);
-
-    if (row.isSliceRow) {
-      setOpenMetricDrilldownModalInfo({
-        metricRow: mainMetricRow ?? row,
-        initialTab: "slices",
-        initialSliceSearchTerm: typeof row.label === "string" ? row.label : "",
-      });
-    } else {
-      setOpenMetricDrilldownModalInfo({
-        metricRow: mainMetricRow ?? row,
-        initialTab: "overview",
-      });
-    }
-  };
-
   return (
     <>
       {!mainTableOnly && (
@@ -375,6 +353,7 @@ const CompactResults: FC<{
             <MultipleExposureWarning
               totalUsers={totalUsers}
               multipleExposures={multipleExposures}
+              experimentType={experimentType}
             />
           </Flex>
         </>
@@ -383,6 +362,7 @@ const CompactResults: FC<{
       {expandedGoals.length ? (
         <ResultsTable
           experimentId={experimentId}
+          significanceThresholds={significanceThresholds}
           dateCreated={reportDate}
           isLatestPhase={isLatestPhase}
           phase={phase}
@@ -395,7 +375,7 @@ const CompactResults: FC<{
           setVariationFilter={setVariationFilter}
           baselineRow={baselineRow}
           rows={filteredRows.filter((r) => r.resultGroup === "goal")}
-          onRowClick={handleRowClick}
+          onRowClick={onRowClick}
           id={id}
           resultGroup="goal"
           tableRowAxis="metric"
@@ -445,6 +425,7 @@ const CompactResults: FC<{
         <div className="mt-4">
           <ResultsTable
             experimentId={experimentId}
+            significanceThresholds={significanceThresholds}
             dateCreated={reportDate}
             isLatestPhase={isLatestPhase}
             phase={phase}
@@ -457,7 +438,7 @@ const CompactResults: FC<{
             setVariationFilter={setVariationFilter}
             baselineRow={baselineRow}
             rows={filteredRows.filter((r) => r.resultGroup === "secondary")}
-            onRowClick={handleRowClick}
+            onRowClick={onRowClick}
             id={id}
             resultGroup="secondary"
             tableRowAxis="metric"
@@ -501,6 +482,7 @@ const CompactResults: FC<{
         <div className="mt-4">
           <ResultsTable
             experimentId={experimentId}
+            significanceThresholds={significanceThresholds}
             dateCreated={reportDate}
             isLatestPhase={isLatestPhase}
             phase={phase}
@@ -513,7 +495,7 @@ const CompactResults: FC<{
             setVariationFilter={setVariationFilter}
             baselineRow={baselineRow}
             rows={filteredRows.filter((r) => r.resultGroup === "guardrail")}
-            onRowClick={handleRowClick}
+            onRowClick={onRowClick}
             id={id}
             resultGroup="guardrail"
             tableRowAxis="metric"
@@ -553,46 +535,6 @@ const CompactResults: FC<{
         </div>
       ) : (
         <></>
-      )}
-
-      {openMetricDrilldownModalInfo !== null && (
-        <MetricDrilldownModal
-          row={openMetricDrilldownModalInfo.metricRow}
-          close={() => setOpenMetricDrilldownModalInfo(null)}
-          initialTab={openMetricDrilldownModalInfo.initialTab}
-          // useExperimentTableRows parameters
-          results={results}
-          goalMetrics={goalMetrics}
-          secondaryMetrics={secondaryMetrics}
-          guardrailMetrics={guardrailMetrics}
-          metricOverrides={metricOverrides}
-          settingsForSnapshotMetrics={settingsForSnapshotMetrics}
-          customMetricSlices={customMetricSlices}
-          ssrPolyfills={ssrPolyfills}
-          statsEngine={statsEngine}
-          pValueCorrection={pValueCorrection}
-          // Initial filter values
-          differenceType={differenceType}
-          baselineRow={baselineRow}
-          variationFilter={variationFilter}
-          // Experiment context
-          experimentId={experimentId}
-          phase={phase}
-          experimentStatus={status}
-          variations={variations}
-          startDate={startDate}
-          endDate={endDate}
-          reportDate={reportDate}
-          isLatestPhase={isLatestPhase}
-          sequentialTestingEnabled={sequentialTestingEnabled}
-          // Initial sorting state
-          initialSortBy={sortBy ?? null}
-          initialSortDirection={sortDirection ?? null}
-          // Slice-specific
-          initialSliceSearchTerm={
-            openMetricDrilldownModalInfo.initialSliceSearchTerm
-          }
-        />
       )}
     </>
   );
@@ -795,15 +737,13 @@ export function getRenderLabelColumn({
                       {label.includes(" ")
                         ? label.slice(label.lastIndexOf(" ") + 1)
                         : label}
-                      {metric.managedBy ? (
-                        <HiBadgeCheck
-                          style={{
-                            marginTop: "-2px",
-                            marginLeft: "2px",
-                            color: "var(--blue-11)",
-                          }}
-                        />
-                      ) : null}
+                      <OfficialBadge
+                        type="metric"
+                        managedBy={metric.managedBy || ""}
+                        color="var(--blue-11)"
+                        disableTooltip={false}
+                        leftGap={false}
+                      />
                       <PiArrowSquareOut
                         className={styles.metricExternalLinkIcon}
                         size={14}
@@ -818,15 +758,13 @@ export function getRenderLabelColumn({
                     target="_blank"
                   >
                     {label}
-                    {metric.managedBy ? (
-                      <HiBadgeCheck
-                        style={{
-                          marginTop: "-2px",
-                          marginLeft: "2px",
-                          color: "var(--blue-11)",
-                        }}
-                      />
-                    ) : null}
+                    <OfficialBadge
+                      type="metric"
+                      managedBy={metric.managedBy || ""}
+                      color="var(--blue-11)"
+                      disableTooltip={false}
+                      leftGap={false}
+                    />
                     <PiArrowSquareOut
                       className={styles.metricExternalLinkIcon}
                       size={14}

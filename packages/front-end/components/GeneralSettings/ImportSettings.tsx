@@ -1,8 +1,6 @@
 import Link from "next/link";
 import { OrganizationSettings } from "shared/types/organization";
 import { FaUpload } from "react-icons/fa";
-import { useGrowthBook } from "@growthbook/growthbook-react";
-import { AppFeatures } from "@/types/app-features";
 import { DocLink } from "@/components/DocLink";
 import BackupConfigYamlButton from "@/components/Settings/BackupConfigYamlButton";
 import RestoreConfigYamlButton from "@/components/Settings/RestoreConfigYamlButton";
@@ -18,7 +16,6 @@ export default function ImportSettings({
   settings: OrganizationSettings;
   refreshOrg: () => Promise<void>;
 }) {
-  const growthbook = useGrowthBook<AppFeatures>();
   return (
     <>
       {hasFileConfig && (
@@ -26,6 +23,7 @@ export default function ImportSettings({
           The below settings are controlled through your <code>config.yml</code>{" "}
           file and cannot be changed through the web UI.{" "}
           <DocLink
+            useRadix={false}
             docSection="config_organization_settings"
             className="font-weight-bold"
           >
@@ -47,7 +45,11 @@ export default function ImportSettings({
             You can import/export these settings to a <code>config.yml</code>{" "}
             file to more easily move between GrowthBook Cloud accounts and/or
             self-hosted environments.{" "}
-            <DocLink docSection="config_yml" className="font-weight-bold">
+            <DocLink
+              useRadix={false}
+              docSection="config_yml"
+              className="font-weight-bold"
+            >
               Learn More
             </DocLink>
           </p>
@@ -70,18 +72,16 @@ export default function ImportSettings({
         </div>
       )}
 
-      {growthbook?.getFeatureValue("import-from-x", false) && (
-        <div className="bg-white p-3 border position-relative my-3">
-          <h3>Import from another service</h3>
-          <p>
-            Import your data from another feature flag and/or experimentation
-            service.
-          </p>
-          <Link href="/importing" className="btn btn-primary">
-            <FaUpload className="mr-1" /> Import from another service
-          </Link>
-        </div>
-      )}
+      <div className="bg-white p-3 border position-relative my-3">
+        <h3>Import from another service</h3>
+        <p>
+          Import your data from another feature flag and/or experimentation
+          service.
+        </p>
+        <Link href="/importing" className="btn btn-primary">
+          <FaUpload className="mr-1" /> Import from another service
+        </Link>
+      </div>
     </>
   );
 }

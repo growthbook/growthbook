@@ -1,6 +1,10 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { FactTableColumnType } from "shared/types/fact-table";
 import { getScopedSettings } from "shared/settings";
+import {
+  isDimensionPrecomputed,
+  getEffectiveLookbackOverride,
+} from "shared/experiments";
 import React, { useState, useCallback } from "react";
 import {
   ExperimentSnapshotReportArgs,
@@ -12,6 +16,8 @@ import NextLink from "next/link";
 import { useRouter } from "next/router";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { Box, Flex, Text } from "@radix-ui/themes";
+import { date } from "shared/dates";
+import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
@@ -22,6 +28,7 @@ import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
+import { getHonoredPrecomputedUnitDimensionIds } from "@/services/experiments";
 import track from "@/services/track";
 import Metadata from "@/ui/Metadata";
 import Link from "@/ui/Link";
@@ -111,8 +118,20 @@ export default function ResultsTab({
     useSnapshot();
 
   const permissionsUtil = usePermissionsUtil();
-  const { organization } = useUser();
+  const { organization, hasCommercialFeature } = useUser();
   const project = getProjectById(experiment.project || "");
+  const isDemoExperiment =
+    !!experiment.project &&
+    experiment.project ===
+      getDemoDatasourceProjectIdForOrganization(organization.id);
+  const honoredPrecomputedUnitDimensionIds =
+    getHonoredPrecomputedUnitDimensionIds(
+      experiment.precomputedUnitDimensionIds,
+      experiment.datasource
+        ? getDatasourceById(experiment.datasource)
+        : undefined,
+      hasCommercialFeature("pipeline-mode"),
+    );
 
   const { settings: scopedSettings } = getScopedSettings({
     organization,
@@ -160,15 +179,24 @@ export default function ResultsTab({
     setAnalysisSettings(null);
     setAnalysisBarSettings((prev) => ({
       ...prev,
-      dimension: prev.dimension.startsWith("precomputed:")
+      dimension: isDimensionPrecomputed(
+        prev.dimension,
+        honoredPrecomputedUnitDimensionIds,
+      )
         ? ""
         : prev.dimension,
       baselineRow: 0,
       variationFilter: [],
       differenceType: "relative",
     }));
-  }, [setAnalysisBarSettings, setAnalysisSettings]);
+  }, [
+    setAnalysisBarSettings,
+    setAnalysisSettings,
+    honoredPrecomputedUnitDimensionIds,
+  ]);
 
+  const endDate =
+    experiment.status !== "running" ? snapshot?.settings?.endDate : undefined;
   return (
     <div>
       {isBandit && hasResults ? (
@@ -237,6 +265,19 @@ export default function ResultsTab({
                 <Metadata
                   label="Activation Metric"
                   value={activationMetric.name}
+                />
+              ) : null}
+              {getEffectiveLookbackOverride(
+                experiment.attributionModel,
+                experiment.lookbackOverride,
+              ) && experiment.lookbackOverride ? (
+                <Metadata
+                  label="Lookback Enforced"
+                  value={
+                    experiment.lookbackOverride.type === "date"
+                      ? `${date(experiment.lookbackOverride.value, "UTC")} - ${endDate ? date(endDate, "UTC") : "now"}`
+                      : `${experiment.lookbackOverride.value} ${experiment.lookbackOverride.valueUnit}`
+                  }
                 />
               ) : null}
               {isBandit && snapshot ? (
@@ -394,7 +435,6 @@ export default function ResultsTab({
                   mutateExperiment={mutate}
                   editMetrics={editMetrics ?? undefined}
                   editResult={editResult ?? undefined}
-                  reportDetailsLink={false}
                   statsEngine={statsEngine}
                   analysisBarSettings={analysisBarSettings}
                   setAnalysisBarSettings={setAnalysisBarSettings}
@@ -413,7 +453,7 @@ export default function ResultsTab({
           )}
         </div>
       </div>
-      {snapshot && (
+      {snapshot && !isDemoExperiment && (
         <div className="appbox mt-4">
           <div className="row mx-2 py-3 d-flex align-items-center">
             <div className="col ml-2">

@@ -8,6 +8,7 @@ import {
   DifferenceType,
   StatsEngine,
   PValueCorrection,
+  SignificanceThresholds,
 } from "shared/types/stats";
 import { ExperimentStatus } from "shared/types/experiment";
 import { ExperimentReportVariation } from "shared/types/report";
@@ -20,7 +21,9 @@ import ResultsTable from "@/components/Experiment/ResultsTable";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
 import { useTableSorting } from "@/hooks/useTableSorting";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
+import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { filterRowsForMetricDrilldown } from "./helpers";
+import { type DrilldownDimensionInfo } from "./useMetricDrilldownContext";
 
 interface MetricDrilldownSlicesProps {
   metric: ExperimentMetricInterface;
@@ -37,6 +40,7 @@ interface MetricDrilldownSlicesProps {
   setVariationFilter: (filter: number[] | undefined) => void;
   // Props for ResultsTable
   experimentId: string;
+  significanceThresholds: SignificanceThresholds;
   phase: number;
   variations: ExperimentReportVariation[];
   startDate: string;
@@ -45,7 +49,7 @@ interface MetricDrilldownSlicesProps {
   isLatestPhase: boolean;
   pValueCorrection?: PValueCorrection;
   sequentialTestingEnabled?: boolean;
-  experimentStatus: ExperimentStatus;
+  experimentStatus?: ExperimentStatus;
   // Initial sorting state (inherited from main table, managed locally)
   initialSortBy: ExperimentSortBy;
   initialSortDirection: "asc" | "desc" | null;
@@ -55,6 +59,10 @@ interface MetricDrilldownSlicesProps {
   // Timeseries state (managed by parent to persist across tab switches)
   visibleTimeSeriesRowIds: string[];
   setVisibleTimeSeriesRowIds: (ids: string[]) => void;
+  // SSR polyfills for public pages
+  ssrPolyfills?: SSRPolyfills;
+  hideTimeSeries?: boolean;
+  dimensionInfo?: DrilldownDimensionInfo;
 }
 
 const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
@@ -68,6 +76,7 @@ const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
   variationFilter,
   setVariationFilter,
   experimentId,
+  significanceThresholds,
   phase,
   variations,
   startDate,
@@ -83,19 +92,20 @@ const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
   setSearchTerm,
   visibleTimeSeriesRowIds,
   setVisibleTimeSeriesRowIds,
+  ssrPolyfills,
+  hideTimeSeries,
+  dimensionInfo,
 }) => {
   const { hasCommercialFeature } = useUser();
 
   // Get snapshot context - this will be the local context from LocalSnapshotProvider
   // when rendered inside MetricDrilldownModal
-  const {
-    snapshot,
-    analysis,
-    setAnalysisSettings,
-    mutateSnapshot: mutate,
-  } = useSnapshot();
+  const { snapshot, analysis, setAnalysisSettings, mutate } = useSnapshot();
 
-  const hasMetricSlicesFeature = hasCommercialFeature("metric-slices");
+  // Check the owning org's features (via SSR data) first, then fall back to current user's org
+  const hasMetricSlicesFeature =
+    ssrPolyfills?.hasCommercialFeature("metric-slices") ||
+    hasCommercialFeature("metric-slices");
   const tableId = `${experimentId}_${metric.id}_slices`;
 
   // TODO: Do we stil need?
@@ -183,6 +193,7 @@ const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
 
       <ResultsTable
         experimentId={experimentId}
+        significanceThresholds={significanceThresholds}
         dateCreated={reportDate}
         isLatestPhase={isLatestPhase}
         phase={phase}
@@ -211,11 +222,11 @@ const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
         renderLabelColumn={({ label, row }) => (
           <Flex direction="column" gap="1" ml={row.isSliceRow ? "4" : "3"}>
             <Text weight="medium">{label}</Text>
-            {row.isSliceRow && (
+            {row.isSliceRow ? (
               <Text size="1" style={{ color: "var(--color-text-low)" }}>
                 {row.sliceLevels?.map((dl) => dl.column).join(" + ")}
               </Text>
-            )}
+            ) : null}
           </Flex>
         )}
         statsEngine={statsEngine}
@@ -227,7 +238,7 @@ const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
         noStickyHeader={true}
         noTooltip={false}
         isBandit={false}
-        showTimeSeriesButton={true}
+        showTimeSeriesButton={!hideTimeSeries}
         isHoldout={false}
         sortBy={sortBy}
         setSortBy={setSortBy}
@@ -239,7 +250,12 @@ const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
         snapshot={snapshot}
         analysis={analysis}
         setAnalysisSettings={setAnalysisSettings}
-        mutate={mutate}
+        // Forwarded to BaselineChooserColumnLabel, which appends analyses
+        // to the current snapshot in place — need `inPlace: true` so the
+        // heavy fetch refreshes (id-keyed auto-upgrade won't fire here).
+        mutate={() => mutate({ inPlace: true })}
+        dimensionId={dimensionInfo?.id}
+        dimensionValue={dimensionInfo?.rawValue}
       />
     </Box>
   );

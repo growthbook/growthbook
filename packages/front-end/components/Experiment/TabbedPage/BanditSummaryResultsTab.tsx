@@ -1,11 +1,12 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { getLatestPhaseVariations } from "shared/experiments";
 import React, { useEffect, useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import { LiaChartLineSolid } from "react-icons/lia";
 import { TbChartAreaLineFilled } from "react-icons/tb";
 import { BanditEvent } from "shared/validators";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
-import { getSRMValue } from "shared/health";
+import { getBanditSRMValue } from "shared/health";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import BanditSummaryTable from "@/components/Experiment/BanditSummaryTable";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -66,7 +67,7 @@ export default function BanditSummaryResultsTab({
     ssrPolyfills?.getExperimentMetricById?.(mid) ||
     getExperimentMetricById(mid ?? "");
 
-  const { latest: _latest } = useSnapshot();
+  const { latestSummary: _latest } = useSnapshot();
   const latest = _latest ?? ssrSnapshot;
   const multipleExposures = latest?.multipleExposures;
 
@@ -77,7 +78,7 @@ export default function BanditSummaryResultsTab({
 
   const event: BanditEvent | undefined =
     phaseObj?.banditEvents?.[(phaseObj?.banditEvents?.length ?? 1) - 1];
-  const users = experiment.variations.map(
+  const users = getLatestPhaseVariations(experiment).map(
     (_, i) => event?.banditResult?.singleVariationResults?.[i]?.users ?? 0,
   );
   const totalUsers = users.reduce((acc, cur) => acc + cur, 0);
@@ -127,11 +128,7 @@ export default function BanditSummaryResultsTab({
         {!isPublic && (
           <Flex direction="column" gap="2" mx="3">
             <SRMWarning
-              srm={
-                latest
-                  ? (getSRMValue("multi-armed-bandit", latest) ?? Infinity)
-                  : Infinity
-              }
+              srm={latest ? (getBanditSRMValue(latest) ?? Infinity) : Infinity}
               users={users}
               showWhenHealthy={false}
               isBandit={true}
@@ -139,6 +136,7 @@ export default function BanditSummaryResultsTab({
             <MultipleExposureWarning
               totalUsers={totalUsers}
               multipleExposures={multipleExposures ?? 0}
+              experiment={experiment}
             />
           </Flex>
         )}

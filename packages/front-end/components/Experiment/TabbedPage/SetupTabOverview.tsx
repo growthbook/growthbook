@@ -1,17 +1,17 @@
-import {
-  ExperimentInterfaceStringDates,
-  LinkedFeatureInfo,
-} from "shared/types/experiment";
-import React, { useState } from "react";
-import { VisualChangesetInterface } from "shared/types/visual-changeset";
-import { SDKConnectionInterface } from "shared/types/sdk-connection";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { useState } from "react";
 import Collapsible from "react-collapsible";
 import { FaAngleRight } from "react-icons/fa";
-import { Box, Flex, ScrollArea, Heading } from "@radix-ui/themes";
-import { HoldoutInterface } from "shared/validators";
-import { upperFirst } from "lodash";
-import { PiArrowSquareOut } from "react-icons/pi";
-import { PreLaunchChecklist } from "@/components/Experiment/PreLaunchChecklist";
+import { Box, Flex, ScrollArea } from "@radix-ui/themes";
+import { HoldoutInterfaceStringDates } from "shared/validators";
+import {
+  PiArrowSquareOut,
+  PiPencilSimpleFill,
+  PiWarningFill,
+} from "react-icons/pi";
+import { format } from "date-fns-tz";
+import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import { PreLaunchChecklistDrawer } from "@/components/PreLaunchChecklist/PreLaunchChecklist";
 import CustomFieldDisplay from "@/components/CustomFields/CustomFieldDisplay";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Markdown from "@/components/Markdown/Markdown";
@@ -28,35 +28,28 @@ import { useUser } from "@/services/UserContext";
 import EditDescriptionModal from "@/components/Experiment/EditDescriptionModal";
 import HoldoutTimeline from "@/components/Experiment/holdout/HoldoutTimeline";
 import EditHypothesisModal from "@/components/Experiment/EditHypothesisModal";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import { useAuth } from "@/services/auth";
+import { HoldoutSchedule } from "@/components/Holdout/HoldoutSchedule";
+import Heading from "@/ui/Heading";
+import Tooltip from "@/ui/Tooltip";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
-  holdout?: HoldoutInterface;
+  holdout?: HoldoutInterfaceStringDates;
   holdoutExperiments?: ExperimentInterfaceStringDates[];
-  visualChangesets: VisualChangesetInterface[];
   mutate: () => void;
-  editTargeting?: (() => void) | null;
-  linkedFeatures: LinkedFeatureInfo[];
-  matchingConnections: SDKConnectionInterface[];
   disableEditing?: boolean;
-  checklistItemsRemaining: number | null;
-  setChecklistItemsRemaining: (value: number | null) => void;
-  envs: string[];
+  editSchedule?: (() => void) | null;
 }
 
 export default function SetupTabOverview({
   experiment,
   holdout,
   holdoutExperiments,
-  visualChangesets,
   mutate,
-  editTargeting,
-  linkedFeatures,
-  matchingConnections,
   disableEditing,
-  checklistItemsRemaining,
-  setChecklistItemsRemaining,
-  envs,
+  editSchedule,
 }: Props) {
   const { aiEnabled, aiAgreedTo } = useAISettings();
   const [showOptInModal, setShowOptInModal] = useState(false);
@@ -71,7 +64,7 @@ export default function SetupTabOverview({
   const customFields = useCustomFields();
 
   const permissionsUtil = usePermissionsUtil();
-
+  const { apiCall } = useAuth();
   const canEditExperiment =
     !experiment.archived &&
     permissionsUtil.canViewExperimentModal(experiment.project) &&
@@ -88,8 +81,44 @@ export default function SetupTabOverview({
     new Date(experiment.phases[0].dateStarted) &&
     holdoutExperiments.length > 0 &&
     holdoutExperiments.some((e) => e.status !== "draft");
-  const { hasCommercialFeature } = useUser();
+  const canEditSchedule = !isBandit && canEditExperiment && editSchedule;
+  const holdoutHasSchedule =
+    isHoldout &&
+    holdout &&
+    Object.values(holdout.statusUpdateSchedule ?? {}).some(
+      (value) => value !== null,
+    );
+  const experimentHasSchedule =
+    experiment.statusUpdateSchedule &&
+    Object.values(experiment.statusUpdateSchedule).some(
+      (value) => value !== null,
+    );
+  const experimentScheduleApproved = !!experiment.nextScheduledStatusUpdate;
+  const showAddHoldoutSchedule =
+    canEditSchedule &&
+    isHoldout &&
+    !holdoutHasSchedule &&
+    experiment.status !== "stopped" &&
+    !experiment.archived;
+
+  const showAddExperimentSchedule =
+    canEditSchedule &&
+    !isHoldout &&
+    !isBandit &&
+    !experimentHasSchedule &&
+    experiment.status === "draft" &&
+    !experiment.archived;
+
+  const showScheduleIsInThePastWarning =
+    !!experiment.statusUpdateSchedule?.startAt &&
+    new Date(experiment.statusUpdateSchedule.startAt) < new Date();
+
+  const { hasCommercialFeature, organization } = useUser();
   const hasAISuggestions = hasCommercialFeature("ai-suggestions");
+  const isDemoExperiment =
+    !!experiment.project &&
+    experiment.project ===
+      getDemoDatasourceProjectIdForOrganization(organization.id);
 
   return (
     <>
@@ -123,23 +152,87 @@ export default function SetupTabOverview({
         />
       ) : null}
       <div>
-        <h2>Overview</h2>
-        {experiment.status === "draft" && experiment.type !== "holdout" ? (
-          <PreLaunchChecklist
-            experiment={experiment}
-            envs={envs}
-            mutateExperiment={mutate}
-            linkedFeatures={linkedFeatures}
-            visualChangesets={visualChangesets}
-            editTargeting={editTargeting}
-            connections={matchingConnections}
-            checklistItemsRemaining={checklistItemsRemaining}
-            setChecklistItemsRemaining={setChecklistItemsRemaining}
-          />
+        <Flex justify="between" align="baseline" mb="3">
+          <Heading color="text-high" as="h2" size="large" mb="0">
+            Overview
+          </Heading>
+          {showAddHoldoutSchedule || showAddExperimentSchedule ? (
+            <Button variant="ghost" onClick={() => editSchedule()}>
+              + Add Schedule
+            </Button>
+          ) : null}
+          {experiment.status === "draft" &&
+          experiment.type !== "holdout" &&
+          experimentHasSchedule &&
+          !experimentScheduleApproved &&
+          editSchedule ? (
+            <Tooltip
+              content="Scheduled start date has passed—edit scheduled time"
+              enabled={showScheduleIsInThePastWarning}
+            >
+              <Button variant="ghost" onClick={() => editSchedule()}>
+                {showScheduleIsInThePastWarning && (
+                  <PiWarningFill color="var(--warning)" className="mr-1" />
+                )}
+                Target Start:{" "}
+                {experiment.statusUpdateSchedule?.startAt
+                  ? format(
+                      new Date(experiment.statusUpdateSchedule.startAt),
+                      "MMM d, yyyy 'at' h:mm a (z)",
+                    )
+                  : ""}{" "}
+                <PiPencilSimpleFill className="ml-1" />
+              </Button>
+            </Tooltip>
+          ) : null}
+        </Flex>
+        {isHoldout && holdout && holdoutHasSchedule && editSchedule ? (
+          <Frame id="holdout-schedule" style={{ scrollMarginTop: "100px" }}>
+            <Flex align="center" justify="between" className="text-dark">
+              <Heading color="text-high" mb="0" as="h4" size="small">
+                Holdout Schedule
+              </Heading>
+              <Flex align="center" gap="2">
+                {canEditSchedule ? (
+                  <>
+                    <DeleteButton
+                      text="Delete"
+                      displayName="Schedule"
+                      deleteMessage="Deleting the schedule will remove the automatic transition of the Holdout from start, to analysis, to stopped. Manual intervention will be required for each transition if no schedule is set."
+                      onClick={async () => {
+                        await apiCall<HoldoutInterfaceStringDates>(
+                          `/holdout/${holdout.id}`,
+                          {
+                            method: "PUT",
+                            body: JSON.stringify({
+                              statusUpdateSchedule: null,
+                              nextScheduledStatusUpdate: null,
+                            }),
+                          },
+                        );
+                        mutate();
+                      }}
+                    />
+                    <Button
+                      variant="ghost"
+                      stopPropagation={true}
+                      mr={experiment.description ? "3" : "0"}
+                      onClick={() => {
+                        editSchedule();
+                      }}
+                    >
+                      Edit
+                    </Button>
+                  </>
+                ) : null}
+              </Flex>
+            </Flex>
+            <HoldoutSchedule holdout={holdout} experiment={experiment} />
+          </Frame>
         ) : null}
         <Frame>
           <Collapsible
-            open={!experiment.description ? true : expandDescription}
+            open={!!experiment.description && expandDescription}
             transitionTime={100}
             triggerDisabled={!experiment.description}
             onOpening={() => setExpandDescription(true)}
@@ -152,18 +245,15 @@ export default function SetupTabOverview({
                 }}
               >
                 <Flex align="center" justify="between" className="text-dark">
-                  <Heading mb="0" as="h4" size="3">
+                  <Heading color="text-high" mb="0" as="h4" size="small">
                     Description
                   </Heading>
                   <Flex align="center" gap="2">
                     {canEditExperiment ? (
                       <Button
                         variant="ghost"
-                        stopPropagation={true}
-                        mr={experiment.description ? "3" : "0"}
-                        onClick={() => {
-                          setShowDescriptionModal(true);
-                        }}
+                        stopPropagation
+                        onClick={() => setShowDescriptionModal(true)}
                       >
                         Edit
                       </Button>
@@ -177,33 +267,32 @@ export default function SetupTabOverview({
             }
           >
             {experiment.description ? (
-              <ScrollArea
-                style={{
-                  maxHeight: "491px",
-                }}
-                className="py-2 fade-mask-vertical-1rem"
-              >
-                <Markdown>{experiment.description}</Markdown>
-              </ScrollArea>
-            ) : (
-              <Box as="div" className="font-italic text-muted" py="2">
-                Add a description to keep your team informed about the purpose
-                and parameters of your{" "}
-                {upperFirst(experiment.type || "experiment")}.
-              </Box>
-            )}
-            {!customFields.length && experiment.description && !isHoldout ? (
-              <PremiumCallout
-                mt="3"
-                commercialFeature="custom-metadata"
-                dismissable={true}
-                id="exp-description-custom-metadata"
-                docSection="customMetadata"
-              >
-                <strong>Custom Fields</strong> add structured metadata to
-                experiments and feature flags, like Jira links, categories and
-                more.
-              </PremiumCallout>
+              <>
+                <ScrollArea
+                  style={{
+                    maxHeight: "491px",
+                  }}
+                  className="py-2 fade-mask-vertical-1rem"
+                >
+                  <Markdown>{experiment.description}</Markdown>
+                </ScrollArea>
+                {!customFields.length &&
+                experiment.description &&
+                !isHoldout &&
+                !isDemoExperiment ? (
+                  <PremiumCallout
+                    mt="3"
+                    commercialFeature="custom-metadata"
+                    dismissable={true}
+                    id="exp-description-custom-metadata"
+                    docSection="customMetadata"
+                  >
+                    <strong>Custom Fields</strong> add structured metadata to
+                    experiments and feature flags, like Jira links, categories
+                    and more.
+                  </PremiumCallout>
+                ) : null}
+              </>
             ) : null}
           </Collapsible>
         </Frame>
@@ -228,8 +317,8 @@ export default function SetupTabOverview({
 
         {!isBandit && !isHoldout && (
           <Frame>
-            <Flex align="start" justify="between" mb="3">
-              <Heading as="h4" size="3">
+            <Flex align="start" justify="between">
+              <Heading color="text-high" as="h4" size="small" mb="0">
                 Hypothesis
               </Heading>
               {canEditExperiment && (
@@ -241,71 +330,72 @@ export default function SetupTabOverview({
                 </Button>
               )}
             </Flex>
-            <div className="mb-3">
-              {!experiment.hypothesis ? (
-                <span className="font-italic text-muted">
-                  Add a hypothesis statement to help focus the nature of your
-                  experiment
-                </span>
-              ) : (
-                experiment.hypothesis
-              )}
-            </div>
+            {experiment.hypothesis ? (
+              <>
+                <Box my="3">
+                  <Markdown>{experiment.hypothesis}</Markdown>
+                </Box>
 
-            {!hasAISuggestions ? (
-              <PremiumCallout
-                id="ai-suggestions-hypothesis"
-                commercialFeature="ai-suggestions"
-              >
-                <span>Improve your hypothesis with AI. </span>
-              </PremiumCallout>
-            ) : aiEnabled && aiAgreedTo ? (
-              <Callout status="wizard" contentsAs="div">
-                <span>
-                  Set hypothesis formatting standards for the organization in
-                  General Settings.{" "}
-                  <Link
-                    href="/settings/#ai"
-                    className="underline"
-                    target="_blank"
-                    rel="noopener noreferrer"
+                {isDemoExperiment ? null : !hasAISuggestions ? (
+                  <PremiumCallout
+                    id="ai-suggestions-hypothesis"
+                    commercialFeature="ai-suggestions"
                   >
-                    Edit Hypothesis
-                  </Link>
-                  <PiArrowSquareOut className="ml-1" />
-                </span>
-              </Callout>
-            ) : !aiEnabled && aiAgreedTo ? (
-              <Callout status="wizard" contentsAs="div">
-                <span>
-                  Improve your hypothesis with AI.{" "}
-                  <Link
-                    href="/settings/#ai"
-                    className="underline"
-                    target="_blank"
-                    rel="noopener noreferrer"
+                    <span>Improve your hypothesis with AI. </span>
+                  </PremiumCallout>
+                ) : aiEnabled && aiAgreedTo ? (
+                  <Callout
+                    status="wizard"
+                    dismissible
+                    id="hypothesis-formatting-standards"
                   >
-                    Enable AI from General Settings
-                  </Link>
-                  <PiArrowSquareOut className="ml-1" />
-                </span>
-              </Callout>
-            ) : (
-              <Callout status="wizard" contentsAs="div">
-                <span>
-                  Improve your hypothesis with AI.{" "}
-                  <Link
-                    onClick={() => {
-                      setShowOptInModal(true);
-                    }}
-                    className="underline"
-                  >
-                    Enable AI
-                  </Link>
-                  <PiArrowSquareOut className="ml-1" />
-                </span>
-              </Callout>
-            )}
+                    <span>
+                      Set hypothesis formatting standards for the organization
+                      in General Settings.{" "}
+                      <Link
+                        href="/settings/#ai"
+                        className="underline"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        Edit Hypothesis
+                      </Link>
+                      <PiArrowSquareOut className="ml-1" />
+                    </span>
+                  </Callout>
+                ) : !aiEnabled && aiAgreedTo ? (
+                  <Callout status="wizard" contentsAs="div">
+                    <span>
+                      Improve your hypothesis with AI.{" "}
+                      <Link
+                        href="/settings/#ai"
+                        className="underline"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        Enable AI from General Settings
+                      </Link>
+                      <PiArrowSquareOut className="ml-1" />
+                    </span>
+                  </Callout>
+                ) : (
+                  <Callout status="wizard" contentsAs="div">
+                    <span>
+                      Improve your hypothesis with AI.{" "}
+                      <Link
+                        onClick={() => {
+                          setShowOptInModal(true);
+                        }}
+                        className="underline"
+                      >
+                        Enable AI
+                      </Link>
+                      <PiArrowSquareOut className="ml-1" />
+                    </span>
+                  </Callout>
+                )}
+              </>
+            ) : null}
           </Frame>
         )}
         <CustomFieldDisplay
@@ -315,6 +405,9 @@ export default function SetupTabOverview({
           section="experiment"
         />
       </div>
+      {experiment.status === "draft" && experiment.type !== "holdout" && (
+        <PreLaunchChecklistDrawer />
+      )}
     </>
   );
 }

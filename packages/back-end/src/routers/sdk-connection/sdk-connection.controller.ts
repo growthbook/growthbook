@@ -17,12 +17,13 @@ import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import {
   createSDKConnection,
-  deleteSDKConnectionById,
+  deleteSDKConnectionModel,
   editSDKConnection,
   findSDKConnectionById,
   findSDKConnectionsByOrganization,
   testProxyConnection,
 } from "back-end/src/models/SdkConnectionModel";
+import { validateRequireProjectForSdkConnections } from "back-end/src/api/sdk-connections/validations";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 
 export const getSDKConnections = async (
@@ -55,6 +56,8 @@ export const postSDKConnection = async (
     context.permissions.throwPermissionError();
   }
 
+  validateRequireProjectForSdkConnections(org, params.projects);
+
   let encryptPayload = false;
   if (orgHasPremiumFeature(org, "encrypt-features-endpoint")) {
     encryptPayload = params.encryptPayload;
@@ -68,11 +71,6 @@ export const postSDKConnection = async (
   let remoteEvalEnabled = false;
   if (orgHasPremiumFeature(org, "remote-evaluation")) {
     remoteEvalEnabled = params.remoteEvalEnabled || false;
-  }
-
-  if (remoteEvalEnabled) {
-    encryptPayload = false;
-    hashSecureAttributes = false;
   }
 
   const doc = await createSDKConnection(context, {
@@ -116,6 +114,12 @@ export const putSDKConnection = async (
     context.permissions.throwPermissionError();
   }
 
+  validateRequireProjectForSdkConnections(
+    context.org,
+    req.body.projects,
+    connection.projects,
+  );
+
   let encryptPayload = req.body.encryptPayload || false;
   const encryptionPermitted = orgHasPremiumFeature(
     context.org,
@@ -137,11 +141,6 @@ export const putSDKConnection = async (
     remoteEvalEnabled = req.body.remoteEvalEnabled || false;
   }
 
-  if (remoteEvalEnabled) {
-    encryptPayload = false;
-    hashSecureAttributes = false;
-  }
-
   await editSDKConnection(context, connection, {
     ...req.body,
     encryptPayload,
@@ -159,8 +158,8 @@ export const deleteSDKConnection = async (
 ) => {
   const { id } = req.params;
   const context = getContextFromReq(req);
-  const connection = await findSDKConnectionById(context, id);
 
+  const connection = await findSDKConnectionById(context, id);
   if (!connection) {
     throw new Error("Could not find SDK Connection");
   }
@@ -169,7 +168,7 @@ export const deleteSDKConnection = async (
     context.permissions.throwPermissionError();
   }
 
-  await deleteSDKConnectionById(context.org.id, id);
+  await deleteSDKConnectionModel(context, connection);
 
   res.status(200).json({
     status: 200,
@@ -191,7 +190,7 @@ export const checkSDKConnectionProxyStatus = async (
     throw new Error("Could not find SDK Connection");
   }
 
-  const result = await testProxyConnection(connection);
+  const result = await testProxyConnection(context, connection, true);
 
   res.status(200).json({
     status: 200,
@@ -224,6 +223,8 @@ export const getSDKConnectionsWebhooks = async (
       "lastSuccess",
       "error",
       "dateCreated",
+      "disabled",
+      "consecutiveFailures",
     ]);
     webhook.sdks.forEach((sdkId) => {
       if (!webhooksByConnection[sdkId]) {
@@ -287,9 +288,7 @@ export async function postSDKConnectionWebhook(
     context.permissions.throwPermissionError();
   }
 
-  const webhookcount = await context.models.sdkWebhooks.countSdkWebhooksByOrg(
-    org.id,
-  );
+  const webhookcount = await context.models.sdkWebhooks.countSdkWebhooksByOrg();
   const canAddMultipleSdkWebhooks = orgHasPremiumFeature(
     org,
     "multiple-sdk-webhooks",

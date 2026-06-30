@@ -1,6 +1,6 @@
-import { RESERVED_ROLE_IDS } from "shared/permissions";
+import { RESERVED_ROLE_IDS, getRoleDisplayName } from "shared/permissions";
 import router from "next/router";
-import Link from "next/link";
+import Link from "@/ui/Link";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { useUser } from "@/services/UserContext";
@@ -43,7 +43,7 @@ export default function RoleList() {
                       className={`font-weight-bold`}
                       href={`/settings/role/${r.id}`}
                     >
-                      {r.id}
+                      {getRoleDisplayName(r.id, organization)}
                     </Link>{" "}
                     <div className="tags-container">
                       {isCustom ? (
@@ -60,7 +60,7 @@ export default function RoleList() {
                   </td>
                   <td>{r.description}</td>
                   <td>
-                    <MoreMenu>
+                    <MoreMenu useRadix={false}>
                       <Button
                         color="btn-link"
                         className="dropdown-item"
@@ -86,6 +86,7 @@ export default function RoleList() {
                           </Button>
                           <div className="border-top mt-1 pt-1">
                             <DeleteButton
+                              useRadix={false}
                               onClick={async () => {
                                 await apiCall(`/custom-roles/${r.id}`, {
                                   method: "DELETE",
@@ -102,11 +103,11 @@ export default function RoleList() {
                         </>
                       ) : null}
                       <ConfirmButton
+                        isDestructive={!isDeactivated}
                         modalHeader={`${
                           isDeactivated ? "Reactivate" : "Deactivate"
                         } ${r.id}`}
                         disabled={!canManageRoles || isOrgDefault}
-                        ctaColor="danger"
                         confirmationText={
                           <div>
                             {isDeactivated

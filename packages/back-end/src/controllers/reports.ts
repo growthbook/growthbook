@@ -3,7 +3,6 @@ import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { getValidDate } from "shared/dates";
 import { getSnapshotAnalysis } from "shared/util";
 import { pick, omit } from "lodash";
-import uniqid from "uniqid";
 import { experimentAnalysisSettings } from "shared/validators";
 import {
   ExperimentReportAnalysisSettings,
@@ -12,6 +11,8 @@ import {
   ExperimentSnapshotReportInterface,
   ReportInterface,
 } from "shared/types/report";
+import { getAllVariations } from "shared/experiments";
+import { generateId } from "back-end/src/util/uuid";
 import {
   getExperimentById,
   getExperimentsByIds,
@@ -45,7 +46,7 @@ import {
   generateExperimentReportSSRData,
 } from "back-end/src/services/reports";
 import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
-import { getAdditionalQueryMetadataForExperiment } from "back-end/src/services/experiments";
+import { getExperimentQueryMetadata } from "back-end/src/services/experiments";
 
 export async function postReportFromSnapshot(
   req: AuthRequest<ExperimentSnapshotReportArgs, { snapshot: string }>,
@@ -56,12 +57,12 @@ export async function postReportFromSnapshot(
 
   const reportArgs = req.body || {};
 
-  const snapshot = await findSnapshotById(org.id, req.params.snapshot);
+  const snapshot = await findSnapshotById(context, req.params.snapshot);
   if (!snapshot) {
     throw new Error("Invalid snapshot id");
   }
   // Prepare a new report-specific snapshot
-  snapshot.id = uniqid("snp_");
+  snapshot.id = generateId("snp_");
   snapshot.type = "report";
   snapshot.triggeredBy = "manual";
   if (snapshot?.health?.traffic && !snapshot?.health?.traffic?.dimension) {
@@ -93,6 +94,9 @@ export async function postReportFromSnapshot(
   if (!analysis) {
     throw new Error("Missing analysis settings");
   }
+
+  // Enforce a single analysis per snapshot for reports
+  snapshot.analyses = [analysis];
 
   const phaseIndex = snapshot.phase ?? (experiment.phases?.length || 1) - 1;
   const _experimentAnalysisSettings: ExperimentReportAnalysisSettings = {
@@ -136,11 +140,12 @@ export async function postReportFromSnapshot(
           "dateEnded",
           "name",
           "variationWeights",
+          "variations",
           "banditEvents",
           "coverage",
         ]),
       ),
-      variations: experiment.variations.map((variation) =>
+      variations: getAllVariations(experiment).map((variation) =>
         omit(variation, ["description", "screenshots"]),
       ),
     },
@@ -149,7 +154,7 @@ export async function postReportFromSnapshot(
 
   // Save the snapshot
   snapshot.report = doc.id;
-  await createExperimentSnapshotModel({ data: snapshot });
+  await createExperimentSnapshotModel({ context, data: snapshot });
 
   await req.audit({
     event: "experiment.analysis",
@@ -261,18 +266,24 @@ export async function getReportPublic(
 
   const snapshot =
     report.type === "experiment-snapshot"
-      ? (await findSnapshotById(report.organization, report.snapshot)) ||
-        undefined
+      ? (await findSnapshotById(context, report.snapshot)) || undefined
       : undefined;
 
   const _experiment = report.experimentId
     ? (await getExperimentById(context, report.experimentId || "")) || undefined
     : undefined;
-  const experiment = pick(_experiment, ["id", "name", "type", "uid"]);
+  const experiment = pick(_experiment, [
+    "id",
+    "name",
+    "type",
+    "uid",
+    "project",
+  ]);
 
   const ssrData = await generateExperimentReportSSRData({
     context,
     organization: report.organization,
+    project: _experiment?.project,
     snapshot,
   });
 
@@ -350,8 +361,7 @@ export async function refreshReport(
     }
 
     const snapshot =
-      (await findSnapshotById(report.organization, report.snapshot)) ||
-      undefined;
+      (await findSnapshotById(context, report.snapshot)) || undefined;
 
     try {
       const newSnapshot = await createReportSnapshot({
@@ -493,6 +503,16 @@ export async function putReport(
           updates.experimentAnalysisSettings.dateEnded,
         );
       }
+      if (
+        updates.experimentAnalysisSettings.lookbackOverride?.type === "date"
+      ) {
+        updates.experimentAnalysisSettings.lookbackOverride = {
+          type: "date",
+          value: getValidDate(
+            updates.experimentAnalysisSettings.lookbackOverride.value,
+          ),
+        };
+      }
     }
 
     updates.dateUpdated = new Date();
@@ -574,7 +594,11 @@ export async function putReport(
         factTableMap,
         metricGroups,
         experimentQueryMetadata: experiment
-          ? getAdditionalQueryMetadataForExperiment(experiment)
+          ? {
+              ...getExperimentQueryMetadata(experiment),
+              snapshotType: "report" as const,
+              snapshotTriggeredBy: "manual" as const,
+            }
           : null,
       });
     }
@@ -602,10 +626,8 @@ export async function cancelReport(
 
   if (report.type === "experiment-snapshot") {
     const snapshot = report.snapshot
-      ? (await findLatestRunningSnapshotByReportId(
-          report.organization,
-          report.id,
-        )) || undefined
+      ? (await findLatestRunningSnapshotByReportId(context, report.id)) ||
+        undefined
       : undefined;
     if (!snapshot) {
       return res.status(400).json({

@@ -6,12 +6,7 @@ import {
   blockHasFieldOfType,
 } from "shared/enterprise";
 import { Flex, IconButton, Text } from "@radix-ui/themes";
-import {
-  PiCaretDown,
-  PiCaretUp,
-  PiCaretUpDown,
-  PiPencilSimpleFill,
-} from "react-icons/pi";
+import { PiDotsSixVertical, PiPencilSimpleFill } from "react-icons/pi";
 import clsx from "clsx";
 import { isNumber, isString, isDefined } from "shared/util";
 import {
@@ -43,6 +38,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import useApi from "@/hooks/useApi";
 import Field from "@/components/Forms/Field";
 import { BLOCK_TYPE_INFO } from "@/enterprise/components/Dashboards/DashboardEditor";
+import { isSubmittableConfig } from "@/enterprise/components/ProductAnalytics/util";
 import MarkdownBlock from "./MarkdownBlock";
 import ExperimentMetadataBlock from "./ExperimentMetadataBlock";
 import ExperimentMetricBlock from "./ExperimentMetricBlock";
@@ -59,6 +55,7 @@ import {
   BlockRenderError,
 } from "./BlockErrorStates";
 import MetricExplorerBlock from "./MetricExplorerBlock";
+import ProductAnalyticsExplorerBlock from "./ProductAnalyticsExplorerBlock";
 
 // Typescript helpers for passing objects to the block components based on id fields
 interface BlockIdFieldToObjectMap {
@@ -98,8 +95,6 @@ interface Props<DashboardBlock extends DashboardBlockInterface> {
   isEditing: boolean;
   editingBlock: boolean;
   disableBlock: "full" | "partial" | "none";
-  isFirstBlock: boolean;
-  isLastBlock: boolean;
   scrollAreaRef: null | React.MutableRefObject<HTMLDivElement | null>;
   setBlock:
     | undefined
@@ -107,7 +102,6 @@ interface Props<DashboardBlock extends DashboardBlockInterface> {
   editBlock: () => void;
   duplicateBlock: () => void;
   deleteBlock: () => void;
-  moveBlock: (direction: 1 | -1) => void;
   mutate: () => void;
   canEdit?: boolean;
   setIsEditing?: (value: boolean) => void;
@@ -125,6 +119,9 @@ const BLOCK_COMPONENTS: {
   "experiment-traffic": ExperimentTrafficBlock,
   "sql-explorer": SqlExplorerBlock,
   "metric-explorer": MetricExplorerBlock,
+  "metric-exploration": ProductAnalyticsExplorerBlock,
+  "fact-table-exploration": ProductAnalyticsExplorerBlock,
+  "data-source-exploration": ProductAnalyticsExplorerBlock,
 };
 
 export default function DashboardBlock<T extends DashboardBlockInterface>({
@@ -135,14 +132,11 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
   isFocused,
   editingBlock,
   disableBlock,
-  isFirstBlock,
-  isLastBlock,
   scrollAreaRef,
   setBlock,
   editBlock,
   duplicateBlock,
   deleteBlock,
-  moveBlock,
   mutate,
   canEdit,
   setIsEditing,
@@ -155,7 +149,6 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
     getFactMetricById,
     ready: definitionsReady,
   } = useDefinitions();
-  const [moveBlockOpen, setMoveBlockOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const {
     snapshot,
@@ -323,13 +316,20 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const scrollToBlock = () => {
-    if (scrollRef.current && scrollAreaRef && scrollAreaRef.current) {
-      scrollAreaRef.current.scrollTo({
-        left: 0,
-        top: scrollRef.current.offsetTop - scrollAreaRef.current.offsetTop,
-        behavior: "smooth",
-      });
-    }
+    if (!scrollRef.current || !scrollAreaRef?.current) return;
+    // react-grid-layout positions every block via `position: absolute` +
+    // `transform: translate(...)`, leaving `offsetTop` at 0. Use rect math
+    // against the current scroll position so we land on the block regardless
+    // of how RGL positions it.
+    const blockRect = scrollRef.current.getBoundingClientRect();
+    const scrollRect = scrollAreaRef.current.getBoundingClientRect();
+    const top =
+      scrollAreaRef.current.scrollTop + (blockRect.top - scrollRect.top);
+    scrollAreaRef.current.scrollTo({
+      left: 0,
+      top,
+      behavior: "smooth",
+    });
   };
   useEffect(() => {
     if (editingBlock || isFocused) setTimeout(() => scrollToBlock(), 100);
@@ -354,7 +354,11 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
     (blockHasFactMetric &&
       (block.factMetricId.length === 0 || !blockFactMetric)) ||
     (blockHasMetricAnalysis &&
-      (block.metricAnalysisId.length === 0 || !metricAnalysis));
+      (block.metricAnalysisId.length === 0 || !metricAnalysis)) ||
+    ((block.type === "metric-exploration" ||
+      block.type === "fact-table-exploration" ||
+      block.type === "data-source-exploration") &&
+      !isSubmittableConfig(block.config));
 
   const blockMissingHealthCheck =
     block.type === "experiment-traffic" &&
@@ -385,11 +389,14 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
   return (
     <Flex
       ref={scrollRef}
-      className={clsx("appbox px-4 py-3 mb-0 position-relative", {
-        "border-violet": editingBlock || isFocused,
-        "dashboard-disabled": disableBlock === "full",
-      })}
-      style={{ overflow: "auto" }}
+      className={clsx(
+        "appbox dashboard-block px-4 py-3 mb-0 position-relative",
+        {
+          "border-violet": editingBlock || isFocused,
+          "dashboard-disabled": disableBlock === "full",
+        },
+      )}
+      style={{ overflow: "auto", height: "100%", width: "100%" }}
       direction="column"
     >
       {isEditing && !editingBlock && disableBlock === "none" && (
@@ -416,52 +423,22 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
           }}
         ></div>
       )}
-      {isEditing && (
-        <DropdownMenu
-          open={moveBlockOpen}
-          onOpenChange={setMoveBlockOpen}
-          disabled={disableBlock === "partial"}
-          trigger={
-            <IconButton
-              onClick={(e) => e.stopPropagation()}
-              className="position-absolute"
-              style={{
-                top: 20,
-                left: 6,
-              }}
-              variant="ghost"
-            >
-              <PiCaretUpDown />
-            </IconButton>
-          }
-        >
-          <DropdownMenuItem
-            disabled={isFirstBlock}
-            onClick={(e) => {
-              moveBlock(-1);
-              setMoveBlockOpen(false);
-              e.stopPropagation();
-            }}
-          >
-            <Text>
-              <PiCaretUp /> Move up
-            </Text>
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            disabled={isLastBlock}
-            onClick={(e) => {
-              moveBlock(1);
-              setMoveBlockOpen(false);
-              e.stopPropagation();
-            }}
-          >
-            <Text>
-              <PiCaretDown /> Move down
-            </Text>
-          </DropdownMenuItem>
-        </DropdownMenu>
-      )}
       <Flex align="center" mb="2">
+        {isEditing && !editingBlock && disableBlock !== "full" && (
+          <IconButton
+            className="dashboard-block-drag-handle"
+            variant="ghost"
+            size="1"
+            mr="2"
+            aria-label="Drag to reorder block"
+            // Only swallow click (which would otherwise toggle title edit) -
+            // mousedown must bubble to RGL so the drag actually starts.
+            onClick={(e) => e.stopPropagation()}
+            style={{ cursor: "grab", touchAction: "none" }}
+          >
+            <PiDotsSixVertical />
+          </IconButton>
+        )}
         {canEditTitle && editTitle && setBlock ? (
           <Field
             autoFocus

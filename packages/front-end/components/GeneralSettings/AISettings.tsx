@@ -3,13 +3,19 @@ import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import { useFormContext, UseFormReturn } from "react-hook-form";
 import {
   AI_PROMPT_DEFAULTS,
+  AI_IMAGE_MODELS,
   AIPromptInterface,
   AIModel,
   EmbeddingModel,
+  formatAIRateLimitRetryMessage,
   getProviderFromModel,
   getProviderFromEmbeddingModel,
 } from "shared/ai";
 import { ensureValuesExactlyMatchUnion } from "shared/util";
+import {
+  getAvailableAIModelOptions,
+  getAvailablePromptModelOptions,
+} from "@/services/aiModelSelectOptions";
 import { useAuth } from "@/services/auth";
 import Frame from "@/ui/Frame";
 import Field from "@/components/Forms/Field";
@@ -31,100 +37,6 @@ import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Callout from "@/ui/Callout";
 
-const AI_MODEL_LABELS = ensureValuesExactlyMatchUnion<AIModel>()([
-  // OpenAI GPT-5 series
-  { value: "gpt-5.2", label: "OpenAI: GPT 5.2" },
-  { value: "gpt-5.2-pro", label: "OpenAI: GPT 5.2 Pro" },
-  { value: "gpt-5.1-codex", label: "OpenAI: GPT 5.1 Codex" },
-  { value: "gpt-5.1-codex-max", label: "OpenAI: GPT 5.1 Codex Max" },
-  { value: "gpt-5.1-codex-mini", label: "OpenAI: GPT 5.1 Codex Mini" },
-  { value: "gpt-5", label: "OpenAI: GPT 5" },
-  { value: "gpt-5-nano", label: "OpenAI: GPT 5 Nano" },
-  { value: "gpt-5-mini", label: "OpenAI: GPT 5 Mini" },
-  { value: "gpt-5-pro", label: "OpenAI: GPT 5 Pro" },
-  { value: "gpt-5-codex", label: "OpenAI: GPT 5 Codex" },
-  // OpenAI GPT-4 series
-  { value: "gpt-4.1", label: "OpenAI: GPT 4.1" },
-  { value: "gpt-4.1-mini", label: "OpenAI: GPT 4.1 Mini" },
-  { value: "gpt-4.1-nano", label: "OpenAI: GPT 4.1 Nano" },
-  { value: "gpt-4o", label: "OpenAI: GPT 4o" },
-  { value: "gpt-4o-mini", label: "OpenAI: GPT 4o Mini" },
-  // OpenAI O series (reasoning models)
-  { value: "o4-mini", label: "OpenAI: O4 Mini" },
-  { value: "o3", label: "OpenAI: O3" },
-  { value: "o3-mini", label: "OpenAI: O3 Mini" },
-  { value: "o1", label: "OpenAI: O1" },
-  // Anthropic Claude
-  {
-    value: "claude-haiku-4-5-20251001",
-    label: "Anthropic: Claude 4.5 Haiku (20251001)",
-  },
-  {
-    value: "claude-sonnet-4-5-20250929",
-    label: "Anthropic: Claude 4.5 Sonnet (20250929)",
-  },
-  {
-    value: "claude-opus-4-1-20250805",
-    label: "Anthropic: Claude 4.1 Opus (20250805)",
-  },
-  {
-    value: "claude-opus-4-20250514",
-    label: "Anthropic: Claude 4 Opus (20250514)",
-  },
-  {
-    value: "claude-sonnet-4-20250514",
-    label: "Anthropic: Claude 4 Sonnet (20250514)",
-  },
-  {
-    value: "claude-3-7-sonnet-20250219",
-    label: "Anthropic: Claude 3.7 Sonnet (20250219)",
-  },
-  {
-    value: "claude-3-5-haiku-20241022",
-    label: "Anthropic: Claude 3.5 Haiku (20241022)",
-  },
-  {
-    value: "claude-3-haiku-20240307",
-    label: "Anthropic: Claude 3 Haiku (20240307)",
-  },
-  // xAI Grok
-  { value: "grok-code-fast-1", label: "xAI: Grok Code Fast 1" },
-  {
-    value: "grok-4-fast-non-reasoning",
-    label: "xAI: Grok 4 Fast Non-Reasoning",
-  },
-  { value: "grok-4-fast-reasoning", label: "xAI: Grok 4 Fast Reasoning" },
-  { value: "grok-4", label: "xAI: Grok 4" },
-  { value: "grok-3", label: "xAI: Grok 3" },
-  { value: "grok-3-mini", label: "xAI: Grok 3 Mini" },
-  { value: "grok-3-fast", label: "xAI: Grok 3 Fast" },
-  { value: "grok-3-mini-fast", label: "xAI: Grok 3 Mini Fast" },
-  { value: "grok-2", label: "xAI: Grok 2" },
-  // Mistral
-  { value: "mistral-small", label: "Mistral: Mistral Small" },
-  { value: "mistral-medium", label: "Mistral: Mistral Medium" },
-  { value: "pixtral-12b", label: "Mistral: Pixtral 12B" },
-  // Google Gemini
-  { value: "gemini-3-pro-preview", label: "Google: Gemini 3 Pro Preview" },
-  { value: "gemini-3-flash-preview", label: "Google: Gemini 3 Flash Preview" },
-  { value: "gemini-2.5-flash", label: "Google: Gemini 2.5 Flash" },
-  { value: "gemini-2.5-flash-lite", label: "Google: Gemini 2.5 Flash Lite" },
-  { value: "gemini-2.5-pro", label: "Google: Gemini 2.5 Pro" },
-  { value: "gemini-2.0-flash", label: "Google: Gemini 2.0 Flash" },
-  { value: "gemini-2.0-flash-lite", label: "Google: Gemini 2.0 Flash Lite" },
-  { value: "gemini-flash-latest", label: "Google: Gemini Flash Latest" },
-  {
-    value: "gemini-flash-lite-latest",
-    label: "Google: Gemini Flash Lite Latest",
-  },
-  { value: "gemini-pro-latest", label: "Google: Gemini Pro Latest" },
-]);
-
-const PROMPT_MODEL_LABELS = [
-  { value: "", label: "-- Use Default AI Model --" },
-  ...AI_MODEL_LABELS,
-];
-
 const EMBEDDING_MODEL_LABELS = ensureValuesExactlyMatchUnion<EmbeddingModel>()([
   // OpenAI embeddings
   { value: "text-embedding-3-small", label: "OpenAI: text-embedding-3-small" },
@@ -144,6 +56,42 @@ const EMBEDDING_MODEL_LABELS = ensureValuesExactlyMatchUnion<EmbeddingModel>()([
   },
   { value: "gemini-embedding-001", label: "Google: gemini-embedding-001" },
 ]);
+
+// Curated list of image-generation models the Visual Editor supports.
+// We present a closed dropdown rather than free text — letting users
+// type an arbitrary model name just produces 404s at generation time.
+// The empty value means "use the GEMINI_IMAGE_MODEL env var / canonical
+// default". The rest is sourced from the shared AI_IMAGE_MODELS
+// registry so adding a new model is a one-line change there — no fork
+// needed in the front-end. The selected id is stored on the org
+// settings and dispatched to the right Vercel AI SDK provider at gen
+// time by back-end/src/services/imageGeneration.ts.
+//
+// Models are grouped by whether they accept a reference image. This is
+// an important capability gap (the visual editor's "use current image
+// as context" flow only works on reference-capable models), so we
+// surface it as a top-level grouping in the dropdown rather than
+// burying it in helpText. Inside each group, registry order is
+// preserved (which groups by provider: Google → OpenAI → xAI).
+const VISUAL_EDITOR_IMAGE_MODEL_OPTIONS = (() => {
+  const referenceCapable = AI_IMAGE_MODELS.filter(
+    (m) => m.supportsReferenceImage,
+  ).map((m) => ({ value: m.id, label: m.label }));
+  const textOnly = AI_IMAGE_MODELS.filter((m) => !m.supportsReferenceImage).map(
+    (m) => ({ value: m.id, label: m.label }),
+  );
+  return [
+    { value: "", label: "Use default (Gemini 2.5 Flash Image)" },
+    {
+      label: "Supports reference image",
+      options: referenceCapable,
+    },
+    {
+      label: "Text prompt only",
+      options: textOnly,
+    },
+  ];
+})();
 
 const hasAPIforModel = (model: AIModel | string) => {
   let provider;
@@ -239,6 +187,23 @@ function getPrompts(data: { prompts: AIPromptInterface[] }): Array<{
       overrideModel: data.prompts.find((p) => p.type === "generate-sql-query")
         ?.overrideModel,
     },
+    {
+      promptType: "product-analytics-chat",
+      promptName: "Product Analytics AI Analyst",
+      promptDescription:
+        "Used by the product analytics explorer AI assistant. GrowthBook still provides datasource context, metrics and fact tables, exploration schema, and tool behavior automatically; the field below adds organization-specific guidance (tone, naming, policies, how to explain charts, etc.).",
+      promptValue:
+        data.prompts.find((p) => p.type === "product-analytics-chat")?.prompt ||
+        AI_PROMPT_DEFAULTS["product-analytics-chat"],
+      promptDefaultValue: AI_PROMPT_DEFAULTS["product-analytics-chat"],
+      promptHelpText:
+        "Leave blank to use only the built-in assistant instructions. When set, this text is appended to the system prompt.",
+      overrideModelHelpText:
+        "Tool-heavy assistants often work better with a capable model.",
+      overrideModel: data.prompts.find(
+        (p) => p.type === "product-analytics-chat",
+      )?.overrideModel,
+    },
   ];
 }
 
@@ -279,6 +244,13 @@ export default function AISettings({
   const { hasCommercialFeature } = useUser();
   const hasAISuggestions = hasCommercialFeature("ai-suggestions");
 
+  // Subscribe to formState.isDirty by reading it during render.
+  // This is required for react-hook-form to properly track dirty state
+  // when this component modifies form values via register() or setValue().
+  // See: https://react-hook-form.com/docs/useform/formstate (extracting formState)
+  const { isDirty: _isDirty } = promptForm.formState;
+  void _isDirty; // Ensure the variable is used to prevent tree-shaking
+
   const handleRegenerate = async () => {
     setLoading(true);
     setError(null);
@@ -290,12 +262,7 @@ export default function AISettings({
         },
         (responseData) => {
           if (responseData.status === 429) {
-            const retryAfter = parseInt(responseData.retryAfter);
-            const hours = Math.floor(retryAfter / 3600);
-            const minutes = Math.floor((retryAfter % 3600) / 60);
-            setError(
-              `You have reached the AI request limit. Try again in ${hours} hours and ${minutes} minutes.`,
-            );
+            setError(formatAIRateLimitRetryMessage(responseData.retryAfter));
           } else if (responseData.message) {
             throw new Error(responseData.message);
           } else {
@@ -390,7 +357,7 @@ export default function AISettings({
                       helpText="Default is 4o-mini."
                       value={form.watch("defaultAIModel")}
                       onChange={(v) => form.setValue("defaultAIModel", v)}
-                      options={AI_MODEL_LABELS}
+                      options={getAvailableAIModelOptions()}
                     />
                     {/* Use centralized warning component */}
                     <ApiKeyWarning
@@ -416,6 +383,7 @@ export default function AISettings({
                       options={EMBEDDING_MODEL_LABELS}
                     />
                   </Box>
+
                   {(() => {
                     const defaultModel = form.watch("defaultAIModel");
                     const usedProviders = new Set<string>();
@@ -675,9 +643,10 @@ export default function AISettings({
                                   promptForm.setValue(
                                     `${prompt.promptType}-model`,
                                     v,
+                                    { shouldDirty: true },
                                   )
                                 }
-                                options={PROMPT_MODEL_LABELS}
+                                options={getAvailablePromptModelOptions()}
                                 helpText={prompt?.overrideModelHelpText || ""}
                               />
                               {(() => {
@@ -729,6 +698,7 @@ export default function AISettings({
                                     promptForm.setValue(
                                       prompt.promptType,
                                       prompt.promptDefaultValue,
+                                      { shouldDirty: true },
                                     );
                                   }}
                                 >
@@ -742,6 +712,107 @@ export default function AISettings({
                     </>
                   </Box>
                 </>
+              </Flex>
+            </Flex>
+          </Frame>
+          {/* Visual Editor frame — sits between Prompts and Embeddings.
+              Owns per-surface model overrides + the brand-guidelines
+              context that gets prepended to every visual-editor AI
+              call (text edits + image gen). All fields gated on
+              !isCloud() in the inner UI; the frame itself renders so
+              cloud users at least see the section exists. */}
+          <Frame>
+            <Flex gap="4">
+              <Box width="220px" flexShrink="0">
+                <Heading size="4" as="h4">
+                  Visual Editor
+                </Heading>
+              </Box>
+
+              <Flex align="start" direction="column" flexGrow="1" pt="6">
+                <Box mb="6" width="100%">
+                  <Text size="2" mb="3" as="div" className="text-muted">
+                    Settings for the GrowthBook Visual Editor Chrome extension.
+                    Per-surface model overrides + a free-text brand context
+                    that&rsquo;s passed to every AI call.
+                  </Text>
+
+                  {/* Brand context / guidelines. Available on both
+                      cloud and self-hosted — it's a pure-text setting
+                      that doesn't depend on local API keys. Prepended
+                      to text-edit AND image-gen prompts on the back
+                      end (see postAIEdit / postAIImageGen). */}
+                  <Box mb="4">
+                    <Text
+                      as="label"
+                      htmlFor="visualEditorAIContext"
+                      size="2"
+                      className="font-weight-semibold"
+                    >
+                      Brand guidelines / additional context
+                    </Text>
+                    <Field
+                      textarea={true}
+                      id="visualEditorAIContext"
+                      placeholder={
+                        'e.g. "We\'re a B2B SaaS company. Brand colors: #6E56CF and #1F2D5C. Sentence-case CTAs. Friendly but professional tone."'
+                      }
+                      helpText="Prepended to every Visual Editor AI prompt (text edits + image generation) so the AI follows your brand voice and visual identity."
+                      {...form.register("visualEditorAIContext")}
+                    />
+                  </Box>
+
+                  {!isCloud() && (
+                    <>
+                      <Box mb="4">
+                        <Text
+                          as="label"
+                          htmlFor="visualEditorAIModel"
+                          size="2"
+                          className="font-weight-semibold"
+                        >
+                          Visual editor text model
+                        </Text>
+                        <SelectField
+                          id="visualEditorAIModel"
+                          helpText="Used for AI chat edits and AI suggestions in the extension. Leave blank to use the Default AI model."
+                          value={form.watch("visualEditorAIModel") || ""}
+                          onChange={(v) =>
+                            form.setValue("visualEditorAIModel", v)
+                          }
+                          options={[
+                            { value: "", label: "Use default AI model" },
+                            ...getAvailableAIModelOptions(),
+                          ]}
+                        />
+                        {form.watch("visualEditorAIModel") && (
+                          <ApiKeyWarning
+                            model={form.watch("visualEditorAIModel")}
+                          />
+                        )}
+                      </Box>
+                      <Box>
+                        <Text
+                          as="label"
+                          htmlFor="visualEditorImageModel"
+                          size="2"
+                          className="font-weight-semibold"
+                        >
+                          Visual editor image model
+                        </Text>
+                        <SelectField
+                          id="visualEditorImageModel"
+                          helpText="Models that support reference images can use an existing image as visual context (the visual editor's “use current image” flow). Text-only models generate from the prompt alone."
+                          value={form.watch("visualEditorImageModel") || ""}
+                          onChange={(v) =>
+                            form.setValue("visualEditorImageModel", v)
+                          }
+                          options={VISUAL_EDITOR_IMAGE_MODEL_OPTIONS}
+                        />
+                      </Box>
+                    </>
+                  )}
+                </Box>
               </Flex>
             </Flex>
           </Frame>

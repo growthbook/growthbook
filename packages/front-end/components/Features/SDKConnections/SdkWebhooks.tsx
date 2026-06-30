@@ -121,7 +121,31 @@ export default function SdkWebhooks({
           )}
         </td>
         <td>
-          {webhook.error ? (
+          {webhook.disabled ? (
+            <Tooltip
+              className="ml-1"
+              innerClassName="pb-3"
+              usePortal={true}
+              body={
+                <Callout key={webhook.id} status="error">
+                  <div style={{ wordBreak: "break-all" }}>
+                    Disabled after {webhook.consecutiveFailures} consecutive
+                    failures.
+                    {webhook.error ? (
+                      <>
+                        <br />
+                        Last error: {webhook.error}
+                      </>
+                    ) : null}
+                  </div>
+                </Callout>
+              }
+            >
+              <span className="text-danger">
+                <FaExclamationTriangle /> disabled
+              </span>
+            </Tooltip>
+          ) : webhook.error ? (
             <>
               <Tooltip
                 className="ml-1"
@@ -168,7 +192,7 @@ export default function SdkWebhooks({
         <td className="px-0">
           {!webhook.managedBy?.type ? (
             <div className="col-auto mr-1">
-              <MoreMenu>
+              <MoreMenu useRadix={false}>
                 {canUpdateWebhook ? (
                   <button
                     className="dropdown-item"
@@ -182,6 +206,7 @@ export default function SdkWebhooks({
                 ) : null}
                 {canDeleteWebhook ? (
                   <DeleteButton
+                    useRadix={false}
                     className="dropdown-item"
                     displayName="SDK Connection"
                     text="Delete"
@@ -204,7 +229,10 @@ export default function SdkWebhooks({
   const renderAddWebhookButton = () => (
     <>
       <div className="text-muted mb-3">
-        Refer to the <DocLink docSection="sdkWebhooks">documentation</DocLink>{" "}
+        Refer to the{" "}
+        <DocLink useRadix={false} docSection="sdkWebhooks">
+          documentation
+        </DocLink>{" "}
         for setup instructions
       </div>
       {canCreateWebhooks ? (

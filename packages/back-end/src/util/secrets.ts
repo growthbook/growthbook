@@ -1,6 +1,7 @@
 import Handlebars from "handlebars";
+import escapeRegExp from "lodash/escapeRegExp";
 import trimEnd from "lodash/trimEnd";
-import { stringToBoolean } from "shared/util";
+import { parseEnvInt, stringToBoolean } from "shared/util";
 import {
   GB_SDK_ID_DEV,
   GB_SDK_ID_PROD,
@@ -23,8 +24,6 @@ export const ALLOW_SELF_ORG_CREATION = stringToBoolean(
 );
 
 export const UPLOAD_METHOD = (() => {
-  if (IS_CLOUD) return "s3";
-
   const method = process.env.UPLOAD_METHOD;
   if (method && ["s3", "google-cloud"].includes(method)) {
     return method;
@@ -66,7 +65,7 @@ if (MONGODB_URI.match(/:27017(\/)?$/)) {
 export { MONGODB_URI };
 
 export const APP_ORIGIN = process.env.APP_ORIGIN || "http://localhost:3000";
-const isLocalhost = APP_ORIGIN.includes("localhost");
+export const IS_LOCALHOST = APP_ORIGIN.startsWith("http://localhost:");
 
 const corsOriginRegex = process.env.CORS_ORIGIN_REGEX;
 export const CORS_ORIGIN_REGEX = corsOriginRegex
@@ -77,10 +76,33 @@ export const GOOGLE_OAUTH_CLIENT_ID = process.env.GOOGLE_OAUTH_CLIENT_ID || "";
 export const GOOGLE_OAUTH_CLIENT_SECRET =
   process.env.GOOGLE_OAUTH_CLIENT_SECRET || "";
 
+// Figma OAuth app credentials, used by the Visual Editor's "Figma →
+// Variant" feature. The client_id is exposed to the extension (not
+// secret); the client_secret stays server-side for the code↔token
+// exchange. Empty when the org's deployment hasn't configured Figma.
+export const FIGMA_OAUTH_CLIENT_ID = process.env.FIGMA_OAUTH_CLIENT_ID || "";
+export const FIGMA_OAUTH_CLIENT_SECRET =
+  process.env.FIGMA_OAUTH_CLIENT_SECRET || "";
+
 export const S3_BUCKET = process.env.S3_BUCKET || "";
 export const S3_REGION = process.env.S3_REGION || "us-east-1";
 export const S3_DOMAIN =
   process.env.S3_DOMAIN || `https://${S3_BUCKET}.s3.amazonaws.com/`;
+// Optional override for S3-compatible endpoints (MinIO, R2, etc.).
+// Leave empty to use AWS S3.
+export const S3_ENDPOINT = process.env.S3_ENDPOINT || "";
+
+// Separate public, CDN-fronted bucket for visual-editor assets. Falls
+// back to the private S3_BUCKET when not configured.
+export const VISUAL_EDITOR_ASSETS_S3_BUCKET =
+  process.env.VISUAL_EDITOR_ASSETS_S3_BUCKET || S3_BUCKET;
+export const VISUAL_EDITOR_ASSETS_S3_REGION =
+  process.env.VISUAL_EDITOR_ASSETS_S3_REGION || S3_REGION;
+// Must be the long-lived public/CDN hostname — gets baked into
+// visual-changeset DOM mutations and persisted forever.
+export const VISUAL_EDITOR_ASSETS_S3_DOMAIN =
+  process.env.VISUAL_EDITOR_ASSETS_S3_DOMAIN ||
+  `https://${VISUAL_EDITOR_ASSETS_S3_BUCKET}.s3.amazonaws.com/`;
 export const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || "dev";
 if (prod && ENCRYPTION_KEY === "dev") {
   throw new Error(
@@ -93,8 +115,16 @@ export const GCS_DOMAIN =
   process.env.GCS_DOMAIN ||
   `https://storage.googleapis.com/${GCS_BUCKET_NAME}/`;
 
+// Visual-editor public-assets bucket (GCS variant). Falls back to the
+// private GCS_BUCKET_NAME when not configured.
+export const VISUAL_EDITOR_ASSETS_GCS_BUCKET_NAME =
+  process.env.VISUAL_EDITOR_ASSETS_GCS_BUCKET_NAME || GCS_BUCKET_NAME;
+export const VISUAL_EDITOR_ASSETS_GCS_DOMAIN =
+  process.env.VISUAL_EDITOR_ASSETS_GCS_DOMAIN ||
+  `https://storage.googleapis.com/${VISUAL_EDITOR_ASSETS_GCS_BUCKET_NAME}/`;
+
 export const JWT_SECRET = process.env.JWT_SECRET || "dev";
-if ((prod || !isLocalhost) && !IS_CLOUD && JWT_SECRET === "dev") {
+if ((prod || !IS_LOCALHOST) && !IS_CLOUD && JWT_SECRET === "dev") {
   throw new Error(
     "Cannot use JWT_SECRET=dev in production. Please set to a long random string.",
   );
@@ -102,9 +132,24 @@ if ((prod || !isLocalhost) && !IS_CLOUD && JWT_SECRET === "dev") {
 
 export const AWS_ASSUME_ROLE = process.env.AWS_ASSUME_ROLE || "";
 
+// Optional override for the session-replay S3 bucket — replay payload chunks
+// are stored in their own bucket so that the back-end's read role can be
+// scoped separately from the general uploads bucket (`S3_BUCKET`). Leave
+// empty to disable signed-URL session-replay reads.
+export const S3_SESSION_REPLAY_BUCKET =
+  process.env.S3_SESSION_REPLAY_BUCKET || "";
+// Optional override for the role used to read the session-replay bucket. Falls
+// back to AWS_ASSUME_ROLE when unset, so single-role setups need no extra env.
+export const S3_SESSION_REPLAY_ASSUME_ROLE =
+  process.env.S3_SESSION_REPLAY_ASSUME_ROLE || AWS_ASSUME_ROLE;
+
 export const EMAIL_ENABLED = stringToBoolean(process.env.EMAIL_ENABLED);
 export const EMAIL_HOST = process.env.EMAIL_HOST;
-export const EMAIL_PORT = parseInt(process.env.EMAIL_PORT || "") || 587;
+export const EMAIL_PORT = parseEnvInt(process.env.EMAIL_PORT, 587, {
+  min: 0,
+  max: 65535,
+  name: "EMAIL_PORT",
+});
 export const EMAIL_HOST_USER = process.env.EMAIL_HOST_USER;
 export const EMAIL_HOST_PASSWORD = process.env.EMAIL_HOST_PASSWORD;
 export const EMAIL_FROM = process.env.EMAIL_FROM;
@@ -115,41 +160,73 @@ export const SLACK_SIGNING_SECRET = process.env.SLACK_SIGNING_SECRET || "";
 const testConn = process.env.POSTGRES_TEST_CONN;
 export const POSTGRES_TEST_CONN = testConn ? JSON.parse(testConn) : {};
 
-export const JOB_TIMEOUT_MS =
-  parseInt(process.env.JOB_TIMEOUT_MS || "") || 2 * 60 * 60 * 1000; // Defaults to 2 hours
+export const JOB_TIMEOUT_MS = parseEnvInt(
+  process.env.JOB_TIMEOUT_MS,
+  2 * 60 * 60 * 1000,
+  { min: 1, name: "JOB_TIMEOUT_MS" },
+); // Defaults to 2 hours
 
 export const FASTLY_API_TOKEN = process.env.FASTLY_API_TOKEN || "";
 export const FASTLY_SERVICE_ID = process.env.FASTLY_SERVICE_ID || "";
 
 // Update results every X hours
-export const EXPERIMENT_REFRESH_FREQUENCY =
-  parseInt(process.env.EXPERIMENT_REFRESH_FREQUENCY || "") || 6;
+export const EXPERIMENT_REFRESH_FREQUENCY = parseEnvInt(
+  process.env.EXPERIMENT_REFRESH_FREQUENCY,
+  6,
+  { min: 1, name: "EXPERIMENT_REFRESH_FREQUENCY" },
+);
 
-export const DEFAULT_CONVERSION_WINDOW_HOURS =
-  parseInt(process.env.DEFAULT_CONVERSION_WINDOW_HOURS || "") ||
-  DEFAULT_METRIC_WINDOW_HOURS;
+export const DEFAULT_CONVERSION_WINDOW_HOURS = parseEnvInt(
+  process.env.DEFAULT_CONVERSION_WINDOW_HOURS,
+  DEFAULT_METRIC_WINDOW_HOURS,
+  { min: 1, name: "DEFAULT_CONVERSION_WINDOW_HOURS" },
+);
 
 // Update metrics every X hours
-export const METRIC_REFRESH_FREQUENCY =
-  parseInt(process.env.METRIC_REFRESH_FREQUENCY || "") || 24;
+export const METRIC_REFRESH_FREQUENCY = parseEnvInt(
+  process.env.METRIC_REFRESH_FREQUENCY,
+  24,
+  { min: 1, name: "METRIC_REFRESH_FREQUENCY" },
+);
 
-export const AUTO_SLICE_UPDATE_FREQUENCY_HOURS =
-  parseInt(process.env.AUTO_SLICE_UPDATE_FREQUENCY_HOURS || "") || 168; // Default: 7 days
+export const AUTO_SLICE_UPDATE_FREQUENCY_HOURS = parseEnvInt(
+  process.env.AUTO_SLICE_UPDATE_FREQUENCY_HOURS,
+  168,
+  { min: 1, name: "AUTO_SLICE_UPDATE_FREQUENCY_HOURS" },
+); // Default: 7 days
 
-export const QUERY_CACHE_TTL_MINS =
-  parseInt(process.env.QUERY_CACHE_TTL_MINS || "") || 60;
+export const QUERY_CACHE_TTL_MINS = parseEnvInt(
+  process.env.QUERY_CACHE_TTL_MINS,
+  60,
+  { min: 0, name: "QUERY_CACHE_TTL_MINS" },
+);
 
 // When importing past experiments, limit to this number of days:
-export const IMPORT_LIMIT_DAYS =
-  parseInt(process.env?.IMPORT_LIMIT_DAYS || "") || 365;
+export const IMPORT_LIMIT_DAYS = parseEnvInt(
+  process.env.IMPORT_LIMIT_DAYS,
+  365,
+  {
+    min: 1,
+    name: "IMPORT_LIMIT_DAYS",
+  },
+);
 
 // cache control currently feature only /api/features/*
-export const CACHE_CONTROL_MAX_AGE =
-  parseInt(process.env?.CACHE_CONTROL_MAX_AGE || "") || 30;
-export const CACHE_CONTROL_STALE_WHILE_REVALIDATE =
-  parseInt(process.env?.CACHE_CONTROL_STALE_WHILE_REVALIDATE || "") || 3600;
-export const CACHE_CONTROL_STALE_IF_ERROR =
-  parseInt(process.env?.CACHE_CONTROL_STALE_IF_ERROR || "") || 36000;
+export const CACHE_CONTROL_MAX_AGE = parseEnvInt(
+  process.env.CACHE_CONTROL_MAX_AGE,
+  30,
+  { min: 0, name: "CACHE_CONTROL_MAX_AGE" },
+);
+export const CACHE_CONTROL_STALE_WHILE_REVALIDATE = parseEnvInt(
+  process.env.CACHE_CONTROL_STALE_WHILE_REVALIDATE,
+  3600,
+  { min: 0, name: "CACHE_CONTROL_STALE_WHILE_REVALIDATE" },
+);
+export const CACHE_CONTROL_STALE_IF_ERROR = parseEnvInt(
+  process.env.CACHE_CONTROL_STALE_IF_ERROR,
+  36000,
+  { min: 0, name: "CACHE_CONTROL_STALE_IF_ERROR" },
+);
 
 // remote Eval Edge
 export const REMOTE_EVAL_EDGE_HOST = process.env.REMOTE_EVAL_EDGE_HOST;
@@ -176,6 +253,10 @@ export const ALLOW_CREATE_DIMENSIONS = stringToBoolean(
   process.env.ALLOW_CREATE_DIMENSIONS,
 );
 
+export const API_ALLOW_SKIP_PAGINATION = stringToBoolean(
+  process.env.API_ALLOW_SKIP_PAGINATION,
+);
+
 // Defines the User-Agent header for all requests made by the API
 export const API_USER_AGENT =
   process.env.API_USER_AGENT ||
@@ -185,7 +266,7 @@ export const API_USER_AGENT =
 // Only allowed while self-hosting and not multi org
 let secretAPIKey = IS_MULTI_ORG ? "" : process.env.SECRET_API_KEY || "";
 // Don't allow using "dev" (default value) in prod
-if ((prod || !isLocalhost) && secretAPIKey === "dev") {
+if ((prod || !IS_LOCALHOST) && secretAPIKey === "dev") {
   secretAPIKey = "";
   // eslint-disable-next-line
   console.error(
@@ -193,6 +274,32 @@ if ((prod || !isLocalhost) && secretAPIKey === "dev") {
   );
 }
 export const SECRET_API_KEY = secretAPIKey;
+
+// Gemini (Google AI Studio) — used by the visual editor's image-gen endpoint.
+export const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
+// Pin a specific model ID — if your key returns 404, hit
+// /v1beta/models to find an ID your account has access to and override.
+export const GEMINI_IMAGE_MODEL =
+  process.env.GEMINI_IMAGE_MODEL || "gemini-2.5-flash-image";
+// Kraken.io credentials — AI-generated images are resized + re-encoded to
+// WebP via the Kraken API instead of any in-process codec (sharp/wasm-vips),
+// which proved unreliable in production. When unset, optimization is skipped
+// and the original image is uploaded untouched.
+export const KRAKEN_API_KEY = process.env.KRAKEN_API_KEY || "";
+export const KRAKEN_API_SECRET = process.env.KRAKEN_API_SECRET || "";
+// Kill-switch: when true, skip AI-image optimization entirely and upload
+// the original (larger but functional) image. Instant escape hatch — no
+// code change needed.
+export const DISABLE_AI_IMAGE_OPTIMIZATION = stringToBoolean(
+  process.env.DISABLE_AI_IMAGE_OPTIMIZATION,
+);
+// Wall-clock cap (ms) for the full Kraken round-trip (upload + result
+// download). On timeout we abort and fall back to the original image.
+export const AI_IMAGE_OPTIMIZATION_TIMEOUT_MS = parseEnvInt(
+  process.env.AI_IMAGE_OPTIMIZATION_TIMEOUT_MS,
+  20000,
+  { name: "AI_IMAGE_OPTIMIZATION_TIMEOUT_MS", min: 1000, max: 120000 },
+);
 // This is typically used for the Proxy Server, which only requires readonly access
 export const SECRET_API_KEY_ROLE =
   process.env.SECRET_API_KEY_ROLE || "readonly";
@@ -280,16 +387,7 @@ export const USE_PROXY =
 export const SUPERADMIN_DEFAULT_ROLE =
   process.env.SUPERADMIN_DEFAULT_ROLE ?? "readonly";
 
-export const CLICKHOUSE_HOST = process.env.CLICKHOUSE_HOST || "";
-export const CLICKHOUSE_ADMIN_USER = process.env.CLICKHOUSE_ADMIN_USER || "";
-export const CLICKHOUSE_ADMIN_PASSWORD =
-  process.env.CLICKHOUSE_ADMIN_PASSWORD || "";
-export const CLICKHOUSE_DATABASE = process.env.CLICKHOUSE_DATABASE || "";
-export const CLICKHOUSE_MAIN_TABLE = process.env.CLICKHOUSE_MAIN_TABLE || "";
-export const CLICKHOUSE_OVERAGE_TABLE =
-  process.env.CLICKHOUSE_OVERAGE_TABLE || "overage_events";
-export const CLICKHOUSE_DEV_PREFIX =
-  process.env.CLICKHOUSE_DEV_PREFIX || "test_";
+export const CLOUD_SECRET = process.env.CLOUD_SECRET ?? "";
 
 // Note: the Visual Editor relies on the information in this path, so disabling it will prevent some features from working correctly.
 export const DISABLE_API_ROOT_PATH = stringToBoolean(
@@ -320,7 +418,21 @@ export const secretsReplacer = (
     );
 
     const stringReplacer = (s: string) => {
-      const template = Handlebars.compile(s, {
+      // Handlebars can't resolve keys with spaces via plain {{ key }} syntax.
+      // Rewrite any such occurrences to bracket-literal form {{[key]}} so
+      // both new and previously-saved webhooks work correctly.
+      let processed = s;
+      for (const key of Object.keys(encodedSecrets)) {
+        if (!/^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(key)) {
+          const escapedForRegex = escapeRegExp(key);
+          const escapedForReplacement = key.replace(/\$/g, "$$$$");
+          processed = processed.replace(
+            new RegExp(`\\{\\{\\s*${escapedForRegex}\\s*\\}\\}`, "g"),
+            `{{[${escapedForReplacement}]}}`,
+          );
+        }
+      }
+      const template = Handlebars.compile(processed, {
         noEscape: true,
         strict: true,
       });

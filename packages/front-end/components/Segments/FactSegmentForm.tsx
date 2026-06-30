@@ -1,11 +1,11 @@
 import { useForm } from "react-hook-form";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { SegmentInterface } from "shared/types/segment";
 import { GBArrowLeft } from "@/components/Icons";
-import Modal from "@/components/Modal";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
-import useMembers from "@/hooks/useMembers";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { OfficialBadge } from "@/components/Metrics/MetricName";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
@@ -29,7 +29,6 @@ export default function FactSegmentForm({
   close,
 }: Props) {
   const { apiCall } = useAuth();
-  const { memberUsernameOptions } = useMembers();
   const {
     getDatasourceById,
     factTables,
@@ -64,17 +63,13 @@ export default function FactSegmentForm({
     uniqueDatasourcesWithFactTables.includes(filteredDs.id),
   );
 
-  const currentOwner = memberUsernameOptions.find(
-    (member) => member.display === current?.owner,
-  );
-
   const form = useForm({
     defaultValues: {
       name: current?.name || "",
       datasource:
         (current?.id ? current?.datasource : datasourceOptions[0]?.id) || "",
       userIdType: current?.userIdType || "user_id",
-      owner: currentOwner?.display || "",
+      owner: current?.owner || "",
       description: current?.description || "",
       factTableId: current?.factTableId || "",
       filters: current?.filters || [],
@@ -106,7 +101,7 @@ export default function FactSegmentForm({
   );
 
   return (
-    <Modal
+    <ModalStandard
       trackingEventModalType=""
       close={close}
       open={true}
@@ -176,13 +171,13 @@ export default function FactSegmentForm({
           disabled={isReadOnly}
         />
         <SelectOwner
-          resourceType="factSegment"
           value={form.watch("owner")}
           disabled={isReadOnly}
           onChange={(v) => form.setValue("owner", v)}
         />
         <Field
           label="Description"
+          maxLength={MAX_DESCRIPTION_LENGTH}
           {...form.register("description")}
           textarea
           disabled={isReadOnly}
@@ -319,6 +314,6 @@ export default function FactSegmentForm({
           }
         />
       </>
-    </Modal>
+    </ModalStandard>
   );
 }

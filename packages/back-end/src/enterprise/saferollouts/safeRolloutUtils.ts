@@ -4,7 +4,7 @@ import {
   getSafeRolloutResultStatus,
 } from "shared/enterprise";
 import { autoMerge } from "shared/util";
-import { SafeRolloutStatus } from "shared/validators";
+import { SafeRolloutStatus, SafeRolloutRule } from "shared/validators";
 import {
   SafeRolloutInterface,
   SafeRolloutSnapshotInterface,
@@ -22,6 +22,7 @@ import {
   createRevision,
   getRevision,
 } from "back-end/src/models/FeatureRevisionModel";
+import { getSafeRolloutRuleFromFeature } from "back-end/src/routers/safe-rollout/safe-rollout.helper";
 import { determineNextDate } from "back-end/src/services/experiments";
 
 export interface UpdateRampUpScheduleParams {
@@ -69,13 +70,13 @@ export async function checkAndRollbackSafeRollout({
   context,
   updatedSafeRollout,
   safeRolloutSnapshot,
-  ruleIndex,
+  ruleId,
   feature,
 }: {
   context: ReqContext;
   updatedSafeRollout: SafeRolloutInterface;
   safeRolloutSnapshot: SafeRolloutSnapshotInterface;
-  ruleIndex: number;
+  ruleId: string;
   feature: FeatureInterface;
 }): Promise<SafeRolloutStatus> {
   if (updatedSafeRollout.status !== "running") return updatedSafeRollout.status;
@@ -94,6 +95,27 @@ export async function checkAndRollbackSafeRollout({
     healthSettings,
     daysLeft,
   });
+  // getSafeRolloutRuleFromFeature projects feature.rules through
+  // getRulesForEnvironment, which uses ruleAppliesToEnv. A rule with
+  // allEnvironments: false and environments: [] passes no environment check
+  // and returns null — causing ruleEnvs: [] and a silent no-op rollback.
+  // Fall back to a direct flat-rules lookup by ruleId so the rollback always
+  // fires when the rule genuinely exists on the feature.
+  const rule: SafeRolloutRule | null =
+    getSafeRolloutRuleFromFeature(feature, updatedSafeRollout.id) ??
+    (feature.rules ?? []).find(
+      (r): r is SafeRolloutRule => r.type === "safe-rollout" && r.id === ruleId,
+    ) ??
+    null;
+  // When environments is empty but the rule exists, fall back to the
+  // SafeRollout's own environment field so the revision covers at least
+  // the one environment the rollout is actually running in.
+  const ruleEnvs: string[] = rule?.allEnvironments
+    ? Object.keys(feature.environmentSettings)
+    : rule?.environments?.length
+      ? rule.environments
+      : [updatedSafeRollout.environment].filter((e): e is string => !!e);
+
   let status: SafeRolloutStatus = updatedSafeRollout.status;
   if (
     safeRolloutStatus?.status &&
@@ -104,7 +126,7 @@ export async function checkAndRollbackSafeRollout({
       context,
       feature,
       user: context.auditUser,
-      environments: [updatedSafeRollout.environment],
+      environments: ruleEnvs,
       baseVersion: feature.version,
       org: context.org,
     });
@@ -112,16 +134,17 @@ export async function checkAndRollbackSafeRollout({
       context,
       feature,
       revision,
-      updatedSafeRollout.environment,
-      ruleIndex,
+      ruleId,
       { status },
       context.auditUser,
       false,
+      ruleEnvs[0],
     );
     const live = await getRevision({
       context,
       organization: updatedSafeRollout.organization,
       featureId: feature.id,
+      feature,
       version: feature.version,
     });
     if (!live) {
@@ -135,30 +158,25 @@ export async function checkAndRollbackSafeRollout({
             context,
             organization: updatedSafeRollout.organization,
             featureId: feature.id,
+            feature,
             version: revision.baseVersion,
           });
     if (!base) {
       throw new Error("Could not lookup feature history");
     }
 
-    const mergeResult = autoMerge(
-      live,
-      base,
-      revision,
-      [updatedSafeRollout.environment],
-      {},
-    );
+    const mergeResult = autoMerge(live, base, revision, ruleEnvs, {});
     if (!mergeResult.success) {
       throw new Error("could not merge the status");
     }
-    //publish the revision
-    await publishRevision(
+    await publishRevision({
       context,
       feature,
       revision,
-      mergeResult.result,
-      "auto-publish status change",
-    );
+      result: mergeResult.result,
+      comment: "auto-publish status change",
+      bypassLockdown: true,
+    });
   }
   return status;
 }

@@ -10,7 +10,7 @@ import {
   EventUserLoggedIn,
 } from "shared/types/events/event-types";
 import { logger } from "back-end/src/util/logger";
-import { IS_CLOUD } from "back-end/src/util/secrets";
+import { IS_CLOUD, IS_LOCALHOST } from "back-end/src/util/secrets";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   hasUser,
@@ -19,6 +19,7 @@ import {
 } from "back-end/src/models/UserModel";
 import {
   getOrganizationById,
+  isEnterpriseSSO,
   validateLoginMethod,
 } from "back-end/src/services/organizations";
 import {
@@ -35,13 +36,13 @@ import { getBuild } from "back-end/src/util/build";
 import { usingFileConfig } from "back-end/src/init/config";
 import { getUserPermissions } from "back-end/src/util/organization.util";
 import { insertAudit } from "back-end/src/models/AuditModel";
-import { getTeamsForOrganization } from "back-end/src/models/TeamModel";
 import {
   getLicenseMetaData,
   getUserCodesForOrg,
 } from "back-end/src/services/licenseData";
 import { licenseInit, getAccountPlan } from "back-end/src/enterprise";
 import { getGrowthBookClient } from "back-end/src/services/growthbook";
+import { TeamModel } from "back-end/src/models/TeamModel";
 import { AuthConnection } from "./AuthConnection";
 import { OpenIdAuthConnection } from "./OpenIdAuthConnection";
 import { LocalAuthConnection } from "./LocalAuthConnection";
@@ -88,7 +89,7 @@ async function getUserFromJWT(info: JWTInfo): Promise<null | UserInterface> {
 
   return user;
 }
-function getInitialDataFromJWT(user: IdToken): JWTInfo {
+export function getInitialDataFromJWT(user: IdToken): JWTInfo {
   // Vercel has special property names
   if ("iss" in user && user.iss === "https://marketplace.vercel.com") {
     return {
@@ -103,7 +104,7 @@ function getInitialDataFromJWT(user: IdToken): JWTInfo {
   return {
     verified: user.email_verified || false,
     email: user.email || "",
-    name: user.given_name || user.name || "",
+    name: user.name || user.given_name || "",
     issuedAt: user.iat,
     sub: user.sub,
   };
@@ -116,6 +117,21 @@ export async function processJWT(
 ): Promise<void> {
   const parsedJWT = getInitialDataFromJWT(req.user);
   const { email, name, verified } = parsedJWT;
+
+  // Enterprise / self-hosted SSO ties access to email (including domain auto-join).
+  // Without a positive email_verified claim, a permissive or malicious IdP could
+  // assert arbitrary emails and match or join as an existing user. For now we only
+  // log the mismatch (monitor-only) so we can identify affected orgs before enforcing.
+  if (usingOpenId() && isEnterpriseSSO(req.loginMethod) && !verified) {
+    logger.error(
+      {
+        email,
+        loginMethod: req.loginMethod?.id,
+        organization: req.loginMethod?.organization,
+      },
+      "SSO login without a verified email_verified claim",
+    );
+  }
 
   req.authSubject = parsedJWT.sub || "";
   req.email = email || "";
@@ -169,7 +185,13 @@ export async function processJWT(
     // require all future logins to be verified too.
     // This stops someone from creating an unverified email/password account and gaining access to
     // an account using "Login with Google"
-    if (IS_CLOUD && !req.loginMethod?.id && user.verified && !req.verified) {
+    if (
+      IS_CLOUD &&
+      !IS_LOCALHOST &&
+      !req.loginMethod?.id &&
+      user.verified &&
+      !req.verified
+    ) {
       res.status(406).json({
         status: 406,
         message: "You must log in via SSO to use GrowthBook",
@@ -187,6 +209,19 @@ export async function processJWT(
         undefined;
 
       if (req.organization) {
+        if (req.organization.suspended && !req.superAdmin) {
+          const allowedPaths = new Set(["GET /organization", "GET /user"]);
+          const currentPath = `${req.method} ${req.path}`;
+          if (!allowedPaths.has(currentPath)) {
+            res.status(403).json({
+              status: 403,
+              message:
+                "Account Suspended. Please contact support@growthbook.io for assistance.",
+            });
+            return;
+          }
+        }
+
         if (
           !req.superAdmin &&
           !req.organization.members.filter((m) => m.id === req.userId).length
@@ -226,7 +261,9 @@ export async function processJWT(
           }
         }
 
-        req.teams = await getTeamsForOrganization(req.organization.id);
+        req.teams = await TeamModel.dangerousGetTeamsForOrganization(
+          req.organization.id,
+        );
 
         // Make sure this is a valid login method for the organization
         try {
@@ -387,7 +424,7 @@ export async function isNewInstallation() {
 }
 
 export function usingOpenId() {
-  if (IS_CLOUD) return true;
+  if (IS_CLOUD && !IS_LOCALHOST) return true;
   if (SSO_CONFIG) return true;
   return false;
 }

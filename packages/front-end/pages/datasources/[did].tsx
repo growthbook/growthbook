@@ -1,12 +1,17 @@
 import { useRouter } from "next/router";
-import React, { FC, useCallback, useState } from "react";
+import { FC, useCallback, useState } from "react";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
-import { useFeatureIsOn } from "@growthbook/growthbook-react";
-import Link from "next/link";
-import { Box, Flex, Heading, Text } from "@radix-ui/themes";
+import {
+  isManagedWarehouseAwaitingProvisioning,
+  supportsEventForwarder,
+} from "shared/util";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiLinkBold } from "react-icons/pi";
 import { datetime } from "shared/dates";
+import { useFeatureValue } from "@growthbook/growthbook-react";
+import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
+import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { hasFileConfig } from "@/services/env";
@@ -16,24 +21,32 @@ import { DataSourceInlineEditIdentityJoins } from "@/components/Settings/EditDat
 import { ExperimentAssignmentQueries } from "@/components/Settings/EditDataSource/ExperimentAssignmentQueries/ExperimentAssignmentQueries";
 import { DataSourceViewEditExperimentProperties } from "@/components/Settings/EditDataSource/DataSourceExperimentProperties/DataSourceViewEditExperimentProperties";
 import { DataSourceJupyterNotebookQuery } from "@/components/Settings/EditDataSource/DataSourceJupypterQuery/DataSourceJupyterNotebookQuery";
-import ProjectBadges from "@/components/ProjectBadges";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import DataSourceForm from "@/components/Settings/DataSourceForm";
 import Code from "@/components/SyntaxHighlighting/Code";
 import LoadingOverlay from "@/components/LoadingOverlay";
+import useApi from "@/hooks/useApi";
 import DataSourcePipeline from "@/components/Settings/EditDataSource/DataSourcePipeline/DataSourcePipeline";
-import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
 import { useUser } from "@/services/UserContext";
 import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Badge from "@/ui/Badge";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/ui/DropdownMenu";
 import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
 import ClickhouseMaterializedColumns from "@/components/Settings/EditDataSource/ClickhouseMaterializedColumns";
+import ClickhouseManagedWarehouseIdentifiers from "@/components/Settings/EditDataSource/ClickhouseManagedWarehouseIdentifiers";
 import SqlExplorerModal from "@/components/SchemaBrowser/SqlExplorerModal";
 import { useCombinedMetrics } from "@/components/Metrics/MetricsList";
 import { FeatureEvaluationQueries } from "@/components/Settings/EditDataSource/FeatureEvaluationQueries/FeatureEvaluationQueries";
+import Heading from "@/ui/Heading";
+import Text from "@/ui/Text";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import HistoryTable from "@/components/HistoryTable";
+import EventForwarder from "@/components/Settings/EditDataSource/EventForwarder/EventForwarder";
 
 function quotePropertyName(name: string) {
   if (name.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
@@ -48,26 +61,46 @@ const DataSourcePage: FC = () => {
   const permissionsUtil = usePermissionsUtil();
   const [editConn, setEditConn] = useState(false);
   const [viewSqlExplorer, setViewSqlExplorer] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [auditModal, setAuditModal] = useState(false);
+  const [
+    deleteBlockedByEventForwarderModalOpen,
+    setDeleteBlockedByEventForwarderModalOpen,
+  ] = useState(false);
   const router = useRouter();
 
   const {
     getDatasourceById,
+    getProjectById,
     mutateDefinitions,
     ready,
     error,
     factTables: allFactTables,
   } = useDefinitions();
   const { did } = router.query as { did: string };
-  const d = getDatasourceById(did);
+  const definitionDataSource = getDatasourceById(did);
+  const {
+    data: currentDataSource,
+    error: currentDataSourceError,
+    mutate: mutateCurrentDataSource,
+  } = useApi<DataSourceInterfaceWithParams>(`/datasource/${did}`, {
+    shouldRun: () => !!did,
+  });
+  const loadingCurrentDataSource =
+    !!did && !currentDataSource && !currentDataSourceError;
+  const d = currentDataSource || definitionDataSource;
 
   const combinedMetrics = useCombinedMetrics({});
   const metrics = combinedMetrics.filter((m) => m.datasource === did);
   const factTables = allFactTables.filter((ft) => ft.datasource === did);
 
   const { apiCall } = useAuth();
-  const { organization, hasCommercialFeature } = useUser();
+  const { hasCommercialFeature } = useUser();
 
   const isManagedWarehouse = d?.type === "growthbook_clickhouse";
+  const managedWarehouseAwaitingProvisioning = d
+    ? isManagedWarehouseAwaitingProvisioning(d)
+    : false;
 
   const queryString = new URLSearchParams(
     `q=datasource:"${d?.name}"`,
@@ -75,6 +108,8 @@ const DataSourcePage: FC = () => {
 
   const canDelete =
     (d && permissionsUtil.canDeleteDataSource(d) && !hasFileConfig()) || false;
+
+  const deleteBlockedByEventForwarder = Boolean(d?.eventForwarderConfig);
 
   const canUpdateConnectionParams =
     (d &&
@@ -87,9 +122,11 @@ const DataSourcePage: FC = () => {
     (d && permissionsUtil.canUpdateDataSourceSettings(d) && !hasFileConfig()) ||
     false;
 
-  const pipelineEnabled =
-    useFeatureIsOn("datasource-pipeline-mode") &&
-    hasCommercialFeature("pipeline-mode");
+  const pipelineEnabled = hasCommercialFeature("pipeline-mode");
+  const eventsForwarderFlag = useFeatureValue(
+    "events-forwarder-multi-step",
+    "OFF",
+  );
 
   /**
    * Update the data source provided.
@@ -97,26 +134,27 @@ const DataSourcePage: FC = () => {
    */
   const updateDataSourceSettings = useCallback(
     async (dataSource: DataSourceInterfaceWithParams) => {
-      const updates = {
-        settings: dataSource.settings,
-      };
       await apiCall(`/datasource/${dataSource.id}`, {
         method: "PUT",
-        body: JSON.stringify(updates),
+        body: JSON.stringify({
+          settings: dataSource.settings,
+        }),
       });
-      await mutateDefinitions({});
+      await Promise.all([mutateDefinitions({}), mutateCurrentDataSource()]);
     },
-    [mutateDefinitions, apiCall],
+    [mutateDefinitions, mutateCurrentDataSource, apiCall],
   );
 
-  if (error) {
+  if (error || currentDataSourceError) {
     return (
       <div className="container pagecontents">
-        <div className="alert alert-danger">{error}</div>
+        <div className="alert alert-danger">
+          {error || currentDataSourceError?.message}
+        </div>
       </div>
     );
   }
-  if (!ready) {
+  if (!ready || loadingCurrentDataSource) {
     return <LoadingOverlay />;
   }
   if (!d) {
@@ -131,6 +169,7 @@ const DataSourcePage: FC = () => {
 
   const supportsSQL = d.properties?.queryLanguage === "sql";
   const supportsEvents = d.properties?.events || false;
+  const datasourceSupportsEventForwarder = supportsEventForwarder(d);
 
   return (
     <div className="container pagecontents">
@@ -141,34 +180,21 @@ const DataSourcePage: FC = () => {
         ]}
       />
 
-      {d.projects?.includes(
-        getDemoDatasourceProjectIdForOrganization(organization.id),
-      ) && (
-        <div className="alert alert-info mb-3 d-flex align-items-center mt-3">
-          <div className="flex-1">
-            This is part of our sample dataset. You can safely delete this once
-            you are done exploring.
-          </div>
-          <div style={{ width: 180 }} className="ml-2">
-            <DeleteDemoDatasourceButton
-              onDelete={() => router.push("/datasources")}
-              source="datasource"
-            />
-          </div>
-        </div>
-      )}
-
       {d.decryptionError && (
         <div className="alert alert-danger mb-2 d-flex justify-content-between align-items-center">
           <strong>Error Decrypting Data Source Credentials.</strong>{" "}
-          <DocLink docSection="env_prod" className="btn btn-primary">
+          <DocLink
+            useRadix={false}
+            docSection="env_prod"
+            className="btn btn-primary"
+          >
             View instructions for fixing
           </DocLink>
         </div>
       )}
       <Flex align="center" justify="between">
         <Flex align="center" gap="3">
-          <Heading as="h1" size="7" mb="0">
+          <Heading as="h1" size="x-large" mb="0">
             {d.name}
           </Heading>
           <Badge
@@ -183,83 +209,122 @@ const DataSourcePage: FC = () => {
             radius="full"
           />
         </Flex>
-        <Box>
-          {(canUpdateConnectionParams ||
-            canUpdateDataSourceSettings ||
-            canDelete) && (
-            <MoreMenu useRadix={true}>
+        {(canUpdateConnectionParams ||
+          canUpdateDataSourceSettings ||
+          canDelete) && (
+          <Flex align="center" pr="2">
+            <DropdownMenu
+              trigger={
+                <IconButton
+                  variant="ghost"
+                  color="gray"
+                  radius="full"
+                  size="2"
+                  highContrast
+                >
+                  <BsThreeDotsVertical size={16} />
+                </IconButton>
+              }
+              menuPlacement="end"
+              open={dropdownOpen}
+              onOpenChange={setDropdownOpen}
+            >
               {canUpdateConnectionParams && (
-                <a
-                  href="#"
-                  className="dropdown-item"
-                  onClick={(e) => {
-                    e.preventDefault();
+                <DropdownMenuItem
+                  onClick={() => {
                     setEditConn(true);
+                    setDropdownOpen(false);
                   }}
                 >
                   Edit Connection Info
-                </a>
+                </DropdownMenuItem>
               )}
-              <hr className="m-2" />
-              <DocLink
-                className="dropdown-item"
-                docSection={d.type as DocSection}
-                fallBackSection="datasources"
+              <DropdownMenuItem
+                onClick={() => {
+                  setAuditModal(true);
+                  setDropdownOpen(false);
+                }}
               >
-                View Documentation
-              </DocLink>
+                Audit log
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => {
+                  // DocLink usually navigates externally; close the dropdown first.
+                  setDropdownOpen(false);
+                }}
+              >
+                <DocLink
+                  useRadix={false}
+                  docSection={d.type as DocSection}
+                  fallBackSection="datasources"
+                >
+                  View Documentation
+                </DocLink>
+              </DropdownMenuItem>
               {d?.properties?.supportsInformationSchema && (
-                <a
-                  href="#"
-                  className="dropdown-item"
-                  onClick={(e) => {
-                    e.preventDefault();
+                <DropdownMenuItem
+                  onClick={() => {
                     setViewSqlExplorer(true);
+                    setDropdownOpen(false);
                   }}
                 >
                   View SQL Explorer
-                </a>
+                </DropdownMenuItem>
               )}
-              <Link
-                href={`/datasources/queries/${did}`}
-                className="dropdown-item"
+              <DropdownMenuItem
+                onClick={() => {
+                  setDropdownOpen(false);
+                  router.push(`/datasources/queries/${did}`);
+                }}
               >
                 View Queries
-              </Link>
+              </DropdownMenuItem>
               {canDelete && (
                 <>
-                  <hr className="m-2" />
-                  <DeleteButton
-                    displayName={d.name}
-                    className="dropdown-item text-danger"
-                    useIcon={false}
-                    text={`Delete "${d.name}" Datasource`}
-                    onClick={async () => {
-                      await apiCall(`/datasource/${d.id}`, {
-                        method: "DELETE",
-                      });
-                      mutateDefinitions({});
-                      router.push("/datasources");
-                    }}
-                  />
+                  <DropdownMenuSeparator />
+                  {deleteBlockedByEventForwarder ? (
+                    <DropdownMenuItem
+                      color="red"
+                      onClick={() => {
+                        setDeleteBlockedByEventForwarderModalOpen(true);
+                        setDropdownOpen(false);
+                      }}
+                    >
+                      Delete
+                    </DropdownMenuItem>
+                  ) : (
+                    <DropdownMenuItem
+                      color="red"
+                      confirmation={{
+                        confirmationTitle: `Delete "${d.name}" Datasource`,
+                        cta: "Delete",
+                        submit: async () => {
+                          await apiCall(`/datasource/${d.id}`, {
+                            method: "DELETE",
+                          });
+                          mutateDefinitions({});
+                          router.push("/datasources");
+                        },
+                        closeDropdown: () => setDropdownOpen(false),
+                      }}
+                    >
+                      Delete
+                    </DropdownMenuItem>
+                  )}
                 </>
               )}
-            </MoreMenu>
-          )}
-        </Box>
+            </DropdownMenu>
+          </Flex>
+        )}
       </Flex>
-      {d.description && (
-        <Box mb="3">
-          <Text color="gray">{d.description}</Text>
-        </Box>
-      )}
-      <Flex align="center" gap="4" mt="3">
-        <Text color="gray">
+      <Flex align="center" gap="4" my="2">
+        <Text color="text-mid">
           <Text weight="medium">Type:</Text>{" "}
           {d.type === "growthbook_clickhouse" ? "managed" : d.type}
         </Text>
         <Box>
-          <Text color="gray" weight="medium">
+          <Text color="text-mid" weight="medium">
             Fact Tables:
           </Text>{" "}
           <Link href={`/fact-tables?${queryString}`}>
@@ -267,28 +332,39 @@ const DataSourcePage: FC = () => {
           </Link>
         </Box>
         <Box>
-          <Text color="gray" weight="medium">
+          <Text color="text-mid" weight="medium">
             Metrics:{" "}
           </Text>
           {metrics.length > 0 ? (
             <Link href={`/metrics?${queryString}`}>{metrics.length}</Link>
           ) : (
-            <Text color="gray">None</Text>
+            <Text color="text-mid">None</Text>
           )}
         </Box>
-        <Text color="gray">
+        <Text color="text-mid">
           <Text weight="medium">Last Updated:</Text>{" "}
           {datetime(d.dateUpdated ?? "")}
         </Text>
         <Box>
-          Projects:{" "}
-          {d?.projects?.length || 0 > 0 ? (
-            <ProjectBadges resourceType="data source" projectIds={d.projects} />
+          <Text color="text-mid" weight="medium">
+            Projects:{" "}
+          </Text>
+          {d?.projects?.length ? (
+            <Text color="text-mid">
+              {d.projects.map((p) => getProjectById(p)?.name || p).join(", ")}
+            </Text>
           ) : (
-            <ProjectBadges resourceType="data source" />
+            <Text color="text-mid" fontStyle="italic">
+              All Projects
+            </Text>
           )}
         </Box>
       </Flex>
+      {d.description && (
+        <Box mb="3">
+          <Text color="text-mid">{d.description}</Text>
+        </Box>
+      )}
 
       {!d.properties?.hasSettings && (
         <Box mt="3">
@@ -311,7 +387,9 @@ const DataSourcePage: FC = () => {
 
             {d.type === "mixpanel" && (
               <div>
-                <h3>Mixpanel Tracking Instructions</h3>
+                <Heading size="small" as="h3" mb="1">
+                  Mixpanel Tracking Instructions
+                </Heading>
                 <p>
                   This example is for Javascript and uses the above settings.
                   Other languages should be similar.
@@ -355,30 +433,57 @@ mixpanel.init('YOUR PROJECT TOKEN', {
         {supportsSQL && (
           <>
             {isManagedWarehouse ? (
-              <>
-                <Frame>
-                  <Heading as="h3" size="4" mb="2">
-                    Sending Events
-                  </Heading>
-                  <Text>
-                    <DocLink docSection="managedWarehouseTracking">
-                      Read our full docs
-                    </DocLink>{" "}
-                    with instructions on how to send events from your app to
-                    GrowthBook.
-                  </Text>
-                </Frame>
-                <Frame>
-                  <ClickhouseMaterializedColumns
-                    dataSource={d}
-                    onCancel={() => undefined}
-                    canEdit={canUpdateDataSourceSettings}
-                    mutate={mutateDefinitions}
-                  />
-                </Frame>
-              </>
+              managedWarehouseAwaitingProvisioning ? (
+                <ManagedWarehouseNoEventsCallout />
+              ) : (
+                <>
+                  <Frame>
+                    <Heading as="h3" size="medium" mb="2">
+                      Sending Events
+                    </Heading>
+                    <Text>
+                      <DocLink
+                        useRadix={false}
+                        docSection="managedWarehouseTracking"
+                      >
+                        Read our full docs
+                      </DocLink>{" "}
+                      with instructions on how to send events from your app to
+                      GrowthBook.
+                    </Text>
+                  </Frame>
+                  <Frame>
+                    {d.settings.useJsonColumns ? (
+                      <ClickhouseManagedWarehouseIdentifiers dataSource={d} />
+                    ) : (
+                      <ClickhouseMaterializedColumns
+                        dataSource={d}
+                        onCancel={() => undefined}
+                        canEdit={canUpdateDataSourceSettings}
+                        mutate={mutateDefinitions}
+                      />
+                    )}
+                  </Frame>
+                </>
+              )
             ) : (
               <>
+                {datasourceSupportsEventForwarder &&
+                  eventsForwarderFlag !== "OFF" && (
+                    <Frame>
+                      <EventForwarder
+                        dataSource={d}
+                        canEdit={canUpdateDataSourceSettings}
+                        onRefresh={async () => {
+                          await Promise.all([
+                            mutateDefinitions({}),
+                            mutateCurrentDataSource(),
+                          ]);
+                        }}
+                      />
+                    </Frame>
+                  )}
+
                 {d.dateUpdated === d.dateCreated &&
                   d?.settings?.schemaFormat !== "custom" && (
                     <Callout status="info" mt="4" mb="4">
@@ -462,7 +567,10 @@ mixpanel.init('YOUR PROJECT TOKEN', {
           data={d}
           source={"datasource-detail"}
           onSuccess={async () => {
-            await mutateDefinitions({});
+            await Promise.all([
+              mutateDefinitions({}),
+              mutateCurrentDataSource(),
+            ]);
           }}
           onCancel={() => {
             setEditConn(false);
@@ -479,6 +587,30 @@ mixpanel.init('YOUR PROJECT TOKEN', {
           lockDatasource={true}
           trackingEventModalSource="datasource-id-page"
         />
+      )}
+      {auditModal && (
+        <ModalStandard
+          trackingEventModalType=""
+          open={true}
+          header="Audit Log"
+          close={() => setAuditModal(false)}
+          size="lg"
+        >
+          <HistoryTable type={"datasource"} id={d.id} />
+        </ModalStandard>
+      )}
+      {deleteBlockedByEventForwarderModalOpen && (
+        <ModalStandard
+          trackingEventModalType=""
+          open={true}
+          header={`Cannot delete "${d.name}"`}
+          close={() => setDeleteBlockedByEventForwarderModalOpen(false)}
+        >
+          <Text>
+            Please contact your account manager to remove the Event Forwarder
+            first; after that, you can delete this data source here.
+          </Text>
+        </ModalStandard>
       )}
     </div>
   );

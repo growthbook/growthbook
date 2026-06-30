@@ -1,9 +1,12 @@
-import { ReactNode } from "react";
+import { FC, ReactNode } from "react";
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { useAuth, safeLogout } from "@/services/auth";
 import WatchProvider from "@/services/WatchProvider";
 import { UserContextProvider, useUser } from "@/services/UserContext";
+import { isCloud } from "@/services/env";
 import LoadingOverlay from "./LoadingOverlay";
 import CreateOrJoinOrganization from "./Auth/CreateOrJoinOrganization";
+import SelectInitialPlan from "./Auth/SelectInitialPlan";
 import InAppHelp from "./Auth/InAppHelp";
 import Button from "./Button";
 import TopNavLite from "./Layout/TopNavLite";
@@ -75,6 +78,25 @@ const LoggedInPageGuard = ({
   return <>{children}</>;
 };
 
+const InitialPlanGate: FC<{ children: ReactNode }> = ({ children }) => {
+  const { effectiveAccountPlan } = useUser();
+  const { initialPlanSelection } = useAuth();
+  const initialPlanSelectionEnabled = useFeatureIsOn("pro-signup-flow");
+
+  const hasExistingPaidPlan =
+    !!effectiveAccountPlan &&
+    ["pro", "pro_sso", "enterprise"].includes(effectiveAccountPlan);
+
+  const showSelectPlanFlow =
+    initialPlanSelectionEnabled &&
+    !!initialPlanSelection &&
+    isCloud() &&
+    !hasExistingPaidPlan;
+
+  if (showSelectPlanFlow) return <SelectInitialPlan />;
+  return <>{children}</>;
+};
+
 const ProtectedPage: React.FC<{
   organizationRequired: boolean;
   children: ReactNode;
@@ -88,7 +110,9 @@ const ProtectedPage: React.FC<{
         {!organizationRequired ? (
           <>{children}</>
         ) : orgId ? (
-          <WatchProvider>{children}</WatchProvider>
+          <InitialPlanGate>
+            <WatchProvider>{children}</WatchProvider>
+          </InitialPlanGate>
         ) : (
           <CreateOrJoinOrganization />
         )}

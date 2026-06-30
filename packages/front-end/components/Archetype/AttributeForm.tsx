@@ -19,6 +19,7 @@ export interface Props {
   jsonCTA?: string;
   hideTitle?: boolean;
   useJSONButton?: boolean;
+  headerContent?: React.ReactNode;
 }
 
 export default function AttributeForm({
@@ -28,6 +29,7 @@ export default function AttributeForm({
   jsonCTA = "Test Attributes",
   hideTitle = false,
   useJSONButton = true,
+  headerContent,
 }: Props) {
   const [formValues, setFormValues] = useState({});
   const [jsonAttributes, setJsonAttributes] = useState<string>(
@@ -130,9 +132,13 @@ export default function AttributeForm({
     ) {
       // prep for use in MultiSelectField
       if (Array.isArray(value)) {
-        options = value.map((v: string) => ({ value: v, label: v }));
-      } else if (typeof value === "string") {
-        options = [{ value: value, label: value }];
+        options = value.map((v: string | number) => ({
+          value: String(v),
+          label: String(v),
+        }));
+      } else if (typeof value === "string" || typeof value === "number") {
+        const strValue = String(value);
+        options = [{ value: strValue, label: strValue }];
         value = [value];
       }
     } else if (attribute.datatype === "string") {
@@ -184,6 +190,20 @@ export default function AttributeForm({
                 }}
                 creatable={true}
               />
+            ) : attribute.datatype === "number[]" ? (
+              <MultiSelectField
+                options={options}
+                value={Array.isArray(value) ? value.map(String) : []}
+                onChange={(value) => {
+                  const numArray = value.map((v) => {
+                    const num = Number(v);
+                    return isNaN(num) ? v : num;
+                  });
+                  attributeFormValues.set(attribute.property, numArray);
+                  updateFormValues();
+                }}
+                creatable={true}
+              />
             ) : attribute.datatype === "string" ? (
               <>
                 {attribute.format === "date" ? (
@@ -218,7 +238,9 @@ export default function AttributeForm({
                 type="number"
                 value={value as string}
                 onChange={(e) => {
-                  attributeFormValues.set(attribute.property, e.target.value);
+                  const numValue =
+                    e.target.value === "" ? "" : Number(e.target.value);
+                  attributeFormValues.set(attribute.property, numValue);
                   updateFormValues();
                 }}
               />
@@ -268,6 +290,7 @@ export default function AttributeForm({
             className={`${styles.attributeBox} pb-2 round appbox`}
             style={{ borderTopRightRadius: 0 }}
           >
+            {headerContent && <div className="p-2">{headerContent}</div>}
             <TabsContent value="simple">
               <div className=" form-group ">
                 <div

@@ -27,11 +27,14 @@ export type BaseFieldProps = {
   label?: ReactNode;
   markRequired?: boolean;
   error?: ReactNode;
+  errorLevel?: "error" | "warning";
   helpText?: ReactNode;
+  helpTextClassName?: string;
   containerClassName?: string;
   containerStyle?: React.CSSProperties;
   inputGroupClassName?: string;
   labelClassName?: string;
+  customClassName?: string;
   // eslint-disable-next-line
   render?: (id: string, ref: any) => ReactElement;
   options?: SelectOptions;
@@ -95,7 +98,9 @@ const Field = forwardRef(
       id,
       className,
       error,
+      errorLevel,
       helpText,
+      helpTextClassName,
       containerClassName,
       containerStyle,
       inputGroupClassName,
@@ -113,6 +118,7 @@ const Field = forwardRef(
       type = "text",
       initialOption,
       comboBox,
+      customClassName: customClassNameProp,
       ...otherProps
     }: FieldProps,
     // eslint-disable-next-line
@@ -122,7 +128,14 @@ const Field = forwardRef(
       () => id || `field_${Math.floor(Math.random() * 1000000)}`,
     );
 
-    const cn = clsx("form-control", className);
+    const cn = clsx(
+      "form-control",
+      {
+        "form-control--error": !!error && errorLevel !== "warning",
+        "form-control--warning": errorLevel === "warning",
+      },
+      className,
+    );
 
     let component: ReactElement;
     if (render) {
@@ -209,13 +222,13 @@ const Field = forwardRef(
       );
     }
 
-    const customClassName = otherProps?.["customClassName"] || "";
+    const customClassName = customClassNameProp || "";
     return (
       <div
         className={clsx(
           "form-group",
-          containerClassName,
           { "mb-0": !label },
+          containerClassName,
           render ? customClassName : "",
         )}
         style={containerStyle}
@@ -234,8 +247,14 @@ const Field = forwardRef(
           ) : null}
         </div>
         {component}
-        {error && <div className="form-text text-danger">{error}</div>}
-        {helpText && <small className="form-text text-muted">{helpText}</small>}
+        {error && errorLevel !== "warning" && (
+          <div className="form-text text-danger">{error}</div>
+        )}
+        {helpText && (
+          <small className={clsx("form-text text-muted", helpTextClassName)}>
+            {helpText}
+          </small>
+        )}
       </div>
     );
   },

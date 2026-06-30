@@ -35,7 +35,12 @@ import {
   UserExperimentExposuresQueryResponse,
   DropMetricSourceCovariateTableQueryParams,
   CreateMetricSourceCovariateTableQueryParams,
+  CreateAggregatedFactTableQueryParams,
+  InsertAggregatedFactTableDataQueryParams,
+  AggregatedFactTableMaxTimestampQueryParams,
+  DropAggregatedFactTableQueryParams,
   InsertMetricSourceCovariateDataQueryParams,
+  InsertMetricSourceCovariateFromAggregatedFactTableQueryParams,
 } from "shared/types/integrations";
 import {
   DataSourceInterface,
@@ -44,6 +49,7 @@ import {
 import { DimensionInterface } from "shared/types/dimension";
 import { MixpanelConnectionParams } from "shared/types/integrations/mixpanel";
 import { MetricInterface, MetricType } from "shared/types/metric";
+import { QueryMetadata } from "shared/types/query";
 import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 import { FactMetricInterface } from "shared/types/fact-table";
 import { ReqContext } from "back-end/types/request";
@@ -97,6 +103,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
   runMetricAnalysisQuery(
     _query: string,
     _setExternalId: ExternalIdCallback,
+    _queryMetadata?: QueryMetadata,
   ): Promise<MetricAnalysisQueryResponse> {
     throw new Error("Method not implemented.");
   }
@@ -106,6 +113,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
   runDropTableQuery(
     _query: string,
     _setExternalId: ExternalIdCallback,
+    _queryMetadata?: QueryMetadata,
   ): Promise<DropTableQueryResponse> {
     throw new Error("Method not implemented.");
   }
@@ -120,12 +128,14 @@ export default class Mixpanel implements SourceIntegrationInterface {
   runExperimentAggregateUnitsQuery(
     _query: string,
     _setExternalId: ExternalIdCallback,
+    _queryMetadata?: QueryMetadata,
   ): Promise<ExperimentAggregateUnitsQueryResponse> {
     throw new Error("Method not implemented.");
   }
   runExperimentMetricQuery(
     _query: string,
     _setExternalId: ExternalIdCallback,
+    _queryMetadata?: QueryMetadata,
   ): Promise<ExperimentMetricQueryResponse> {
     throw new Error("Method not implemented.");
   }
@@ -135,6 +145,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
   runExperimentUnitsQuery(
     _query: string,
     _setExternalId: ExternalIdCallback,
+    _queryMetadata?: QueryMetadata,
   ): Promise<ExperimentUnitsQueryResponse> {
     throw new Error("Method not implemented.");
   }
@@ -183,6 +194,26 @@ export default class Mixpanel implements SourceIntegrationInterface {
   ): string {
     throw new Error("Method not implemented.");
   }
+  getCreateAggregatedFactTableQuery(
+    _params: CreateAggregatedFactTableQueryParams,
+  ): string {
+    throw new Error("Method not implemented.");
+  }
+  getInsertAggregatedFactTableDataQuery(
+    _params: InsertAggregatedFactTableDataQueryParams,
+  ): string {
+    throw new Error("Method not implemented.");
+  }
+  getAggregatedFactTableMaxTimestampQuery(
+    _params: AggregatedFactTableMaxTimestampQueryParams,
+  ): string {
+    throw new Error("Method not implemented.");
+  }
+  getDropAggregatedFactTableQuery(
+    _params: DropAggregatedFactTableQueryParams,
+  ): string {
+    throw new Error("Method not implemented.");
+  }
   getCreateMetricSourceCovariateTableQuery(
     _params: CreateMetricSourceCovariateTableQueryParams,
   ): string {
@@ -190,6 +221,11 @@ export default class Mixpanel implements SourceIntegrationInterface {
   }
   getInsertMetricSourceCovariateDataQuery(
     _params: InsertMetricSourceCovariateDataQueryParams,
+  ): string {
+    throw new Error("Method not implemented.");
+  }
+  getInsertMetricSourceCovariateFromAggregatedFactTableQuery(
+    _params: InsertMetricSourceCovariateFromAggregatedFactTableQueryParams,
   ): string {
     throw new Error("Method not implemented.");
   }
@@ -201,18 +237,21 @@ export default class Mixpanel implements SourceIntegrationInterface {
   runIncrementalWithNoOutputQuery(
     _query: string,
     _setExternalId: ExternalIdCallback,
+    _queryMetadata?: QueryMetadata,
   ): Promise<IncrementalWithNoOutputQueryResponse> {
     throw new Error("Method not implemented.");
   }
   runMaxTimestampQuery(
     _query: string,
     _setExternalId: ExternalIdCallback,
+    _queryMetadata?: QueryMetadata,
   ): Promise<import("shared/types/integrations").MaxTimestampQueryResponse> {
     throw new Error("Method not implemented.");
   }
   runIncrementalRefreshStatisticsQuery(
     _query: string,
     _setExternalId: ExternalIdCallback,
+    _queryMetadata?: QueryMetadata,
   ): Promise<ExperimentFactMetricsQueryResponse> {
     throw new Error("Method not implemented.");
   }
@@ -671,6 +710,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
   async runMetricValueQuery(
     query: string,
     _setExternalId?: ExternalIdCallback,
+    _queryMetadata?: QueryMetadata,
   ): Promise<MetricValueQueryResponse> {
     const rows = await runQuery<
       [
@@ -730,6 +770,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
   async runPastExperimentQuery(
     _query: string,
     _setExternalId: ExternalIdCallback,
+    _queryMetadata?: QueryMetadata,
   ): Promise<PastExperimentQueryResponse> {
     throw new Error("Method not implemented.");
   }
@@ -739,6 +780,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
   async runDimensionSlicesQuery(
     _query: string,
     _setExternalId: ExternalIdCallback,
+    _queryMetadata?: QueryMetadata,
   ): Promise<DimensionSlicesQueryResponse> {
     throw new Error("Method not implemented.");
   }

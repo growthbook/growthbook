@@ -17,6 +17,7 @@ import { GBAddCircle } from "@/components/Icons";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Field from "@/components/Forms/Field";
 import Link from "@/ui/Link";
+import Text from "@/ui/Text";
 import styles from "./VariationsInput.module.scss";
 import ExperimentSplitVisual from "./ExperimentSplitVisual";
 import {
@@ -53,6 +54,10 @@ export interface Props {
   simple?: boolean;
   sortableClassName?: string;
   onlySafeToEditVariationMetadata?: boolean;
+  // JSON features only. When true, each variation value is rendered as a sparse
+  // patch (merged onto the feature default). Pass-through to the value editor;
+  // callers own the sparse toggle since it's a rule-level flag.
+  sparse?: boolean;
 }
 
 export default function FeatureVariationsInput({
@@ -83,6 +88,7 @@ export default function FeatureVariationsInput({
   simple,
   sortableClassName,
   onlySafeToEditVariationMetadata,
+  sparse,
 }: Props) {
   const weights = variations?.map((v) => v.weight) || [];
   const isEqualWeights = weights?.every(
@@ -98,6 +104,10 @@ export default function FeatureVariationsInput({
   const [numberOfVariations, setNumberOfVariations] = useState(
     Math.max(variations?.length ?? 2, 2) + "",
   );
+  // editingIds already encodes the notion of having bespoke IDs, so if it is false
+  // it is probably safe to renormalize variation keys on sort
+  const forceRenormalizeVariationKeysOnSort =
+    !valueAsId && !editingIds && !onlySafeToEditVariationMetadata;
 
   const setEqualWeights = () => {
     if (!variations || !setWeight) return;
@@ -118,7 +128,11 @@ export default function FeatureVariationsInput({
 
   return (
     <div className="form-group">
-      {_label !== null ? <label>{label}</label> : null}
+      {_label !== null ? (
+        <Text as="label" weight="semibold">
+          {label}
+        </Text>
+      ) : null}
       {simple ? (
         <>
           {!hideCoverage ? (
@@ -260,7 +274,9 @@ export default function FeatureVariationsInput({
           {!hideVariationIds &&
             !startEditingIndexes &&
             !valueAsId &&
-            !hideValueField && (
+            !hideValueField &&
+            !disableVariations &&
+            setVariations && (
               <div className="mb-2">
                 {!editingIds ? (
                   <Link
@@ -285,10 +301,12 @@ export default function FeatureVariationsInput({
                       {!valueAsId && !hideValueField && editingIds ? "#" : "Id"}
                     </th>
                   )}
-                  {!hideVariationIds && !hideValueField && editingIds && (
-                    <th>Id</th>
+                  {!hideVariationIds &&
+                    !hideValueField &&
+                    (editingIds || valueAsId) && <th>Id</th>}
+                  {hideVariationIds && !hideValueField && !valueAsId && (
+                    <th>Value to Force</th>
                   )}
-                  {hideVariationIds && !valueAsId && <th>Value to Force</th>}
                   <th>Variation Name</th>
                   {showDescriptions && <th>Description</th>}
                   {!hideSplits && (
@@ -347,6 +365,9 @@ export default function FeatureVariationsInput({
                 {variations && (
                   <SortableVariationsList
                     valuesAsIds={idsMatchIndexes}
+                    forceRenormalizeVariationKeysOnSort={
+                      forceRenormalizeVariationKeysOnSort
+                    }
                     variations={variations}
                     setVariations={
                       !disableVariations ? setVariations : undefined
@@ -374,6 +395,7 @@ export default function FeatureVariationsInput({
                         feature={feature}
                         showDescription={showDescriptions}
                         className={sortableClassName}
+                        sparse={sparse}
                       />
                     ))}
                   </SortableVariationsList>

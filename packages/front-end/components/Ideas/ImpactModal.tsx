@@ -1,11 +1,11 @@
-import Link from "next/link";
 import { FC } from "react";
 import { useForm } from "react-hook-form";
 import { IdeaInterface } from "shared/types/idea";
 import { ImpactEstimateInterface } from "shared/types/impact-estimate";
+import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Modal from "@/components/Modal";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 
@@ -40,7 +40,7 @@ const ImpactModal: FC<{
   const possibleSegments = segments.filter((s) => s.datasource == datasource);
 
   return (
-    <Modal
+    <ModalStandard
       trackingEventModalType=""
       header="Impact Score Parameters"
       open={true}
@@ -171,7 +171,7 @@ const ImpactModal: FC<{
           ) : null
         }
       />
-    </Modal>
+    </ModalStandard>
   );
 };
 

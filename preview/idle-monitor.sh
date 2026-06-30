@@ -33,8 +33,9 @@ while true; do
 
   if [ "$idle_time" -ge "$TIMEOUT" ]; then
     echo "[idle-monitor] Idle for ${idle_time}s (>= ${TIMEOUT}s). Shutting down."
-    # Stop supervisord which will stop all processes
-    kill -SIGTERM $(cat /var/run/supervisord.pid 2>/dev/null) 2>/dev/null || kill -SIGTERM 1
+    # Stop pm2-runtime which will gracefully stop all managed processes
+    # Use pkill to find by name, fall back to PID 1 if not found
+    pkill -SIGTERM -f "pm2-runtime" || kill -SIGTERM 1
     # Exit 0 means the machine will not restart automatically
     exit 0
   fi

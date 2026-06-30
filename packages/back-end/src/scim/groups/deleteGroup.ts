@@ -1,6 +1,5 @@
 import { Response } from "express";
 import { ScimError, ScimGetRequest } from "back-end/types/scim";
-import { deleteTeam, findTeamById } from "back-end/src/models/TeamModel";
 import { removeMembersFromTeam } from "back-end/src/services/organizations";
 
 export async function deleteGroup(
@@ -11,7 +10,7 @@ export async function deleteGroup(
 
   const org = req.organization;
 
-  const group = await findTeamById(id, org.id);
+  const group = await req.context.models.teams.getById(id);
 
   if (!group) {
     return res.status(404).json({
@@ -40,7 +39,7 @@ export async function deleteGroup(
     });
 
     // Delete the team
-    await deleteTeam(id, org.id);
+    await req.context.models.teams.delete(group);
   } catch (e) {
     return res.status(400).json({
       schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],

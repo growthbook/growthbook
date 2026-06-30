@@ -1,4 +1,5 @@
 import React, { FC, useEffect, useMemo, useState } from "react";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { FormProvider, useForm } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useRouter } from "next/router";
@@ -11,12 +12,14 @@ import {
 import { getScopedSettings } from "shared/settings";
 import { generateTrackingKey } from "shared/experiments";
 import { kebabCase } from "lodash";
-import { Tooltip, Text } from "@radix-ui/themes";
+import { Tooltip, Separator } from "@radix-ui/themes";
 import Collapsible from "react-collapsible";
-import { PiArrowSquareOutFill, PiCaretRightFill } from "react-icons/pi";
+import { PiCaretRightFill } from "react-icons/pi";
 import { FeatureEnvironment } from "shared/types/feature";
-import { HoldoutInterface } from "shared/validators";
+import { HoldoutInterfaceStringDates } from "shared/validators";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
+import Callout from "@/ui/Callout";
+import Text from "@/ui/Text";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -36,6 +39,10 @@ import SelectField, {
   SingleValue,
 } from "@/components/Forms/SelectField";
 import ConditionInput from "@/components/Features/ConditionInput";
+import {
+  AttributeOptionWithTooltip,
+  type AttributeOptionForTooltip,
+} from "@/components/Features/AttributeOptionTooltip";
 import SavedGroupTargetingField, {
   validateSavedGroupTargeting,
 } from "@/components/Features/SavedGroupTargetingField";
@@ -43,8 +50,7 @@ import { useExperiments } from "@/hooks/useExperiments";
 import { decimalToPercent, percentToDecimal } from "@/services/utils";
 import variationInputStyles from "@/components/Features/VariationsInput.module.scss";
 import useSDKConnections from "@/hooks/useSDKConnections";
-import Link from "@/ui/Link";
-import Callout from "@/ui/Callout";
+import SDKCapabilityWarning from "@/components/Features/SDKCapabilityWarning";
 import ExperimentMetricsSelector from "@/components/Experiment/ExperimentMetricsSelector";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import EnvironmentSelect from "@/components/Features/FeatureModal/EnvironmentSelect";
@@ -55,7 +61,7 @@ weekAgo.setDate(weekAgo.getDate() - 7);
 
 export type NewHoldoutFormProps = {
   initialStep?: number;
-  initialHoldout?: Partial<HoldoutInterface>;
+  initialHoldout?: Partial<HoldoutInterfaceStringDates>;
   initialExperiment?: Partial<ExperimentInterfaceStringDates>;
   includeDescription?: boolean;
   duplicate?: boolean;
@@ -115,9 +121,8 @@ export const genEnvironmentSettings = ({
     const canPublish = permissions.canPublishFeature({ project }, [e.id]);
     const defaultEnabled = canPublish ? (e.defaultState ?? true) : false;
     const enabled = canPublish ? defaultEnabled : false;
-    const rules = [];
 
-    envSettings[e.id] = { enabled, rules };
+    envSettings[e.id] = { enabled };
   });
 
   return envSettings;
@@ -167,15 +172,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
   const permissionsUtils = usePermissionsUtil();
 
   const { data: sdkConnectionsData } = useSDKConnections();
-  const hasSDKWithPrerequisites = getConnectionsSDKCapabilities({
-    connections: sdkConnectionsData?.connections ?? [],
-    project,
-  }).includes("prerequisites");
-  const hasSDKWithNoPrerequisites = !getConnectionsSDKCapabilities({
-    connections: sdkConnectionsData?.connections ?? [],
-    mustMatchAllConnections: true,
-    project,
-  }).includes("prerequisites");
+
   const hasSDKWithRemoteEval = (sdkConnectionsData?.connections || []).some(
     (c) => c.remoteEvalEnabled,
   );
@@ -197,7 +194,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
         ExperimentInterfaceStringDates,
         "id" | "linkedFeatures" | "linkedExperiments"
       > &
-        HoldoutInterface
+        HoldoutInterfaceStringDates
     >
   >({
     defaultValues: {
@@ -219,7 +216,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
           coverage: initialExperiment?.phases?.[0]?.coverage || 0.1,
           dateStarted: new Date().toISOString().substr(0, 16),
           dateEnded: new Date().toISOString().substr(0, 16),
-          name: "Full Holdout",
+          name: "Holdout",
           reason: "",
           variationWeights: [0.5, 0.5],
           savedGroups: initialExperiment?.phases?.[0]?.savedGroups || [],
@@ -238,6 +235,12 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
         }),
     },
   });
+
+  const selectedProjects = form.watch("projects") ?? [];
+  const hasSDKWithPrerequisites = getConnectionsSDKCapabilities({
+    connections: sdkConnectionsData?.connections ?? [],
+    project: selectedProjects[0] || "",
+  }).includes("prerequisites");
 
   // TODO: add custom fields back in when we have a way to filter them by multiple projects
   // const customFields = filterCustomFieldsForSectionAndProject(
@@ -290,7 +293,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
 
     const res = await apiCall<{
       experiment: ExperimentInterfaceStringDates;
-      holdout: HoldoutInterface;
+      holdout: HoldoutInterfaceStringDates;
     }>("/holdout", {
       method: "POST",
       body,
@@ -316,8 +319,15 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
   const availableProjects: (SingleValue | GroupedValue)[] = projects
     .slice()
     .sort((a, b) => (a.name > b.name ? 1 : -1))
-    .filter((p) => permissionsUtils.canViewHoldoutModal([p.id]))
+    .filter((p) => permissionsUtils.canCreateHoldout({ projects: [p.id] }))
     .map((p) => ({ value: p.id, label: p.name }));
+
+  const canCreateWithoutProject = permissionsUtils.canCreateHoldout({
+    projects: [],
+  });
+  const hasProjectPermission =
+    canCreateWithoutProject ||
+    permissionsUtils.canCreateHoldout({ projects: selectedProjects });
 
   const exposureQueries = useMemo(() => {
     return datasource?.settings?.queries?.exposure || [];
@@ -346,23 +356,15 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
 
   const environmentSettings = form.watch("environmentSettings") || {};
 
-  const prerequisiteAlert = hasSDKWithNoPrerequisites ? (
-    <Callout status={hasSDKWithPrerequisites ? "warning" : "error"} mb="4">
-      {hasSDKWithPrerequisites
-        ? "Some of your SDK Connections in this project may not support Prerequisite evaluation, which is mandatory for Holdouts."
-        : "None of your SDK Connections in this project support Prerequisite evaluation, which is mandatory for Holdouts. Either upgrade your SDKs or add a supported SDK."}
-      <Link
-        href={"/sdks"}
-        weight="bold"
-        className="pl-2"
-        rel="noreferrer"
-        target="_blank"
-      >
-        View SDKs
-        <PiArrowSquareOutFill className="ml-1" />
-      </Link>
-    </Callout>
-  ) : null;
+  const prerequisiteAlert = (
+    <SDKCapabilityWarning
+      capability="prerequisites"
+      project={selectedProjects[0] || ""}
+      someMessage="Some of your SDK Connections in this project may not support Prerequisite evaluation, which is mandatory for Holdouts."
+      noneMessage="None of your SDK Connections in this project support Prerequisite evaluation, which is mandatory for Holdouts. Either upgrade your SDKs or add a supported SDK."
+      mb="4"
+    />
+  );
 
   const remoteEvalAlert = hasSDKWithRemoteEval ? (
     <Callout status="info" mb="4">
@@ -375,6 +377,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
   return (
     <FormProvider {...form}>
       <PagedModal
+        useRadixButton={false}
         trackingEventModalType={trackingEventModalType}
         trackingEventModalSource={source}
         header={header}
@@ -382,7 +385,14 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
         docSection="holdouts"
         submit={onSubmit}
         cta="Save"
-        ctaEnabled={hasSDKWithPrerequisites}
+        ctaEnabled={hasSDKWithPrerequisites && hasProjectPermission}
+        disabledMessage={
+          !hasProjectPermission
+            ? !selectedProjects.length && availableProjects.length > 0
+              ? "Select a project to continue."
+              : "You don't have permission to create holdouts."
+            : undefined
+        }
         closeCta="Cancel"
         size="lg"
         step={step}
@@ -444,7 +454,11 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
                       />
                     </>
                   }
-                  placeholder="All projects"
+                  placeholder={
+                    canCreateWithoutProject
+                      ? "All projects"
+                      : "Select projects..."
+                  }
                   value={form.watch("projects") || []}
                   options={availableProjects}
                   onChange={(v) => form.setValue("projects", v)}
@@ -459,6 +473,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
                 label="Description"
                 textarea
                 minRows={1}
+                maxLength={MAX_DESCRIPTION_LENGTH}
                 {...form.register("description")}
                 placeholder={"Short human-readable description of the Holdout"}
               />
@@ -497,29 +512,50 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
             {prerequisiteAlert}
 
             <div className="mb-4">
+              <Text as="label" weight="semibold" mb="1">
+                Assign Variation by Attribute
+              </Text>
+              <Text as="div" color="text-mid" mb="2">
+                Will be hashed together with the Tracking Key to determine which
+                variation to assign
+              </Text>
               <SelectField
-                label="Assign Variation by Attribute"
+                withRadixThemedPortal
                 containerClassName="flex-1"
                 options={attributeSchema
                   .filter((s) => !hasHashAttributes || s.hashAttribute)
-                  .map((s) => ({ label: s.property, value: s.property }))}
+                  .map((s) => ({
+                    label: s.property,
+                    value: s.property,
+                    description: s.description,
+                    tags: s.tags,
+                    datatype: s.datatype,
+                    hashAttribute: s.hashAttribute,
+                  }))}
                 value={form.watch("hashAttribute") ?? ""}
                 onChange={(v) => {
                   form.setValue("hashAttribute", v);
                 }}
-                helpText={
-                  "Will be hashed together with the Tracking Key to determine which variation to assign"
-                }
+                formatOptionLabel={(o, meta) => {
+                  return (
+                    <AttributeOptionWithTooltip
+                      option={o as AttributeOptionForTooltip}
+                      context={meta.context}
+                    >
+                      {o.label}
+                    </AttributeOptionWithTooltip>
+                  );
+                }}
               />
             </div>
 
             <div>
-              <Text as="label" size="2" weight="medium">
+              <Text as="label" weight="medium" mb="1">
                 Holdout Size
-                <Text size="1" as="div" weight="regular" color="gray">
-                  Enter the percent of traffic that you would like to be in the
-                  holdout. The same amount of traffic will be in the control.
-                </Text>
+              </Text>
+              <Text as="div" color="text-mid" mb="2">
+                Enter the percent of traffic that you would like to be in the
+                holdout. The same amount of traffic will be in the control.
               </Text>
               <div
                 className={`position-relative ${variationInputStyles.percentInputWrap} ${variationInputStyles.hideArrows}`}
@@ -552,7 +588,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
         </Page>
 
         <Page display="Targeting">
-          <div className="px-2">
+          <div>
             {prerequisiteAlert}
 
             <SavedGroupTargetingField
@@ -562,7 +598,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
               }
               project={project || ""}
             />
-            <hr />
+            <Separator size="4" my="5" />
             <ConditionInput
               defaultValue={form.watch("phases.0.condition") || ""}
               onChange={(value) => form.setValue("phases.0.condition", value)}
@@ -666,6 +702,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
               collapseSecondary={true}
               goalMetricsDescription="The primary metrics you are trying to improve within this holdout. "
               filterConversionWindowMetrics={true}
+              experimentType="holdout"
             />
 
             <hr className="mt-4" />

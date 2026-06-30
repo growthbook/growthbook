@@ -1,3 +1,4 @@
+import { isFactMetric } from "../../experiments";
 import genDefaultResolver from "./resolvers/genDefaultResolver";
 import genMetricOverrideResolver from "./resolvers/genMetricOverrideResolver";
 import genDefaultSettings from "./resolvers/genDefaultSettings";
@@ -16,6 +17,10 @@ import metricTargetMDEResolver from "./resolvers/metricTargetMDEResolver";
 import postStratificationEnabledResolver from "./resolvers/postStratificationEnabledResolver";
 export * from "./types";
 export { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "../../constants";
+export {
+  DEFAULT_TOP_VALUES_LOOKBACK_VALUE,
+  DEFAULT_TOP_VALUES_LOOKBACK_UNIT,
+} from "../../constants";
 
 export const resolvers: Record<
   keyof Settings,
@@ -118,6 +123,8 @@ export const resolvers: Record<
   experimentMinLengthDays: genDefaultResolver("experimentMinLengthDays"),
   experimentMaxLengthDays: genDefaultResolver("experimentMaxLengthDays"),
   maxMetricSliceLevels: genDefaultResolver("maxMetricSliceLevels"),
+  topValuesLookbackValue: genDefaultResolver("topValuesLookbackValue"),
+  topValuesLookbackUnit: genDefaultResolver("topValuesLookbackUnit"),
   useStickyBucketing: genDefaultResolver("useStickyBucketing"),
   // TODO prior resolvers
 };
@@ -178,8 +185,11 @@ export const getScopedSettings = (
   scopes: ScopeDefinition,
 ): ScopedSettingsReturn => {
   const settings = normalizeInputSettings(scopes.organization.settings || {});
+  // Only warn for legacy metrics with a denominator (string metric ID reference).
+  // FactMetrics have denominator as a ColumnRef object, not a separate metric.
   if (
     scopes?.metric &&
+    !isFactMetric(scopes.metric) &&
     scopes.metric.denominator &&
     !scopes.denominatorMetric
   ) {

@@ -1,21 +1,7 @@
 import { useRouter } from "next/router";
-import React, { useEffect, useState, useMemo, useCallback } from "react";
-import { FeatureInterface, FeatureRule } from "shared/types/feature";
-import { FeatureCodeRefsInterface } from "shared/types/code-refs";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import {
-  filterEnvironmentsByFeature,
-  getDependentExperiments,
-  getDependentFeatures,
-  mergeRevision,
-} from "shared/util";
-import {
-  SafeRolloutInterface,
-  HoldoutInterface,
-  MinimalFeatureRevisionInterface,
-} from "shared/validators";
+import { useEffect, useRef, useState } from "react";
 import { FeatureEvalDiagnosticsQueryResponseRows } from "shared/types/integrations";
+import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import PageHead from "@/components/Layout/PageHead";
 import FeaturesHeader from "@/components/Features/FeaturesHeader";
@@ -23,16 +9,29 @@ import { useLocalStorage } from "@/hooks/useLocalStorage";
 import FeaturesOverview from "@/components/Features/FeaturesOverview";
 import FeaturesStats from "@/components/Features/FeaturesStats";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import { useEnvironments, useFeaturesList } from "@/services/features";
 import { FeatureUsageProvider } from "@/components/Features/FeatureUsageGraph";
 import FeatureTest from "@/components/Features/FeatureTest";
+import ReviewAndPublish from "@/components/Reviews/Feature/ReviewAndPublish";
 import { useAuth } from "@/services/auth";
+import { useUser } from "@/services/UserContext";
 import EditTagsForm from "@/components/Tags/EditTagsForm";
 import EditFeatureInfoModal from "@/components/Features/EditFeatureInfoModal";
-import { useExperiments } from "@/hooks/useExperiments";
 import FeatureDiagnostics from "@/components/Features/FeatureDiagnostics";
+import FeatureValidationTab from "@/components/Features/FeatureValidationTab";
+import CompareRevisionsModal from "@/components/Reviews/Feature/CompareRevisionsModal";
+import { useFeaturePageData } from "@/hooks/useFeaturePageData";
+import { useFeatureDependents } from "@/hooks/useFeatureDependents";
+import Callout from "@/ui/Callout";
+import { FeatureRevisionsContext } from "@/contexts/FeatureRevisionsContext";
 
-const featureTabs = ["overview", "stats", "test", "diagnostics"] as const;
+const featureTabs = [
+  "overview",
+  "review",
+  "stats",
+  "test",
+  "diagnostics",
+  "validation",
+] as const;
 export type FeatureTab = (typeof featureTabs)[number];
 
 export default function FeaturePage() {
@@ -42,137 +41,80 @@ export default function FeaturePage() {
   const [editProjectModal, setEditProjectModal] = useState(false);
   const [editTagsModal, setEditTagsModal] = useState(false);
   const [editFeatureInfoModal, setEditFeatureInfoModal] = useState(false);
-  const [version, setVersion] = useState<number | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [lastDisplayedVersion, setLastDisplayedVersion] = useState<
-    number | null
-  >(null);
+  const [compareRevisionsOpen, setCompareRevisionsOpen] = useState(false);
   const [diagnosticsResults, setDiagnosticsResults] = useState<Array<
     FeatureEvalDiagnosticsQueryResponseRows[number] & { id: string }
   > | null>(null);
 
+  // Clean state when feature id changes
+  useEffect(() => {
+    setDiagnosticsResults(null);
+  }, [fid]);
+
   const { apiCall } = useAuth();
+  const { userId } = useUser();
 
-  const [data, setData] = useState<{
-    feature: FeatureInterface | null;
-    revisionList: MinimalFeatureRevisionInterface[];
-    revisions: FeatureRevisionInterface[];
-    experiments: ExperimentInterfaceStringDates[];
-    safeRollouts: SafeRolloutInterface[];
-    codeRefs: FeatureCodeRefsInterface[];
-    holdout: HoldoutInterface | undefined;
-  }>({
-    feature: null,
-    revisionList: [],
-    revisions: [],
-    experiments: [],
-    safeRollouts: [],
-    codeRefs: [],
-    holdout: undefined,
-  });
+  const {
+    data,
+    error,
+    refreshData,
+    feature,
+    baseFeature,
+    revision,
+    version,
+    setVersion,
+  } = useFeaturePageData(fid, router.query.v, userId);
 
-  const baseFeature = data?.feature;
-  const baseFeatureVersion = baseFeature?.version;
-  const revisions = data?.revisions;
+  // Always reflects the current live version — read inside the post-publish
+  // callback to avoid the stale closure capture of `baseFeature.version`, which
+  // still holds the previously-live version at the time the tab rendered.
+  const liveVersionRef = useRef<number | null>(null);
+  liveVersionRef.current = baseFeature?.version ?? null;
+
+  const queryV = router.query.v;
+  useEffect(() => {
+    if (!router.isReady || queryV === undefined) return;
+    const parsed = parseInt(String(queryV), 10);
+    if (isNaN(parsed) || parsed === version) return;
+    if (data?.revisionList?.some((r) => r.version === parsed)) {
+      setVersion(parsed);
+    }
+  }, [queryV, data?.revisionList]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (version === null || !router.isReady) return;
+    if (queryV === String(version)) return;
+    const isCorrection =
+      queryV !== undefined &&
+      !data?.revisionList?.some(
+        (r) => r.version === parseInt(String(queryV), 10),
+      );
+    const method =
+      queryV === undefined || isCorrection ? router.replace : router.push;
+    // Read the live hash rather than router.asPath: review sub-tab changes
+    // update the hash via replaceState (useURLHash), which the Next router
+    // doesn't observe — asPath would resurrect a stale hash here.
+    const hash =
+      (typeof window !== "undefined"
+        ? window.location.hash.slice(1)
+        : new URL(router.asPath, "http://x").hash.slice(1)) || undefined;
+    void method(
+      {
+        pathname: router.pathname,
+        query: { ...router.query, v: version },
+        hash,
+      },
+      undefined,
+      { shallow: true },
+    );
+  }, [version]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const experiments = data?.experiments;
   const safeRollouts = data?.safeRollouts;
   const holdout = data?.holdout;
-  const [error, setError] = useState<string | null>(null);
-  const { experiments: allExperiments } = useExperiments();
+  const rampSchedules = data?.rampSchedules;
 
-  // Scope stale detection to the current feature's project
-  const { features } = useFeaturesList({
-    project: baseFeature?.project,
-    skipFetch: !baseFeature,
-  });
-  const allEnvironments = useEnvironments();
-
-  const fetchData = useCallback(
-    async (queryString = "") => {
-      const mergeArraysByKey = <T, K extends keyof T>(
-        existingArray: T[],
-        newArray: T[],
-        key: K,
-      ): T[] => {
-        const keyMap = new Map(existingArray.map((item) => [item[key], item]));
-
-        newArray.forEach((newItem) => {
-          keyMap.set(newItem[key], newItem); // Replace or add the new item
-        });
-
-        return Array.from(keyMap.values());
-      };
-
-      try {
-        setLoading(true);
-
-        const response = await apiCall<{
-          feature: FeatureInterface;
-          revisionList: MinimalFeatureRevisionInterface[];
-          revisions: FeatureRevisionInterface[];
-          experiments: ExperimentInterfaceStringDates[];
-          safeRollouts: SafeRolloutInterface[];
-          codeRefs: FeatureCodeRefsInterface[];
-          holdout: HoldoutInterface | undefined;
-        }>(`/feature/${fid}${queryString}`);
-
-        // Merge new data with existing data
-        setData((prevData) => ({
-          feature: response.feature,
-          revisionList: response.revisionList,
-          revisions: mergeArraysByKey<FeatureRevisionInterface, "version">(
-            prevData.revisions,
-            response.revisions,
-            "version",
-          ),
-          experiments: mergeArraysByKey<ExperimentInterfaceStringDates, "id">(
-            prevData.experiments,
-            response.experiments,
-            "id",
-          ),
-          safeRollouts: mergeArraysByKey<SafeRolloutInterface, "id">(
-            prevData.safeRollouts,
-            response.safeRollouts,
-            "id",
-          ),
-          codeRefs: response.codeRefs,
-          holdout: response.holdout,
-        }));
-        setError(null);
-      } catch (err) {
-        setError(err.message || "An error occurred while fetching data.");
-      } finally {
-        setLoading(false);
-      }
-    },
-    [fid, apiCall], // Dependencies of fetchData
-  );
-
-  // Fetch data on initial load and when the version changes if the version is not in revisions
-  useEffect(() => {
-    let extraQueryString = "";
-    if (version) {
-      extraQueryString = `?v=${version}`;
-      if (revisions.some((r) => r.version === version)) {
-        return;
-      }
-    } else {
-      // If no version is set, the page just loaded and we want to fetch the data for the first time
-      // Though fetchData will set the revsions, so to avoid fetching twice on page load we check
-      // whether fetchData has already been called by checking if revisions exist
-      if (revisions && revisions.length > 0) {
-        return;
-      }
-      // Version being forced via querystring
-      if ("v" in router.query) {
-        const v = parseInt(router.query.v as string);
-        if (v) {
-          extraQueryString = `?v=${v}`;
-        }
-      }
-    }
-    fetchData(extraQueryString);
-  }, [fid, version, revisions, router, fetchData]);
+  const { dependents: dependentsData } = useFeatureDependents(baseFeature?.id);
 
   const [tab, setTab] = useLocalStorage<FeatureTab>(
     `tabbedPageTab__${fid}`,
@@ -181,225 +123,199 @@ export default function FeaturePage() {
 
   const setTabAndScroll = (tab: FeatureTab) => {
     setTab(tab);
-    const newUrl = window.location.href.replace(/#.*/, "") + "#" + tab;
-    if (newUrl === window.location.href) return;
-    router.push(newUrl, undefined, { shallow: true });
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth",
-    });
+    void router.push(
+      { pathname: router.pathname, query: router.query, hash: tab },
+      undefined,
+      { shallow: true },
+    );
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   useEffect(() => {
-    const handler = () => {
-      const hash = window.location.hash.replace(/^#/, "") as FeatureTab;
-      if (featureTabs.includes(hash)) {
-        setTab(hash);
-      }
-    };
-    handler();
-    window.addEventListener("hashchange", handler, false);
-    return () => window.removeEventListener("hashchange", handler, false);
-  }, [setTab]);
-
-  // Set the initial version (once we have the data) based on the query string or the active draft
-  useEffect(() => {
-    if (!revisions || !baseFeatureVersion) return;
-    if (version) return;
-
-    // Version being forced via querystring
-    if ("v" in router.query) {
-      const v = parseInt(router.query.v as string);
-      if (v && revisions.some((r) => r.version === v)) {
-        setVersion(v);
-        return;
-      }
+    // The review tab encodes a sub-tab after a comma (`#review,changes`);
+    // only the first segment selects the page-level tab.
+    const hash = (new URL(router.asPath, "http://x").hash
+      .slice(1)
+      .split(",")[0] || undefined) as FeatureTab | undefined;
+    if (hash && featureTabs.includes(hash)) {
+      setTab(hash);
     }
+  }, [router.asPath]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // If there's an active draft, show that by default, otherwise show the live version
-    const draft = revisions.find(
-      (r) =>
-        r.status === "draft" ||
-        r.status === "approved" ||
-        r.status === "changes-requested" ||
-        r.status === "pending-review",
-    );
-    setVersion(draft ? draft.version : baseFeatureVersion);
-  }, [revisions, version, router.query, baseFeatureVersion]);
-
-  const environments = useMemo(
-    () =>
-      baseFeature
-        ? filterEnvironmentsByFeature(allEnvironments, baseFeature)
-        : [],
-    [allEnvironments, baseFeature],
-  );
-  const envs = environments.map((e) => e.id);
-
-  const revision = useMemo<FeatureRevisionInterface | null>(() => {
-    if (!revisions || !version || !baseFeature) return null;
-    const match = revisions.find((r) => r.version === version);
-    if (match) {
-      setLastDisplayedVersion(match.version);
-      return match;
-    } else if (lastDisplayedVersion) {
-      // Keep showing the most recently displayed version until the data is fetched
-      const lastMatch = revisions.find(
-        (r) => r.version === lastDisplayedVersion,
-      );
-      if (lastMatch) {
-        return lastMatch;
-      }
-    }
-
-    // If we can't find the revision, create a dummy revision just so the page can render
-    // This is for old features that don't have any revision history saved
-    const rules: Record<string, FeatureRule[]> = {};
-    environments.forEach((env) => {
-      rules[env.id] = baseFeature.environmentSettings?.[env.id]?.rules || [];
-    });
-    return {
-      baseVersion: baseFeature.version,
-      comment: "",
-      createdBy: null,
-      dateCreated: baseFeature.dateCreated,
-      datePublished: baseFeature.dateCreated,
-      dateUpdated: baseFeature.dateUpdated,
-      defaultValue: baseFeature.defaultValue,
-      featureId: baseFeature.id,
-      organization: baseFeature.organization,
-      publishedBy: null,
-      rules: rules,
-      status: "published",
-      version: baseFeature.version,
-      prerequisites: baseFeature.prerequisites || [],
-    };
-  }, [revisions, version, environments, baseFeature, lastDisplayedVersion]);
-
-  const feature = useMemo(() => {
-    if (!revision || !baseFeature) return null;
-    return revision.version !== baseFeature.version
-      ? mergeRevision(
-          baseFeature,
-          revision,
-          environments.map((e) => e.id),
-        )
-      : baseFeature;
-  }, [baseFeature, revision, environments]);
-
-  // note: project-scoped dependents by default
-  const dependentFeatures = useMemo(() => {
-    if (!feature || !features) return [];
-    return getDependentFeatures(feature, features, envs);
-  }, [feature, features, envs]);
-
-  const dependentExperiments = useMemo(() => {
-    if (!feature || !allExperiments) return [];
-    return getDependentExperiments(feature, allExperiments);
-  }, [feature, allExperiments]);
-
-  const dependents = dependentFeatures.length + dependentExperiments.length;
+  const dependents =
+    (dependentsData?.features.length ?? 0) +
+    (dependentsData?.experiments.length ?? 0);
 
   if (error) {
-    return <div className="alert alert-danger">An error occurred: {error}</div>;
+    return <Callout status="error">An error occurred: {error.message}</Callout>;
   }
 
   if (!data || !feature || !revision || !baseFeature) {
     return <LoadingOverlay />;
   }
 
+  const viewingDraft = (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(
+    revision.status,
+  );
+  const viewingLive = revision.version === feature.version;
+
   return (
-    <FeatureUsageProvider feature={feature}>
-      <PageHead
-        breadcrumb={[
-          { display: "Features", href: "/features" },
-          { display: feature.id },
-        ]}
-      />
-      <FeaturesHeader
-        feature={feature}
-        features={features}
-        experiments={experiments}
-        mutate={() => fetchData()}
-        tab={tab}
-        setTab={setTabAndScroll}
-        setEditFeatureInfoModal={setEditFeatureInfoModal}
-        holdout={holdout}
-        dependentExperiments={dependentExperiments}
-      />
-
-      {tab === "overview" && (
-        <FeaturesOverview
-          baseFeature={baseFeature}
+    <FeatureRevisionsContext.Provider
+      value={{
+        revisions: data.revisions,
+        baseFeature,
+        currentVersion: version ?? baseFeature.version,
+      }}
+    >
+      <FeatureUsageProvider feature={feature}>
+        <PageHead
+          breadcrumb={[
+            { display: "Features", href: "/features" },
+            { display: feature.id },
+          ]}
+        />
+        <FeaturesHeader
           feature={feature}
-          revision={revision}
-          revisionList={data.revisionList}
-          loading={loading}
-          revisions={data.revisions}
-          experiments={experiments}
-          safeRollouts={safeRollouts}
+          mutate={refreshData}
+          setVersion={setVersion}
+          version={version}
+          revisions={data.revisionList || []}
+          tab={tab}
+          setTab={setTabAndScroll}
+          setEditFeatureInfoModal={setEditFeatureInfoModal}
           holdout={holdout}
-          mutate={() => fetchData()}
-          editProjectModal={editProjectModal}
-          setEditProjectModal={setEditProjectModal}
-          version={version}
-          setVersion={setVersion}
+          isReadOnly={
+            revision.status === "discarded" ||
+            (revision.status === "published" &&
+              revision.version !== feature.version)
+          }
+          onCompareRevisions={
+            (data.revisionList?.length ?? 0) >= 2
+              ? () => setCompareRevisionsOpen(true)
+              : undefined
+          }
         />
-      )}
 
-      {tab === "test" && (
-        <FeatureTest
-          baseFeature={baseFeature}
-          feature={feature}
-          revision={revision}
-          revisions={data.revisionList}
-          version={version}
-          setVersion={setVersion}
-        />
-      )}
+        {tab === "overview" && (
+          <FeaturesOverview
+            baseFeature={baseFeature}
+            feature={feature}
+            revision={revision}
+            revisionList={data.revisionList}
+            revisions={data.revisions}
+            experiments={experiments}
+            safeRollouts={safeRollouts}
+            holdout={holdout}
+            rampSchedules={rampSchedules}
+            mutate={refreshData}
+            editProjectModal={editProjectModal}
+            setEditProjectModal={setEditProjectModal}
+            version={version}
+            setVersion={setVersion}
+            setTab={setTabAndScroll}
+          />
+        )}
 
-      {tab === "stats" && (
-        <FeaturesStats orgSettings={orgSettings} codeRefs={data.codeRefs} />
-      )}
+        {tab === "review" && (
+          <ReviewAndPublish
+            feature={baseFeature}
+            revisions={data.revisions}
+            revisionList={data.revisionList || []}
+            version={version ?? baseFeature.version}
+            setVersion={setVersion}
+            experiments={experiments}
+            rampSchedules={rampSchedules}
+            mutate={refreshData}
+            onPublish={() => {
+              setTimeout(() => {
+                if (liveVersionRef.current !== null) {
+                  setVersion(liveVersionRef.current);
+                }
+              }, 300);
+            }}
+            onCompareRevisions={
+              (data.revisionList?.length ?? 0) >= 2
+                ? () => setCompareRevisionsOpen(true)
+                : undefined
+            }
+          />
+        )}
 
-      {tab === "diagnostics" && (
-        <FeatureDiagnostics
-          feature={feature}
-          results={diagnosticsResults}
-          setResults={setDiagnosticsResults}
-        />
-      )}
+        {tab === "test" && (
+          <FeatureTest
+            baseFeature={baseFeature}
+            feature={feature}
+            revision={revision}
+            version={version}
+          />
+        )}
 
-      {editTagsModal && (
-        <EditTagsForm
-          tags={feature.tags || []}
-          save={async (tags) => {
-            await apiCall(`/feature/${feature.id}`, {
-              method: "PUT",
-              body: JSON.stringify({ tags }),
-            });
-          }}
-          cancel={() => setEditTagsModal(false)}
-          mutate={() => fetchData()}
-        />
-      )}
+        {tab === "stats" && (
+          <FeaturesStats orgSettings={orgSettings} codeRefs={data.codeRefs} />
+        )}
 
-      {editFeatureInfoModal && (
-        <EditFeatureInfoModal
-          resourceType="feature"
-          source="feature-header"
-          dependents={dependents}
-          feature={feature}
-          save={async (updates) => {
-            await apiCall(`/feature/${feature.id}`, {
-              method: "PUT",
-              body: JSON.stringify({ ...updates }),
-            });
-          }}
-          cancel={() => setEditFeatureInfoModal(false)}
-          mutate={() => fetchData()}
-        />
-      )}
-    </FeatureUsageProvider>
+        {tab === "diagnostics" && (
+          <FeatureDiagnostics
+            feature={feature}
+            results={diagnosticsResults}
+            setResults={setDiagnosticsResults}
+          />
+        )}
+
+        {tab === "validation" && (
+          <FeatureValidationTab
+            feature={feature}
+            revision={revision}
+            mutate={refreshData}
+            setVersion={setVersion}
+            revisionList={data.revisionList}
+          />
+        )}
+
+        {editTagsModal && (
+          <EditTagsForm
+            tags={feature.tags || []}
+            save={async (tags) => {
+              await apiCall(`/feature/${feature.id}`, {
+                method: "PUT",
+                body: JSON.stringify({ tags }),
+              });
+            }}
+            cancel={() => setEditTagsModal(false)}
+            mutate={refreshData}
+          />
+        )}
+
+        {compareRevisionsOpen && (
+          <CompareRevisionsModal
+            feature={feature}
+            baseFeature={baseFeature}
+            revisionList={data.revisionList || []}
+            revisions={data.revisions}
+            currentVersion={version ?? feature.version}
+            onClose={() => setCompareRevisionsOpen(false)}
+            initialPreviewDraft={
+              viewingDraft ? (version ?? undefined) : undefined
+            }
+            initialMode={
+              viewingLive && !viewingDraft ? "most-recent-live" : undefined
+            }
+            rampSchedules={rampSchedules}
+          />
+        )}
+
+        {editFeatureInfoModal && (
+          <EditFeatureInfoModal
+            source="feature-header"
+            dependents={dependents}
+            feature={feature}
+            revisionList={data.revisionList || []}
+            cancel={() => setEditFeatureInfoModal(false)}
+            mutate={refreshData}
+            setVersion={setVersion}
+          />
+        )}
+      </FeatureUsageProvider>
+    </FeatureRevisionsContext.Provider>
   );
 }

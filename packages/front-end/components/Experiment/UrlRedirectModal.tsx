@@ -1,14 +1,14 @@
 import { FC, useState } from "react";
 import { useForm } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { getLatestPhaseVariations } from "shared/experiments";
 import { isURLTargeted } from "@growthbook/growthbook";
 import { FaExclamationCircle } from "react-icons/fa";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import { URLRedirectInterface } from "shared/types/url-redirect";
 import clsx from "clsx";
 import { FaTriangleExclamation } from "react-icons/fa6";
-import { Box, Flex } from "@radix-ui/themes";
-import { PiArrowSquareOutFill } from "react-icons/pi";
+import { Flex } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import Field from "@/components/Forms/Field";
@@ -16,8 +16,7 @@ import Modal from "@/components/Modal";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { DocLink } from "@/components/DocLink";
 import Checkbox from "@/ui/Checkbox";
-import Callout from "@/ui/Callout";
-import Link from "@/ui/Link";
+import SDKCapabilityWarning from "@/components/Features/SDKCapabilityWarning";
 
 function validateUrl(urlString: string): {
   isValid: boolean;
@@ -62,11 +61,6 @@ const UrlRedirectModal: FC<{
     connections: sdkConnectionsData?.connections ?? [],
     project: experiment.project ?? "",
   }).includes("redirects");
-  const hasSDKWithNoRedirects = getConnectionsSDKCapabilities({
-    connections: sdkConnectionsData?.connections ?? [],
-    project: experiment.project ?? "",
-    mustMatchAllConnections: true,
-  }).includes("redirects");
 
   const form = useForm({
     defaultValues: {
@@ -85,7 +79,9 @@ const UrlRedirectModal: FC<{
     form.watch("originUrl")
       ? form.watch("destinationUrls").map((u) => !!u)
       : () => {
-          const initialArray = Array(experiment.variations.length).fill(true);
+          const initialArray = Array(
+            getLatestPhaseVariations(experiment).length,
+          ).fill(true);
           initialArray[0] = false;
           return initialArray;
         },
@@ -94,7 +90,7 @@ const UrlRedirectModal: FC<{
   const onSubmit = form.handleSubmit(async (value) => {
     const payload = {
       urlPattern: value.originUrl,
-      destinationURLs: experiment.variations.map((v, i) => {
+      destinationURLs: getLatestPhaseVariations(experiment).map((v, i) => {
         return {
           variation: v.id,
           url: value.destinationUrls[i],
@@ -135,6 +131,7 @@ const UrlRedirectModal: FC<{
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType="url-redirect-modal"
       trackingEventModalSource={source}
       autoCloseOnSubmit={false}
@@ -152,25 +149,12 @@ const UrlRedirectModal: FC<{
       ctaEnabled={hasSDKWithRedirects}
     >
       <div className="mx-3">
-        {hasSDKWithNoRedirects ? (
-          <Callout status={hasSDKWithRedirects ? "warning" : "error"}>
-            <Box as="span" pr="1">
-              {hasSDKWithRedirects
-                ? "Some of your SDK Connections in this project may not support URL Redirects."
-                : "None of your SDK Connections in this project support URL Redirects. Either upgrade your SDKs or add a supported SDK."}
-              <Link
-                href={"/sdks"}
-                weight="bold"
-                className="pl-2"
-                rel="noreferrer"
-                target="_blank"
-              >
-                View SDKs
-                <PiArrowSquareOutFill className="ml-1" />
-              </Link>
-            </Box>
-          </Callout>
-        ) : null}
+        <SDKCapabilityWarning
+          capability="redirects"
+          project={experiment.project ?? ""}
+          someMessage="Some of your SDK Connections in this project may not support URL Redirects."
+          noneMessage="None of your SDK Connections in this project support URL Redirects. Either upgrade your SDKs or add a supported SDK."
+        />
 
         <div className="d-flex align-items-baseline mt-3">
           <h4>Original URL</h4>
@@ -206,7 +190,7 @@ const UrlRedirectModal: FC<{
         <hr className="mt-4 mb-3" />
         <div className="mt-3">
           <h4>Destination URLs</h4>
-          {experiment.variations.map((v, i) => {
+          {getLatestPhaseVariations(experiment).map((v, i) => {
             let warning: string | JSX.Element | undefined;
             const destinationMatchesOrigin =
               !!form.watch("originUrl") &&
@@ -239,8 +223,10 @@ const UrlRedirectModal: FC<{
                   <>
                     Destination URL has query parameters the original URL does
                     not have. See{" "}
-                    <DocLink docSection="url_redirects">our docs</DocLink> for
-                    more info on how to handle this kind of redirect.
+                    <DocLink useRadix={false} docSection="url_redirects">
+                      our docs
+                    </DocLink>{" "}
+                    for more info on how to handle this kind of redirect.
                   </>
                 );
               }
@@ -250,7 +236,7 @@ const UrlRedirectModal: FC<{
 
             return (
               <div
-                className={`mb-4 variation with-variation-label variation${i}`}
+                className={`mb-4 variation with-variation-label variation${v.index}`}
                 key={v.key}
               >
                 <div className="d-flex align-items-baseline">

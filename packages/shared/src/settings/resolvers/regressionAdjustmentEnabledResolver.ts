@@ -1,4 +1,4 @@
-import { isBinomialMetric, isFactMetric } from "../../experiments";
+import { isBinomialMetric, isFactMetric } from "../../experiments/experiments";
 import { Settings, SettingsContext, SettingsResolver } from "../types";
 
 const regressionAdjustmentResolver = (

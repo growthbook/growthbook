@@ -1,16 +1,10 @@
-import { FC, useEffect, useState } from "react";
+import { FC, useState } from "react";
 import { SAVED_GROUP_SIZE_LIMIT_BYTES } from "shared/util";
-import {
-  FaCheckCircle,
-  FaExclamationTriangle,
-  FaRetweet,
-} from "react-icons/fa";
+import { FaCheckCircle, FaExclamationTriangle } from "react-icons/fa";
 import clsx from "clsx";
 import { Container, Text } from "@radix-ui/themes";
-import Field from "@/components/Forms/Field";
 import StringArrayField from "@/components/Forms/StringArrayField";
 import RadioGroup from "@/ui/RadioGroup";
-import Link from "@/ui/Link";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Checkbox from "@/ui/Checkbox";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -38,12 +32,6 @@ export const IdListItemInput: FC<{
   const { canBypassSavedGroupSizeLimit } = usePermissionsUtil();
   const { savedGroupSizeLimit } = useOrgSettings();
 
-  const [rawTextMode, setRawTextMode] = useState(false);
-  const [rawText, setRawText] = useState(values.join(", ") || "");
-  useEffect(() => {
-    setRawText(values.join(","));
-  }, [values]);
-
   const [importMethod, setImportMethod] = useState("file");
   const [numValuesToImport, setNumValuesToImport] = useState<number | null>(
     null,
@@ -51,7 +39,7 @@ export const IdListItemInput: FC<{
   const [fileName, setFileName] = useState("");
   const [fileErrorMessage, setFileErrorMessage] = useState("");
 
-  const { unsupportedConnections, hasLargeSavedGroupFeature } =
+  const { unsupportedConnections, hasLargeSavedGroupFeature, connections } =
     useLargeSavedGroupSupport();
 
   const resetFile = () => {
@@ -67,6 +55,7 @@ export const IdListItemInput: FC<{
         openUpgradeModal={openUpgradeModal}
         hasLargeSavedGroupFeature={hasLargeSavedGroupFeature}
         unsupportedConnections={unsupportedConnections}
+        connections={connections}
       />
       <label className="form-group font-weight-bold">
         Choose how to enter items for this group:
@@ -194,49 +183,19 @@ export const IdListItemInput: FC<{
         </>
       )}
       {importMethod === "values" && (
-        <>
-          {rawTextMode ? (
-            <Field
-              containerClassName="mb-0"
-              label="List values to include"
-              labelClassName="font-weight-bold"
-              required
-              textarea
-              value={rawText}
-              placeholder="Use commas to separate values"
-              minRows={1}
-              onChange={(e) => {
-                if (e.target.value === "") {
-                  setValues([]);
-                } else {
-                  setValues(e.target.value.split(",").map((val) => val.trim()));
-                }
-              }}
-            />
-          ) : (
-            <StringArrayField
-              containerClassName="mb-0"
-              label="List Values to Include"
-              labelClassName="font-weight-bold"
-              value={values}
-              onChange={(values) => {
-                setValues(values);
-              }}
-              placeholder="Separate values using the 'Enter' key"
-              delimiters={["Enter", "Tab"]}
-            />
-          )}
-          <div className="row justify-content-end mr-0">
-            <Link
-              onClick={(e) => {
-                e.preventDefault();
-                setRawTextMode((prev) => !prev);
-              }}
-            >
-              <FaRetweet /> Switch to {rawTextMode ? "Token" : "Raw Text"} Mode
-            </Link>
-          </div>
-        </>
+        <StringArrayField
+          containerClassName="mb-0"
+          label="List Values to Include"
+          labelClassName="font-weight-bold"
+          value={values}
+          onChange={setValues}
+          placeholder="Separate values using the 'Enter' key"
+          delimiters={["Enter", "Tab"]}
+          enableRawTextMode
+          removeDuplicates={false}
+          showCopyButton={false}
+          required
+        />
       )}
     </>
   );

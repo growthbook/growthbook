@@ -6,6 +6,7 @@ import {
   useCallback,
   ReactNode,
 } from "react";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import {
   DataSourceInterfaceWithParams,
   SchemaFormat,
@@ -13,7 +14,6 @@ import {
 import { useForm } from "react-hook-form";
 import { isDemoDatasourceProject } from "shared/demo-datasource";
 import { FaExternalLinkAlt } from "react-icons/fa";
-import { useGrowthBook } from "@growthbook/growthbook-react";
 import { Text } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
@@ -81,7 +81,6 @@ const NewDataSourceForm: FC<{
   const permissionsUtil = usePermissionsUtil();
   const { apiCall, orgId } = useAuth();
   const { license } = useUser();
-  const gb = useGrowthBook();
 
   const settings = useOrgSettings();
   const { metricDefaults } = useOrganizationMetricDefaults();
@@ -112,8 +111,7 @@ const NewDataSourceForm: FC<{
   const showManagedWarehouse =
     isCloud() &&
     !datasources.some((d) => d.type === "growthbook_clickhouse") &&
-    (!license || !!license?.orbSubscription) &&
-    gb.isOn("inbuilt-data-warehouse");
+    (!license || !!license?.orbSubscription);
 
   const [managedWarehouseOpen, setManagedWarehouseOpen] = useState(false);
 
@@ -206,7 +204,7 @@ const NewDataSourceForm: FC<{
 
   let ctaEnabled = true;
   let disabledMessage: string | null = null;
-  if (!permissionsUtil.canViewCreateDataSourceModal(project)) {
+  if (!permissionsUtil.canViewCreateDataSourceModal(project, projects)) {
     ctaEnabled = false;
     disabledMessage = "You don't have permission to create data sources.";
   }
@@ -342,7 +340,10 @@ const NewDataSourceForm: FC<{
       return;
     }
 
-    const resources = getInitialDatasourceResources({ datasource: ds });
+    const resources = getInitialDatasourceResources({
+      datasource: ds,
+      attributeSchema: settings.attributeSchema,
+    });
     if (!resources.factTables.length) {
       setCreatingResources(false);
       return;
@@ -480,7 +481,7 @@ const NewDataSourceForm: FC<{
             <Callout status="info" mt="3">
               Don&apos;t have a data warehouse yet? We recommend using BigQuery
               with Google Analytics.{" "}
-              <DocLink docSection="ga4BigQuery">
+              <DocLink useRadix={false} docSection="ga4BigQuery">
                 Learn more <FaExternalLinkAlt />
               </DocLink>
             </Callout>
@@ -582,7 +583,7 @@ const NewDataSourceForm: FC<{
                 or{" "}
               </>
             ) : null}
-            <DocLink docSection={datasourceInfo.docs}>
+            <DocLink useRadix={false} docSection={datasourceInfo.docs}>
               {datasourceInfo.display} to GrowthBook <FaExternalLinkAlt />
             </DocLink>{" "}
           </Callout>
@@ -604,6 +605,7 @@ const NewDataSourceForm: FC<{
           <label>Description</label>
           <textarea
             className="form-control"
+            maxLength={MAX_DESCRIPTION_LENGTH}
             name="description"
             onChange={onChange}
             value={connectionInfo.description}
@@ -745,6 +747,7 @@ const NewDataSourceForm: FC<{
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       open={true}
       header={"Add Data Source"}

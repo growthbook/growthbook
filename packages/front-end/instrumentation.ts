@@ -12,6 +12,7 @@ export async function register() {
         dsn: sentryDsn,
         sendDefaultPii: true,
         environment: process.env.NODE_ENV || "development",
+        release: process.env.DD_VERSION || undefined,
       });
     }
   }

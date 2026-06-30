@@ -1,4 +1,4 @@
-import { PostVisualChangeResponse } from "shared/types/openapi";
+import uniqid from "uniqid";
 import { postVisualChangeValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
@@ -8,7 +8,7 @@ import {
 
 export const postVisualChange = createApiRequestHandler(
   postVisualChangeValidator,
-)(async (req): Promise<PostVisualChangeResponse> => {
+)(async (req) => {
   const experiment = await findExperimentByVisualChangesetId(
     req.context,
     req.params.id,
@@ -22,11 +22,15 @@ export const postVisualChange = createApiRequestHandler(
     req.context.permissions.throwPermissionError();
   }
 
-  const res = await createVisualChange(
-    req.params.id,
-    req.organization.id,
-    req.body,
-  );
+  const visualChangeId = req.body.id ?? uniqid("vc_");
 
-  return res;
+  const res = await createVisualChange(req.params.id, req.organization.id, {
+    ...req.body,
+    id: visualChangeId,
+    description: req.body.description ?? "",
+    css: req.body.css ?? "",
+    domMutations: req.body.domMutations ?? [],
+  });
+
+  return { ...res, visualChangeId };
 });

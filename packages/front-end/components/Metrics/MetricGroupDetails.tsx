@@ -18,8 +18,8 @@ import {
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { CSS } from "@dnd-kit/utilities";
 import { GrDrag } from "react-icons/gr";
-import Link from "next/link";
 import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
+import Link from "@/ui/Link";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useAuth } from "@/services/auth";
 //import track from "@/services/track";
@@ -273,6 +273,7 @@ function MetricRow({
       </td>
       <td style={{ width: "3%" }}>
         <DeleteButton
+          useRadix={false}
           className="dropdown-item text-danger"
           displayName="Metric from Group"
           deleteMessage="Remove this metric from the group?"

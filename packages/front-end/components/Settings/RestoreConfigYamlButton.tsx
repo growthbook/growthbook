@@ -54,7 +54,7 @@ export default function RestoreConfigYamlButton({
 
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState(0);
-  const [parsed, setParsed] = useState(null);
+  const [parsed, setParsed] = useState<object | null>(null);
   const [diffHTML, setDiffHTML] = useState("");
 
   const { apiCall } = useAuth();
@@ -240,6 +240,7 @@ export default function RestoreConfigYamlButton({
     <div>
       {open && (
         <PagedModal
+          useRadixButton={false}
           trackingEventModalType="import-settings-config-yaml"
           close={() => setOpen(false)}
           header="Import from config.yml"

@@ -8,17 +8,30 @@ import {
   RowFilter,
 } from "shared/types/fact-table";
 import { ExposureQuery } from "shared/types/datasource";
+import { SqlDialect } from "shared/types/sql";
+import { getRowFilterSQL } from "shared/experiments";
 import BigQuery from "back-end/src/integrations/BigQuery";
-import { factTableFactory } from "./factories/FactTable.factory";
+import Snowflake from "back-end/src/integrations/Snowflake";
+import { bigQueryDialect } from "back-end/src/integrations/dialects/bigquery";
+import { mysqlDialect } from "back-end/src/integrations/dialects/mysql";
+import { clickHouseDialect } from "back-end/src/integrations/dialects/clickhouse";
+import { snowflakeDialect } from "back-end/src/integrations/dialects/snowflake";
+import { redshiftDialect } from "back-end/src/integrations/dialects/redshift";
+import { databricksDialect } from "back-end/src/integrations/dialects/databricks";
+import { mssqlDialect } from "back-end/src/integrations/dialects/mssql";
+import { postgresDialect } from "back-end/src/integrations/dialects/postgres";
+import { verticaDialect } from "back-end/src/integrations/dialects/vertica";
+import { addCaseWhenTimeFilter } from "back-end/src/integrations/sql/clauses/add-case-when-time-filter";
+import { getAggregateMetricColumnLegacyMetrics } from "back-end/src/integrations/sql/columns/aggregate-metric-column-legacy-metrics";
+import { getMaxHoursToConvert } from "back-end/src/integrations/sql/dates/max-hours-to-convert";
+import { getFactMetricCTE } from "back-end/src/integrations/sql/ctes/fact-metric-cte";
+import { getExperimentFactMetricsQuery } from "back-end/src/integrations/sql/queries/experiment-fact-metrics-query";
+import { N_STAR_VALUES } from "back-end/src/services/experimentQueries/constants";
+import { getFeatureEvalDiagnosticsQuery } from "back-end/src/integrations/sql/queries/feature-eval-diagnostics-query";
 import { factMetricFactory } from "./factories/FactMetric.factory";
+import { factTableFactory } from "./factories/FactTable.factory";
 
 describe("bigquery integration", () => {
-  let bqIntegration: BigQuery;
-  beforeEach(() => {
-    // @ts-expect-error -- context not needed for test
-    bqIntegration = new BigQuery("", {});
-  });
-
   it("builds the correct aggregate metric column", () => {
     const baseMetric: MetricInterface = {
       datasource: "",
@@ -84,7 +97,7 @@ describe("bigquery integration", () => {
     // builder metrics not tested
 
     expect(
-      bqIntegration["addCaseWhenTimeFilter"]({
+      addCaseWhenTimeFilter(bigQueryDialect, {
         col: "val",
         metric: normalSqlMetric,
         overrideConversionWindows: false,
@@ -97,11 +110,11 @@ describe("bigquery integration", () => {
     );
 
     const date = new Date();
-    const endDateFilter = `AND m.timestamp <= ${bqIntegration["toTimestamp"](
+    const endDateFilter = `AND m.timestamp <= ${bigQueryDialect.toTimestamp(
       date,
     )}`;
     expect(
-      bqIntegration["addCaseWhenTimeFilter"]({
+      addCaseWhenTimeFilter(bigQueryDialect, {
         col: "val",
         metric: normalSqlMetric,
         overrideConversionWindows: true,
@@ -114,17 +127,17 @@ describe("bigquery integration", () => {
     );
 
     expect(
-      bqIntegration["getAggregateMetricColumnLegacyMetrics"]({
+      getAggregateMetricColumnLegacyMetrics(bigQueryDialect, {
         metric: customNumberAggMetric,
       }),
     ).toEqual("(CASE WHEN value IS NOT NULL THEN 33 ELSE 0 END)");
     expect(
-      bqIntegration["getAggregateMetricColumnLegacyMetrics"]({
+      getAggregateMetricColumnLegacyMetrics(bigQueryDialect, {
         metric: customCountAgg,
       }),
     ).toEqual("COUNT(value) / (5 + COUNT(value))");
     expect(
-      bqIntegration["getAggregateMetricColumnLegacyMetrics"]({
+      getAggregateMetricColumnLegacyMetrics(bigQueryDialect, {
         metric: normalSqlMetric,
       }),
     ).toEqual("SUM(COALESCE(value, 0))");
@@ -212,13 +225,11 @@ describe("bigquery integration", () => {
     };
 
     // standard metric
-    expect(
-      bqIntegration["getMaxHoursToConvert"](false, [numeratorMetric], null),
-    ).toEqual(20);
+    expect(getMaxHoursToConvert(false, [numeratorMetric], null)).toEqual(20);
 
     // funnel metric
     expect(
-      bqIntegration["getMaxHoursToConvert"](
+      getMaxHoursToConvert(
         true,
         [denominatorBinomialMetric].concat([numeratorMetric]),
         null,
@@ -227,7 +238,7 @@ describe("bigquery integration", () => {
 
     // ratio metric
     expect(
-      bqIntegration["getMaxHoursToConvert"](
+      getMaxHoursToConvert(
         false,
         [denominatorCountMetric].concat([numeratorMetric]),
         null,
@@ -236,7 +247,7 @@ describe("bigquery integration", () => {
 
     // ratio metric activated
     expect(
-      bqIntegration["getMaxHoursToConvert"](
+      getMaxHoursToConvert(
         false,
         [denominatorCountMetric].concat([numeratorMetric]),
         activationMetric,
@@ -245,9 +256,174 @@ describe("bigquery integration", () => {
   });
 
   it("escape single quotes and backslash correctly", () => {
-    expect(bqIntegration["escapeStringLiteral"](`test\\'string`)).toEqual(
+    expect(bigQueryDialect.escapeStringLiteral(`test\\'string`)).toEqual(
       `test\\\\\\'string`,
     );
+  });
+
+  it("escapes backslash and single quotes for MySQL", () => {
+    expect(mysqlDialect.escapeStringLiteral(`test\\'string`)).toEqual(
+      `test\\\\''string`,
+    );
+  });
+
+  it("escapes backslash and single quotes for ClickHouse", () => {
+    expect(clickHouseDialect.escapeStringLiteral(`test\\'string`)).toEqual(
+      `test\\\\''string`,
+    );
+  });
+
+  it("escapes backslash and single quotes for Snowflake", () => {
+    expect(snowflakeDialect.escapeStringLiteral(`test\\'string`)).toEqual(
+      `test\\\\''string`,
+    );
+  });
+
+  it("escapes backslash and single quotes for Redshift", () => {
+    expect(redshiftDialect.escapeStringLiteral(`test\\'string`)).toEqual(
+      `test\\\\''string`,
+    );
+  });
+
+  describe("ClickHouse jsonExtract JSON path quoting", () => {
+    it("backtick-quotes a native-JSON key that isn't a safe identifier", () => {
+      const sql = clickHouseDialect.jsonExtract(
+        "attributes",
+        "company id",
+        false,
+      );
+      expect(sql).toContain("attributes.`company id`::Nullable(String)");
+      // Fallback (String column) branch still passes the raw key as a literal.
+      expect(sql).toContain("JSONExtractString(attributes, 'company id')");
+    });
+
+    it("leaves a safe identifier key unquoted", () => {
+      const sql = clickHouseDialect.jsonExtract(
+        "attributes",
+        "company_id",
+        false,
+      );
+      expect(sql).toContain("attributes.company_id::Nullable(String)");
+    });
+
+    it("quotes the key in the numeric branch too", () => {
+      const sql = clickHouseDialect.jsonExtract(
+        "attributes",
+        "company id",
+        true,
+      );
+      expect(sql).toContain(
+        "toFloat64OrNull(attributes.`company id`::Nullable(String))",
+      );
+    });
+
+    it("escapes backticks within a key", () => {
+      const sql = clickHouseDialect.jsonExtract("attributes", "a`b", false);
+      expect(sql).toContain("attributes.`a``b`::Nullable(String)");
+    });
+  });
+
+  describe("LIKE row filters with real dialects", () => {
+    const factTable = factTableFactory.build({
+      columns: [
+        {
+          column: "event_name",
+          datatype: "string",
+          dateCreated: new Date(),
+          dateUpdated: new Date(),
+          description: "",
+          numberFormat: "",
+          name: "Event Name",
+          deleted: false,
+        },
+      ],
+    });
+
+    const likeSQL = (dialect: SqlDialect, value: string) =>
+      getRowFilterSQL({
+        factTable,
+        rowFilter: {
+          column: "event_name",
+          operator: "starts_with",
+          values: [value],
+        },
+        escapeStringLiteral: dialect.escapeStringLiteral,
+        jsonExtract: dialect.jsonExtract,
+        evalBoolean: dialect.evalBoolean,
+        stringMatch: dialect.stringMatch,
+      });
+
+    it("emits a valid BigQuery pattern with no ESCAPE clause", () => {
+      expect(likeSQL(bigQueryDialect, "foo_bar")).toEqual(
+        String.raw`(event_name LIKE 'foo\\_bar%')`,
+      );
+    });
+
+    it("emits a valid ClickHouse pattern with no ESCAPE clause", () => {
+      expect(likeSQL(clickHouseDialect, "foo_bar")).toEqual(
+        String.raw`(event_name LIKE 'foo\\_bar%')`,
+      );
+    });
+
+    it("emits a Snowflake pattern with a doubled-backslash ESCAPE clause", () => {
+      expect(likeSQL(snowflakeDialect, "foo_bar")).toEqual(
+        String.raw`(event_name LIKE 'foo\\_bar%' ESCAPE '\\')`,
+      );
+    });
+
+    it("emits a Redshift pattern with a doubled-backslash ESCAPE clause", () => {
+      expect(likeSQL(redshiftDialect, "foo_bar")).toEqual(
+        String.raw`(event_name LIKE 'foo\\_bar%' ESCAPE '\\')`,
+      );
+    });
+
+    it("matches a literal backslash on Redshift", () => {
+      expect(likeSQL(redshiftDialect, String.raw`a\b`)).toEqual(
+        String.raw`(event_name LIKE 'a\\\\b%' ESCAPE '\\')`,
+      );
+    });
+
+    it("emits a valid MySQL pattern with no ESCAPE clause", () => {
+      expect(likeSQL(mysqlDialect, "foo_bar")).toEqual(
+        String.raw`(event_name LIKE 'foo\\_bar%')`,
+      );
+    });
+
+    it("emits a valid Databricks pattern with no ESCAPE clause", () => {
+      expect(likeSQL(databricksDialect, "foo_bar")).toEqual(
+        String.raw`(event_name LIKE 'foo\\_bar%')`,
+      );
+    });
+
+    it("emits a valid Postgres pattern with no ESCAPE clause", () => {
+      expect(likeSQL(postgresDialect, "foo_bar")).toEqual(
+        String.raw`(event_name LIKE 'foo\_bar%')`,
+      );
+    });
+
+    it("emits a valid Vertica pattern with no ESCAPE clause", () => {
+      expect(likeSQL(verticaDialect, "foo_bar")).toEqual(
+        String.raw`(event_name LIKE 'foo\_bar%')`,
+      );
+    });
+
+    it("brackets wildcards for SQL Server instead of an ESCAPE clause", () => {
+      expect(likeSQL(mssqlDialect, "foo_bar")).toEqual(
+        `(event_name LIKE 'foo[_]bar%')`,
+      );
+    });
+
+    it("brackets the [ metacharacter for SQL Server", () => {
+      expect(likeSQL(mssqlDialect, "a[b")).toEqual(
+        `(event_name LIKE 'a[[]b%')`,
+      );
+    });
+
+    it("leaves ] bare for SQL Server", () => {
+      expect(likeSQL(mssqlDialect, "a]b[c")).toEqual(
+        `(event_name LIKE 'a]b[[]c%')`,
+      );
+    });
   });
 
   function trimLeadingWhitespace(str: string) {
@@ -272,7 +448,7 @@ describe("bigquery integration", () => {
     const startDate = new Date("2023-01-01");
     const endDate = new Date("2023-01-31");
 
-    const result = bqIntegration["getFactMetricCTE"]({
+    const result = getFactMetricCTE(bigQueryDialect, {
       metricsWithIndices: [{ metric: factMetric, index: 0 }],
       factTable,
       baseIdType: "user_id",
@@ -295,6 +471,110 @@ describe("bigquery integration", () => {
         "WHERE m.timestamp >= '2023-01-01 00:00:00' AND m.timestamp <= '2023-01-31 00:00:00'\n" +
         "",
     );
+  });
+
+  it("substitutes {{experimentId}} in fact table SQL when experimentId is provided", () => {
+    const factTable = factTableFactory.build({
+      sql: "SELECT user_id, timestamp, value FROM events WHERE sample_type = CONCAT('experiment:', '{{experimentId}}')",
+    });
+    const factMetric = factMetricFactory.build({
+      metricType: "mean",
+      numerator: {
+        factTableId: factTable.id,
+        column: "value",
+        aggregation: "sum",
+      },
+    });
+
+    const startDate = new Date("2023-01-01");
+    const endDate = new Date("2023-01-31");
+
+    const result = getFactMetricCTE(bigQueryDialect, {
+      metricsWithIndices: [{ metric: factMetric, index: 0 }],
+      factTable,
+      baseIdType: "user_id",
+      idJoinMap: {},
+      startDate,
+      endDate,
+      experimentId: "my-experiment",
+    });
+
+    expect(result).toContain(
+      "WHERE sample_type = CONCAT('experiment:', 'my-experiment')",
+    );
+
+    // Outside experiment context, falls back to '%' so the variable is still
+    // valid (e.g. for `LIKE '{{experimentId}}'` patterns or column introspection).
+    const resultNoExperiment = getFactMetricCTE(bigQueryDialect, {
+      metricsWithIndices: [{ metric: factMetric, index: 0 }],
+      factTable,
+      baseIdType: "user_id",
+      idJoinMap: {},
+      startDate,
+      endDate,
+    });
+
+    expect(resultNoExperiment).toContain(
+      "WHERE sample_type = CONCAT('experiment:', '%')",
+    );
+  });
+
+  it("substitutes {{phase.index}} in fact table SQL when phase is provided", () => {
+    const factTable = factTableFactory.build({
+      sql: "SELECT user_id, timestamp, value FROM events WHERE phase_index = '{{phase.index}}'",
+    });
+    const factMetric = factMetricFactory.build({
+      metricType: "mean",
+      numerator: {
+        factTableId: factTable.id,
+        column: "value",
+        aggregation: "sum",
+      },
+    });
+
+    const startDate = new Date("2023-01-01");
+    const endDate = new Date("2023-01-31");
+
+    const result = getFactMetricCTE(bigQueryDialect, {
+      metricsWithIndices: [{ metric: factMetric, index: 0 }],
+      factTable,
+      baseIdType: "user_id",
+      idJoinMap: {},
+      startDate,
+      endDate,
+      phase: { index: "2" },
+    });
+
+    expect(result).toContain("WHERE phase_index = '2'");
+  });
+
+  it("substitutes {{customFields.*}} in fact table SQL when custom fields are provided", () => {
+    const factTable = factTableFactory.build({
+      sql: "SELECT user_id, timestamp, value FROM events WHERE region = {{sqlstring customFields.region}}",
+    });
+    const factMetric = factMetricFactory.build({
+      metricType: "mean",
+      numerator: {
+        factTableId: factTable.id,
+        column: "value",
+        aggregation: "sum",
+      },
+    });
+
+    const startDate = new Date("2023-01-01");
+    const endDate = new Date("2023-01-31");
+
+    const result = getFactMetricCTE(bigQueryDialect, {
+      metricsWithIndices: [{ metric: factMetric, index: 0 }],
+      factTable,
+      baseIdType: "user_id",
+      idJoinMap: {},
+      startDate,
+      endDate,
+      customFields: { region: "north-america" },
+    });
+
+    expect(result).toContain("WHERE region = 'north-america'");
   });
 
   it("generates CTE with metric filters in where clause if all metrics have filters", () => {
@@ -344,7 +624,7 @@ describe("bigquery integration", () => {
     const startDate = new Date("2023-01-01");
     const endDate = new Date("2023-01-31");
 
-    const result = bqIntegration["getFactMetricCTE"]({
+    const result = getFactMetricCTE(bigQueryDialect, {
       metricsWithIndices: [factMetric, factMetric2].map((metric, index) => ({
         metric,
         index,
@@ -370,7 +650,7 @@ describe("bigquery integration", () => {
         "SELECT user_id, anonymous_id, timestamp, value FROM events\n" +
         ") m\n" +
         "\n" +
-        "WHERE m.timestamp >= '2023-01-01 00:00:00' AND m.timestamp <= '2023-01-31 00:00:00' AND (((event_type = 'purchase')) OR ((country = 'UK')))\n" +
+        "WHERE m.timestamp >= '2023-01-01 00:00:00' AND m.timestamp <= '2023-01-31 00:00:00' AND ((event_type = 'purchase')\nOR\n(country = 'UK'))\n" +
         "",
     );
 
@@ -383,7 +663,7 @@ describe("bigquery integration", () => {
       },
     });
 
-    const result2 = bqIntegration["getFactMetricCTE"]({
+    const result2 = getFactMetricCTE(bigQueryDialect, {
       metricsWithIndices: [factMetric, factMetric2, factMetric3].map(
         (metric, index) => ({ metric, index }),
       ),
@@ -459,7 +739,7 @@ describe("bigquery integration", () => {
     const startDate = new Date("2023-01-01");
     const endDate = new Date("2023-01-31");
 
-    const result = bqIntegration["getFactMetricCTE"]({
+    const result = getFactMetricCTE(bigQueryDialect, {
       metricsWithIndices: [factMetric1, factMetric2].map((metric, index) => ({
         metric,
         index,
@@ -485,7 +765,7 @@ describe("bigquery integration", () => {
         "SELECT user_id, anonymous_id, timestamp, value FROM events\n" +
         ") m\n" +
         "\n" +
-        "WHERE m.timestamp >= '2023-01-01 00:00:00' AND m.timestamp <= '2023-01-31 00:00:00' AND (((event_type = 'purchase')))\n" +
+        "WHERE m.timestamp >= '2023-01-01 00:00:00' AND m.timestamp <= '2023-01-31 00:00:00' AND (event_type = 'purchase')\n" +
         "",
     );
   });
@@ -541,7 +821,7 @@ describe("bigquery integration", () => {
     const startDate = new Date("2023-01-01");
     const endDate = new Date("2023-01-31");
 
-    const result = bqIntegration["getFactMetricCTE"]({
+    const result = getFactMetricCTE(bigQueryDialect, {
       metricsWithIndices: [{ metric: ratioMetric, index: 0 }],
       factTable: factTableWithFilters,
       baseIdType: "user_id",
@@ -564,7 +844,7 @@ describe("bigquery integration", () => {
         "SELECT user_id, anonymous_id, timestamp, value FROM events\n" +
         ") m\n" +
         "\n" +
-        "WHERE m.timestamp >= '2023-01-01 00:00:00' AND m.timestamp <= '2023-01-31 00:00:00' AND (((event_type = 'purchase')) OR ((event_type = 'session_start')))\n" +
+        "WHERE m.timestamp >= '2023-01-01 00:00:00' AND m.timestamp <= '2023-01-31 00:00:00' AND ((event_type = 'purchase')\nOR\n(event_type = 'session_start'))\n" +
         "",
     );
   });
@@ -607,7 +887,7 @@ describe("bigquery integration", () => {
     const startDate = new Date("2023-01-01");
     const endDate = new Date("2023-01-31");
 
-    const result = bqIntegration["getFactMetricCTE"]({
+    const result = getFactMetricCTE(bigQueryDialect, {
       metricsWithIndices: [
         { metric: ratioMetricWithDenominatorNoFilter, index: 0 },
       ],
@@ -658,7 +938,7 @@ describe("bigquery integration", () => {
       },
     });
 
-    const result2 = bqIntegration["getFactMetricCTE"]({
+    const result2 = getFactMetricCTE(bigQueryDialect, {
       metricsWithIndices: [
         { metric: ratioMetricWithNumeratorNoFilter, index: 0 },
       ],
@@ -692,9 +972,27 @@ describe("bigquery integration", () => {
 
 describe("full fact metric experiment query - bigquery", () => {
   let bqIntegration: BigQuery;
+
+  // Empty exposureQueryId resolves to lookup id "anonymous_id" in getExposureQuery.
+  // Real config avoids jest.spyOn on the module export (non-configurable under @swc/jest).
+  const testExposureQuery: ExposureQuery = {
+    id: "anonymous_id",
+    name: "Exposure",
+    description: "Exposure",
+    query: "*",
+    userIdType: "user_id",
+    dimensions: [],
+  };
+
   beforeEach(() => {
     // @ts-expect-error -- context not needed for test
-    bqIntegration = new BigQuery("", {});
+    bqIntegration = new BigQuery("", {
+      settings: {
+        queries: {
+          exposure: [testExposureQuery],
+        },
+      },
+    });
   });
 
   // Create test fact tables
@@ -1179,15 +1477,6 @@ describe("full fact metric experiment query - bigquery", () => {
     [eventsFactTable.id, eventsFactTable],
   ]);
 
-  const exposureQuery: ExposureQuery = {
-    id: "exposure",
-    name: "Exposure",
-    description: "Exposure",
-    query: "*",
-    userIdType: "user_id",
-    dimensions: [],
-  };
-
   const metricsToTest = generateFactMetrics();
 
   it("generates all metrics", () => {
@@ -1197,16 +1486,109 @@ describe("full fact metric experiment query - bigquery", () => {
   it.each(metricsToTest)(
     "generated fact metric SQL is correct for $id",
     (metric) => {
-      // Mock the getExposureQuery method to return our test exposureQuery
-      const getExposureQuerySpy = jest
-        // eslint-disable-next-line
-        .spyOn(bqIntegration as any, "getExposureQuery")
-        .mockReturnValue(exposureQuery);
-
       const startDate = new Date("2023-01-01");
       const endDate = new Date("2023-01-31");
 
-      const sql = bqIntegration["getExperimentFactMetricsQuery"]({
+      const sql = getExperimentFactMetricsQuery(
+        bigQueryDialect,
+        bqIntegration.datasource,
+        {
+          settings: {
+            manual: false,
+            dimensions: [],
+            metricSettings: [],
+            goalMetrics: [],
+            secondaryMetrics: [],
+            guardrailMetrics: [],
+            activationMetric: null,
+            defaultMetricPriorSettings: {
+              override: false,
+              proper: false,
+              mean: 0,
+              stddev: 0,
+            },
+            regressionAdjustmentEnabled: true,
+            attributionModel: "firstExposure",
+            experimentId: "",
+            queryFilter: "",
+            segment: "",
+            // TODO
+            skipPartialData: false,
+            datasourceId: "",
+            exposureQueryId: "",
+            startDate,
+            endDate,
+            variations: [],
+          },
+          unitsSource: "exposureQuery",
+          activationMetric: null,
+          dimensions: [],
+          segment: null,
+          metrics: [metric],
+          factTableMap,
+        },
+      );
+
+      // Normalize SQL for consistency
+      const normalizedSql = sql.replace(/\s+/g, " ").trim();
+
+      expect(format(normalizedSql, "bigquery")).toMatchSnapshot();
+    },
+  );
+});
+
+describe("quantile grid array packing is BigQuery-only", () => {
+  // The array-packed quantile grid is gated entirely on
+  // dialect.hasArrayQuantileGrid(). This drives two distinct behaviors:
+  //   1. SQL generation — getExperimentFactMetricsQuery emits ONE array column
+  //      (m0_quantile_grid) instead of N_STAR_VALUES.length * 2 scalar columns.
+  //   2. Column budgeting — getSourceProperties().hasArrayQuantileGrid (which
+  //      just forwards the dialect flag) flips chunkMetrics into efficient mode.
+  // These tests pin both behaviors to BigQuery so the optimization can't
+  // silently leak into another warehouse that doesn't actually support arrays.
+  const testExposureQuery: ExposureQuery = {
+    id: "anonymous_id",
+    name: "Exposure",
+    description: "Exposure",
+    query: "*",
+    userIdType: "user_id",
+    dimensions: [],
+  };
+
+  const ordersFactTable = factTableFactory.build({
+    id: "orders",
+    name: "Orders Fact Table",
+    sql: "*",
+  });
+  const factTableMap = new Map([[ordersFactTable.id, ordersFactTable]]);
+
+  // A single BigQuery instance only to source a valid (dialect-agnostic)
+  // datasource object — the SQL is generated from the dialect we pass in, not
+  // from the integration, so the same datasource feeds both branches and the
+  // ONLY difference between the two SQL strings is the dialect.
+  // @ts-expect-error -- context not needed for test
+  const datasourceIntegration = new BigQuery("", {
+    settings: { queries: { exposure: [testExposureQuery] } },
+  });
+
+  const buildQuantileSql = (
+    dialect: SqlDialect,
+    quantileSettings: FactMetricInterface["quantileSettings"],
+  ): string => {
+    const metric = factMetricFactory.build({
+      id: "fact_uq1",
+      metricType: "quantile",
+      quantileSettings,
+      numerator: {
+        factTableId: "orders",
+        column: "amount",
+        aggregation: "sum",
+      },
+    });
+    return getExperimentFactMetricsQuery(
+      dialect,
+      datasourceIntegration.datasource,
+      {
         settings: {
           manual: false,
           dimensions: [],
@@ -1221,17 +1603,16 @@ describe("full fact metric experiment query - bigquery", () => {
             mean: 0,
             stddev: 0,
           },
-          regressionAdjustmentEnabled: true,
+          regressionAdjustmentEnabled: false,
           attributionModel: "firstExposure",
           experimentId: "",
           queryFilter: "",
           segment: "",
-          // TODO
           skipPartialData: false,
           datasourceId: "",
           exposureQueryId: "",
-          startDate,
-          endDate,
+          startDate: new Date("2023-01-01"),
+          endDate: new Date("2023-01-31"),
           variations: [],
         },
         unitsSource: "exposureQuery",
@@ -1240,15 +1621,179 @@ describe("full fact metric experiment query - bigquery", () => {
         segment: null,
         metrics: [metric],
         factTableMap,
+      },
+    );
+  };
+
+  describe("dialect flag", () => {
+    it.each([
+      ["bigquery", bigQueryDialect, true],
+      ["snowflake", snowflakeDialect, false],
+      ["clickhouse", clickHouseDialect, false],
+      ["mysql", mysqlDialect, false],
+    ] as const)(
+      "%s reports hasArrayQuantileGrid() === %s",
+      (_name, dialect, expected) => {
+        expect(dialect.hasArrayQuantileGrid()).toBe(expected);
+      },
+    );
+
+    it("quantileGridArrayLiteral collapses to NULL when the grid has no data", () => {
+      // Defensive contract: a dialect must not advertise array support without
+      // implementing quantileGridArrayLiteral, and must not have it silently
+      // no-op if it doesn't support arrays.
+      expect(() =>
+        snowflakeDialect.quantileGridArrayLiteral(["1", "2"]),
+      ).toThrow();
+      // BigQuery rejects a NULL-containing array in a query result, so the grid
+      // must collapse to NULL (all-or-nothing) instead of emitting a partial array.
+      expect(bigQueryDialect.quantileGridArrayLiteral(["a", "b"])).toBe(
+        "IF(a IS NULL, NULL, [a, b])",
+      );
+    });
+  });
+
+  describe("column budgeting (source properties)", () => {
+    it("only BigQuery's source properties enable the efficient (array) grid", () => {
+      // @ts-expect-error -- context not needed for test
+      const bq = new BigQuery("", {
+        settings: { queries: { exposure: [testExposureQuery] } },
+      });
+      // @ts-expect-error -- context not needed for test
+      const sf = new Snowflake("", {
+        settings: { queries: { exposure: [testExposureQuery] } },
       });
 
-      // Normalize SQL for consistency
-      const normalizedSql = sql.replace(/\s+/g, " ").trim();
+      expect(bq.getSourceProperties().hasArrayQuantileGrid).toBe(true);
+      expect(sf.getSourceProperties().hasArrayQuantileGrid).toBe(false);
+    });
+  });
 
-      expect(format(normalizedSql, "bigquery")).toMatchSnapshot();
+  describe("SQL generation", () => {
+    it.each(["unit", "event"] as const)(
+      "%s quantile: BigQuery packs one array column; Snowflake keeps scalar columns",
+      (quantileType) => {
+        const quantileSettings = {
+          type: quantileType,
+          quantile: 0.9,
+          ignoreZeros: false,
+        };
+        const bqSql = buildQuantileSql(bigQueryDialect, quantileSettings);
+        const sfSql = buildQuantileSql(snowflakeDialect, quantileSettings);
 
-      // Restore the original method
-      getExposureQuerySpy.mockRestore();
-    },
-  );
+        // BigQuery: single array column, no per-nstar scalar columns.
+        expect(bqSql).toMatch(/AS\s+m0_quantile_grid/);
+        expect(bqSql).not.toMatch(/m0_quantile_lower_\d+/);
+        expect(bqSql).not.toMatch(/m0_quantile_upper_\d+/);
+
+        // Snowflake: per-nstar scalar columns, no packed array column.
+        expect(sfSql).not.toContain("m0_quantile_grid");
+        expect(sfSql).toMatch(/m0_quantile_lower_\d+/);
+        expect(sfSql).toMatch(/m0_quantile_upper_\d+/);
+
+        // The central point estimate and quantile_n are present in both shapes
+        // (the read side needs them regardless of the grid encoding).
+        expect(bqSql).toContain("m0_quantile_n");
+        expect(sfSql).toContain("m0_quantile_n");
+      },
+    );
+
+    it("Snowflake emits exactly N_STAR_VALUES*2 scalar bound columns (no array)", () => {
+      const sfSql = buildQuantileSql(snowflakeDialect, {
+        type: "unit",
+        quantile: 0.9,
+        ignoreZeros: false,
+      });
+
+      const lowerCount = (sfSql.match(/AS\s+m0_quantile_lower_\d+/g) || [])
+        .length;
+      const upperCount = (sfSql.match(/AS\s+m0_quantile_upper_\d+/g) || [])
+        .length;
+
+      expect(lowerCount).toBe(N_STAR_VALUES.length);
+      expect(upperCount).toBe(N_STAR_VALUES.length);
+    });
+  });
+
+  // Coverage transfer: the BigQuery snapshot suite above used to be the only
+  // thing pinning the exact scalar-column quantile SQL. Now that BigQuery emits
+  // an array, that path is exercised only by non-array warehouses — so we pin
+  // the exact scalar SQL here, under Snowflake, to keep the unchanged path
+  // guarded against unintended structural changes (offsets, CTE shape, etc.).
+  describe("exact scalar quantile SQL (Snowflake snapshots)", () => {
+    const quantileVariants: {
+      label: string;
+      settings: FactMetricInterface["quantileSettings"];
+    }[] = [
+      {
+        label: "unit_0.9_includeZeros",
+        settings: { type: "unit", quantile: 0.9, ignoreZeros: false },
+      },
+      {
+        label: "unit_0.9_ignoreZeros",
+        settings: { type: "unit", quantile: 0.9, ignoreZeros: true },
+      },
+      {
+        label: "event_0.9_includeZeros",
+        settings: { type: "event", quantile: 0.9, ignoreZeros: false },
+      },
+      {
+        label: "event_0.9_ignoreZeros",
+        settings: { type: "event", quantile: 0.9, ignoreZeros: true },
+      },
+    ];
+
+    it.each(quantileVariants)(
+      "snowflake scalar quantile SQL is correct for $label",
+      ({ settings }) => {
+        const sql = buildQuantileSql(snowflakeDialect, settings);
+        const normalizedSql = sql.replace(/\s+/g, " ").trim();
+        expect(format(normalizedSql, "snowflake")).toMatchSnapshot();
+      },
+    );
+  });
+});
+
+describe("getFeatureEvalDiagnosticsQuery", () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date("2025-03-24T12:00:00.000Z"));
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it("replaces template variables in the feature usage query", () => {
+    const datasource = {
+      settings: {
+        queries: {
+          featureUsage: [
+            {
+              id: "fu1",
+              query: `SELECT ts AS timestamp, k AS feature_key FROM t WHERE ts BETWEEN '{{startDateISO}}' AND '{{endDateISO}}'`,
+            },
+          ],
+        },
+      },
+      params: "",
+    };
+    // @ts-expect-error -- context not needed for test
+    const bqIntegration = new BigQuery("", datasource);
+
+    const sql = getFeatureEvalDiagnosticsQuery(
+      bigQueryDialect,
+      bqIntegration.datasource,
+      {
+        feature: "my-feature-key",
+      },
+    );
+
+    expect(sql).not.toContain("{{startDateISO}}");
+    expect(sql).not.toContain("{{endDateISO}}");
+    // compileSqlTemplate fills these with ISO-8601 timestamps
+    expect(sql).toMatch(
+      /BETWEEN '[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z' AND '[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z'/,
+    );
+  });
 });

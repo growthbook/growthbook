@@ -2,6 +2,8 @@ import { FaExclamationTriangle } from "react-icons/fa";
 import { PiArrowLineDownThin, PiCaretLeft, PiCaretRight } from "react-icons/pi";
 import { Flex, Separator } from "@radix-ui/themes";
 import { useRef, useState } from "react";
+import type { ReactNode } from "react";
+import { isManagedWarehousePendingQueryError } from "shared/util";
 import Code from "@/components/SyntaxHighlighting/Code";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import { convertToCSV, downloadCSVFile } from "@/services/sql";
@@ -9,6 +11,14 @@ import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { AreaWithHeader } from "@/components/SchemaBrowser/SqlExplorerModal";
+import { floatRound } from "@/services/utils";
+import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
+import {
+  flattenHeaderStructureForCsv,
+  type HeaderStructure,
+} from "@/components/Settings/flattenHeaderStructureForCsv";
+
+export type { HeaderStructure };
 
 export type Props = {
   results: Record<string, unknown>[];
@@ -20,6 +30,33 @@ export type Props = {
   allowDownload?: boolean;
   showSampleHeader?: boolean;
   renderedSQLLabel?: string;
+  showDuration?: boolean;
+  headerStructure?: HeaderStructure;
+  orderedColumnKeys?: string[];
+  /**
+   * Display labels aligned with `orderedColumnKeys`. When omitted, the keys
+   * themselves are used as labels (back-compat for existing callers that
+   * pass human-readable keys).
+   */
+  columnLabels?: string[];
+  /**
+   * When set, CSV export includes only these keys (in order). Use to omit
+   * synthetic columns such as compare trend payloads.
+   */
+  csvColumnKeys?: string[];
+  /** Headers for CSV columns; must align 1:1 with `csvColumnKeys`. */
+  csvColumnLabels?: string[];
+  /**
+   * Custom cell renderer. Return `undefined` or `null` to fall back to the
+   * default string rendering for that cell.
+   */
+  renderCell?: (
+    key: string,
+    value: unknown,
+    row: Record<string, unknown>,
+  ) => ReactNode | undefined;
+  paddingTop?: number;
+  showNoRowsWarning?: boolean;
 };
 
 export default function DisplayTestQueryResults({
@@ -32,9 +69,20 @@ export default function DisplayTestQueryResults({
   allowDownload,
   showSampleHeader = true,
   renderedSQLLabel = "Rendered SQL",
+  showDuration = true,
+  headerStructure,
+  orderedColumnKeys,
+  columnLabels,
+  csvColumnKeys,
+  csvColumnLabels,
+  renderCell,
+  paddingTop = 0,
+  showNoRowsWarning = true,
 }: Props) {
   const [downloadError, setDownloadError] = useState<string | null>(null);
-  const cols = Object.keys(results?.[0] || {});
+  const cols = orderedColumnKeys ?? Object.keys(results?.[0] || {});
+  const labels = columnLabels ?? cols;
+  const useTwoRowHeader = headerStructure != null && orderedColumnKeys != null;
 
   const forceShowSql = error || !results.length;
 
@@ -47,13 +95,66 @@ export default function DisplayTestQueryResults({
   // Match the line number from the error message that
   // either has "line <line number>" in it,
   // or ends with "[<line number>:<col number>]"
-  const errorLineMatch = error.match(/line\s+(\d+)|\[(\d+):\d+\]$/i);
+  const errorLineMatch =
+    !isManagedWarehousePendingQueryError(error) &&
+    error.match(/line\s+(\d+)|\[(\d+):\d+\]$/i);
   const errorLine = errorLineMatch
     ? Number(errorLineMatch[1] || errorLineMatch[2])
     : undefined;
 
-  function handleDownload(results: Record<string, unknown>[]) {
-    const csv = convertToCSV(results);
+  function defaultCellContent(value: unknown): string {
+    if (value == null) return "";
+    if (typeof value === "number") {
+      return value.toLocaleString();
+    }
+    if (typeof value === "string" || typeof value === "boolean") {
+      return String(value);
+    }
+    return JSON.stringify(value);
+  }
+
+  function handleDownload(rows: Record<string, unknown>[]) {
+    const keys = csvColumnKeys ?? orderedColumnKeys;
+
+    const labelsForCsv = ((): string[] | undefined => {
+      if (!keys?.length) return undefined;
+      if (csvColumnLabels && csvColumnLabels.length === keys.length) {
+        return csvColumnLabels;
+      }
+      if (
+        headerStructure &&
+        orderedColumnKeys &&
+        orderedColumnKeys.length === keys.length
+      ) {
+        const flat = flattenHeaderStructureForCsv(headerStructure);
+        if (flat.length === keys.length) {
+          return flat;
+        }
+      }
+      if (columnLabels && columnLabels.length === keys.length) {
+        return columnLabels;
+      }
+      return undefined;
+    })();
+
+    const rowsForCsv =
+      keys?.length && labelsForCsv && keys.length === labelsForCsv.length
+        ? rows.map((row) =>
+            Object.fromEntries(
+              keys.map((key, i) => [labelsForCsv[i] ?? key, row[key] ?? ""]),
+            ),
+          )
+        : columnLabels && orderedColumnKeys
+          ? rows.map((row) =>
+              Object.fromEntries(
+                orderedColumnKeys.map((key, i) => [
+                  columnLabels[i] ?? key,
+                  row[key],
+                ]),
+              ),
+            )
+          : rows;
+    const csv = convertToCSV(rowsForCsv);
     if (!csv) {
       throw new Error(
         "Error downloading results. Reason: Unable to convert results to CSV.",
@@ -64,6 +165,7 @@ export default function DisplayTestQueryResults({
 
   return (
     <Tabs
+      key={forceShowSql ? "sql" : "results"}
       defaultValue={forceShowSql ? "sql" : "results"}
       style={{
         overflow: "hidden",
@@ -74,6 +176,7 @@ export default function DisplayTestQueryResults({
         headerStyles={{
           paddingLeft: "12px",
           paddingRight: "12px",
+          paddingTop: `${paddingTop}px`,
         }}
         header={
           <TabsList>
@@ -119,9 +222,11 @@ export default function DisplayTestQueryResults({
               ) : null}
               <Flex align="center" gap="4">
                 <Flex align="center" flexGrow={"1"}>
-                  <span className="font-weight-light pl-2">
-                    Succeeded in {duration}ms
-                  </span>
+                  {showDuration && (
+                    <span className="font-weight-light pl-2">
+                      Succeeded in {floatRound(duration, 2)}ms
+                    </span>
+                  )}
                 </Flex>
                 {totalPages > 1 ? (
                   <Flex align="center">
@@ -204,20 +309,54 @@ export default function DisplayTestQueryResults({
                     backgroundColor: "var(--color-panel-solid)",
                   }}
                 >
-                  <tr>
-                    {cols.map((col) => (
-                      <th key={col}>{col}</th>
-                    ))}
-                  </tr>
+                  {useTwoRowHeader && headerStructure ? (
+                    <>
+                      <tr>
+                        {headerStructure.row1.map((cell, idx) => (
+                          <th
+                            key={idx}
+                            rowSpan={cell.rowSpan}
+                            colSpan={cell.colSpan ?? 1}
+                            style={{ minWidth: 150 }}
+                          >
+                            {cell.label}
+                          </th>
+                        ))}
+                      </tr>
+                      <tr>
+                        {headerStructure.row2Labels.map((label, idx) => (
+                          <th key={idx} style={{ minWidth: 150 }}>
+                            {label}
+                          </th>
+                        ))}
+                      </tr>
+                    </>
+                  ) : (
+                    <tr>
+                      {cols.map((col, i) => (
+                        <th key={col} style={{ minWidth: 150 }}>
+                          {labels[i] ?? col}
+                        </th>
+                      ))}
+                    </tr>
+                  )}
                 </thead>
                 <tbody>
                   {results
                     .slice((page - 1) * pageSize, page * pageSize)
                     .map((result, i) => (
                       <tr key={i}>
-                        {Object.values(result).map((val, j) => (
-                          <td key={j}>{JSON.stringify(val)}</td>
-                        ))}
+                        {cols.map((key, j) => {
+                          const raw = result[key];
+                          const custom = renderCell?.(key, raw, result);
+                          return (
+                            <td key={j}>
+                              {custom !== undefined && custom !== null
+                                ? custom
+                                : defaultCellContent(raw)}
+                            </td>
+                          );
+                        })}
                       </tr>
                     ))}
                 </tbody>
@@ -240,8 +379,15 @@ export default function DisplayTestQueryResults({
             className="mt-3"
           >
             {error ? (
-              <div className="alert alert-danger mr-auto">{error}</div>
+              isManagedWarehousePendingQueryError(error) ? (
+                <div className="mb-3 mr-auto" style={{ maxWidth: 720 }}>
+                  <ManagedWarehouseNoEventsCallout />
+                </div>
+              ) : (
+                <div className="alert alert-danger mr-auto">{error}</div>
+              )
             ) : (
+              showNoRowsWarning &&
               !results.length && (
                 <div className="alert alert-warning mr-auto">
                   <FaExclamationTriangle /> No rows returned, could not verify

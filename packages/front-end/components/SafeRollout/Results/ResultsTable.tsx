@@ -9,20 +9,17 @@ import {
   useRef,
   useState,
 } from "react";
-import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { RxInfoCircled } from "react-icons/rx";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { Box, Flex, Popover } from "@radix-ui/themes";
 import { extent } from "@visx/vendor/d3-array";
-import {
-  ExperimentReportVariation,
-  ExperimentReportVariationWithIndex,
-} from "shared/types/report";
+import { ExperimentReportVariation } from "shared/types/report";
 import { ExperimentStatus } from "shared/types/experiment";
 import { MetricTimeSeries } from "shared/validators";
 import {
   DifferenceType,
   PValueCorrection,
+  SignificanceThresholds,
   StatsEngine,
 } from "shared/types/stats";
 import { getValidDate } from "shared/dates";
@@ -33,14 +30,10 @@ import AnalysisResultSummary from "@/ui/AnalysisResultSummary";
 import { useAnalysisResultSummary } from "@/ui/hooks/useAnalysisResultSummary";
 import {
   ExperimentTableRow,
-  getEffectLabel,
   getRowResults,
   RowResults,
 } from "@/services/experiments";
-import useConfidenceLevels from "@/hooks/useConfidenceLevels";
-import usePValueThreshold from "@/hooks/usePValueThreshold";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
-import { useCurrency } from "@/hooks/useCurrency";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SafeRolloutTimeSeriesGraph from "@/components/Experiment/SafeRolloutTimeSeriesGraph";
@@ -48,11 +41,11 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import useApi from "@/hooks/useApi";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { useSafeRolloutSnapshot } from "@/components/SafeRollout/SnapshotProvider";
-import ChangeColumn from "./ChangeColumn";
 import StatusColumn from "./StatusColumn";
 
 export type ResultsTableProps = {
   id: string;
+  significanceThresholds: SignificanceThresholds;
   variations: ExperimentReportVariation[];
   variationFilter?: number[];
   baselineRow?: number;
@@ -88,6 +81,7 @@ export type ResultsTableProps = {
 
 export default function ResultsTable({
   id,
+  significanceThresholds,
   isLatestPhase,
   status,
   queryStatusData,
@@ -114,24 +108,15 @@ export default function ResultsTable({
     variationFilter = variationFilter.filter((v) => v !== baselineRow);
   }
 
-  const { getExperimentMetricById, getFactTableById } = useDefinitions();
+  const { getExperimentMetricById } = useDefinitions();
 
   const _useOrganizationMetricDefaults = useOrganizationMetricDefaults();
   const { metricDefaults, getMinSampleSizeForMetric } =
     ssrPolyfills?.useOrganizationMetricDefaults?.() ||
     _useOrganizationMetricDefaults;
 
-  const _confidenceLevels = useConfidenceLevels();
-  const _pValueThreshold = usePValueThreshold();
-  const _displayCurrency = useCurrency();
-
-  const { ciUpper, ciLower } =
-    ssrPolyfills?.useConfidenceLevels?.() || _confidenceLevels;
-  const pValueThreshold =
-    ssrPolyfills?.usePValueThreshold?.() || _pValueThreshold;
-  const displayCurrency = ssrPolyfills?.useCurrency?.() || _displayCurrency;
-
-  const showTimeSeries = useFeatureIsOn("safe-rollout-timeseries");
+  const { bayesianConfidenceLevels, pValueThreshold } = significanceThresholds;
+  const { ciUpper, ciLower } = bayesianConfidenceLevels;
 
   const tableContainerRef = useRef<HTMLDivElement | null>(null);
   const [tableCellScale, setTableCellScale] = useState(1);
@@ -151,23 +136,20 @@ export default function ResultsTable({
   useLayoutEffect(onResize, []);
   useEffect(onResize, [isTabActive]);
 
-  const orderedVariations: ExperimentReportVariationWithIndex[] =
-    useMemo(() => {
-      const sorted = variations
-        .map<ExperimentReportVariationWithIndex>((v, i) => ({ ...v, index: i }))
-        .sort((a, b) => {
-          if (a.index === baselineRow) return -1;
-          return a.index - b.index;
-        });
-      // fix browser .sort() quirks. manually move the control row to top:
-      const baselineIndex = sorted.findIndex((v) => v.index === baselineRow);
-      if (baselineIndex > -1) {
-        const baseline = sorted[baselineIndex];
-        sorted.splice(baselineIndex, 1);
-        sorted.unshift(baseline);
-      }
-      return sorted;
-    }, [variations, baselineRow]);
+  const orderedVariations: ExperimentReportVariation[] = useMemo(() => {
+    const sorted = [...variations].sort((a, b) => {
+      if (a.index === baselineRow) return -1;
+      return a.index - b.index;
+    });
+    // fix browser .sort() quirks. manually move the control row to top:
+    const baselineIndex = sorted.findIndex((v) => v.index === baselineRow);
+    if (baselineIndex > -1) {
+      const baseline = sorted[baselineIndex];
+      sorted.splice(baselineIndex, 1);
+      sorted.unshift(baseline);
+    }
+    return sorted;
+  }, [variations, baselineRow]);
 
   const filteredVariations = orderedVariations.filter(
     (v) => !variationFilter?.includes(v.index),
@@ -222,7 +204,6 @@ export default function ResultsTable({
           metric: row.metric,
           denominator,
           metricDefaults,
-          isGuardrail: row.resultGroup === "guardrail",
           minSampleSize: getMinSampleSizeForMetric(row.metric),
           statsEngine,
           differenceType,
@@ -233,8 +214,6 @@ export default function ResultsTable({
           phaseStartDate: getValidDate(startDate),
           isLatestPhase,
           experimentStatus: status,
-          displayCurrency,
-          getFactTableById: ssrPolyfills?.getFactTableById || getFactTableById,
         });
         rr[i].push(rowResults);
       });
@@ -256,10 +235,8 @@ export default function ResultsTable({
     startDate,
     isLatestPhase,
     status,
-    displayCurrency,
     queryStatusData,
     ssrPolyfills,
-    getFactTableById,
     getExperimentMetricById,
   ]);
 
@@ -282,17 +259,13 @@ export default function ResultsTable({
 
   const noMetrics = rows.length === 0;
 
-  const changeTitle = getEffectLabel(differenceType);
-
   const urlFormattedMetricIds = rows
     .map((row) => encodeURIComponent(row.metric.id))
     .join("&metricIds[]=");
   const { data: metricTimeSeries, mutate: mutateMetricTimeSeries } = useApi<{
     status: number;
     timeSeries: MetricTimeSeries[];
-  }>(`/safe-rollout/${id}/time-series?metricIds[]=${urlFormattedMetricIds}`, {
-    shouldRun: () => showTimeSeries,
-  });
+  }>(`/safe-rollout/${id}/time-series?metricIds[]=${urlFormattedMetricIds}`);
 
   const filteredMetricTimeSeries = useMemo(() => {
     if (!metricTimeSeries) return undefined;
@@ -368,14 +341,12 @@ export default function ResultsTable({
                 </th>
                 {!noMetrics ? (
                   <>
-                    {showTimeSeries ? (
-                      <th
-                        style={{ width: 100 * tableCellScale }}
-                        className={clsx("axis-col label", { noStickyHeader })}
-                      >
-                        Time series
-                      </th>
-                    ) : null}
+                    <th
+                      style={{ width: 100 * tableCellScale }}
+                      className={clsx("axis-col label", { noStickyHeader })}
+                    >
+                      Time series
+                    </th>
                     <th
                       style={{ width: 120 * tableCellScale }}
                       className={clsx("axis-col label", { noStickyHeader })}
@@ -399,28 +370,6 @@ export default function ResultsTable({
                         <RxInfoCircled className="ml-1" />
                       </Tooltip>
                     </th>
-                    {!showTimeSeries ? (
-                      <th
-                        style={{ width: 150 * tableCellScale }}
-                        className={clsx("axis-col label text-right", {
-                          noStickyHeader,
-                        })}
-                      >
-                        <div style={{ lineHeight: "15px", marginBottom: 2 }}>
-                          <Tooltip
-                            usePortal={true}
-                            innerClassName={"text-left"}
-                            body={
-                              <div style={{ lineHeight: 1.5 }}>
-                                {getChangeTooltip(changeTitle, differenceType)}
-                              </div>
-                            }
-                          >
-                            {changeTitle} <RxInfoCircled />
-                          </Tooltip>
-                        </div>
-                      </th>
-                    ) : null}
                   </>
                 ) : (
                   <th
@@ -537,6 +486,7 @@ export default function ResultsTable({
                             }
                             differenceType={differenceType}
                             isBandit={isBandit}
+                            pValueThreshold={pValueThreshold}
                             ssrPolyfills={ssrPolyfills}
                           />
                         </Popover.Content>
@@ -579,7 +529,6 @@ export default function ResultsTable({
                             )}
                           </td>
                           {j > 0 &&
-                          showTimeSeries &&
                           metricTimeSeries &&
                           metricTimeSeries.dataPoints.length > 0 ? (
                             <td style={{ padding: 0, height: 1 }}>
@@ -589,7 +538,7 @@ export default function ResultsTable({
                                 ssrPolyfills={ssrPolyfills}
                               />
                             </td>
-                          ) : j > 0 && showTimeSeries ? (
+                          ) : j > 0 ? (
                             <td>
                               {!metricTimeSeries ? (
                                 <Flex
@@ -635,35 +584,6 @@ export default function ResultsTable({
                           ) : (
                             <td></td>
                           )}
-                          {j > 0 && !showTimeSeries ? (
-                            <td
-                              className="results-change"
-                              // To allow us to have height 100% for the div inside the td
-                              style={{ height: "1px" }}
-                            >
-                              <Popover.Trigger
-                                onMouseEnter={() =>
-                                  handleRowTooltipMouseEnter(i, j)
-                                }
-                                onMouseLeave={() =>
-                                  handleRowTooltipMouseLeave(i, j)
-                                }
-                              >
-                                <Box height="100%">
-                                  <ChangeColumn
-                                    metric={row.metric}
-                                    stats={stats}
-                                    rowResults={rowResults}
-                                    differenceType={differenceType}
-                                    statsEngine={statsEngine}
-                                    className={resultsHighlightClassname}
-                                    ssrPolyfills={ssrPolyfills}
-                                    showPlusMinus={false}
-                                  />
-                                </Box>
-                              </Popover.Trigger>
-                            </td>
-                          ) : null}
                         </tr>
                       </Popover.Root>
                     );
@@ -707,25 +627,4 @@ function drawEmptyRow({
       <td />
     </tr>
   );
-}
-
-function getChangeTooltip(changeTitle: string, differenceType: DifferenceType) {
-  let changeText =
-    "The uplift comparing the variation to the baseline, in percent change from the baseline value.";
-  if (differenceType == "absolute") {
-    changeText =
-      "The absolute difference between the average values in the variation and the baseline. For non-ratio metrics, this is average difference between users in the variation and the baseline.";
-  } else if (differenceType == "scaled") {
-    changeText =
-      "The total change in the metric per day if 100% of traffic were to have gone to the variation.";
-  }
-
-  const changeElem = (
-    <>
-      <p>
-        <b>{changeTitle}</b> - {changeText}
-      </p>
-    </>
-  );
-  return <>{changeElem}</>;
 }

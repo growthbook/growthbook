@@ -18,7 +18,9 @@ const BaseClass = MakeModelClass({
     updateEvent: "safeRollout.update",
     deleteEvent: "safeRollout.delete",
   },
-  globallyUniqueIds: true,
+  globallyUniquePrimaryKeys: true,
+  skipAuditLogFields: ["nextSnapshotAttempt", "lastSnapshotAttempt"],
+  skipDateUpdatedFields: ["nextSnapshotAttempt", "lastSnapshotAttempt"],
   defaultValues: {
     autoSnapshots: true,
   },
@@ -54,6 +56,8 @@ export class SafeRolloutModel extends BaseClass {
     if (!("autoRollback" in legacyDoc)) {
       legacyDoc["autoRollback"] = false;
     }
+    // Environment scoping now lives on rule.environments, not the SafeRollout doc.
+    delete legacyDoc["environment"];
     return legacyDoc as SafeRolloutInterface;
   }
 
@@ -114,11 +118,13 @@ export class SafeRolloutModel extends BaseClass {
         "analysisSummary",
         "pastNotifications",
         "rampUpSchedule",
+        "dateUpdated",
+        "analysisStartedAt",
       ];
 
       // Check for disallowed field updates
       for (const [key, value] of Object.entries(updates)) {
-        const typedKey = key as keyof typeof updates;
+        const typedKey = key as keyof SafeRolloutInterface;
 
         // If the field is not allowed and is being changed
         if (

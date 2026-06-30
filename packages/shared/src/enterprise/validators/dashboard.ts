@@ -1,8 +1,12 @@
 import { z } from "zod";
+import { namedSchema } from "../../validators/openapi-helpers";
+
 import {
   apiCreateDashboardBlockInterface,
   apiDashboardBlockInterface,
+  blockComparisonValidator,
   dashboardBlockInterface,
+  DASHBOARD_GRID_COLS,
 } from "./dashboard-block";
 
 export const dashboardEditLevel = z.enum(["published", "private"]);
@@ -22,6 +26,24 @@ export const dashboardUpdateSchedule = z.discriminatedUnion("type", [
     .strict(),
 ]);
 
+export const DASHBOARD_GRID_ROW_HEIGHT_DEFAULT = 40;
+export const dashboardGridConfig = z
+  .object({
+    cols: z
+      .number()
+      .int()
+      .min(1)
+      .max(DASHBOARD_GRID_COLS)
+      .default(DASHBOARD_GRID_COLS),
+    rowHeight: z
+      .number()
+      .int()
+      .min(8)
+      .default(DASHBOARD_GRID_ROW_HEIGHT_DEFAULT),
+  })
+  .strict();
+export type DashboardGridConfig = z.infer<typeof dashboardGridConfig>;
+
 export const dashboardInterface = z
   .object({
     id: z.string(),
@@ -37,6 +59,11 @@ export const dashboardInterface = z
     updateSchedule: dashboardUpdateSchedule.optional(),
     title: z.string(),
     blocks: z.array(dashboardBlockInterface),
+    // Dashboard-wide period comparison. Currently set only per exploration
+    // block; this is the seam for a future dashboard-level compare toggle
+    // (see resolveBlockComparison) and is honored on refresh/render already.
+    comparison: blockComparisonValidator.optional(),
+    grid: dashboardGridConfig.optional(),
     projects: z.array(z.string()).optional(), // General dashboards only, experiment dashboards use the experiment's projects
     nextUpdate: z.date().optional(),
     lastUpdated: z.date().optional(),
@@ -45,21 +72,24 @@ export const dashboardInterface = z
   })
   .strict();
 
-export const apiDashboardInterface = dashboardInterface
-  .omit({
-    nextUpdate: true,
-    lastUpdated: true,
-    dateCreated: true,
-    dateUpdated: true,
-    blocks: true,
-  })
-  .safeExtend({
-    nextUpdate: z.iso.datetime().optional(),
-    lastUpdated: z.iso.datetime().optional(),
-    dateCreated: z.iso.datetime(),
-    dateUpdated: z.iso.datetime(),
-    blocks: z.array(apiDashboardBlockInterface),
-  });
+export const apiDashboardInterface = namedSchema(
+  "Dashboard",
+  dashboardInterface
+    .omit({
+      nextUpdate: true,
+      lastUpdated: true,
+      dateCreated: true,
+      dateUpdated: true,
+      blocks: true,
+    })
+    .safeExtend({
+      nextUpdate: z.iso.datetime().optional(),
+      lastUpdated: z.iso.datetime().optional(),
+      dateCreated: z.iso.datetime(),
+      dateUpdated: z.iso.datetime(),
+      blocks: z.array(apiDashboardBlockInterface),
+    }),
+);
 
 export const apiCreateDashboardBody = z
   .object({

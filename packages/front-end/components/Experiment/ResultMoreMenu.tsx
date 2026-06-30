@@ -18,35 +18,43 @@ import {
 } from "@/ui/DropdownMenu";
 import AsyncQueriesModal from "@/components/Queries/AsyncQueriesModal";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
+import {
+  getIsExperimentIncludedInIncrementalRefresh,
+  getPipelineSettingsAfterReenablingExperiment,
+} from "@/services/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Badge from "@/ui/Badge";
 import { useUser } from "@/services/UserContext";
+import { useIncrementalPipelineUnsupportedReason } from "@/hooks/useIncrementalPipelineUnsupportedReason";
 import { useSnapshot } from "./SnapshotProvider";
 
 export function canShowRefreshMenuItem({
   forceRefresh,
   datasource,
   canRunExperimentQueries,
-  isExperimentIncludedInIncrementalRefresh,
-  dimension,
 }: {
   forceRefresh?: () => Promise<void>;
   datasource?: DataSourceInterfaceWithParams | null;
   canRunExperimentQueries: boolean;
-  isExperimentIncludedInIncrementalRefresh: boolean;
-  dimension?: string;
 }): boolean {
   if (!forceRefresh) return false;
   if (!datasource) return false;
   if (!canRunExperimentQueries) return false;
+  return true;
+}
 
-  // allowFullRefresh mirrors component logic
-  const allowFullRefresh =
-    !isExperimentIncludedInIncrementalRefresh ||
-    (!dimension && isExperimentIncludedInIncrementalRefresh);
-
-  return allowFullRefresh;
+export function shouldOfferMenuRefresh({
+  isIncremental,
+  dimension,
+  overallNeedsFullRefresh,
+}: {
+  isIncremental: boolean;
+  dimension?: string;
+  overallNeedsFullRefresh: boolean;
+}): boolean {
+  if (isIncremental && dimension) return false;
+  if (overallNeedsFullRefresh) return false;
+  return true;
 }
 
 export function isExperimentExcludedFromIncrementalRefresh({
@@ -125,7 +133,7 @@ export default function ResultMoreMenu({
   const { hasCommercialFeature } = useUser();
   const canEdit = permissionsUtil.canViewExperimentModal(project);
 
-  const { latest, snapshot } = useSnapshot();
+  const { latestSummary: latest, snapshot } = useSnapshot();
 
   const canDownloadJupyterNotebook =
     hasData && supportsNotebooks && notebookUrl && notebookFilename;
@@ -137,8 +145,18 @@ export default function ResultMoreMenu({
     ? getIsExperimentIncludedInIncrementalRefresh(
         datasource ?? undefined,
         experiment.id,
+        experiment.type,
       )
     : false;
+
+  // An experiment that is unsupported by Incremental Pipeline mode
+  // will always do a full rescan.
+  // So Full Refresh does not apply.
+  const incrementalPipelineUnsupportedReason =
+    useIncrementalPipelineUnsupportedReason(experiment);
+  const runsIncrementalRefresh =
+    isExperimentIncludedInIncrementalRefresh &&
+    !incrementalPipelineUnsupportedReason;
 
   const experimentExcludedFromIncrementalRefresh =
     isExperimentExcludedFromIncrementalRefresh({
@@ -151,7 +169,7 @@ export default function ResultMoreMenu({
 
   const { getExperimentMetricById, getDimensionById, ready } = useDefinitions();
 
-  const rerunAllQueriesText = isExperimentIncludedInIncrementalRefresh
+  const rerunAllQueriesText = runsIncrementalRefresh
     ? "Full refresh"
     : !hasData
       ? "Force update"
@@ -309,23 +327,23 @@ export default function ResultMoreMenu({
     setDropdownOpen(false);
   }, []);
 
-  // Re-enable Incremental Refresh: Removes experiment from incremental refresh exclusion list
+  // Re-enable Incremental Refresh: drops the experiment from the exclusion
+  // list and (if the datasource defaults to ephemeral) adds it to the
+  // opt-in list.
   const handleReenableIncrementalRefresh = useCallback(async () => {
     if (!datasource || !experiment) return;
+
+    const pipelineSettings = getPipelineSettingsAfterReenablingExperiment(
+      datasource.settings.pipelineSettings,
+      experiment.id,
+    );
 
     await apiCall(`/datasource/${datasource.id}`, {
       method: "PUT",
       body: JSON.stringify({
         settings: {
           ...datasource.settings,
-          pipelineSettings: {
-            ...datasource.settings.pipelineSettings,
-            excludedExperimentIds: [
-              ...(datasource.settings?.pipelineSettings
-                ?.excludedExperimentIds ?? []),
-              experiment.id,
-            ].filter((id) => id !== experiment.id),
-          },
+          pipelineSettings,
         },
       }),
     });
@@ -397,13 +415,11 @@ export default function ResultMoreMenu({
               (datasource &&
                 permissionsUtil.canRunExperimentQueries(datasource)) ??
               false,
-            isExperimentIncludedInIncrementalRefresh,
-            dimension,
           }) && (
             <DropdownMenuItem
               onClick={handleForceRefresh}
               confirmation={
-                isExperimentIncludedInIncrementalRefresh
+                runsIncrementalRefresh
                   ? {
                       confirmationTitle: "Full Refresh",
                       cta: "I understand",

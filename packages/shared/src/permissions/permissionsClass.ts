@@ -28,7 +28,9 @@ import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { IdeaInterface } from "shared/types/idea";
 import { ArchetypeInterface } from "shared/types/archetype";
 import { SavedGroupInterface } from "shared/types/saved-group";
+import { ConstantInterface } from "shared/types/constant";
 import { CustomHookInterface } from "../validators/custom-hooks";
+import { EventForwarderConfigInterface } from "../validators/event-forwarder-config";
 import { HoldoutInterface } from "../validators/holdout";
 import { PermissionError } from "../util/";
 import { READ_ONLY_PERMISSIONS } from "./permissions.constants";
@@ -128,6 +130,24 @@ export class Permissions {
 
   public canDeleteMetricGroup = (): boolean => {
     return this.checkGlobalPermission("createMetricGroups");
+  };
+
+  public canViewSessionReplay = (
+    session?: { projects?: string[] } | null,
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: session?.projects },
+      "viewSessionReplay",
+    );
+  };
+
+  public canDeleteSessionReplay = (
+    session?: { projects?: string[] } | null,
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: session?.projects },
+      "deleteSessionReplay",
+    );
   };
 
   public canManageOrgSettings = (): boolean => {
@@ -262,8 +282,23 @@ export class Permissions {
     );
   };
 
-  // This is a helper method to use on the frontend to determine whether or not to show certain UI elements
-  public canViewAttributeModal = (project?: string): boolean => {
+  // Frontend helper to gate "Add Attribute" UI.
+  // Pass allProjects on list pages where "All Projects" may be selected;
+  // omit it when checking a specific resource's project or global-only access.
+  public canViewAttributeModal = (
+    project?: string,
+    allProjects?: { id: string }[],
+  ): boolean => {
+    if (!project && allProjects?.length) {
+      // Allow if the user can create an attribute with no project (e.g. a
+      // global admin). Checking that first means a non-creatable project (like
+      // the read-only sample-data project) can't gate the CTA when it's the
+      // only project.
+      return (
+        this.canCreateAttribute({ projects: [] }) ||
+        allProjects.some((p) => this.canCreateAttribute({ projects: [p.id] }))
+      );
+    }
     return this.canCreateAttribute({ projects: project ? [project] : [] });
   };
 
@@ -296,12 +331,30 @@ export class Permissions {
     );
   };
 
-  // This is a helper method to use on the frontend to determine whether or not to show certain UI elements
-  public canViewFeatureModal = (project?: string): boolean => {
+  // Frontend helper to gate "Create Feature" UI.
+  // Pass allProjects on list pages where "All Projects" may be selected;
+  // omit it when checking a specific resource's project or global-only access.
+  public canViewFeatureModal = (
+    project?: string,
+    allProjects?: { id: string }[],
+  ): boolean => {
+    if (!project && allProjects?.length) {
+      // Allow if the user has the permission with no project (e.g. a global
+      // admin). Checking that first means a non-creatable project (like the
+      // read-only sample-data project) can't gate the CTA when it's the only
+      // project.
+      return (
+        this.checkProjectFilterPermission({ projects: [] }, "manageFeatures") ||
+        allProjects.some((p) =>
+          this.checkProjectFilterPermission(
+            { projects: [p.id] },
+            "manageFeatures",
+          ),
+        )
+      );
+    }
     return this.checkProjectFilterPermission(
-      {
-        projects: project ? [project] : [],
-      },
+      { projects: project ? [project] : [] },
       "manageFeatures",
     );
   };
@@ -339,12 +392,30 @@ export class Permissions {
     );
   };
 
-  // This is a helper method to use on the frontend to determine whether or not to show certain UI elements
-  public canViewExperimentModal = (project?: string): boolean => {
+  // Frontend helper to gate "Create Experiment" UI.
+  // Pass allProjects on list pages where "All Projects" may be selected;
+  // omit it when checking a specific resource's project or global-only access.
+  public canViewExperimentModal = (
+    project?: string,
+    allProjects?: { id: string }[],
+  ): boolean => {
+    if (!project && allProjects?.length) {
+      // Allow if the user has the permission with no project (e.g. a global
+      // admin). Checking that first means a non-creatable project (like the
+      // read-only sample-data project) can't gate the CTA when it's the only
+      // project.
+      return (
+        this.checkProjectFilterPermission({ projects: [] }, "createAnalyses") ||
+        allProjects.some((p) =>
+          this.checkProjectFilterPermission(
+            { projects: [p.id] },
+            "createAnalyses",
+          ),
+        )
+      );
+    }
     return this.checkProjectFilterPermission(
-      {
-        projects: project ? [project] : [],
-      },
+      { projects: project ? [project] : [] },
       "createAnalyses",
     );
   };
@@ -380,14 +451,24 @@ export class Permissions {
     );
   };
 
-  // This is a helper method to use on the frontend to determine whether or not to show certain UI elements
-  public canViewHoldoutModal = (projects?: string[]): boolean => {
-    return this.checkProjectFilterPermission(
-      {
-        projects: projects || [],
-      },
-      "createAnalyses",
-    );
+  // Frontend helper to gate "Create Holdout" UI.
+  // Pass allProjects on list pages where "All Projects" may be selected;
+  // omit it when checking a specific resource's project or global-only access.
+  public canViewHoldoutModal = (
+    project?: string,
+    allProjects?: { id: string }[],
+  ): boolean => {
+    if (!project && allProjects?.length) {
+      // Allow if the user can create a holdout with no project (e.g. a global
+      // admin). Checking that first means a non-creatable project (like the
+      // read-only sample-data project) can't gate the CTA when it's the only
+      // project.
+      return (
+        this.canCreateHoldout({ projects: [] }) ||
+        allProjects.some((p) => this.canCreateHoldout({ projects: [p.id] }))
+      );
+    }
+    return this.canCreateHoldout({ projects: project ? [project] : [] });
   };
 
   public canCreateHoldout = (
@@ -419,12 +500,33 @@ export class Permissions {
     );
   };
 
-  // This is a helper method to use on the frontend to determine whether or not to show certain UI elements
-  public canViewExperimentTemplateModal = (project?: string): boolean => {
+  // Frontend helper to gate "Create Experiment Template" UI.
+  // Pass allProjects on list pages where "All Projects" may be selected;
+  // omit it when checking a specific resource's project or global-only access.
+  public canViewExperimentTemplateModal = (
+    project?: string,
+    allProjects?: { id: string }[],
+  ): boolean => {
+    if (!project && allProjects?.length) {
+      // Allow if the user has the permission with no project (e.g. a global
+      // admin). Checking that first means a non-creatable project (like the
+      // read-only sample-data project) can't gate the CTA when it's the only
+      // project.
+      return (
+        this.checkProjectFilterPermission(
+          { projects: [] },
+          "manageTemplates",
+        ) ||
+        allProjects.some((p) =>
+          this.checkProjectFilterPermission(
+            { projects: [p.id] },
+            "manageTemplates",
+          ),
+        )
+      );
+    }
     return this.checkProjectFilterPermission(
-      {
-        projects: project ? [project] : [],
-      },
+      { projects: project ? [project] : [] },
       "manageTemplates",
     );
   };
@@ -535,7 +637,23 @@ export class Permissions {
   };
 
   // This is a helper method to use on the frontend to determine whether or not to show certain UI elements
-  public canViewIdeaModal = (project?: string): boolean => {
+  // Frontend helper to gate "Create Idea" UI.
+  // Pass allProjects on list pages where "All Projects" may be selected;
+  // omit it when checking a specific resource's project or global-only access.
+  public canViewIdeaModal = (
+    project?: string,
+    allProjects?: { id: string }[],
+  ): boolean => {
+    if (!project && allProjects?.length) {
+      // Allow if the user can create an idea with no project (e.g. a global
+      // admin). Checking that first means a non-creatable project (like the
+      // read-only sample-data project) can't gate the CTA when it's the only
+      // project.
+      return (
+        this.canCreateIdea({ project: "" }) ||
+        allProjects.some((p) => this.canCreateIdea({ project: p.id }))
+      );
+    }
     return this.canCreateIdea({ project });
   };
 
@@ -596,7 +714,23 @@ export class Permissions {
   };
 
   // Helper methods for the front-end
-  public canViewCreateFactTableModal = (project?: string): boolean => {
+  // Frontend helper to gate "Create Fact Table" UI.
+  // Pass allProjects on list pages where "All Projects" may be selected;
+  // omit it when checking a specific resource's project or global-only access.
+  public canViewCreateFactTableModal = (
+    project?: string,
+    allProjects?: { id: string }[],
+  ): boolean => {
+    if (!project && allProjects?.length) {
+      // Allow if the user can create a fact table with no project (e.g. a
+      // global admin). Checking that first means a non-creatable project (like
+      // the read-only sample-data project) can't gate the CTA when it's the
+      // only project.
+      return (
+        this.canCreateFactTable({ projects: [] }) ||
+        allProjects.some((p) => this.canCreateFactTable({ projects: [p.id] }))
+      );
+    }
     return this.canCreateFactTable({ projects: project ? [project] : [] });
   };
 
@@ -793,7 +927,7 @@ export class Permissions {
   public canCreateProjects = (): boolean => {
     return this.checkProjectFilterPermission(
       { projects: [] },
-      "manageProjects",
+      "createProjects",
     );
   };
 
@@ -813,6 +947,19 @@ export class Permissions {
     );
   };
 
+  // Used to determine if we should show the Settings > Projects link in SideNav
+  // Returns true if user can view any projects (even without manage permission)
+  public canViewProjectsPage = (): boolean => {
+    // If user can manage some projects, they should see the page
+    if (this.canManageSomeProjects()) {
+      return true;
+    }
+
+    // Otherwise, check if they have readData permission globally or in any project
+    const projectsToCheck = ["", ...Object.keys(this.userPermissions.projects)];
+    return projectsToCheck.some((p) => this.hasPermission("readData", p));
+  };
+
   public canUpdateProject = (project: string): boolean => {
     return this.checkProjectFilterPermission(
       { projects: [project] },
@@ -823,11 +970,29 @@ export class Permissions {
   public canDeleteProject = (project: string): boolean => {
     return this.checkProjectFilterPermission(
       { projects: [project] },
-      "manageProjects",
+      "deleteProjects",
     );
   };
 
-  public canViewCreateDataSourceModal = (project?: string): boolean => {
+  // Frontend helper to gate "Create Data Source" UI.
+  // Pass allProjects on list pages where "All Projects" may be selected;
+  // omit it when checking a specific resource's project or global-only access.
+  public canViewCreateDataSourceModal = (
+    project?: string,
+    allProjects?: { id: string }[],
+  ): boolean => {
+    if (!project && allProjects?.length) {
+      // Allow if the user can create a data source with no project (e.g. a
+      // global admin). Checking that first means a non-creatable project (like
+      // the read-only sample-data project) can't gate the CTA when it's the
+      // only project.
+      return (
+        this.canCreateDataSource({ projects: [], type: undefined }) ||
+        allProjects.some((p) =>
+          this.canCreateDataSource({ projects: [p.id], type: undefined }),
+        )
+      );
+    }
     return this.canCreateDataSource({
       projects: project ? [project] : [],
       type: undefined,
@@ -1098,7 +1263,23 @@ export class Permissions {
   };
 
   // This is a helper method to use on the frontend to determine whether or not to show certain UI elements
-  public canViewSavedGroupModal = (project?: string): boolean => {
+  // Frontend helper to gate "Create Saved Group" UI.
+  // Pass allProjects on list pages where "All Projects" may be selected;
+  // omit it when checking a specific resource's project or global-only access.
+  public canViewSavedGroupModal = (
+    project?: string,
+    allProjects?: { id: string }[],
+  ): boolean => {
+    if (!project && allProjects?.length) {
+      // Allow if the user can create a saved group with no project (e.g. a
+      // global admin). Checking that first means a non-creatable project (like
+      // the read-only sample-data project) can't gate the CTA when it's the
+      // only project.
+      return (
+        this.canCreateSavedGroup({ projects: [] }) ||
+        allProjects.some((p) => this.canCreateSavedGroup({ projects: [p.id] }))
+      );
+    }
     return this.canCreateSavedGroup({ projects: project ? [project] : [] });
   };
 
@@ -1123,6 +1304,35 @@ export class Permissions {
     savedGroup: Pick<SavedGroupInterface, "projects">,
   ): boolean => {
     return this.checkProjectFilterPermission(savedGroup, "manageSavedGroups");
+  };
+
+  public canCreateConstant = (
+    constant: Pick<ConstantInterface, "project">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: constant.project ? [constant.project] : [] },
+      "manageConstants",
+    );
+  };
+
+  public canUpdateConstant = (
+    existing: Pick<ConstantInterface, "project">,
+    updated: Pick<ConstantInterface, "project">,
+  ): boolean => {
+    return this.checkProjectFilterUpdatePermission(
+      { projects: existing.project ? [existing.project] : [] },
+      "project" in updated ? { projects: [updated.project || ""] } : {},
+      "manageConstants",
+    );
+  };
+
+  public canDeleteConstant = (
+    constant: Pick<ConstantInterface, "project">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: constant.project ? [constant.project] : [] },
+      "manageConstants",
+    );
   };
 
   public canBypassSavedGroupSizeLimit = (projects?: string[]): boolean => {
@@ -1228,6 +1438,45 @@ export class Permissions {
     return this.checkProjectFilterPermission(customHook, "manageCustomHooks");
   };
 
+  // Alias for the feature-edit permission; its own method so we can add logic/resource types later.
+  public canManageFeatureCustomHooks = (
+    feature: Pick<FeatureInterface, "project">,
+  ): boolean => {
+    return this.canUpdateFeature(feature, {});
+  };
+
+  public canCreateEventForwarderConfig = (
+    config: Pick<EventForwarderConfigInterface, "projects">,
+  ): boolean => {
+    return (
+      this.checkProjectFilterPermission(config, "editDatasourceSettings") &&
+      this.checkProjectFilterPermission(config, "runQueries")
+    );
+  };
+
+  public canUpdateEventForwarderConfig = (
+    existing: Pick<EventForwarderConfigInterface, "projects">,
+    updates: Pick<EventForwarderConfigInterface, "projects">,
+  ): boolean => {
+    return (
+      this.checkProjectFilterUpdatePermission(
+        existing,
+        updates,
+        "editDatasourceSettings",
+      ) &&
+      this.checkProjectFilterUpdatePermission(existing, updates, "runQueries")
+    );
+  };
+
+  public canDeleteEventForwarderConfig = (
+    config: Pick<EventForwarderConfigInterface, "projects">,
+  ): boolean => {
+    return (
+      this.checkProjectFilterPermission(config, "editDatasourceSettings") &&
+      this.checkProjectFilterPermission(config, "runQueries")
+    );
+  };
+
   public throwPermissionError(message?: string): void {
     throw new PermissionError(
       message ?? "You do not have permission to perform this action",
@@ -1238,6 +1487,20 @@ export class Permissions {
     project: string | undefined,
   ): boolean => {
     return this.hasPermission("readData", project || "");
+  };
+
+  // Project IDs where the user has the given permission
+  // Return value:
+  //   string[] = specific projects
+  //   [] = no projects
+  //   null = global (all projects)
+  public getProjectsWithPermission = (
+    permission: Permission,
+  ): string[] | null => {
+    if (this.hasPermission(permission, "")) return null;
+    return Object.keys(this.userPermissions.projects).filter((p) =>
+      this.hasPermission(permission, p),
+    );
   };
 
   public canReadMultiProjectResource = (

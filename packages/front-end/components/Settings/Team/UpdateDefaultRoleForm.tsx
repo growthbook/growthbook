@@ -1,6 +1,10 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { RESERVED_ROLE_IDS, getDefaultRole } from "shared/permissions";
+import {
+  RESERVED_ROLE_IDS,
+  getDefaultRole,
+  getRoleDisplayName,
+} from "shared/permissions";
 import Button from "@/components/Button";
 import { GroupedValue } from "@/components/Forms/SelectField";
 import { useUser } from "@/services/UserContext";
@@ -26,9 +30,15 @@ export default function UpdateDefaultRoleForm() {
 
   roleOptions.forEach((r) => {
     if (RESERVED_ROLE_IDS.includes(r.id)) {
-      standardOptions.push({ label: r.id, value: r.id });
+      standardOptions.push({
+        label: getRoleDisplayName(r.id, organization),
+        value: r.id,
+      });
     } else {
-      customOptions.push({ label: r.id, value: r.id });
+      customOptions.push({
+        label: getRoleDisplayName(r.id, organization),
+        value: r.id,
+      });
     }
   });
 

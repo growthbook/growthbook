@@ -6,8 +6,12 @@ import {
   DashboardBlockInterface,
   DashboardBlockType,
   CREATE_BLOCK_TYPE,
+  dashboardBlockHasIds,
   getBlockData,
+  getInitialConfigByBlockType,
+  DASHBOARD_GRID_COLS,
 } from "shared/enterprise";
+import { LayoutItem } from "react-grid-layout";
 import { Container, Flex, IconButton, Text } from "@radix-ui/themes";
 import {
   PiCaretDoubleLeft,
@@ -43,10 +47,13 @@ interface Props {
   dashboardFirstSave?: boolean;
   mutate: () => void;
   submitDashboard: SubmitDashboard<UpdateDashboardArgs>;
-  close: () => void;
+  close: (savedDashboardId?: string) => void;
   // for quick editing a block from the display view
   initialEditBlockIndex?: number | null;
   onConsumeInitialEditBlockIndex?: () => void;
+  updateTemporaryDashboard?: (update: {
+    blocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
+  }) => void;
 }
 export default function DashboardWorkspace({
   isTabActive,
@@ -58,6 +65,7 @@ export default function DashboardWorkspace({
   close,
   initialEditBlockIndex,
   onConsumeInitialEditBlockIndex,
+  updateTemporaryDashboard,
 }: Props) {
   // Determine if this is a general dashboard (no experiment linked)
   const isGeneralDashboard = !experiment || dashboard.experimentId === "";
@@ -79,7 +87,7 @@ export default function DashboardWorkspace({
       setBlocks([]);
     }
   }, [dashboard]);
-  const { metricGroups } = useDefinitions();
+  const { metricGroups, datasources } = useDefinitions();
 
   const scrollAreaRef = useRef<HTMLDivElement | null>(null);
 
@@ -91,12 +99,14 @@ export default function DashboardWorkspace({
       setSaving(true);
       setSaveError(undefined);
       try {
-        await submitDashboard({
+        const result = await submitDashboard({
           ...args,
           data: { ...dashboard, ...args.data },
         });
+        return result;
       } catch (e) {
         setSaveError(e.message);
+        throw e;
       } finally {
         setSaving(false);
       }
@@ -111,17 +121,33 @@ export default function DashboardWorkspace({
     return async (
       blocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[],
     ) => {
-      setBlocks(blocks);
       setHasMadeChanges(true);
-      await submit({
-        method: "PUT",
-        dashboardId: dashboard.id,
-        data: {
+
+      // For new dashboards, update temporary state instead of making API call
+      if (dashboardFirstSave) {
+        setBlocks(blocks);
+        updateTemporaryDashboard?.({
           blocks,
-        },
-      });
+        });
+      } else {
+        setBlocks(blocks);
+        // For existing dashboards, make API call via submit
+        await submit({
+          method: "PUT",
+          dashboardId: dashboard.id,
+          data: {
+            blocks,
+          },
+        });
+      }
     };
-  }, [setBlocks, submit, dashboard.id]);
+  }, [
+    setBlocks,
+    submit,
+    dashboard.id,
+    dashboardFirstSave,
+    updateTemporaryDashboard,
+  ]);
 
   const [editSidebarExpanded, setEditSidebarExpanded] = useState(true);
   const [editSidebarDirty, setEditSidebarDirty] = useState(false);
@@ -162,6 +188,17 @@ export default function DashboardWorkspace({
     DashboardBlockInterfaceOrData<DashboardBlockInterface> | undefined
   >(undefined);
 
+  // Whenever a block becomes staged (via add, duplicate, or edit), make sure
+  // the editing drawer is open so the user can actually configure/save it.
+  // Without this, paths like duplicateBlock - which only set addBlockIndex +
+  // stagedAddBlock - leave a staged block with no visible way to commit it
+  // when the drawer happens to be collapsed.
+  useEffect(() => {
+    if (isDefined(addBlockIndex) || isDefined(editingBlockIndex)) {
+      setEditSidebarExpanded(true);
+    }
+  }, [addBlockIndex, editingBlockIndex]);
+
   const [dashboardCopy] = useState<DashboardInterface | undefined>(
     cloneDeep(dashboard),
   );
@@ -186,9 +223,25 @@ export default function DashboardWorkspace({
     }
 
     // Create the block with appropriate parameters
-    const blockData = CREATE_BLOCK_TYPE[bType]({
+    const defaultDatasourceId = datasources[0]?.id ?? "";
+    const isExplorationBlock =
+      bType === "metric-exploration" ||
+      bType === "fact-table-exploration" ||
+      bType === "data-source-exploration";
+    // TypeScript can't correlate block type with its config in a discriminated union
+    const createBlock = CREATE_BLOCK_TYPE[bType] as (args: {
+      experiment: ExperimentInterfaceStringDates;
+      metricGroups: typeof metricGroups;
+      initialValues?: Record<string, unknown>;
+    }) => ReturnType<(typeof CREATE_BLOCK_TYPE)[typeof bType]>;
+    const blockData = createBlock({
       experiment: experiment!,
       metricGroups,
+      initialValues: isExplorationBlock
+        ? {
+            config: getInitialConfigByBlockType(bType, defaultDatasourceId),
+          }
+        : undefined,
     });
 
     setStagedAddBlock(blockData);
@@ -233,6 +286,16 @@ export default function DashboardWorkspace({
     clearEditingState();
   };
 
+  // Strip layout so the duplicate doesn't land on top of the source block
+  // (normalizeLayouts on the server doesn't resolve overlaps).
+  const duplicateBlock = (i: number) => {
+    setAddBlockIndex(i + 1);
+    setStagedAddBlock({
+      ...getBlockData(effectiveBlocks[i]),
+      layout: undefined,
+    });
+  };
+
   return (
     <>
       {showSaveModal && (
@@ -241,12 +304,12 @@ export default function DashboardWorkspace({
           initial={dashboard}
           close={() => setShowSaveModal(false)}
           submit={async (data) => {
-            await submitDashboard({
+            const result = await submit({
               method: "PUT",
               dashboardId: dashboard.id,
               data,
             });
-            close();
+            close(result.dashboardId);
           }}
           type={isGeneralDashboard ? "general" : "experiment"}
           dashboardFirstSave={dashboardFirstSave}
@@ -294,7 +357,7 @@ export default function DashboardWorkspace({
             )}
           </Flex>
           <Flex align="center" gap="4">
-            {dashboardCopy && hasMadeChanges && (
+            {dashboardCopy && hasMadeChanges && !dashboardFirstSave && (
               <Tooltip
                 body="Undo all changes made during this current edit session"
                 tipPosition="top"
@@ -324,8 +387,13 @@ export default function DashboardWorkspace({
               </Tooltip>
             )}
             <Flex align="center" gap="2">
-              {dashboard.id === "new" && blocks.length === 0 && (
-                <Link onClick={close} color="red" type="button" weight="bold">
+              {dashboardFirstSave && (
+                <Link
+                  onClick={() => close()}
+                  color="red"
+                  type="button"
+                  weight="bold"
+                >
                   Exit without saving
                 </Link>
               )}
@@ -401,22 +469,43 @@ export default function DashboardWorkspace({
                 focusedBlockIndex: focusedBlockIndex,
                 stagedBlockIndex: addBlockIndex ?? editingBlockIndex,
                 scrollAreaRef: scrollAreaRef,
-                moveBlock: (i, direction) => {
+                updateLayout: (layouts: readonly LayoutItem[]) => {
                   if (isDefined(addBlockIndex) || isDefined(editingBlockIndex))
                     return;
-                  const otherBlocks = blocks.toSpliced(i, 1);
-                  setBlocksAndSubmit([
-                    ...otherBlocks.slice(0, i + direction),
-                    blocks[i],
-                    ...otherBlocks.slice(i + direction),
-                  ]);
+                  const byId = new Map(layouts.map((l) => [l.i, l] as const));
+                  let changed = false;
+                  const next = blocks.map((b) => {
+                    if (!dashboardBlockHasIds(b)) return b;
+                    const l = byId.get(b.id);
+                    if (!l) return b;
+                    const w = Math.min(l.w, DASHBOARD_GRID_COLS);
+                    const h = Math.max(1, l.h);
+                    const nextLayout = {
+                      x: l.x,
+                      y: l.y,
+                      w,
+                      h,
+                      ...(b.layout?.static ? { static: true } : {}),
+                    };
+                    const prev = b.layout;
+                    if (
+                      prev &&
+                      prev.x === nextLayout.x &&
+                      prev.y === nextLayout.y &&
+                      prev.w === nextLayout.w &&
+                      prev.h === nextLayout.h
+                    ) {
+                      return b;
+                    }
+                    changed = true;
+                    return { ...b, layout: nextLayout };
+                  });
+                  if (!changed) return;
+                  setBlocksAndSubmit(next);
                 },
                 addBlockType: addBlockType,
                 editBlock: editBlock,
-                duplicateBlock: (i) => {
-                  setAddBlockIndex(i + 1);
-                  setStagedAddBlock(getBlockData(effectiveBlocks[i]));
-                },
+                duplicateBlock,
                 deleteBlock: deleteBlock,
               }}
               mutate={mutate}
@@ -500,10 +589,7 @@ export default function DashboardWorkspace({
               addBlockType={addBlockType}
               focusBlock={focusBlock}
               editBlock={editBlock}
-              duplicateBlock={(i) => {
-                setAddBlockIndex(i + 1);
-                setStagedAddBlock(getBlockData(effectiveBlocks[i]));
-              }}
+              duplicateBlock={duplicateBlock}
               deleteBlock={deleteBlock}
             />
           </Flex>

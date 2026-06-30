@@ -7,6 +7,12 @@ import formatRelative from "date-fns/formatRelative";
 import previousMonday from "date-fns/previousMonday";
 import { formatInTimeZone } from "date-fns-tz";
 
+export function dateNoYear(date: string | Date): string {
+  if (!date) return "";
+  const d = getValidDate(date);
+  const isCurrentYear = d.getFullYear() === new Date().getFullYear();
+  return format(d, isCurrentYear ? "MMM d" : "MMM d, yyyy");
+}
 export function date(date: string | Date, inTimezone?: string): string {
   if (!date) return "";
   const d = getValidDate(date);
@@ -19,6 +25,30 @@ export function datetime(date: string | Date, inTimezone?: string): string {
   if (!date) return "";
   const d = getValidDate(date);
   const formatStr = "PPp";
+  return inTimezone
+    ? formatInTimeZone(d, inTimezone, formatStr)
+    : format(d, formatStr);
+}
+export function datetimeAt(date: string | Date, inTimezone?: string): string {
+  if (!date) return "";
+  const d = getValidDate(date);
+  const formatStr = "MMM d, yyyy 'at' h:mm a";
+  return inTimezone
+    ? formatInTimeZone(d, inTimezone, formatStr)
+    : format(d, formatStr);
+}
+export function dateOnly(date: string | Date, inTimezone?: string): string {
+  if (!date) return "";
+  const d = getValidDate(date);
+  const formatStr = "yyyy-MM-dd";
+  return inTimezone
+    ? formatInTimeZone(d, inTimezone, formatStr)
+    : format(d, formatStr);
+}
+export function timestamp(date: string | Date, inTimezone?: string): string {
+  if (!date) return "";
+  const d = getValidDate(date);
+  const formatStr = "yyyy-MM-dd HH:mm:ss";
   return inTimezone
     ? formatInTimeZone(d, inTimezone, formatStr)
     : format(d, formatStr);
@@ -101,6 +131,20 @@ export function getValidDateOffsetByUTC(
   return new Date(date.getTime() + date.getTimezoneOffset() * 60000);
 }
 
+// Compact relative time using single-char units: "5s ago", "3m ago", "2h ago", "7d ago"
+export function formatShortAgo(dateOrTimestamp: Date | number): string {
+  const ts =
+    typeof dateOrTimestamp === "number"
+      ? dateOrTimestamp
+      : dateOrTimestamp.getTime();
+  const seconds = Math.floor((Date.now() - ts) / 1000);
+  if (seconds < 1) return "just now";
+  if (seconds < 60) return `${seconds}s ago`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+  return `${Math.floor(seconds / 86400)}d ago`;
+}
+
 // returns an abbreviated version of the "ago" string.
 // ex: "about 5 minutes ago" -> "5 min ago"
 export function abbreviateAgo(date: string | Date | null | undefined): string {
@@ -109,4 +153,15 @@ export function abbreviateAgo(date: string | Date | null | undefined): string {
     .replace("less than a", "<1")
     .replace(/second(s)?/g, "sec$1")
     .replace(/minute(s)?/g, "min$1");
+}
+
+export function snapToUtcDayStart(date: Date): Date {
+  const snapped = new Date(date);
+  snapped.setUTCHours(0, 0, 0, 0);
+  return snapped;
+}
+
+export function precedingUtcDayStart(date: Date): Date {
+  const dayStart = snapToUtcDayStart(date);
+  return new Date(dayStart.getTime() - 24 * 60 * 60 * 1000);
 }

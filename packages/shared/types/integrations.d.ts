@@ -27,7 +27,12 @@ export interface PipelineIntegration {
   getDropUnitsTableQuery(params: { fullTablePath: string }): string;
 }
 
-export type ExternalIdCallback = (id: string) => Promise<void>;
+// Optional metadata persisted alongside externalId and passed to cancelQuery
+// (e.g. BigQuery job location).
+export type ExternalIdCallback = (
+  id: string,
+  metadata?: Record<string, string>,
+) => Promise<void>;
 
 export type DataType =
   | "string"
@@ -36,7 +41,8 @@ export type DataType =
   | "boolean"
   | "date"
   | "timestamp"
-  | "hll";
+  | "hll"
+  | "quantileSketch";
 
 export type MetricAggregationType = "pre" | "post" | "noWindow";
 
@@ -146,19 +152,20 @@ export type FactMetricData = {
   aggregatedValueTransformation: AggregatedValueTransformation;
 };
 
-export type FactMetricSourceData = {
+// Identity and per-source temporal scoping for one fact-table cache. Metric-
+// level lists (metricData / percentileData / eventQuantileData /
+// regressionAdjustedMetrics) live at the result level — each entry there
+// already self-identifies its source(s) via `numeratorSourceIndex` /
+// `denominatorSourceIndex` (and `sourceIndex` on percentileData), so per-
+// source duplication of those arrays would be redundant.
+export type FactMetricSource = {
   factTable: FactTableInterface;
   index: number;
-  metricData: FactMetricData[];
-  percentileData: FactMetricPercentileData[];
-  eventQuantileData: FactMetricQuantileData[];
-  regressionAdjustedMetrics: FactMetricData[];
   minCovariateStartDate: Date;
   maxCovariateEndDate: Date;
   metricStart: Date;
   metricEnd: Date;
   maxHoursToConvert: number;
-  activationMetric: ExperimentMetricInterface | null;
   bindingLastMaxTimestamp: boolean;
 };
 
@@ -167,6 +174,11 @@ export type FactMetricQuantileData = {
   valueCol: string;
   outputCol: string;
   metricQuantileSettings: MetricQuantileSettings;
+  // True when the metric's numerator uses 'kll merge' (pre-aggregated
+  // KLL sketch column). In that case n_events must be aggregated by
+  // SUM-ing the paired '<sketch>_n_events' column rather than COUNT-ing
+  // sketch rows.
+  isKllMerge: boolean;
 };
 
 export type FactMetricPercentileData = {
@@ -273,6 +285,7 @@ export type TestQueryParams = {
   query: string;
   templateVariables?: TemplateVariables;
   testDays?: number;
+  timestampColumn?: string;
   limit?: number;
 };
 
@@ -280,12 +293,14 @@ export type ColumnTopValuesParams = {
   factTable: Pick<FactTableInterface, "sql" | "eventName">;
   columns: ColumnInterface[];
   limit?: number;
-  lookbackDays?: number;
+  lookbackDays: number;
+  maxValueLength?: number;
 };
+
+/** Rows are returned most-frequent-first per column. */
 export type ColumnTopValuesResponseRow = {
   column: string;
   value: string;
-  count: number;
 };
 
 interface ExperimentBaseQueryParams {
@@ -323,6 +338,7 @@ export interface DropOldIncrementalUnitsQueryParams {
 
 export interface AlterNewIncrementalUnitsQueryParams {
   unitsTableName: string;
+  unitsTableFullName: string;
   unitsTempTableFullName: string;
 }
 
@@ -338,6 +354,12 @@ export interface MaxTimestampMetricSourceQueryParams {
 
 export interface CreateMetricSourceTableQueryParams {
   settings: ExperimentSnapshotSettings;
+  // The fact table this cache is rooted in. Schema generation uses this to
+  // decide, for each metric, which of its sides (numerator, denominator) the
+  // cache materializes — a cross-FT ratio metric's numerator-only cache lives
+  // in its numerator FT, its denominator-only cache lives in its denominator
+  // FT, and same-FT metrics carry both sides in their one cache.
+  factTableId: string;
   metrics: FactMetricInterface[];
   factTableMap: FactTableMap;
   metricSourceTableFullName: string;
@@ -347,6 +369,10 @@ export interface InsertMetricSourceDataQueryParams {
   settings: ExperimentSnapshotSettings;
   activationMetric: ExperimentMetricInterface | null;
   factTableMap: FactTableMap;
+  // The fact table whose rows feed this cache. For cross-FT ratio metrics
+  // this disambiguates whether to pull numerator-side or denominator-side
+  // columns; for everything else it's just the metric's source FT.
+  factTableId: string;
   metricSourceTableFullName: string;
   unitsSourceTableFullName: string;
   metrics: FactMetricInterface[];
@@ -359,6 +385,12 @@ export interface DropMetricSourceCovariateTableQueryParams {
 
 export interface CreateMetricSourceCovariateTableQueryParams {
   settings: ExperimentSnapshotSettings;
+  // The fact table this covariate cache is rooted in. Like the metric source
+  // schema, only the side(s) this FT actually hosts get materialized — a
+  // cross-FT ratio metric's numerator-only covariate cache lives in its
+  // numerator FT, its denominator-only covariate cache lives in its
+  // denominator FT.
+  factTableId: string;
   metrics: FactMetricInterface[];
   metricSourceCovariateTableFullName: string;
 }
@@ -367,10 +399,72 @@ export interface InsertMetricSourceCovariateDataQueryParams {
   settings: ExperimentSnapshotSettings;
   activationMetric: ExperimentMetricInterface | null;
   factTableMap: FactTableMap;
+  // The fact table whose rows feed this covariate cache. Disambiguates which
+  // side of a cross-FT ratio metric this insert is materializing.
+  factTableId: string;
   metricSourceCovariateTableFullName: string;
   unitsSourceTableFullName: string;
   metrics: FactMetricInterface[];
   lastCovariateSuccessfulMaxTimestamp: Date | null;
+  // When true, snap the raw scan to daily grain so this fallback covers the same
+  // days the pre-aggregated table would.
+  alignLegacyScanToDailyGrain: boolean;
+}
+
+// Reads daily partials from an aggregated fact table and re-aggregates them per
+// unit into the experiment covariate cache, in place of scanning raw events.
+export interface InsertMetricSourceCovariateFromAggregatedFactTableQueryParams {
+  settings: ExperimentSnapshotSettings;
+  activationMetric: ExperimentMetricInterface | null;
+  factTableMap: FactTableMap;
+  factTableId: string;
+  metricSourceCovariateTableFullName: string;
+  unitsSourceTableFullName: string;
+  metrics: FactMetricInterface[];
+  lastCovariateSuccessfulMaxTimestamp: Date | null;
+  // Warehouse table the daily partials are read from (registry.tableFullName).
+  aggregatedTableFullName: string;
+  // Native id type the aggregated table is keyed on (= exposure userIdType).
+  idType: string;
+}
+
+// ---- Shared daily aggregated fact tables (materialization only) ----
+//
+// Daily per-id aggregates of a single fact table, one warehouse table per
+// (organization, datasource, factTable, idType), appended insert-only at the
+// native `<idType>` + `event_date` grain.
+
+export interface CreateAggregatedFactTableQueryParams {
+  factTableId: string;
+  idType: string;
+  metrics: FactMetricInterface[];
+  tableFullName: string;
+  // Drop partitions older than this many days (BigQuery only).
+  retentionWindowDays?: number;
+}
+
+export interface InsertAggregatedFactTableDataQueryParams {
+  factTable: FactTableInterface;
+  idType: string;
+  metrics: FactMetricInterface[];
+  tableFullName: string;
+  // Lower bound on event timestamp: incremental uses the watermark with
+  // exclusiveStart=true; restate uses the chunk start with exclusiveStart=false.
+  windowStartDate: Date;
+  exclusiveStart: boolean;
+  // Exclusive upper bound on event timestamp. Set for all but the last chunk
+  // of a chunked restate so chunks tile [windowStart, now) half-open; null for
+  // incremental, the final restate chunk, and unchunked restates (open to "now").
+  windowEndDate: Date | null;
+}
+
+export interface AggregatedFactTableMaxTimestampQueryParams {
+  tableFullName: string;
+  scanStartDate: Date;
+}
+
+export interface DropAggregatedFactTableQueryParams {
+  tableFullName: string;
 }
 
 export interface IncrementalRefreshStatisticsQueryParams {
@@ -379,8 +473,11 @@ export interface IncrementalRefreshStatisticsQueryParams {
   dimensionsForPrecomputation: ExperimentDimensionWithSpecifiedSlices[];
   dimensionsForAnalysis: Dimension[];
   factTableMap: FactTableMap;
-  metricSourceTableFullName: string;
-  metricSourceCovariateTableFullName: string | null;
+  metricSources: {
+    factTableId: string;
+    tableFullName: string;
+    covariateTableFullName?: string;
+  }[];
   unitsSourceTableFullName: string;
   metrics: FactMetricInterface[];
   lastMaxTimestamp: Date | null;
@@ -457,6 +554,11 @@ export type MetricAnalysisParams = {
   metric: FactMetricInterface;
   factTableMap: FactTableMap;
   segment: SegmentInterface | null;
+};
+
+export type ProductAnalyticsExplorationParams = {
+  factTableMap: FactTableMap;
+  factMetricMap: Map<string, FactMetricInterface>;
 };
 
 export type DimensionColumnData = {

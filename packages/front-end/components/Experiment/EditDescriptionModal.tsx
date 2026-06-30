@@ -1,19 +1,37 @@
 import { useForm } from "react-hook-form";
 import { PiArrowSquareOutFill } from "react-icons/pi";
-import { Box, Flex, Text } from "@radix-ui/themes";
-import { upperFirst } from "lodash";
+import { ExperimentType } from "shared/validators";
 import { useAuth } from "@/services/auth";
 import Link from "@/ui/Link";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
-import Modal from "@/components/Modal";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import Text from "@/ui/Text";
 
 interface Props {
   source: string;
   close: () => void;
   experimentId: string;
-  experimentType?: string;
+  experimentType?: ExperimentType;
   initialValue?: string;
   mutate: () => void;
+}
+
+function getExperimentTypeName(experimentType: ExperimentType) {
+  switch (experimentType) {
+    case "standard":
+      return "experiment";
+    case "holdout":
+      return "holdout";
+    case "multi-armed-bandit":
+      return "bandit";
+  }
+}
+
+export function getExperimentDescriptionPlaceholder(
+  experimentType: ExperimentType,
+) {
+  const name = getExperimentTypeName(experimentType);
+  return `Add context about this ${name} for your team`;
 }
 
 export default function EditDescriptionModal({
@@ -21,7 +39,7 @@ export default function EditDescriptionModal({
   close,
   experimentId,
   initialValue,
-  experimentType = "experiment",
+  experimentType = "standard",
   mutate,
 }: Props) {
   const { apiCall } = useAuth();
@@ -32,10 +50,26 @@ export default function EditDescriptionModal({
   });
 
   return (
-    <Modal
+    <ModalStandard
       trackingEventModalSource={source}
       trackingEventModalType="edit-experiment-description-modal"
       header="Edit Description"
+      subheader={
+        <>
+          <Text size="inherit" mr="1">
+            Use markdown to format your content.
+          </Text>
+          <Link
+            rel="noreferrer"
+            target="_blank"
+            weight="bold"
+            href="https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax"
+          >
+            Learn More
+            <PiArrowSquareOutFill className="ml-1" />
+          </Link>
+        </>
+      }
       open={true}
       size="lg"
       close={close}
@@ -49,29 +83,11 @@ export default function EditDescriptionModal({
         localStorage.removeItem(`collapse-${experimentId}-description`);
       })}
     >
-      <Flex align="center" wrap="wrap" width="auto" mb="2">
-        <Box as="div">
-          <Text className="pr-1" as="span">
-            Use markdown to format your content.
-          </Text>
-          <Link
-            rel="noreferrer"
-            target="_blank"
-            weight="bold"
-            href="https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax"
-          >
-            Learn More
-            <PiArrowSquareOutFill className="ml-1" />
-          </Link>
-        </Box>
-      </Flex>
       <MarkdownInput
         value={form.watch("description")}
         setValue={(value) => form.setValue("description", value)}
-        placeholder={`Add a description to keep your team informed about the purpose and parameters of your ${upperFirst(
-          experimentType || "experiment",
-        )}.`}
+        placeholder={getExperimentDescriptionPlaceholder(experimentType)}
       />
-    </Modal>
+    </ModalStandard>
   );
 }

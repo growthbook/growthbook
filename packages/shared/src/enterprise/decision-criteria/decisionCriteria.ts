@@ -1,4 +1,5 @@
 import { addDays, differenceInHours, differenceInMinutes } from "date-fns";
+import { getLatestPhaseVariations } from "shared/experiments";
 import {
   DecisionCriteriaAction,
   DecisionCriteriaData,
@@ -464,7 +465,7 @@ export function getExperimentResultStatus({
       srm: healthSummary.srm,
       srmThreshold: healthSettings.srmThreshold,
       totalUsersCount: healthSummary.totalUsers,
-      numOfVariations: experimentData.variations.length,
+      numOfVariations: getLatestPhaseVariations(experimentData).length,
       minUsersPerVariation:
         experimentData.type === "multi-armed-bandit"
           ? DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION
@@ -473,6 +474,10 @@ export function getExperimentResultStatus({
 
     if (srmHealthData === "unhealthy") {
       unhealthyData.srm = true;
+    }
+
+    if (healthSummary.covariateImbalance?.isImbalanced) {
+      unhealthyData.covariateImbalance = true;
     }
 
     const multipleExposuresHealthData = getMultipleExposureHealthData({
@@ -507,6 +512,7 @@ export function getExperimentResultStatus({
     ...(unhealthyData.srm ? ["SRM"] : []),
     ...(unhealthyData.multipleExposures ? ["Multiple exposures"] : []),
     ...(unhealthyData.lowPowered ? ["Low powered"] : []),
+    ...(unhealthyData.covariateImbalance ? ["Pre-exposure bias"] : []),
   ];
   // 1. Always show unhealthy status if they exist
   if (unhealthyStatuses.length > 0) {

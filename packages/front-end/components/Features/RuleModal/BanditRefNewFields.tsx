@@ -1,13 +1,16 @@
 import { useFormContext } from "react-hook-form";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import {
   FeatureInterface,
   FeaturePrerequisite,
   SavedGroupTargeting,
 } from "shared/types/feature";
-import React, { useEffect } from "react";
+import { useEffect } from "react";
 import { FaExclamationTriangle } from "react-icons/fa";
 import Collapsible from "react-collapsible";
 import { PiCaretRightFill } from "react-icons/pi";
+import { Box, Separator } from "@radix-ui/themes";
+import Text from "@/ui/Text";
 import Field from "@/components/Forms/Field";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import SelectField from "@/components/Forms/SelectField";
@@ -20,14 +23,13 @@ import {
   useAttributeSchema,
 } from "@/services/features";
 import useSDKConnections from "@/hooks/useSDKConnections";
-import SavedGroupTargetingField from "@/components/Features/SavedGroupTargetingField";
-import ConditionInput from "@/components/Features/ConditionInput";
-import PrerequisiteTargetingField from "@/components/Features/PrerequisiteTargetingField";
+import TargetingFieldsGroup from "@/components/Features/TargetingFieldsGroup";
+import { type RuleCyclicResult } from "@/components/Features/PrerequisiteInput";
 import NamespaceSelector from "@/components/Features/NamespaceSelector";
 import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ExperimentMetricsSelector from "@/components/Experiment/ExperimentMetricsSelector";
-import BanditSettings from "@/components/GeneralSettings/BanditSettings";
+import BanditDecisionMetricSettings from "@/components/Experiment/BanditDecisionMetricSettings";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import CustomMetricSlicesSelector from "@/components/Experiment/CustomMetricSlicesSelector";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
@@ -35,6 +37,15 @@ import { GBCuped } from "@/components/Icons";
 import { useUser } from "@/services/UserContext";
 import { SortableVariation } from "@/components/Features/SortableFeatureVariationRow";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import {
+  AttributeOptionWithTooltip,
+  type AttributeOptionForTooltip,
+} from "@/components/Features/AttributeOptionTooltip";
+import Switch from "@/ui/Switch";
+import BanditSettings from "@/components/GeneralSettings/BanditSettings";
+import RuleEnvironmentScopeField, {
+  type EnvScopeProps,
+} from "@/components/Features/RuleModal/EnvironmentScopeField";
 
 export default function BanditRefNewFields({
   step,
@@ -59,6 +70,10 @@ export default function BanditRefNewFields({
   setWeight,
   variations,
   setVariations,
+  disableBanditConversionWindow,
+  setDisableBanditConversionWindow,
+  envScope,
+  onRuleCyclicChange,
 }: {
   step: number;
   source: "rule" | "experiment";
@@ -81,6 +96,10 @@ export default function BanditRefNewFields({
   setWeight: (i: number, w: number) => void;
   variations: SortableVariation[];
   setVariations: (v: SortableVariation[]) => void;
+  disableBanditConversionWindow: boolean;
+  setDisableBanditConversionWindow: (v: boolean) => void;
+  envScope?: EnvScopeProps;
+  onRuleCyclicChange?: (result: RuleCyclicResult) => void;
 }) {
   const form = useFormContext();
 
@@ -139,28 +158,52 @@ export default function BanditRefNewFields({
             label="Description"
             textarea
             minRows={1}
+            maxLength={MAX_DESCRIPTION_LENGTH}
             {...form.register("description")}
             placeholder="Short human-readable description of the Bandit"
           />
+
+          {envScope && <RuleEnvironmentScopeField {...envScope} my="5" />}
         </>
       ) : null}
 
       {step === 1 ? (
         <>
           <div className="mb-4">
+            <Text as="label" weight="semibold" mb="1">
+              Assign Variation by Attribute
+            </Text>
+            <Text as="div" color="text-mid" mb="2">
+              Will be hashed together with the Tracking Key to determine which
+              variation to assign
+            </Text>
             <SelectField
-              label="Assign Variation by Attribute"
+              withRadixThemedPortal
               containerClassName="flex-1"
               options={attributeSchema
                 .filter((s) => !hasHashAttributes || s.hashAttribute)
-                .map((s) => ({ label: s.property, value: s.property }))}
+                .map((s) => ({
+                  label: s.property,
+                  value: s.property,
+                  description: s.description,
+                  tags: s.tags,
+                  datatype: s.datatype,
+                  hashAttribute: s.hashAttribute,
+                }))}
               value={form.watch("hashAttribute")}
               onChange={(v) => {
                 form.setValue("hashAttribute", v);
               }}
-              helpText={
-                "Will be hashed together with the Tracking Key to determine which variation to assign"
-              }
+              formatOptionLabel={(o, meta) => {
+                return (
+                  <AttributeOptionWithTooltip
+                    option={o as AttributeOptionForTooltip}
+                    context={meta.context}
+                  >
+                    {o.label}
+                  </AttributeOptionWithTooltip>
+                );
+              }}
             />
             <FallbackAttributeSelector
               form={form}
@@ -198,6 +241,8 @@ export default function BanditRefNewFields({
                 formPrefix={namespaceFormPrefix}
                 trackingKey={form.watch("trackingKey") || feature?.id}
                 featureId={feature?.id || ""}
+                experimentHashAttribute={form.watch("hashAttribute")}
+                fallbackAttribute={form.watch("fallbackAttribute")}
               />
             </div>
           )}
@@ -206,33 +251,21 @@ export default function BanditRefNewFields({
 
       {step === 2 ? (
         <>
-          <SavedGroupTargetingField
-            value={savedGroupValue}
-            setValue={setSavedGroupValue}
-            // value={form.watch("savedGroups") || []}
-            // setValue={(savedGroups) =>
-            //   form.setValue("savedGroups", savedGroups)
-            // }
+          <TargetingFieldsGroup
             project={project || ""}
-          />
-          <hr />
-          <ConditionInput
-            defaultValue={defaultConditionValue}
-            onChange={setConditionValue}
-            // defaultValue={form.watch("condition") || ""}
-            // onChange={(value) => form.setValue("condition", value)}
-            key={conditionKey}
-            project={project || ""}
-          />
-          <hr />
-          <PrerequisiteTargetingField
-            value={prerequisiteValue}
-            setValue={setPrerequisiteValue}
-            feature={feature}
             environments={environments ?? []}
+            feature={feature}
+            savedGroups={savedGroupValue}
+            setSavedGroups={setSavedGroupValue}
+            condition={defaultConditionValue}
+            setCondition={setConditionValue}
+            conditionKey={conditionKey}
+            prerequisites={prerequisiteValue}
+            setPrerequisites={setPrerequisiteValue}
             setPrerequisiteTargetingSdkIssues={
               setPrerequisiteTargetingSdkIssues
             }
+            onRuleCyclicChange={onRuleCyclicChange}
           />
           {isCyclic ? (
             <div className="alert alert-danger">
@@ -306,25 +339,33 @@ export default function BanditRefNewFields({
             ) : null}
           </div>
 
-          <ExperimentMetricsSelector
-            datasource={datasource?.id}
-            exposureQueryId={exposureQueryId}
+          <Box my="4">
+            <BanditSettings page="experiment-settings" />
+          </Box>
+
+          {settings?.useStickyBucketing && (
+            <Switch
+              label="Disable Sticky Bucketing"
+              description={`Permit users in low-performing variations to switch variations in future update periods.`}
+              value={!!form.watch("disableStickyBucketing")}
+              onChange={(v) => {
+                form.setValue("disableStickyBucketing", v);
+              }}
+              mb="5"
+              mt="5"
+            />
+          )}
+
+          <Separator my="5" size="4" />
+
+          <BanditDecisionMetricSettings
+            disableBanditConversionWindow={disableBanditConversionWindow}
+            setDisableBanditConversionWindow={setDisableBanditConversionWindow}
             project={project}
-            forceSingleGoalMetric={true}
-            noQuantileGoalMetrics={true}
-            goalMetrics={form.watch("goalMetrics") ?? []}
-            secondaryMetrics={form.watch("secondaryMetrics") ?? []}
-            guardrailMetrics={form.watch("guardrailMetrics") ?? []}
-            setGoalMetrics={(goalMetrics) =>
-              form.setValue("goalMetrics", goalMetrics)
-            }
           />
 
-          <div className="mt-2 mb-3">
-            <BanditSettings page="experiment-settings" />
-          </div>
-
           <ExperimentMetricsSelector
+            experimentType="multi-armed-bandit"
             datasource={datasource?.id}
             exposureQueryId={exposureQueryId}
             project={project}

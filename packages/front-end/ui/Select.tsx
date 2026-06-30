@@ -18,6 +18,9 @@ type SelectProps = {
   variant?: "classic" | "surface" | "soft" | "ghost";
   style?: React.CSSProperties;
   triggerClassName?: string;
+  align?: "start" | "center" | "end";
+  /** Portal container — use to render the dropdown inside a parent portal (e.g. Popover). */
+  container?: HTMLElement | null;
 } & MarginProps;
 
 export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
@@ -34,6 +37,8 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
     placeholder,
     variant = "surface",
     triggerClassName,
+    align = "start",
+    container,
     ...containerProps
   }: SelectProps,
   ref,
@@ -60,7 +65,12 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
           disabled={disabled}
           variant={variant}
         />
-        <RadixSelect.Content variant="soft" position="popper">
+        <RadixSelect.Content
+          variant="soft"
+          position="popper"
+          align={align}
+          container={container ?? undefined}
+        >
           {children}
         </RadixSelect.Content>
       </RadixSelect.Root>
@@ -97,5 +107,25 @@ export const SelectItem = forwardRef<
 export const SelectSeparator = forwardRef<HTMLDivElement>(
   function SelectSeparator(props, ref) {
     return <RadixSelect.Separator {...props} ref={ref} />;
+  },
+);
+
+export const SelectGroup = forwardRef<HTMLDivElement, { children: ReactNode }>(
+  function SelectGroup({ children, ...props }, ref) {
+    return (
+      <RadixSelect.Group {...props} ref={ref}>
+        {children}
+      </RadixSelect.Group>
+    );
+  },
+);
+
+export const SelectLabel = forwardRef<HTMLDivElement, { children: ReactNode }>(
+  function SelectLabel({ children, ...props }, ref) {
+    return (
+      <RadixSelect.Label {...props} ref={ref}>
+        {children}
+      </RadixSelect.Label>
+    );
   },
 );

@@ -10,7 +10,10 @@ import {
 import { ComputedExperimentInterface } from "shared/types/experiment";
 import { FeatureMetaInfo } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import { EventUserLoggedIn } from "shared/types/events/event-types";
+import {
+  EventUserLoggedIn,
+  EventUserApiKey,
+} from "shared/types/events/event-types";
 import { SafeRolloutInterface } from "shared/types/safe-rollout";
 import {
   getSafeRolloutDaysLeft,
@@ -18,7 +21,6 @@ import {
   getHealthSettings,
 } from "shared/enterprise";
 import { AuditInterface } from "shared/types/audit";
-import { Box } from "spectacle";
 import Link from "next/link";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import RadioCards from "@/ui/RadioCards";
@@ -35,7 +37,7 @@ import {
   ExperimentDot,
   ExperimentStatusDetailsWithDot,
 } from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
-import UserAvatar from "@/components/Avatar/UserAvatar";
+import Owner from "@/components/Avatar/Owner";
 import LinkButton from "@/ui/LinkButton";
 import styles from "./NeedingAttention.module.scss";
 
@@ -55,6 +57,7 @@ type ComputedFeaturesAndRevisions = FeaturesAndRevisions & {
   creator: string | undefined;
   comment: string;
   owner: string | undefined;
+  ownerNameDisplay: string;
   dateAndStatus: number;
 };
 
@@ -67,10 +70,11 @@ const NeedingAttention = (): React.ReactElement | null => {
     getDatasourceById,
     getMetricById,
     getFactMetricById,
+    project: currentProject,
   } = useDefinitions();
 
-  // fetch the experiments
-  const { experiments } = useExperiments();
+  // fetch the experiments (scoped to the currently selected project)
+  const { experiments } = useExperiments(currentProject);
   const filterResults = useCallback((items: ComputedExperimentInterface[]) => {
     // filter to only those experiments that match the status
     if (!items || !items.length) return [];
@@ -82,7 +86,8 @@ const NeedingAttention = (): React.ReactElement | null => {
     return items;
   }, []);
 
-  const { hasCommercialFeature, organization, user } = useUser();
+  const { hasCommercialFeature, organization, user, getOwnerDisplay } =
+    useUser();
   const {
     items: experimentsNeedingAttention,
     SortableTH: SortableTHExperiments,
@@ -118,8 +123,9 @@ const NeedingAttention = (): React.ReactElement | null => {
           (item.status === "changes-requested" ||
             item.status === "approved" ||
             item.status === "draft") &&
-          item.createdBy?.type === "dashboard" &&
-          item.createdBy?.id === user?.id;
+          item.createdBy != null &&
+          "id" in item.createdBy &&
+          item.createdBy.id === user?.id;
         const isArchived = item.featureMeta?.archived;
         const safeRolloutRequiresAttention =
           safeRolloutDecisionStatus?.status === "unhealthy" || !hasDaysLeft;
@@ -145,7 +151,7 @@ const NeedingAttention = (): React.ReactElement | null => {
   const draftAndReviewData = useApi<{
     status: number;
     revisions: (FeatureRevisionInterface & { featureMeta?: FeatureMetaInfo })[];
-  }>(`/revision/feature`);
+  }>(`/revision/feature?sparse=true`);
   const { data: revisionsData } = draftAndReviewData;
   const { data: historyData } = useApi<{
     status: number;
@@ -199,55 +205,67 @@ const NeedingAttention = (): React.ReactElement | null => {
     return recentlyUsed;
   }, [historyData?.events, experiments, getDatasourceById, getMetricById]);
 
-  const featuresAndRevisions = revisionsData?.revisions.reduce<
-    FeaturesAndRevisions[]
-  >((result, revision) => {
-    if (
-      revision.featureMeta &&
-      revision.featureMeta.dateCreated <= revision.dateCreated
-    ) {
-      result.push({
-        ...revision,
-        safeRollout: safeRollouts?.find(
-          (sr) => sr.featureId === revision.featureId,
-        ),
-      });
-    }
-    return result;
-  }, []);
+  const featuresAndRevisions =
+    revisionsData?.revisions?.reduce<FeaturesAndRevisions[]>(
+      (result, revision) => {
+        if (
+          revision.featureMeta &&
+          revision.featureMeta.dateCreated <= revision.dateCreated &&
+          // Scope to the currently selected project
+          (!currentProject || revision.featureMeta.project === currentProject)
+        ) {
+          result.push({
+            ...revision,
+            safeRollout: safeRollouts?.find(
+              (sr) => sr.featureId === revision.featureId,
+            ),
+          });
+        }
+        return result;
+      },
+      [],
+    ) || [];
 
-  const revisions = useAddComputedFields(featuresAndRevisions, (revision) => {
-    const createdBy = revision?.createdBy as EventUserLoggedIn | null;
-    let dateAndStatus = new Date(revision?.dateUpdated).getTime();
-    switch (revision?.status) {
-      case "draft":
-        dateAndStatus = parseInt(`0${dateAndStatus}`);
-        break;
-      case "approved":
-        dateAndStatus = parseInt(`0${dateAndStatus}`);
-        break;
-      case "pending-review":
-        dateAndStatus = parseInt(`1${dateAndStatus}`);
-        break;
-      case "changes-requested":
-        dateAndStatus = parseInt(`1${dateAndStatus}`);
-        break;
-    }
-    return {
-      // Need a unique id for each item
-      id: revision.featureId + ":::" + revision?.version,
-      tags: revision.featureMeta?.tags || [],
-      status: revision?.status,
-      version: revision?.version,
-      dateCreated: revision?.dateCreated,
-      dateUpdated: revision?.dateUpdated,
-      project: revision.featureMeta?.project,
-      creator: createdBy?.name,
-      comment: revision?.comment,
-      owner: revision.featureMeta?.owner,
-      dateAndStatus,
-    };
-  });
+  const revisions = useAddComputedFields(
+    featuresAndRevisions,
+    (revision) => {
+      const createdBy = revision?.createdBy as
+        | EventUserLoggedIn
+        | EventUserApiKey
+        | null;
+      let dateAndStatus = new Date(revision?.dateUpdated).getTime();
+      switch (revision?.status) {
+        case "draft":
+          dateAndStatus = parseInt(`0${dateAndStatus}`);
+          break;
+        case "approved":
+          dateAndStatus = parseInt(`0${dateAndStatus}`);
+          break;
+        case "pending-review":
+          dateAndStatus = parseInt(`1${dateAndStatus}`);
+          break;
+        case "changes-requested":
+          dateAndStatus = parseInt(`1${dateAndStatus}`);
+          break;
+      }
+      return {
+        // Need a unique id for each item
+        id: revision.featureId + ":::" + revision?.version,
+        tags: revision.featureMeta?.tags || [],
+        status: revision?.status,
+        version: revision?.version,
+        dateCreated: revision?.dateCreated,
+        dateUpdated: revision?.dateUpdated,
+        project: revision.featureMeta?.project,
+        creator: createdBy?.name,
+        comment: revision?.comment,
+        owner: revision.featureMeta?.owner,
+        ownerNameDisplay: getOwnerDisplay(revision.featureMeta?.owner),
+        dateAndStatus,
+      };
+    },
+    [getOwnerDisplay],
+  );
   const {
     items: featureFlagsNeedingAttention,
     SortableTH: SortableTHFeatureFlags,
@@ -346,15 +364,6 @@ const NeedingAttention = (): React.ReactElement | null => {
       </Container>
     ) : null;
   };
-  const getAvatarAndName = (name: string) => {
-    if (!name) return null;
-    return (
-      <Flex align="center" gap="2">
-        <UserAvatar name={name} size="sm" variant="soft" />
-        <span className="text-truncate">{name}</span>
-      </Flex>
-    );
-  };
   const displayExperimentsRequiringAttention = () => {
     const ITEMS_PER_PAGE = 5;
     const startIndex = (experimentsPage - 1) * ITEMS_PER_PAGE;
@@ -412,7 +421,7 @@ const NeedingAttention = (): React.ReactElement | null => {
                     {getProjectById(item?.project || "")?.name}
                   </td>
                   <td className={styles.ownerTd}>
-                    {getAvatarAndName(item.ownerName)}
+                    <Owner ownerId={item.owner} />
                   </td>
                   <td className="text-truncate">
                     <ExperimentStatusDetailsWithDot
@@ -513,7 +522,7 @@ const NeedingAttention = (): React.ReactElement | null => {
                 <SortableTHFeatureFlags field="project">
                   Project
                 </SortableTHFeatureFlags>
-                <SortableTHFeatureFlags field="owner">
+                <SortableTHFeatureFlags field="ownerNameDisplay">
                   Owner
                 </SortableTHFeatureFlags>
                 <SortableTHFeatureFlags field="status">
@@ -541,7 +550,7 @@ const NeedingAttention = (): React.ReactElement | null => {
                     {getProjectById(item.featureMeta?.project || "")?.name}
                   </td>
                   <td className={styles.ownerTd}>
-                    {getAvatarAndName(item.featureMeta?.owner || "")}
+                    <Owner ownerId={item.owner} />
                   </td>
                   <td className="text-truncate">{renderStatusCopy(item)}</td>
                 </tr>
@@ -583,11 +592,11 @@ const NeedingAttention = (): React.ReactElement | null => {
     featureExpUsageData?.hasFeatures || featureExpUsageData?.hasExperiments;
 
   return !orgIsUsingFeatureAndExperiment ? null : (
-    <Box>
+    <div>
       {displayRecentUsedFeatures()}
       {displayExperimentsRequiringAttention()}
       {displayFeatureFlagsRequiringAttention()}
-    </Box>
+    </div>
   );
 };
 

@@ -12,7 +12,7 @@ const BaseClass = MakeModelClass({
     updateEvent: "populationData.update",
     deleteEvent: "populationData.delete",
   },
-  globallyUniqueIds: false,
+  globallyUniquePrimaryKeys: false,
   additionalIndexes: [
     {
       fields: {

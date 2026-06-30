@@ -1,14 +1,14 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useState } from "react";
-import { HoldoutInterface } from "shared/validators";
-import Modal from "@/components/Modal";
+import { HoldoutInterfaceStringDates } from "shared/validators";
 import Callout from "@/ui/Callout";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
-  holdout: HoldoutInterface;
+  holdout: HoldoutInterfaceStringDates;
   close: () => void;
   mutate: () => void;
 }
@@ -39,17 +39,16 @@ export default function StopHoldoutModal({
     });
 
     mutate();
-    close();
   };
 
   return (
-    <Modal
+    <ModalStandard
       trackingEventModalType="stop-holdout"
       trackingEventModalSource="stop-holdout-modal"
       open={true}
       size="md"
       submit={submit}
-      submitColor="danger"
+      ctaColor="red"
       cta="Confirm"
       close={close}
       header="Stop Holdout"
@@ -66,6 +65,6 @@ export default function StopHoldoutModal({
           </Callout>
         )}
       </div>
-    </Modal>
+    </ModalStandard>
   );
 }

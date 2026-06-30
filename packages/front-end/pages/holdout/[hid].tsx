@@ -2,7 +2,7 @@ import { useRouter } from "next/router";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import React, { ReactElement, useState } from "react";
 import { includeHoldoutInPayload } from "shared/util";
-import { HoldoutInterface } from "shared/validators";
+import { HoldoutInterfaceStringDates } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -18,10 +18,11 @@ import EditPhaseModal from "@/components/Experiment/EditPhaseModal";
 import TabbedPage from "@/components/Experiment/TabbedPage";
 import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import StartAnalysisModal from "@/components/Experiment/TabbedPage/startHoldoutAnalysisModal";
 import EditHoldoutTargetingModal from "@/components/Holdout/EditHoldoutTargetingModal";
 import NewHoldoutForm from "@/components/Holdout/NewHoldoutForm";
 import StopHoldoutModal from "@/components/Holdout/StopHoldoutModal";
+import EditScheduleModal from "@/components/Holdout/EditScheduleModal";
+import StartHoldoutAnalysisModal from "@/components/Experiment/TabbedPage/StartHoldoutAnalysisModal";
 
 const HoldoutPage = (): ReactElement => {
   const permissionsUtil = usePermissionsUtil();
@@ -38,12 +39,11 @@ const HoldoutPage = (): ReactElement => {
   const [editPhaseId, setEditPhaseId] = useState<number | null>(null);
   const [targetingModalOpen, setTargetingModalOpen] = useState(false);
   const [startAnalysisModalOpen, setStartAnalysisModalOpen] = useState(false);
-  const [checklistItemsRemaining, setChecklistItemsRemaining] = useState<
-    number | null
-  >(null);
+  const [editHoldoutScheduleModalOpen, setEditHoldoutScheduleModalOpen] =
+    useState(false);
 
   const { data, error, mutate } = useApi<{
-    holdout: HoldoutInterface;
+    holdout: HoldoutInterfaceStringDates;
     experiment: ExperimentInterfaceStringDates;
     linkedFeatures: FeatureInterface[];
     linkedExperiments: ExperimentInterfaceStringDates[];
@@ -80,7 +80,7 @@ const HoldoutPage = (): ReactElement => {
   };
 
   const canEditExperiment =
-    permissionsUtil.canViewHoldoutModal(holdout.projects) &&
+    permissionsUtil.canUpdateHoldout(holdout, { projects: holdout.projects }) &&
     !experiment.archived;
 
   let canRunExperiment = !experiment.archived;
@@ -93,7 +93,6 @@ const HoldoutPage = (): ReactElement => {
   const editMetrics = canEditExperiment
     ? () => setMetricsModalOpen(true)
     : null;
-  const stop = canRunExperiment ? () => setStopModalOpen(true) : null;
   const editResult = canRunExperiment
     ? () => {
         if (holdout?.analysisStartDate) {
@@ -118,6 +117,9 @@ const HoldoutPage = (): ReactElement => {
   const editTargeting = canRunExperiment
     ? () => setTargetingModalOpen(true)
     : null;
+  const editHoldoutSchedule = canRunExperiment
+    ? () => setEditHoldoutScheduleModalOpen(true)
+    : null;
 
   const safeToEdit =
     experiment.status !== "running" ||
@@ -126,7 +128,7 @@ const HoldoutPage = (): ReactElement => {
   return (
     <>
       {startAnalysisModalOpen && (
-        <StartAnalysisModal
+        <StartHoldoutAnalysisModal
           close={() => setStartAnalysisModalOpen(false)}
           startAnalysis={startAnalysis}
         />
@@ -214,6 +216,14 @@ const HoldoutPage = (): ReactElement => {
           experiment={experiment}
         />
       )}
+      {editHoldoutScheduleModalOpen && (
+        <EditScheduleModal
+          close={() => setEditHoldoutScheduleModalOpen(false)}
+          holdout={holdout}
+          experiment={experiment}
+          mutate={mutate}
+        />
+      )}
 
       <PageHead
         breadcrumb={[
@@ -245,9 +255,8 @@ const HoldoutPage = (): ReactElement => {
           editPhase={editPhase}
           envs={envs}
           editTargeting={editTargeting}
-          checklistItemsRemaining={checklistItemsRemaining}
-          setChecklistItemsRemaining={setChecklistItemsRemaining}
-          stop={stop}
+          editTraffic={editTargeting}
+          editSchedule={editHoldoutSchedule}
         />
       </SnapshotProvider>
     </>

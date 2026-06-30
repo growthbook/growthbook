@@ -15,7 +15,6 @@ import { useUser } from "@/services/UserContext";
 import useSSRPolyfills from "@/hooks/useSSRPolyfills";
 import PublicExperimentMetaInfo from "@/components/Experiment/Public/PublicExperimentMetaInfo";
 import {Tabs, TabsList, TabsTrigger} from "@/ui/Tabs";
-import {useScrollPosition} from "@/hooks/useScrollPosition";
 import {useLocalStorage} from "@/hooks/useLocalStorage";
 import {ExperimentTab} from "@/components/Experiment/TabbedPage";
 import PublicExperimentOverview from "@/components/Experiment/Public/PublicExperimentOverview";
@@ -90,15 +89,8 @@ export default function PublicExperimentPage(props: PublicExperimentPageProps) {
     `tabbedPageTab__public__${experiment?.id}`,
     "overview"
   );
-  const tabsRef = useRef<HTMLDivElement>(null);
+  const tabsPinSentinelRef = useRef<HTMLDivElement>(null);
   const [headerPinned, setHeaderPinned] = useState(false);
-  const { scrollY } = useScrollPosition();
-  useEffect(() => {
-    if (!tabsRef.current) return;
-    const isHeaderSticky =
-      tabsRef.current.getBoundingClientRect().top <= TABS_HEADER_HEIGHT_PX;
-    setHeaderPinned(isHeaderSticky);
-  }, [scrollY]);
 
   const phases = experiment?.phases || [];
   const lastPhaseIndex = phases.length - 1;
@@ -124,6 +116,25 @@ export default function PublicExperimentPage(props: PublicExperimentPageProps) {
   const hasResults = !!analysis?.results?.[0];
   const shouldHideTabs = !experiment ||
     (experiment?.status === "draft" && !hasResults && phases.length === 1);
+
+  useEffect(() => {
+    if (shouldHideTabs) return;
+    const el = tabsPinSentinelRef.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setHeaderPinned(!entry.isIntersecting);
+      },
+      {
+        root: null,
+        rootMargin: `-${TABS_HEADER_HEIGHT_PX}px 0px 0px 0px`,
+        threshold: 0,
+      },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [shouldHideTabs]);
 
   const isBandit = experiment?.type === "multi-armed-bandit";
 
@@ -166,13 +177,24 @@ export default function PublicExperimentPage(props: PublicExperimentPageProps) {
       ) : null}
 
       {shouldHideTabs ? null : (
-        <div
-          className={clsx("experiment-tabs d-print-none", {
-            pinned: headerPinned,
-          })}
-        >
-          <div className="container-fluid pagecontents position-relative">
-            <div className="row header-tabs position-relative" ref={tabsRef}>
+        <>
+          <div
+            ref={tabsPinSentinelRef}
+            aria-hidden
+            className="d-print-none"
+            style={{
+              height: 1,
+              width: "100%",
+              pointerEvents: "none",
+            }}
+          />
+          <div
+            className={clsx("experiment-tabs d-print-none", {
+              pinned: headerPinned,
+            })}
+          >
+            <div className="container-fluid pagecontents position-relative">
+              <div className="row header-tabs position-relative">
               <Tabs
                 value={tab}
                 onValueChange={(t: ExperimentTab) => setTab(t)}
@@ -200,6 +222,7 @@ export default function PublicExperimentPage(props: PublicExperimentPageProps) {
             </div>
           </div>
         </div>
+        </>
       )}
 
       {experiment ? (

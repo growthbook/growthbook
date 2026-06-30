@@ -21,7 +21,6 @@ import {
 import { Flex, Text } from "@radix-ui/themes";
 import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/settings";
 import { differenceInDays } from "date-fns";
-import { useGrowthBook } from "@growthbook/growthbook-react";
 import Link from "@/ui/Link";
 import HelperText from "@/ui/HelperText";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -36,7 +35,6 @@ import RadixButton from "@/ui/Button";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Button from "@/components/Button";
 import { useUser } from "@/services/UserContext";
-import { AppFeatures } from "@/types/app-features";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import track from "@/services/track";
 import { getAutoSliceUpdateFrequencyHours } from "@/services/env";
@@ -51,10 +49,6 @@ export interface Props {
 export default function ColumnModal({ existing, factTable, close }: Props) {
   const { apiCall } = useAuth();
   const { hasCommercialFeature, settings } = useUser();
-  const growthbook = useGrowthBook<AppFeatures>();
-
-  // Feature flag and commercial feature checks for slice analysis
-  const isMetricSlicesFeatureEnabled = growthbook?.isOn("metric-slices");
   const hasMetricSlicesFeature = hasCommercialFeature("metric-slices");
 
   const maxMetricSliceLevels =
@@ -81,8 +75,14 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
     setRefreshingTopValues(true);
     setShouldForceOverwriteSlices(true); // Flag to force overwrite slices
     try {
+      // If the column is newly added as an auto slice, the endpoint below
+      // will not run the top values query since the column in the DB is not
+      // set as a auto slice column. We need to tell the backend to proceed with the query.
+      const forceAutoSlice =
+        (form.watch("isAutoSliceColumn") && !existing.isAutoSliceColumn) ||
+        form.watch("datatype") !== existing.datatype;
       await apiCall(
-        `/fact-tables/${factTable.id}/column/${existing.column}/top-values`,
+        `/fact-tables/${factTable.id}/column/${existing.column}/top-values${forceAutoSlice ? "?forceAutoSlice=true" : ""}`,
         {
           method: "POST",
         },
@@ -249,6 +249,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       open={true}
       close={close}
@@ -352,6 +353,10 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
           {
             label: "JSON",
             value: "json",
+          },
+          {
+            label: "Binary",
+            value: "binary",
           },
           {
             label: "Other",
@@ -482,6 +487,10 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
                                   value: "boolean",
                                 },
                                 {
+                                  label: "Binary",
+                                  value: "binary",
+                                },
+                                {
                                   label: "Other",
                                   value: "other",
                                 },
@@ -558,9 +567,8 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
         </Link>
       )}
 
-      {isMetricSlicesFeatureEnabled &&
-        (form.watch("datatype") === "string" ||
-          form.watch("datatype") === "boolean") &&
+      {(form.watch("datatype") === "string" ||
+        form.watch("datatype") === "boolean") &&
         !factTable.userIdTypes.includes(form.watch("column")) &&
         form.watch("column") !== "timestamp" && (
           <div className="rounded px-3 pt-3 pb-1 bg-highlight mb-4">
@@ -585,7 +593,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
                   <>
                     Column may be used to automatically slice metrics during
                     experiment analysis.{" "}
-                    <DocLink docSection="autoSlices">
+                    <DocLink useRadix={false} docSection="autoSlices">
                       Learn More <PiArrowSquareOut />
                     </DocLink>
                   </>

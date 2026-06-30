@@ -10,7 +10,6 @@
   --background-highlight: rgba(156, 117, 235, 0.06);
   --table-row-hover-background-color: rgba(0, 0, 0, 0.075); // default Bootstrap
   --table-row-highlight-background-color: #{rgba(124, 69, 234, 0.06)};
-
   --text-color-main: #{colors.$main-black};
   --text-color-table: #{colors.$gray-900};
   --text-color-th: #{colors.$gray1};
@@ -26,8 +25,8 @@
 
   --form-input-group-background: #e9ecef;
   --form-input-group-color: #{colors.$gray-700};
-  --form-multivalue-background-color: #f2ecfd;
-  --form-multivalue-text-color: #7c45ea;
+  --form-multivalue-background-color: var(--slate-a3);
+  --form-multivalue-text-color: var(--slate-12);
   --form-switch-background: #{colors.$gray-300};
   --form-switch-background-active: #{colors.$purple};
 
@@ -156,8 +155,8 @@
 
   --form-input-group-background: #{colors.$gray-800};
   --form-input-group-color: #{colors.$gray6};
-  --form-multivalue-background-color: #{darken(colors.$highlight-purple, 30%)};
-  --form-multivalue-text-color: #{colors.$gray4};
+  --form-multivalue-background-color: var(--slate-a3);
+  --form-multivalue-text-color: var(--slate-12);
   --form-switch-background: #{colors.$gray-800};
   --form-switch-background-active: #{colors.$highlight-purple};
 

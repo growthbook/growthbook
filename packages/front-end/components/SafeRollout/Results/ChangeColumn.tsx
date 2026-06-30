@@ -39,7 +39,7 @@ export default function ChangeColumn({
   stats,
   rowResults,
   statsEngine,
-  showPlusMinus = true,
+  showPlusMinus = false,
   showCI = false,
   differenceType,
   className,
@@ -74,8 +74,23 @@ export default function ChangeColumn({
     return null;
   }
 
-  if (!metric || !rowResults.enoughData) {
+  if (!metric) {
     return null;
+  }
+
+  if (!rowResults.enoughData) {
+    return additionalButton ? (
+      <Flex
+        align="center"
+        justify="end"
+        gap="2"
+        className={clsx("results-change", className)}
+        height="100%"
+        {...otherProps}
+      >
+        {additionalButton}
+      </Flex>
+    ) : null;
   }
 
   return (

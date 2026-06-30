@@ -172,32 +172,6 @@ export default function FlagCard({
           }
         />
 
-        {data.rowResults.riskMeta.showRisk &&
-        ["warning", "danger"].includes(data.rowResults.riskMeta.riskStatus) &&
-        data.rowResults.resultsStatus !== "lost" ? (
-          <CardItem
-            label="Risk"
-            tooltip={data.rowResults.riskMeta.riskReason}
-            value={
-              <span
-                style={{
-                  color:
-                    data.rowResults.riskMeta.riskStatus === "danger"
-                      ? "var(--red-a11)"
-                      : data.rowResults.riskMeta.riskStatus === "warning"
-                        ? "var(--amber-a11)"
-                        : undefined,
-                }}
-              >
-                {data.rowResults.riskMeta.relativeRiskFormatted}
-                {data.rowResults.riskMeta.riskFormatted ? (
-                  <>, {data.rowResults.riskMeta.riskFormatted}</>
-                ) : null}
-              </span>
-            }
-          />
-        ) : null}
-
         {!data.isGuardrail && data.rowResults.suspiciousChange ? (
           <CardItem
             label="Suspicious"
@@ -206,18 +180,6 @@ export default function FlagCard({
               <span style={{ color: "var(--pink-a11)" }}>
                 % change &gt;{" "}
                 {percentFormatter.format(data.rowResults.suspiciousThreshold)}
-              </span>
-            }
-          />
-        ) : null}
-
-        {data.rowResults.guardrailWarning ? (
-          <CardItem
-            label="Guardrail trend"
-            tooltip={data.rowResults.guardrailWarning}
-            value={
-              <span style={{ color: "var(--red-a12)" }}>
-                Bad guardrail trend
               </span>
             }
           />

@@ -1,8 +1,10 @@
 import clsx from "clsx";
 import { FaPencilAlt } from "react-icons/fa";
+import { getAllVariations } from "shared/experiments";
 import { useAuth } from "@/services/auth";
 import Button from "@/components/Button";
 import Markdown from "@/components/Markdown/Markdown";
+import track from "@/services/track";
 import { useSnapshot } from "./SnapshotProvider";
 
 export interface Props {
@@ -17,16 +19,17 @@ export default function StatusBanner({ mutateExperiment, editResult }: Props) {
   if (experiment?.status === "stopped") {
     const result = experiment.results;
 
+    const variations = getAllVariations(experiment);
     const winningVariation =
       (result === "lost"
-        ? experiment.variations[0]?.name
+        ? variations[0]?.name
         : result === "won"
-          ? experiment.variations[experiment.winner || 1]?.name
+          ? variations[experiment.winner || 1]?.name
           : "") || "";
 
     const releasedVariation =
-      experiment.variations.find((v) => v.id === experiment.releasedVariationId)
-        ?.name || "";
+      variations.find((v) => v.id === experiment.releasedVariationId)?.name ||
+      "";
 
     return (
       <div
@@ -131,6 +134,11 @@ export default function StatusBanner({ mutateExperiment, editResult }: Props) {
                 body: JSON.stringify({
                   status: "running",
                 }),
+              });
+              track("Start experiment", {
+                source: "experiment-start-banner-on-results",
+                hasDatasource: !!experiment.datasource,
+                hasExperimentAssignmentQuery: !!experiment.exposureQueryId,
               });
               mutateExperiment();
             }}

@@ -13,7 +13,6 @@ import {
   SliceLevelsData,
 } from "shared/experiments";
 import { FactMetricInterface } from "shared/types/fact-table";
-import { useGrowthBook } from "@growthbook/growthbook-react";
 import { CustomMetricSlice } from "shared/validators";
 import Badge from "@/ui/Badge";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -40,6 +39,7 @@ export interface CustomMetricSlicesSelectorProps {
   guardrailMetrics: string[];
   customMetricSlices: CustomMetricSlice[];
   setCustomMetricSlices: (slices: CustomMetricSlice[]) => void;
+  className?: string;
 }
 
 export default function CustomMetricSlicesSelector({
@@ -48,11 +48,10 @@ export default function CustomMetricSlicesSelector({
   guardrailMetrics,
   customMetricSlices,
   setCustomMetricSlices,
+  className = "my-4",
 }: CustomMetricSlicesSelectorProps) {
-  const growthbook = useGrowthBook();
-  const hasMetricSlicesFeature = growthbook?.isOn("metric-slices");
-
   const { hasCommercialFeature } = useUser();
+  const hasMetricSlicesFeature = hasCommercialFeature("metric-slices");
 
   const [editState, setEditState] = useState<"adding" | "editing" | null>(null);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
@@ -240,9 +239,8 @@ export default function CustomMetricSlicesSelector({
 
   return (
     <>
-      {hasCommercialFeature("metric-slices") &&
-      metricsWithStringColumns.length > 0 ? (
-        <div className="my-4">
+      {metricsWithStringColumns.length > 0 ? (
+        <div className={className}>
           <label className="font-weight-bold mb-1">Custom Metric Slices</label>
 
           <Text
@@ -251,7 +249,7 @@ export default function CustomMetricSlicesSelector({
             style={{ color: "var(--color-text-mid)" }}
           >
             Define custom slices to analyze across all experiment metrics.{" "}
-            <DocLink docSection="customSlices">
+            <DocLink useRadix={false} docSection="customSlices">
               Learn More <PiArrowSquareOut />
             </DocLink>
           </Text>

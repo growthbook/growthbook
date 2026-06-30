@@ -1,11 +1,11 @@
 import React, { FC, useEffect, useState } from "react";
 import { FaShippingFast } from "react-icons/fa";
 import clsx from "clsx";
-import Link from "next/link";
 import { Flex } from "@radix-ui/themes";
 import { date, datetime } from "shared/dates";
 import {
   ExperimentMetricInterface,
+  getLatestPhaseVariations,
   getMetricResultStatus,
   isFactMetric,
 } from "shared/experiments";
@@ -21,6 +21,7 @@ import {
   ExperimentStatus,
   Variation,
 } from "shared/types/experiment";
+import Link from "@/ui/Link";
 import useApi from "@/hooks/useApi";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import ChangeColumn from "@/components/Experiment/ChangeColumn";
@@ -29,7 +30,8 @@ import Pagination from "@/components/Pagination";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
-import { experimentDate } from "@/services/experiments";
+import useSignificanceThresholdsByProject from "@/hooks/useSignificanceThresholdsByProject";
+import { experimentDate, RowResults } from "@/services/experiments";
 import { useSearch } from "@/services/search";
 import { formatNumber } from "@/services/metrics";
 import track from "@/services/track";
@@ -78,6 +80,7 @@ export interface MetricExperimentData {
   secondaryMetrics: string[];
   datasource: string;
   decisionFrameworkSettings: ExperimentDecisionFrameworkSettings;
+  project?: string;
 }
 
 const NUM_PER_PAGE = 50;
@@ -94,11 +97,25 @@ function MetricExperimentResultTab({
   const end = start + numPerPage;
 
   const { metricDefaults } = useOrganizationMetricDefaults();
-  const { ciUpper, ciLower } = useConfidenceLevels();
-  const pValueThreshold = usePValueThreshold();
+  const bayesianConfidenceLevels = useConfidenceLevels(undefined);
+  const pValueThreshold = usePValueThreshold(undefined);
+  const defaultSignificanceThresholds = {
+    bayesianConfidenceLevels,
+    pValueThreshold,
+  };
+  // Experiments in this table can span projects. Resolve project-scoped
+  // significance thresholds up front for every project in the org so we can
+  // look them up per-experiment without calling hooks in a loop.
+  const significanceThresholdsByProject = useSignificanceThresholdsByProject();
 
   const expData: MetricExperimentData[] = [];
   experimentsWithSnapshot.forEach((e) => {
+    const {
+      bayesianConfidenceLevels: { ciUpper, ciLower },
+      pValueThreshold,
+    } =
+      significanceThresholdsByProject.get(e.project || "") ??
+      defaultSignificanceThresholds;
     let variationResults: SnapshotMetric[] = [];
     let statsEngine: StatsEngine = "bayesian";
     let differenceType: DifferenceType = "relative";
@@ -113,7 +130,7 @@ function MetricExperimentResultTab({
       }
     }
     const baseline = variationResults?.[0];
-    e.variations.forEach((v, i) => {
+    getLatestPhaseVariations(e).forEach((v, i) => {
       if (i === 0) return;
       let expVariationData: MetricExperimentData = {
         id: e.id,
@@ -122,7 +139,7 @@ function MetricExperimentResultTab({
         status: e.status,
         results: e.results,
         archived: e.archived,
-        variations: e.variations,
+        variations: getLatestPhaseVariations(e),
         statsEngine: statsEngine,
         variationId: i,
         variationName: v.name,
@@ -132,6 +149,7 @@ function MetricExperimentResultTab({
         secondaryMetrics: e.secondaryMetrics,
         datasource: e.datasource,
         decisionFrameworkSettings: e.decisionFrameworkSettings,
+        project: e.project,
       };
       if (!bandits && baseline && variationResults[i]) {
         const { significant, resultsStatus, directionalStatus } =
@@ -168,6 +186,11 @@ function MetricExperimentResultTab({
     defaultSortDir: -1,
     undefinedLast: true,
     searchFields: [],
+    // This is a sort-only table embedded inside pages that own the URL `q`
+    // param (e.g. MetricEffects). Without this, the hook would latch onto
+    // the page's filter string at mount, which combined with an empty
+    // searchFields collapses the table to zero rows.
+    disableUrlSearchTerm: true,
   });
 
   const expRows = items.slice(start, end).map((e) => {
@@ -231,11 +254,24 @@ function MetricExperimentResultTab({
           e.variationResults ? (
             <ChangeColumn
               metric={metric}
+              pValueThreshold={
+                (
+                  significanceThresholdsByProject.get(e.project || "") ??
+                  defaultSignificanceThresholds
+                ).pValueThreshold
+              }
               stats={e.variationResults}
               rowResults={{
                 enoughData: true,
                 directionalStatus: e.directionalStatus ?? "losing",
                 hasScaledImpact: true,
+                significant: e.significant ?? false,
+                resultsStatus:
+                  (e.resultsStatus as RowResults["resultsStatus"]) ?? "",
+                suspiciousChange: false,
+                suspiciousThreshold: 0,
+                minPercentChange: 0,
+                currentMetricTotal: e.variationResults?.value ?? 0,
               }}
               showPlusMinus={false}
               statsEngine={e.statsEngine}
@@ -293,7 +329,9 @@ const MetricExperiments: FC<MetricAnalysisProps> = ({
   }>(`/metrics/${metric.id}/experiments`, {
     shouldRun: dataWithSnapshot ? () => false : undefined,
   });
-  const loading = !data;
+  // When the parent passes in `dataWithSnapshot`, it owns the loading state
+  // and we should never block on the (disabled) SWR fetch.
+  const loading = dataWithSnapshot === undefined && !data;
 
   const metricExperiments = (dataWithSnapshot ?? data?.data ?? []).filter(
     (e) =>

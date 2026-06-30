@@ -1,44 +1,61 @@
-import { Flex, Text } from "@radix-ui/themes";
+import { useState } from "react";
+import { Box, Flex, Text } from "@radix-ui/themes";
+import { FaCaretDown, FaCaretRight } from "react-icons/fa";
 import {
   DifferenceType,
   PValueCorrection,
+  SignificanceThresholds,
   StatsEngine,
 } from "shared/types/stats";
-import { ExperimentStatus } from "shared/types/experiment";
+import { ExperimentStatus, LookbackOverride } from "shared/types/experiment";
 import { ExperimentReportVariation } from "shared/types/report";
+import { MetricTimeSeries } from "shared/validators";
 import { isRatioMetric } from "shared/experiments";
 import ResultsTable from "@/components/Experiment/ResultsTable";
 import { ExperimentTableRow } from "@/services/experiments";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
+import { useAuth } from "@/services/auth";
+import Link from "@/ui/Link";
+import VariationStatsTable from "@/ui/VariationStatsTable";
 import { MetricDrilldownMetadata } from "./MetricDrilldownMetadata";
 import MetricDrilldownMetricCard from "./MetricDrilldownMetricCard";
+import { type DrilldownDimensionInfo } from "./useMetricDrilldownContext";
 
 interface MetricDrilldownOverviewProps {
   row: ExperimentTableRow;
   experimentId: string;
+  significanceThresholds: SignificanceThresholds;
   reportDate: Date;
   isLatestPhase: boolean;
   phase: number;
   startDate: string;
   endDate: string;
-  experimentStatus: ExperimentStatus;
+  experimentStatus?: ExperimentStatus;
   variations: ExperimentReportVariation[];
-  localBaselineRow: number;
-  setLocalBaselineRow: (baseline: number) => void;
+  localBaselineRow?: number;
+  setLocalBaselineRow?: (baseline: number) => void;
   localVariationFilter?: number[];
-  setLocalVariationFilter: (filter: number[] | undefined) => void;
+  setLocalVariationFilter?: (filter: number[] | undefined) => void;
   goalMetrics: string[];
   secondaryMetrics: string[];
   statsEngine: StatsEngine;
   pValueCorrection?: PValueCorrection;
-  localDifferenceType: DifferenceType;
-  setLocalDifferenceType: (type: DifferenceType) => void;
+  localDifferenceType?: DifferenceType;
+  setLocalDifferenceType?: (type: DifferenceType) => void;
   sequentialTestingEnabled?: boolean;
+  lookbackOverride?: LookbackOverride;
+  timeSeriesMessage?: string;
+  preloadedTimeSeries?: MetricTimeSeries;
+  dimensionInfo?: DrilldownDimensionInfo;
+  valueColumnWidth?: number;
+  labelMaxWidth?: number;
+  oneSided?: boolean;
 }
 
 function MetricDrilldownOverview({
   row,
   experimentId,
+  significanceThresholds,
   reportDate,
   isLatestPhase,
   phase,
@@ -46,7 +63,6 @@ function MetricDrilldownOverview({
   endDate,
   experimentStatus,
   variations,
-  localBaselineRow,
   setLocalBaselineRow,
   localVariationFilter,
   setLocalVariationFilter,
@@ -54,15 +70,26 @@ function MetricDrilldownOverview({
   secondaryMetrics,
   statsEngine,
   pValueCorrection,
-  localDifferenceType,
+  localDifferenceType = "relative",
   setLocalDifferenceType,
   sequentialTestingEnabled,
+  lookbackOverride,
+  timeSeriesMessage,
+  preloadedTimeSeries,
+  dimensionInfo,
+  localBaselineRow = 0,
+  valueColumnWidth,
+  labelMaxWidth,
+  oneSided = false,
 }: MetricDrilldownOverviewProps) {
-  const { snapshot, analysis, setAnalysisSettings, mutateSnapshot } =
-    useSnapshot();
+  const [statsExpanded, setStatsExpanded] = useState(false);
+  const { isAuthenticated } = useAuth();
+  const { snapshot, analysis, setAnalysisSettings, mutate } = useSnapshot();
 
   const { metric } = row;
   const tableId = `${experimentId}_${metric.id}_modal`;
+
+  // Time series: ExperimentMetricTimeSeriesGraphWrapper shows a message when there are no data points (or while loading).
 
   // Determine result group based on metric categorization
   const resultGroup: "goal" | "secondary" | "guardrail" = goalMetrics.includes(
@@ -80,10 +107,18 @@ function MetricDrilldownOverview({
         ? "Secondary Metric"
         : "Guardrail Metric";
 
+  const statsTableRows = variations.map((variation, i) => ({
+    variationIndex: i,
+    variationName: variation.name,
+    stats: row.variations[i],
+    isBaseline: i === localBaselineRow,
+  }));
+
   return (
     <Flex direction="column" gap="6">
       <ResultsTable
         experimentId={experimentId}
+        significanceThresholds={significanceThresholds}
         dateCreated={reportDate}
         isLatestPhase={isLatestPhase}
         phase={phase}
@@ -115,24 +150,67 @@ function MetricDrilldownOverview({
         noTooltip={false}
         isBandit={false}
         isHoldout={false}
-        visibleTimeSeriesRowIds={[`${tableId}-${metric.id}-0`]}
+        visibleTimeSeriesRowIds={
+          isAuthenticated ? [`${tableId}-${metric.id}-0`] : []
+        }
+        timeSeriesMessage={timeSeriesMessage}
+        preloadedTimeSeries={preloadedTimeSeries}
+        dimensionId={dimensionInfo?.id}
+        dimensionValue={dimensionInfo?.rawValue}
+        valueColumnWidth={valueColumnWidth}
+        labelMaxWidth={labelMaxWidth}
+        oneSided={oneSided}
         snapshot={snapshot}
         analysis={analysis}
         setAnalysisSettings={setAnalysisSettings}
-        mutate={mutateSnapshot}
+        // Forwarded to BaselineChooserColumnLabel, which appends analyses
+        // to the current snapshot in place — need `inPlace: true` so the
+        // heavy fetch refreshes (id-keyed auto-upgrade won't fire here).
+        mutate={() => mutate({ inPlace: true })}
       />
+
+      <Box>
+        <Link color="dark" onClick={() => setStatsExpanded(!statsExpanded)}>
+          <Flex align="center" gap="2">
+            {statsExpanded ? (
+              <FaCaretDown style={{ color: "var(--accent-a10)" }} />
+            ) : (
+              <FaCaretRight style={{ color: "var(--accent-a10)" }} />
+            )}
+            <Text
+              size="3"
+              weight="medium"
+              style={{ color: "var(--color-text-high)" }}
+            >
+              Variation statistics
+            </Text>
+          </Flex>
+        </Link>
+
+        {statsExpanded && (
+          <Box mt="3" maxWidth="500px">
+            <VariationStatsTable metric={metric} rows={statsTableRows} />
+          </Box>
+        )}
+      </Box>
 
       <Flex direction="column" gap="2">
         <Text size="4" weight="medium">
           Metric definition
         </Text>
-        <MetricDrilldownMetadata statsEngine={statsEngine} row={row} />
-        <Flex direction="row" gap="5">
-          <MetricDrilldownMetricCard metric={metric} type="numerator" />
-          {isRatioMetric(metric) && (
-            <MetricDrilldownMetricCard metric={metric} type="denominator" />
-          )}
-        </Flex>
+        <MetricDrilldownMetadata
+          statsEngine={statsEngine}
+          lookbackOverride={lookbackOverride}
+          row={row}
+        />
+        {isAuthenticated && (
+          <Flex direction="row" gap="5">
+            <MetricDrilldownMetricCard metric={metric} type="numerator" />
+            {isRatioMetric(metric) && (
+              <MetricDrilldownMetricCard metric={metric} type="denominator" />
+            )}
+          </Flex>
+        )}
       </Flex>
     </Flex>
   );

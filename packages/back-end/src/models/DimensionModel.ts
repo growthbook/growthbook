@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { ApiDimension } from "shared/types/openapi";
+import { ApiDimension } from "shared/validators";
 import { DimensionInterface } from "shared/types/dimension";
 import { getConfigDimensions, usingFileConfig } from "back-end/src/init/config";
 import { ApiReqContext } from "back-end/types/api";
@@ -61,6 +61,31 @@ export async function findDimensionsByOrganization(organization: string) {
     dimensions.push(toInterface(d));
   });
   return dimensions;
+}
+
+export async function findDimensionsByIds(
+  ids: string[],
+  organization: string,
+): Promise<DimensionInterface[]> {
+  if (ids.length === 0) return [];
+
+  let configDims: DimensionInterface[] = [];
+  if (usingFileConfig()) {
+    configDims = getConfigDimensions(organization).filter((d) =>
+      ids.includes(d.id),
+    );
+
+    if (!ALLOW_CREATE_DIMENSIONS) {
+      return configDims;
+    }
+  }
+
+  const dbDocs = await DimensionModel.find({
+    id: { $in: ids },
+    organization,
+  });
+
+  return [...configDims, ...dbDocs.map(toInterface)];
 }
 
 export async function findDimensionById(id: string, organization: string) {

@@ -3,7 +3,7 @@
 export default {
   js: {
     name: "JS SDK",
-    version: "1.6.4",
+    version: "1.6.5",
     github:
       "https://github.com/growthbook/growthbook/tree/main/packages/sdk-js",
     examples: [
@@ -70,11 +70,14 @@ export default {
       {
         looseUnmarshalling: "≥ v0.0.0",
       },
+      {
+        namespacesV2: "≥ v0.0.0",
+      },
     ],
   },
   react: {
     name: "React SDK",
-    version: "1.6.4",
+    version: "1.6.5",
     github:
       "https://github.com/growthbook/growthbook/tree/main/packages/sdk-react",
     examples: [
@@ -149,6 +152,9 @@ export default {
       {
         looseUnmarshalling: "≥ v0.0.0",
       },
+      {
+        namespacesV2: "≥ v0.0.0",
+      },
     ],
   },
   nextjs: {
@@ -199,6 +205,9 @@ export default {
       {
         looseUnmarshalling: "≥ v0.1.0",
       },
+      {
+        namespacesV2: "≥ v0.1.0",
+      },
     ],
   },
   php: {
@@ -240,11 +249,14 @@ export default {
       {
         looseUnmarshalling: "≥ v1.0.0",
       },
+      {
+        namespacesV2: "≥ v1.0.0",
+      },
     ],
   },
   node: {
     name: "Node SDK",
-    version: "1.6.4",
+    version: "1.6.5",
     github:
       "https://github.com/growthbook/growthbook/tree/main/packages/sdk-js",
     examples: [
@@ -299,6 +311,9 @@ export default {
       {
         looseUnmarshalling: "≥ v0.0.0",
       },
+      {
+        namespacesV2: "≥ v0.0.0",
+      },
     ],
   },
   ruby: {
@@ -342,6 +357,9 @@ export default {
       {
         looseUnmarshalling: "≥ v0.0.0",
       },
+      {
+        namespacesV2: "≥ v0.0.0",
+      },
     ],
   },
   python: {
@@ -375,6 +393,9 @@ export default {
         looseUnmarshalling: "≥ v1.1.0",
       },
       {
+        namespacesV2: "≥ v1.1.0",
+      },
+      {
         prerequisites: "≥ v1.1.0",
       },
       {
@@ -393,7 +414,7 @@ export default {
   },
   go: {
     name: "Go SDK",
-    version: "0.2.4",
+    version: "0.2.8",
     github: "https://github.com/growthbook/growthbook-golang",
     examples: [
       {
@@ -413,6 +434,12 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        caseInsensitiveMembership: "≥ v0.2.7",
+      },
+      {
+        caseInsensitiveRegex: "≥ v0.2.7",
       },
       {
         stickyBucketing: "≥ v0.2.3",
@@ -438,11 +465,14 @@ export default {
       {
         looseUnmarshalling: "≥ v0.0.0",
       },
+      {
+        namespacesV2: "≥ v0.0.0",
+      },
     ],
   },
   rust: {
     name: "Rust SDK",
-    version: "0.0.3",
+    version: "0.1.1",
     github: "https://github.com/growthbook/growthbook-rust",
     examples: [
       {
@@ -464,10 +494,22 @@ export default {
         experimentation: "All versions",
       },
       {
+        caseInsensitiveRegex: "≥ v0.1.1",
+      },
+      {
+        caseInsensitiveMembership: "≥ v0.1.1",
+      },
+      {
+        stickyBucketing: "≥ v0.1.0",
+      },
+      {
         encryption: "≥ v0.0.1",
       },
       {
         looseUnmarshalling: "≥ v0.0.1",
+      },
+      {
+        namespacesV2: "≥ v0.0.1",
       },
       {
         prerequisites: "≥ v0.0.1",
@@ -482,7 +524,7 @@ export default {
   },
   java: {
     name: "Java SDK",
-    version: "0.10.2",
+    version: "0.10.6",
     github: "https://github.com/growthbook/growthbook-sdk-java",
     examples: [
       {
@@ -516,6 +558,9 @@ export default {
         experimentation: "All versions",
       },
       {
+        caseInsensitiveRegex: "≥ v0.10.6",
+      },
+      {
         remoteEvaluation: "≥ v0.9.92",
       },
       {
@@ -538,6 +583,9 @@ export default {
       },
       {
         looseUnmarshalling: "≥ v0.0.0",
+      },
+      {
+        namespacesV2: "≥ v0.0.0",
       },
     ],
   },
@@ -591,6 +639,9 @@ export default {
       {
         looseUnmarshalling: "≥ v0.0.0",
       },
+      {
+        namespacesV2: "≥ v0.0.0",
+      },
     ],
   },
   elixir: {
@@ -626,11 +677,14 @@ export default {
       {
         looseUnmarshalling: "≥ v0.2.0",
       },
+      {
+        namespacesV2: "≥ v0.2.0",
+      },
     ],
   },
   kotlin: {
     name: "Kotlin SDK",
-    version: "6.1.1",
+    version: "7.1.1",
     github: "https://github.com/growthbook/growthbook-kotlin",
     examples: [],
     packageRepos: [
@@ -645,6 +699,12 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        caseInsensitiveMembership: "≥ v7.1.1",
+      },
+      {
+        caseInsensitiveRegex: "≥ v7.1.1",
       },
       {
         remoteEval: "≥ v1.1.50",
@@ -670,11 +730,14 @@ export default {
       {
         looseUnmarshalling: "≥ v0.0.0",
       },
+      {
+        namespacesV2: "≥ v0.0.0",
+      },
     ],
   },
   swift: {
     name: "Swift SDK",
-    version: "1.0.82",
+    version: "1.1.4",
     github: "https://github.com/growthbook/growthbook-swift",
     examples: [],
     packageRepos: [
@@ -689,6 +752,15 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        namespacesV2: "≥ v1.1.4",
+      },
+      {
+        caseInsensitiveMembership: "≥ v1.1.1",
+      },
+      {
+        caseInsensitiveRegex: "≥ v1.1.1",
       },
       {
         remoteEval: "≥ v1.0.50",
@@ -718,7 +790,7 @@ export default {
   },
   reactNative: {
     name: "React Native SDK",
-    version: "1.6.4",
+    version: "1.6.5",
     github:
       "https://github.com/growthbook/growthbook/tree/main/packages/sdk-react",
     examples: [
@@ -785,11 +857,14 @@ export default {
       {
         looseUnmarshalling: "≥ v0.0.0",
       },
+      {
+        namespacesV2: "≥ v0.0.0",
+      },
     ],
   },
   edgeCloudflare: {
     name: "Cloudflare Workers App & SDK",
-    version: "0.2.6",
+    version: "0.2.8",
     github:
       "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-cloudflare",
     examples: [
@@ -812,10 +887,19 @@ export default {
         experimentation: "All versions",
       },
       {
+        caseInsensitiveRegex: "≥ v0.2.7",
+      },
+      {
+        caseInsensitiveMembership: "≥ v0.2.7",
+      },
+      {
         savedGroupReferences: "≥ v0.1.12",
       },
       {
         looseUnmarshalling: "≥ v0.1.11",
+      },
+      {
+        namespacesV2: "≥ v0.1.11",
       },
       {
         encryption: "≥ v0.1.11",
@@ -851,7 +935,7 @@ export default {
   },
   edgeFastly: {
     name: "Fastly Compute App & SDK",
-    version: "0.2.6",
+    version: "0.2.8",
     github:
       "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-fastly",
     examples: [
@@ -874,10 +958,19 @@ export default {
         experimentation: "All versions",
       },
       {
+        caseInsensitiveRegex: "≥ v0.2.7",
+      },
+      {
+        caseInsensitiveMembership: "≥ v0.2.7",
+      },
+      {
         savedGroupReferences: "≥ v0.1.6",
       },
       {
         looseUnmarshalling: "≥ v0.1.5",
+      },
+      {
+        namespacesV2: "≥ v0.1.5",
       },
       {
         encryption: "≥ v0.1.5",
@@ -913,7 +1006,7 @@ export default {
   },
   edgeLambda: {
     name: "Lambda@Edge App & SDK",
-    version: "0.0.26",
+    version: "0.0.28",
     github:
       "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-lambda",
     examples: [],
@@ -931,10 +1024,19 @@ export default {
         experimentation: "All versions",
       },
       {
+        caseInsensitiveRegex: "≥ v0.0.27",
+      },
+      {
+        caseInsensitiveMembership: "≥ v0.0.27",
+      },
+      {
         savedGroupReferences: "≥ v0.0.7",
       },
       {
         looseUnmarshalling: "≥ v0.0.6",
+      },
+      {
+        namespacesV2: "≥ v0.0.6",
       },
       {
         encryption: "≥ v0.0.6",
@@ -970,7 +1072,7 @@ export default {
   },
   edgeUtils: {
     name: "Edge Utils",
-    version: "0.2.5",
+    version: "0.2.8",
     github:
       "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-utils",
     examples: [],
@@ -988,10 +1090,19 @@ export default {
         experimentation: "All versions",
       },
       {
+        caseInsensitiveRegex: "≥ v0.2.7",
+      },
+      {
+        caseInsensitiveMembership: "≥ v0.2.7",
+      },
+      {
         savedGroupReferences: "≥ v0.1.5",
       },
       {
         looseUnmarshalling: "≥ v0.1.4",
+      },
+      {
+        namespacesV2: "≥ v0.1.4",
       },
       {
         encryption: "≥ v0.1.4",
@@ -1027,7 +1138,7 @@ export default {
   },
   flutter: {
     name: "Flutter SDK",
-    version: "4.1.0",
+    version: "4.2.1",
     github: "https://github.com/growthbook/growthbook-flutter",
     examples: [],
     packageRepos: [
@@ -1066,6 +1177,48 @@ export default {
       },
       {
         looseUnmarshalling: "≥ v0.0.0",
+      },
+      {
+        namespacesV2: "≥ v0.0.0",
+      },
+    ],
+  },
+  roku: {
+    name: "Roku SDK",
+    version: "1.3.1",
+    github: "https://github.com/growthbook/growthbook-roku",
+    examples: [
+      {
+        url: "https://github.com/growthbook/growthbook-roku/tree/main/examples",
+        name: "Roku examples",
+      },
+      {
+        url: "https://www.npmjs.com/package/growthbook-roku",
+        name: "npm package",
+      },
+    ],
+    packageRepos: [],
+    capabilities: [
+      {
+        features: "All versions",
+      },
+      {
+        experimentation: "All versions",
+      },
+      {
+        prerequisites: "≥ v1.3.0",
+      },
+      {
+        looseUnmarshalling: "≥ v1.3.0",
+      },
+      {
+        namespacesV2: "≥ v1.3.0",
+      },
+      {
+        semverTargeting: "≥ v1.3.0",
+      },
+      {
+        bucketingV2: "≥ v1.3.0",
       },
     ],
   },

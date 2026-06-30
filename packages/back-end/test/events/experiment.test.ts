@@ -1,3 +1,4 @@
+import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import {
   logExperimentCreated,
   logExperimentUpdated,
@@ -9,6 +10,7 @@ import { experimentSnapshot } from "back-end/test/snapshots/experiment.snapshot"
 import {
   notifyDecision,
   notifyMultipleExposures,
+  notifyNoData,
   notifySrm,
 } from "back-end/src/services/experimentNotifications";
 import { EventModel } from "back-end/src/models/EventModel";
@@ -42,6 +44,12 @@ describe("experiments events", () => {
         userId: "aabb",
         email: "user@mail.com",
         userName: "User Name",
+        auditUser: {
+          type: "dashboard",
+          id: "aabb",
+          email: "user@mail.com",
+          name: "User Name",
+        },
       },
       experimentSnapshot,
     );
@@ -68,6 +76,12 @@ describe("experiments events", () => {
             minBucketVersion: 0,
             name: "Add To Cart",
             owner: "u_dd4g20lalsnhhp9x",
+            customFields: {},
+            defaultDashboardId: undefined,
+            hasURLRedirects: false,
+            hasVisualChangesets: false,
+            linkedFeatures: [],
+            templateId: undefined,
             phases: [
               {
                 coverage: 1,
@@ -87,7 +101,7 @@ describe("experiments events", () => {
               },
             ],
             project: "",
-            settings: {
+            settings: expect.objectContaining({
               activationMetric: {
                 metricId: "met_dd4gxd4lyel6394",
                 overrides: {},
@@ -95,10 +109,13 @@ describe("experiments events", () => {
               assignmentQueryId: "user_id",
               attributionModel: "firstExposure",
               datasourceId: "ds_dd4gxd4lyel5js1",
+              decisionFrameworkSettings: {},
               experimentId: "add-cart",
               goals: [{ metricId: "metric-aacc", overrides: {} }],
               guardrails: [{ metricId: "metric-eeff", overrides: {} }],
               inProgressConversions: "include",
+              metricOverrides: [],
+              postStratificationEnabled: null,
               queryFilter: "",
               regressionAdjustmentEnabled: false,
               sequentialTestingEnabled: false,
@@ -106,7 +123,7 @@ describe("experiments events", () => {
               secondaryMetrics: [{ metricId: "metric-ccdd", overrides: {} }],
               segmentId: "",
               statsEngine: "bayesian",
-            },
+            }),
             status: "running",
             tags: [],
             variations: [
@@ -135,6 +152,12 @@ describe("experiments events", () => {
         object: "experiment",
         projects: [""],
         tags: [],
+        user: {
+          email: "user@mail.com",
+          id: "aabb",
+          name: "User Name",
+          type: "dashboard",
+        },
       }),
     );
 
@@ -158,6 +181,12 @@ describe("experiments events", () => {
             minBucketVersion: 0,
             name: "Add To Cart",
             owner: "u_dd4g20lalsnhhp9x",
+            customFields: {},
+            defaultDashboardId: undefined,
+            hasURLRedirects: false,
+            hasVisualChangesets: false,
+            linkedFeatures: [],
+            templateId: undefined,
             phases: [
               {
                 coverage: 1,
@@ -177,7 +206,7 @@ describe("experiments events", () => {
               },
             ],
             project: "",
-            settings: {
+            settings: expect.objectContaining({
               activationMetric: {
                 metricId: "met_dd4gxd4lyel6394",
                 overrides: {},
@@ -185,10 +214,13 @@ describe("experiments events", () => {
               assignmentQueryId: "user_id",
               attributionModel: "firstExposure",
               datasourceId: "ds_dd4gxd4lyel5js1",
+              decisionFrameworkSettings: {},
               experimentId: "add-cart",
               goals: [{ metricId: "metric-aacc", overrides: {} }],
               guardrails: [{ metricId: "metric-eeff", overrides: {} }],
               inProgressConversions: "include",
+              metricOverrides: [],
+              postStratificationEnabled: null,
               queryFilter: "",
               regressionAdjustmentEnabled: false,
               sequentialTestingEnabled: false,
@@ -196,7 +228,7 @@ describe("experiments events", () => {
               secondaryMetrics: [{ metricId: "metric-ccdd", overrides: {} }],
               segmentId: "",
               statsEngine: "bayesian",
-            },
+            }),
             status: "running",
             tags: [],
             variations: [
@@ -249,6 +281,12 @@ describe("experiments events", () => {
         userId: "aabb",
         email: "user@mail.com",
         userName: "User Name",
+        auditUser: {
+          type: "dashboard",
+          id: "aabb",
+          email: "user@mail.com",
+          name: "User Name",
+        },
       },
       current: { ...experimentSnapshot, name: "new name" },
       previous: experimentSnapshot,
@@ -276,6 +314,12 @@ describe("experiments events", () => {
             minBucketVersion: 0,
             name: "new name",
             owner: "u_dd4g20lalsnhhp9x",
+            customFields: {},
+            defaultDashboardId: undefined,
+            hasURLRedirects: false,
+            hasVisualChangesets: false,
+            linkedFeatures: [],
+            templateId: undefined,
             phases: [
               {
                 coverage: 1,
@@ -295,7 +339,7 @@ describe("experiments events", () => {
               },
             ],
             project: "",
-            settings: {
+            settings: expect.objectContaining({
               activationMetric: {
                 metricId: "met_dd4gxd4lyel6394",
                 overrides: {},
@@ -303,10 +347,13 @@ describe("experiments events", () => {
               assignmentQueryId: "user_id",
               attributionModel: "firstExposure",
               datasourceId: "ds_dd4gxd4lyel5js1",
+              decisionFrameworkSettings: {},
               experimentId: "add-cart",
               goals: [{ metricId: "metric-aacc", overrides: {} }],
               guardrails: [{ metricId: "metric-eeff", overrides: {} }],
               inProgressConversions: "include",
+              metricOverrides: [],
+              postStratificationEnabled: null,
               queryFilter: "",
               regressionAdjustmentEnabled: false,
               sequentialTestingEnabled: false,
@@ -314,7 +361,7 @@ describe("experiments events", () => {
               secondaryMetrics: [{ metricId: "metric-ccdd", overrides: {} }],
               segmentId: "",
               statsEngine: "bayesian",
-            },
+            }),
             status: "running",
             tags: [],
             variations: [
@@ -373,6 +420,12 @@ describe("experiments events", () => {
             minBucketVersion: 0,
             name: "new name",
             owner: "u_dd4g20lalsnhhp9x",
+            customFields: {},
+            defaultDashboardId: undefined,
+            hasURLRedirects: false,
+            hasVisualChangesets: false,
+            linkedFeatures: [],
+            templateId: undefined,
             phases: [
               {
                 coverage: 1,
@@ -392,7 +445,7 @@ describe("experiments events", () => {
               },
             ],
             project: "",
-            settings: {
+            settings: expect.objectContaining({
               activationMetric: {
                 metricId: "met_dd4gxd4lyel6394",
                 overrides: {},
@@ -400,10 +453,13 @@ describe("experiments events", () => {
               assignmentQueryId: "user_id",
               attributionModel: "firstExposure",
               datasourceId: "ds_dd4gxd4lyel5js1",
+              decisionFrameworkSettings: {},
               experimentId: "add-cart",
               goals: [{ metricId: "metric-aacc", overrides: {} }],
               guardrails: [{ metricId: "metric-eeff", overrides: {} }],
               inProgressConversions: "include",
+              metricOverrides: [],
+              postStratificationEnabled: null,
               queryFilter: "",
               regressionAdjustmentEnabled: false,
               sequentialTestingEnabled: false,
@@ -411,7 +467,7 @@ describe("experiments events", () => {
               secondaryMetrics: [{ metricId: "metric-ccdd", overrides: {} }],
               segmentId: "",
               statsEngine: "bayesian",
-            },
+            }),
             status: "running",
             tags: [],
             variations: [
@@ -450,6 +506,12 @@ describe("experiments events", () => {
             minBucketVersion: 0,
             name: "Add To Cart",
             owner: "u_dd4g20lalsnhhp9x",
+            customFields: {},
+            defaultDashboardId: undefined,
+            hasURLRedirects: false,
+            hasVisualChangesets: false,
+            linkedFeatures: [],
+            templateId: undefined,
             phases: [
               {
                 coverage: 1,
@@ -469,7 +531,7 @@ describe("experiments events", () => {
               },
             ],
             project: "",
-            settings: {
+            settings: expect.objectContaining({
               activationMetric: {
                 metricId: "met_dd4gxd4lyel6394",
                 overrides: {},
@@ -477,10 +539,13 @@ describe("experiments events", () => {
               assignmentQueryId: "user_id",
               attributionModel: "firstExposure",
               datasourceId: "ds_dd4gxd4lyel5js1",
+              decisionFrameworkSettings: {},
               experimentId: "add-cart",
               goals: [{ metricId: "metric-aacc", overrides: {} }],
               guardrails: [{ metricId: "metric-eeff", overrides: {} }],
               inProgressConversions: "include",
+              metricOverrides: [],
+              postStratificationEnabled: null,
               queryFilter: "",
               regressionAdjustmentEnabled: false,
               sequentialTestingEnabled: false,
@@ -488,7 +553,7 @@ describe("experiments events", () => {
               secondaryMetrics: [{ metricId: "metric-ccdd", overrides: {} }],
               segmentId: "",
               statsEngine: "bayesian",
-            },
+            }),
             status: "running",
             tags: [],
             variations: [
@@ -541,6 +606,12 @@ describe("experiments events", () => {
         userId: "aabb",
         email: "user@mail.com",
         userName: "User Name",
+        auditUser: {
+          type: "dashboard",
+          id: "aabb",
+          email: "user@mail.com",
+          name: "User Name",
+        },
       },
       experimentSnapshot,
     );
@@ -567,6 +638,12 @@ describe("experiments events", () => {
             minBucketVersion: 0,
             name: "Add To Cart",
             owner: "u_dd4g20lalsnhhp9x",
+            customFields: {},
+            defaultDashboardId: undefined,
+            hasURLRedirects: false,
+            hasVisualChangesets: false,
+            linkedFeatures: [],
+            templateId: undefined,
             phases: [
               {
                 coverage: 1,
@@ -586,7 +663,7 @@ describe("experiments events", () => {
               },
             ],
             project: "",
-            settings: {
+            settings: expect.objectContaining({
               activationMetric: {
                 metricId: "met_dd4gxd4lyel6394",
                 overrides: {},
@@ -594,10 +671,13 @@ describe("experiments events", () => {
               assignmentQueryId: "user_id",
               attributionModel: "firstExposure",
               datasourceId: "ds_dd4gxd4lyel5js1",
+              decisionFrameworkSettings: {},
               experimentId: "add-cart",
               goals: [{ metricId: "metric-aacc", overrides: {} }],
               guardrails: [{ metricId: "metric-eeff", overrides: {} }],
               inProgressConversions: "include",
+              metricOverrides: [],
+              postStratificationEnabled: null,
               queryFilter: "",
               regressionAdjustmentEnabled: false,
               sequentialTestingEnabled: false,
@@ -605,7 +685,7 @@ describe("experiments events", () => {
               secondaryMetrics: [{ metricId: "metric-ccdd", overrides: {} }],
               segmentId: "",
               statsEngine: "bayesian",
-            },
+            }),
             status: "running",
             tags: [],
             variations: [
@@ -634,6 +714,12 @@ describe("experiments events", () => {
         object: "experiment",
         projects: [""],
         tags: [],
+        user: {
+          email: "user@mail.com",
+          id: "aabb",
+          name: "User Name",
+          type: "dashboard",
+        },
       }),
     );
 
@@ -657,6 +743,12 @@ describe("experiments events", () => {
             minBucketVersion: 0,
             name: "Add To Cart",
             owner: "u_dd4g20lalsnhhp9x",
+            customFields: {},
+            defaultDashboardId: undefined,
+            hasURLRedirects: false,
+            hasVisualChangesets: false,
+            linkedFeatures: [],
+            templateId: undefined,
             phases: [
               {
                 coverage: 1,
@@ -676,7 +768,7 @@ describe("experiments events", () => {
               },
             ],
             project: "",
-            settings: {
+            settings: expect.objectContaining({
               activationMetric: {
                 metricId: "met_dd4gxd4lyel6394",
                 overrides: {},
@@ -684,10 +776,13 @@ describe("experiments events", () => {
               assignmentQueryId: "user_id",
               attributionModel: "firstExposure",
               datasourceId: "ds_dd4gxd4lyel5js1",
+              decisionFrameworkSettings: {},
               experimentId: "add-cart",
               goals: [{ metricId: "metric-aacc", overrides: {} }],
               guardrails: [{ metricId: "metric-eeff", overrides: {} }],
               inProgressConversions: "include",
+              metricOverrides: [],
+              postStratificationEnabled: null,
               queryFilter: "",
               regressionAdjustmentEnabled: false,
               sequentialTestingEnabled: false,
@@ -695,7 +790,7 @@ describe("experiments events", () => {
               secondaryMetrics: [{ metricId: "metric-ccdd", overrides: {} }],
               segmentId: "",
               statsEngine: "bayesian",
-            },
+            }),
             status: "running",
             tags: [],
             variations: [
@@ -753,8 +848,10 @@ describe("experiments events", () => {
         email: "user@email.com",
         userName: "User Name",
         auditUser: {
-          type: "api_key",
-          apiKey: "aabbcc",
+          type: "dashboard",
+          id: "user-aabb",
+          email: "user@email.com",
+          name: "User Name",
         },
       },
       experiment: experimentSnapshot,
@@ -839,8 +936,10 @@ describe("experiments events", () => {
         email: "user@email.com",
         userName: "User Name",
         auditUser: {
-          type: "api_key",
-          apiKey: "aabbcc",
+          type: "dashboard",
+          id: "user-aabb",
+          email: "user@email.com",
+          name: "User Name",
         },
       },
       experiment: experimentSnapshot,
@@ -900,6 +999,104 @@ describe("experiments events", () => {
     });
   });
 
+  it("dispatches experiment.warning event when a snapshot returns no data", async () => {
+    let rawPayload;
+
+    jest.spyOn(EventModel, "create").mockImplementation(({ data }) => {
+      if (data.event === "experiment.warning") rawPayload = data;
+      return { toJSON: () => "" };
+    });
+
+    jest
+      .spyOn(ExperimentModel, "updateOne")
+      .mockImplementation(() => undefined);
+
+    const noDataSnapshot = {
+      status: "success",
+      analyses: [{ results: [{ variations: [] }] }],
+    } as unknown as ExperimentSnapshotInterface;
+
+    await notifyNoData({
+      context: {
+        org,
+        userId: "user-aabb",
+        email: "user@email.com",
+        userName: "User Name",
+        auditUser: {
+          type: "dashboard",
+          id: "user-aabb",
+          email: "user@email.com",
+          name: "User Name",
+        },
+      },
+      experiment: experimentSnapshot,
+      snapshot: noDataSnapshot,
+    });
+
+    expect(rawPayload).toEqual(
+      expect.objectContaining({
+        api_version: expect.any(String),
+        containsSecrets: false,
+        created: expect.any(Number),
+        environments: [],
+        event: "experiment.warning",
+        object: "experiment",
+        projects: [],
+        tags: [],
+        data: {
+          object: {
+            experimentId: "exp_dd4gxd4lyel8bwi",
+            experimentName: "Add To Cart",
+            type: "no-data",
+          },
+        },
+        user: {
+          email: "user@email.com",
+          id: "user-aabb",
+          name: "User Name",
+          type: "dashboard",
+        },
+      }),
+    );
+  });
+
+  it("does not dispatch experiment.warning no-data event when the snapshot has data", async () => {
+    let rawPayload;
+
+    jest.spyOn(EventModel, "create").mockImplementation(({ data }) => {
+      if (data.event === "experiment.warning") rawPayload = data;
+      return { toJSON: () => "" };
+    });
+
+    jest
+      .spyOn(ExperimentModel, "updateOne")
+      .mockImplementation(() => undefined);
+
+    const hasDataSnapshot = {
+      status: "success",
+      analyses: [{ results: [{ variations: [{}, {}] }] }],
+    } as unknown as ExperimentSnapshotInterface;
+
+    await notifyNoData({
+      context: {
+        org,
+        userId: "user-aabb",
+        email: "user@email.com",
+        userName: "User Name",
+        auditUser: {
+          type: "dashboard",
+          id: "user-aabb",
+          email: "user@email.com",
+          name: "User Name",
+        },
+      },
+      experiment: experimentSnapshot,
+      snapshot: hasDataSnapshot,
+    });
+
+    expect(rawPayload).toEqual(undefined);
+  });
+
   it("dispatches decision update when decision to ship", async () => {
     let rawPayload;
 
@@ -921,8 +1118,10 @@ describe("experiments events", () => {
         email: "user@email.com",
         userName: "User Name",
         auditUser: {
-          type: "api_key",
-          apiKey: "aabbcc",
+          type: "dashboard",
+          id: "user-aabb",
+          email: "user@email.com",
+          name: "User Name",
         },
       },
       experiment: experimentSnapshot,
@@ -977,8 +1176,10 @@ describe("experiments events", () => {
         email: "user@email.com",
         userName: "User Name",
         auditUser: {
-          type: "api_key",
-          apiKey: "aabbcc",
+          type: "dashboard",
+          id: "user-aabb",
+          email: "user@email.com",
+          name: "User Name",
         },
       },
       experiment: experimentSnapshot,
@@ -1033,8 +1234,10 @@ describe("experiments events", () => {
         email: "user@email.com",
         userName: "User Name",
         auditUser: {
-          type: "api_key",
-          apiKey: "aabbcc",
+          type: "dashboard",
+          id: "user-aabb",
+          email: "user@email.com",
+          name: "User Name",
         },
       },
       experiment: experimentSnapshot,
@@ -1088,8 +1291,10 @@ describe("experiments events", () => {
         email: "user@email.com",
         userName: "User Name",
         auditUser: {
-          type: "api_key",
-          apiKey: "aabbcc",
+          type: "dashboard",
+          id: "user-aabb",
+          email: "user@email.com",
+          name: "User Name",
         },
       },
       experiment: experimentSnapshot,
@@ -1109,8 +1314,10 @@ describe("experiments events", () => {
         email: "user@email.com",
         userName: "User Name",
         auditUser: {
-          type: "api_key",
-          apiKey: "aabbcc",
+          type: "dashboard",
+          id: "user-aabb",
+          email: "user@email.com",
+          name: "User Name",
         },
       },
       experiment: experimentSnapshot,

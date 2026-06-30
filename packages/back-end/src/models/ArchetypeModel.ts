@@ -2,7 +2,7 @@ import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import { omit } from "lodash";
 import { ArchetypeInterface } from "shared/types/archetype";
-import { ApiArchetype } from "shared/types/openapi";
+import { ApiArchetype } from "shared/validators";
 import { logger } from "back-end/src/util/logger";
 
 const archetypeSchema = new mongoose.Schema({
@@ -19,6 +19,7 @@ const archetypeSchema = new mongoose.Schema({
   owner: String,
   isPublic: Boolean,
   projects: [String],
+  environments: [String],
   dateCreated: Date,
   dateUpdated: Date,
   attributes: String,
@@ -159,5 +160,6 @@ export function toArchetypeApiInterface(
     isPublic: archetype.isPublic,
     attributes: parsedAttributes,
     projects: archetype.projects || [],
+    environments: archetype.environments || [],
   };
 }

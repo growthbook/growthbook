@@ -1,12 +1,13 @@
 import { omit } from "lodash";
-import uniqid from "uniqid";
-import md5 from "md5";
+import { WEBHOOK_CONSECUTIVE_FAILURES_THRESHOLD } from "shared/constants";
 import { WebhookInterface } from "shared/types/webhook";
+import { UpdateProps } from "shared/types/base-model";
 import { webhookSchema } from "shared/validators";
 import {
   getCollection,
   removeMongooseFields,
 } from "back-end/src/util/mongo.util";
+import { generateSigningKey } from "back-end/src/util/api-key.util";
 import { MakeModelClass } from "./BaseModel";
 
 const COLLECTION_NAME = "webhooks";
@@ -14,7 +15,7 @@ const BaseClass = MakeModelClass({
   schema: webhookSchema,
   collectionName: COLLECTION_NAME,
   idPrefix: "wh_",
-  globallyUniqueIds: true,
+  globallyUniquePrimaryKeys: true,
   readonlyFields: [],
   additionalIndexes: [
     {
@@ -59,6 +60,9 @@ export class SdkWebhookModel extends BaseClass {
     }
     if (!castDoc.dateCreated && castDoc.created)
       newDoc.dateCreated = castDoc.created;
+    if (castDoc.consecutiveFailures === undefined)
+      newDoc.consecutiveFailures = 0;
+    if (castDoc.disabled === undefined) newDoc.disabled = false;
     return newDoc;
   }
 
@@ -69,7 +73,7 @@ export class SdkWebhookModel extends BaseClass {
   public async findAllSdkWebhooksByConnectionIds(
     sdkConnectionIds: string[],
   ): Promise<WebhookInterface[]> {
-    return await this.getAll({
+    return await this._find({
       sdks: { $in: sdkConnectionIds },
     });
   }
@@ -77,7 +81,7 @@ export class SdkWebhookModel extends BaseClass {
   public async findAllSdkWebhooksByPayloadFormat(
     payloadFormat: string,
   ): Promise<WebhookInterface[]> {
-    return await this.getAll({
+    return await this._find({
       payloadFormat,
     });
   }
@@ -85,13 +89,13 @@ export class SdkWebhookModel extends BaseClass {
   public async findAllSdkWebhooksByConnection(
     sdkConnectionId: string,
   ): Promise<WebhookInterface[]> {
-    return await this.getAll({
+    return await this._find({
       sdks: sdkConnectionId,
     });
   }
 
   public async findAllLegacySdkWebhooks(): Promise<WebhookInterface[]> {
-    return await this.getAll({
+    return await this._find({
       useSdkMode: { $ne: true },
     });
   }
@@ -105,10 +109,24 @@ export class SdkWebhookModel extends BaseClass {
     webhook: WebhookInterface,
     error: string,
   ) {
-    await this.update(webhook, {
-      error,
-      lastSuccess: error ? undefined : new Date(),
-    });
+    if (error) {
+      const consecutiveFailures = (webhook.consecutiveFailures || 0) + 1;
+      const updates: UpdateProps<WebhookInterface> = {
+        error,
+        consecutiveFailures,
+      };
+      if (consecutiveFailures >= WEBHOOK_CONSECUTIVE_FAILURES_THRESHOLD) {
+        updates.disabled = true;
+      }
+      await this.update(webhook, updates);
+    } else {
+      await this.update(webhook, {
+        error: "",
+        lastSuccess: new Date(),
+        consecutiveFailures: 0,
+        disabled: false,
+      });
+    }
   }
 
   public static async dangerousFindSdkWebhookByIdAcrossOrgs(id: string) {
@@ -118,11 +136,8 @@ export class SdkWebhookModel extends BaseClass {
     return doc ? this.migrate(removeMongooseFields(doc)) : null;
   }
 
-  public async countSdkWebhooksByOrg(organization: string) {
-    return await this._dangerousGetCollection().countDocuments({
-      organization,
-      useSdkMode: true,
-    });
+  public async countSdkWebhooksByOrg() {
+    return await this._countDocuments({});
   }
 
   public getDefaultCreateProps(sdkConnectionId: string) {
@@ -131,10 +146,12 @@ export class SdkWebhookModel extends BaseClass {
       project: "",
       error: "",
       lastSuccess: null,
-      signingKey: "wk_" + md5(uniqid()).slice(0, 16),
+      signingKey: generateSigningKey("wk_"),
       useSdkMode: true,
       featuresOnly: true,
       sdks: [sdkConnectionId],
+      consecutiveFailures: 0,
+      disabled: false,
     };
   }
 }

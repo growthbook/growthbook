@@ -1,20 +1,31 @@
 import { Client, ClientOptions, QueryOptions } from "presto-client";
 import { format } from "shared/sql";
-import { FormatDialect } from "shared/types/sql";
+import { parseIntWithDefault } from "shared/util";
+import { SqlDialect } from "shared/types/sql";
 import { prestoCreateTablePartitions } from "shared/enterprise";
 import {
   QueryResponse,
   MaxTimestampIncrementalUnitsQueryParams,
   MaxTimestampMetricSourceQueryParams,
+  ExternalIdCallback,
 } from "shared/types/integrations";
-import { QueryStatistics } from "shared/types/query";
+import { QueryStatistics, RunQueryMetadata } from "shared/types/query";
 import { PrestoConnectionParams } from "shared/types/integrations/presto";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { getKerberosHeader } from "back-end/src/util/kerberos.util";
+import { getQueryTagString } from "back-end/src/util/integration";
+import { logger } from "back-end/src/util/logger";
 import SqlIntegration from "./SqlIntegration";
+import { prestoDialect } from "./dialects/presto";
 
 // eslint-disable-next-line
 type Row = any;
+
+// Unknown if there is an actual limit, using 2000 as this is the
+// limit in Snowflake
+const PRESTO_QUERY_TAG_MAX_LENGTH = 2000;
+
+const DEFAULT_PRESTO_REQUEST_TIMEOUT_SEC = 3600;
 
 export default class Presto extends SqlIntegration {
   params!: PrestoConnectionParams;
@@ -23,29 +34,37 @@ export default class Presto extends SqlIntegration {
     this.params =
       decryptDataSourceParams<PrestoConnectionParams>(encryptedParams);
   }
-  getFormatDialect(): FormatDialect {
-    return "trino";
+  getSqlDialect(): SqlDialect {
+    return prestoDialect;
   }
   getSensitiveParamKeys(): string[] {
     return ["password"];
   }
-  toTimestamp(date: Date) {
-    return `from_iso8601_timestamp('${date.toISOString()}')`;
-  }
   isWritingTablesSupported(): boolean {
     return true;
   }
-  runQuery(sql: string): Promise<QueryResponse> {
+
+  private createClient(): Client {
     const configOptions: ClientOptions = {
+      engine: this.params.engine,
       host: this.params.host,
       port: this.params.port,
-      user: this.params.user || "growthbook",
       source: this.params?.source || "growthbook",
       schema: this.params.schema,
       catalog: this.params.catalog,
-      timeout: this.params.requestTimeout ?? 0,
+      timeout: parseIntWithDefault(
+        this.params.requestTimeout,
+        DEFAULT_PRESTO_REQUEST_TIMEOUT_SEC,
+      ),
       checkInterval: 500,
     };
+    if (this.params.engine === "trino") {
+      if (this.params.trinoUser) {
+        configOptions.user = this.params.trinoUser;
+      }
+    } else {
+      configOptions.user = this.params.user || "growthbook";
+    }
     if (!this.params?.authType || this.params?.authType === "basicAuth") {
       configOptions.basic_auth = {
         user: this.params.username || "",
@@ -64,10 +83,6 @@ export default class Presto extends SqlIntegration {
         );
       }
 
-      // FIXME: To avoid a breaking change, we are setting the engine only for Kerberos.
-      // But we should figure out a proper impersonation logic for all auth types.
-      // See https://github.com/growthbook/growthbook/pull/4921
-      configOptions.engine = this.params.engine;
       if (this.params.kerberosUser) {
         configOptions.user = this.params.kerberosUser;
       }
@@ -84,7 +99,34 @@ export default class Presto extends SqlIntegration {
         secureProtocol: "SSLv23_method",
       };
     }
-    const client = new Client(configOptions);
+    return new Client(configOptions);
+  }
+
+  async cancelQuery(externalId: string): Promise<void> {
+    const client = this.createClient();
+    return new Promise((resolve, reject) => {
+      client.kill(externalId, (error) => {
+        if (error) {
+          logger.debug(
+            `Failed to cancel Presto/Trino query ${externalId}: ${error.message}`,
+          );
+          reject(error);
+        } else {
+          logger.debug(`Cancelled Presto/Trino query ${externalId}`);
+          resolve();
+        }
+      });
+    });
+  }
+
+  runQuery(
+    sql: string,
+    setExternalId: ExternalIdCallback | undefined,
+    queryMetadata: RunQueryMetadata,
+  ): Promise<QueryResponse> {
+    const engineHeaderName =
+      this.params.engine === "presto" ? "Presto" : "Trino";
+    const client = this.createClient();
 
     return new Promise<QueryResponse>((resolve, reject) => {
       let cols: string[];
@@ -95,6 +137,17 @@ export default class Presto extends SqlIntegration {
         query: sql,
         catalog: this.params.catalog,
         schema: this.params.schema,
+        headers: {
+          [`X-${engineHeaderName}-Client-Info`]: getQueryTagString(
+            queryMetadata,
+            PRESTO_QUERY_TAG_MAX_LENGTH,
+          ),
+        },
+        state: (_error, queryId) => {
+          if (queryId && setExternalId) {
+            setExternalId(queryId);
+          }
+        },
         columns: (error, data) => {
           if (error) return;
           cols = data.map((d) => d.name);
@@ -137,46 +190,14 @@ export default class Presto extends SqlIntegration {
       client.execute(executeOptions);
     });
   }
-  addTime(
-    col: string,
-    unit: "hour" | "minute",
-    sign: "+" | "-",
-    amount: number,
-  ): string {
-    return `${col} ${sign} INTERVAL '${amount}' ${unit}`;
-  }
-  formatDate(col: string): string {
-    return `substr(to_iso8601(${col}),1,10)`;
-  }
-  formatDateTimeString(col: string): string {
-    return `to_iso8601(${col})`;
-  }
-  dateDiff(startCol: string, endCol: string) {
-    return `date_diff('day', ${startCol}, ${endCol})`;
-  }
-  ensureFloat(col: string): string {
-    return `CAST(${col} AS DOUBLE)`;
-  }
-  hasCountDistinctHLL(): boolean {
-    return true;
-  }
-  hllAggregate(col: string): string {
-    return `APPROX_SET(${col})`;
-  }
-  castToHyperLogLog(col: string): string {
-    return `CAST(${col} AS HyperLogLog)`;
-  }
-  hllReaggregate(col: string): string {
-    return `MERGE(${this.castToHyperLogLog(col)})`;
-  }
-  hllCardinality(col: string): string {
-    return `CARDINALITY(${col})`;
-  }
   getDefaultDatabase() {
     return this.params.catalog || "";
   }
 
-  createTablePartitions(columns: string[]) {
+  createTablePartitions(
+    columns: string[],
+    _opts?: { partitionByDate?: boolean; partitionExpirationDays?: number },
+  ) {
     return prestoCreateTablePartitions(columns);
   }
 
@@ -188,13 +209,13 @@ export default class Presto extends SqlIntegration {
   ): string {
     return format(
       `CREATE TABLE ${unitsTableFullName} (
-        user_id ${this.getDataType("string")},
-        variation ${this.getDataType("string")},
-        first_exposure_timestamp ${this.getDataType("timestamp")}
+        user_id ${this.getSqlDialect().getDataType("string")},
+        variation ${this.getSqlDialect().getDataType("string")},
+        first_exposure_timestamp ${this.getSqlDialect().getDataType("timestamp")}
     )
       ${this.createUnitsTableOptions()}
     `,
-      this.getFormatDialect(),
+      this.getSqlDialect().formatDialect,
     );
   }
 
@@ -214,7 +235,7 @@ export default class Presto extends SqlIntegration {
       SELECT MAX(max_timestamp) AS max_timestamp
       FROM ${this.getTablePartitionsTableName(params.unitsTableFullName)}
       `,
-      this.getFormatDialect(),
+      this.getSqlDialect().formatDialect,
     );
   }
 
@@ -226,7 +247,7 @@ export default class Presto extends SqlIntegration {
       SELECT MAX(max_timestamp) AS max_timestamp
       FROM ${this.getTablePartitionsTableName(params.metricSourceTableFullName)}
       `,
-      this.getFormatDialect(),
+      this.getSqlDialect().formatDialect,
     );
   }
 }

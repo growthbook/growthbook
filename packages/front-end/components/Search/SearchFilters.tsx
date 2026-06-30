@@ -1,21 +1,26 @@
-import React, {
+import {
   ChangeEvent,
   FC,
   Fragment,
   useCallback,
+  useEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
-import { Box, Flex, Heading, IconButton } from "@radix-ui/themes";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { FaAngleDown, FaAngleUp, FaCheck } from "react-icons/fa";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+} from "@/ui/DropdownMenu";
 import { SearchTermFilterOperator, SyntaxFilter } from "@/services/search";
 import Field from "@/components/Forms/Field";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 
-const USE_SEARCH_BOX = false;
+const USE_SEARCH_BOX = true;
 
 // Common interfaces
 export interface SearchFiltersItem {
@@ -92,6 +97,7 @@ export const FilterDropdown: FC<{
   updateQuery: (filter: SyntaxFilter) => void;
   operator?: string;
   heading?: string;
+  menuPlacement?: "start" | "center" | "end";
 }> = ({
   filter,
   items,
@@ -101,94 +107,98 @@ export const FilterDropdown: FC<{
   syntaxFilters,
   operator = "",
   heading,
+  menuPlacement = "start",
 }) => {
   const [filterSearch, setFilterSearch] = useState<string>("");
+  const filterLabel = heading ?? filter;
   const showSearchFilter = useMemo(
     () => USE_SEARCH_BOX && items.length > 10,
     [items],
   );
-  const filteredItems = useMemo(
-    () =>
-      filterSearch
-        ? items.filter(
-            (i) =>
-              (typeof i.name === "string"
-                ? i.name.toLowerCase()
-                : i.searchValue.toLowerCase()
-              ).startsWith(filterSearch.toLowerCase()) ||
-              (typeof i.name === "string"
-                ? i.name.toLowerCase()
-                : i.searchValue.toLowerCase()
-              ).includes(filterSearch.toLowerCase()),
-          )
-        : items,
-    [items, filterSearch],
-  );
+  const filteredItems = useMemo(() => {
+    if (!filterSearch) return items;
+    const query = filterSearch.toLowerCase();
+    return items.filter((i) => {
+      const haystack = typeof i.name === "string" ? i.name : i.searchValue;
+      return haystack.toLowerCase().includes(query);
+    });
+  }, [items, filterSearch]);
 
   const inputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (open !== filter) {
+      setFilterSearch("");
+      return;
+    }
+
+    if (!showSearchFilter) return;
+
+    const focusTimer = setTimeout(() => {
+      inputRef.current?.focus();
+    }, 0);
+    return () => clearTimeout(focusTimer);
+  }, [filter, open, showSearchFilter]);
 
   return (
     <DropdownMenu
       trigger={FilterHeading({
-        heading: heading ?? filter,
+        heading: filterLabel,
         open: open === filter,
       })}
+      variant="soft"
       open={open === filter}
+      menuPlacement={menuPlacement}
       onOpenChange={(o) => {
         setOpen(o ? filter : "");
       }}
     >
-      <Box px="2" py="1" mb="1">
-        <Heading as="h4" size="2" weight="bold" mb="0">
-          Filter by {heading ?? filter}
-        </Heading>
-        {showSearchFilter && (
+      <DropdownMenuLabel>Filter by {filterLabel}</DropdownMenuLabel>
+      {showSearchFilter && (
+        <Box px="2" pb="1" style={{ maxWidth: "250px" }}>
           <Field
             ref={inputRef}
             value={filterSearch}
             onChange={(e) => setFilterSearch(e.target.value)}
             type="search"
-            className="mt-2"
-            // Prevent events from propagating to parent which might close the dropdown
-            onClick={(e) => e.stopPropagation()}
+            placeholder={`Search ${filterLabel}`}
+            aria-label={`Search ${filterLabel} filters`}
             onKeyDown={(e) => {
               if (e.key !== "ArrowUp" && e.key !== "ArrowDown") {
                 e.stopPropagation();
               }
             }}
           />
-        )}
-      </Box>
-      <Box overflow="auto" style={{ maxHeight: "300px", maxWidth: "250px" }}>
-        {filteredItems.map((i) => (
-          <Fragment key={i.id}>
-            {i.hr && <Box my="2" style={{ borderBottom: "1px solid #ccc" }} />}
-            <DropdownMenuItem
-              key={i.id}
-              disabled={i.disabled}
-              onClick={() => {
-                const f: SyntaxFilter = {
-                  field: i?.filter ?? filter,
-                  values: [i.searchValue],
-                  operator: i?.operator ?? "",
-                  negated: i?.negated ?? false,
-                };
-                updateQuery(f);
-              }}
-            >
-              <FilterItem
-                item={i.name}
-                exists={doesFilterExistInSearch({
-                  syntaxFilters,
-                  field: i?.filter ?? filter,
-                  value: i.searchValue,
-                  operator: i?.operator ?? operator,
-                })}
-              />
-            </DropdownMenuItem>
-          </Fragment>
-        ))}
-      </Box>
+        </Box>
+      )}
+      {filteredItems.map((i) => (
+        <Fragment key={i.id}>
+          {i.hr && <Box my="2" style={{ borderBottom: "1px solid #ccc" }} />}
+          <DropdownMenuItem
+            key={i.id}
+            disabled={i.disabled}
+            style={{ maxWidth: "250px" }}
+            onClick={() => {
+              const f: SyntaxFilter = {
+                field: i?.filter ?? filter,
+                values: [i.searchValue],
+                operator: i?.operator ?? "",
+                negated: i?.negated ?? false,
+              };
+              updateQuery(f);
+            }}
+          >
+            <FilterItem
+              item={i.name}
+              exists={doesFilterExistInSearch({
+                syntaxFilters,
+                field: i?.filter ?? filter,
+                value: i.searchValue,
+                operator: i?.operator ?? operator,
+              })}
+            />
+          </DropdownMenuItem>
+        </Fragment>
+      ))}
     </DropdownMenu>
   );
 };

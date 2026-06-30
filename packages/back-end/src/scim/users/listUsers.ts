@@ -36,9 +36,11 @@ export async function listUsers(
     return filtered;
   }, []);
 
+  const sortedUsers = reduced.sort((a, b) => a.id.localeCompare(b.id));
+
   const filteredUsers = filterQuery
-    ? reduced.filter(filter(parse(filterQuery)))
-    : reduced;
+    ? sortedUsers.filter(filter(parse(filterQuery)))
+    : sortedUsers;
 
   // a startIndex less than 0 should be interpreted as 0
   const correctedStartIndex =

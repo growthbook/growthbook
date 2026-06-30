@@ -1,5 +1,10 @@
 import { MidExperimentPowerCalculationResult } from "shared/enterprise";
 import { BanditResult } from "shared/validators";
+import { CovariateImbalanceResult } from "shared/health";
+import {
+  AnalysisKeyType,
+  AnalysisMetaEntry,
+} from "shared/snapshot-analysis-chunks";
 import { PhaseSQLVar } from "shared/types/sql";
 import {
   MetricSettingsForStatsEngine,
@@ -24,6 +29,7 @@ import {
   AttributionModel,
   ExperimentInterfaceStringDates,
   LegacyBanditResult,
+  LookbackOverride,
 } from "./experiment";
 import { MetricPriorSettings, MetricWindowSettings } from "./fact-table";
 
@@ -133,11 +139,13 @@ export interface ExperimentSnapshotAnalysisSettings {
   pValueThreshold?: number;
   baselineVariationIndex?: number;
   numGoalMetrics: number;
+  numGuardrailMetrics: number;
   oneSidedIntervals?: boolean;
   holdoutAnalysisWindow?: {
     start: Date;
     end: Date;
   };
+  useCovariateAsResponse?: boolean;
 }
 
 export type SnapshotType = "standard" | "exploratory" | "report";
@@ -148,6 +156,8 @@ export type SnapshotTriggeredBy =
   | "update-dashboards";
 
 export interface ExperimentSnapshotAnalysis {
+  // Stable per snapshot-analysis key used to identify the chunked row data
+  analysisKey: string;
   // Determines which analysis this is
   settings: ExperimentSnapshotAnalysisSettings;
   dateCreated: Date;
@@ -171,6 +181,8 @@ export interface SnapshotBanditSettings {
     weights: number[];
     totalUsers: number;
   }[];
+  useFirstExposure?: boolean;
+  windowSettings?: MetricWindowSettings;
 }
 
 // Settings that control which queries are run
@@ -178,6 +190,12 @@ export interface SnapshotBanditSettings {
 // Also used to determine when to show "out-of-date" in the UI
 export interface ExperimentSnapshotSettings {
   dimensions: DimensionForSnapshot[];
+  /**
+   * Experiment-level always-computed unit dimensions.
+   * We use this field to gather the required data in 1 pass, and then this is used
+   * to create individual analyses for each unit dimension.
+   */
+  precomputedUnitDimensionIds?: string[];
   metricSettings: MetricForSnapshot[];
   goalMetrics: string[];
   secondaryMetrics: string[];
@@ -186,6 +204,7 @@ export interface ExperimentSnapshotSettings {
   defaultMetricPriorSettings: MetricPriorSettings;
   regressionAdjustmentEnabled: boolean;
   attributionModel: AttributionModel;
+  lookbackOverride?: LookbackOverride;
   experimentId: string;
   queryFilter: string;
   segment: string;
@@ -214,6 +233,10 @@ export interface ExperimentSnapshotInterface {
   // Status and meta info about the snapshot run
   error?: string;
   dateCreated: Date;
+  // For incremental-pipeline exploratory snapshots as their analysis
+  // is built on top of the overall results snapshot
+  sourceSnapshotId?: string;
+  sourceSnapshotDateCreated?: Date;
   runStarted: Date | null;
   status: "running" | "success" | "error";
   settings: ExperimentSnapshotSettings;
@@ -228,6 +251,9 @@ export interface ExperimentSnapshotInterface {
   unknownVariations: string[];
   multipleExposures: number;
   analyses: ExperimentSnapshotAnalysis[];
+  hasChunkedAnalyses?: boolean;
+  // Keyed by `ExperimentSnapshotAnalysis.analysisKey`
+  chunkedAnalysesMeta?: Record<AnalysisKeyType, AnalysisMetaEntry>;
   banditResult?: BanditResult;
 
   health?: ExperimentSnapshotHealth;
@@ -237,9 +263,34 @@ export interface ExperimentWithSnapshot extends ExperimentInterfaceStringDates {
   snapshot?: ExperimentSnapshotInterface;
 }
 
+/**
+ * Subset of `ExperimentSnapshotInterface` returned by the dedicated
+ * `GET /experiment/:id/snapshot-summary/:phase` endpoint. The endpoint only
+ * fetches top-level snapshot fields (no per-metric analysis chunks), so
+ * `analyses[].results` are not available here — only fields needed to
+ * render refresh status, queries, errors, and other top-level snapshot
+ * metadata. The narrow return type, not a runtime flag, encodes the "no
+ * per-metric results" contract.
+ */
+export type SnapshotStatusSummary = Pick<
+  ExperimentSnapshotInterface,
+  | "id"
+  | "status"
+  | "error"
+  | "queries"
+  | "runStarted"
+  | "dateCreated"
+  | "multipleExposures"
+  | "health"
+  | "banditResult"
+  | "type"
+  | "triggeredBy"
+>;
+
 export interface ExperimentSnapshotHealth {
   traffic: ExperimentSnapshotTraffic;
   power?: MidExperimentPowerCalculationResult;
+  covariateImbalance?: CovariateImbalanceResult;
 }
 
 export interface ExperimentSnapshotTraffic {

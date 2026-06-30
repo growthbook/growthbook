@@ -17,7 +17,11 @@ import {
   setAdjustedPValuesOnResults,
   chanceToWinFlatPrior,
   getRowFilterSQL,
+  getEffectiveLookbackOverride,
+  getIntersectionBaseMetricIds,
 } from "../src/experiments";
+import { createLikeStringMatchFn } from "../src/sql";
+import { LookbackOverride } from "../src/validators/experiments";
 
 describe("Experiments", () => {
   describe("Fact Tables", () => {
@@ -147,6 +151,10 @@ describe("Experiments", () => {
     };
 
     const escapeStringLiteral = (str: string) => str.replace(/'/g, "''");
+    const stringMatch = createLikeStringMatchFn({
+      escapeStringLiteral,
+      emitEscapeClause: false,
+    });
     const jsonExtract = (jsonCol: string, path: string, isNumeric: boolean) => {
       if (isNumeric) {
         return `${jsonCol}:'${path}'::float`;
@@ -209,6 +217,7 @@ describe("Experiments", () => {
             escapeStringLiteral,
             jsonExtract,
             evalBoolean,
+            stringMatch,
           }),
         ).toStrictEqual([]);
 
@@ -223,6 +232,7 @@ describe("Experiments", () => {
             escapeStringLiteral,
             jsonExtract,
             evalBoolean,
+            stringMatch,
           }),
         ).toStrictEqual([]);
 
@@ -243,6 +253,7 @@ describe("Experiments", () => {
             escapeStringLiteral,
             jsonExtract,
             evalBoolean,
+            stringMatch,
           }),
         ).toStrictEqual([]);
 
@@ -284,6 +295,7 @@ describe("Experiments", () => {
             escapeStringLiteral,
             jsonExtract,
             evalBoolean,
+            stringMatch,
           }),
         ).toStrictEqual([]);
       });
@@ -320,6 +332,7 @@ describe("Experiments", () => {
             escapeStringLiteral,
             jsonExtract,
             evalBoolean,
+            stringMatch,
           }),
         ).toStrictEqual([
           "(unknown_column = 'unknown_value')",
@@ -345,6 +358,7 @@ describe("Experiments", () => {
             escapeStringLiteral,
             jsonExtract,
             evalBoolean,
+            stringMatch,
           }),
         ).toStrictEqual([`(${filter.value})`]);
       });
@@ -369,6 +383,7 @@ describe("Experiments", () => {
             escapeStringLiteral,
             jsonExtract,
             evalBoolean,
+            stringMatch,
           }),
         ).toStrictEqual([`(${filter.value})`, `(${filter2.value})`]);
       });
@@ -390,6 +405,7 @@ describe("Experiments", () => {
             escapeStringLiteral,
             jsonExtract,
             evalBoolean,
+            stringMatch,
           }),
         ).toStrictEqual([`(${column.column} = 'login')`]);
       });
@@ -416,6 +432,7 @@ describe("Experiments", () => {
             escapeStringLiteral,
             jsonExtract,
             evalBoolean,
+            stringMatch,
           }),
         ).toStrictEqual([
           `(${column.column} = 'login')`,
@@ -441,6 +458,7 @@ describe("Experiments", () => {
             escapeStringLiteral,
             jsonExtract,
             evalBoolean,
+            stringMatch,
           }),
         ).toStrictEqual([`(${column.column} IN (\n  'login',\n  'signup'\n))`]);
       });
@@ -463,6 +481,7 @@ describe("Experiments", () => {
             escapeStringLiteral,
             jsonExtract,
             evalBoolean,
+            stringMatch,
           }),
         ).toStrictEqual([`(${column.column} IN (\n  'login',\n  'signup'\n))`]);
       });
@@ -497,6 +516,7 @@ describe("Experiments", () => {
             escapeStringLiteral,
             jsonExtract,
             evalBoolean,
+            stringMatch,
           }),
         ).toStrictEqual([
           `(${column.column} = 'login')`,
@@ -532,6 +552,7 @@ describe("Experiments", () => {
             escapeStringLiteral,
             jsonExtract,
             evalBoolean,
+            stringMatch,
           }),
         ).toStrictEqual([`(${column.column} = 'login')`]);
       });
@@ -549,6 +570,7 @@ describe("Experiments", () => {
               escapeStringLiteral,
               jsonExtract,
               evalBoolean,
+              stringMatch,
             }),
           ).toStrictEqual(`(${column.column} = 'login''s')`);
         });
@@ -565,6 +587,7 @@ describe("Experiments", () => {
               escapeStringLiteral,
               jsonExtract,
               evalBoolean,
+              stringMatch,
             }),
           ).toStrictEqual(`(${jsonColumn.column}:'b'::float = 'hello')`);
         });
@@ -580,6 +603,7 @@ describe("Experiments", () => {
               escapeStringLiteral,
               jsonExtract,
               evalBoolean,
+              stringMatch,
             }),
           ).toStrictEqual(`(${boolColumn.column} IS TRUE)`);
         });
@@ -595,6 +619,7 @@ describe("Experiments", () => {
               escapeStringLiteral,
               jsonExtract,
               evalBoolean,
+              stringMatch,
             }),
           ).toStrictEqual(`(${boolColumn.column} IS FALSE)`);
         });
@@ -610,6 +635,7 @@ describe("Experiments", () => {
               escapeStringLiteral,
               jsonExtract,
               evalBoolean,
+              stringMatch,
             }),
           ).toStrictEqual(`(${jsonColumn.column}:'bool' IS TRUE)`);
         });
@@ -679,6 +705,7 @@ describe("Experiments", () => {
               escapeStringLiteral,
               jsonExtract,
               evalBoolean,
+              stringMatch,
             }),
           ).toStrictEqual(`(${numericColumn.column} = '123a')`);
         });
@@ -694,6 +721,7 @@ describe("Experiments", () => {
               escapeStringLiteral,
               jsonExtract,
               evalBoolean,
+              stringMatch,
             }),
           ).toStrictEqual(`(${column.column} = '123')`);
         });
@@ -709,6 +737,7 @@ describe("Experiments", () => {
               escapeStringLiteral,
               jsonExtract,
               evalBoolean,
+              stringMatch,
             }),
           ).toStrictEqual(`(${column.column} NOT IN (\n  'foo',\n  'bar'\n))`);
         });
@@ -724,6 +753,7 @@ describe("Experiments", () => {
               escapeStringLiteral,
               jsonExtract,
               evalBoolean,
+              stringMatch,
             }),
           ).toStrictEqual(
             `(${numericColumn.column} NOT IN (\n  1,\n  -2,\n  3.5,\n  '5c'\n))`,
@@ -740,6 +770,7 @@ describe("Experiments", () => {
               escapeStringLiteral,
               jsonExtract,
               evalBoolean,
+              stringMatch,
             }),
           ).toStrictEqual(`(${column.column} IS NULL)`);
         });
@@ -754,6 +785,7 @@ describe("Experiments", () => {
               escapeStringLiteral,
               jsonExtract,
               evalBoolean,
+              stringMatch,
             }),
           ).toStrictEqual(`(${column.column} IS NOT NULL)`);
         });
@@ -769,6 +801,7 @@ describe("Experiments", () => {
               escapeStringLiteral,
               jsonExtract,
               evalBoolean,
+              stringMatch,
             }),
           ).toStrictEqual(`(${column.column} LIKE 'foo%')`);
         });
@@ -784,6 +817,7 @@ describe("Experiments", () => {
               escapeStringLiteral,
               jsonExtract,
               evalBoolean,
+              stringMatch,
             }),
           ).toStrictEqual(`(${column.column} LIKE '%foo')`);
         });
@@ -799,6 +833,7 @@ describe("Experiments", () => {
               escapeStringLiteral,
               jsonExtract,
               evalBoolean,
+              stringMatch,
             }),
           ).toStrictEqual(`(${column.column} LIKE '%foo%')`);
         });
@@ -814,6 +849,7 @@ describe("Experiments", () => {
               escapeStringLiteral,
               jsonExtract,
               evalBoolean,
+              stringMatch,
             }),
           ).toStrictEqual(`(${column.column} NOT LIKE '%foo%')`);
         });
@@ -829,8 +865,98 @@ describe("Experiments", () => {
               escapeStringLiteral,
               jsonExtract,
               evalBoolean,
+              stringMatch,
             }),
           ).toStrictEqual(`(${column.column} LIKE '%f\\_o''o\\%%')`);
+        });
+        // Dialects like BigQuery/Snowflake treat backslash as a string-literal
+        // escape character. The wildcard-escaping backslash must be inserted
+        // before escapeStringLiteral runs so it gets doubled into a valid
+        // escape sequence, rather than leaving an illegal bare `\_` / `\%`.
+        const backslashEscapeStringLiteral = (str: string) =>
+          str.replace(/(['\\])/g, "\\$1");
+        it("doubles wildcard-escape backslashes for backslash-escaping dialects", () => {
+          expect(
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: column.column,
+                operator: "starts_with",
+                values: ["foo_bar"],
+              },
+              escapeStringLiteral: backslashEscapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch: createLikeStringMatchFn({
+                escapeStringLiteral: backslashEscapeStringLiteral,
+                emitEscapeClause: false,
+              }),
+            }),
+          ).toStrictEqual(`(${column.column} LIKE 'foo\\\\_bar%')`);
+        });
+        it("escapes percent wildcards for backslash-escaping dialects", () => {
+          expect(
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: column.column,
+                operator: "contains",
+                values: ["50%off"],
+              },
+              escapeStringLiteral: backslashEscapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch: createLikeStringMatchFn({
+                escapeStringLiteral: backslashEscapeStringLiteral,
+                emitEscapeClause: false,
+              }),
+            }),
+          ).toStrictEqual(`(${column.column} LIKE '%50\\\\%off%')`);
+        });
+        it("escapes a literal backslash in the value as a LIKE metacharacter", () => {
+          // Base-style dialect (only doubles quotes). The value `a\b` must have
+          // its backslash escaped so it matches literally rather than being
+          // consumed as a LIKE escape.
+          expect(
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: column.column,
+                operator: "starts_with",
+                values: ["a\\b"],
+              },
+              escapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch: createLikeStringMatchFn({
+                escapeStringLiteral,
+                emitEscapeClause: true,
+              }),
+            }),
+          ).toStrictEqual(`(${column.column} LIKE 'a\\\\b%' ESCAPE '\\')`);
+        });
+        it("appends an ESCAPE clause for backslash-doubling dialects when supported", () => {
+          // Snowflake-style dialect: escapeStringLiteral doubles backslashes, so
+          // the ESCAPE clause's escape char must also be doubled in the literal.
+          expect(
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: column.column,
+                operator: "starts_with",
+                values: ["foo_bar"],
+              },
+              escapeStringLiteral: backslashEscapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch: createLikeStringMatchFn({
+                escapeStringLiteral: backslashEscapeStringLiteral,
+                emitEscapeClause: true,
+              }),
+            }),
+          ).toStrictEqual(
+            `(${column.column} LIKE 'foo\\\\_bar%' ESCAPE '\\\\')`,
+          );
         });
       });
 
@@ -861,6 +987,7 @@ describe("Experiments", () => {
                 },
               ],
             },
+            stringMatch,
           }),
         ).toStrictEqual([
           `(${column.column} = 'l1')`,
@@ -890,6 +1017,7 @@ describe("Experiments", () => {
                 },
               ],
             },
+            stringMatch,
           }),
         ).toStrictEqual([`(${boolColumn.column} IS TRUE)`]);
       });
@@ -915,6 +1043,7 @@ describe("Experiments", () => {
                 },
               ],
             },
+            stringMatch,
           }),
         ).toStrictEqual([
           `(${column.column} NOT IN (\n  's1',\n  's2',\n  's3'\n))`,
@@ -952,6 +1081,7 @@ describe("Experiments", () => {
                 },
               ],
             },
+            stringMatch,
           }),
         ).toStrictEqual([
           `(${column.column} = 'l1')`,
@@ -1559,5 +1689,81 @@ describe("chanceToWinFlatPrior", () => {
         ),
       ),
     ).toEqual(roundToSeventhDecimal(truthInverse));
+  });
+});
+
+describe("getEffectiveLookbackOverride", () => {
+  const windowOverride: LookbackOverride = {
+    type: "window",
+    value: 7,
+    valueUnit: "days",
+  };
+  const dateOverride: LookbackOverride = {
+    type: "date",
+    value: new Date("2025-06-01"),
+  };
+
+  it("returns the override when attributionModel is 'lookbackOverride' and override is defined", () => {
+    expect(
+      getEffectiveLookbackOverride("lookbackOverride", windowOverride),
+    ).toEqual(windowOverride);
+  });
+
+  it("returns the date override when attributionModel is 'lookbackOverride'", () => {
+    expect(
+      getEffectiveLookbackOverride("lookbackOverride", dateOverride),
+    ).toEqual(dateOverride);
+  });
+
+  it("returns undefined when attributionModel is 'firstExposure'", () => {
+    expect(
+      getEffectiveLookbackOverride("firstExposure", windowOverride),
+    ).toBeUndefined();
+  });
+
+  it("returns undefined when attributionModel is 'experimentDuration'", () => {
+    expect(
+      getEffectiveLookbackOverride("experimentDuration", windowOverride),
+    ).toBeUndefined();
+  });
+
+  it("returns undefined when attributionModel is 'lookbackOverride' but override is undefined", () => {
+    expect(
+      getEffectiveLookbackOverride("lookbackOverride", undefined),
+    ).toBeUndefined();
+  });
+
+  it("returns undefined when both are undefined", () => {
+    expect(getEffectiveLookbackOverride(undefined, undefined)).toBeUndefined();
+  });
+
+  it("returns undefined when attributionModel is undefined but override is defined", () => {
+    expect(
+      getEffectiveLookbackOverride(undefined, windowOverride),
+    ).toBeUndefined();
+  });
+});
+
+describe("getIntersectionBaseMetricIds", () => {
+  it("returns non-slice subset ids when superset is empty", () => {
+    expect(
+      getIntersectionBaseMetricIds(["a", "b", "m_goal?dim:country=us"], []),
+    ).toEqual(["a", "b"]);
+  });
+
+  it("omits slice metrics and keeps base ids in superset order", () => {
+    const sliceId = "m_goal?dim:country=us";
+    expect(
+      getIntersectionBaseMetricIds(["m_goal"], ["m_goal", sliceId, "other"]),
+    ).toEqual(["m_goal"]);
+  });
+
+  it("includes every base metric in the subset that appears in the superset", () => {
+    expect(
+      getIntersectionBaseMetricIds(
+        ["m_a", "m_b"],
+        ["m_b", "m_a?dim:x=y", "m_a"],
+      ),
+    ).toEqual(["m_b", "m_a"]);
   });
 });

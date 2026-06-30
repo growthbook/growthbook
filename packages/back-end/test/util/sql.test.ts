@@ -7,6 +7,7 @@ import {
   determineColumnTypes,
   getHost,
 } from "back-end/src/util/sql";
+import { baseDialect } from "back-end/src/integrations/dialects/base";
 
 describe("backend", () => {
   describe("compileSqlTemplate", () => {
@@ -205,6 +206,58 @@ describe("backend", () => {
           experimentId,
         }),
       ).toEqual(`SELECT * WHERE expid LIKE 'my-experiment'`);
+    });
+
+    it("sqlstring helper uses a dialect-aware escape when supplied", () => {
+      // Backslash-escape style (BigQuery / Databricks): escape both `\` and
+      // `'` with a leading backslash. The template receives this dialect via
+      // the `dialect` argument and the helper applies it.
+      expect(
+        compileSqlTemplate(
+          `SELECT * WHERE region = {{sqlstring customFields.region}}`,
+          {
+            startDate,
+            endDate,
+            customFields: { region: "it's\\weird" },
+          },
+          {
+            ...baseDialect,
+            escapeStringLiteral: (v) => v.replace(/(['\\])/g, "\\$1"),
+          },
+        ),
+      ).toEqual(`SELECT * WHERE region = 'it\\'s\\\\weird'`);
+    });
+
+    it("sqlstring helper uses an ANSI-SQL escape when supplied", () => {
+      // ANSI style (Postgres default with standard_conforming_strings=on):
+      // quotes are doubled, backslashes pass through untouched.
+      expect(
+        compileSqlTemplate(
+          `SELECT * WHERE region = {{sqlstring customFields.region}}`,
+          {
+            startDate,
+            endDate,
+            customFields: { region: "it's\\weird" },
+          },
+          {
+            ...baseDialect,
+            escapeStringLiteral: (v) => v.replace(/'/g, "''"),
+          },
+        ),
+      ).toEqual(`SELECT * WHERE region = 'it''s\\weird'`);
+    });
+
+    it("sqlstring helper falls back to dialect-agnostic double-both when no escape provided", () => {
+      expect(
+        compileSqlTemplate(
+          `SELECT * WHERE region = {{sqlstring customFields.region}}`,
+          {
+            startDate,
+            endDate,
+            customFields: { region: "foo\\'; DROP TABLE users; --" },
+          },
+        ),
+      ).toEqual(`SELECT * WHERE region = 'foo\\\\''; DROP TABLE users; --'`);
     });
   });
 

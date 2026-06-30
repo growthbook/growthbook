@@ -75,6 +75,7 @@ type Props = {
   position?: "left" | "right";
   resetFilters?: () => void | Promise<void>;
   radixVariant?: "outline" | "solid" | "soft";
+  size?: "xs" | "sm";
   onSubmit?: () => void | Promise<void>;
   disabled?: boolean;
   useRadixButton?: boolean;
@@ -93,9 +94,10 @@ const RunQueriesButton = forwardRef<HTMLButtonElement, Props>(
       position = "right",
       resetFilters,
       radixVariant = "outline",
+      size = "sm",
       onSubmit,
       disabled,
-      useRadixButton = false,
+      useRadixButton = true,
     },
     ref: ForwardedRef<HTMLButtonElement>,
   ) => {
@@ -180,12 +182,15 @@ const RunQueriesButton = forwardRef<HTMLButtonElement, Props>(
                 flipTheme={false}
               >
                 <IconButton
+                  type="button"
                   variant="solid"
                   color="tomato"
                   size="2"
                   style={{ width: 20, height: 20, padding: 2 }}
                   radius="full"
-                  onClick={async () => {
+                  onClick={async (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
                     resetFilters?.();
                     try {
                       await apiCall(cancelEndpoint, { method: "POST" });
@@ -205,7 +210,7 @@ const RunQueriesButton = forwardRef<HTMLButtonElement, Props>(
               <Button
                 ref={ref}
                 variant={radixVariant}
-                size="sm"
+                size={size}
                 disabled={status === "running" || disabled}
                 type="button"
                 onClick={async () => {
@@ -214,9 +219,7 @@ const RunQueriesButton = forwardRef<HTMLButtonElement, Props>(
                 }}
                 icon={buttonIcon}
                 style={{
-                  minWidth: 110,
-                  paddingLeft: 2,
-                  paddingRight: 2,
+                  minWidth: size === "xs" ? 90 : 110,
                 }}
               >
                 {status === "running" ? (
@@ -224,7 +227,7 @@ const RunQueriesButton = forwardRef<HTMLButtonElement, Props>(
                     {loadingText} ({getTimeDisplay(elapsed)})
                   </Text>
                 ) : (
-                  cta
+                  <Text>{cta}</Text>
                 )}
               </Button>
             ) : (

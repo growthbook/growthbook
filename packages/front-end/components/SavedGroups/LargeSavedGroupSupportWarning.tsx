@@ -3,12 +3,13 @@ import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import React from "react";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import { useUser } from "@/services/UserContext";
-import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
+import { IncompatibleSDKsPopover } from "@/components/Features/SDKCapabilityWarning";
 
 interface LargeSavedGroupSupport {
   hasLargeSavedGroupFeature: boolean;
   unsupportedConnections: SDKConnectionInterface[];
+  connections: SDKConnectionInterface[];
 }
 
 export function useLargeSavedGroupSupport(
@@ -35,6 +36,7 @@ export function useLargeSavedGroupSupport(
   return {
     hasLargeSavedGroupFeature,
     unsupportedConnections,
+    connections,
   };
 }
 
@@ -46,16 +48,19 @@ export default function LargeSavedGroupPerformanceWarning({
   openUpgradeModal,
   hasLargeSavedGroupFeature,
   unsupportedConnections,
+  connections,
 }: LargeSavedGroupSupportWarningProps) {
   if (!hasLargeSavedGroupFeature) {
     return (
-      <Callout status="info" mb="4">
+      <Callout status="info" mb="4" size="sm">
         Performance improvements for Saved Groups are available with an
         Enterprise plan.
         {openUpgradeModal && (
           <>
             {" "}
-            <Link onClick={openUpgradeModal}>Upgrade &gt;</Link>
+            <a role="button" onClick={openUpgradeModal}>
+              Upgrade &gt;
+            </a>
           </>
         )}
       </Callout>
@@ -64,9 +69,22 @@ export default function LargeSavedGroupPerformanceWarning({
   if (unsupportedConnections.length === 0) return null;
 
   return (
-    <Callout status="warning" mb="4">
-      Enable &quot;Pass Saved Groups by reference&quot; to improve SDK
-      performance. <Link href="/sdks">View SDKs</Link>
+    <Callout
+      status="warning"
+      mb="4"
+      size="sm"
+      dismissible={true}
+      id="large-saved-group-support-warning"
+    >
+      <span>
+        Enable &quot;Pass Saved Groups by reference&quot; on your SDK
+        Connections to improve performance.
+        <IncompatibleSDKsPopover
+          connections={connections}
+          incompatibleConnections={unsupportedConnections}
+          capability="savedGroupReferences"
+        />
+      </span>
     </Callout>
   );
 }

@@ -184,6 +184,7 @@ export default function ConfigureLegacyReport({
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       inline={true}
       header=""
@@ -355,6 +356,7 @@ export default function ConfigureLegacyReport({
       </div>
 
       <ExperimentMetricsSelector
+        experimentType={experiment?.type}
         datasource={report.args.datasource}
         exposureQueryId={exposureQueryId}
         project={project?.id}
@@ -411,7 +413,8 @@ export default function ConfigureLegacyReport({
         includeFacts={true}
         label={
           <>
-            Activation Metric <MetricsSelectorTooltip onlyBinomial={true} />
+            Activation Metric{" "}
+            <MetricsSelectorTooltip onlyBinomial={true} isSingular={true} />
           </>
         }
         labelClassName="font-weight-bold"

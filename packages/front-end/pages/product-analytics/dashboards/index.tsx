@@ -31,7 +31,7 @@ import DashboardWorkspace from "@/enterprise/components/Dashboards/DashboardWork
 import { DocLink } from "@/components/DocLink";
 import EmptyState from "@/components/EmptyState";
 import ProjectBadges from "@/components/ProjectBadges";
-import UserAvatar from "@/components/Avatar/UserAvatar";
+import Owner from "@/components/Avatar/Owner";
 import { useUser } from "@/services/UserContext";
 import {
   DropdownMenu,
@@ -45,7 +45,7 @@ import LinkButton from "@/ui/LinkButton";
 
 export default function DashboardsPage() {
   const permissionsUtil = usePermissionsUtil();
-  const { getUserDisplay, hasCommercialFeature, userId } = useUser();
+  const { hasCommercialFeature, userId } = useUser();
   const { project } = useDefinitions();
   const { apiCall } = useAuth();
   const [saving, setSaving] = useState(false);
@@ -141,8 +141,10 @@ export default function DashboardsPage() {
         mutateDashboards();
         setDashboardId(res.dashboard.id);
         setBlocks(res.dashboard.blocks);
+        return { dashboardId: res.dashboard.id };
       } else {
         console.error(res);
+        throw new Error("Failed to save dashboard");
       }
     },
     [apiCall, mutateDashboards],
@@ -250,7 +252,6 @@ export default function DashboardsPage() {
         <Flex justify="between" align="center">
           <Flex align="center">
             <h1>Product Analytics Dashboards</h1>
-            <span className="badge badge-purple text-uppercase ml-2">Beta</span>
           </Flex>
           {filteredDashboards.length ? (
             <LinkButton
@@ -275,6 +276,7 @@ export default function DashboardsPage() {
                 description="Turn your data and metrics into actionable product insights, share with your team, and make smarter decisions about what to build next."
                 leftButton={
                   <Button
+                    disabled={!canCreate}
                     onClick={() =>
                       router.push("/product-analytics/dashboards/new")
                     }
@@ -291,7 +293,7 @@ export default function DashboardsPage() {
             <p>
               Create curated dashboards to visualize key metrics and track
               performance.{" "}
-              <DocLink docSection="productAnalytics" useRadix={true}>
+              <DocLink docSection="productAnalytics">
                 View Docs <FaArrowRight size={10} />
               </DocLink>
             </p>
@@ -339,7 +341,6 @@ export default function DashboardsPage() {
                           const isOwner = d.userId === userId;
                           const isAdmin =
                             permissionsUtil.canManageOrgSettings();
-                          const ownerName = getUserDisplay(d.userId);
                           let canEdit =
                             permissionsUtil.canUpdateGeneralDashboards(d, {});
                           let canDelete =
@@ -407,18 +408,7 @@ export default function DashboardsPage() {
                                 )}
                               </td>
                               <td>
-                                <>
-                                  {ownerName !== "" && (
-                                    <UserAvatar
-                                      name={ownerName}
-                                      size="sm"
-                                      variant="soft"
-                                    />
-                                  )}
-                                  <Text ml="1">
-                                    {ownerName === "" ? "None" : ownerName}
-                                  </Text>
-                                </>
+                                <Owner ownerId={d.userId} gap="1" />
                               </td>
                               <td>{ago(d.dateUpdated)}</td>
                               <td style={{ width: 30 }}>
@@ -477,12 +467,7 @@ export default function DashboardsPage() {
                                           <DropdownMenuItem
                                             color="red"
                                             confirmation={{
-                                              confirmationTitle: (
-                                                <>
-                                                  Delete Dashboard{" "}
-                                                  <i>{d.title}</i>?
-                                                </>
-                                              ),
+                                              confirmationTitle: `Delete Dashboard "${d.title}"?`,
                                               cta: "Delete",
                                               submit: async () => {
                                                 await apiCall(

@@ -16,6 +16,10 @@ import {
   MetricAnalysisSettings,
 } from "shared/types/metric-analysis";
 import { FactMetricInterface } from "shared/types/fact-table";
+import {
+  isManagedWarehouseNoEventsGuidanceMessage,
+  parseIntWithDefault,
+} from "shared/util";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import RunQueriesButton, {
@@ -45,6 +49,7 @@ import OutdatedBadge from "@/components/OutdatedBadge";
 import MetricAnalysisMoreMenu from "@/components/MetricAnalysis/MetricAnalysisMoreMenu";
 import track from "@/services/track";
 import Callout from "@/ui/Callout";
+import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import { getMetricAnalysisProps } from "@/components/MetricAnalysis/metric-analysis-props";
 import { useCurrency } from "@/hooks/useCurrency";
 
@@ -356,7 +361,7 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                         onChange={(v) => {
                           setValue("lookbackSelected", v);
                           if (v !== "custom") {
-                            setValue("lookbackDays", parseInt(v));
+                            setValue("lookbackDays", parseIntWithDefault(v, 1));
                           }
                         }}
                       />
@@ -484,6 +489,7 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                     }}
                   >
                     <RunQueriesButton
+                      useRadixButton={false}
                       icon="refresh"
                       cta={"Run Analysis"}
                       mutate={mutate}
@@ -538,9 +544,17 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
               </Callout>
             ) : null}
             {error || metricAnalysis?.error ? (
-              <Callout status="error" mt="2" mb="2">
-                {`Analysis error: ${error || metricAnalysis?.error}`}
-              </Callout>
+              isManagedWarehouseNoEventsGuidanceMessage(
+                error || metricAnalysis?.error,
+              ) ? (
+                <div className="mt-2 mb-2">
+                  <ManagedWarehouseNoEventsCallout />
+                </div>
+              ) : (
+                <Callout status="error" mt="2" mb="2">
+                  {`Analysis error: ${error || metricAnalysis?.error}`}
+                </Callout>
+              )
             ) : null}
             {metricAnalysis ? (
               <>

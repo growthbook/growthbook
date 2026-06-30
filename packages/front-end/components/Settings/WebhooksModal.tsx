@@ -70,7 +70,7 @@ function getWebhookFromType(
         endpoint: `https://api.cloudflare.com/client/v4/accounts/${inputs.accountId}/storage/kv/namespaces/${inputs.namespaceId}/values/${inputs.key}`,
         httpMethod: "PUT",
         headers: JSON.stringify({
-          Authorization: `Bearer {{ ${inputs.webhookSecretKey} }}`,
+          Authorization: `Bearer {{[${inputs.webhookSecretKey}]}}`,
         }),
         payloadFormat: "sdkPayload",
       };
@@ -79,7 +79,7 @@ function getWebhookFromType(
         endpoint: `https://api.fastly.com/resources/stores/kv/${inputs.storeId}/keys/${inputs.key}`,
         httpMethod: "PUT",
         headers: JSON.stringify({
-          "Fastly-Key": `{{ ${inputs.webhookSecretKey} }}`,
+          "Fastly-Key": `{{[${inputs.webhookSecretKey}]}}`,
         }),
         payloadFormat: "sdkPayload",
       };
@@ -90,7 +90,7 @@ function getWebhookFromType(
         }/items${inputs.teamId ? `?teamId=${inputs.teamId}` : ""}`,
         httpMethod: "PATCH",
         headers: JSON.stringify({
-          Authorization: `Bearer {{ ${inputs.webhookSecretKey} }}`,
+          Authorization: `Bearer {{[${inputs.webhookSecretKey}]}}`,
         }),
         payloadFormat: "edgeConfigUnescaped",
         payloadKey: inputs.key,
@@ -184,10 +184,7 @@ export function CreateSDKWebhookModal({
         helpText={
           <>
             Please select an existing{" "}
-            <DocLink useRadix docSection="webhookSecrets">
-              webhook secret
-            </DocLink>{" "}
-            or{" "}
+            <DocLink docSection="webhookSecrets">webhook secret</DocLink> or{" "}
             <Link onClick={() => setIsSecretModalOpen(true)}>
               create a new one
             </Link>
@@ -220,6 +217,7 @@ export function CreateSDKWebhookModal({
         />
       )}
       <Modal
+        useRadixButton={false}
         trackingEventModalType=""
         close={close}
         header="Create New SDK Webhook"
@@ -360,7 +358,9 @@ export function CreateSDKWebhookModal({
                     ""
                   )}
                   . Supports{" "}
-                  <DocLink docSection="webhookSecrets">Webhook Secrets</DocLink>
+                  <DocLink useRadix={false} docSection="webhookSecrets">
+                    Webhook Secrets
+                  </DocLink>
                   .
                 </>
               }
@@ -413,7 +413,7 @@ export function CreateSDKWebhookModal({
                   ) : (
                     <div>
                       JSON format for headers. Supports{" "}
-                      <DocLink docSection="webhookSecrets">
+                      <DocLink useRadix={false} docSection="webhookSecrets">
                         Webhook Secrets
                       </DocLink>
                       .
@@ -463,7 +463,10 @@ export function CreateSDKWebhookModal({
                   disabled={form.watch("httpMethod") === "GET"}
                   sort={false}
                   helpText={
-                    <DocLink docSection="sdkWebhooks#payload-format">
+                    <DocLink
+                      useRadix={false}
+                      docSection="sdkWebhooks#payload-format"
+                    >
                       Learn More <FaExternalLinkAlt />
                     </DocLink>
                   }
@@ -591,6 +594,7 @@ const EditSDKWebhooksModal: FC<{
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       close={close}
       header={current.id ? "Update Webhook" : "Create New Webhook"}
@@ -694,7 +698,7 @@ const EditSDKWebhooksModal: FC<{
             disabled={form.watch("httpMethod") === "GET"}
             sort={false}
             helpText={
-              <DocLink docSection="sdkWebhooks#payload-format">
+              <DocLink useRadix={false} docSection="sdkWebhooks#payload-format">
                 Learn More <FaExternalLinkAlt />
               </DocLink>
             }

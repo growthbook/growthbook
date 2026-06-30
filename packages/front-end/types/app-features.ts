@@ -38,7 +38,6 @@ export type AppFeatures = {
   "datasource-pipeline-mode": boolean;
   "fact-tables": boolean;
   "health-tab": boolean;
-  "github-integration": boolean;
   "pylon-config": Record<string, unknown>;
   "no-access-role-type": boolean;
   "quantile-metrics": boolean;
@@ -106,5 +105,17 @@ export type AppFeatures = {
   "incremental-refresh": boolean;
   "top-banner": Record<string, unknown>;
   "gbdemo-checkout-layout": boolean;
+  "post-stratification": boolean;
+  liebenowflag9: boolean;
   "experimentation-focused-onboarding": boolean;
+  teresatest: string;
+  teresa_test_feature: boolean;
+  "new-test-values": boolean;
+  "test-feature": boolean;
+  "pro-signup-flow": boolean;
+  "kb-ff": boolean;
+  "events-forwarder-multi-step": "OFF" | "VISIBLE" | "ENABLED";
+  "enable-error-tracking": boolean;
+  "managed-warehouse-diagnostics": boolean;
+  "session-replays": boolean;
 };

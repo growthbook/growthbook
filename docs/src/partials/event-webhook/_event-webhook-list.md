@@ -8,6 +8,25 @@
 | **[feature.saferollout.ship](#featuresaferolloutship)** | Triggered when a safe rollout is completed and safe to rollout to 100%. |
 | **[feature.saferollout.rollback](#featuresaferolloutrollback)** | Triggered when a safe rollout has a failing guardrail and should be reverted. |
 | **[feature.saferollout.unhealthy](#featuresaferolloutunhealthy)** | Triggered when a safe rollout is failing a health check and may not be working as expected. |
+| **[feature.rampSchedule.created](#featurerampSchedulecreated)** | Triggered when a ramp schedule is created for a feature |
+| **[feature.rampSchedule.deleted](#featurerampScheduledeleted)** | Triggered when a ramp schedule is deleted from a feature |
+| **[feature.rampSchedule.actions.started](#featurerampScheduleactionsstarted)** | Triggered when a feature ramp schedule starts |
+| **[feature.rampSchedule.actions.completed](#featurerampScheduleactionscompleted)** | Triggered when a feature ramp schedule completes all steps |
+| **[feature.rampSchedule.actions.rolledBack](#featurerampScheduleactionsrolledBack)** | Triggered when a feature ramp schedule is rolled back or reset to start |
+| **[feature.rampSchedule.actions.jumped](#featurerampScheduleactionsjumped)** | Triggered when a feature ramp schedule is jumped to a specific step |
+| **[feature.rampSchedule.actions.step.advanced](#featurerampScheduleactionsstepadvanced)** | Triggered when a feature ramp schedule advances to the next step |
+| **[feature.rampSchedule.actions.step.approvalRequired](#featurerampScheduleactionsstepapprovalRequired)** | Triggered when a feature ramp step is waiting for approval |
+| **[feature.revision.created](#featurerevisioncreated)** | Triggered when a new draft revision is created for a feature |
+| **[feature.revision.updated](#featurerevisionupdated)** | Triggered when a draft revision is modified (rules, default value, toggles, prerequisites, metadata, etc.). The `change` field indicates the specific kind of mutation. |
+| **[feature.revision.reviewRequested](#featurerevisionreviewRequested)** | Triggered when a draft revision is submitted for review |
+| **[feature.revision.approved](#featurerevisionapproved)** | Triggered when a draft revision is approved by a reviewer |
+| **[feature.revision.changesRequested](#featurerevisionchangesRequested)** | Triggered when a reviewer requests changes on a draft revision |
+| **[feature.revision.commented](#featurerevisioncommented)** | Triggered when a comment is added to a draft revision |
+| **[feature.revision.discarded](#featurerevisiondiscarded)** | Triggered when a draft revision is discarded |
+| **[feature.revision.reopened](#featurerevisionreopened)** | Triggered when a discarded draft revision is reopened as a draft |
+| **[feature.revision.rebased](#featurerevisionrebased)** | Triggered when a draft revision is rebased onto the latest published version |
+| **[feature.revision.published](#featurerevisionpublished)** | Triggered when a draft revision is published. Overlaps with `feature.updated` but provides revision-specific context (base version, comment, author). |
+| **[feature.revision.reverted](#featurerevisionreverted)** | Triggered when a feature is reverted to a previous published revision |
 | **[experiment.created](#experimentcreated)** | Triggered when an experiment is created |
 | **[experiment.updated](#experimentupdated)** | Triggered when an experiment is updated |
 | **[experiment.deleted](#experimentdeleted)** | Triggered when an experiment is deleted |
@@ -16,6 +35,34 @@
 | **[experiment.decision.ship](#experimentdecisionship)** | Triggered when an experiment is ready to ship a variation. |
 | **[experiment.decision.rollback](#experimentdecisionrollback)** | Triggered when an experiment should be rolled back to the control. |
 | **[experiment.decision.review](#experimentdecisionreview)** | Triggered when an experiment has reached the desired power point, but the results may be ambiguous. |
+| **[savedGroup.created](#savedGroupcreated)** | Triggered when a saved group is created |
+| **[savedGroup.updated](#savedGroupupdated)** | Triggered when a saved group is updated |
+| **[savedGroup.deleted](#savedGroupdeleted)** | Triggered when a saved group is deleted |
+| **[savedGroup.revision.created](#savedGrouprevisioncreated)** | Triggered when a new draft revision is created for a saved group |
+| **[savedGroup.revision.updated](#savedGrouprevisionupdated)** | Triggered when a draft revision's proposed changes are modified (values, condition, archive, or metadata). The `change` field indicates the kind of mutation. |
+| **[savedGroup.revision.reviewRequested](#savedGrouprevisionreviewRequested)** | Triggered when a draft revision is submitted for review |
+| **[savedGroup.revision.approved](#savedGrouprevisionapproved)** | Triggered when a draft revision is approved by a reviewer |
+| **[savedGroup.revision.changesRequested](#savedGrouprevisionchangesRequested)** | Triggered when a reviewer requests changes on a draft revision |
+| **[savedGroup.revision.commented](#savedGrouprevisioncommented)** | Triggered when a comment is added to a draft revision |
+| **[savedGroup.revision.discarded](#savedGrouprevisiondiscarded)** | Triggered when a draft revision is discarded |
+| **[savedGroup.revision.rebased](#savedGrouprevisionrebased)** | Triggered when a draft revision is rebased onto the latest live state |
+| **[savedGroup.revision.published](#savedGrouprevisionpublished)** | Triggered when a draft revision is published. Overlaps with `savedGroup.updated` but provides revision-specific context. |
+| **[savedGroup.revision.reverted](#savedGrouprevisionreverted)** | Triggered when a saved group is reverted to a previous published revision |
+| **[savedGroup.revision.reopened](#savedGrouprevisionreopened)** | Triggered when a discarded revision is reopened |
+| **[constant.created](#constantcreated)** | Triggered when a constant is created |
+| **[constant.updated](#constantupdated)** | Triggered when a constant is updated |
+| **[constant.deleted](#constantdeleted)** | Triggered when a constant is deleted |
+| **[constant.revision.created](#constantrevisioncreated)** | Triggered when a new draft revision is created for a constant |
+| **[constant.revision.updated](#constantrevisionupdated)** | Triggered when a draft revision's proposed changes are modified (value, archive, or metadata). The `change` field indicates the kind of mutation. |
+| **[constant.revision.reviewRequested](#constantrevisionreviewRequested)** | Triggered when a draft revision is submitted for review |
+| **[constant.revision.approved](#constantrevisionapproved)** | Triggered when a draft revision is approved by a reviewer |
+| **[constant.revision.changesRequested](#constantrevisionchangesRequested)** | Triggered when a reviewer requests changes on a draft revision |
+| **[constant.revision.commented](#constantrevisioncommented)** | Triggered when a comment is added to a draft revision |
+| **[constant.revision.discarded](#constantrevisiondiscarded)** | Triggered when a draft revision is discarded |
+| **[constant.revision.rebased](#constantrevisionrebased)** | Triggered when a draft revision is rebased onto the latest live state |
+| **[constant.revision.published](#constantrevisionpublished)** | Triggered when a draft revision is published. Overlaps with `constant.updated` but provides revision-specific context. |
+| **[constant.revision.reverted](#constantrevisionreverted)** | Triggered when a constant is reverted to a previous published revision |
+| **[constant.revision.reopened](#constantrevisionreopened)** | Triggered when a discarded revision is reopened |
 | **[user.login](#userlogin)** | Triggered when a user logs in |
   
 ### feature.created
@@ -38,262 +85,29 @@ Triggered when a feature is created
             dateUpdated: string;
             archived: boolean;
             description: string;
+            /** The userId of the owner (or raw owner name/email for legacy records) */
             owner: string;
             project: string;
             valueType: "boolean" | "string" | "number" | "json";
             defaultValue: string;
             tags: string[];
-            environments: Record<string, {
-                enabled: boolean;
-                defaultValue: string;
-                rules: ({
-                    description: string;
-                    condition: string;
-                    savedGroupTargeting?: {
-                        matchType: "all" | "any" | "none";
-                        savedGroups: string[];
-                    }[] | undefined;
-                    prerequisites?: {
-                        /** Feature ID */
-                        id: string;
-                        condition: string;
-                    }[] | undefined;
-                    scheduleRules?: {
-                        /** Whether the rule should be enabled or disabled at the specified timestamp. */
-                        enabled: boolean;
-                        /** ISO timestamp when the rule should activate. */
-                        timestamp: string | null;
-                    }[] | undefined;
-                    id: string;
-                    enabled: boolean;
-                    type: "force";
-                    value: string;
-                } | {
-                    description: string;
-                    condition: string;
-                    savedGroupTargeting?: {
-                        matchType: "all" | "any" | "none";
-                        savedGroups: string[];
-                    }[] | undefined;
-                    scheduleRules?: {
-                        /** Whether the rule should be enabled or disabled at the specified timestamp. */
-                        enabled: boolean;
-                        /** ISO timestamp when the rule should activate. */
-                        timestamp: string | null;
-                    }[] | undefined;
-                    id: string;
-                    enabled: boolean;
-                    type: "rollout";
-                    value: string;
-                    coverage: number;
-                    hashAttribute: string;
-                } | {
-                    description: string;
-                    condition: string;
-                    id: string;
-                    enabled: boolean;
-                    type: "experiment";
-                    trackingKey?: string | undefined;
-                    hashAttribute?: string | undefined;
-                    fallbackAttribute?: string | undefined;
-                    disableStickyBucketing?: boolean | undefined;
-                    bucketVersion?: number | undefined;
-                    minBucketVersion?: number | undefined;
-                    namespace?: {
-                        enabled: boolean;
-                        name: string;
-                        range: number[];
-                    } | undefined;
-                    coverage?: number | undefined;
-                    scheduleRules?: {
-                        /** Whether the rule should be enabled or disabled at the specified timestamp. */
-                        enabled: boolean;
-                        /** ISO timestamp when the rule should activate. */
-                        timestamp: string | null;
-                    }[] | undefined;
-                    value?: {
-                        value: string;
-                        weight: number;
-                        name?: string | undefined;
-                    }[] | undefined;
-                } | {
-                    description: string;
-                    id: string;
-                    enabled: boolean;
-                    type: "experiment-ref";
-                    condition?: string | undefined;
-                    scheduleRules?: {
-                        /** Whether the rule should be enabled or disabled at the specified timestamp. */
-                        enabled: boolean;
-                        /** ISO timestamp when the rule should activate. */
-                        timestamp: string | null;
-                    }[] | undefined;
-                    variations: {
-                        value: string;
-                        variationId: string;
-                    }[];
-                    experimentId: string;
-                } | {
-                    condition: string;
-                    savedGroupTargeting?: {
-                        matchType: "all" | "any" | "none";
-                        savedGroups: string[];
-                    }[] | undefined;
-                    prerequisites?: {
-                        /** Feature ID */
-                        id: string;
-                        condition: string;
-                    }[] | undefined;
-                    id: string;
-                    trackingKey?: string | undefined;
-                    enabled: boolean;
-                    type: "safe-rollout";
-                    controlValue: string;
-                    variationValue: string;
-                    seed?: string | undefined;
-                    hashAttribute?: string | undefined;
-                    safeRolloutId?: string | undefined;
-                    status?: ("running" | "released" | "rolled-back" | "stopped") | undefined;
-                    scheduleRules?: {
-                        /** Whether the rule should be enabled or disabled at the specified timestamp. */
-                        enabled: boolean;
-                        /** ISO timestamp when the rule should activate. */
-                        timestamp: string | null;
-                    }[] | undefined;
-                })[];
-                /** A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
-                definition?: string | undefined;
-                draft?: {
-                    enabled: boolean;
-                    defaultValue: string;
-                    rules: ({
-                        description: string;
-                        condition: string;
-                        savedGroupTargeting?: {
-                            matchType: "all" | "any" | "none";
-                            savedGroups: string[];
-                        }[] | undefined;
-                        prerequisites?: {
-                            /** Feature ID */
-                            id: string;
-                            condition: string;
-                        }[] | undefined;
-                        scheduleRules?: {
-                            /** Whether the rule should be enabled or disabled at the specified timestamp. */
-                            enabled: boolean;
-                            /** ISO timestamp when the rule should activate. */
-                            timestamp: string | null;
-                        }[] | undefined;
-                        id: string;
-                        enabled: boolean;
-                        type: "force";
-                        value: string;
-                    } | {
-                        description: string;
-                        condition: string;
-                        savedGroupTargeting?: {
-                            matchType: "all" | "any" | "none";
-                            savedGroups: string[];
-                        }[] | undefined;
-                        scheduleRules?: {
-                            /** Whether the rule should be enabled or disabled at the specified timestamp. */
-                            enabled: boolean;
-                            /** ISO timestamp when the rule should activate. */
-                            timestamp: string | null;
-                        }[] | undefined;
-                        id: string;
-                        enabled: boolean;
-                        type: "rollout";
-                        value: string;
-                        coverage: number;
-                        hashAttribute: string;
-                    } | {
-                        description: string;
-                        condition: string;
-                        id: string;
-                        enabled: boolean;
-                        type: "experiment";
-                        trackingKey?: string | undefined;
-                        hashAttribute?: string | undefined;
-                        fallbackAttribute?: string | undefined;
-                        disableStickyBucketing?: boolean | undefined;
-                        bucketVersion?: number | undefined;
-                        minBucketVersion?: number | undefined;
-                        namespace?: {
-                            enabled: boolean;
-                            name: string;
-                            range: number[];
-                        } | undefined;
-                        coverage?: number | undefined;
-                        scheduleRules?: {
-                            /** Whether the rule should be enabled or disabled at the specified timestamp. */
-                            enabled: boolean;
-                            /** ISO timestamp when the rule should activate. */
-                            timestamp: string | null;
-                        }[] | undefined;
-                        value?: {
-                            value: string;
-                            weight: number;
-                            name?: string | undefined;
-                        }[] | undefined;
-                    } | {
-                        description: string;
-                        id: string;
-                        enabled: boolean;
-                        type: "experiment-ref";
-                        condition?: string | undefined;
-                        scheduleRules?: {
-                            /** Whether the rule should be enabled or disabled at the specified timestamp. */
-                            enabled: boolean;
-                            /** ISO timestamp when the rule should activate. */
-                            timestamp: string | null;
-                        }[] | undefined;
-                        variations: {
-                            value: string;
-                            variationId: string;
-                        }[];
-                        experimentId: string;
-                    } | {
-                        condition: string;
-                        savedGroupTargeting?: {
-                            matchType: "all" | "any" | "none";
-                            savedGroups: string[];
-                        }[] | undefined;
-                        prerequisites?: {
-                            /** Feature ID */
-                            id: string;
-                            condition: string;
-                        }[] | undefined;
-                        id: string;
-                        trackingKey?: string | undefined;
-                        enabled: boolean;
-                        type: "safe-rollout";
-                        controlValue: string;
-                        variationValue: string;
-                        seed?: string | undefined;
-                        hashAttribute?: string | undefined;
-                        safeRolloutId?: string | undefined;
-                        status?: ("running" | "released" | "rolled-back" | "stopped") | undefined;
-                        scheduleRules?: {
-                            /** Whether the rule should be enabled or disabled at the specified timestamp. */
-                            enabled: boolean;
-                            /** ISO timestamp when the rule should activate. */
-                            timestamp: string | null;
-                        }[] | undefined;
-                    })[];
-                    /** A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
-                    definition?: string | undefined;
-                } | undefined;
-            }>;
+            environments: Record<string, any>;
             /** Feature IDs. Each feature must evaluate to `true` */
             prerequisites?: string[] | undefined;
             revision: {
                 version: number;
                 comment: string;
                 date: string;
+                createdBy: string;
                 publishedBy: string;
             };
-            customFields?: Record<string, any> | undefined;
+            customFields?: Record<string, {}> | undefined;
+            holdout?: ({
+                /** Holdout ID */
+                id: string;
+                /** The feature value assigned to users in the holdout treatment group */
+                value: string;
+            } | null) | undefined;
         };
     };
     user: {
@@ -304,10 +118,16 @@ Triggered when a feature is created
     } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -335,262 +155,29 @@ Triggered when a feature is updated
             dateUpdated: string;
             archived: boolean;
             description: string;
+            /** The userId of the owner (or raw owner name/email for legacy records) */
             owner: string;
             project: string;
             valueType: "boolean" | "string" | "number" | "json";
             defaultValue: string;
             tags: string[];
-            environments: Record<string, {
-                enabled: boolean;
-                defaultValue: string;
-                rules: ({
-                    description: string;
-                    condition: string;
-                    savedGroupTargeting?: {
-                        matchType: "all" | "any" | "none";
-                        savedGroups: string[];
-                    }[] | undefined;
-                    prerequisites?: {
-                        /** Feature ID */
-                        id: string;
-                        condition: string;
-                    }[] | undefined;
-                    scheduleRules?: {
-                        /** Whether the rule should be enabled or disabled at the specified timestamp. */
-                        enabled: boolean;
-                        /** ISO timestamp when the rule should activate. */
-                        timestamp: string | null;
-                    }[] | undefined;
-                    id: string;
-                    enabled: boolean;
-                    type: "force";
-                    value: string;
-                } | {
-                    description: string;
-                    condition: string;
-                    savedGroupTargeting?: {
-                        matchType: "all" | "any" | "none";
-                        savedGroups: string[];
-                    }[] | undefined;
-                    scheduleRules?: {
-                        /** Whether the rule should be enabled or disabled at the specified timestamp. */
-                        enabled: boolean;
-                        /** ISO timestamp when the rule should activate. */
-                        timestamp: string | null;
-                    }[] | undefined;
-                    id: string;
-                    enabled: boolean;
-                    type: "rollout";
-                    value: string;
-                    coverage: number;
-                    hashAttribute: string;
-                } | {
-                    description: string;
-                    condition: string;
-                    id: string;
-                    enabled: boolean;
-                    type: "experiment";
-                    trackingKey?: string | undefined;
-                    hashAttribute?: string | undefined;
-                    fallbackAttribute?: string | undefined;
-                    disableStickyBucketing?: boolean | undefined;
-                    bucketVersion?: number | undefined;
-                    minBucketVersion?: number | undefined;
-                    namespace?: {
-                        enabled: boolean;
-                        name: string;
-                        range: number[];
-                    } | undefined;
-                    coverage?: number | undefined;
-                    scheduleRules?: {
-                        /** Whether the rule should be enabled or disabled at the specified timestamp. */
-                        enabled: boolean;
-                        /** ISO timestamp when the rule should activate. */
-                        timestamp: string | null;
-                    }[] | undefined;
-                    value?: {
-                        value: string;
-                        weight: number;
-                        name?: string | undefined;
-                    }[] | undefined;
-                } | {
-                    description: string;
-                    id: string;
-                    enabled: boolean;
-                    type: "experiment-ref";
-                    condition?: string | undefined;
-                    scheduleRules?: {
-                        /** Whether the rule should be enabled or disabled at the specified timestamp. */
-                        enabled: boolean;
-                        /** ISO timestamp when the rule should activate. */
-                        timestamp: string | null;
-                    }[] | undefined;
-                    variations: {
-                        value: string;
-                        variationId: string;
-                    }[];
-                    experimentId: string;
-                } | {
-                    condition: string;
-                    savedGroupTargeting?: {
-                        matchType: "all" | "any" | "none";
-                        savedGroups: string[];
-                    }[] | undefined;
-                    prerequisites?: {
-                        /** Feature ID */
-                        id: string;
-                        condition: string;
-                    }[] | undefined;
-                    id: string;
-                    trackingKey?: string | undefined;
-                    enabled: boolean;
-                    type: "safe-rollout";
-                    controlValue: string;
-                    variationValue: string;
-                    seed?: string | undefined;
-                    hashAttribute?: string | undefined;
-                    safeRolloutId?: string | undefined;
-                    status?: ("running" | "released" | "rolled-back" | "stopped") | undefined;
-                    scheduleRules?: {
-                        /** Whether the rule should be enabled or disabled at the specified timestamp. */
-                        enabled: boolean;
-                        /** ISO timestamp when the rule should activate. */
-                        timestamp: string | null;
-                    }[] | undefined;
-                })[];
-                /** A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
-                definition?: string | undefined;
-                draft?: {
-                    enabled: boolean;
-                    defaultValue: string;
-                    rules: ({
-                        description: string;
-                        condition: string;
-                        savedGroupTargeting?: {
-                            matchType: "all" | "any" | "none";
-                            savedGroups: string[];
-                        }[] | undefined;
-                        prerequisites?: {
-                            /** Feature ID */
-                            id: string;
-                            condition: string;
-                        }[] | undefined;
-                        scheduleRules?: {
-                            /** Whether the rule should be enabled or disabled at the specified timestamp. */
-                            enabled: boolean;
-                            /** ISO timestamp when the rule should activate. */
-                            timestamp: string | null;
-                        }[] | undefined;
-                        id: string;
-                        enabled: boolean;
-                        type: "force";
-                        value: string;
-                    } | {
-                        description: string;
-                        condition: string;
-                        savedGroupTargeting?: {
-                            matchType: "all" | "any" | "none";
-                            savedGroups: string[];
-                        }[] | undefined;
-                        scheduleRules?: {
-                            /** Whether the rule should be enabled or disabled at the specified timestamp. */
-                            enabled: boolean;
-                            /** ISO timestamp when the rule should activate. */
-                            timestamp: string | null;
-                        }[] | undefined;
-                        id: string;
-                        enabled: boolean;
-                        type: "rollout";
-                        value: string;
-                        coverage: number;
-                        hashAttribute: string;
-                    } | {
-                        description: string;
-                        condition: string;
-                        id: string;
-                        enabled: boolean;
-                        type: "experiment";
-                        trackingKey?: string | undefined;
-                        hashAttribute?: string | undefined;
-                        fallbackAttribute?: string | undefined;
-                        disableStickyBucketing?: boolean | undefined;
-                        bucketVersion?: number | undefined;
-                        minBucketVersion?: number | undefined;
-                        namespace?: {
-                            enabled: boolean;
-                            name: string;
-                            range: number[];
-                        } | undefined;
-                        coverage?: number | undefined;
-                        scheduleRules?: {
-                            /** Whether the rule should be enabled or disabled at the specified timestamp. */
-                            enabled: boolean;
-                            /** ISO timestamp when the rule should activate. */
-                            timestamp: string | null;
-                        }[] | undefined;
-                        value?: {
-                            value: string;
-                            weight: number;
-                            name?: string | undefined;
-                        }[] | undefined;
-                    } | {
-                        description: string;
-                        id: string;
-                        enabled: boolean;
-                        type: "experiment-ref";
-                        condition?: string | undefined;
-                        scheduleRules?: {
-                            /** Whether the rule should be enabled or disabled at the specified timestamp. */
-                            enabled: boolean;
-                            /** ISO timestamp when the rule should activate. */
-                            timestamp: string | null;
-                        }[] | undefined;
-                        variations: {
-                            value: string;
-                            variationId: string;
-                        }[];
-                        experimentId: string;
-                    } | {
-                        condition: string;
-                        savedGroupTargeting?: {
-                            matchType: "all" | "any" | "none";
-                            savedGroups: string[];
-                        }[] | undefined;
-                        prerequisites?: {
-                            /** Feature ID */
-                            id: string;
-                            condition: string;
-                        }[] | undefined;
-                        id: string;
-                        trackingKey?: string | undefined;
-                        enabled: boolean;
-                        type: "safe-rollout";
-                        controlValue: string;
-                        variationValue: string;
-                        seed?: string | undefined;
-                        hashAttribute?: string | undefined;
-                        safeRolloutId?: string | undefined;
-                        status?: ("running" | "released" | "rolled-back" | "stopped") | undefined;
-                        scheduleRules?: {
-                            /** Whether the rule should be enabled or disabled at the specified timestamp. */
-                            enabled: boolean;
-                            /** ISO timestamp when the rule should activate. */
-                            timestamp: string | null;
-                        }[] | undefined;
-                    })[];
-                    /** A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
-                    definition?: string | undefined;
-                } | undefined;
-            }>;
+            environments: Record<string, any>;
             /** Feature IDs. Each feature must evaluate to `true` */
             prerequisites?: string[] | undefined;
             revision: {
                 version: number;
                 comment: string;
                 date: string;
+                createdBy: string;
                 publishedBy: string;
             };
-            customFields?: Record<string, any> | undefined;
+            customFields?: Record<string, {}> | undefined;
+            holdout?: ({
+                /** Holdout ID */
+                id: string;
+                /** The feature value assigned to users in the holdout treatment group */
+                value: string;
+            } | null) | undefined;
         };
         previous_attributes: {
             id?: string | undefined;
@@ -598,262 +185,29 @@ Triggered when a feature is updated
             dateUpdated?: string | undefined;
             archived?: boolean | undefined;
             description?: string | undefined;
+            /** The userId of the owner (or raw owner name/email for legacy records) */
             owner?: string | undefined;
             project?: string | undefined;
             valueType?: ("boolean" | "string" | "number" | "json") | undefined;
             defaultValue?: string | undefined;
             tags?: string[] | undefined;
-            environments?: Record<string, {
-                enabled: boolean;
-                defaultValue: string;
-                rules: ({
-                    description: string;
-                    condition: string;
-                    savedGroupTargeting?: {
-                        matchType: "all" | "any" | "none";
-                        savedGroups: string[];
-                    }[] | undefined;
-                    prerequisites?: {
-                        /** Feature ID */
-                        id: string;
-                        condition: string;
-                    }[] | undefined;
-                    scheduleRules?: {
-                        /** Whether the rule should be enabled or disabled at the specified timestamp. */
-                        enabled: boolean;
-                        /** ISO timestamp when the rule should activate. */
-                        timestamp: string | null;
-                    }[] | undefined;
-                    id: string;
-                    enabled: boolean;
-                    type: "force";
-                    value: string;
-                } | {
-                    description: string;
-                    condition: string;
-                    savedGroupTargeting?: {
-                        matchType: "all" | "any" | "none";
-                        savedGroups: string[];
-                    }[] | undefined;
-                    scheduleRules?: {
-                        /** Whether the rule should be enabled or disabled at the specified timestamp. */
-                        enabled: boolean;
-                        /** ISO timestamp when the rule should activate. */
-                        timestamp: string | null;
-                    }[] | undefined;
-                    id: string;
-                    enabled: boolean;
-                    type: "rollout";
-                    value: string;
-                    coverage: number;
-                    hashAttribute: string;
-                } | {
-                    description: string;
-                    condition: string;
-                    id: string;
-                    enabled: boolean;
-                    type: "experiment";
-                    trackingKey?: string | undefined;
-                    hashAttribute?: string | undefined;
-                    fallbackAttribute?: string | undefined;
-                    disableStickyBucketing?: boolean | undefined;
-                    bucketVersion?: number | undefined;
-                    minBucketVersion?: number | undefined;
-                    namespace?: {
-                        enabled: boolean;
-                        name: string;
-                        range: number[];
-                    } | undefined;
-                    coverage?: number | undefined;
-                    scheduleRules?: {
-                        /** Whether the rule should be enabled or disabled at the specified timestamp. */
-                        enabled: boolean;
-                        /** ISO timestamp when the rule should activate. */
-                        timestamp: string | null;
-                    }[] | undefined;
-                    value?: {
-                        value: string;
-                        weight: number;
-                        name?: string | undefined;
-                    }[] | undefined;
-                } | {
-                    description: string;
-                    id: string;
-                    enabled: boolean;
-                    type: "experiment-ref";
-                    condition?: string | undefined;
-                    scheduleRules?: {
-                        /** Whether the rule should be enabled or disabled at the specified timestamp. */
-                        enabled: boolean;
-                        /** ISO timestamp when the rule should activate. */
-                        timestamp: string | null;
-                    }[] | undefined;
-                    variations: {
-                        value: string;
-                        variationId: string;
-                    }[];
-                    experimentId: string;
-                } | {
-                    condition: string;
-                    savedGroupTargeting?: {
-                        matchType: "all" | "any" | "none";
-                        savedGroups: string[];
-                    }[] | undefined;
-                    prerequisites?: {
-                        /** Feature ID */
-                        id: string;
-                        condition: string;
-                    }[] | undefined;
-                    id: string;
-                    trackingKey?: string | undefined;
-                    enabled: boolean;
-                    type: "safe-rollout";
-                    controlValue: string;
-                    variationValue: string;
-                    seed?: string | undefined;
-                    hashAttribute?: string | undefined;
-                    safeRolloutId?: string | undefined;
-                    status?: ("running" | "released" | "rolled-back" | "stopped") | undefined;
-                    scheduleRules?: {
-                        /** Whether the rule should be enabled or disabled at the specified timestamp. */
-                        enabled: boolean;
-                        /** ISO timestamp when the rule should activate. */
-                        timestamp: string | null;
-                    }[] | undefined;
-                })[];
-                /** A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
-                definition?: string | undefined;
-                draft?: {
-                    enabled: boolean;
-                    defaultValue: string;
-                    rules: ({
-                        description: string;
-                        condition: string;
-                        savedGroupTargeting?: {
-                            matchType: "all" | "any" | "none";
-                            savedGroups: string[];
-                        }[] | undefined;
-                        prerequisites?: {
-                            /** Feature ID */
-                            id: string;
-                            condition: string;
-                        }[] | undefined;
-                        scheduleRules?: {
-                            /** Whether the rule should be enabled or disabled at the specified timestamp. */
-                            enabled: boolean;
-                            /** ISO timestamp when the rule should activate. */
-                            timestamp: string | null;
-                        }[] | undefined;
-                        id: string;
-                        enabled: boolean;
-                        type: "force";
-                        value: string;
-                    } | {
-                        description: string;
-                        condition: string;
-                        savedGroupTargeting?: {
-                            matchType: "all" | "any" | "none";
-                            savedGroups: string[];
-                        }[] | undefined;
-                        scheduleRules?: {
-                            /** Whether the rule should be enabled or disabled at the specified timestamp. */
-                            enabled: boolean;
-                            /** ISO timestamp when the rule should activate. */
-                            timestamp: string | null;
-                        }[] | undefined;
-                        id: string;
-                        enabled: boolean;
-                        type: "rollout";
-                        value: string;
-                        coverage: number;
-                        hashAttribute: string;
-                    } | {
-                        description: string;
-                        condition: string;
-                        id: string;
-                        enabled: boolean;
-                        type: "experiment";
-                        trackingKey?: string | undefined;
-                        hashAttribute?: string | undefined;
-                        fallbackAttribute?: string | undefined;
-                        disableStickyBucketing?: boolean | undefined;
-                        bucketVersion?: number | undefined;
-                        minBucketVersion?: number | undefined;
-                        namespace?: {
-                            enabled: boolean;
-                            name: string;
-                            range: number[];
-                        } | undefined;
-                        coverage?: number | undefined;
-                        scheduleRules?: {
-                            /** Whether the rule should be enabled or disabled at the specified timestamp. */
-                            enabled: boolean;
-                            /** ISO timestamp when the rule should activate. */
-                            timestamp: string | null;
-                        }[] | undefined;
-                        value?: {
-                            value: string;
-                            weight: number;
-                            name?: string | undefined;
-                        }[] | undefined;
-                    } | {
-                        description: string;
-                        id: string;
-                        enabled: boolean;
-                        type: "experiment-ref";
-                        condition?: string | undefined;
-                        scheduleRules?: {
-                            /** Whether the rule should be enabled or disabled at the specified timestamp. */
-                            enabled: boolean;
-                            /** ISO timestamp when the rule should activate. */
-                            timestamp: string | null;
-                        }[] | undefined;
-                        variations: {
-                            value: string;
-                            variationId: string;
-                        }[];
-                        experimentId: string;
-                    } | {
-                        condition: string;
-                        savedGroupTargeting?: {
-                            matchType: "all" | "any" | "none";
-                            savedGroups: string[];
-                        }[] | undefined;
-                        prerequisites?: {
-                            /** Feature ID */
-                            id: string;
-                            condition: string;
-                        }[] | undefined;
-                        id: string;
-                        trackingKey?: string | undefined;
-                        enabled: boolean;
-                        type: "safe-rollout";
-                        controlValue: string;
-                        variationValue: string;
-                        seed?: string | undefined;
-                        hashAttribute?: string | undefined;
-                        safeRolloutId?: string | undefined;
-                        status?: ("running" | "released" | "rolled-back" | "stopped") | undefined;
-                        scheduleRules?: {
-                            /** Whether the rule should be enabled or disabled at the specified timestamp. */
-                            enabled: boolean;
-                            /** ISO timestamp when the rule should activate. */
-                            timestamp: string | null;
-                        }[] | undefined;
-                    })[];
-                    /** A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
-                    definition?: string | undefined;
-                } | undefined;
-            }> | undefined;
+            environments?: Record<string, any> | undefined;
             /** Feature IDs. Each feature must evaluate to `true` */
             prerequisites?: string[] | undefined;
             revision?: {
                 version: number;
                 comment: string;
                 date: string;
+                createdBy: string;
                 publishedBy: string;
             } | undefined;
-            customFields?: Record<string, any> | undefined;
+            customFields?: Record<string, {}> | undefined;
+            holdout?: ({
+                /** Holdout ID */
+                id: string;
+                /** The feature value assigned to users in the holdout treatment group */
+                value: string;
+            } | null) | undefined;
         };
         changes?: {
             added: Record<string, unknown>;
@@ -869,10 +223,16 @@ Triggered when a feature is updated
     } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -900,262 +260,29 @@ Triggered when a feature is deleted
             dateUpdated: string;
             archived: boolean;
             description: string;
+            /** The userId of the owner (or raw owner name/email for legacy records) */
             owner: string;
             project: string;
             valueType: "boolean" | "string" | "number" | "json";
             defaultValue: string;
             tags: string[];
-            environments: Record<string, {
-                enabled: boolean;
-                defaultValue: string;
-                rules: ({
-                    description: string;
-                    condition: string;
-                    savedGroupTargeting?: {
-                        matchType: "all" | "any" | "none";
-                        savedGroups: string[];
-                    }[] | undefined;
-                    prerequisites?: {
-                        /** Feature ID */
-                        id: string;
-                        condition: string;
-                    }[] | undefined;
-                    scheduleRules?: {
-                        /** Whether the rule should be enabled or disabled at the specified timestamp. */
-                        enabled: boolean;
-                        /** ISO timestamp when the rule should activate. */
-                        timestamp: string | null;
-                    }[] | undefined;
-                    id: string;
-                    enabled: boolean;
-                    type: "force";
-                    value: string;
-                } | {
-                    description: string;
-                    condition: string;
-                    savedGroupTargeting?: {
-                        matchType: "all" | "any" | "none";
-                        savedGroups: string[];
-                    }[] | undefined;
-                    scheduleRules?: {
-                        /** Whether the rule should be enabled or disabled at the specified timestamp. */
-                        enabled: boolean;
-                        /** ISO timestamp when the rule should activate. */
-                        timestamp: string | null;
-                    }[] | undefined;
-                    id: string;
-                    enabled: boolean;
-                    type: "rollout";
-                    value: string;
-                    coverage: number;
-                    hashAttribute: string;
-                } | {
-                    description: string;
-                    condition: string;
-                    id: string;
-                    enabled: boolean;
-                    type: "experiment";
-                    trackingKey?: string | undefined;
-                    hashAttribute?: string | undefined;
-                    fallbackAttribute?: string | undefined;
-                    disableStickyBucketing?: boolean | undefined;
-                    bucketVersion?: number | undefined;
-                    minBucketVersion?: number | undefined;
-                    namespace?: {
-                        enabled: boolean;
-                        name: string;
-                        range: number[];
-                    } | undefined;
-                    coverage?: number | undefined;
-                    scheduleRules?: {
-                        /** Whether the rule should be enabled or disabled at the specified timestamp. */
-                        enabled: boolean;
-                        /** ISO timestamp when the rule should activate. */
-                        timestamp: string | null;
-                    }[] | undefined;
-                    value?: {
-                        value: string;
-                        weight: number;
-                        name?: string | undefined;
-                    }[] | undefined;
-                } | {
-                    description: string;
-                    id: string;
-                    enabled: boolean;
-                    type: "experiment-ref";
-                    condition?: string | undefined;
-                    scheduleRules?: {
-                        /** Whether the rule should be enabled or disabled at the specified timestamp. */
-                        enabled: boolean;
-                        /** ISO timestamp when the rule should activate. */
-                        timestamp: string | null;
-                    }[] | undefined;
-                    variations: {
-                        value: string;
-                        variationId: string;
-                    }[];
-                    experimentId: string;
-                } | {
-                    condition: string;
-                    savedGroupTargeting?: {
-                        matchType: "all" | "any" | "none";
-                        savedGroups: string[];
-                    }[] | undefined;
-                    prerequisites?: {
-                        /** Feature ID */
-                        id: string;
-                        condition: string;
-                    }[] | undefined;
-                    id: string;
-                    trackingKey?: string | undefined;
-                    enabled: boolean;
-                    type: "safe-rollout";
-                    controlValue: string;
-                    variationValue: string;
-                    seed?: string | undefined;
-                    hashAttribute?: string | undefined;
-                    safeRolloutId?: string | undefined;
-                    status?: ("running" | "released" | "rolled-back" | "stopped") | undefined;
-                    scheduleRules?: {
-                        /** Whether the rule should be enabled or disabled at the specified timestamp. */
-                        enabled: boolean;
-                        /** ISO timestamp when the rule should activate. */
-                        timestamp: string | null;
-                    }[] | undefined;
-                })[];
-                /** A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
-                definition?: string | undefined;
-                draft?: {
-                    enabled: boolean;
-                    defaultValue: string;
-                    rules: ({
-                        description: string;
-                        condition: string;
-                        savedGroupTargeting?: {
-                            matchType: "all" | "any" | "none";
-                            savedGroups: string[];
-                        }[] | undefined;
-                        prerequisites?: {
-                            /** Feature ID */
-                            id: string;
-                            condition: string;
-                        }[] | undefined;
-                        scheduleRules?: {
-                            /** Whether the rule should be enabled or disabled at the specified timestamp. */
-                            enabled: boolean;
-                            /** ISO timestamp when the rule should activate. */
-                            timestamp: string | null;
-                        }[] | undefined;
-                        id: string;
-                        enabled: boolean;
-                        type: "force";
-                        value: string;
-                    } | {
-                        description: string;
-                        condition: string;
-                        savedGroupTargeting?: {
-                            matchType: "all" | "any" | "none";
-                            savedGroups: string[];
-                        }[] | undefined;
-                        scheduleRules?: {
-                            /** Whether the rule should be enabled or disabled at the specified timestamp. */
-                            enabled: boolean;
-                            /** ISO timestamp when the rule should activate. */
-                            timestamp: string | null;
-                        }[] | undefined;
-                        id: string;
-                        enabled: boolean;
-                        type: "rollout";
-                        value: string;
-                        coverage: number;
-                        hashAttribute: string;
-                    } | {
-                        description: string;
-                        condition: string;
-                        id: string;
-                        enabled: boolean;
-                        type: "experiment";
-                        trackingKey?: string | undefined;
-                        hashAttribute?: string | undefined;
-                        fallbackAttribute?: string | undefined;
-                        disableStickyBucketing?: boolean | undefined;
-                        bucketVersion?: number | undefined;
-                        minBucketVersion?: number | undefined;
-                        namespace?: {
-                            enabled: boolean;
-                            name: string;
-                            range: number[];
-                        } | undefined;
-                        coverage?: number | undefined;
-                        scheduleRules?: {
-                            /** Whether the rule should be enabled or disabled at the specified timestamp. */
-                            enabled: boolean;
-                            /** ISO timestamp when the rule should activate. */
-                            timestamp: string | null;
-                        }[] | undefined;
-                        value?: {
-                            value: string;
-                            weight: number;
-                            name?: string | undefined;
-                        }[] | undefined;
-                    } | {
-                        description: string;
-                        id: string;
-                        enabled: boolean;
-                        type: "experiment-ref";
-                        condition?: string | undefined;
-                        scheduleRules?: {
-                            /** Whether the rule should be enabled or disabled at the specified timestamp. */
-                            enabled: boolean;
-                            /** ISO timestamp when the rule should activate. */
-                            timestamp: string | null;
-                        }[] | undefined;
-                        variations: {
-                            value: string;
-                            variationId: string;
-                        }[];
-                        experimentId: string;
-                    } | {
-                        condition: string;
-                        savedGroupTargeting?: {
-                            matchType: "all" | "any" | "none";
-                            savedGroups: string[];
-                        }[] | undefined;
-                        prerequisites?: {
-                            /** Feature ID */
-                            id: string;
-                            condition: string;
-                        }[] | undefined;
-                        id: string;
-                        trackingKey?: string | undefined;
-                        enabled: boolean;
-                        type: "safe-rollout";
-                        controlValue: string;
-                        variationValue: string;
-                        seed?: string | undefined;
-                        hashAttribute?: string | undefined;
-                        safeRolloutId?: string | undefined;
-                        status?: ("running" | "released" | "rolled-back" | "stopped") | undefined;
-                        scheduleRules?: {
-                            /** Whether the rule should be enabled or disabled at the specified timestamp. */
-                            enabled: boolean;
-                            /** ISO timestamp when the rule should activate. */
-                            timestamp: string | null;
-                        }[] | undefined;
-                    })[];
-                    /** A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
-                    definition?: string | undefined;
-                } | undefined;
-            }>;
+            environments: Record<string, any>;
             /** Feature IDs. Each feature must evaluate to `true` */
             prerequisites?: string[] | undefined;
             revision: {
                 version: number;
                 comment: string;
                 date: string;
+                createdBy: string;
                 publishedBy: string;
             };
-            customFields?: Record<string, any> | undefined;
+            customFields?: Record<string, {}> | undefined;
+            holdout?: ({
+                /** Holdout ID */
+                id: string;
+                /** The feature value assigned to users in the holdout treatment group */
+                value: string;
+            } | null) | undefined;
         };
     };
     user: {
@@ -1166,10 +293,16 @@ Triggered when a feature is deleted
     } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -1205,10 +338,16 @@ Triggered when a safe rollout is completed and safe to rollout to 100%.
     } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -1244,10 +383,16 @@ Triggered when a safe rollout has a failing guardrail and should be reverted.
     } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -1284,10 +429,1152 @@ Triggered when a safe rollout is failing a health check and may not be working a
     } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### feature.rampSchedule.created
+
+Triggered when a ramp schedule is created for a feature
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "feature.rampSchedule.created";
+    object: "feature";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            rampScheduleId: string;
+            rampName: string;
+            orgId: string;
+            entityType: string;
+            entityId: string;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### feature.rampSchedule.deleted
+
+Triggered when a ramp schedule is deleted from a feature
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "feature.rampSchedule.deleted";
+    object: "feature";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            rampScheduleId: string;
+            rampName: string;
+            orgId: string;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### feature.rampSchedule.actions.started
+
+Triggered when a feature ramp schedule starts
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "feature.rampSchedule.actions.started";
+    object: "feature";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            rampScheduleId: string;
+            rampName: string;
+            orgId: string;
+            currentStepIndex: number;
+            status: string;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### feature.rampSchedule.actions.completed
+
+Triggered when a feature ramp schedule completes all steps
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "feature.rampSchedule.actions.completed";
+    object: "feature";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            rampScheduleId: string;
+            rampName: string;
+            orgId: string;
+            currentStepIndex: number;
+            status: string;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### feature.rampSchedule.actions.rolledBack
+
+Triggered when a feature ramp schedule is rolled back or reset to start
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "feature.rampSchedule.actions.rolledBack";
+    object: "feature";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            rampScheduleId: string;
+            rampName: string;
+            orgId: string;
+            currentStepIndex: number;
+            status: string;
+            targetStepIndex: number;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### feature.rampSchedule.actions.jumped
+
+Triggered when a feature ramp schedule is jumped to a specific step
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "feature.rampSchedule.actions.jumped";
+    object: "feature";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            rampScheduleId: string;
+            rampName: string;
+            orgId: string;
+            currentStepIndex: number;
+            status: string;
+            targetStepIndex: number;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### feature.rampSchedule.actions.step.advanced
+
+Triggered when a feature ramp schedule advances to the next step
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "feature.rampSchedule.actions.step.advanced";
+    object: "feature";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            rampScheduleId: string;
+            rampName: string;
+            orgId: string;
+            currentStepIndex: number;
+            status: string;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### feature.rampSchedule.actions.step.approvalRequired
+
+Triggered when a feature ramp step is waiting for approval
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "feature.rampSchedule.actions.step.approvalRequired";
+    object: "feature";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            rampScheduleId: string;
+            rampName: string;
+            orgId: string;
+            currentStepIndex: number;
+            status: string;
+            approvalNotes?: (string | null) | undefined;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### feature.revision.created
+
+Triggered when a new draft revision is created for a feature
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "feature.revision.created";
+    object: "feature";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            /** The feature this revision belongs to */
+            featureId: string;
+            baseVersion: number;
+            version: number;
+            comment: string;
+            date: string;
+            status: string;
+            createdBy?: string | undefined;
+            publishedBy?: string | undefined;
+            /** The default value at the time this revision was created */
+            defaultValue?: string | undefined;
+            rules: Record<string, any[]>;
+            definitions?: Record<string, string> | undefined;
+            environmentsEnabled?: Record<string, boolean> | undefined;
+            envPrerequisites?: Record<string, {
+                /** Feature ID */
+                id: string;
+                condition: string;
+            }[]> | undefined;
+            prerequisites?: {
+                /** Feature ID */
+                id: string;
+                condition: string;
+            }[] | undefined;
+            metadata?: {} | undefined;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### feature.revision.updated
+
+Triggered when a draft revision is modified (rules, default value, toggles, prerequisites, metadata, etc.). The `change` field indicates the specific kind of mutation.
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "feature.revision.updated";
+    object: "feature";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            /** The feature this revision belongs to */
+            featureId: string;
+            baseVersion: number;
+            version: number;
+            comment: string;
+            date: string;
+            status: string;
+            createdBy?: string | undefined;
+            publishedBy?: string | undefined;
+            /** The default value at the time this revision was created */
+            defaultValue?: string | undefined;
+            rules: Record<string, any[]>;
+            definitions?: Record<string, string> | undefined;
+            environmentsEnabled?: Record<string, boolean> | undefined;
+            envPrerequisites?: Record<string, {
+                /** Feature ID */
+                id: string;
+                condition: string;
+            }[]> | undefined;
+            prerequisites?: {
+                /** Feature ID */
+                id: string;
+                condition: string;
+            }[] | undefined;
+            metadata?: {} | undefined;
+            change: "rule.add" | "rule.update" | "rule.delete" | "rule.reorder" | "rule.rampSchedule.set" | "rule.rampSchedule.remove" | "toggle" | "defaultValue" | "prerequisites" | "holdout" | "archive" | "metadata";
+            environments?: string[] | undefined;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### feature.revision.reviewRequested
+
+Triggered when a draft revision is submitted for review
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "feature.revision.reviewRequested";
+    object: "feature";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            /** The feature this revision belongs to */
+            featureId: string;
+            baseVersion: number;
+            version: number;
+            comment: string;
+            date: string;
+            status: string;
+            createdBy?: string | undefined;
+            publishedBy?: string | undefined;
+            /** The default value at the time this revision was created */
+            defaultValue?: string | undefined;
+            rules: Record<string, any[]>;
+            definitions?: Record<string, string> | undefined;
+            environmentsEnabled?: Record<string, boolean> | undefined;
+            envPrerequisites?: Record<string, {
+                /** Feature ID */
+                id: string;
+                condition: string;
+            }[]> | undefined;
+            prerequisites?: {
+                /** Feature ID */
+                id: string;
+                condition: string;
+            }[] | undefined;
+            metadata?: {} | undefined;
+            reviewComment: string | null;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### feature.revision.approved
+
+Triggered when a draft revision is approved by a reviewer
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "feature.revision.approved";
+    object: "feature";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            /** The feature this revision belongs to */
+            featureId: string;
+            baseVersion: number;
+            version: number;
+            comment: string;
+            date: string;
+            status: string;
+            createdBy?: string | undefined;
+            publishedBy?: string | undefined;
+            /** The default value at the time this revision was created */
+            defaultValue?: string | undefined;
+            rules: Record<string, any[]>;
+            definitions?: Record<string, string> | undefined;
+            environmentsEnabled?: Record<string, boolean> | undefined;
+            envPrerequisites?: Record<string, {
+                /** Feature ID */
+                id: string;
+                condition: string;
+            }[]> | undefined;
+            prerequisites?: {
+                /** Feature ID */
+                id: string;
+                condition: string;
+            }[] | undefined;
+            metadata?: {} | undefined;
+            reviewer: {
+                id?: string | undefined;
+                name?: string | undefined;
+                email?: string | undefined;
+            };
+            reviewComment: string | null;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### feature.revision.changesRequested
+
+Triggered when a reviewer requests changes on a draft revision
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "feature.revision.changesRequested";
+    object: "feature";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            /** The feature this revision belongs to */
+            featureId: string;
+            baseVersion: number;
+            version: number;
+            comment: string;
+            date: string;
+            status: string;
+            createdBy?: string | undefined;
+            publishedBy?: string | undefined;
+            /** The default value at the time this revision was created */
+            defaultValue?: string | undefined;
+            rules: Record<string, any[]>;
+            definitions?: Record<string, string> | undefined;
+            environmentsEnabled?: Record<string, boolean> | undefined;
+            envPrerequisites?: Record<string, {
+                /** Feature ID */
+                id: string;
+                condition: string;
+            }[]> | undefined;
+            prerequisites?: {
+                /** Feature ID */
+                id: string;
+                condition: string;
+            }[] | undefined;
+            metadata?: {} | undefined;
+            reviewer: {
+                id?: string | undefined;
+                name?: string | undefined;
+                email?: string | undefined;
+            };
+            reviewComment: string | null;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### feature.revision.commented
+
+Triggered when a comment is added to a draft revision
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "feature.revision.commented";
+    object: "feature";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            /** The feature this revision belongs to */
+            featureId: string;
+            baseVersion: number;
+            version: number;
+            comment: string;
+            date: string;
+            status: string;
+            createdBy?: string | undefined;
+            publishedBy?: string | undefined;
+            /** The default value at the time this revision was created */
+            defaultValue?: string | undefined;
+            rules: Record<string, any[]>;
+            definitions?: Record<string, string> | undefined;
+            environmentsEnabled?: Record<string, boolean> | undefined;
+            envPrerequisites?: Record<string, {
+                /** Feature ID */
+                id: string;
+                condition: string;
+            }[]> | undefined;
+            prerequisites?: {
+                /** Feature ID */
+                id: string;
+                condition: string;
+            }[] | undefined;
+            metadata?: {} | undefined;
+            reviewer: {
+                id?: string | undefined;
+                name?: string | undefined;
+                email?: string | undefined;
+            };
+            reviewComment: string;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### feature.revision.discarded
+
+Triggered when a draft revision is discarded
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "feature.revision.discarded";
+    object: "feature";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            /** The feature this revision belongs to */
+            featureId: string;
+            baseVersion: number;
+            version: number;
+            comment: string;
+            date: string;
+            status: string;
+            createdBy?: string | undefined;
+            publishedBy?: string | undefined;
+            /** The default value at the time this revision was created */
+            defaultValue?: string | undefined;
+            rules: Record<string, any[]>;
+            definitions?: Record<string, string> | undefined;
+            environmentsEnabled?: Record<string, boolean> | undefined;
+            envPrerequisites?: Record<string, {
+                /** Feature ID */
+                id: string;
+                condition: string;
+            }[]> | undefined;
+            prerequisites?: {
+                /** Feature ID */
+                id: string;
+                condition: string;
+            }[] | undefined;
+            metadata?: {} | undefined;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### feature.revision.reopened
+
+Triggered when a discarded draft revision is reopened as a draft
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "feature.revision.reopened";
+    object: "feature";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            /** The feature this revision belongs to */
+            featureId: string;
+            baseVersion: number;
+            version: number;
+            comment: string;
+            date: string;
+            status: string;
+            createdBy?: string | undefined;
+            publishedBy?: string | undefined;
+            /** The default value at the time this revision was created */
+            defaultValue?: string | undefined;
+            rules: Record<string, any[]>;
+            definitions?: Record<string, string> | undefined;
+            environmentsEnabled?: Record<string, boolean> | undefined;
+            envPrerequisites?: Record<string, {
+                /** Feature ID */
+                id: string;
+                condition: string;
+            }[]> | undefined;
+            prerequisites?: {
+                /** Feature ID */
+                id: string;
+                condition: string;
+            }[] | undefined;
+            metadata?: {} | undefined;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### feature.revision.rebased
+
+Triggered when a draft revision is rebased onto the latest published version
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "feature.revision.rebased";
+    object: "feature";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            /** The feature this revision belongs to */
+            featureId: string;
+            baseVersion: number;
+            version: number;
+            comment: string;
+            date: string;
+            status: string;
+            createdBy?: string | undefined;
+            publishedBy?: string | undefined;
+            /** The default value at the time this revision was created */
+            defaultValue?: string | undefined;
+            rules: Record<string, any[]>;
+            definitions?: Record<string, string> | undefined;
+            environmentsEnabled?: Record<string, boolean> | undefined;
+            envPrerequisites?: Record<string, {
+                /** Feature ID */
+                id: string;
+                condition: string;
+            }[]> | undefined;
+            prerequisites?: {
+                /** Feature ID */
+                id: string;
+                condition: string;
+            }[] | undefined;
+            metadata?: {} | undefined;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### feature.revision.published
+
+Triggered when a draft revision is published. Overlaps with `feature.updated` but provides revision-specific context (base version, comment, author).
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "feature.revision.published";
+    object: "feature";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            /** The feature this revision belongs to */
+            featureId: string;
+            baseVersion: number;
+            version: number;
+            comment: string;
+            date: string;
+            status: string;
+            createdBy?: string | undefined;
+            publishedBy?: string | undefined;
+            /** The default value at the time this revision was created */
+            defaultValue?: string | undefined;
+            rules: Record<string, any[]>;
+            definitions?: Record<string, string> | undefined;
+            environmentsEnabled?: Record<string, boolean> | undefined;
+            envPrerequisites?: Record<string, {
+                /** Feature ID */
+                id: string;
+                condition: string;
+            }[]> | undefined;
+            prerequisites?: {
+                /** Feature ID */
+                id: string;
+                condition: string;
+            }[] | undefined;
+            metadata?: {} | undefined;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### feature.revision.reverted
+
+Triggered when a feature is reverted to a previous published revision
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "feature.revision.reverted";
+    object: "feature";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            /** The feature this revision belongs to */
+            featureId: string;
+            baseVersion: number;
+            version: number;
+            comment: string;
+            date: string;
+            status: string;
+            createdBy?: string | undefined;
+            publishedBy?: string | undefined;
+            /** The default value at the time this revision was created */
+            defaultValue?: string | undefined;
+            rules: Record<string, any[]>;
+            definitions?: Record<string, string> | undefined;
+            environmentsEnabled?: Record<string, boolean> | undefined;
+            envPrerequisites?: Record<string, {
+                /** Feature ID */
+                id: string;
+                condition: string;
+            }[]> | undefined;
+            prerequisites?: {
+                /** Feature ID */
+                id: string;
+                condition: string;
+            }[] | undefined;
+            metadata?: {} | undefined;
+            revertedToVersion: number;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -1315,12 +1602,14 @@ Triggered when an experiment is created
             dateCreated: string;
             dateUpdated: string;
             name: string;
-            type: "standard" | "multi-armed-bandit";
+            type: "standard" | "multi-armed-bandit" | "holdout";
             project: string;
             hypothesis: string;
             description: string;
             tags: string[];
+            /** The userId of the owner (or raw owner name/email for legacy records) */
             owner: string;
+            ownerEmail?: string | undefined;
             archived: boolean;
             status: string;
             autoRefresh: boolean;
@@ -1350,7 +1639,12 @@ Triggered when an experiment is created
                 }[];
                 namespace?: {
                     namespaceId: string;
-                    range: any[];
+                    enabled?: boolean | undefined;
+                    range?: number[] | undefined;
+                    ranges?: [
+                        number,
+                        number
+                    ][] | undefined;
                 } | undefined;
                 targetingCondition: string;
                 prerequisites?: {
@@ -1369,12 +1663,49 @@ Triggered when an experiment is created
                 segmentId: string;
                 queryFilter: string;
                 inProgressConversions: "include" | "exclude";
-                /** Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. */
-                attributionModel: "firstExposure" | "experimentDuration";
+                /** Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided. */
+                attributionModel: "firstExposure" | "experimentDuration" | "lookbackOverride";
+                /** Controls the lookback override for the experiment. For type "window", value must be a non-negative number and valueUnit is required. */
+                lookbackOverride?: {
+                    type: "date" | "window";
+                    /** For "window" type - non-negative numeric value (e.g. 7 for 7 days). For "date" type a date string. */
+                    value: number | string;
+                    /** Used when type is "window". Defaults to "days". */
+                    valueUnit?: ("minutes" | "hours" | "days" | "weeks") | undefined;
+                } | undefined;
                 statsEngine: "bayesian" | "frequentist";
                 regressionAdjustmentEnabled?: boolean | undefined;
                 sequentialTestingEnabled?: boolean | undefined;
                 sequentialTestingTuningParameter?: number | undefined;
+                /** When null, the organization default is used. */
+                postStratificationEnabled?: (boolean | null) | undefined;
+                /** Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields). */
+                decisionFrameworkSettings?: {
+                    decisionCriteriaId?: string | undefined;
+                    decisionFrameworkMetricOverrides?: {
+                        /** ID of the metric to override settings for. */
+                        id: string;
+                        /** The target relative MDE to use for the metric, expressed as proportions (e.g. use 0.1 for 10%). Must be greater than 0. */
+                        targetMDE?: number | undefined;
+                    }[] | undefined;
+                } | undefined;
+                /** Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. On create/update, this replaces the entire stored array (it does not patch individual entries). */
+                metricOverrides?: {
+                    /** ID of the metric to override settings for. */
+                    id: string;
+                    windowType?: ("conversion" | "lookback" | "") | undefined;
+                    windowHours?: number | undefined;
+                    delayHours?: number | undefined;
+                    /** Must be true for the override to take effect. If true, the other proper prior settings in this object will be used if present. */
+                    properPriorOverride?: boolean | undefined;
+                    properPriorEnabled?: boolean | undefined;
+                    properPriorMean?: number | undefined;
+                    properPriorStdDev?: number | undefined;
+                    /** Must be true for the override to take effect. If true, the other regression adjustment settings in this object will be used if present. */
+                    regressionAdjustmentOverride?: boolean | undefined;
+                    regressionAdjustmentEnabled?: boolean | undefined;
+                    regressionAdjustmentDays?: number | undefined;
+                }[] | undefined;
                 goals: {
                     metricId: string;
                     overrides: {
@@ -1383,6 +1714,13 @@ Triggered when an experiment is created
                         window?: ("conversion" | "lookback" | "") | undefined;
                         winRiskThreshold?: number | undefined;
                         loseRiskThreshold?: number | undefined;
+                        properPriorOverride?: boolean | undefined;
+                        properPriorEnabled?: boolean | undefined;
+                        properPriorMean?: number | undefined;
+                        properPriorStdDev?: number | undefined;
+                        regressionAdjustmentOverride?: boolean | undefined;
+                        regressionAdjustmentEnabled?: boolean | undefined;
+                        regressionAdjustmentDays?: number | undefined;
                     };
                 }[];
                 secondaryMetrics: {
@@ -1393,6 +1731,13 @@ Triggered when an experiment is created
                         window?: ("conversion" | "lookback" | "") | undefined;
                         winRiskThreshold?: number | undefined;
                         loseRiskThreshold?: number | undefined;
+                        properPriorOverride?: boolean | undefined;
+                        properPriorEnabled?: boolean | undefined;
+                        properPriorMean?: number | undefined;
+                        properPriorStdDev?: number | undefined;
+                        regressionAdjustmentOverride?: boolean | undefined;
+                        regressionAdjustmentEnabled?: boolean | undefined;
+                        regressionAdjustmentDays?: number | undefined;
                     };
                 }[];
                 guardrails: {
@@ -1403,6 +1748,13 @@ Triggered when an experiment is created
                         window?: ("conversion" | "lookback" | "") | undefined;
                         winRiskThreshold?: number | undefined;
                         loseRiskThreshold?: number | undefined;
+                        properPriorOverride?: boolean | undefined;
+                        properPriorEnabled?: boolean | undefined;
+                        properPriorMean?: number | undefined;
+                        properPriorStdDev?: number | undefined;
+                        regressionAdjustmentOverride?: boolean | undefined;
+                        regressionAdjustmentEnabled?: boolean | undefined;
+                        regressionAdjustmentDays?: number | undefined;
                     };
                 }[];
                 activationMetric?: {
@@ -1413,6 +1765,13 @@ Triggered when an experiment is created
                         window?: ("conversion" | "lookback" | "") | undefined;
                         winRiskThreshold?: number | undefined;
                         loseRiskThreshold?: number | undefined;
+                        properPriorOverride?: boolean | undefined;
+                        properPriorEnabled?: boolean | undefined;
+                        properPriorMean?: number | undefined;
+                        properPriorStdDev?: number | undefined;
+                        regressionAdjustmentOverride?: boolean | undefined;
+                        regressionAdjustmentEnabled?: boolean | undefined;
+                        regressionAdjustmentDays?: number | undefined;
                     };
                 } | undefined;
             };
@@ -1429,6 +1788,8 @@ Triggered when an experiment is created
             banditScheduleUnit?: ("days" | "hours") | undefined;
             banditBurnInValue?: number | undefined;
             banditBurnInUnit?: ("days" | "hours") | undefined;
+            banditConversionWindowValue?: number | undefined;
+            banditConversionWindowUnit?: ("days" | "hours") | undefined;
             linkedFeatures?: string[] | undefined;
             hasVisualChangesets?: boolean | undefined;
             hasURLRedirects?: boolean | undefined;
@@ -1440,6 +1801,18 @@ Triggered when an experiment is created
                     levels: string[];
                 }[];
             }[] | undefined;
+            precomputedUnitDimensionIds?: string[] | undefined;
+            /** ID of the default dashboard for this experiment. */
+            defaultDashboardId?: string | undefined;
+            templateId?: string | undefined;
+            statusUpdateSchedule?: ({
+                /** ISO datetime when the experiment should start. Must be in the future. Setting or clearing this field invalidates any existing staged start (`nextScheduledStatusUpdate`); call POST /experiments/{id}/start to stage the new schedule. */
+                startAt: string;
+            } | null) | undefined;
+            nextScheduledStatusUpdate?: ({
+                type: "start";
+                date: string;
+            } | null) | undefined;
         };
     };
     user: {
@@ -1450,10 +1823,16 @@ Triggered when an experiment is created
     } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -1481,12 +1860,14 @@ Triggered when an experiment is updated
             dateCreated: string;
             dateUpdated: string;
             name: string;
-            type: "standard" | "multi-armed-bandit";
+            type: "standard" | "multi-armed-bandit" | "holdout";
             project: string;
             hypothesis: string;
             description: string;
             tags: string[];
+            /** The userId of the owner (or raw owner name/email for legacy records) */
             owner: string;
+            ownerEmail?: string | undefined;
             archived: boolean;
             status: string;
             autoRefresh: boolean;
@@ -1516,7 +1897,12 @@ Triggered when an experiment is updated
                 }[];
                 namespace?: {
                     namespaceId: string;
-                    range: any[];
+                    enabled?: boolean | undefined;
+                    range?: number[] | undefined;
+                    ranges?: [
+                        number,
+                        number
+                    ][] | undefined;
                 } | undefined;
                 targetingCondition: string;
                 prerequisites?: {
@@ -1535,12 +1921,49 @@ Triggered when an experiment is updated
                 segmentId: string;
                 queryFilter: string;
                 inProgressConversions: "include" | "exclude";
-                /** Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. */
-                attributionModel: "firstExposure" | "experimentDuration";
+                /** Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided. */
+                attributionModel: "firstExposure" | "experimentDuration" | "lookbackOverride";
+                /** Controls the lookback override for the experiment. For type "window", value must be a non-negative number and valueUnit is required. */
+                lookbackOverride?: {
+                    type: "date" | "window";
+                    /** For "window" type - non-negative numeric value (e.g. 7 for 7 days). For "date" type a date string. */
+                    value: number | string;
+                    /** Used when type is "window". Defaults to "days". */
+                    valueUnit?: ("minutes" | "hours" | "days" | "weeks") | undefined;
+                } | undefined;
                 statsEngine: "bayesian" | "frequentist";
                 regressionAdjustmentEnabled?: boolean | undefined;
                 sequentialTestingEnabled?: boolean | undefined;
                 sequentialTestingTuningParameter?: number | undefined;
+                /** When null, the organization default is used. */
+                postStratificationEnabled?: (boolean | null) | undefined;
+                /** Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields). */
+                decisionFrameworkSettings?: {
+                    decisionCriteriaId?: string | undefined;
+                    decisionFrameworkMetricOverrides?: {
+                        /** ID of the metric to override settings for. */
+                        id: string;
+                        /** The target relative MDE to use for the metric, expressed as proportions (e.g. use 0.1 for 10%). Must be greater than 0. */
+                        targetMDE?: number | undefined;
+                    }[] | undefined;
+                } | undefined;
+                /** Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. On create/update, this replaces the entire stored array (it does not patch individual entries). */
+                metricOverrides?: {
+                    /** ID of the metric to override settings for. */
+                    id: string;
+                    windowType?: ("conversion" | "lookback" | "") | undefined;
+                    windowHours?: number | undefined;
+                    delayHours?: number | undefined;
+                    /** Must be true for the override to take effect. If true, the other proper prior settings in this object will be used if present. */
+                    properPriorOverride?: boolean | undefined;
+                    properPriorEnabled?: boolean | undefined;
+                    properPriorMean?: number | undefined;
+                    properPriorStdDev?: number | undefined;
+                    /** Must be true for the override to take effect. If true, the other regression adjustment settings in this object will be used if present. */
+                    regressionAdjustmentOverride?: boolean | undefined;
+                    regressionAdjustmentEnabled?: boolean | undefined;
+                    regressionAdjustmentDays?: number | undefined;
+                }[] | undefined;
                 goals: {
                     metricId: string;
                     overrides: {
@@ -1549,6 +1972,13 @@ Triggered when an experiment is updated
                         window?: ("conversion" | "lookback" | "") | undefined;
                         winRiskThreshold?: number | undefined;
                         loseRiskThreshold?: number | undefined;
+                        properPriorOverride?: boolean | undefined;
+                        properPriorEnabled?: boolean | undefined;
+                        properPriorMean?: number | undefined;
+                        properPriorStdDev?: number | undefined;
+                        regressionAdjustmentOverride?: boolean | undefined;
+                        regressionAdjustmentEnabled?: boolean | undefined;
+                        regressionAdjustmentDays?: number | undefined;
                     };
                 }[];
                 secondaryMetrics: {
@@ -1559,6 +1989,13 @@ Triggered when an experiment is updated
                         window?: ("conversion" | "lookback" | "") | undefined;
                         winRiskThreshold?: number | undefined;
                         loseRiskThreshold?: number | undefined;
+                        properPriorOverride?: boolean | undefined;
+                        properPriorEnabled?: boolean | undefined;
+                        properPriorMean?: number | undefined;
+                        properPriorStdDev?: number | undefined;
+                        regressionAdjustmentOverride?: boolean | undefined;
+                        regressionAdjustmentEnabled?: boolean | undefined;
+                        regressionAdjustmentDays?: number | undefined;
                     };
                 }[];
                 guardrails: {
@@ -1569,6 +2006,13 @@ Triggered when an experiment is updated
                         window?: ("conversion" | "lookback" | "") | undefined;
                         winRiskThreshold?: number | undefined;
                         loseRiskThreshold?: number | undefined;
+                        properPriorOverride?: boolean | undefined;
+                        properPriorEnabled?: boolean | undefined;
+                        properPriorMean?: number | undefined;
+                        properPriorStdDev?: number | undefined;
+                        regressionAdjustmentOverride?: boolean | undefined;
+                        regressionAdjustmentEnabled?: boolean | undefined;
+                        regressionAdjustmentDays?: number | undefined;
                     };
                 }[];
                 activationMetric?: {
@@ -1579,6 +2023,13 @@ Triggered when an experiment is updated
                         window?: ("conversion" | "lookback" | "") | undefined;
                         winRiskThreshold?: number | undefined;
                         loseRiskThreshold?: number | undefined;
+                        properPriorOverride?: boolean | undefined;
+                        properPriorEnabled?: boolean | undefined;
+                        properPriorMean?: number | undefined;
+                        properPriorStdDev?: number | undefined;
+                        regressionAdjustmentOverride?: boolean | undefined;
+                        regressionAdjustmentEnabled?: boolean | undefined;
+                        regressionAdjustmentDays?: number | undefined;
                     };
                 } | undefined;
             };
@@ -1595,6 +2046,8 @@ Triggered when an experiment is updated
             banditScheduleUnit?: ("days" | "hours") | undefined;
             banditBurnInValue?: number | undefined;
             banditBurnInUnit?: ("days" | "hours") | undefined;
+            banditConversionWindowValue?: number | undefined;
+            banditConversionWindowUnit?: ("days" | "hours") | undefined;
             linkedFeatures?: string[] | undefined;
             hasVisualChangesets?: boolean | undefined;
             hasURLRedirects?: boolean | undefined;
@@ -1606,6 +2059,18 @@ Triggered when an experiment is updated
                     levels: string[];
                 }[];
             }[] | undefined;
+            precomputedUnitDimensionIds?: string[] | undefined;
+            /** ID of the default dashboard for this experiment. */
+            defaultDashboardId?: string | undefined;
+            templateId?: string | undefined;
+            statusUpdateSchedule?: ({
+                /** ISO datetime when the experiment should start. Must be in the future. Setting or clearing this field invalidates any existing staged start (`nextScheduledStatusUpdate`); call POST /experiments/{id}/start to stage the new schedule. */
+                startAt: string;
+            } | null) | undefined;
+            nextScheduledStatusUpdate?: ({
+                type: "start";
+                date: string;
+            } | null) | undefined;
         };
         previous_attributes: {
             id?: string | undefined;
@@ -1613,12 +2078,14 @@ Triggered when an experiment is updated
             dateCreated?: string | undefined;
             dateUpdated?: string | undefined;
             name?: string | undefined;
-            type?: ("standard" | "multi-armed-bandit") | undefined;
+            type?: ("standard" | "multi-armed-bandit" | "holdout") | undefined;
             project?: string | undefined;
             hypothesis?: string | undefined;
             description?: string | undefined;
             tags?: string[] | undefined;
+            /** The userId of the owner (or raw owner name/email for legacy records) */
             owner?: string | undefined;
+            ownerEmail?: string | undefined;
             archived?: boolean | undefined;
             status?: string | undefined;
             autoRefresh?: boolean | undefined;
@@ -1648,7 +2115,12 @@ Triggered when an experiment is updated
                 }[];
                 namespace?: {
                     namespaceId: string;
-                    range: any[];
+                    enabled?: boolean | undefined;
+                    range?: number[] | undefined;
+                    ranges?: [
+                        number,
+                        number
+                    ][] | undefined;
                 } | undefined;
                 targetingCondition: string;
                 prerequisites?: {
@@ -1667,12 +2139,49 @@ Triggered when an experiment is updated
                 segmentId: string;
                 queryFilter: string;
                 inProgressConversions: "include" | "exclude";
-                /** Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. */
-                attributionModel: "firstExposure" | "experimentDuration";
+                /** Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided. */
+                attributionModel: "firstExposure" | "experimentDuration" | "lookbackOverride";
+                /** Controls the lookback override for the experiment. For type "window", value must be a non-negative number and valueUnit is required. */
+                lookbackOverride?: {
+                    type: "date" | "window";
+                    /** For "window" type - non-negative numeric value (e.g. 7 for 7 days). For "date" type a date string. */
+                    value: number | string;
+                    /** Used when type is "window". Defaults to "days". */
+                    valueUnit?: ("minutes" | "hours" | "days" | "weeks") | undefined;
+                } | undefined;
                 statsEngine: "bayesian" | "frequentist";
                 regressionAdjustmentEnabled?: boolean | undefined;
                 sequentialTestingEnabled?: boolean | undefined;
                 sequentialTestingTuningParameter?: number | undefined;
+                /** When null, the organization default is used. */
+                postStratificationEnabled?: (boolean | null) | undefined;
+                /** Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields). */
+                decisionFrameworkSettings?: {
+                    decisionCriteriaId?: string | undefined;
+                    decisionFrameworkMetricOverrides?: {
+                        /** ID of the metric to override settings for. */
+                        id: string;
+                        /** The target relative MDE to use for the metric, expressed as proportions (e.g. use 0.1 for 10%). Must be greater than 0. */
+                        targetMDE?: number | undefined;
+                    }[] | undefined;
+                } | undefined;
+                /** Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. On create/update, this replaces the entire stored array (it does not patch individual entries). */
+                metricOverrides?: {
+                    /** ID of the metric to override settings for. */
+                    id: string;
+                    windowType?: ("conversion" | "lookback" | "") | undefined;
+                    windowHours?: number | undefined;
+                    delayHours?: number | undefined;
+                    /** Must be true for the override to take effect. If true, the other proper prior settings in this object will be used if present. */
+                    properPriorOverride?: boolean | undefined;
+                    properPriorEnabled?: boolean | undefined;
+                    properPriorMean?: number | undefined;
+                    properPriorStdDev?: number | undefined;
+                    /** Must be true for the override to take effect. If true, the other regression adjustment settings in this object will be used if present. */
+                    regressionAdjustmentOverride?: boolean | undefined;
+                    regressionAdjustmentEnabled?: boolean | undefined;
+                    regressionAdjustmentDays?: number | undefined;
+                }[] | undefined;
                 goals: {
                     metricId: string;
                     overrides: {
@@ -1681,6 +2190,13 @@ Triggered when an experiment is updated
                         window?: ("conversion" | "lookback" | "") | undefined;
                         winRiskThreshold?: number | undefined;
                         loseRiskThreshold?: number | undefined;
+                        properPriorOverride?: boolean | undefined;
+                        properPriorEnabled?: boolean | undefined;
+                        properPriorMean?: number | undefined;
+                        properPriorStdDev?: number | undefined;
+                        regressionAdjustmentOverride?: boolean | undefined;
+                        regressionAdjustmentEnabled?: boolean | undefined;
+                        regressionAdjustmentDays?: number | undefined;
                     };
                 }[];
                 secondaryMetrics: {
@@ -1691,6 +2207,13 @@ Triggered when an experiment is updated
                         window?: ("conversion" | "lookback" | "") | undefined;
                         winRiskThreshold?: number | undefined;
                         loseRiskThreshold?: number | undefined;
+                        properPriorOverride?: boolean | undefined;
+                        properPriorEnabled?: boolean | undefined;
+                        properPriorMean?: number | undefined;
+                        properPriorStdDev?: number | undefined;
+                        regressionAdjustmentOverride?: boolean | undefined;
+                        regressionAdjustmentEnabled?: boolean | undefined;
+                        regressionAdjustmentDays?: number | undefined;
                     };
                 }[];
                 guardrails: {
@@ -1701,6 +2224,13 @@ Triggered when an experiment is updated
                         window?: ("conversion" | "lookback" | "") | undefined;
                         winRiskThreshold?: number | undefined;
                         loseRiskThreshold?: number | undefined;
+                        properPriorOverride?: boolean | undefined;
+                        properPriorEnabled?: boolean | undefined;
+                        properPriorMean?: number | undefined;
+                        properPriorStdDev?: number | undefined;
+                        regressionAdjustmentOverride?: boolean | undefined;
+                        regressionAdjustmentEnabled?: boolean | undefined;
+                        regressionAdjustmentDays?: number | undefined;
                     };
                 }[];
                 activationMetric?: {
@@ -1711,6 +2241,13 @@ Triggered when an experiment is updated
                         window?: ("conversion" | "lookback" | "") | undefined;
                         winRiskThreshold?: number | undefined;
                         loseRiskThreshold?: number | undefined;
+                        properPriorOverride?: boolean | undefined;
+                        properPriorEnabled?: boolean | undefined;
+                        properPriorMean?: number | undefined;
+                        properPriorStdDev?: number | undefined;
+                        regressionAdjustmentOverride?: boolean | undefined;
+                        regressionAdjustmentEnabled?: boolean | undefined;
+                        regressionAdjustmentDays?: number | undefined;
                     };
                 } | undefined;
             } | undefined;
@@ -1727,6 +2264,8 @@ Triggered when an experiment is updated
             banditScheduleUnit?: ("days" | "hours") | undefined;
             banditBurnInValue?: number | undefined;
             banditBurnInUnit?: ("days" | "hours") | undefined;
+            banditConversionWindowValue?: number | undefined;
+            banditConversionWindowUnit?: ("days" | "hours") | undefined;
             linkedFeatures?: string[] | undefined;
             hasVisualChangesets?: boolean | undefined;
             hasURLRedirects?: boolean | undefined;
@@ -1738,6 +2277,18 @@ Triggered when an experiment is updated
                     levels: string[];
                 }[];
             }[] | undefined;
+            precomputedUnitDimensionIds?: string[] | undefined;
+            /** ID of the default dashboard for this experiment. */
+            defaultDashboardId?: string | undefined;
+            templateId?: string | undefined;
+            statusUpdateSchedule?: ({
+                /** ISO datetime when the experiment should start. Must be in the future. Setting or clearing this field invalidates any existing staged start (`nextScheduledStatusUpdate`); call POST /experiments/{id}/start to stage the new schedule. */
+                startAt: string;
+            } | null) | undefined;
+            nextScheduledStatusUpdate?: ({
+                type: "start";
+                date: string;
+            } | null) | undefined;
         };
         changes?: {
             added: Record<string, unknown>;
@@ -1753,10 +2304,16 @@ Triggered when an experiment is updated
     } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -1784,12 +2341,14 @@ Triggered when an experiment is deleted
             dateCreated: string;
             dateUpdated: string;
             name: string;
-            type: "standard" | "multi-armed-bandit";
+            type: "standard" | "multi-armed-bandit" | "holdout";
             project: string;
             hypothesis: string;
             description: string;
             tags: string[];
+            /** The userId of the owner (or raw owner name/email for legacy records) */
             owner: string;
+            ownerEmail?: string | undefined;
             archived: boolean;
             status: string;
             autoRefresh: boolean;
@@ -1819,7 +2378,12 @@ Triggered when an experiment is deleted
                 }[];
                 namespace?: {
                     namespaceId: string;
-                    range: any[];
+                    enabled?: boolean | undefined;
+                    range?: number[] | undefined;
+                    ranges?: [
+                        number,
+                        number
+                    ][] | undefined;
                 } | undefined;
                 targetingCondition: string;
                 prerequisites?: {
@@ -1838,12 +2402,49 @@ Triggered when an experiment is deleted
                 segmentId: string;
                 queryFilter: string;
                 inProgressConversions: "include" | "exclude";
-                /** Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. */
-                attributionModel: "firstExposure" | "experimentDuration";
+                /** Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided. */
+                attributionModel: "firstExposure" | "experimentDuration" | "lookbackOverride";
+                /** Controls the lookback override for the experiment. For type "window", value must be a non-negative number and valueUnit is required. */
+                lookbackOverride?: {
+                    type: "date" | "window";
+                    /** For "window" type - non-negative numeric value (e.g. 7 for 7 days). For "date" type a date string. */
+                    value: number | string;
+                    /** Used when type is "window". Defaults to "days". */
+                    valueUnit?: ("minutes" | "hours" | "days" | "weeks") | undefined;
+                } | undefined;
                 statsEngine: "bayesian" | "frequentist";
                 regressionAdjustmentEnabled?: boolean | undefined;
                 sequentialTestingEnabled?: boolean | undefined;
                 sequentialTestingTuningParameter?: number | undefined;
+                /** When null, the organization default is used. */
+                postStratificationEnabled?: (boolean | null) | undefined;
+                /** Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields). */
+                decisionFrameworkSettings?: {
+                    decisionCriteriaId?: string | undefined;
+                    decisionFrameworkMetricOverrides?: {
+                        /** ID of the metric to override settings for. */
+                        id: string;
+                        /** The target relative MDE to use for the metric, expressed as proportions (e.g. use 0.1 for 10%). Must be greater than 0. */
+                        targetMDE?: number | undefined;
+                    }[] | undefined;
+                } | undefined;
+                /** Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. On create/update, this replaces the entire stored array (it does not patch individual entries). */
+                metricOverrides?: {
+                    /** ID of the metric to override settings for. */
+                    id: string;
+                    windowType?: ("conversion" | "lookback" | "") | undefined;
+                    windowHours?: number | undefined;
+                    delayHours?: number | undefined;
+                    /** Must be true for the override to take effect. If true, the other proper prior settings in this object will be used if present. */
+                    properPriorOverride?: boolean | undefined;
+                    properPriorEnabled?: boolean | undefined;
+                    properPriorMean?: number | undefined;
+                    properPriorStdDev?: number | undefined;
+                    /** Must be true for the override to take effect. If true, the other regression adjustment settings in this object will be used if present. */
+                    regressionAdjustmentOverride?: boolean | undefined;
+                    regressionAdjustmentEnabled?: boolean | undefined;
+                    regressionAdjustmentDays?: number | undefined;
+                }[] | undefined;
                 goals: {
                     metricId: string;
                     overrides: {
@@ -1852,6 +2453,13 @@ Triggered when an experiment is deleted
                         window?: ("conversion" | "lookback" | "") | undefined;
                         winRiskThreshold?: number | undefined;
                         loseRiskThreshold?: number | undefined;
+                        properPriorOverride?: boolean | undefined;
+                        properPriorEnabled?: boolean | undefined;
+                        properPriorMean?: number | undefined;
+                        properPriorStdDev?: number | undefined;
+                        regressionAdjustmentOverride?: boolean | undefined;
+                        regressionAdjustmentEnabled?: boolean | undefined;
+                        regressionAdjustmentDays?: number | undefined;
                     };
                 }[];
                 secondaryMetrics: {
@@ -1862,6 +2470,13 @@ Triggered when an experiment is deleted
                         window?: ("conversion" | "lookback" | "") | undefined;
                         winRiskThreshold?: number | undefined;
                         loseRiskThreshold?: number | undefined;
+                        properPriorOverride?: boolean | undefined;
+                        properPriorEnabled?: boolean | undefined;
+                        properPriorMean?: number | undefined;
+                        properPriorStdDev?: number | undefined;
+                        regressionAdjustmentOverride?: boolean | undefined;
+                        regressionAdjustmentEnabled?: boolean | undefined;
+                        regressionAdjustmentDays?: number | undefined;
                     };
                 }[];
                 guardrails: {
@@ -1872,6 +2487,13 @@ Triggered when an experiment is deleted
                         window?: ("conversion" | "lookback" | "") | undefined;
                         winRiskThreshold?: number | undefined;
                         loseRiskThreshold?: number | undefined;
+                        properPriorOverride?: boolean | undefined;
+                        properPriorEnabled?: boolean | undefined;
+                        properPriorMean?: number | undefined;
+                        properPriorStdDev?: number | undefined;
+                        regressionAdjustmentOverride?: boolean | undefined;
+                        regressionAdjustmentEnabled?: boolean | undefined;
+                        regressionAdjustmentDays?: number | undefined;
                     };
                 }[];
                 activationMetric?: {
@@ -1882,6 +2504,13 @@ Triggered when an experiment is deleted
                         window?: ("conversion" | "lookback" | "") | undefined;
                         winRiskThreshold?: number | undefined;
                         loseRiskThreshold?: number | undefined;
+                        properPriorOverride?: boolean | undefined;
+                        properPriorEnabled?: boolean | undefined;
+                        properPriorMean?: number | undefined;
+                        properPriorStdDev?: number | undefined;
+                        regressionAdjustmentOverride?: boolean | undefined;
+                        regressionAdjustmentEnabled?: boolean | undefined;
+                        regressionAdjustmentDays?: number | undefined;
                     };
                 } | undefined;
             };
@@ -1898,6 +2527,8 @@ Triggered when an experiment is deleted
             banditScheduleUnit?: ("days" | "hours") | undefined;
             banditBurnInValue?: number | undefined;
             banditBurnInUnit?: ("days" | "hours") | undefined;
+            banditConversionWindowValue?: number | undefined;
+            banditConversionWindowUnit?: ("days" | "hours") | undefined;
             linkedFeatures?: string[] | undefined;
             hasVisualChangesets?: boolean | undefined;
             hasURLRedirects?: boolean | undefined;
@@ -1909,6 +2540,18 @@ Triggered when an experiment is deleted
                     levels: string[];
                 }[];
             }[] | undefined;
+            precomputedUnitDimensionIds?: string[] | undefined;
+            /** ID of the default dashboard for this experiment. */
+            defaultDashboardId?: string | undefined;
+            templateId?: string | undefined;
+            statusUpdateSchedule?: ({
+                /** ISO datetime when the experiment should start. Must be in the future. Setting or clearing this field invalidates any existing staged start (`nextScheduledStatusUpdate`); call POST /experiments/{id}/start to stage the new schedule. */
+                startAt: string;
+            } | null) | undefined;
+            nextScheduledStatusUpdate?: ({
+                type: "start";
+                date: string;
+            } | null) | undefined;
         };
     };
     user: {
@@ -1919,10 +2562,16 @@ Triggered when an experiment is deleted
     } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -1960,6 +2609,19 @@ Triggered when a warning condition is detected on an experiment
             experimentName: string;
             experimentId: string;
             threshold: number;
+        } | {
+            type: "no-data";
+            experimentName: string;
+            experimentId: string;
+        } | {
+            type: "scheduled-status-update-failed";
+            experimentName: string;
+            experimentId: string;
+            scheduledStatusUpdateType: "start" | "stop";
+            attempts: number;
+            maxAttempts: number;
+            willRetry: boolean;
+            reason: string;
         };
     };
     user: {
@@ -1970,10 +2632,16 @@ Triggered when a warning condition is detected on an experiment
     } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -2015,10 +2683,16 @@ Triggered when a goal or guardrail metric reaches significance in an experiment 
     } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -2054,10 +2728,16 @@ Triggered when an experiment is ready to ship a variation.
     } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -2093,10 +2773,16 @@ Triggered when an experiment should be rolled back to the control.
     } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -2132,10 +2818,2996 @@ Triggered when an experiment has reached the desired power point, but the result
     } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### savedGroup.created
+
+Triggered when a saved group is created
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "savedGroup.created";
+    object: "savedGroup";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            type: "condition" | "list";
+            dateCreated: string;
+            dateUpdated: string;
+            name: string;
+            /** The userId of the owner (or raw owner name/email for legacy records) */
+            owner?: string | undefined;
+            ownerEmail?: string | undefined;
+            /** When type = 'condition', this is the JSON-encoded condition for the group */
+            condition?: string | undefined;
+            /** When type = 'list', this is the attribute key the group is based on */
+            attributeKey?: string | undefined;
+            /** When type = 'list', this is the list of values for the attribute key */
+            values?: string[] | undefined;
+            description?: string | undefined;
+            projects?: string[] | undefined;
+            archived?: boolean | undefined;
+            useEmptyListGroup?: boolean | undefined;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### savedGroup.updated
+
+Triggered when a saved group is updated
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "savedGroup.updated";
+    object: "savedGroup";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            type: "condition" | "list";
+            dateCreated: string;
+            dateUpdated: string;
+            name: string;
+            /** The userId of the owner (or raw owner name/email for legacy records) */
+            owner?: string | undefined;
+            ownerEmail?: string | undefined;
+            /** When type = 'condition', this is the JSON-encoded condition for the group */
+            condition?: string | undefined;
+            /** When type = 'list', this is the attribute key the group is based on */
+            attributeKey?: string | undefined;
+            /** When type = 'list', this is the list of values for the attribute key */
+            values?: string[] | undefined;
+            description?: string | undefined;
+            projects?: string[] | undefined;
+            archived?: boolean | undefined;
+            useEmptyListGroup?: boolean | undefined;
+        };
+        previous_attributes: {
+            id?: string | undefined;
+            type?: ("condition" | "list") | undefined;
+            dateCreated?: string | undefined;
+            dateUpdated?: string | undefined;
+            name?: string | undefined;
+            /** The userId of the owner (or raw owner name/email for legacy records) */
+            owner?: string | undefined;
+            ownerEmail?: string | undefined;
+            /** When type = 'condition', this is the JSON-encoded condition for the group */
+            condition?: string | undefined;
+            /** When type = 'list', this is the attribute key the group is based on */
+            attributeKey?: string | undefined;
+            /** When type = 'list', this is the list of values for the attribute key */
+            values?: string[] | undefined;
+            description?: string | undefined;
+            projects?: string[] | undefined;
+            archived?: boolean | undefined;
+            useEmptyListGroup?: boolean | undefined;
+        };
+        changes?: {
+            added: Record<string, unknown>;
+            removed: Record<string, unknown>;
+            modified: Record<string, unknown>;
+        } | undefined;
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### savedGroup.deleted
+
+Triggered when a saved group is deleted
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "savedGroup.deleted";
+    object: "savedGroup";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            type: "condition" | "list";
+            dateCreated: string;
+            dateUpdated: string;
+            name: string;
+            /** The userId of the owner (or raw owner name/email for legacy records) */
+            owner?: string | undefined;
+            ownerEmail?: string | undefined;
+            /** When type = 'condition', this is the JSON-encoded condition for the group */
+            condition?: string | undefined;
+            /** When type = 'list', this is the attribute key the group is based on */
+            attributeKey?: string | undefined;
+            /** When type = 'list', this is the list of values for the attribute key */
+            values?: string[] | undefined;
+            description?: string | undefined;
+            projects?: string[] | undefined;
+            archived?: boolean | undefined;
+            useEmptyListGroup?: boolean | undefined;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### savedGroup.revision.created
+
+Triggered when a new draft revision is created for a saved group
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "savedGroup.revision.created";
+    object: "savedGroup";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            version?: number | undefined;
+            title?: string | undefined;
+            status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
+            authorId: string;
+            authorEmail?: string | undefined;
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+            }[];
+            activityLog: {
+                id: string;
+                userId: string;
+                action: string;
+                dateCreated: string;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                userId: string;
+                dateCreated: string;
+            } | undefined;
+            dateCreated: string;
+            dateUpdated: string;
+            baseSavedGroup: {
+                id: string;
+                type: "condition" | "list";
+                dateCreated: string;
+                dateUpdated: string;
+                name: string;
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** When type = 'condition', this is the JSON-encoded condition for the group */
+                condition?: string | undefined;
+                /** When type = 'list', this is the attribute key the group is based on */
+                attributeKey?: string | undefined;
+                /** When type = 'list', this is the list of values for the attribute key */
+                values?: string[] | undefined;
+                description?: string | undefined;
+                projects?: string[] | undefined;
+                archived?: boolean | undefined;
+                useEmptyListGroup?: boolean | undefined;
+            };
+            proposedSavedGroup: {
+                id: string;
+                type: "condition" | "list";
+                dateCreated: string;
+                dateUpdated: string;
+                name: string;
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** When type = 'condition', this is the JSON-encoded condition for the group */
+                condition?: string | undefined;
+                /** When type = 'list', this is the attribute key the group is based on */
+                attributeKey?: string | undefined;
+                /** When type = 'list', this is the list of values for the attribute key */
+                values?: string[] | undefined;
+                description?: string | undefined;
+                projects?: string[] | undefined;
+                archived?: boolean | undefined;
+                useEmptyListGroup?: boolean | undefined;
+            };
+            proposedChanges: {
+                op: string;
+                path: string;
+            }[];
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### savedGroup.revision.updated
+
+Triggered when a draft revision's proposed changes are modified (values, condition, archive, or metadata). The `change` field indicates the kind of mutation.
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "savedGroup.revision.updated";
+    object: "savedGroup";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            version?: number | undefined;
+            title?: string | undefined;
+            status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
+            authorId: string;
+            authorEmail?: string | undefined;
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+            }[];
+            activityLog: {
+                id: string;
+                userId: string;
+                action: string;
+                dateCreated: string;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                userId: string;
+                dateCreated: string;
+            } | undefined;
+            dateCreated: string;
+            dateUpdated: string;
+            baseSavedGroup: {
+                id: string;
+                type: "condition" | "list";
+                dateCreated: string;
+                dateUpdated: string;
+                name: string;
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** When type = 'condition', this is the JSON-encoded condition for the group */
+                condition?: string | undefined;
+                /** When type = 'list', this is the attribute key the group is based on */
+                attributeKey?: string | undefined;
+                /** When type = 'list', this is the list of values for the attribute key */
+                values?: string[] | undefined;
+                description?: string | undefined;
+                projects?: string[] | undefined;
+                archived?: boolean | undefined;
+                useEmptyListGroup?: boolean | undefined;
+            };
+            proposedSavedGroup: {
+                id: string;
+                type: "condition" | "list";
+                dateCreated: string;
+                dateUpdated: string;
+                name: string;
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** When type = 'condition', this is the JSON-encoded condition for the group */
+                condition?: string | undefined;
+                /** When type = 'list', this is the attribute key the group is based on */
+                attributeKey?: string | undefined;
+                /** When type = 'list', this is the list of values for the attribute key */
+                values?: string[] | undefined;
+                description?: string | undefined;
+                projects?: string[] | undefined;
+                archived?: boolean | undefined;
+                useEmptyListGroup?: boolean | undefined;
+            };
+            proposedChanges: {
+                op: string;
+                path: string;
+            }[];
+            change: "metadata" | "condition" | "values" | "archive";
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### savedGroup.revision.reviewRequested
+
+Triggered when a draft revision is submitted for review
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "savedGroup.revision.reviewRequested";
+    object: "savedGroup";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            version?: number | undefined;
+            title?: string | undefined;
+            status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
+            authorId: string;
+            authorEmail?: string | undefined;
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+            }[];
+            activityLog: {
+                id: string;
+                userId: string;
+                action: string;
+                dateCreated: string;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                userId: string;
+                dateCreated: string;
+            } | undefined;
+            dateCreated: string;
+            dateUpdated: string;
+            baseSavedGroup: {
+                id: string;
+                type: "condition" | "list";
+                dateCreated: string;
+                dateUpdated: string;
+                name: string;
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** When type = 'condition', this is the JSON-encoded condition for the group */
+                condition?: string | undefined;
+                /** When type = 'list', this is the attribute key the group is based on */
+                attributeKey?: string | undefined;
+                /** When type = 'list', this is the list of values for the attribute key */
+                values?: string[] | undefined;
+                description?: string | undefined;
+                projects?: string[] | undefined;
+                archived?: boolean | undefined;
+                useEmptyListGroup?: boolean | undefined;
+            };
+            proposedSavedGroup: {
+                id: string;
+                type: "condition" | "list";
+                dateCreated: string;
+                dateUpdated: string;
+                name: string;
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** When type = 'condition', this is the JSON-encoded condition for the group */
+                condition?: string | undefined;
+                /** When type = 'list', this is the attribute key the group is based on */
+                attributeKey?: string | undefined;
+                /** When type = 'list', this is the list of values for the attribute key */
+                values?: string[] | undefined;
+                description?: string | undefined;
+                projects?: string[] | undefined;
+                archived?: boolean | undefined;
+                useEmptyListGroup?: boolean | undefined;
+            };
+            proposedChanges: {
+                op: string;
+                path: string;
+            }[];
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### savedGroup.revision.approved
+
+Triggered when a draft revision is approved by a reviewer
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "savedGroup.revision.approved";
+    object: "savedGroup";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            version?: number | undefined;
+            title?: string | undefined;
+            status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
+            authorId: string;
+            authorEmail?: string | undefined;
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+            }[];
+            activityLog: {
+                id: string;
+                userId: string;
+                action: string;
+                dateCreated: string;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                userId: string;
+                dateCreated: string;
+            } | undefined;
+            dateCreated: string;
+            dateUpdated: string;
+            baseSavedGroup: {
+                id: string;
+                type: "condition" | "list";
+                dateCreated: string;
+                dateUpdated: string;
+                name: string;
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** When type = 'condition', this is the JSON-encoded condition for the group */
+                condition?: string | undefined;
+                /** When type = 'list', this is the attribute key the group is based on */
+                attributeKey?: string | undefined;
+                /** When type = 'list', this is the list of values for the attribute key */
+                values?: string[] | undefined;
+                description?: string | undefined;
+                projects?: string[] | undefined;
+                archived?: boolean | undefined;
+                useEmptyListGroup?: boolean | undefined;
+            };
+            proposedSavedGroup: {
+                id: string;
+                type: "condition" | "list";
+                dateCreated: string;
+                dateUpdated: string;
+                name: string;
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** When type = 'condition', this is the JSON-encoded condition for the group */
+                condition?: string | undefined;
+                /** When type = 'list', this is the attribute key the group is based on */
+                attributeKey?: string | undefined;
+                /** When type = 'list', this is the list of values for the attribute key */
+                values?: string[] | undefined;
+                description?: string | undefined;
+                projects?: string[] | undefined;
+                archived?: boolean | undefined;
+                useEmptyListGroup?: boolean | undefined;
+            };
+            proposedChanges: {
+                op: string;
+                path: string;
+            }[];
+            reviewer: {
+                id?: string | undefined;
+                name?: string | undefined;
+                email?: string | undefined;
+            };
+            reviewComment: string | null;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### savedGroup.revision.changesRequested
+
+Triggered when a reviewer requests changes on a draft revision
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "savedGroup.revision.changesRequested";
+    object: "savedGroup";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            version?: number | undefined;
+            title?: string | undefined;
+            status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
+            authorId: string;
+            authorEmail?: string | undefined;
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+            }[];
+            activityLog: {
+                id: string;
+                userId: string;
+                action: string;
+                dateCreated: string;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                userId: string;
+                dateCreated: string;
+            } | undefined;
+            dateCreated: string;
+            dateUpdated: string;
+            baseSavedGroup: {
+                id: string;
+                type: "condition" | "list";
+                dateCreated: string;
+                dateUpdated: string;
+                name: string;
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** When type = 'condition', this is the JSON-encoded condition for the group */
+                condition?: string | undefined;
+                /** When type = 'list', this is the attribute key the group is based on */
+                attributeKey?: string | undefined;
+                /** When type = 'list', this is the list of values for the attribute key */
+                values?: string[] | undefined;
+                description?: string | undefined;
+                projects?: string[] | undefined;
+                archived?: boolean | undefined;
+                useEmptyListGroup?: boolean | undefined;
+            };
+            proposedSavedGroup: {
+                id: string;
+                type: "condition" | "list";
+                dateCreated: string;
+                dateUpdated: string;
+                name: string;
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** When type = 'condition', this is the JSON-encoded condition for the group */
+                condition?: string | undefined;
+                /** When type = 'list', this is the attribute key the group is based on */
+                attributeKey?: string | undefined;
+                /** When type = 'list', this is the list of values for the attribute key */
+                values?: string[] | undefined;
+                description?: string | undefined;
+                projects?: string[] | undefined;
+                archived?: boolean | undefined;
+                useEmptyListGroup?: boolean | undefined;
+            };
+            proposedChanges: {
+                op: string;
+                path: string;
+            }[];
+            reviewer: {
+                id?: string | undefined;
+                name?: string | undefined;
+                email?: string | undefined;
+            };
+            reviewComment: string | null;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### savedGroup.revision.commented
+
+Triggered when a comment is added to a draft revision
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "savedGroup.revision.commented";
+    object: "savedGroup";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            version?: number | undefined;
+            title?: string | undefined;
+            status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
+            authorId: string;
+            authorEmail?: string | undefined;
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+            }[];
+            activityLog: {
+                id: string;
+                userId: string;
+                action: string;
+                dateCreated: string;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                userId: string;
+                dateCreated: string;
+            } | undefined;
+            dateCreated: string;
+            dateUpdated: string;
+            baseSavedGroup: {
+                id: string;
+                type: "condition" | "list";
+                dateCreated: string;
+                dateUpdated: string;
+                name: string;
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** When type = 'condition', this is the JSON-encoded condition for the group */
+                condition?: string | undefined;
+                /** When type = 'list', this is the attribute key the group is based on */
+                attributeKey?: string | undefined;
+                /** When type = 'list', this is the list of values for the attribute key */
+                values?: string[] | undefined;
+                description?: string | undefined;
+                projects?: string[] | undefined;
+                archived?: boolean | undefined;
+                useEmptyListGroup?: boolean | undefined;
+            };
+            proposedSavedGroup: {
+                id: string;
+                type: "condition" | "list";
+                dateCreated: string;
+                dateUpdated: string;
+                name: string;
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** When type = 'condition', this is the JSON-encoded condition for the group */
+                condition?: string | undefined;
+                /** When type = 'list', this is the attribute key the group is based on */
+                attributeKey?: string | undefined;
+                /** When type = 'list', this is the list of values for the attribute key */
+                values?: string[] | undefined;
+                description?: string | undefined;
+                projects?: string[] | undefined;
+                archived?: boolean | undefined;
+                useEmptyListGroup?: boolean | undefined;
+            };
+            proposedChanges: {
+                op: string;
+                path: string;
+            }[];
+            reviewer: {
+                id?: string | undefined;
+                name?: string | undefined;
+                email?: string | undefined;
+            };
+            reviewComment: string;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### savedGroup.revision.discarded
+
+Triggered when a draft revision is discarded
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "savedGroup.revision.discarded";
+    object: "savedGroup";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            version?: number | undefined;
+            title?: string | undefined;
+            status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
+            authorId: string;
+            authorEmail?: string | undefined;
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+            }[];
+            activityLog: {
+                id: string;
+                userId: string;
+                action: string;
+                dateCreated: string;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                userId: string;
+                dateCreated: string;
+            } | undefined;
+            dateCreated: string;
+            dateUpdated: string;
+            baseSavedGroup: {
+                id: string;
+                type: "condition" | "list";
+                dateCreated: string;
+                dateUpdated: string;
+                name: string;
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** When type = 'condition', this is the JSON-encoded condition for the group */
+                condition?: string | undefined;
+                /** When type = 'list', this is the attribute key the group is based on */
+                attributeKey?: string | undefined;
+                /** When type = 'list', this is the list of values for the attribute key */
+                values?: string[] | undefined;
+                description?: string | undefined;
+                projects?: string[] | undefined;
+                archived?: boolean | undefined;
+                useEmptyListGroup?: boolean | undefined;
+            };
+            proposedSavedGroup: {
+                id: string;
+                type: "condition" | "list";
+                dateCreated: string;
+                dateUpdated: string;
+                name: string;
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** When type = 'condition', this is the JSON-encoded condition for the group */
+                condition?: string | undefined;
+                /** When type = 'list', this is the attribute key the group is based on */
+                attributeKey?: string | undefined;
+                /** When type = 'list', this is the list of values for the attribute key */
+                values?: string[] | undefined;
+                description?: string | undefined;
+                projects?: string[] | undefined;
+                archived?: boolean | undefined;
+                useEmptyListGroup?: boolean | undefined;
+            };
+            proposedChanges: {
+                op: string;
+                path: string;
+            }[];
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### savedGroup.revision.rebased
+
+Triggered when a draft revision is rebased onto the latest live state
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "savedGroup.revision.rebased";
+    object: "savedGroup";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            version?: number | undefined;
+            title?: string | undefined;
+            status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
+            authorId: string;
+            authorEmail?: string | undefined;
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+            }[];
+            activityLog: {
+                id: string;
+                userId: string;
+                action: string;
+                dateCreated: string;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                userId: string;
+                dateCreated: string;
+            } | undefined;
+            dateCreated: string;
+            dateUpdated: string;
+            baseSavedGroup: {
+                id: string;
+                type: "condition" | "list";
+                dateCreated: string;
+                dateUpdated: string;
+                name: string;
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** When type = 'condition', this is the JSON-encoded condition for the group */
+                condition?: string | undefined;
+                /** When type = 'list', this is the attribute key the group is based on */
+                attributeKey?: string | undefined;
+                /** When type = 'list', this is the list of values for the attribute key */
+                values?: string[] | undefined;
+                description?: string | undefined;
+                projects?: string[] | undefined;
+                archived?: boolean | undefined;
+                useEmptyListGroup?: boolean | undefined;
+            };
+            proposedSavedGroup: {
+                id: string;
+                type: "condition" | "list";
+                dateCreated: string;
+                dateUpdated: string;
+                name: string;
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** When type = 'condition', this is the JSON-encoded condition for the group */
+                condition?: string | undefined;
+                /** When type = 'list', this is the attribute key the group is based on */
+                attributeKey?: string | undefined;
+                /** When type = 'list', this is the list of values for the attribute key */
+                values?: string[] | undefined;
+                description?: string | undefined;
+                projects?: string[] | undefined;
+                archived?: boolean | undefined;
+                useEmptyListGroup?: boolean | undefined;
+            };
+            proposedChanges: {
+                op: string;
+                path: string;
+            }[];
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### savedGroup.revision.published
+
+Triggered when a draft revision is published. Overlaps with `savedGroup.updated` but provides revision-specific context.
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "savedGroup.revision.published";
+    object: "savedGroup";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            version?: number | undefined;
+            title?: string | undefined;
+            status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
+            authorId: string;
+            authorEmail?: string | undefined;
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+            }[];
+            activityLog: {
+                id: string;
+                userId: string;
+                action: string;
+                dateCreated: string;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                userId: string;
+                dateCreated: string;
+            } | undefined;
+            dateCreated: string;
+            dateUpdated: string;
+            baseSavedGroup: {
+                id: string;
+                type: "condition" | "list";
+                dateCreated: string;
+                dateUpdated: string;
+                name: string;
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** When type = 'condition', this is the JSON-encoded condition for the group */
+                condition?: string | undefined;
+                /** When type = 'list', this is the attribute key the group is based on */
+                attributeKey?: string | undefined;
+                /** When type = 'list', this is the list of values for the attribute key */
+                values?: string[] | undefined;
+                description?: string | undefined;
+                projects?: string[] | undefined;
+                archived?: boolean | undefined;
+                useEmptyListGroup?: boolean | undefined;
+            };
+            proposedSavedGroup: {
+                id: string;
+                type: "condition" | "list";
+                dateCreated: string;
+                dateUpdated: string;
+                name: string;
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** When type = 'condition', this is the JSON-encoded condition for the group */
+                condition?: string | undefined;
+                /** When type = 'list', this is the attribute key the group is based on */
+                attributeKey?: string | undefined;
+                /** When type = 'list', this is the list of values for the attribute key */
+                values?: string[] | undefined;
+                description?: string | undefined;
+                projects?: string[] | undefined;
+                archived?: boolean | undefined;
+                useEmptyListGroup?: boolean | undefined;
+            };
+            proposedChanges: {
+                op: string;
+                path: string;
+            }[];
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### savedGroup.revision.reverted
+
+Triggered when a saved group is reverted to a previous published revision
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "savedGroup.revision.reverted";
+    object: "savedGroup";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            version?: number | undefined;
+            title?: string | undefined;
+            status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
+            authorId: string;
+            authorEmail?: string | undefined;
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+            }[];
+            activityLog: {
+                id: string;
+                userId: string;
+                action: string;
+                dateCreated: string;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                userId: string;
+                dateCreated: string;
+            } | undefined;
+            dateCreated: string;
+            dateUpdated: string;
+            baseSavedGroup: {
+                id: string;
+                type: "condition" | "list";
+                dateCreated: string;
+                dateUpdated: string;
+                name: string;
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** When type = 'condition', this is the JSON-encoded condition for the group */
+                condition?: string | undefined;
+                /** When type = 'list', this is the attribute key the group is based on */
+                attributeKey?: string | undefined;
+                /** When type = 'list', this is the list of values for the attribute key */
+                values?: string[] | undefined;
+                description?: string | undefined;
+                projects?: string[] | undefined;
+                archived?: boolean | undefined;
+                useEmptyListGroup?: boolean | undefined;
+            };
+            proposedSavedGroup: {
+                id: string;
+                type: "condition" | "list";
+                dateCreated: string;
+                dateUpdated: string;
+                name: string;
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** When type = 'condition', this is the JSON-encoded condition for the group */
+                condition?: string | undefined;
+                /** When type = 'list', this is the attribute key the group is based on */
+                attributeKey?: string | undefined;
+                /** When type = 'list', this is the list of values for the attribute key */
+                values?: string[] | undefined;
+                description?: string | undefined;
+                projects?: string[] | undefined;
+                archived?: boolean | undefined;
+                useEmptyListGroup?: boolean | undefined;
+            };
+            proposedChanges: {
+                op: string;
+                path: string;
+            }[];
+            revertedToVersion?: number | undefined;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### savedGroup.revision.reopened
+
+Triggered when a discarded revision is reopened
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "savedGroup.revision.reopened";
+    object: "savedGroup";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            version?: number | undefined;
+            title?: string | undefined;
+            status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
+            authorId: string;
+            authorEmail?: string | undefined;
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+            }[];
+            activityLog: {
+                id: string;
+                userId: string;
+                action: string;
+                dateCreated: string;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                userId: string;
+                dateCreated: string;
+            } | undefined;
+            dateCreated: string;
+            dateUpdated: string;
+            baseSavedGroup: {
+                id: string;
+                type: "condition" | "list";
+                dateCreated: string;
+                dateUpdated: string;
+                name: string;
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** When type = 'condition', this is the JSON-encoded condition for the group */
+                condition?: string | undefined;
+                /** When type = 'list', this is the attribute key the group is based on */
+                attributeKey?: string | undefined;
+                /** When type = 'list', this is the list of values for the attribute key */
+                values?: string[] | undefined;
+                description?: string | undefined;
+                projects?: string[] | undefined;
+                archived?: boolean | undefined;
+                useEmptyListGroup?: boolean | undefined;
+            };
+            proposedSavedGroup: {
+                id: string;
+                type: "condition" | "list";
+                dateCreated: string;
+                dateUpdated: string;
+                name: string;
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** When type = 'condition', this is the JSON-encoded condition for the group */
+                condition?: string | undefined;
+                /** When type = 'list', this is the attribute key the group is based on */
+                attributeKey?: string | undefined;
+                /** When type = 'list', this is the list of values for the attribute key */
+                values?: string[] | undefined;
+                description?: string | undefined;
+                projects?: string[] | undefined;
+                archived?: boolean | undefined;
+                useEmptyListGroup?: boolean | undefined;
+            };
+            proposedChanges: {
+                op: string;
+                path: string;
+            }[];
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### constant.created
+
+Triggered when a constant is created
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "constant.created";
+    object: "constant";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            /** Stable reference handle; used as `@const:key` in values */
+            key: string;
+            name: string;
+            type: "string" | "json";
+            /** The userId of the owner (or raw owner name/email for legacy records) */
+            owner?: string | undefined;
+            ownerEmail?: string | undefined;
+            /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
+            value?: string | undefined;
+            /** Per-environment value overrides (environment id → value). Falls back to `value` when an environment is absent. */
+            environmentValues?: Record<string, string> | undefined;
+            description?: string | undefined;
+            /** The project this constant belongs to (empty = all projects) */
+            project?: string | undefined;
+            archived?: boolean | undefined;
+            dateCreated: string;
+            dateUpdated: string;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### constant.updated
+
+Triggered when a constant is updated
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "constant.updated";
+    object: "constant";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            /** Stable reference handle; used as `@const:key` in values */
+            key: string;
+            name: string;
+            type: "string" | "json";
+            /** The userId of the owner (or raw owner name/email for legacy records) */
+            owner?: string | undefined;
+            ownerEmail?: string | undefined;
+            /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
+            value?: string | undefined;
+            /** Per-environment value overrides (environment id → value). Falls back to `value` when an environment is absent. */
+            environmentValues?: Record<string, string> | undefined;
+            description?: string | undefined;
+            /** The project this constant belongs to (empty = all projects) */
+            project?: string | undefined;
+            archived?: boolean | undefined;
+            dateCreated: string;
+            dateUpdated: string;
+        };
+        previous_attributes: {
+            id?: string | undefined;
+            /** Stable reference handle; used as `@const:key` in values */
+            key?: string | undefined;
+            name?: string | undefined;
+            type?: ("string" | "json") | undefined;
+            /** The userId of the owner (or raw owner name/email for legacy records) */
+            owner?: string | undefined;
+            ownerEmail?: string | undefined;
+            /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
+            value?: string | undefined;
+            /** Per-environment value overrides (environment id → value). Falls back to `value` when an environment is absent. */
+            environmentValues?: Record<string, string> | undefined;
+            description?: string | undefined;
+            /** The project this constant belongs to (empty = all projects) */
+            project?: string | undefined;
+            archived?: boolean | undefined;
+            dateCreated?: string | undefined;
+            dateUpdated?: string | undefined;
+        };
+        changes?: {
+            added: Record<string, unknown>;
+            removed: Record<string, unknown>;
+            modified: Record<string, unknown>;
+        } | undefined;
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### constant.deleted
+
+Triggered when a constant is deleted
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "constant.deleted";
+    object: "constant";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            /** Stable reference handle; used as `@const:key` in values */
+            key: string;
+            name: string;
+            type: "string" | "json";
+            /** The userId of the owner (or raw owner name/email for legacy records) */
+            owner?: string | undefined;
+            ownerEmail?: string | undefined;
+            /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
+            value?: string | undefined;
+            /** Per-environment value overrides (environment id → value). Falls back to `value` when an environment is absent. */
+            environmentValues?: Record<string, string> | undefined;
+            description?: string | undefined;
+            /** The project this constant belongs to (empty = all projects) */
+            project?: string | undefined;
+            archived?: boolean | undefined;
+            dateCreated: string;
+            dateUpdated: string;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### constant.revision.created
+
+Triggered when a new draft revision is created for a constant
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "constant.revision.created";
+    object: "constant";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            version?: number | undefined;
+            title?: string | undefined;
+            status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
+            authorId: string;
+            authorEmail?: string | undefined;
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+            }[];
+            activityLog: {
+                id: string;
+                userId: string;
+                action: string;
+                dateCreated: string;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                userId: string;
+                dateCreated: string;
+            } | undefined;
+            dateCreated: string;
+            dateUpdated: string;
+            baseConstant: {
+                id: string;
+                /** Stable reference handle; used as `@const:key` in values */
+                key: string;
+                name: string;
+                type: "string" | "json";
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
+                value?: string | undefined;
+                /** Per-environment value overrides (environment id → value). Falls back to `value` when an environment is absent. */
+                environmentValues?: Record<string, string> | undefined;
+                description?: string | undefined;
+                /** The project this constant belongs to (empty = all projects) */
+                project?: string | undefined;
+                archived?: boolean | undefined;
+                dateCreated: string;
+                dateUpdated: string;
+            };
+            proposedConstant: {
+                id: string;
+                /** Stable reference handle; used as `@const:key` in values */
+                key: string;
+                name: string;
+                type: "string" | "json";
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
+                value?: string | undefined;
+                /** Per-environment value overrides (environment id → value). Falls back to `value` when an environment is absent. */
+                environmentValues?: Record<string, string> | undefined;
+                description?: string | undefined;
+                /** The project this constant belongs to (empty = all projects) */
+                project?: string | undefined;
+                archived?: boolean | undefined;
+                dateCreated: string;
+                dateUpdated: string;
+            };
+            proposedChanges: {
+                op: string;
+                path: string;
+            }[];
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### constant.revision.updated
+
+Triggered when a draft revision's proposed changes are modified (value, archive, or metadata). The `change` field indicates the kind of mutation.
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "constant.revision.updated";
+    object: "constant";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            version?: number | undefined;
+            title?: string | undefined;
+            status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
+            authorId: string;
+            authorEmail?: string | undefined;
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+            }[];
+            activityLog: {
+                id: string;
+                userId: string;
+                action: string;
+                dateCreated: string;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                userId: string;
+                dateCreated: string;
+            } | undefined;
+            dateCreated: string;
+            dateUpdated: string;
+            baseConstant: {
+                id: string;
+                /** Stable reference handle; used as `@const:key` in values */
+                key: string;
+                name: string;
+                type: "string" | "json";
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
+                value?: string | undefined;
+                /** Per-environment value overrides (environment id → value). Falls back to `value` when an environment is absent. */
+                environmentValues?: Record<string, string> | undefined;
+                description?: string | undefined;
+                /** The project this constant belongs to (empty = all projects) */
+                project?: string | undefined;
+                archived?: boolean | undefined;
+                dateCreated: string;
+                dateUpdated: string;
+            };
+            proposedConstant: {
+                id: string;
+                /** Stable reference handle; used as `@const:key` in values */
+                key: string;
+                name: string;
+                type: "string" | "json";
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
+                value?: string | undefined;
+                /** Per-environment value overrides (environment id → value). Falls back to `value` when an environment is absent. */
+                environmentValues?: Record<string, string> | undefined;
+                description?: string | undefined;
+                /** The project this constant belongs to (empty = all projects) */
+                project?: string | undefined;
+                archived?: boolean | undefined;
+                dateCreated: string;
+                dateUpdated: string;
+            };
+            proposedChanges: {
+                op: string;
+                path: string;
+            }[];
+            change: "metadata" | "value" | "archive";
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### constant.revision.reviewRequested
+
+Triggered when a draft revision is submitted for review
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "constant.revision.reviewRequested";
+    object: "constant";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            version?: number | undefined;
+            title?: string | undefined;
+            status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
+            authorId: string;
+            authorEmail?: string | undefined;
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+            }[];
+            activityLog: {
+                id: string;
+                userId: string;
+                action: string;
+                dateCreated: string;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                userId: string;
+                dateCreated: string;
+            } | undefined;
+            dateCreated: string;
+            dateUpdated: string;
+            baseConstant: {
+                id: string;
+                /** Stable reference handle; used as `@const:key` in values */
+                key: string;
+                name: string;
+                type: "string" | "json";
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
+                value?: string | undefined;
+                /** Per-environment value overrides (environment id → value). Falls back to `value` when an environment is absent. */
+                environmentValues?: Record<string, string> | undefined;
+                description?: string | undefined;
+                /** The project this constant belongs to (empty = all projects) */
+                project?: string | undefined;
+                archived?: boolean | undefined;
+                dateCreated: string;
+                dateUpdated: string;
+            };
+            proposedConstant: {
+                id: string;
+                /** Stable reference handle; used as `@const:key` in values */
+                key: string;
+                name: string;
+                type: "string" | "json";
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
+                value?: string | undefined;
+                /** Per-environment value overrides (environment id → value). Falls back to `value` when an environment is absent. */
+                environmentValues?: Record<string, string> | undefined;
+                description?: string | undefined;
+                /** The project this constant belongs to (empty = all projects) */
+                project?: string | undefined;
+                archived?: boolean | undefined;
+                dateCreated: string;
+                dateUpdated: string;
+            };
+            proposedChanges: {
+                op: string;
+                path: string;
+            }[];
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### constant.revision.approved
+
+Triggered when a draft revision is approved by a reviewer
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "constant.revision.approved";
+    object: "constant";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            version?: number | undefined;
+            title?: string | undefined;
+            status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
+            authorId: string;
+            authorEmail?: string | undefined;
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+            }[];
+            activityLog: {
+                id: string;
+                userId: string;
+                action: string;
+                dateCreated: string;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                userId: string;
+                dateCreated: string;
+            } | undefined;
+            dateCreated: string;
+            dateUpdated: string;
+            baseConstant: {
+                id: string;
+                /** Stable reference handle; used as `@const:key` in values */
+                key: string;
+                name: string;
+                type: "string" | "json";
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
+                value?: string | undefined;
+                /** Per-environment value overrides (environment id → value). Falls back to `value` when an environment is absent. */
+                environmentValues?: Record<string, string> | undefined;
+                description?: string | undefined;
+                /** The project this constant belongs to (empty = all projects) */
+                project?: string | undefined;
+                archived?: boolean | undefined;
+                dateCreated: string;
+                dateUpdated: string;
+            };
+            proposedConstant: {
+                id: string;
+                /** Stable reference handle; used as `@const:key` in values */
+                key: string;
+                name: string;
+                type: "string" | "json";
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
+                value?: string | undefined;
+                /** Per-environment value overrides (environment id → value). Falls back to `value` when an environment is absent. */
+                environmentValues?: Record<string, string> | undefined;
+                description?: string | undefined;
+                /** The project this constant belongs to (empty = all projects) */
+                project?: string | undefined;
+                archived?: boolean | undefined;
+                dateCreated: string;
+                dateUpdated: string;
+            };
+            proposedChanges: {
+                op: string;
+                path: string;
+            }[];
+            reviewer: {
+                id?: string | undefined;
+                name?: string | undefined;
+                email?: string | undefined;
+            };
+            reviewComment: string | null;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### constant.revision.changesRequested
+
+Triggered when a reviewer requests changes on a draft revision
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "constant.revision.changesRequested";
+    object: "constant";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            version?: number | undefined;
+            title?: string | undefined;
+            status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
+            authorId: string;
+            authorEmail?: string | undefined;
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+            }[];
+            activityLog: {
+                id: string;
+                userId: string;
+                action: string;
+                dateCreated: string;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                userId: string;
+                dateCreated: string;
+            } | undefined;
+            dateCreated: string;
+            dateUpdated: string;
+            baseConstant: {
+                id: string;
+                /** Stable reference handle; used as `@const:key` in values */
+                key: string;
+                name: string;
+                type: "string" | "json";
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
+                value?: string | undefined;
+                /** Per-environment value overrides (environment id → value). Falls back to `value` when an environment is absent. */
+                environmentValues?: Record<string, string> | undefined;
+                description?: string | undefined;
+                /** The project this constant belongs to (empty = all projects) */
+                project?: string | undefined;
+                archived?: boolean | undefined;
+                dateCreated: string;
+                dateUpdated: string;
+            };
+            proposedConstant: {
+                id: string;
+                /** Stable reference handle; used as `@const:key` in values */
+                key: string;
+                name: string;
+                type: "string" | "json";
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
+                value?: string | undefined;
+                /** Per-environment value overrides (environment id → value). Falls back to `value` when an environment is absent. */
+                environmentValues?: Record<string, string> | undefined;
+                description?: string | undefined;
+                /** The project this constant belongs to (empty = all projects) */
+                project?: string | undefined;
+                archived?: boolean | undefined;
+                dateCreated: string;
+                dateUpdated: string;
+            };
+            proposedChanges: {
+                op: string;
+                path: string;
+            }[];
+            reviewer: {
+                id?: string | undefined;
+                name?: string | undefined;
+                email?: string | undefined;
+            };
+            reviewComment: string | null;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### constant.revision.commented
+
+Triggered when a comment is added to a draft revision
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "constant.revision.commented";
+    object: "constant";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            version?: number | undefined;
+            title?: string | undefined;
+            status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
+            authorId: string;
+            authorEmail?: string | undefined;
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+            }[];
+            activityLog: {
+                id: string;
+                userId: string;
+                action: string;
+                dateCreated: string;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                userId: string;
+                dateCreated: string;
+            } | undefined;
+            dateCreated: string;
+            dateUpdated: string;
+            baseConstant: {
+                id: string;
+                /** Stable reference handle; used as `@const:key` in values */
+                key: string;
+                name: string;
+                type: "string" | "json";
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
+                value?: string | undefined;
+                /** Per-environment value overrides (environment id → value). Falls back to `value` when an environment is absent. */
+                environmentValues?: Record<string, string> | undefined;
+                description?: string | undefined;
+                /** The project this constant belongs to (empty = all projects) */
+                project?: string | undefined;
+                archived?: boolean | undefined;
+                dateCreated: string;
+                dateUpdated: string;
+            };
+            proposedConstant: {
+                id: string;
+                /** Stable reference handle; used as `@const:key` in values */
+                key: string;
+                name: string;
+                type: "string" | "json";
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
+                value?: string | undefined;
+                /** Per-environment value overrides (environment id → value). Falls back to `value` when an environment is absent. */
+                environmentValues?: Record<string, string> | undefined;
+                description?: string | undefined;
+                /** The project this constant belongs to (empty = all projects) */
+                project?: string | undefined;
+                archived?: boolean | undefined;
+                dateCreated: string;
+                dateUpdated: string;
+            };
+            proposedChanges: {
+                op: string;
+                path: string;
+            }[];
+            reviewer: {
+                id?: string | undefined;
+                name?: string | undefined;
+                email?: string | undefined;
+            };
+            reviewComment: string;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### constant.revision.discarded
+
+Triggered when a draft revision is discarded
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "constant.revision.discarded";
+    object: "constant";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            version?: number | undefined;
+            title?: string | undefined;
+            status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
+            authorId: string;
+            authorEmail?: string | undefined;
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+            }[];
+            activityLog: {
+                id: string;
+                userId: string;
+                action: string;
+                dateCreated: string;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                userId: string;
+                dateCreated: string;
+            } | undefined;
+            dateCreated: string;
+            dateUpdated: string;
+            baseConstant: {
+                id: string;
+                /** Stable reference handle; used as `@const:key` in values */
+                key: string;
+                name: string;
+                type: "string" | "json";
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
+                value?: string | undefined;
+                /** Per-environment value overrides (environment id → value). Falls back to `value` when an environment is absent. */
+                environmentValues?: Record<string, string> | undefined;
+                description?: string | undefined;
+                /** The project this constant belongs to (empty = all projects) */
+                project?: string | undefined;
+                archived?: boolean | undefined;
+                dateCreated: string;
+                dateUpdated: string;
+            };
+            proposedConstant: {
+                id: string;
+                /** Stable reference handle; used as `@const:key` in values */
+                key: string;
+                name: string;
+                type: "string" | "json";
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
+                value?: string | undefined;
+                /** Per-environment value overrides (environment id → value). Falls back to `value` when an environment is absent. */
+                environmentValues?: Record<string, string> | undefined;
+                description?: string | undefined;
+                /** The project this constant belongs to (empty = all projects) */
+                project?: string | undefined;
+                archived?: boolean | undefined;
+                dateCreated: string;
+                dateUpdated: string;
+            };
+            proposedChanges: {
+                op: string;
+                path: string;
+            }[];
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### constant.revision.rebased
+
+Triggered when a draft revision is rebased onto the latest live state
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "constant.revision.rebased";
+    object: "constant";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            version?: number | undefined;
+            title?: string | undefined;
+            status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
+            authorId: string;
+            authorEmail?: string | undefined;
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+            }[];
+            activityLog: {
+                id: string;
+                userId: string;
+                action: string;
+                dateCreated: string;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                userId: string;
+                dateCreated: string;
+            } | undefined;
+            dateCreated: string;
+            dateUpdated: string;
+            baseConstant: {
+                id: string;
+                /** Stable reference handle; used as `@const:key` in values */
+                key: string;
+                name: string;
+                type: "string" | "json";
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
+                value?: string | undefined;
+                /** Per-environment value overrides (environment id → value). Falls back to `value` when an environment is absent. */
+                environmentValues?: Record<string, string> | undefined;
+                description?: string | undefined;
+                /** The project this constant belongs to (empty = all projects) */
+                project?: string | undefined;
+                archived?: boolean | undefined;
+                dateCreated: string;
+                dateUpdated: string;
+            };
+            proposedConstant: {
+                id: string;
+                /** Stable reference handle; used as `@const:key` in values */
+                key: string;
+                name: string;
+                type: "string" | "json";
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
+                value?: string | undefined;
+                /** Per-environment value overrides (environment id → value). Falls back to `value` when an environment is absent. */
+                environmentValues?: Record<string, string> | undefined;
+                description?: string | undefined;
+                /** The project this constant belongs to (empty = all projects) */
+                project?: string | undefined;
+                archived?: boolean | undefined;
+                dateCreated: string;
+                dateUpdated: string;
+            };
+            proposedChanges: {
+                op: string;
+                path: string;
+            }[];
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### constant.revision.published
+
+Triggered when a draft revision is published. Overlaps with `constant.updated` but provides revision-specific context.
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "constant.revision.published";
+    object: "constant";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            version?: number | undefined;
+            title?: string | undefined;
+            status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
+            authorId: string;
+            authorEmail?: string | undefined;
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+            }[];
+            activityLog: {
+                id: string;
+                userId: string;
+                action: string;
+                dateCreated: string;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                userId: string;
+                dateCreated: string;
+            } | undefined;
+            dateCreated: string;
+            dateUpdated: string;
+            baseConstant: {
+                id: string;
+                /** Stable reference handle; used as `@const:key` in values */
+                key: string;
+                name: string;
+                type: "string" | "json";
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
+                value?: string | undefined;
+                /** Per-environment value overrides (environment id → value). Falls back to `value` when an environment is absent. */
+                environmentValues?: Record<string, string> | undefined;
+                description?: string | undefined;
+                /** The project this constant belongs to (empty = all projects) */
+                project?: string | undefined;
+                archived?: boolean | undefined;
+                dateCreated: string;
+                dateUpdated: string;
+            };
+            proposedConstant: {
+                id: string;
+                /** Stable reference handle; used as `@const:key` in values */
+                key: string;
+                name: string;
+                type: "string" | "json";
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
+                value?: string | undefined;
+                /** Per-environment value overrides (environment id → value). Falls back to `value` when an environment is absent. */
+                environmentValues?: Record<string, string> | undefined;
+                description?: string | undefined;
+                /** The project this constant belongs to (empty = all projects) */
+                project?: string | undefined;
+                archived?: boolean | undefined;
+                dateCreated: string;
+                dateUpdated: string;
+            };
+            proposedChanges: {
+                op: string;
+                path: string;
+            }[];
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### constant.revision.reverted
+
+Triggered when a constant is reverted to a previous published revision
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "constant.revision.reverted";
+    object: "constant";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            version?: number | undefined;
+            title?: string | undefined;
+            status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
+            authorId: string;
+            authorEmail?: string | undefined;
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+            }[];
+            activityLog: {
+                id: string;
+                userId: string;
+                action: string;
+                dateCreated: string;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                userId: string;
+                dateCreated: string;
+            } | undefined;
+            dateCreated: string;
+            dateUpdated: string;
+            baseConstant: {
+                id: string;
+                /** Stable reference handle; used as `@const:key` in values */
+                key: string;
+                name: string;
+                type: "string" | "json";
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
+                value?: string | undefined;
+                /** Per-environment value overrides (environment id → value). Falls back to `value` when an environment is absent. */
+                environmentValues?: Record<string, string> | undefined;
+                description?: string | undefined;
+                /** The project this constant belongs to (empty = all projects) */
+                project?: string | undefined;
+                archived?: boolean | undefined;
+                dateCreated: string;
+                dateUpdated: string;
+            };
+            proposedConstant: {
+                id: string;
+                /** Stable reference handle; used as `@const:key` in values */
+                key: string;
+                name: string;
+                type: "string" | "json";
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
+                value?: string | undefined;
+                /** Per-environment value overrides (environment id → value). Falls back to `value` when an environment is absent. */
+                environmentValues?: Record<string, string> | undefined;
+                description?: string | undefined;
+                /** The project this constant belongs to (empty = all projects) */
+                project?: string | undefined;
+                archived?: boolean | undefined;
+                dateCreated: string;
+                dateUpdated: string;
+            };
+            proposedChanges: {
+                op: string;
+                path: string;
+            }[];
+            revertedToVersion?: number | undefined;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### constant.revision.reopened
+
+Triggered when a discarded revision is reopened
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "constant.revision.reopened";
+    object: "constant";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            version?: number | undefined;
+            title?: string | undefined;
+            status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
+            authorId: string;
+            authorEmail?: string | undefined;
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+            }[];
+            activityLog: {
+                id: string;
+                userId: string;
+                action: string;
+                dateCreated: string;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                userId: string;
+                dateCreated: string;
+            } | undefined;
+            dateCreated: string;
+            dateUpdated: string;
+            baseConstant: {
+                id: string;
+                /** Stable reference handle; used as `@const:key` in values */
+                key: string;
+                name: string;
+                type: "string" | "json";
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
+                value?: string | undefined;
+                /** Per-environment value overrides (environment id → value). Falls back to `value` when an environment is absent. */
+                environmentValues?: Record<string, string> | undefined;
+                description?: string | undefined;
+                /** The project this constant belongs to (empty = all projects) */
+                project?: string | undefined;
+                archived?: boolean | undefined;
+                dateCreated: string;
+                dateUpdated: string;
+            };
+            proposedConstant: {
+                id: string;
+                /** Stable reference handle; used as `@const:key` in values */
+                key: string;
+                name: string;
+                type: "string" | "json";
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
+                value?: string | undefined;
+                /** Per-environment value overrides (environment id → value). Falls back to `value` when an environment is absent. */
+                environmentValues?: Record<string, string> | undefined;
+                description?: string | undefined;
+                /** The project this constant belongs to (empty = all projects) */
+                project?: string | undefined;
+                archived?: boolean | undefined;
+                dateCreated: string;
+                dateUpdated: string;
+            };
+            proposedChanges: {
+                op: string;
+                path: string;
+            }[];
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -2175,10 +5847,16 @@ Triggered when a user logs in
     } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
     environments: string[];
     containsSecrets: boolean;
 }

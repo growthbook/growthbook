@@ -4,15 +4,19 @@ import {
   DiscussionInterface,
   Comment,
 } from "shared/types/discussion";
-import { FaPencilAlt } from "react-icons/fa";
-import { date } from "shared/dates";
+import { BsThreeDotsVertical } from "react-icons/bs";
+import { datetime } from "shared/dates";
+import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Callout from "@/ui/Callout";
+import Text from "@/ui/Text";
+import Heading from "@/ui/Heading";
+import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import LoadingSpinner from "./LoadingSpinner";
-import Avatar from "./Avatar/Avatar";
-import DeleteButton from "./DeleteButton/DeleteButton";
+import CommentCard from "./Comments/CommentCard";
 import CommentForm from "./CommentForm";
 import Markdown from "./Markdown/Markdown";
 
@@ -46,7 +50,7 @@ const DiscussionThread: FC<{
   );
 
   if (error) {
-    return <div className="alert alert-danger">{error.message}</div>;
+    return <Callout status="error">{error.message}</Callout>;
   }
   if (!data) {
     return <LoadingSpinner />;
@@ -55,18 +59,23 @@ const DiscussionThread: FC<{
   const comments: Comment[] = data.discussion ? data.discussion.comments : [];
 
   return (
-    <div className="pagecontents">
+    <Box>
       {comments.length > 0 ? (
-        <ul className="list-unstyled">
+        <Flex direction="column" gap="4">
           {comments.map((comment, i) => {
             const user = users.get(comment.userId);
             const email = user ? user.email : comment.userEmail;
             const name = user ? user.name : comment.userName;
+            const eventUser = {
+              type: "dashboard" as const,
+              id: comment.userId,
+              email: email ?? "",
+              name: name ?? "",
+            };
 
             return (
-              <li className="media mb-3" key={i}>
-                <Avatar email={email} className="mr-2" name={name} />
-                <div className="media-body">
+              <Flex key={i} align="start">
+                <Box flexGrow="1">
                   {edit === i ? (
                     <CommentForm
                       cta="Save"
@@ -82,66 +91,87 @@ const DiscussionThread: FC<{
                       onCancel={() => setEdit(null)}
                     />
                   ) : (
-                    <div className="card">
-                      <div className="card-header">
-                        <strong>{name || email}</strong> commented on{" "}
-                        {date(comment.date)}
-                        {comment.edited && (
-                          <em className="ml-3 text-muted">&bull; edited</em>
-                        )}
-                        {comment.userId === userId && (
-                          <div className="float-right ml-4 card-hover">
-                            <a
-                              href="#"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                setEdit(i);
+                    <CommentCard
+                      user={eventUser}
+                      metadata={`commented on ${datetime(comment.date)}`}
+                      metadataExtra={
+                        comment.edited && (
+                          <Text
+                            color="text-low"
+                            size="small"
+                            fontStyle="italic"
+                          >
+                            &bull; edited
+                          </Text>
+                        )
+                      }
+                      actions={
+                        comment.userId === userId && (
+                          <DropdownMenu
+                            trigger={
+                              <IconButton
+                                variant="ghost"
+                                color="gray"
+                                radius="full"
+                                size="2"
+                                highContrast
+                              >
+                                <BsThreeDotsVertical size={14} />
+                              </IconButton>
+                            }
+                            variant="soft"
+                            menuPlacement="end"
+                          >
+                            <DropdownMenuItem onClick={() => setEdit(i)}>
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              color="red"
+                              confirmation={{
+                                confirmationTitle: "Delete Comment",
+                                cta: "Delete",
+                                submit: async () => {
+                                  await apiCall(
+                                    `/discussion/${type}/${id}/${i}`,
+                                    { method: "DELETE" },
+                                  );
+                                  mutate();
+                                },
                               }}
                             >
-                              <FaPencilAlt />
-                            </a>
-                            <DeleteButton
-                              displayName="Comment"
-                              className="ml-4"
-                              link={true}
-                              onClick={async () => {
-                                await apiCall(
-                                  `/discussion/${type}/${id}/${i}`,
-                                  {
-                                    method: "DELETE",
-                                  },
-                                );
-                                mutate();
-                              }}
-                            />
-                          </div>
-                        )}
-                      </div>
-                      <div className="card-body">
-                        <Markdown className="card-text">
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenu>
+                        )
+                      }
+                      body={
+                        <Markdown className="speech-bubble">
                           {comment.content || ""}
                         </Markdown>
-                      </div>
-                    </div>
+                      }
+                    />
                   )}
-                </div>
-              </li>
+                </Box>
+              </Flex>
             );
           })}
-        </ul>
+        </Flex>
       ) : (
-        <p>
-          <em>
-            {allowNewComments
-              ? "No comments yet. Add the first one!"
-              : "No comments."}
-          </em>
-        </p>
+        <Text color="text-low" fontStyle="italic">
+          {allowNewComments
+            ? "No comments yet. Add the first one!"
+            : "No comments."}
+        </Text>
       )}
       {allowNewComments && (
-        <div className="d-print-none">
-          {!showTitle && <hr />}
-          {showTitle && <h4 className="add-comment-title">{title}</h4>}
+        <Box mt="4">
+          {!showTitle ? (
+            <Separator size="4" mb="4" />
+          ) : (
+            <Heading as="h4" size="small" mb="3">
+              {title}
+            </Heading>
+          )}
           <CommentForm
             cta="Comment"
             onSave={mutate}
@@ -149,9 +179,9 @@ const DiscussionThread: FC<{
             id={id}
             type={type}
           />
-        </div>
+        </Box>
       )}
-    </div>
+    </Box>
   );
 };
 

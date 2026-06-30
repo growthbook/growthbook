@@ -1,18 +1,26 @@
 import Ajv from "ajv";
-import { subWeeks } from "date-fns";
+import { subMonths, subWeeks } from "date-fns";
 import dJSON from "dirty-json";
 import stringify from "json-stringify-pretty-compact";
 import cloneDeep from "lodash/cloneDeep";
 import isEqual from "lodash/isEqual";
 import { evalCondition } from "@growthbook/growthbook";
 import {
+  ExperimentRefRule,
+  RevisionMetadata,
+  ApiFeature,
+} from "shared/validators";
+import {
   FeatureInterface,
+  FeaturePrerequisite,
   FeatureRule,
   ForceRule,
   RolloutRule,
   SchemaField,
   SimpleSchema,
   ScheduleRule,
+  JSONSchemaDef,
+  FeatureValueType,
 } from "shared/types/feature";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
@@ -20,19 +28,27 @@ import {
   OrganizationSettings,
   RequireReview,
   Environment,
+  SDKAttributeSchema,
 } from "shared/types/organization";
 import { ProjectInterface } from "shared/types/project";
-import { ApiFeature } from "shared/types/openapi";
 import { GroupMap } from "shared/types/saved-group";
+// Direct file import (not the `shared/validators` barrel) to avoid a runtime
+// import cycle: the barrel pulls safe-rollout-snapshot → enterprise → util.
+import { assertValidExtendsEntries } from "../validators/constant";
+import { RampScheduleInterface } from "../validators/ramp-schedule";
 import { getValidDate } from "../dates";
 import {
   conditionHasSavedGroupErrors,
   expandNestedSavedGroups,
+  EXTENDS_KEY,
 } from "../sdk-versioning";
+import { formatJsonMultilineObjects } from "./format-json";
+import { stemRuleId } from "./ruleId";
 import {
   getMatchingRules,
+  getRulesForEnvironment,
   includeExperimentInPayload,
-  isDefined,
+  naiveFlattenV1Rules,
   recursiveWalk,
 } from ".";
 
@@ -82,6 +98,60 @@ export function getValidation(feature: Pick<FeatureInterface, "jsonSchema">) {
   }
 }
 
+/**
+ * View-only JIT migration of a v1 feature snapshot (rules under
+ * `environmentSettings[env].rules`) to v2 (top-level `feature.rules`).
+ *
+ * Used at the front-end model boundary for audit log snapshots, cached
+ * responses, fixtures. Idempotent. Does NOT merge content-identical rules
+ * across envs — naive stamp with `allEnvironments: false` +
+ * `environments: [env]`. For persistence use `normalizeRulesInputToV2`.
+ */
+export function toV2FeatureSnapshot<T extends Partial<FeatureInterface>>(
+  snapshot: T,
+): T {
+  if (!snapshot) return snapshot;
+  // Already v2 — trust the top-level array (empty is meaningful).
+  if (Array.isArray(snapshot.rules)) return snapshot;
+
+  const envSettings = snapshot.environmentSettings;
+  if (!envSettings || typeof envSettings !== "object") return snapshot;
+
+  // v2 `FeatureEnvironment` has no `rules` field; cast is load-bearing
+  // for historical audit snapshots.
+  const rulesByEnv: Record<string, FeatureRule[]> = {};
+  let sawV1Rules = false;
+  for (const [env, setting] of Object.entries(envSettings)) {
+    const legacyRules = (setting as unknown as { rules?: FeatureRule[] })
+      ?.rules;
+    if (Array.isArray(legacyRules)) {
+      sawV1Rules = true;
+      rulesByEnv[env] = legacyRules;
+    }
+  }
+  if (!sawV1Rules) return snapshot;
+
+  const flat = naiveFlattenV1Rules(rulesByEnv);
+
+  const strippedEnvSettings: Record<string, unknown> = {};
+  for (const [env, setting] of Object.entries(envSettings)) {
+    if (setting && typeof setting === "object" && "rules" in setting) {
+      const { rules: _stripped, ...rest } = setting as unknown as {
+        rules?: FeatureRule[];
+      } & Record<string, unknown>;
+      strippedEnvSettings[env] = rest;
+    } else {
+      strippedEnvSettings[env] = setting;
+    }
+  }
+
+  return {
+    ...snapshot,
+    rules: flat,
+    environmentSettings: strippedEnvSettings,
+  } as T;
+}
+
 export function mergeRevision(
   feature: FeatureInterface,
   revision: FeatureRevisionInterface,
@@ -91,13 +161,47 @@ export function mergeRevision(
 
   newFeature.defaultValue = revision.defaultValue;
 
+  // A revision carries the full intended rule set; replace wholesale when
+  // present. `undefined` means the revision didn't touch rules.
+  if (revision.rules !== undefined) {
+    newFeature.rules = naiveFlattenV1Rules(revision.rules);
+  }
+
   const envSettings = newFeature.environmentSettings;
   environments.forEach((env) => {
-    envSettings[env] = envSettings[env] || {};
+    envSettings[env] = envSettings[env] || { enabled: false };
     envSettings[env].enabled = envSettings[env].enabled || false;
-    envSettings[env].rules =
-      revision.rules?.[env] || envSettings[env].rules || [];
+
+    if (revision.environmentsEnabled && env in revision.environmentsEnabled) {
+      envSettings[env].enabled = revision.environmentsEnabled[env];
+    }
   });
+
+  if (revision.prerequisites !== undefined) {
+    newFeature.prerequisites = revision.prerequisites;
+  }
+
+  if (revision.archived !== undefined) {
+    newFeature.archived = revision.archived;
+  }
+
+  if ("holdout" in revision) {
+    newFeature.holdout = revision.holdout ?? undefined;
+  }
+
+  if (revision.metadata) {
+    const m = revision.metadata;
+    if (m.description !== undefined) newFeature.description = m.description;
+    if (m.owner !== undefined) newFeature.owner = m.owner;
+    if (m.project !== undefined) newFeature.project = m.project;
+    if (m.tags !== undefined) newFeature.tags = m.tags;
+    if (m.neverStale !== undefined) newFeature.neverStale = m.neverStale;
+    if (m.customFields !== undefined)
+      newFeature.customFields = m.customFields as Record<string, unknown>;
+    if (m.jsonSchema !== undefined) newFeature.jsonSchema = m.jsonSchema;
+    // Use draft valueType for preview so rule/defaultValue validation is accurate
+    if (m.valueType !== undefined) newFeature.valueType = m.valueType;
+  }
 
   return newFeature;
 }
@@ -112,6 +216,8 @@ export function validateJSONFeatureValue(
   // eslint-disable-next-line
   value: any,
   feature: Pick<FeatureInterface, "jsonSchema">,
+  // Non-json flags hold a raw scalar; coerce instead of JSON-parsing (default keeps json behavior).
+  valueType?: FeatureValueType,
 ) {
   const { jsonSchema, validationEnabled } = getValidation(feature);
   if (!validationEnabled) {
@@ -121,7 +227,11 @@ export function validateJSONFeatureValue(
     const ajv = getJSONValidator();
     const validate = ajv.compile(jsonSchema);
     let parsedValue;
-    if (typeof value === "string") {
+    if (valueType === "string") {
+      parsedValue = value;
+    } else if (valueType === "number") {
+      parsedValue = typeof value === "string" ? parseFloat(value) : value;
+    } else if (typeof value === "string") {
       try {
         parsedValue = JSON.parse(value);
       } catch (e) {
@@ -132,7 +242,7 @@ export function validateJSONFeatureValue(
           return {
             valid: false,
             enabled: validationEnabled,
-            errors: [e.message],
+            errors: [e instanceof Error ? e.message : String(e)],
           };
         }
       }
@@ -160,7 +270,11 @@ export function validateJSONFeatureValue(
         }) ?? [],
     };
   } catch (e) {
-    return { valid: false, enabled: validationEnabled, errors: [e.message] };
+    return {
+      valid: false,
+      enabled: validationEnabled,
+      errors: [e instanceof Error ? e.message : String(e)],
+    };
   }
 }
 
@@ -179,6 +293,23 @@ export function validateFeatureValue(
     if (!value.match(/^-?[0-9]+(\.[0-9]+)?$/)) {
       throw new Error(prefix + "Must be a valid number");
     }
+    const { valid, errors } = validateJSONFeatureValue(
+      value,
+      feature,
+      "number",
+    );
+    if (!valid) {
+      throw new Error(prefix + errors.join(", "));
+    }
+  } else if (type === "string") {
+    const { valid, errors } = validateJSONFeatureValue(
+      value,
+      feature,
+      "string",
+    );
+    if (!valid) {
+      throw new Error(prefix + errors.join(", "));
+    }
   } else if (type === "json") {
     let parsedValue;
     let validJSON = true;
@@ -190,7 +321,7 @@ export function validateFeatureValue(
       try {
         parsedValue = dJSON.parse(value);
       } catch (e) {
-        throw new Error(prefix + e.message);
+        throw new Error(prefix + (e instanceof Error ? e.message : String(e)));
       }
     }
     // validate with JSON schema if set and enabled
@@ -198,6 +329,12 @@ export function validateFeatureValue(
     if (!valid) {
       throw new Error(prefix + errors.join(", "));
     }
+    // Reject malformed `$extends` entries (the resolver silently drops them).
+    // Inline objects are allowed (advanced escape hatch); loose junk isn't.
+    // Lenient for features: only enforce on arrays already used as a merge
+    // directive (≥1 ref/inline object), so a pre-existing flag that used
+    // `$extends` as a plain data key still saves.
+    assertValidExtendsEntries(parsedValue, prefix, true);
     // If the JSON was invalid but could be parsed by 'dirty-json', return the fixed JSON
     if (!validJSON) {
       return stringify(parsedValue);
@@ -205,6 +342,300 @@ export function validateFeatureValue(
   }
 
   return value;
+}
+
+// Parses a string into a plain JSON object. Returns null when it doesn't parse
+// or isn't a plain key/val object (array, null, primitive). The null result is
+// how callers detect a feature whose default value can't support sparse rules.
+export function parsePlainJSONObject(
+  value: string,
+): Record<string, unknown> | null {
+  try {
+    const parsed = JSON.parse(value);
+    if (
+      parsed !== null &&
+      !Array.isArray(parsed) &&
+      typeof parsed === "object"
+    ) {
+      return parsed as Record<string, unknown>;
+    }
+  } catch {
+    // ignore
+  }
+  return null;
+}
+
+// Merges a sparse `json` rule value onto the feature's default object. Only the
+// keys present in the rule value override the default; the rest fall back to
+// the default at evaluation time.
+//
+// The merge is TOP-LEVEL ONLY (a shallow spread) — it is not a deep merge. A key
+// in the rule value replaces the default's value for that key wholesale, so a
+// nested object in the patch overwrites the default's entire object for that key
+// rather than merging into it. E.g. default `{"theme":{"a":1,"b":2}}` patched
+// with `{"theme":{"a":9}}` resolves to `{"theme":{"a":9}}` ("b" is dropped).
+//
+// If either side isn't a plain object the rule value is returned parsed as-is, so
+// a misconfigured sparse flag degrades to normal (full-value) behavior rather
+// than producing surprising output.
+export function resolveSparseJSONValue(
+  ruleValueStr: string,
+  defaultObj: Record<string, unknown> | null,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+): any {
+  const sparse = parsePlainJSONObject(ruleValueStr);
+  if (!defaultObj || sparse === null) {
+    try {
+      return JSON.parse(ruleValueStr);
+    } catch {
+      return null;
+    }
+  }
+  return { ...defaultObj, ...sparse };
+}
+
+// Reads the `$extends` constant-reference list off a parsed JSON object,
+// ignoring non-string entries. Returns [] when absent or not an array.
+function getExtendsRefs(obj: Record<string, unknown>): string[] {
+  const list = obj[EXTENDS_KEY];
+  return Array.isArray(list)
+    ? list.filter((r): r is string => typeof r === "string")
+    : [];
+}
+
+// The raw `$extends` array (string references plus any inline-object literals).
+function getExtendsEntries(obj: Record<string, unknown>): unknown[] {
+  const list = obj[EXTENDS_KEY];
+  return Array.isArray(list) ? list : [];
+}
+
+// True when `$extends` carries an inline-object literal (the advanced escape
+// hatch). Those entries are positional, so the string-ref diff/union below
+// can't safely reorder them — we preserve the array verbatim instead.
+function hasInlineExtendsObject(obj: Record<string, unknown>): boolean {
+  return getExtendsEntries(obj).some(
+    (e) => e !== null && typeof e === "object",
+  );
+}
+
+// Rebuilds a JSON object string with `$extends` first (when non-empty) followed
+// by the given own keys, one key per line.
+function serializeExtendsObject(
+  extendsEntries: unknown[],
+  ownKeys: Record<string, unknown>,
+): string {
+  return formatJsonMultilineObjects(
+    extendsEntries.length
+      ? { [EXTENDS_KEY]: extendsEntries, ...ownKeys }
+      : ownKeys,
+  );
+}
+
+// Strips top-level keys from a full JSON value that are deep-equal to the
+// feature default's value for that key, leaving the minimal sparse patch. Used
+// when switching a JSON rule INTO sparse mode so the editor starts from a clean
+// diff (often `{}`) instead of the full, default-laden object the rule was
+// seeded with. Returns the input unchanged when either side isn't a plain
+// object (no meaningful patch can be computed).
+//
+// `$extends` is a merge directive, not data: the patch keeps only the refs not
+// already pulled in by the default's `$extends` (set difference), so the layered
+// resolution doesn't double-apply them.
+export function stripDefaultsForSparse(
+  valueStr: string,
+  defaultValueStr: string,
+): string {
+  const value = parsePlainJSONObject(valueStr);
+  const defaultObj = parsePlainJSONObject(defaultValueStr);
+  if (!value || !defaultObj) return valueStr;
+
+  const patch: Record<string, unknown> = {};
+  for (const [key, v] of Object.entries(value)) {
+    if (key === EXTENDS_KEY) continue;
+    if (!(key in defaultObj) || !isEqual(v, defaultObj[key])) {
+      patch[key] = v;
+    }
+  }
+
+  // Inline-object `$extends` entries are positional and can't be ref-diffed
+  // safely, so preserve the value's `$extends` array verbatim (lossless, just
+  // not minimal). Only the all-string case gets the minimal set-difference.
+  if (hasInlineExtendsObject(value) || hasInlineExtendsObject(defaultObj)) {
+    return serializeExtendsObject(getExtendsEntries(value), patch);
+  }
+
+  const defaultRefs = new Set(getExtendsRefs(defaultObj));
+  const patchRefs = getExtendsRefs(value).filter((r) => !defaultRefs.has(r));
+  return serializeExtendsObject(patchRefs, patch);
+}
+
+// Expands a sparse patch back into the full value by merging it onto the feature
+// default (the inverse of stripDefaultsForSparse). Used when switching a JSON
+// rule OUT of sparse mode so the editor shows the whole object again. Returns
+// the input unchanged when either side isn't a plain object.
+//
+// `$extends` arrays from the default and the patch are unioned (default's refs
+// first) rather than letting the patch's array clobber the default's. Note: the
+// flattened form can't perfectly reproduce the layered precedence when a
+// patch-extended constant overrides one of the default's own keys (the resolver
+// applies patch-`$extends` above default keys; the flattened object applies all
+// `$extends` below them) — an accepted edge case for this editor convenience.
+export function expandSparseToFull(
+  valueStr: string,
+  defaultValueStr: string,
+): string {
+  const patch = parsePlainJSONObject(valueStr);
+  const defaultObj = parsePlainJSONObject(defaultValueStr);
+  if (!patch || !defaultObj) return valueStr;
+
+  const ownKeys: Record<string, unknown> = {};
+  for (const [key, v] of Object.entries(defaultObj)) {
+    if (key !== EXTENDS_KEY) ownKeys[key] = v;
+  }
+  for (const [key, v] of Object.entries(patch)) {
+    if (key !== EXTENDS_KEY) ownKeys[key] = v;
+  }
+
+  // With inline-object `$extends` entries the patch already carries the full
+  // intended `$extends` (stripDefaultsForSparse preserved it verbatim), so use
+  // it as-is rather than union-ing string refs.
+  if (hasInlineExtendsObject(patch) || hasInlineExtendsObject(defaultObj)) {
+    const entries = getExtendsEntries(patch).length
+      ? getExtendsEntries(patch)
+      : getExtendsEntries(defaultObj);
+    return serializeExtendsObject(entries, ownKeys);
+  }
+
+  const mergedRefs = [...getExtendsRefs(defaultObj)];
+  for (const ref of getExtendsRefs(patch)) {
+    if (!mergedRefs.includes(ref)) mergedRefs.push(ref);
+  }
+  return serializeExtendsObject(mergedRefs, ownKeys);
+}
+
+// Validate the values a revert restores against the value type / JSON schema
+// that will be live afterward. Returns one warning per value that no longer
+// parses/validates; callers surface these as a bypassable soft warning.
+export function getRevertValueValidationWarnings(
+  feature: Pick<FeatureInterface, "valueType" | "jsonSchema">,
+  changes: Pick<MergeResultChanges, "defaultValue" | "rules" | "metadata">,
+): string[] {
+  // When the revert also restores a different valueType, take the schema from
+  // the revert's metadata too (the current schema belongs to the old type).
+  const revertsValueType = changes.metadata?.valueType !== undefined;
+  const target: Pick<FeatureInterface, "valueType" | "jsonSchema"> = {
+    valueType: changes.metadata?.valueType ?? feature.valueType,
+    jsonSchema: revertsValueType
+      ? changes.metadata?.jsonSchema
+      : (changes.metadata?.jsonSchema ?? feature.jsonSchema),
+  };
+
+  const warnings: string[] = [];
+  const check = (value: string, label: string) => {
+    try {
+      validateFeatureValue(target, value, label);
+    } catch (e) {
+      warnings.push(e instanceof Error ? e.message : String(e));
+    }
+  };
+
+  if (changes.defaultValue !== undefined) {
+    check(changes.defaultValue, "Default value");
+  }
+
+  (changes.rules ?? []).forEach((rule, i) => {
+    const label = `Rule #${i + 1}`;
+    switch (rule.type) {
+      case "force":
+      case "rollout":
+        check(rule.value, label);
+        break;
+      case "experiment":
+        rule.values.forEach((v, j) =>
+          check(v.value, `${label} variation #${j + 1}`),
+        );
+        break;
+      case "experiment-ref":
+        rule.variations.forEach((v, j) =>
+          check(v.value, `${label} variation #${j + 1}`),
+        );
+        break;
+    }
+  });
+
+  return warnings;
+}
+
+// Ensure a feature's enabled validation schema is compatible with its value type.
+export function assertSchemaMatchesValueType(
+  jsonSchema: Pick<
+    JSONSchemaDef,
+    "schemaType" | "schema" | "simple" | "enabled"
+  >,
+  valueType: FeatureValueType,
+): void {
+  if (!jsonSchema.enabled) return;
+
+  // JSON flags accept any schema
+  if (valueType === "json") return;
+
+  if (valueType === "boolean") {
+    throw new Error("Boolean features cannot have a validation schema.");
+  }
+
+  let parsed: unknown;
+  try {
+    const schemaString =
+      jsonSchema.schemaType === "simple"
+        ? simpleToJSONSchema(jsonSchema.simple)
+        : jsonSchema.schema;
+    parsed = JSON.parse(schemaString);
+  } catch (e) {
+    throw new Error(
+      `Invalid validation schema: ${
+        e instanceof Error ? e.message : String(e)
+      }`,
+    );
+  }
+  const schemaObj: Record<string, unknown> =
+    parsed !== null && typeof parsed === "object" && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : {};
+  const topType = schemaObj.type;
+
+  // No top-level "type" is only allowed with an "enum" whose entries all match the value type
+  if (topType === undefined) {
+    const enumValues = schemaObj.enum;
+    if (!Array.isArray(enumValues)) {
+      throw new Error(
+        `A ${valueType} feature's validation schema must have a top-level "type" or "enum".`,
+      );
+    }
+    if (
+      !enumValues.every((v) =>
+        valueType === "number" ? typeof v === "number" : typeof v === "string",
+      )
+    ) {
+      throw new Error(
+        `All "enum" values in a ${valueType} feature's validation schema must be of type "${valueType}".`,
+      );
+    }
+    return;
+  }
+
+  if (valueType === "number") {
+    if (topType !== "number" && topType !== "integer") {
+      throw new Error(
+        'A number feature\'s validation schema must have a top-level type of "number" or "integer".',
+      );
+    }
+  } else if (valueType === "string") {
+    if (topType !== "string") {
+      throw new Error(
+        'A string feature\'s validation schema must have a top-level type of "string".',
+      );
+    }
+  }
 }
 
 // Helper function to validate ISO timestamp format
@@ -260,13 +691,51 @@ export function validateScheduleRules(scheduleRules: ScheduleRule[]): void {
   }
 }
 
-export type StaleFeatureReason = "error" | "no-rules" | "rules-one-sided";
+export type StaleFeatureReason =
+  | "error"
+  | "never-stale"
+  | "no-rules"
+  | "rules-one-sided"
+  | "abandoned-draft"
+  | "recently-updated"
+  | "active-draft"
+  | "has-dependents"
+  | "toggled-off"
+  | "active-experiment"
+  | "has-rules";
+
+export type EnvStaleResult = {
+  stale: boolean;
+  reason?: StaleFeatureReason;
+  evaluatesTo?: string; // set when all users receive the same value; same format as feature.defaultValue
+};
+
+export type IsFeatureStaleResult = {
+  stale: boolean;
+  reason?: StaleFeatureReason;
+  envResults: Record<string, EnvStaleResult>;
+};
 
 // type guards
 const isRolloutRule = (rule: FeatureRule): rule is RolloutRule =>
   rule.type === "rollout";
 const isForceRule = (rule: FeatureRule): rule is ForceRule =>
   rule.type === "force";
+const isExperimentRefRule = (rule: FeatureRule): rule is ExperimentRefRule =>
+  rule.type === "experiment-ref";
+
+// A rule that unconditionally matches all users, blocking any rules after it.
+const isUnconditionalCatcher = (rule: FeatureRule): boolean => {
+  if (!hasNoCondition(rule)) return false;
+  if ((rule.savedGroups ?? []).length > 0) return false;
+  if ((rule.prerequisites ?? []).length > 0) return false;
+  if (isForceRule(rule)) return true;
+  if (isRolloutRule(rule)) return rule.coverage >= 1;
+  return false;
+};
+
+const hasNoCondition = (rule: FeatureRule): boolean =>
+  !rule.condition || rule.condition === "{}";
 
 const areRulesOneSided = (
   rules: FeatureRule[], // can assume all rules are enabled
@@ -277,121 +746,283 @@ const areRulesOneSided = (
   const rolloutRulesOnesided =
     !rolloutRules.length ||
     rolloutRules.every(
-      (r) => r.coverage === 1 && !r.condition && !r.savedGroups?.length,
+      (r) => r.coverage === 1 && hasNoCondition(r) && !r.savedGroups?.length,
     );
 
   const forceRulesOnesided =
     !forceRules.length ||
-    forceRules.every((r) => !r.condition && !r.savedGroups?.length);
+    forceRules.every((r) => hasNoCondition(r) && !r.savedGroups?.length);
 
   return rolloutRulesOnesided && forceRulesOnesided;
 };
 
 interface IsFeatureStaleInterface {
   feature: FeatureInterface;
-  features?: FeatureInterface[];
+  features: FeatureInterface[];
+  environments: string[];
   experiments?: ExperimentInterfaceStringDates[];
   dependentExperiments?: ExperimentInterfaceStringDates[];
-  environments?: string[];
+  featuresMap?: Map<string, FeatureInterface>;
+  experimentMap?: Map<string, ExperimentInterfaceStringDates>;
+  reverseDependencyIndex?: ReverseDependencyIndex;
+  experimentDependencyIndex?: ExperimentDependencyIndex;
+  mostRecentDraftDate?: Date | null;
 }
+
+// Priority order for picking an overall reason when envs disagree.
+const REASON_PRIORITY: StaleFeatureReason[] = [
+  "abandoned-draft",
+  "no-rules",
+  "rules-one-sided",
+];
+
+function pickOverallReason(
+  reasons: (StaleFeatureReason | undefined)[],
+): StaleFeatureReason | undefined {
+  const defined = reasons.filter((r): r is StaleFeatureReason => r != null);
+  if (!defined.length) return undefined;
+  if (defined.every((r) => r === defined[0])) return defined[0];
+  for (const p of REASON_PRIORITY) {
+    if (defined.includes(p)) return p;
+  }
+  return defined[0];
+}
+
+// Per-env staleness breakdown.
+function buildEnvResults(
+  feature: FeatureInterface,
+  environments: string[],
+  experimentMap: Map<string, ExperimentInterfaceStringDates>,
+  dependentFeatureIds: string[],
+  dependentFeatures: Map<string, FeatureInterface>,
+  dependentExperiments: ExperimentInterfaceStringDates[],
+): Record<string, EnvStaleResult> {
+  const envResults: Record<string, EnvStaleResult> = {};
+
+  const hasActiveDependentExperiment = dependentExperiments.some((e) =>
+    includeExperimentInPayload(e),
+  );
+
+  // Iterate the authoritative org environments list so every applicable env
+  // is evaluated even if the feature has no settings entry for it yet.
+  const envIds = environments.length
+    ? environments
+    : Object.keys(feature.environmentSettings ?? {});
+
+  for (const envId of envIds) {
+    const envSetting = feature.environmentSettings?.[envId];
+    if (!envSetting?.enabled) {
+      envResults[envId] = {
+        stale: true,
+        reason: "toggled-off",
+        evaluatesTo: "null",
+      };
+      continue;
+    }
+
+    // Fall back to v1 `environmentSettings[env].rules` for test fixtures
+    // that skip `migrateRawFeatureToV2`'s JIT upgrade.
+    const v2RulesForEnv = getRulesForEnvironment(feature.rules, envId);
+    const legacyRules = Array.isArray(feature.rules)
+      ? []
+      : ((envSetting as unknown as { rules?: FeatureRule[] }).rules ?? []);
+    const rules = (v2RulesForEnv.length ? v2RulesForEnv : legacyRules).filter(
+      (r) => r.enabled,
+    );
+
+    const hasDependentsInEnv =
+      hasActiveDependentExperiment ||
+      dependentFeatureIds.some((id) => {
+        const f = dependentFeatures.get(id);
+        if (!f) return false;
+        // Global feature-level prerequisite
+        if (f.prerequisites?.some((p) => p.id === feature.id)) return true;
+        // Rule-level prerequisite in this specific environment (v2 or legacy)
+        const depV2Rules = getRulesForEnvironment(f.rules, envId);
+        const depLegacyRules = Array.isArray(f.rules)
+          ? []
+          : ((
+              f.environmentSettings?.[envId] as unknown as {
+                rules?: FeatureRule[];
+              }
+            )?.rules ?? []);
+        const depRules = depV2Rules.length ? depV2Rules : depLegacyRules;
+        return depRules.some(
+          (r) => r.enabled && r.prerequisites?.some((p) => p.id === feature.id),
+        );
+      });
+
+    if (rules.length === 0) {
+      envResults[envId] = hasDependentsInEnv
+        ? {
+            stale: false,
+            reason: "has-dependents",
+            evaluatesTo: feature.defaultValue,
+          }
+        : {
+            stale: true,
+            reason: "no-rules",
+            evaluatesTo: feature.defaultValue,
+          };
+      continue;
+    }
+
+    // Walk rules in order; an unconditional catcher shadows everything after it.
+    let hasActiveExperiment = false;
+    for (const rule of rules) {
+      if (isUnconditionalCatcher(rule)) break;
+      if (isExperimentRefRule(rule)) {
+        const exp = experimentMap.get(rule.experimentId);
+        if (exp && includeExperimentInPayload(exp)) {
+          hasActiveExperiment = true;
+          break;
+        }
+      }
+    }
+    if (hasActiveExperiment) {
+      envResults[envId] = { stale: false, reason: "active-experiment" };
+      continue;
+    }
+
+    if (areRulesOneSided(rules)) {
+      const firstValueRule = rules.find(
+        (r): r is ForceRule | RolloutRule =>
+          r.type === "force" || r.type === "rollout",
+      );
+      envResults[envId] = hasDependentsInEnv
+        ? {
+            stale: false,
+            reason: "has-dependents",
+            evaluatesTo: firstValueRule?.value ?? feature.defaultValue,
+          }
+        : {
+            stale: true,
+            reason: "rules-one-sided",
+            evaluatesTo: firstValueRule?.value ?? feature.defaultValue,
+          };
+      continue;
+    }
+
+    envResults[envId] = { stale: false, reason: "has-rules" };
+  }
+
+  return envResults;
+}
+
 export function isFeatureStale({
   feature,
   features,
+  environments,
   experiments = [],
   dependentExperiments,
-  environments = [],
-}: IsFeatureStaleInterface): { stale: boolean; reason?: StaleFeatureReason } {
-  const featuresMap = new Map<string, FeatureInterface>();
-  if (features) {
-    for (const f of features) {
-      featuresMap.set(f.id, f);
-    }
-  }
-  const experimentMap = new Map<string, ExperimentInterfaceStringDates>();
-  for (const e of experiments) {
-    experimentMap.set(e.id, e);
-  }
+  featuresMap: prebuiltFeaturesMap,
+  experimentMap: prebuiltExperimentMap,
+  reverseDependencyIndex,
+  experimentDependencyIndex,
+  mostRecentDraftDate,
+}: IsFeatureStaleInterface): IsFeatureStaleResult {
+  const featuresMap =
+    prebuiltFeaturesMap ??
+    new Map<string, FeatureInterface>(features.map((f) => [f.id, f]));
+  const experimentMap =
+    prebuiltExperimentMap ??
+    new Map<string, ExperimentInterfaceStringDates>(
+      experiments.map((e) => [e.id, e]),
+    );
 
   const visitedFeatures = new Set<string>();
 
-  if (!features) {
-    features = [feature];
-  }
-  if (!environments.length) {
-    environments = Object.keys(feature.environmentSettings);
-  }
-
-  const visit = (
-    feature: FeatureInterface,
-  ): { stale: boolean; reason?: StaleFeatureReason } => {
+  const visit = (feature: FeatureInterface): IsFeatureStaleResult => {
     if (visitedFeatures.has(feature.id)) {
-      return { stale: false };
+      return { stale: false, envResults: {} };
     }
     visitedFeatures.add(feature.id);
 
     try {
-      if (feature.neverStale) return { stale: false };
+      // Compute dependents before buildEnvResults so per-env results can use them.
+      const dependentFeatureIds =
+        features && features.length > 1
+          ? getDependentFeatures(
+              feature,
+              features,
+              environments,
+              reverseDependencyIndex,
+              featuresMap,
+            )
+          : [];
+      // Only non-stale dependents protect an env from being marked stale.
+      const nonStaleDependentFeatureIds = dependentFeatureIds.filter((id) => {
+        const f = featuresMap.get(id);
+        return !f || !visit(f).stale;
+      });
+      dependentExperiments =
+        dependentExperiments ??
+        getDependentExperiments(
+          feature,
+          experiments,
+          experimentDependencyIndex,
+        );
 
-      const linkedExperiments = (feature?.linkedExperiments ?? [])
-        .map((id) => experimentMap.get(id))
-        .filter(isDefined);
+      const envResults = buildEnvResults(
+        feature,
+        environments,
+        experimentMap,
+        nonStaleDependentFeatureIds,
+        featuresMap,
+        dependentExperiments,
+      );
+
+      if (feature.neverStale)
+        return { stale: false, reason: "never-stale", envResults };
 
       const twoWeeksAgo = subWeeks(new Date(), 2);
       const dateUpdated = getValidDate(feature.dateUpdated);
-      const stale = dateUpdated < twoWeeksAgo;
+      const oldEnough = dateUpdated < twoWeeksAgo;
 
-      if (!stale) return { stale };
+      if (!oldEnough)
+        return { stale: false, reason: "recently-updated", envResults };
 
-      // features with draft revisions are not stale
-      if (feature.hasDrafts) return { stale: false };
-
-      // features with fresh dependents are not stale
-      if (features && features.length > 1) {
-        const dependentFeatures = getDependentFeatures(
-          feature,
-          features,
-          environments,
-        );
-        const hasNonStaleDependentFeatures = dependentFeatures.some((id) => {
-          const f = featuresMap.get(id);
-          if (!f) return true;
-          return !visit(f).stale;
-        });
-        if (dependentFeatures.length && hasNonStaleDependentFeatures) {
-          return { stale: false };
+      // Active drafts block stale. Abandoned drafts (>1 month) don't force
+      // stale on their own — they surface as the reason only if envs are also stale.
+      let hasAbandonedDraft = false;
+      if (mostRecentDraftDate !== undefined && mostRecentDraftDate !== null) {
+        if (mostRecentDraftDate >= subMonths(new Date(), 1)) {
+          return { stale: false, reason: "active-draft", envResults };
         }
+        hasAbandonedDraft = true;
       }
-      dependentExperiments =
-        dependentExperiments ?? getDependentExperiments(feature, experiments);
+
+      if (nonStaleDependentFeatureIds.length) {
+        return { stale: false, reason: "has-dependents", envResults };
+      }
       const hasNonStaleDependentExperiments = dependentExperiments.some((e) =>
         includeExperimentInPayload(e),
       );
       if (dependentExperiments.length && hasNonStaleDependentExperiments) {
-        return { stale: false };
+        return { stale: false, reason: "has-dependents", envResults };
       }
 
-      const envSettings = Object.values(feature.environmentSettings ?? {});
+      const envValues = Object.values(envResults);
+      // Exclude toggled-off environments from the stale determination — a
+      // disabled env isn't "stale", it's just off. Only enabled envs count.
+      const activeEnvValues = envValues.filter(
+        (e) => e.reason !== "toggled-off",
+      );
+      const stale =
+        activeEnvValues.length === 0
+          ? false
+          : activeEnvValues.every((e) => e.stale);
+      const reason = stale
+        ? hasAbandonedDraft
+          ? "abandoned-draft"
+          : pickOverallReason(activeEnvValues.map((e) => e.reason))
+        : undefined;
 
-      const enabledEnvs = envSettings.filter((e) => e.enabled);
-      const enabledRules = enabledEnvs
-        .map((e) => e.rules)
-        .flat()
-        .filter((r) => r.enabled);
-
-      if (enabledRules.length === 0) return { stale, reason: "no-rules" };
-
-      // If there's at least one active experiment, it's not stale
-      if (linkedExperiments.some((e) => includeExperimentInPayload(e)))
-        return { stale: false };
-
-      if (areRulesOneSided(enabledRules))
-        return { stale, reason: "rules-one-sided" };
-
-      return { stale: false };
+      return { stale, reason, envResults };
     } catch (e) {
       // eslint-disable-next-line no-console
       console.error("Error calculating stale feature", e);
-      return { stale: false };
+      return { stale: false, envResults: {} };
     }
   };
 
@@ -409,7 +1040,12 @@ export interface MergeConflict {
 export type MergeStrategy = "" | "overwrite" | "discard";
 export type MergeResultChanges = {
   defaultValue?: string;
-  rules?: Record<string, FeatureRule[]>;
+  rules?: FeatureRule[];
+  environmentsEnabled?: Record<string, boolean>;
+  prerequisites?: FeaturePrerequisite[];
+  archived?: boolean;
+  metadata?: RevisionMetadata;
+  holdout?: { id: string; value: string } | null;
 };
 export type AutoMergeResult =
   | {
@@ -422,182 +1058,998 @@ export type AutoMergeResult =
       conflicts: MergeConflict[];
     };
 
-export type RulesAndValues = Pick<
+export type RevisionFields = Pick<
   FeatureRevisionInterface,
-  "defaultValue" | "rules" | "version"
+  | "defaultValue"
+  | "rules"
+  | "version"
+  | "environmentsEnabled"
+  | "prerequisites"
+  | "archived"
+  | "metadata"
+  | "holdout"
+  | "rampActions"
 >;
+
+// Per-field backfill for old/sparse revisions before passing to autoMerge.
+// Fields not listed here are left as-is; sparse absence is meaningful for those.
+const revisionFieldFillers: Partial<{
+  [K in keyof RevisionFields]: (
+    feature: FeatureInterface,
+    current: RevisionFields[K],
+  ) => RevisionFields[K];
+}> = {
+  // Fill missing envs from the live feature so new envs don't produce false diffs.
+  environmentsEnabled: (feature, current) => ({
+    ...Object.fromEntries(
+      Object.entries(feature.environmentSettings ?? {}).map(([env, val]) => [
+        env,
+        !!val.enabled,
+      ]),
+    ),
+    ...(current ?? {}),
+  }),
+  // Backfill valueType for old revisions that predate this field.
+  metadata: (feature, current) =>
+    current?.valueType != null
+      ? current
+      : { ...current, valueType: feature.valueType },
+  // Backfill envelope fields for legacy revisions that predate them. Without
+  // this, revisionHasGlobalChange compares e.g. "false" !== undefined for
+  // defaultValue and returns "all", bypassing env-scoped review checks even
+  // for drafts that only touch non-gated environments.
+  defaultValue: (feature, current) => current ?? feature.defaultValue,
+  archived: (feature, current) => current ?? feature.archived ?? false,
+  prerequisites: (feature, current) => current ?? feature.prerequisites ?? [],
+  // Backfill holdout from feature so that removing a holdout is detected as a change.
+  // Without this, comparing draft.holdout (null) vs base.holdout (undefined → null)
+  // would show no change when the feature actually has a holdout.
+  // Note: we check for undefined explicitly because null is a valid value (means removal).
+  holdout: (feature, current) =>
+    current !== undefined ? current : (feature.holdout ?? null),
+};
+
+// Backfills stale/missing fields on a revision before passing to autoMerge.
+export function fillRevisionFromFeature(
+  revision: RevisionFields,
+  feature: FeatureInterface,
+): RevisionFields {
+  const result = { ...revision } as RevisionFields;
+  for (const k of Object.keys(
+    revisionFieldFillers,
+  ) as (keyof RevisionFields)[]) {
+    (result[k] as unknown) = revisionFieldFillers[k]!(
+      feature,
+      result[k] as never,
+    );
+  }
+  return result;
+}
+
+// Builds a canonical RevisionFields snapshot from the live feature document.
+// Use this (not fillRevisionFromFeature) when constructing the live baseline for diffs.
+export function liveRevisionFromFeature(
+  liveRevision: RevisionFields,
+  feature: FeatureInterface,
+): RevisionFields {
+  return {
+    ...liveRevision,
+    defaultValue: feature.defaultValue,
+    rules: feature.rules ?? [],
+    environmentsEnabled: Object.fromEntries(
+      Object.entries(feature.environmentSettings ?? {}).map(([env, val]) => [
+        env,
+        !!val.enabled,
+      ]),
+    ),
+    archived: feature.archived ?? false,
+    prerequisites: feature.prerequisites ?? [],
+    holdout:
+      "holdout" in (feature as object)
+        ? ((feature as { holdout?: RevisionFields["holdout"] }).holdout ?? null)
+        : (liveRevision.holdout ?? null),
+    metadata: {
+      description: feature.description ?? "",
+      owner: feature.owner ?? "",
+      project: feature.project ?? "",
+      tags: feature.tags ?? [],
+      jsonSchema: feature.jsonSchema,
+      valueType: feature.valueType,
+      ...(liveRevision.metadata ?? {}),
+    },
+  };
+}
+
+// Overlays a draft's stored fields onto the live baseline.
+export function buildEffectiveDraft(
+  draftRevision: RevisionFields,
+  filledLive: RevisionFields,
+): RevisionFields {
+  return {
+    ...filledLive,
+    defaultValue: draftRevision.defaultValue,
+    rules: draftRevision.rules,
+    ...(draftRevision.environmentsEnabled !== undefined && {
+      environmentsEnabled: draftRevision.environmentsEnabled,
+    }),
+    ...(draftRevision.prerequisites !== undefined && {
+      prerequisites: draftRevision.prerequisites,
+    }),
+    ...(draftRevision.archived !== undefined && {
+      archived: draftRevision.archived,
+    }),
+    ...(draftRevision.metadata !== undefined && {
+      metadata: { ...filledLive.metadata, ...draftRevision.metadata },
+    }),
+    ...("holdout" in draftRevision && {
+      holdout: draftRevision.holdout,
+    }),
+  };
+}
+
+// Returns true if the draft differs from live across any tracked field.
+export function draftDiffersFromLive(
+  draftRevision: RevisionFields,
+  liveRevision: RevisionFields,
+  feature: FeatureInterface,
+  envIds: string[],
+): boolean {
+  const filledLive = liveRevisionFromFeature(liveRevision, feature);
+  const draft = buildEffectiveDraft(draftRevision, filledLive);
+
+  if (draft.defaultValue !== filledLive.defaultValue) return true;
+  if (draft.archived !== filledLive.archived) return true;
+  // Whole-array diff is the canonical "did rules change" check; per-env
+  // projection is only needed for UX/gating (see `getDraftAffectedEnvironments`).
+  if (
+    JSON.stringify(naiveFlattenV1Rules(draft.rules)) !==
+    JSON.stringify(naiveFlattenV1Rules(filledLive.rules))
+  )
+    return true;
+  if (
+    envIds.some(
+      (env) =>
+        (draft.environmentsEnabled?.[env] ?? false) !==
+        (filledLive.environmentsEnabled?.[env] ?? false),
+    )
+  )
+    return true;
+  if (
+    JSON.stringify(draft.prerequisites ?? []) !==
+    JSON.stringify(filledLive.prerequisites ?? [])
+  )
+    return true;
+  if (draft.metadata) {
+    const keys = new Set([
+      ...Object.keys(draft.metadata),
+      ...Object.keys(filledLive.metadata ?? {}),
+    ]) as Set<keyof RevisionMetadata>;
+    for (const k of keys) {
+      if (
+        !isEqual(
+          normalizeMetadataValue(k, draft.metadata[k]),
+          normalizeMetadataValue(k, filledLive.metadata?.[k]),
+        )
+      )
+        return true;
+    }
+  }
+  if (!isEqual(draft.holdout ?? null, filledLive.holdout ?? null)) return true;
+  // Pending ramp actions (create/detach) are meaningful changes even if no feature content changed
+  if ((draftRevision.rampActions ?? []).length > 0) return true;
+  return false;
+}
 
 export function mergeResultHasChanges(mergeResult: AutoMergeResult): boolean {
   if (!mergeResult.success) return true;
+  const r = mergeResult.result;
+  if (r.defaultValue !== undefined) return true;
+  // `autoMerge` sets `rules` only when they differ from base. Presence
+  // (including an explicit `[]` meaning "all rules deleted") is meaningful.
+  if (r.rules !== undefined) return true;
+  if (Object.keys(r.environmentsEnabled || {}).length > 0) return true;
+  if (r.prerequisites !== undefined) return true;
+  if (r.archived !== undefined) return true;
+  if ("holdout" in r) return true;
+  if (r.metadata !== undefined && Object.keys(r.metadata).length > 0)
+    return true;
+  return false;
+}
 
-  if (Object.keys(mergeResult.result.rules || {}).length > 0) return true;
+// A single field that the live feature changed relative to a draft's base
+// version — i.e. a change "published since this draft was created". The `key`
+// mirrors the conflict keys used by `autoMerge` (e.g. "rules",
+// "environmentsEnabled.prod", "metadata.description") and `name` is a
+// human-readable label suitable for UI/notifications.
+export interface LiveChange {
+  key: string;
+  name: string;
+}
 
-  if (mergeResult.result.defaultValue !== undefined) return true;
+// Compute the set of fields that differ between the current live revision and
+// the revision a draft was branched from (its base). This powers the
+// "published in live since this draft's base" panel and the divergence
+// warning/count surfaced before publish, as well as REST API friction
+// payloads. It is purely descriptive — it never resolves or merges anything.
+export function getLiveChangesSinceBase(
+  live: RevisionFields,
+  base: RevisionFields,
+  environments: string[],
+): LiveChange[] {
+  const changes: LiveChange[] = [];
+
+  if (live.defaultValue !== base.defaultValue) {
+    changes.push({ key: "defaultValue", name: "Default Value" });
+  }
+
+  if (
+    !isEqual(naiveFlattenV1Rules(live.rules), naiveFlattenV1Rules(base.rules))
+  ) {
+    changes.push({ key: "rules", name: "Rules" });
+  }
+
+  for (const env of environments) {
+    const liveVal = live.environmentsEnabled?.[env];
+    const baseVal = base.environmentsEnabled?.[env];
+    if (!isEqual(liveVal, baseVal)) {
+      changes.push({
+        key: `environmentsEnabled.${env}`,
+        name: `Env Enabled - ${env}`,
+      });
+    }
+  }
+
+  if (!isEqual(live.prerequisites ?? [], base.prerequisites ?? [])) {
+    changes.push({ key: "prerequisites", name: "Prerequisites" });
+  }
+
+  if ((live.archived ?? false) !== (base.archived ?? false)) {
+    changes.push({ key: "archived", name: "Archived" });
+  }
+
+  if (!isEqual(live.holdout ?? null, base.holdout ?? null)) {
+    changes.push({ key: "holdout", name: "Holdout" });
+  }
+
+  const metadataKeys = new Set<keyof RevisionMetadata>([
+    ...((Object.keys(live.metadata ?? {}) as (keyof RevisionMetadata)[]) || []),
+    ...((Object.keys(base.metadata ?? {}) as (keyof RevisionMetadata)[]) || []),
+  ]);
+  for (const k of metadataKeys) {
+    if (
+      !isEqual(
+        normalizeMetadataValue(k, live.metadata?.[k]),
+        normalizeMetadataValue(k, base.metadata?.[k]),
+      )
+    ) {
+      changes.push({ key: `metadata.${k}`, name: `Metadata - ${k}` });
+    }
+  }
+
+  return changes;
+}
+
+// Classifies how a draft relates to the current live version:
+//   "current"  — built on the live version; nothing changed underneath it
+//   "diverged" — live advanced since the draft's base, but changes auto-merge
+//   "conflict" — live advanced with changes that conflict and need resolution
+export type DivergenceClass = "current" | "diverged" | "conflict";
+
+export interface PublishGovernanceInput {
+  // Status of the draft revision being acted on.
+  revisionStatus: FeatureRevisionInterface["status"];
+  // The version the draft was branched from.
+  baseVersion: number;
+  // The current live version of the feature.
+  liveVersion: number;
+  // Whether autoMerge produced a result with no unresolved conflicts.
+  mergeSuccess: boolean;
+  // The set of fields live changed since the draft's base (descriptive only).
+  liveChanges: LiveChange[];
+  // The live version captured at the moment the draft was approved. Null for
+  // legacy approvals created before this was tracked.
+  approvedBaseVersion?: number | null;
+  // Org setting: when true, a stale draft must be rebased before publishing.
+  requireRebaseBeforePublish?: boolean;
+}
+
+export interface PublishGovernanceResult {
+  diverged: boolean;
+  divergence: DivergenceClass;
+  liveChanges: LiveChange[];
+  // An approved draft whose approval no longer reflects the current live state
+  // because changes were published after approval.
+  staleApproval: boolean;
+  // Rebasing is advisable (divergence or a stale approval). UI should surface
+  // a "Rebase with live" affordance.
+  recommendRebase: boolean;
+  // Rebasing/conflict-resolution is mandatory before publishing (hard conflict,
+  // or org policy requires same-base merges, or a stale approval under policy).
+  rebaseRequired: boolean;
+  // Whether publishing is allowed in the current state.
+  canPublish: boolean;
+  // Human-readable reason publishing is blocked (null when allowed).
+  blockReason: string | null;
+}
+
+// Central governance decision for publishing/reviewing a draft revision. Pure
+// and side-effect free so it can be unit tested and shared between the publish
+// UI (callouts + CTA gating) and back-end enforcement. It does NOT perform the
+// merge itself — callers pass in the merge outcome and the live-vs-base delta.
+export function evaluatePublishGovernance({
+  revisionStatus,
+  baseVersion,
+  liveVersion,
+  mergeSuccess,
+  liveChanges,
+  approvedBaseVersion = null,
+  requireRebaseBeforePublish = false,
+}: PublishGovernanceInput): PublishGovernanceResult {
+  const diverged = liveVersion !== baseVersion;
+  const divergence: DivergenceClass = !mergeSuccess
+    ? "conflict"
+    : diverged
+      ? "diverged"
+      : "current";
+
+  // An approval is stale when live moved past the point it was approved
+  // against. When we have a tracked approval point, compare against it
+  // precisely; otherwise (legacy approvals) fall back to raw divergence.
+  const staleApproval =
+    revisionStatus === "approved" &&
+    ((approvedBaseVersion ?? null) !== null
+      ? liveVersion !== approvedBaseVersion
+      : diverged);
+
+  const recommendRebase = divergence !== "current" || staleApproval;
+
+  const rebaseRequired =
+    divergence === "conflict" ||
+    (requireRebaseBeforePublish &&
+      (divergence === "diverged" || staleApproval));
+
+  let canPublish = true;
+  let blockReason: string | null = null;
+  if (divergence === "conflict") {
+    canPublish = false;
+    blockReason =
+      "Resolve conflicts with the live version before publishing this draft.";
+  } else if (rebaseRequired) {
+    canPublish = false;
+    blockReason = staleApproval
+      ? "Changes were published after this draft was approved. Rebase with live and get re-approval before publishing."
+      : "This draft is based on an older version. Rebase with live before publishing.";
+  }
+
+  return {
+    diverged,
+    divergence,
+    liveChanges,
+    staleApproval,
+    recommendRebase,
+    rebaseRequired,
+    canPublish,
+    blockReason,
+  };
+}
+
+// ── Scheduled / deferred publish ────────────────────────────────────────────
+// Single source of truth lives in shared/revisions/scheduledPublish; re-exported
+// here so feature surfaces importing from shared/util keep working. Imported from
+// the specific file (not a barrel) to avoid a runtime import cycle.
+export {
+  isScheduledPublishPending,
+  isScheduledPublishDue,
+  isScheduledPublishLockActive,
+  isRevisionEditLockedBySchedule,
+  findPublishLockingScheduledRevision,
+} from "../revisions/scheduledPublish";
+
+// True if publishing the draft would change anything outside the target
+// experiment's experiment-ref rule(s). Compares effective post-publish state
+// (live overlaid with draft-set fields) vs live, sidestepping autoMerge's
+// phantom diffs from sparse legacy revisions. Skips environmentsEnabled
+// (auto-toggled on link) and metadata (no SDK payload impact).
+export function draftHasChangesOutsideExperiment(
+  draftRevision: RevisionFields,
+  filledLive: RevisionFields,
+  experimentId: string,
+): boolean {
+  const effective = buildEffectiveDraft(draftRevision, filledLive);
+
+  if (effective.defaultValue !== filledLive.defaultValue) return true;
+  if ((effective.archived ?? false) !== (filledLive.archived ?? false))
+    return true;
+  if (!isEqual(effective.prerequisites ?? [], filledLive.prerequisites ?? []))
+    return true;
+  if (!isEqual(effective.holdout ?? null, filledLive.holdout ?? null))
+    return true;
+
+  const stripTargetRefs = (rules: FeatureRule[] | undefined) =>
+    (rules ?? []).filter(
+      (rule) =>
+        !(rule.type === "experiment-ref" && rule.experimentId === experimentId),
+    );
+  const liveOther = stripTargetRefs(naiveFlattenV1Rules(filledLive.rules));
+  const draftOther = stripTargetRefs(naiveFlattenV1Rules(effective.rules));
+  if (!isEqual(liveOther, draftOther)) return true;
 
   return false;
 }
-export function listChangedEnvironments(
-  base: RulesAndValues,
-  revision: RulesAndValues,
-  allEnviroments: string[],
-) {
-  const environmentsList: string[] = [];
-  allEnviroments?.forEach((env) => {
-    const rules = revision.rules[env];
-    if (!rules) return;
-    if (isEqual(rules, base.rules[env] || [])) {
-      return;
+// Normalize a metadata field value for comparison.
+export function normalizeMetadataValue(
+  k: keyof RevisionMetadata,
+  v: RevisionMetadata[keyof RevisionMetadata],
+): unknown {
+  if (k === "tags") return (v as string[] | null | undefined) ?? [];
+  if (k === "description" || k === "owner" || k === "project")
+    return (v as string | null | undefined) ?? "";
+  return v;
+}
+
+// Returns true if the revision contains a change that affects all environments
+// (prerequisites, archived, holdout, defaultValue, or metadata).
+// Used by getDraftAffectedEnvironments and checkIfRevisionNeedsReview.
+function revisionHasGlobalChange(
+  revision: RevisionFields,
+  base: RevisionFields,
+): boolean {
+  if (
+    revision.prerequisites !== undefined &&
+    !isEqual(revision.prerequisites, base.prerequisites || [])
+  )
+    return true;
+  if (revision.archived !== undefined && revision.archived !== base.archived)
+    return true;
+  if (
+    "holdout" in revision &&
+    !isEqual(revision.holdout ?? null, base.holdout ?? null)
+  )
+    return true;
+  if (revision.defaultValue !== base.defaultValue) return true;
+  if (
+    revision.metadata &&
+    (Object.keys(revision.metadata) as (keyof RevisionMetadata)[]).some(
+      (k) =>
+        !isEqual(
+          normalizeMetadataValue(k, revision.metadata![k]),
+          normalizeMetadataValue(k, base.metadata?.[k]),
+        ),
+    )
+  )
+    return true;
+  return false;
+}
+
+// Returns true if the revision has a metadata-only global change (no
+// prerequisites, archived, holdout, or defaultValue changes).
+function revisionHasMetadataOnlyGlobalChange(
+  revision: RevisionFields,
+  base: RevisionFields,
+): boolean {
+  const hasNonMetadata =
+    (revision.prerequisites !== undefined &&
+      !isEqual(revision.prerequisites, base.prerequisites || [])) ||
+    (revision.archived !== undefined && revision.archived !== base.archived) ||
+    ("holdout" in revision &&
+      !isEqual(revision.holdout ?? null, base.holdout ?? null)) ||
+    revision.defaultValue !== base.defaultValue;
+  if (hasNonMetadata) return false;
+  return (
+    !!revision.metadata &&
+    (Object.keys(revision.metadata) as (keyof RevisionMetadata)[]).some(
+      (k) =>
+        !isEqual(
+          normalizeMetadataValue(k, revision.metadata![k]),
+          normalizeMetadataValue(k, base.metadata?.[k]),
+        ),
+    )
+  );
+}
+
+// Granular three-way merge of two diverged rule arrays (matched by id).
+// Rules that only one side touched merge automatically. A rule that both
+// sides changed differently — including delete-vs-modify — produces its own
+// `rules.<ruleId>` conflict, resolvable independently via the strategies map
+// (`overwrite` = take the draft's version, `discard` = take live's). When
+// both sides reordered the surviving rules differently, a `rules.order`
+// conflict is emitted with the competing id sequences. The blanket "rules"
+// strategy key is honored as a fallback that applies to every rule-level
+// conflict, preserving the older all-or-nothing resolution contract.
+//
+// Returns the conflicts found (resolved or not) and the merged array — or
+// `merged: null` while any rule-level conflict remains unresolved.
+function mergeRulesGranular(
+  base: FeatureRule[],
+  live: FeatureRule[],
+  revision: FeatureRule[],
+  strategies: Record<string, MergeStrategy>,
+): { merged: FeatureRule[] | null; conflicts: MergeConflict[] } {
+  // Defensive: callers route through `naiveFlattenV1Rules` which already
+  // filters nullish slots, but the merge keys by `r.id` and a stray nullish
+  // entry would collapse every other rule into the `undefined` map slot.
+  // Skip them here too rather than corrupting the merge silently.
+  const filterValid = (rules: FeatureRule[]) =>
+    rules.filter(
+      (r): r is FeatureRule => r != null && typeof r === "object" && !!r.id,
+    );
+  base = filterValid(base);
+  live = filterValid(live);
+  revision = filterValid(revision);
+
+  const baseById = new Map(base.map((r) => [r.id, r]));
+  const liveById = new Map(live.map((r) => [r.id, r]));
+  const revById = new Map(revision.map((r) => [r.id, r]));
+
+  const conflicts: MergeConflict[] = [];
+  // Per-key strategy with the blanket "rules" key as a legacy fallback.
+  const strategyFor = (key: string): MergeStrategy =>
+    strategies[key] || strategies["rules"] || "";
+  const stringifySide = (rule: FeatureRule | undefined): string =>
+    rule === undefined ? "" : JSON.stringify(rule, null, 2);
+
+  // Decide a winner per rule id: the rule's merged content, or null when the
+  // winning side deleted it. Ids with unresolved conflicts get no entry.
+  const winners = new Map<string, FeatureRule | null>();
+  const allIds = new Set([
+    ...base.map((r) => r.id),
+    ...live.map((r) => r.id),
+    ...revision.map((r) => r.id),
+  ]);
+
+  for (const id of allIds) {
+    const baseRule = baseById.get(id);
+    const liveRule = liveById.get(id);
+    const revRule = revById.get(id);
+    const liveChanged = !isEqual(liveRule, baseRule);
+    const revChanged = !isEqual(revRule, baseRule);
+
+    if (liveChanged && revChanged && !isEqual(liveRule, revRule)) {
+      // Both sides changed the same rule differently (an absent side means
+      // that side deleted it) — a genuine per-rule conflict.
+      const sourceRule = revRule ?? liveRule ?? baseRule;
+      const desc =
+        typeof sourceRule?.description === "string"
+          ? sourceRule.description.trim()
+          : "";
+      const conflictInfo: MergeConflict = {
+        name: desc ? `Rule – ${desc}` : `Rule – ${id}`,
+        key: `rules.${id}`,
+        base: stringifySide(baseRule),
+        live: stringifySide(liveRule),
+        revision: stringifySide(revRule),
+        resolved: false,
+      };
+      const strategy = strategyFor(conflictInfo.key);
+      if (strategy === "overwrite") {
+        conflictInfo.resolved = true;
+        winners.set(id, revRule ?? null);
+      } else if (strategy === "discard") {
+        conflictInfo.resolved = true;
+        winners.set(id, liveRule ?? null);
+      }
+      conflicts.push(conflictInfo);
+      continue;
     }
-    environmentsList.push(env);
-  });
-  return environmentsList;
+
+    // At most one side changed (or both made the identical change): the
+    // changed side wins. An absent winner is a deletion — honoring it here is
+    // what keeps draft deletions from being silently resurrected and live
+    // deletions from reappearing.
+    winners.set(id, (revChanged ? revRule : liveRule) ?? null);
+  }
+
+  // Ordering: compare each side's relative order of the ids it shares with
+  // base. If only the draft reordered, its order wins; if only live did (or
+  // neither), live's order wins; if both reordered differently, that is an
+  // order conflict the caller must resolve via `rules.order`.
+  const relativeOrder = (
+    rules: FeatureRule[],
+    others: Map<string, FeatureRule>,
+  ): string[] => rules.map((r) => r.id).filter((id) => others.has(id));
+  const liveReordered = !isEqual(
+    relativeOrder(live, baseById),
+    relativeOrder(base, liveById),
+  );
+  const revReordered = !isEqual(
+    relativeOrder(revision, baseById),
+    relativeOrder(base, revById),
+  );
+
+  let useDraftOrder = revReordered && !liveReordered;
+  if (liveReordered && revReordered) {
+    const liveCommon = relativeOrder(live, revById);
+    const revCommon = relativeOrder(revision, liveById);
+    if (!isEqual(liveCommon, revCommon)) {
+      const conflictInfo: MergeConflict = {
+        name: "Rule Order",
+        key: "rules.order",
+        base: JSON.stringify(
+          base.map((r) => r.id),
+          null,
+          2,
+        ),
+        live: JSON.stringify(
+          live.map((r) => r.id),
+          null,
+          2,
+        ),
+        revision: JSON.stringify(
+          revision.map((r) => r.id),
+          null,
+          2,
+        ),
+        resolved: false,
+      };
+      const strategy = strategyFor(conflictInfo.key);
+      if (strategy === "overwrite") {
+        conflictInfo.resolved = true;
+        useDraftOrder = true;
+      } else if (strategy === "discard") {
+        conflictInfo.resolved = true;
+      }
+      conflicts.push(conflictInfo);
+    }
+  }
+
+  if (conflicts.some((c) => !c.resolved)) {
+    return { merged: null, conflicts };
+  }
+
+  // Walk the winning side's ordering pushing each id's winner, then append
+  // winners only present on the other side (that side's additions).
+  const primary = useDraftOrder ? revision : live;
+  const secondary = useDraftOrder ? live : revision;
+  const merged: FeatureRule[] = [];
+  const placed = new Set<string>();
+  for (const rule of [...primary, ...secondary]) {
+    if (placed.has(rule.id)) continue;
+    placed.add(rule.id);
+    const winner = winners.get(rule.id);
+    if (winner) merged.push(winner);
+  }
+
+  return { merged, conflicts };
+}
+
+// Pending ramp actions reference draft rules by id. After a rebase the
+// referenced rule may no longer exist (e.g. live deleted a rule the draft
+// never touched, so the merge dropped it) — such actions can never execute
+// and would otherwise ride along silently until publish-time orphan cleanup.
+// Returns the surviving actions plus the orphans so callers can persist the
+// prune and record it in the audit log. Actions without a rule reference are
+// kept as-is.
+export function pruneOrphanedRampActions<T extends { ruleId?: string }>(
+  rampActions: T[] | undefined,
+  rules: FeatureRule[],
+): { kept: T[]; pruned: T[] } {
+  const ruleIds = new Set(rules.map((r) => r?.id).filter(Boolean));
+  const kept: T[] = [];
+  const pruned: T[] = [];
+  for (const action of rampActions ?? []) {
+    if (!action.ruleId || ruleIds.has(action.ruleId)) {
+      kept.push(action);
+    } else {
+      pruned.push(action);
+    }
+  }
+  return { kept, pruned };
 }
 
 export function autoMerge(
-  live: RulesAndValues,
-  base: RulesAndValues,
-  revision: RulesAndValues,
+  live: RevisionFields,
+  base: RevisionFields,
+  revision: RevisionFields,
   environments: string[],
   strategies: Record<string, MergeStrategy>,
 ): AutoMergeResult {
-  const result: {
-    defaultValue?: string;
-    rules?: Record<string, FeatureRule[]>;
-  } = {};
+  const result: MergeResultChanges = {};
+  const diverged = live.version !== base.version;
 
-  // If the base and feature have not diverged, no need to merge anything
-  if (live.version === base.version) {
-    // Only add changes to result if it's different from the base
+  // Normalize all three sides up front. Pre-migration audit logs / draft
+  // revisions may still arrive in v1 shape (Record<env, FeatureRule[]>);
+  // normalize to a canonical v2 FeatureRule[] before any merge reasoning.
+  const liveRules = naiveFlattenV1Rules(live.rules);
+  const baseRules = naiveFlattenV1Rules(base.rules);
+  const revRules = naiveFlattenV1Rules(revision.rules);
+  // `environments` is retained in the signature for call-site compatibility
+  // and for the environmentsEnabled / override paths below, but rule merging
+  // now operates on the flat v2 array — not a per-env projection.
+  void environments;
+
+  // No divergence path: only include revision changes that differ from base
+  if (!diverged) {
     if (revision.defaultValue !== base.defaultValue) {
       result.defaultValue = revision.defaultValue;
     }
 
-    environments.forEach((env) => {
-      const rules = revision.rules?.[env];
-      if (!rules) return;
-      if (isEqual(rules, base.rules[env] || [])) {
-        return;
-      }
-      result.rules = result.rules || {};
-      result.rules[env] = rules;
-    });
+    if (revision.rules !== undefined && !isEqual(revRules, baseRules)) {
+      result.rules = revRules;
+    }
 
-    return {
-      success: true,
-      result,
-      conflicts: [],
-    };
+    // environmentsEnabled
+    if (revision.environmentsEnabled) {
+      for (const env of Object.keys(revision.environmentsEnabled)) {
+        const revVal = revision.environmentsEnabled[env];
+        if (revVal !== base.environmentsEnabled?.[env]) {
+          result.environmentsEnabled = result.environmentsEnabled || {};
+          result.environmentsEnabled[env] = revVal;
+        }
+      }
+    }
+
+    // prerequisites
+    if (
+      revision.prerequisites !== undefined &&
+      !isEqual(revision.prerequisites, base.prerequisites || [])
+    ) {
+      result.prerequisites = revision.prerequisites;
+    }
+
+    // archived
+    if (
+      revision.archived !== undefined &&
+      revision.archived !== base.archived
+    ) {
+      result.archived = revision.archived;
+    }
+
+    // holdout
+    if (
+      "holdout" in revision &&
+      !isEqual(revision.holdout, base.holdout ?? null)
+    ) {
+      result.holdout = revision.holdout;
+    }
+
+    // metadata — per-field comparison
+    if (revision.metadata) {
+      const metadataResult: RevisionMetadata = {};
+      let hasMetadataChanges = false;
+      for (const k of Object.keys(
+        revision.metadata,
+      ) as (keyof RevisionMetadata)[]) {
+        const revNorm = normalizeMetadataValue(k, revision.metadata[k]);
+        const baseNorm = normalizeMetadataValue(k, base.metadata?.[k]);
+        if (!isEqual(revNorm, baseNorm)) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (metadataResult as any)[k] = revision.metadata[k];
+          hasMetadataChanges = true;
+        }
+      }
+      if (hasMetadataChanges) result.metadata = metadataResult;
+    }
+
+    return { success: true, result, conflicts: [] };
   }
 
+  // Diverged path: three-way merge with conflict detection
   const conflicts: MergeConflict[] = [];
 
-  // If the revision's defaultValue has been changed
+  // defaultValue
   if (
     revision.defaultValue !== base.defaultValue &&
-    live.defaultValue !== revision.defaultValue
+    revision.defaultValue !== live.defaultValue
   ) {
-    // If there's a conflict with the live version
     if (live.defaultValue !== base.defaultValue) {
-      const conflictInfo = {
+      const conflictInfo: MergeConflict = {
         name: "Default Value",
         key: "defaultValue",
         base: base.defaultValue,
         live: live.defaultValue,
         revision: revision.defaultValue,
+        resolved: false,
       };
-      const strategy = strategies[conflictInfo.key];
-
+      const strategy = strategies["defaultValue"];
       if (strategy === "overwrite") {
-        conflicts.push({
-          ...conflictInfo,
-          resolved: true,
-        });
+        conflictInfo.resolved = true;
         result.defaultValue = revision.defaultValue;
       } else if (strategy === "discard") {
-        conflicts.push({
-          ...conflictInfo,
-          resolved: true,
-        });
-      } else {
-        conflicts.push({
-          ...conflictInfo,
-          resolved: false,
-        });
+        conflictInfo.resolved = true;
       }
-    }
-    // Otherwise, there's no conflict and it's safe to update
-    else {
+      conflicts.push(conflictInfo);
+    } else {
       result.defaultValue = revision.defaultValue;
     }
   }
 
-  // Check for conflicts in rules
-  environments.forEach((env) => {
-    const rules = revision.rules?.[env];
-    if (!rules) return;
-
-    // If the revision doesn't have changes in this environment, skip
-    if (
-      isEqual(rules, base.rules[env] || []) ||
-      isEqual(rules, live.rules[env] || [])
-    ) {
-      return;
-    }
-
-    result.rules = result.rules || {};
-
-    // If there's a conflict
-    // TODO: be smarter about this - it's only really a conflict if the same rule is being changed in both
-    if (
-      env in live.rules &&
-      !isEqual(live.rules[env] || [], base.rules[env] || []) &&
-      !isEqual(live.rules[env] || [], rules)
-    ) {
-      const conflictInfo = {
-        name: `Rules - ${env}`,
-        key: `rules.${env}`,
-        base: JSON.stringify(base.rules[env], null, 2),
-        live: JSON.stringify(live.rules[env], null, 2),
-        revision: JSON.stringify(rules, null, 2),
-      };
-      const strategy = strategies[conflictInfo.key];
-
-      if (strategy === "overwrite") {
-        conflicts.push({
-          ...conflictInfo,
-          resolved: true,
-        });
-        result.rules[env] = rules;
-      } else if (strategy === "discard") {
-        conflicts.push({
-          ...conflictInfo,
-          resolved: true,
-        });
+  // rules (flat v2 array — granular per-rule merge)
+  if (revision.rules !== undefined && !isEqual(revRules, baseRules)) {
+    if (!isEqual(revRules, liveRules)) {
+      if (!isEqual(liveRules, baseRules)) {
+        // Both sides diverged from base. Merge rule-by-rule: untouched/
+        // one-sided changes merge automatically, while rules both sides
+        // changed differently surface as individual `rules.<ruleId>`
+        // conflicts (plus `rules.order` for competing reorders), each
+        // resolvable independently.
+        const ruleMerge = mergeRulesGranular(
+          baseRules,
+          liveRules,
+          revRules,
+          strategies,
+        );
+        conflicts.push(...ruleMerge.conflicts);
+        if (
+          ruleMerge.merged !== null &&
+          !isEqual(ruleMerge.merged, liveRules)
+        ) {
+          result.rules = ruleMerge.merged;
+        }
       } else {
-        conflicts.push({
-          ...conflictInfo,
-          resolved: false,
-        });
+        // Only revision changed; adopt its rules wholesale.
+        result.rules = revRules;
       }
     }
-    // No conflict
-    else {
-      result.rules[env] = rules;
-    }
-  });
-
-  if (conflicts.some((c) => !c.resolved)) {
-    return {
-      success: false,
-      conflicts,
-    };
   }
 
-  return {
-    success: true,
-    conflicts,
-    result,
-  };
+  // environmentsEnabled (per-env boolean)
+  if (revision.environmentsEnabled) {
+    for (const env of Object.keys(revision.environmentsEnabled)) {
+      const revVal = revision.environmentsEnabled[env];
+      const baseVal = base.environmentsEnabled?.[env];
+      const liveVal = live.environmentsEnabled?.[env];
+      if (revVal === baseVal || revVal === liveVal) continue;
+
+      if (liveVal !== baseVal && !isEqual(liveVal, revVal)) {
+        const conflictInfo: MergeConflict = {
+          name: `Env Enabled - ${env}`,
+          key: `environmentsEnabled.${env}`,
+          base: JSON.stringify(baseVal),
+          live: JSON.stringify(liveVal),
+          revision: JSON.stringify(revVal),
+          resolved: false,
+        };
+        const strategy = strategies[conflictInfo.key];
+        if (strategy === "overwrite") {
+          conflictInfo.resolved = true;
+          result.environmentsEnabled = result.environmentsEnabled || {};
+          result.environmentsEnabled[env] = revVal;
+        } else if (strategy === "discard") {
+          conflictInfo.resolved = true;
+        }
+        conflicts.push(conflictInfo);
+      } else {
+        result.environmentsEnabled = result.environmentsEnabled || {};
+        result.environmentsEnabled[env] = revVal;
+      }
+    }
+  }
+
+  // prerequisites (flat array)
+  if (revision.prerequisites !== undefined) {
+    const revVal = revision.prerequisites;
+    const baseVal = base.prerequisites || [];
+    const liveVal = live.prerequisites || [];
+    if (!isEqual(revVal, baseVal) && !isEqual(revVal, liveVal)) {
+      if (!isEqual(liveVal, baseVal) && !isEqual(liveVal, revVal)) {
+        const conflictInfo: MergeConflict = {
+          name: "Prerequisites",
+          key: "prerequisites",
+          base: JSON.stringify(baseVal, null, 2),
+          live: JSON.stringify(liveVal, null, 2),
+          revision: JSON.stringify(revVal, null, 2),
+          resolved: false,
+        };
+        const strategy = strategies["prerequisites"];
+        if (strategy === "overwrite") {
+          conflictInfo.resolved = true;
+          result.prerequisites = revVal;
+        } else if (strategy === "discard") {
+          conflictInfo.resolved = true;
+        }
+        conflicts.push(conflictInfo);
+      } else {
+        result.prerequisites = revVal;
+      }
+    }
+  }
+
+  // archived (simple boolean, same conflict pattern as environmentsEnabled)
+  if (revision.archived !== undefined) {
+    const revVal = revision.archived;
+    const baseVal = base.archived;
+    const liveVal = live.archived;
+    if (revVal !== baseVal && revVal !== liveVal) {
+      if (liveVal !== baseVal && liveVal !== revVal) {
+        const conflictInfo: MergeConflict = {
+          name: "Archived",
+          key: "archived",
+          base: JSON.stringify(baseVal),
+          live: JSON.stringify(liveVal),
+          revision: JSON.stringify(revVal),
+          resolved: false,
+        };
+        const strategy = strategies["archived"];
+        if (strategy === "overwrite") {
+          conflictInfo.resolved = true;
+          result.archived = revVal;
+        } else if (strategy === "discard") {
+          conflictInfo.resolved = true;
+        }
+        conflicts.push(conflictInfo);
+      } else {
+        result.archived = revVal;
+      }
+    }
+  }
+
+  // holdout (nullable object, same conflict pattern as archived)
+  if ("holdout" in revision) {
+    const revVal = revision.holdout;
+    const baseVal = base.holdout ?? null;
+    const liveVal = live.holdout ?? null;
+    if (!isEqual(revVal, baseVal) && !isEqual(revVal, liveVal)) {
+      if (!isEqual(liveVal, baseVal) && !isEqual(liveVal, revVal)) {
+        const conflictInfo: MergeConflict = {
+          name: "Holdout",
+          key: "holdout",
+          base: JSON.stringify(baseVal),
+          live: JSON.stringify(liveVal),
+          revision: JSON.stringify(revVal),
+          resolved: false,
+        };
+        const strategy = strategies["holdout"];
+        if (strategy === "overwrite") {
+          conflictInfo.resolved = true;
+          result.holdout = revVal;
+        } else if (strategy === "discard") {
+          conflictInfo.resolved = true;
+        }
+        conflicts.push(conflictInfo);
+      } else {
+        result.holdout = revVal;
+      }
+    }
+  }
+
+  // metadata (per-field)
+  if (revision.metadata) {
+    const metadataResult: RevisionMetadata = {};
+    let hasMetadataChanges = false;
+    for (const k of Object.keys(
+      revision.metadata,
+    ) as (keyof RevisionMetadata)[]) {
+      const revVal = revision.metadata[k];
+      const baseVal = base.metadata?.[k];
+      const liveVal = live.metadata?.[k];
+      const revNorm = normalizeMetadataValue(k, revVal);
+      const baseNorm = normalizeMetadataValue(k, baseVal);
+      const liveNorm = normalizeMetadataValue(k, liveVal);
+      if (isEqual(revNorm, baseNorm) || isEqual(revNorm, liveNorm)) continue;
+
+      if (!isEqual(liveNorm, baseNorm) && !isEqual(liveNorm, revNorm)) {
+        const conflictInfo: MergeConflict = {
+          name: `Metadata - ${k}`,
+          key: `metadata.${k}`,
+          base: JSON.stringify(baseVal),
+          live: JSON.stringify(liveVal),
+          revision: JSON.stringify(revVal),
+          resolved: false,
+        };
+        const strategy = strategies[conflictInfo.key];
+        if (strategy === "overwrite") {
+          conflictInfo.resolved = true;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (metadataResult as any)[k] = revVal;
+          hasMetadataChanges = true;
+        } else if (strategy === "discard") {
+          conflictInfo.resolved = true;
+        }
+        conflicts.push(conflictInfo);
+      } else {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (metadataResult as any)[k] = revVal;
+        hasMetadataChanges = true;
+      }
+    }
+    if (hasMetadataChanges) result.metadata = metadataResult;
+  }
+
+  if (conflicts.some((c) => !c.resolved)) {
+    return { success: false, conflicts };
+  }
+
+  return { success: true, conflicts, result };
 }
 
 export type ValidateConditionReturn = {
@@ -633,6 +2085,7 @@ export function validateCondition(
     // TODO: validate beyond just making sure it's valid JSON
     return { success: true, empty: false };
   } catch (e) {
+    const errMsg = e instanceof Error ? e.message : String(e);
     // Try parsing with dJSON and see if it can be fixed automatically
     try {
       const fixed = dJSON.parse(condition);
@@ -640,10 +2093,10 @@ export function validateCondition(
         success: false,
         empty: false,
         suggestedValue: JSON.stringify(fixed),
-        error: e.message,
+        error: errMsg,
       };
-    } catch (e2) {
-      return { success: false, empty: false, error: e.message };
+    } catch {
+      return { success: false, empty: false, error: errMsg };
     }
   }
 }
@@ -666,6 +2119,142 @@ export function validateAndFixCondition(
   throw new Error("Invalid targeting condition JSON: " + res.error);
 }
 
+// MongoDB-style logical operators whose values wrap nested sub-conditions
+// rather than attribute keys. $and/$or/$nor take arrays; $not takes a single
+// object (or inline operators).
+const LOGICAL_CONDITION_OPS = new Set(["$and", "$or", "$nor", "$not"]);
+
+// Walks a parsed targeting condition and returns the set of attribute field
+// names referenced at the root (e.g. "userId" in { userId: { $eq: "x" } }).
+// - Skips any $-prefixed operator keys (values are either nested conditions
+//   or literal comparators, never attribute names).
+// - Recurses into $and/$or/$nor/$not so nested targeting still surfaces its
+//   attribute keys.
+// - Dot-notation keys (e.g. "user.id") are reported as the full key; callers
+//   that check against attributeSchema should compare against the root segment.
+export function extractConditionAttributeKeys(condition: unknown): string[] {
+  const found = new Set<string>();
+
+  const walk = (node: unknown): void => {
+    if (!node || typeof node !== "object") return;
+    if (Array.isArray(node)) {
+      for (const item of node) walk(item);
+      return;
+    }
+    for (const [key, value] of Object.entries(
+      node as Record<string, unknown>,
+    )) {
+      if (LOGICAL_CONDITION_OPS.has(key)) {
+        walk(value);
+        continue;
+      }
+      if (key.startsWith("$")) {
+        // Non-logical operators ($eq, $in, $elemMatch, $inGroup, ...) — their
+        // values are comparison operands / nested conditions, not attribute keys.
+        continue;
+      }
+      found.add(key);
+    }
+  };
+
+  walk(condition);
+  return Array.from(found);
+}
+
+// Canonical shape for the opt-in attribute registration check. The org
+// setting is stored as either a legacy boolean (older orgs) or this object
+// (new orgs / orgs that have toggled the new project-scoping switch). All
+// readers should funnel through `getRequireRegisteredAttributesSettings`
+// rather than poking at the raw setting so they handle both shapes.
+export type RequireRegisteredAttributesSettings = {
+  // Master switch — when false, all checks are skipped.
+  isOn: boolean;
+  // When true, attributes that exist but aren't scoped to the current
+  // project are also rejected. When false, project-scope mismatches are
+  // ignored and only truly-unknown attribute keys fail.
+  requireProjectScoping: boolean;
+};
+
+// Normalizes the raw org setting into `{ isOn, requireProjectScoping }`.
+// Legacy boolean `true` maps to `{ isOn: true, requireProjectScoping: true }`
+// to preserve the strict behavior orgs were already getting before the
+// project-scoping toggle existed. `false` / undefined / null map to off.
+export function getRequireRegisteredAttributesSettings(
+  raw: boolean | RequireRegisteredAttributesSettings | undefined | null,
+): RequireRegisteredAttributesSettings {
+  if (!raw) return { isOn: false, requireProjectScoping: false };
+  if (typeof raw === "boolean") {
+    return { isOn: true, requireProjectScoping: true };
+  }
+  return {
+    isOn: !!raw.isOn,
+    // Default to `true` when the object is missing the field — keeps strict
+    // behavior the default for newly-created objects too.
+    requireProjectScoping: raw.requireProjectScoping !== false,
+  };
+}
+
+// Splits `keys` into two buckets so callers can write a precise error:
+//   - `unknown`: not declared in the schema at all (or archived) — typical typo.
+//   - `outOfProject`: declared and active, but scoped to a different project
+//     than the rule/experiment lives in. Catches the "attribute exists but
+//     this project isn't on its scope list" case, which the user otherwise
+//     reads as "Unknown attribute" and tries to re-create.
+// Dot-notation keys are checked against their root segment, matching how
+// attribute schema is declared.
+export function categorizeUnregisteredAttributes(
+  keys: string[],
+  attributeSchema: SDKAttributeSchema | undefined,
+  project?: string | string[],
+): { unknown: string[]; outOfProject: string[] } {
+  const projects = Array.isArray(project) ? project : project ? [project] : [];
+  // root segment -> projects[] declared on the (active) attribute. Missing
+  // entries mean the attribute isn't declared (or is archived).
+  const declared = new Map<string, string[] | undefined>();
+  for (const attr of attributeSchema ?? []) {
+    if (attr.archived) continue;
+    declared.set(attr.property, attr.projects);
+  }
+
+  const unknown: string[] = [];
+  const outOfProject: string[] = [];
+  const seen = new Set<string>();
+  for (const key of keys) {
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const root = key.split(".")[0];
+    if (!declared.has(root)) {
+      unknown.push(key);
+      continue;
+    }
+    const attrProjects = declared.get(root);
+    // No project context, or the attribute is org-wide: registered.
+    if (!projects.length || !attrProjects?.length) continue;
+    if (!projects.some((p) => attrProjects.includes(p))) {
+      outOfProject.push(key);
+    }
+  }
+  return { unknown, outOfProject };
+}
+
+// Returns the subset of `keys` that are NOT declared as active attributes in
+// `attributeSchema`, including those scoped to other projects. Equivalent to
+// `unknown ∪ outOfProject` from `categorizeUnregisteredAttributes`. Kept for
+// backward compatibility; new callers that need a richer error should use
+// `categorizeUnregisteredAttributes` directly.
+export function findUnregisteredAttributes(
+  keys: string[],
+  attributeSchema: SDKAttributeSchema | undefined,
+  project?: string | string[],
+): string[] {
+  const { unknown, outOfProject } = categorizeUnregisteredAttributes(
+    keys,
+    attributeSchema,
+    project,
+  );
+  return [...unknown, ...outOfProject];
+}
+
 export function getDefaultPrerequisiteCondition(parentFeature?: {
   valueType?: "boolean" | "string" | "number" | "json";
 }) {
@@ -686,10 +2275,10 @@ export function isFeatureCyclic(
   const stack = new Set<string>();
 
   const newFeature = cloneDeep(feature);
-  if (revision) {
-    for (const env of Object.keys(newFeature.environmentSettings || {})) {
-      newFeature.environmentSettings[env].rules = revision?.rules?.[env] || [];
-    }
+  if (revision && revision.rules !== undefined) {
+    // v2: overlay the revision's top-level rules onto the feature. Per-env
+    // filtering happens downstream via `getRulesForEnvironment`.
+    newFeature.rules = naiveFlattenV1Rules(revision.rules);
   }
   if (!envs) {
     envs = Object.keys(newFeature.environmentSettings || {});
@@ -703,11 +2292,23 @@ export function isFeatureCyclic(
     visited.add(feature.id);
 
     const prerequisiteIds = (feature.prerequisites || []).map((p) => p.id);
-    for (const eid in feature.environmentSettings || {}) {
+    for (const eid of Object.keys(feature.environmentSettings || {})) {
       if (!envs?.includes(eid)) continue;
-      const env = feature.environmentSettings?.[eid];
-      if (!env?.rules) continue;
-      for (const rule of env.rules || []) {
+      // v2: project the flat top-level rules array to this env and inspect
+      // each rule's `prerequisites[]`. Legacy test fixtures still carry v1
+      // `environmentSettings[eid].rules` — fall back when v2 array is absent.
+      const v2RulesForEnv = getRulesForEnvironment(feature.rules, eid);
+      const legacyRulesForEnv = Array.isArray(feature.rules)
+        ? []
+        : ((
+            feature.environmentSettings?.[eid] as unknown as {
+              rules?: FeatureRule[];
+            }
+          )?.rules ?? []);
+      const rulesForEnv = v2RulesForEnv.length
+        ? v2RulesForEnv
+        : legacyRulesForEnv;
+      for (const rule of rulesForEnv) {
         if (rule?.prerequisites?.length) {
           const rulePrerequisiteIds = rule.prerequisites.map((p) => p.id);
           prerequisiteIds.push(...rulePrerequisiteIds);
@@ -776,10 +2377,22 @@ export function evaluatePrerequisiteState(
     }
 
     if (!skipRootConditions || !isTopLevel) {
-      if (
-        feature.environmentSettings[env].rules?.filter((r) => !!r.enabled)
-          ?.length
-      ) {
+      // v2: project the flat top-level rules array to this env. Legacy test
+      // fixtures still carry v1 `environmentSettings[env].rules`; fall back
+      // to that shape when the v2 array is absent. Production readers JIT
+      // upgrade at the model boundary so this fallback is test-only.
+      const v2RulesForEnv = getRulesForEnvironment(feature.rules, env);
+      const legacyRulesForEnv = Array.isArray(feature.rules)
+        ? []
+        : ((
+            feature.environmentSettings[env] as unknown as {
+              rules?: FeatureRule[];
+            }
+          ).rules ?? []);
+      const rulesForEnv = v2RulesForEnv.length
+        ? v2RulesForEnv
+        : legacyRulesForEnv;
+      if (rulesForEnv.some((r) => !!r.enabled)) {
         state = "conditional";
         value = undefined;
       }
@@ -834,28 +2447,108 @@ export function evalDeterministicPrereqValue(
   return pass ? "pass" : "fail";
 }
 
+/** Maps each feature ID to the set of features that depend on it as a prerequisite. */
+export type ReverseDependencyIndex = Map<string, Set<string>>;
+
+export function buildReverseDependencyIndex(
+  features: FeatureInterface[],
+): ReverseDependencyIndex {
+  const index: ReverseDependencyIndex = new Map();
+
+  for (const f of features) {
+    for (const p of f.prerequisites || []) {
+      let set = index.get(p.id);
+      if (!set) {
+        set = new Set();
+        index.set(p.id, set);
+      }
+      set.add(f.id);
+    }
+    for (const rule of f.rules ?? []) {
+      if (!rule?.enabled || !rule.prerequisites?.length) continue;
+      for (const p of rule.prerequisites) {
+        let set = index.get(p.id);
+        if (!set) {
+          set = new Set();
+          index.set(p.id, set);
+        }
+        set.add(f.id);
+      }
+    }
+  }
+
+  return index;
+}
+
 export function getDependentFeatures(
   feature: FeatureInterface,
   features: FeatureInterface[],
   environments: string[],
+  reverseDependencyIndex?: ReverseDependencyIndex,
+  featuresMap?: Map<string, FeatureInterface>,
 ): string[] {
-  const dependentFeatures = features.filter((f) => {
-    const prerequisites = f.prerequisites || [];
-    const rules = getMatchingRules(
-      f,
-      (r) =>
-        !!r.enabled && (r.prerequisites || []).some((p) => p.id === feature.id),
-      environments,
+  const isDependent = (f: FeatureInterface) => {
+    if ((f.prerequisites || []).some((p) => p.id === feature.id)) return true;
+    return (
+      getMatchingRules(
+        f,
+        (r) =>
+          !!r.enabled &&
+          (r.prerequisites || []).some((p) => p.id === feature.id),
+        environments,
+      ).length > 0
     );
-    return prerequisites.some((p) => p.id === feature.id) || rules.length > 0;
-  });
-  return dependentFeatures.map((f) => f.id);
+  };
+
+  if (reverseDependencyIndex) {
+    const candidates = reverseDependencyIndex.get(feature.id);
+    if (!candidates || candidates.size === 0) return [];
+    const lookup = featuresMap ?? new Map(features.map((f) => [f.id, f]));
+    return [...candidates].filter((id) => {
+      const f = lookup.get(id);
+      return f && isDependent(f);
+    });
+  }
+
+  return features.filter(isDependent).map((f) => f.id);
+}
+
+export type ExperimentDependencyIndex = Map<
+  string,
+  ExperimentInterfaceStringDates[]
+>;
+
+export function buildExperimentDependencyIndex(
+  experiments: ExperimentInterfaceStringDates[],
+): ExperimentDependencyIndex {
+  const index: ExperimentDependencyIndex = new Map();
+  for (const e of experiments) {
+    const phase = e.phases.slice(-1)?.[0] ?? null;
+    const seen = new Set<string>();
+    for (const p of phase?.prerequisites ?? []) {
+      if (seen.has(p.id)) continue;
+      seen.add(p.id);
+      let arr = index.get(p.id);
+      if (!arr) {
+        arr = [];
+        index.set(p.id, arr);
+      }
+      arr.push(e);
+    }
+  }
+  return index;
 }
 
 export function getDependentExperiments(
   feature: FeatureInterface,
   experiments: ExperimentInterfaceStringDates[],
+  experimentDependencyIndex?: ExperimentDependencyIndex,
 ): ExperimentInterfaceStringDates[] {
+  if (experimentDependencyIndex) {
+    // Copy so callers can't mutate the array stored in the index; also keeps
+    // this path's aliasing contract identical to the `.filter()` scan below.
+    return experimentDependencyIndex.get(feature.id)?.slice() ?? [];
+  }
   return experiments.filter((e) => {
     const phase = e.phases.slice(-1)?.[0] ?? null;
     return phase?.prerequisites?.some((p) => p.id === feature.id);
@@ -884,18 +2577,31 @@ export type ResetReviewOnChange = {
 };
 export function getReviewSetting(
   requireReviewSettings: RequireReview[],
-  feature: FeatureInterface,
+  // Any project-scoped entity (features, and constants which mirror the feature
+  // `project` field) — matched by its single project.
+  entity: { project?: string },
 ): RequireReview | undefined {
   // check projects
   for (const reviewSetting of requireReviewSettings) {
     // match first value found empty means all projects
     if (
-      (feature?.project && reviewSetting.projects.includes(feature?.project)) ||
+      (entity?.project && reviewSetting.projects.includes(entity?.project)) ||
       reviewSetting.projects.length === 0
     ) {
       return reviewSetting;
     }
   }
+}
+
+// `entity` is any project-scoped entity (a feature, or a constant which mirrors
+// the feature `project` field) — matched by its single project via
+// `getReviewSetting`. Constants reuse this via `constantAutopublishOnApproval`.
+export function getFeatureAutopublishOnApproval(
+  requireReviews: boolean | RequireReview[] | undefined,
+  entity: { project?: string },
+): boolean {
+  if (!Array.isArray(requireReviews)) return false;
+  return !!getReviewSetting(requireReviews, entity)?.autopublishOnApproval;
 }
 
 export function checkEnvironmentsMatch(
@@ -935,6 +2641,118 @@ export function featureRequiresReview(
   return checkEnvironmentsMatch(changedEnvironments, reviewSetting);
 }
 
+// Constants are a drop-in for feature config and borrow the exact same
+// `requireReviews` org settings. The generic `value` affects every environment,
+// so a value change is the least-permissive case (always requires review, like
+// a feature's defaultValue); per-environment overrides only require review when
+// the changed environment is in the matched rule's scope. A pure-metadata edit
+// follows the rule's `featureRequireMetadataReview` toggle.
+export function constantRequiresReview(
+  constant: { project?: string },
+  {
+    valueChanged,
+    changedEnvironments,
+    metadataOnly,
+  }: {
+    valueChanged: boolean;
+    changedEnvironments: string[];
+    metadataOnly: boolean;
+  },
+  settings?: OrganizationSettings,
+): boolean {
+  const requiresReviewSettings = settings?.requireReviews;
+  if (
+    requiresReviewSettings === undefined ||
+    requiresReviewSettings === true ||
+    requiresReviewSettings === false
+  ) {
+    return !!requiresReviewSettings;
+  }
+  const reviewSetting = getReviewSetting(requiresReviewSettings, constant);
+  if (!reviewSetting || !reviewSetting.requireReviewOn) {
+    return false;
+  }
+  // value affects all environments → always requires review
+  if (valueChanged) {
+    return true;
+  }
+  // an in-scope environment override changed
+  if (
+    changedEnvironments.length > 0 &&
+    checkEnvironmentsMatch(changedEnvironments, reviewSetting)
+  ) {
+    return true;
+  }
+  // only metadata changed → governed by the metadata-review toggle
+  if (metadataOnly) {
+    return reviewSetting.featureRequireMetadataReview ?? true;
+  }
+  return false;
+}
+
+// Constant analogue of `resetReviewOnChange` + `getFeatureAutopublishOnApproval`
+// — constants borrow the feature `requireReviews` model rather than the
+// saved-group `approvalFlows` config, so they need their own accessors keyed off
+// the matched review rule's project scope.
+
+// Whether an approved constant revision should reset to pending-review when its
+// proposed changes are subsequently modified. A `value` change affects every
+// environment (always in scope); a per-environment override only counts when the
+// changed environment is within the matched rule's scope.
+export function constantResetReviewOnChange(
+  constant: { project?: string },
+  {
+    valueChanged,
+    changedEnvironments,
+  }: { valueChanged: boolean; changedEnvironments: string[] },
+  settings?: OrganizationSettings,
+): boolean {
+  const requiresReviewSettings = settings?.requireReviews;
+  if (
+    requiresReviewSettings === undefined ||
+    typeof requiresReviewSettings === "boolean"
+  ) {
+    return false;
+  }
+  const reviewSetting = getReviewSetting(requiresReviewSettings, constant);
+  if (
+    !reviewSetting ||
+    !reviewSetting.requireReviewOn ||
+    !reviewSetting.resetReviewOnChange
+  ) {
+    return false;
+  }
+  if (valueChanged) {
+    return true;
+  }
+  return (
+    changedEnvironments.length > 0 &&
+    checkEnvironmentsMatch(changedEnvironments, reviewSetting)
+  );
+}
+
+// Whether auto-publish-on-approval may be armed for a constant, per the matched
+// review rule. Constants share the feature `requireReviews` model, so this is a
+// thin wrapper over `getFeatureAutopublishOnApproval` (single source of truth).
+export function constantAutopublishOnApproval(
+  constant: { project?: string },
+  settings?: OrganizationSettings,
+): boolean {
+  return getFeatureAutopublishOnApproval(settings?.requireReviews, constant);
+}
+
+// Whether self-approval is blocked for a constant per its matched `requireReviews`
+// rule. Prefer the shared `isUserBlockedFromApproving`, which routes constants
+// here automatically; this is its constant-specific implementation.
+export function constantBlockSelfApproval(
+  constant: { project?: string },
+  settings?: OrganizationSettings,
+): boolean {
+  const requireReviews = settings?.requireReviews;
+  if (!Array.isArray(requireReviews)) return false;
+  return !!getReviewSetting(requireReviews, constant)?.blockSelfApproval;
+}
+
 export function resetReviewOnChange({
   feature,
   changedEnvironments,
@@ -964,33 +2782,288 @@ export function resetReviewOnChange({
   return checkEnvironmentsMatch(changedEnvironments, reviewSetting);
 }
 
+// Returns which environments a revision affects relative to its base revision.
+// Per-env changes (rules, environmentsEnabled) return specific env IDs.
+// Global changes (prerequisites, archived, holdout, defaultValue, metadata) return "all".
+// Used for both UI display and approval-gate determination.
+// Strip UI-only metadata fields from a rule before diffing for review/affected-env
+// purposes. These fields never affect SDK behaviour so they must not trigger a
+// review requirement or show as "changed" environments.
+function normalizeRuleForDiff(
+  rule: FeatureRule,
+): Omit<FeatureRule, "scheduleType"> {
+  const { scheduleType: _scheduleType, ...rest } = rule as FeatureRule & {
+    scheduleType?: unknown;
+  };
+  return rest as Omit<FeatureRule, "scheduleType">;
+}
+
+/**
+ * Returns the union of all environments explicitly targeted by a ramp
+ * schedule's patch actions (startActions, steps, endActions).  Returns "all"
+ * if any patch sets `allEnvironments: true`.
+ */
+export function getEnvsFromRampSchedule(
+  schedule: Pick<
+    RampScheduleInterface,
+    "startActions" | "steps" | "endActions"
+  >,
+): string[] | "all" {
+  const envs = new Set<string>();
+  const allPatches = [
+    ...(schedule.startActions ?? []).map((a) => a.patch),
+    ...schedule.steps.flatMap((s) => s.actions.map((a) => a.patch)),
+    ...(schedule.endActions ?? []).map((a) => a.patch),
+  ];
+  for (const patch of allPatches) {
+    if (patch.allEnvironments) return "all";
+    for (const env of patch.environments ?? []) {
+      envs.add(env);
+    }
+  }
+  return [...envs];
+}
+
+export function getDraftAffectedEnvironments(
+  revision: RevisionFields,
+  baseRevision: RevisionFields,
+  allEnvironments: string[],
+  liveRampScheduleEnvs?: Map<string, string[] | "all">,
+): string[] | "all" {
+  if (revisionHasGlobalChange(revision, baseRevision)) return "all";
+
+  // Per-environment changes. v2 `rules` is a flat array, so derive the per-env
+  // projection via `getRulesForEnvironment`. This preserves the env-granular
+  // "affected envs" semantic used by the review-gating UI: a rule with
+  // `allEnvironments: true` counts as touching every allowed env; a v2 rule
+  // with `environments: ["prod"]` counts only as touching prod.
+  const revRulesAll = naiveFlattenV1Rules(revision.rules);
+  const baseRulesAll = naiveFlattenV1Rules(baseRevision.rules);
+  const envs = new Set<string>();
+  for (const env of allEnvironments) {
+    const revRules = getRulesForEnvironment(revRulesAll, env).map(
+      normalizeRuleForDiff,
+    );
+    const baseRules = getRulesForEnvironment(baseRulesAll, env).map(
+      normalizeRuleForDiff,
+    );
+    if (!isEqual(revRules, baseRules)) {
+      envs.add(env);
+    }
+    // Base revisions that predate an environment have no key for it at all;
+    // treat missing as false so a freshly-snapshotted `false` on the draft side
+    // doesn't register as a kill-switch change.
+    const effectiveBaseEnvVal =
+      baseRevision.environmentsEnabled?.[env] ?? false;
+    if (
+      revision.environmentsEnabled?.[env] !== undefined &&
+      revision.environmentsEnabled[env] !== effectiveBaseEnvVal
+    ) {
+      envs.add(env);
+    }
+  }
+  // rampActions target a specific rule by ruleId; the environments that rule
+  // is active in are affected by the ramp. Step patches can also widen the
+  // scope if they explicitly set `environments` or `allEnvironments`.
+  if ((revision.rampActions ?? []).length > 0) {
+    for (const action of revision.rampActions!) {
+      // Look up the rule in the draft rules first, then the base rules (e.g.
+      // for a detach where the rule may already have been removed from draft).
+      const rule =
+        revRulesAll.find(
+          (r) => stemRuleId(r.id ?? "") === stemRuleId(action.ruleId),
+        ) ??
+        baseRulesAll.find(
+          (r) => stemRuleId(r.id ?? "") === stemRuleId(action.ruleId),
+        );
+      if (rule?.allEnvironments) return "all";
+      for (const env of rule?.environments ?? []) {
+        if (allEnvironments.includes(env)) envs.add(env);
+      }
+      if (action.mode !== "detach") {
+        // For update actions, also include environments from the CURRENT live
+        // schedule so that removing an env from the new steps is still detected.
+        if (action.mode === "update" && liveRampScheduleEnvs) {
+          const liveEnvs = liveRampScheduleEnvs.get(action.rampScheduleId);
+          if (liveEnvs === "all") return "all";
+          for (const env of liveEnvs ?? []) {
+            if (allEnvironments.includes(env)) envs.add(env);
+          }
+        }
+        const allPatches = [
+          ...(action.startActions ?? []).map((a) => a.patch),
+          ...action.steps.flatMap((s) => s.actions.map((a) => a.patch)),
+          ...(action.endActions ?? []).map((a) => a.patch),
+        ];
+        for (const patch of allPatches) {
+          if (patch.allEnvironments) return "all";
+          for (const env of patch.environments ?? []) {
+            if (allEnvironments.includes(env)) envs.add(env);
+          }
+        }
+      }
+    }
+  }
+
+  // Collapse to "all" when every environment is affected
+  if (allEnvironments.length > 0 && envs.size === allEnvironments.length) {
+    return "all";
+  }
+  return [...envs];
+}
+
+/** Draft experiments whose rules would go live when this revision is published. */
+export function getNewDraftExperimentsToPublish({
+  environments,
+  feature,
+  revision,
+  experimentsMap,
+}: {
+  feature: FeatureInterface;
+  revision: FeatureRevisionInterface;
+  environments: Environment[];
+  experimentsMap: Map<string, ExperimentInterfaceStringDates>;
+}): ExperimentInterfaceStringDates[] {
+  const environmentIds = environments.map((e) => e.id);
+
+  const liveExperimentIds = new Set(
+    getMatchingRules(
+      feature,
+      (rule) => rule.type === "experiment-ref",
+      environmentIds,
+    ).map((result) => (result.rule as ExperimentRefRule).experimentId),
+  );
+
+  function isExp(
+    exp: ExperimentInterfaceStringDates | undefined,
+  ): exp is ExperimentInterfaceStringDates {
+    return !!exp;
+  }
+
+  const draftExperiments = getMatchingRules(
+    feature,
+    (rule) => {
+      if (rule.enabled === false) return false;
+      if (rule.type !== "experiment-ref") return false;
+
+      const exp = experimentsMap.get(rule.experimentId);
+      if (!exp) return false;
+
+      if (liveExperimentIds.has(rule.experimentId)) return false;
+      if (exp.status !== "draft") return false;
+      if (exp.archived) return false;
+      if (exp.hasVisualChangesets) return false;
+
+      return true;
+    },
+    environmentIds,
+    revision,
+  )
+    .map((result) =>
+      experimentsMap.get((result.rule as ExperimentRefRule).experimentId),
+    )
+    .filter(isExp);
+
+  return [...new Set(draftExperiments)];
+}
+
 export function checkIfRevisionNeedsReview({
   feature,
   baseRevision,
   revision,
   allEnvironments,
   settings,
+  requireApprovalsLicensed = true,
+  liveRampScheduleEnvs,
 }: {
   feature: FeatureInterface;
   baseRevision: FeatureRevisionInterface;
   revision: FeatureRevisionInterface;
   allEnvironments: string[];
   settings?: OrganizationSettings;
+  requireApprovalsLicensed?: boolean;
+  liveRampScheduleEnvs?: Map<string, string[] | "all">;
 }) {
-  const changedEnvironments = listChangedEnvironments(
-    baseRevision,
-    revision,
-    allEnvironments,
-  );
-  const defaultValueChanged =
-    baseRevision.defaultValue !== revision.defaultValue;
+  if (!requireApprovalsLicensed) return false;
+  const requireReviews = settings?.requireReviews;
+  // Boolean format: true = all changes require review, false/undefined = none do.
+  if (!Array.isArray(requireReviews)) return !!requireReviews;
 
-  return featureRequiresReview(
-    feature,
-    changedEnvironments,
-    defaultValueChanged,
-    settings,
+  const reviewSetting = getReviewSetting(requireReviews, feature);
+  if (!reviewSetting?.requireReviewOn) return false;
+
+  const affected = getDraftAffectedEnvironments(
+    revision,
+    baseRevision,
+    allEnvironments,
+    liveRampScheduleEnvs,
   );
+
+  if (affected === "all") {
+    // Metadata-only changes respect the featureRequireMetadataReview gate;
+    // all other global changes (prerequisites, archived, holdout, defaultValue) always require review.
+    if (!revisionHasMetadataOnlyGlobalChange(revision, baseRevision))
+      return true;
+    return reviewSetting.featureRequireMetadataReview !== false;
+  }
+  if (affected.length === 0) return false;
+
+  // Env-specific changes split into rules/values vs kill switches.
+  // Rules/values always require approval; kill switches only when
+  // `featureRequireEnvironmentReview` is true (default when unset).
+  // Project rules per-env to account for `allEnvironments` / `environments` scopes.
+  const revRulesAll = naiveFlattenV1Rules(revision.rules);
+  const baseRulesAll = naiveFlattenV1Rules(baseRevision.rules);
+  const envsWithRuleChanges = affected.filter((env) => {
+    const revRules = getRulesForEnvironment(revRulesAll, env).map(
+      normalizeRuleForDiff,
+    );
+    const baseRules = getRulesForEnvironment(baseRulesAll, env).map(
+      normalizeRuleForDiff,
+    );
+    return !isEqual(revRules, baseRules);
+  });
+  const envKillSwitchChanges = affected.filter(
+    (env) =>
+      revision.environmentsEnabled?.[env] !== undefined &&
+      revision.environmentsEnabled[env] !==
+        (baseRevision.environmentsEnabled?.[env] ?? false),
+  );
+
+  const gatedEnvs = reviewSetting.environments;
+
+  // Rules/values always gate
+  if (envsWithRuleChanges.length > 0) {
+    if (gatedEnvs.length === 0) return true;
+    if (envsWithRuleChanges.some((env) => gatedEnvs.includes(env))) return true;
+  }
+
+  // Kill switch changes only gate when featureRequireEnvironmentReview is enabled
+  if (
+    envKillSwitchChanges.length > 0 &&
+    reviewSetting.featureRequireEnvironmentReview !== false
+  ) {
+    if (gatedEnvs.length === 0) return true;
+    if (envKillSwitchChanges.some((env) => gatedEnvs.includes(env)))
+      return true;
+  }
+
+  // Ramp actions (create/update/detach) change how the feature is rolled out
+  // across environments. They are treated like rule changes and always require
+  // approval when any of the targeted environments are gated.
+  if ((revision.rampActions ?? []).length > 0) {
+    const rampEnvs = affected.filter(
+      (env) =>
+        !envsWithRuleChanges.includes(env) &&
+        !envKillSwitchChanges.includes(env),
+    );
+    if (rampEnvs.length > 0) {
+      if (gatedEnvs.length === 0) return true;
+      if (rampEnvs.some((env) => gatedEnvs.includes(env))) return true;
+    }
+  }
+
+  return false;
 }
 
 export function filterProjectsByEnvironment(
@@ -1399,4 +3472,8 @@ export function getApiFeatureEnabledEnvs(feature: ApiFeature) {
     }
   });
   return Array.from(envs);
+}
+
+export function getApiFeatureAllEnvs(feature: ApiFeature) {
+  return Object.keys(feature.environments);
 }

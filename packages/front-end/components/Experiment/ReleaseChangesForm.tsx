@@ -4,6 +4,7 @@ import {
   ExperimentPhaseStringDates,
   ExperimentTargetingData,
 } from "shared/types/experiment";
+import { getLatestPhaseVariations } from "shared/experiments";
 import React, { useEffect, useMemo, useState } from "react";
 import { FaExclamationCircle, FaExternalLinkAlt } from "react-icons/fa";
 import clsx from "clsx";
@@ -14,11 +15,16 @@ import {
   BsExclamationCircle,
   BsLightbulb,
 } from "react-icons/bs";
+import {
+  getNamespaceRanges,
+  hasNarrowedRanges,
+  NamespaceValue,
+} from "shared/util";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import {
   ChangeType,
   ReleasePlan,
-} from "@/components/Experiment/EditTargetingModal";
+} from "@/components/Experiment/MakeChangesFlow";
 import TargetingInfo from "@/components/Experiment/TabbedPage/TargetingInfo";
 import SelectField from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -212,16 +218,19 @@ export default function ReleaseChangesForm({
             <div className="alert alert-warning text-danger mt-2">
               <FaExclamationCircle className="mr-2" />
               This Bandit will restart. Variation weights will reset (
-              {experiment.variations
-                .map((_, i) =>
-                  i < 3
-                    ? formatPercent(1 / (experiment.variations.length ?? 2))
-                    : i === 3
-                      ? "..."
-                      : null,
-                )
-                .filter(Boolean)
-                .join(", ")}
+              {(() => {
+                const variations = getLatestPhaseVariations(experiment);
+                return variations
+                  .map((_, i) =>
+                    i < 3
+                      ? formatPercent(1 / (variations.length ?? 2))
+                      : i === 3
+                        ? "..."
+                        : null,
+                  )
+                  .filter(Boolean)
+                  .join(", ");
+              })()}
               ).
             </div>
           )}
@@ -459,7 +468,7 @@ function ImpactTooltips({
         ((variationHopping && releasePlan !== "same-phase-sticky") ||
           recommendStickyBucketing) && (
           <div className="text-right mb-2 small">
-            <DocLink docSection="stickyBucketing">
+            <DocLink useRadix={false} docSection="stickyBucketing">
               Learn about Sticky Bucketing <FaExternalLinkAlt />
             </DocLink>
           </div>
@@ -596,12 +605,17 @@ function getRecommendedRolloutData({
     lastPhase.namespace?.enabled &&
     data.namespace.name === lastPhase.namespace.name
   ) {
-    const namespaceRange = data.namespace.range ?? [0, 1];
-    const lastNamespaceRange = lastPhase.namespace.range ?? [0, 1];
-    if (
-      namespaceRange[0] > lastNamespaceRange[0] ||
-      namespaceRange[1] < lastNamespaceRange[1]
-    ) {
+    const currentRanges = data.namespace
+      ? getNamespaceRanges(data.namespace as NamespaceValue)
+      : ([[0, 1]] as [number, number][]);
+    const lastRanges = lastPhase.namespace
+      ? getNamespaceRanges(lastPhase.namespace as NamespaceValue)
+      : ([[0, 1]] as [number, number][]);
+
+    // Warn whenever any user from the previous ranges would be excluded —
+    // this covers both total-coverage reduction and range shifts that keep
+    // the same total size but move the window (e.g. [0.2,0.6] → [0.0,0.4]).
+    if (hasNarrowedRanges(lastRanges, currentRanges)) {
       decreaseNamespaceRange = true;
     }
   }

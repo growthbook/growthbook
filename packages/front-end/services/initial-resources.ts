@@ -6,11 +6,18 @@ import {
   CreateFactTableProps,
   FactTableInterface,
 } from "shared/types/fact-table";
+import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import {
   MetricDefaults,
   OrganizationSettings,
+  SDKAttributeSchema,
 } from "shared/types/organization";
+import {
+  buildManagedWarehouseEventsFactTableSql,
+  getManagedWarehouseEventsFactTableColumns,
+  getManagedWarehouseUserIdTypes,
+} from "shared/util";
 import { getDefaultFactMetricProps } from "@/services/metrics";
 import { ApiCallType } from "@/services/auth";
 import { getTablePrefix } from "@/services/datasources";
@@ -51,43 +58,38 @@ export interface InitialDatasourceResources {
   }[];
 }
 
-function getBuiltInWarehouseResources(): InitialDatasourceResources {
+function getBuiltInWarehouseResources(
+  attributeSchema: SDKAttributeSchema | undefined,
+): InitialDatasourceResources {
+  // JSON-columns model: standard fields + `attributes`/`properties` JSON columns,
+  // with identifiers exposed as top-level aliases in the fact-table SELECT.
+  const columns = generateColumns(
+    Object.fromEntries(
+      getManagedWarehouseEventsFactTableColumns(attributeSchema).map((c) => [
+        c.column,
+        {
+          datatype: c.datatype,
+          ...(c.alwaysInlineFilter ? { alwaysInlineFilter: true } : {}),
+          ...(c.jsonFields ? { jsonFields: c.jsonFields } : {}),
+        },
+      ]),
+    ),
+  );
+
   return {
     factTables: [
       // Events
       {
         factTable: {
           // Give it a known id so we can reference it easily
-          id: "ch_events",
+          id: MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID,
           name: "Events",
           description: "",
-          sql: `SELECT * FROM events
-WHERE timestamp BETWEEN '{{startDate}}' AND '{{endDate}}'`,
+          sql: buildManagedWarehouseEventsFactTableSql(attributeSchema),
           // Mark the fact table as Official and block editing/deleting in the UI
           managedBy: "api",
-          columns: generateColumns({
-            timestamp: { datatype: "date" },
-            user_id: { datatype: "string" },
-            device_id: { datatype: "string" },
-            properties: { datatype: "json" },
-            attributes: { datatype: "json" },
-            event_name: { datatype: "string", alwaysInlineFilter: true },
-            client_key: { datatype: "string" },
-            environment: { datatype: "string" },
-            sdk_language: { datatype: "string" },
-            sdk_version: { datatype: "string" },
-            event_uuid: { datatype: "string" },
-            ip: { datatype: "string" },
-            geo_country: { datatype: "string" },
-            ua_device_type: { datatype: "string" },
-            ua_browser: { datatype: "string" },
-            ua_os: { datatype: "string" },
-            utm_source: { datatype: "string" },
-            utm_medium: { datatype: "string" },
-            utm_campaign: { datatype: "string" },
-            url_path: { datatype: "string" },
-          }),
-          userIdTypes: ["user_id", "device_id"],
+          columns,
+          userIdTypes: getManagedWarehouseUserIdTypes(attributeSchema),
           eventName: "",
         },
         filters: [],
@@ -652,11 +654,13 @@ function getGA4Resources(
 
 export function getInitialDatasourceResources({
   datasource,
+  attributeSchema,
 }: {
   datasource: DataSourceInterfaceWithParams;
+  attributeSchema?: SDKAttributeSchema;
 }): InitialDatasourceResources {
   if (datasource.type === "growthbook_clickhouse") {
-    return getBuiltInWarehouseResources();
+    return getBuiltInWarehouseResources(attributeSchema);
   }
 
   switch (datasource.settings?.schemaFormat) {

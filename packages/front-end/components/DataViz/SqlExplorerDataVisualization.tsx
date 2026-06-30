@@ -47,6 +47,14 @@ function parseYValue(
   return undefined;
 }
 
+const CHART_ANIMATION_CONFIG = {
+  animation: true,
+  animationDuration: 300,
+  animationEasing: "linear" as const,
+  symbol: "circle",
+  symbolSize: 4,
+};
+
 function aggregate(
   values: (string | number)[],
   aggregation: yAxisAggregationType,
@@ -325,6 +333,7 @@ export function DataVisualizationDisplay({
 
   const { theme } = useAppearanceUITheme();
   const textColor = theme === "dark" ? "#FFFFFF" : "#1F2D5C";
+  const tooltipBackgroundColor = theme === "dark" ? "#1c2339" : "#FFFFFF";
 
   // Helper: Generate all combinations of dimension values across all dimensions
   const generateAllDimensionCombinations = useCallback(
@@ -671,6 +680,7 @@ export function DataVisualizationDisplay({
       return [
         {
           name: xField,
+          ...CHART_ANIMATION_CONFIG,
           type:
             dataVizConfig.chartType === "area"
               ? "line"
@@ -696,6 +706,7 @@ export function DataVisualizationDisplay({
       const dimensionKey = combination.join(", ");
       return {
         name: dimensionKey,
+        ...CHART_ANIMATION_CONFIG,
         type:
           dataVizConfig.chartType === "area" ? "line" : dataVizConfig.chartType,
         ...(dataVizConfig.chartType === "area" && { areaStyle: {} }),
@@ -722,8 +733,10 @@ export function DataVisualizationDisplay({
         appendTo: "body",
         trigger: "axis",
         axisPointer: {
-          type: "shadow",
+          type: dataVizConfig?.chartType === "bar" ? "shadow" : "cross",
         },
+        textStyle: { color: textColor },
+        backgroundColor: tooltipBackgroundColor,
         valueFormatter: (value: number) => {
           if (!yConfig?.type) {
             return value;
@@ -799,13 +812,15 @@ export function DataVisualizationDisplay({
     };
   }, [
     dataset,
+    dataVizConfig?.chartType,
     dataVizConfig.title,
-    anchorYAxisToZero,
     textColor,
+    tooltipBackgroundColor,
     dimensionFields.length,
     xConfig?.type,
     xConfig?.dateAggregationUnit,
     xField,
+    anchorYAxisToZero,
     yConfig?.aggregation,
     yConfig?.type,
     yField,

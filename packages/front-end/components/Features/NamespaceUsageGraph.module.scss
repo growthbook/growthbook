@@ -1,59 +1,207 @@
-.legend {
-  font-size: 0.8em;
-  color: var(--text-color-muted);
+:global(.light-theme) {
+  --ns-bar-bg: var(--slate-5);
+  --ns-bar-shadow-top: var(--black-a3);
+  --ns-bar-shadow-bottom: var(--slate-a3);
+  --ns-bar-outline: transparent;
+  --ns-stripe-base: var(--indigo-2);
+  --ns-stripe-mid: var(--slate-a7);
+  --ns-stripe-hi: var(--slate-a8);
+  --ns-active-shadow-top: var(--black-a2);
+  --ns-inuse-shadow-top: var(--black-a2);
+  --ns-legend-outline: var(--slate-a8);
+  --ns-focus-ring: var(--violet-a8);
+}
+
+:global(.dark-theme) {
+  --ns-bar-bg: var(--black-a3);
+  --ns-bar-shadow-top: var(--black-a5);
+  --ns-bar-shadow-bottom: var(--slate-a2);
+  --ns-bar-outline: var(--slate-a3);
+  --ns-stripe-base: var(--indigo-3);
+  --ns-stripe-mid: var(--slate-a6);
+  --ns-stripe-hi: var(--slate-a7);
+  --ns-active-shadow-top: var(--black-a4);
+  --ns-inuse-shadow-top: var(--black-a1);
+  --ns-legend-outline: var(--white-a4);
+  --ns-focus-ring: var(--violet-a9);
+}
+
+.card {
+  position: relative;
+  border: 1px solid var(--gray-a5);
+  border-radius: 8px;
+  padding: var(--space-4) var(--space-5);
+  background-color: var(--color-panel-solid);
+}
+
+.overlapWarning {
+  position: absolute;
+  bottom: var(--space-2);
+  left: var(--space-5);
+  right: var(--space-5);
 }
 
 .legend_box {
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
+  border-radius: 9999px;
   display: inline-block;
   vertical-align: middle;
-  border: 1px solid var(--slate-7);
-}
-.used {
-  background-color: var(--slate-8);
-}
-.unused {
-  background-color: var(--color-panel-solid); //#ecf4ff;
-  filter: brightness(0.95);
-}
-.selected {
-  background-color: var(--purple-a3);
+  flex-shrink: 0;
+  box-shadow: 0 0 0 1.5px var(--ns-legend-outline);
 }
 
-.bar {
-  position: absolute;
-  top: 0;
-  bottom: 0;
+.legend_active {
+  background-color: var(--violet-9);
+  box-shadow: 0 0 0 1.5px var(--ns-legend-outline);
+}
+
+.legend_inUse {
+  background-color: var(--ns-stripe-base);
+  background-image: repeating-linear-gradient(
+    45deg,
+    var(--ns-stripe-hi) 0 4px,
+    var(--ns-stripe-mid) 4px 8px
+  );
+}
+
+.legend_available {
+  background-color: var(--slate-3);
+}
+
+.bar_wrapper {
+  position: relative;
+}
+
+.bar_inner {
+  position: relative;
+  margin-top: 6px;
 }
 
 .bar_holder {
   position: relative;
-  border: 1px solid var(--slate-7);
-  height: 30px;
-  margin: 5px 0 30px 0;
-  background-color: var(--slate-8);
+  height: 24px;
+  border-radius: 4px;
+  overflow: hidden;
+  background-color: var(--ns-bar-bg);
+  box-shadow:
+    inset 0px 6px 4px -3px var(--ns-bar-shadow-top),
+    inset 0px 1px 2px 0px var(--ns-bar-shadow-top),
+    inset 0px -1px 0px 0px var(--ns-bar-shadow-bottom),
+    0px 0px 0px 1px var(--ns-bar-outline);
+}
+
+.gapClickTarget {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  cursor: pointer;
+}
+
+.inUse {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background-color: var(--ns-stripe-base);
+  background-image:
+    linear-gradient(to bottom, var(--ns-inuse-shadow-top) 0px, transparent 8px),
+    repeating-linear-gradient(
+      45deg,
+      var(--ns-stripe-hi) 0 4px,
+      var(--ns-stripe-mid) 4px 8px
+    );
+  box-shadow: 0px 0px 2px 1px var(--slate-a3);
 }
 
 .rangeSelected {
-  height: 28px;
   position: absolute;
-  background-color: var(--purple-a3);
-  box-shadow: inset 0 0 1px var(--purple-a4);
+  top: 0;
+  bottom: 0;
+  background-color: var(--violet-9);
+  background-image: linear-gradient(
+    to bottom,
+    var(--ns-active-shadow-top) 0px,
+    transparent 8px
+  );
 }
-.rangeMarker {
-  position: absolute;
-  bottom: -8px;
-  height: 8px;
-  width: 100%;
-  text-align: center;
-  border-radius: 0 0 6px 6px;
-  border: 2px solid var(--purple-11);
-  border-top: 0;
 
-  span {
-    position: relative;
-    bottom: -10px;
-    color: var(--purple-11);
-  }
+.overlapZone {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(
+    45deg,
+    transparent 0 4px,
+    var(--white-a4) 4px 8px
+  );
+}
+
+.goalpostTickOverlap {
+  position: absolute;
+  top: 0;
+  font-size: 8px;
+  line-height: 1;
+  color: var(--amber-9);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.goalpostValueOverlap {
+  position: absolute;
+  top: 10px;
+  font-size: var(--font-size-1);
+  line-height: var(--line-height-1);
+  color: var(--amber-11);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.rangeFocusedOverlay {
+  position: absolute;
+  top: 0;
+  height: 24px;
+  border-radius: 2px;
+  box-shadow: 0 0 0 2px var(--ns-focus-ring);
+  pointer-events: none;
+}
+
+.labels_row {
+  position: relative;
+  height: 36px;
+  margin-top: 4px;
+}
+
+.segmentLabel {
+  position: absolute;
+  top: -1px;
+  font-size: var(--font-size-1);
+  line-height: var(--line-height-1);
+  color: var(--color-text-low);
+  transform: translateX(-50%);
+}
+
+.segmentLabelActive {
+  color: var(--violet-11);
+  font-weight: var(--font-weight-medium);
+}
+
+.goalpostTick {
+  position: absolute;
+  top: 0;
+  font-size: 8px;
+  line-height: 1;
+  color: var(--violet-9);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.goalpostValue {
+  position: absolute;
+  top: 10px;
+  font-size: var(--font-size-1);
+  line-height: var(--line-height-1);
+  color: var(--violet-11);
+  transform: translateX(-50%);
+  pointer-events: none;
 }

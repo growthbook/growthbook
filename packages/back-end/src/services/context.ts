@@ -1,8 +1,4 @@
-import {
-  Permissions,
-  userHasPermission,
-  roleToPermissionMap,
-} from "shared/permissions";
+import { Permissions, userHasPermission } from "shared/permissions";
 import { uniq } from "lodash";
 import type pino from "pino";
 import type { Request } from "express";
@@ -14,12 +10,15 @@ import {
   Permission,
   UserPermissions,
 } from "shared/types/organization";
+import { ApiKeyInterface } from "shared/types/apikey";
 import { EventUser } from "shared/types/events/event-types";
 import { TeamInterface } from "shared/types/team";
 import { ProjectInterface } from "shared/types/project";
 import { ExperimentInterface } from "shared/types/experiment";
 import { DataSourceInterface } from "shared/types/datasource";
 import { FeatureInterface } from "shared/types/feature";
+import { UserInterface } from "shared/types/user";
+import { stringToBoolean } from "shared/util";
 import {
   BadRequestError,
   UnauthorizedError,
@@ -34,6 +33,7 @@ import { CustomFieldModel } from "back-end/src/models/CustomFieldModel";
 import { MetricAnalysisModel } from "back-end/src/models/MetricAnalysisModel";
 import {
   getUserPermissions,
+  getRolePermissions,
   getEnvironmentIdsFromOrg,
 } from "back-end/src/util/organization.util";
 import { FactMetricModel } from "back-end/src/models/FactMetricModel";
@@ -51,20 +51,37 @@ import { ExperimentTemplatesModel } from "back-end/src/models/ExperimentTemplate
 import { SafeRolloutModel } from "back-end/src/models/SafeRolloutModel";
 import { SafeRolloutSnapshotModel } from "back-end/src/models/SafeRolloutSnapshotModel";
 import { IncrementalRefreshModel } from "back-end/src/models/IncrementalRefreshModel";
+import { AggregatedFactTableModel } from "back-end/src/models/AggregatedFactTableModel";
+import { AggregatedFactTableRunModel } from "back-end/src/models/AggregatedFactTableRunModel";
 import { DecisionCriteriaModel } from "back-end/src/enterprise/models/DecisionCriteriaModel";
 import { MetricTimeSeriesModel } from "back-end/src/models/MetricTimeSeriesModel";
 import { WebhookSecretDataModel } from "back-end/src/models/WebhookSecretModel";
 import { HoldoutModel } from "back-end/src/models/HoldoutModel";
 import { SavedQueryDataModel } from "back-end/src/models/SavedQueryDataModel";
 import { SavedGroupModel } from "back-end/src/models/SavedGroupModel";
+import { ConstantModel } from "back-end/src/models/ConstantModel";
 import { FeatureRevisionLogModel } from "back-end/src/models/FeatureRevisionLogModel";
 import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import { AiPromptModel } from "back-end/src/enterprise/models/AIPromptModel";
 import { VectorsModel } from "back-end/src/enterprise/models/VectorsModel";
 import { AgreementModel } from "back-end/src/models/AgreementModel";
+import { SessionReplayModel } from "back-end/src/models/SessionReplayModel";
 import { SqlResultChunkModel } from "back-end/src/models/SqlResultChunkModel";
+import { ExperimentSnapshotAnalysisChunkModel } from "back-end/src/models/ExperimentSnapshotAnalysisChunkModel";
 import { CustomHookModel } from "back-end/src/models/CustomHookModel";
+import { RampScheduleModel } from "back-end/src/models/RampScheduleModel";
+import { RampScheduleTemplateModel } from "back-end/src/models/RampScheduleTemplateModel";
 import { SdkWebhookModel } from "back-end/src/models/WebhookModel";
+import { TeamModel } from "back-end/src/models/TeamModel";
+import { AnalyticsExplorationModel } from "back-end/src/models/AnalyticsExplorationModel";
+import { RevisionModel } from "back-end/src/models/RevisionModel";
+import { AIConversationModel } from "back-end/src/models/AIConversationModel";
+import { EventForwarderConfigModel } from "back-end/src/models/EventForwarderConfigModel";
+import { PresentationThemeModel } from "back-end/src/models/PresentationThemeModel";
+import { WatchModel } from "back-end/src/models/WatchModel";
+import { FigmaConnectionModel } from "back-end/src/models/FigmaConnectionModel";
+import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
+import { getUserByEmail, getUsersByIds } from "back-end/src/models/UserModel";
 import { getExperimentMetricsByIds } from "./experiments";
 
 export type ForeignRefTypes = {
@@ -98,10 +115,26 @@ export type ModelName =
   | "dashboards"
   | "customHooks"
   | "incrementalRefresh"
+  | "aggregatedFactTables"
+  | "aggregatedFactTableRuns"
+  | "experimentSnapshotAnalysisChunks"
   | "sqlResultChunks"
   | "sdkConnectionCache"
   | "sdkWebhooks"
-  | "savedGroups";
+  | "savedGroups"
+  | "constants"
+  | "teams"
+  | "analyticsExplorations"
+  | "presentationThemes"
+  | "revisions"
+  | "watch"
+  | "figmaConnections"
+  | "apiKeys"
+  | "rampSchedules"
+  | "rampScheduleTemplates"
+  | "aiConversations"
+  | "sessionReplays"
+  | "eventForwarderConfigs";
 
 export const modelClasses = {
   agreements: AgreementModel,
@@ -127,12 +160,36 @@ export const modelClasses = {
   dashboards: DashboardModel,
   customHooks: CustomHookModel,
   incrementalRefresh: IncrementalRefreshModel,
+  aggregatedFactTables: AggregatedFactTableModel,
+  aggregatedFactTableRuns: AggregatedFactTableRunModel,
+  experimentSnapshotAnalysisChunks: ExperimentSnapshotAnalysisChunkModel,
   sqlResultChunks: SqlResultChunkModel,
   sdkConnectionCache: SdkConnectionCacheModel,
   sdkWebhooks: SdkWebhookModel,
   savedGroups: SavedGroupModel,
+  constants: ConstantModel,
+  teams: TeamModel,
+  analyticsExplorations: AnalyticsExplorationModel,
+  revisions: RevisionModel,
+  presentationThemes: PresentationThemeModel,
+  watch: WatchModel,
+  figmaConnections: FigmaConnectionModel,
+  apiKeys: ApiKeyModel,
+  rampSchedules: RampScheduleModel,
+  rampScheduleTemplates: RampScheduleTemplateModel,
+  aiConversations: AIConversationModel,
+  sessionReplays: SessionReplayModel,
+  eventForwarderConfigs: EventForwarderConfigModel,
 };
-export type ModelClass = (typeof modelClasses)[ModelName];
+// ModelClass narrows to only BaseModel-derived model constructors (those
+// expose a static `getModelConfig`). Non-BaseModel context models — e.g.
+// SessionReplayModel, which is backed by ClickHouse + S3 rather than
+// Mongo — are still registered on the request context but excluded from
+// API_MODELS iteration in api.router.ts.
+export type ModelClass = Extract<
+  (typeof modelClasses)[ModelName],
+  { getModelConfig: () => unknown }
+>;
 type ModelInstances = {
   [K in ModelName]: InstanceType<(typeof modelClasses)[K]>;
 };
@@ -165,10 +222,27 @@ export class ReqContextClass {
       dashboards: new DashboardModel(this),
       customHooks: new CustomHookModel(this),
       incrementalRefresh: new IncrementalRefreshModel(this),
+      aggregatedFactTables: new AggregatedFactTableModel(this),
+      aggregatedFactTableRuns: new AggregatedFactTableRunModel(this),
+      experimentSnapshotAnalysisChunks:
+        new ExperimentSnapshotAnalysisChunkModel(this),
       sqlResultChunks: new SqlResultChunkModel(this),
       sdkConnectionCache: new SdkConnectionCacheModel(this),
       sdkWebhooks: new SdkWebhookModel(this),
       savedGroups: new SavedGroupModel(this),
+      constants: new ConstantModel(this),
+      teams: new TeamModel(this),
+      analyticsExplorations: new AnalyticsExplorationModel(this),
+      revisions: new RevisionModel(this),
+      presentationThemes: new PresentationThemeModel(this),
+      watch: new WatchModel(this),
+      figmaConnections: new FigmaConnectionModel(this),
+      apiKeys: new ApiKeyModel(this),
+      rampSchedules: new RampScheduleModel(this),
+      rampScheduleTemplates: new RampScheduleTemplateModel(this),
+      aiConversations: new AIConversationModel(this),
+      sessionReplays: new SessionReplayModel(this),
+      eventForwarderConfigs: new EventForwarderConfigModel(this),
     };
   }
 
@@ -196,6 +270,7 @@ export class ReqContextClass {
     user,
     role,
     apiKey,
+    apiKeyData,
     req,
   }: {
     org: OrganizationInterface;
@@ -207,6 +282,7 @@ export class ReqContextClass {
     };
     apiKey?: string;
     role?: string;
+    apiKeyData?: ApiKeyInterface;
     teams?: TeamInterface[];
     auditUser: EventUser;
     req?: Request;
@@ -242,19 +318,30 @@ export class ReqContextClass {
         throw new Error("Role must be provided for API key or background job");
       }
 
-      this.userPermissions = {
-        global: {
-          permissions: roleToPermissionMap(role, org),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+      const roleInfo = apiKeyData ?? {
+        role,
+        limitAccessByEnvironment: false,
+        environments: [] as string[],
       };
+
+      this.userPermissions = getRolePermissions(
+        { ...roleInfo, role },
+        org,
+        teams || [],
+      );
     }
 
     this.permissions = new Permissions(this.userPermissions);
 
     this.initModels();
+  }
+
+  // True to skip soft warnings; background jobs (no req) always ignore.
+  public get ignoreWarnings(): boolean {
+    if (!this.req) return true;
+    const v = this.req.query?.ignoreWarnings;
+    if (typeof v !== "string") return false;
+    return stringToBoolean(v);
   }
 
   public throwBadRequestError(message: string): never {
@@ -308,15 +395,20 @@ export class ReqContextClass {
 
   // Record an audit log entry
   public async auditLog(data: AuditInterfaceInput) {
-    const auditUser = this.userId
+    const apiKeyUser =
+      this.auditUser?.type === "api_key" ? this.auditUser : undefined;
+    const auditUser = this.isApiRequest
       ? {
-          id: this.userId,
-          email: this.email,
-          name: this.userName || "",
+          apiKey: this.apiKey || "unknown",
+          id: apiKeyUser?.id,
+          name: apiKeyUser?.name,
+          email: apiKeyUser?.email,
         }
-      : this.apiKey
+      : this.userId
         ? {
-            apiKey: this.apiKey,
+            id: this.userId,
+            email: this.email,
+            name: this.userName || "",
           }
         : ({
             system: true,
@@ -373,6 +465,17 @@ export class ReqContextClass {
         this.foreignRefs[type].set(ref.id, ref as any);
       });
     }
+  }
+
+  // This is defined on the context to prevent a circular dependency between UserModel and BaseModel
+  public async getUserByEmail(email: string): Promise<UserInterface | null> {
+    return getUserByEmail(email);
+  }
+
+  // Defined on the context for the same reason as getUserByEmail — lets owner
+  // helpers fetch users without statically importing UserModel.
+  public async getUsersByIds(ids: string[]): Promise<UserInterface[]> {
+    return getUsersByIds(ids);
   }
 
   // Cache projects since they are needed many places in the code

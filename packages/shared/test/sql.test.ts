@@ -1,9 +1,11 @@
 import {
+  buildMinimalOrCondition,
   decodeSQLResults,
   encodeSQLResults,
   ensureLimit,
   isMultiStatementSQL,
   isReadOnlySQL,
+  usesBackslashStringEscapes,
 } from "../src/sql";
 
 describe("ensureLimit", () => {
@@ -264,12 +266,12 @@ describe("isReadOnlySQL", () => {
 describe("isMultiStatementSQL", () => {
   it("should return true for multiple statements", () => {
     const sql = "SELECT * FROM users; SELECT * FROM orders;";
-    expect(isMultiStatementSQL(sql)).toBe(true);
+    expect(isMultiStatementSQL(sql, true)).toBe(true);
   });
 
   it("should return false for single statement", () => {
     const sql = "SELECT * FROM users;";
-    expect(isMultiStatementSQL(sql)).toBe(false);
+    expect(isMultiStatementSQL(sql, true)).toBe(false);
   });
 
   it("should ignore comments when counting statements", () => {
@@ -277,12 +279,12 @@ describe("isMultiStatementSQL", () => {
       -- This is a comment; Select 1;
       SELECT * FROM users; /* Another comment; SELECT 1; */
     `;
-    expect(isMultiStatementSQL(sql)).toBe(false);
+    expect(isMultiStatementSQL(sql, true)).toBe(false);
   });
 
   it("should handle statements without semicolons", () => {
     const sql = "SELECT * FROM users";
-    expect(isMultiStatementSQL(sql)).toBe(false);
+    expect(isMultiStatementSQL(sql, true)).toBe(false);
   });
 
   it("should handle complex multi-statement SQL", () => {
@@ -292,81 +294,297 @@ describe("isMultiStatementSQL", () => {
       )
       SELECT * FROM recent_orders WHERE amount > 100;
     `;
-    expect(isMultiStatementSQL(sql)).toBe(false);
+    expect(isMultiStatementSQL(sql, true)).toBe(false);
   });
   it("should ignore semicolons within simple strings", () => {
     const sql = "SELECT 'This is a test; still in string' AS test_col;";
-    expect(isMultiStatementSQL(sql)).toBe(false);
+    expect(isMultiStatementSQL(sql, true)).toBe(false);
   });
   it("should handle CTAS statements", () => {
     const sql = "CREATE TABLE new_table AS SELECT * FROM users";
-    expect(isMultiStatementSQL(sql)).toBe(false);
+    expect(isMultiStatementSQL(sql, true)).toBe(false);
   });
   it("is not tricked by quotes and block comments", () => {
     const sql = `SELECT '/*'; DROP TABLE users; SELECT '*/';`;
-    expect(isMultiStatementSQL(sql)).toBe(true);
+    expect(isMultiStatementSQL(sql, true)).toBe(true);
   });
   it("is not tricked by quotes and line comments", () => {
     const sql = `SELECT '--'; DROP TABLE users`;
-    expect(isMultiStatementSQL(sql)).toBe(true);
+    expect(isMultiStatementSQL(sql, true)).toBe(true);
   });
   it("is not tricked by backslash escaped strings", () => {
     const sql = `SELECT 'It\\'s a test'; DROP TABLE users; SELECT '1';`;
-    expect(isMultiStatementSQL(sql)).toBe(true);
+    expect(isMultiStatementSQL(sql, true)).toBe(true);
   });
   it("is not tricked by fake escaped backslashes", () => {
     const sql = `SELECT 'This is a backslash: \\\\'; DROP TABLE users; SELECT '1';`;
-    expect(isMultiStatementSQL(sql)).toBe(true);
+    expect(isMultiStatementSQL(sql, true)).toBe(true);
   });
   it("is not tricked by single quotes that are escaped by doubling the quotes", () => {
     const sql = `SELECT 'It''s a test'; DROP TABLE users; SELECT '1';`;
-    expect(isMultiStatementSQL(sql)).toBe(true);
+    expect(isMultiStatementSQL(sql, true)).toBe(true);
   });
 
   it("is not tricked by double quotes and block comments", () => {
     const sql = `SELECT "/*"; DROP TABLE users; SELECT "*/";`;
-    expect(isMultiStatementSQL(sql)).toBe(true);
+    expect(isMultiStatementSQL(sql, true)).toBe(true);
   });
   it("is not tricked by double quotes and line comments", () => {
     const sql = `SELECT "--"; DROP TABLE users`;
-    expect(isMultiStatementSQL(sql)).toBe(true);
+    expect(isMultiStatementSQL(sql, true)).toBe(true);
   });
   it("is not tricked by backslash escaped double quoted strings", () => {
     const sql = `SELECT "It\\'s a test"; DROP TABLE users; SELECT "1";`;
-    expect(isMultiStatementSQL(sql)).toBe(true);
+    expect(isMultiStatementSQL(sql, true)).toBe(true);
   });
   it("is not tricked by fake escaped backslashes in double quoted strings", () => {
     const sql = `SELECT "This is a backslash: \\\\"; DROP TABLE users; SELECT "1";`;
-    expect(isMultiStatementSQL(sql)).toBe(true);
+    expect(isMultiStatementSQL(sql, true)).toBe(true);
   });
   it("is not tricked by single quotes that are escaped by doubling the double quotes", () => {
     const sql = `SELECT "It''s a test"; DROP TABLE users; SELECT "1";`;
-    expect(isMultiStatementSQL(sql)).toBe(true);
+    expect(isMultiStatementSQL(sql, true)).toBe(true);
   });
 
   it("is not tricked by backtick quotes and block comments", () => {
     const sql = `SELECT \`/*\`; DROP TABLE users; SELECT \`*/\`;`;
-    expect(isMultiStatementSQL(sql)).toBe(true);
+    expect(isMultiStatementSQL(sql, true)).toBe(true);
   });
   it("is not tricked by backtick quotes and line comments", () => {
     const sql = `SELECT \`--\`; DROP TABLE users`;
-    expect(isMultiStatementSQL(sql)).toBe(true);
+    expect(isMultiStatementSQL(sql, true)).toBe(true);
   });
   it("is not tricked by doubled backticks", () => {
     const sql = `SELECT \`It\`\`s a test\`; DROP TABLE users; SELECT \`1\`;`;
-    expect(isMultiStatementSQL(sql)).toBe(true);
+    expect(isMultiStatementSQL(sql, true)).toBe(true);
   });
   it("allows parse errors as long as there are no semicolons", () => {
     const sql = `SELECT 'It\\'`;
-    expect(isMultiStatementSQL(sql)).toBe(false);
+    expect(isMultiStatementSQL(sql, true)).toBe(false);
   });
   it("allows parse errors as long as there is only a trailing semicolon", () => {
     const sql = `SELECT 'It\\'; `;
-    expect(isMultiStatementSQL(sql)).toBe(false);
+    expect(isMultiStatementSQL(sql, true)).toBe(false);
   });
   it("blocks all internal semicolons when there is a parse error", () => {
     const sql = `SELECT 'It\\'; DROP TABLE users`;
-    expect(isMultiStatementSQL(sql)).toBe(true);
+    expect(isMultiStatementSQL(sql, true)).toBe(true);
+  });
+});
+
+describe("isMultiStatementSQL — dialect-aware backslash escaping", () => {
+  it("allows a backslash string literal on a non-backslash dialect (the reported bug)", () => {
+    const sql = `SELECT * FROM t WHERE id LIKE 'a\\_b' ESCAPE '\\'`;
+    expect(isMultiStatementSQL(sql, false)).toBe(false);
+  });
+  it("allows multi-line  query with a ';' in a comment and a backslash ESCAPE literal", () => {
+    const sql = `-- Dimension: Country (by user_id); Fact Table: Sessions (by user_id)
+WITH __rawExperiment AS (
+  SELECT timestamp, experiment_id, user_id
+  FROM "fake-database".sessions
+  WHERE timestamp >= timestamp '2026-05-26 19:00:00'
+    AND experiment_id LIKE replace('my-experiment-id-here', '_', '\\_') ESCAPE '\\'
+)
+SELECT timestamp, user_id FROM __rawExperiment;`;
+    expect(isMultiStatementSQL(sql, false)).toBe(false);
+  });
+  it("still blocks a real statement separator on a non-backslash dialect", () => {
+    expect(isMultiStatementSQL(`SELECT 1; DROP TABLE users`, false)).toBe(true);
+  });
+  it("blocks an injection hidden behind a backslash literal on a non-backslash dialect", () => {
+    const sql = `SELECT 1 WHERE x = '\\'; DROP TABLE t; --'`;
+    expect(isMultiStatementSQL(sql, false)).toBe(true);
+  });
+  it("blocks a real statement separator when a -- sits inside a string and the query ends mid-string", () => {
+    const sql = `SELECT '--'; DROP TABLE users; SELECT 'unterminated`;
+    expect(isMultiStatementSQL(sql, false)).toBe(true);
+  });
+  it("blocks a backslash-escaped-quote injection on a backslash dialect", () => {
+    const sql = `SELECT 'It\\'s a test'; DROP TABLE users`;
+    expect(isMultiStatementSQL(sql, true)).toBe(true);
+  });
+  it("allows a benign single statement with a backslash escape on a backslash dialect", () => {
+    const sql = `SELECT 'a\\nb' AS c`;
+    expect(isMultiStatementSQL(sql, true)).toBe(false);
+  });
+});
+
+describe("usesBackslashStringEscapes", () => {
+  it("is false for ANSI doubled-quote escaping (Trino, Athena, Postgres, MSSQL, Vertica)", () => {
+    const escapeStringLiteral = (v: string) => v.replace(/'/g, "''");
+    expect(usesBackslashStringEscapes({ escapeStringLiteral })).toBe(false);
+  });
+  it("is true when backslashes are doubled (MySQL, Snowflake, Redshift, ClickHouse)", () => {
+    const escapeStringLiteral = (v: string) =>
+      v.replace(/\\/g, "\\\\").replace(/'/g, "''");
+    expect(usesBackslashStringEscapes({ escapeStringLiteral })).toBe(true);
+  });
+  it("is true when quotes/backslashes are backslash-prefixed (BigQuery, Databricks)", () => {
+    const escapeStringLiteral = (v: string) => v.replace(/(['\\])/g, "\\$1");
+    expect(usesBackslashStringEscapes({ escapeStringLiteral })).toBe(true);
+  });
+});
+
+describe("buildMinimalOrCondition", () => {
+  it("returns empty string for empty input", () => {
+    expect(buildMinimalOrCondition([])).toBe("");
+  });
+
+  it("returns empty string when a group has no filters (matches everything)", () => {
+    expect(buildMinimalOrCondition([["A"], []])).toBe("");
+  });
+
+  it("returns empty string when a group has only null filters", () => {
+    expect(buildMinimalOrCondition([["A"], [null, null]])).toBe("");
+  });
+
+  it("returns single condition for one metric with one filter", () => {
+    expect(buildMinimalOrCondition([["color='blue'"]])).toBe("color='blue'");
+  });
+
+  it("ANDs multiple filters within a single metric", () => {
+    expect(buildMinimalOrCondition([["color='blue'", "shape='circle'"]])).toBe(
+      "(color='blue' AND shape='circle')",
+    );
+  });
+
+  it("ORs independent metric filter groups", () => {
+    expect(
+      buildMinimalOrCondition([["color='blue'"], ["shape='circle'"]]),
+    ).toBe("(color='blue'\nOR\nshape='circle')");
+  });
+
+  it("removes a metric subsumed by a less restrictive metric", () => {
+    // Metric 1: color='blue' AND shape='circle'
+    // Metric 2: color='blue'
+    // Metric 2 is less restrictive, so metric 1 is redundant
+    expect(
+      buildMinimalOrCondition([
+        ["color='blue'", "shape='circle'"],
+        ["color='blue'"],
+      ]),
+    ).toBe("color='blue'");
+  });
+
+  it("removes a metric subsumed by a less restrictive metric (reversed order)", () => {
+    expect(
+      buildMinimalOrCondition([
+        ["color='blue'"],
+        ["color='blue'", "shape='circle'"],
+      ]),
+    ).toBe("color='blue'");
+  });
+
+  it("removes multiple subsumed metrics", () => {
+    // Metric 1: A AND B
+    // Metric 2: A AND C
+    // Metric 3: A (subsumes both 1 and 2)
+    expect(buildMinimalOrCondition([["A", "B"], ["A", "C"], ["A"]])).toBe("A");
+  });
+
+  it("deduplicates identical metric groups", () => {
+    expect(
+      buildMinimalOrCondition([
+        ["color='blue'", "shape='circle'"],
+        ["color='blue'", "shape='circle'"],
+      ]),
+    ).toBe("(color='blue' AND shape='circle')");
+  });
+
+  it("deduplicates identical groups regardless of filter order", () => {
+    expect(
+      buildMinimalOrCondition([
+        ["shape='circle'", "color='blue'"],
+        ["color='blue'", "shape='circle'"],
+      ]),
+    ).toBe("(shape='circle' AND color='blue')");
+  });
+
+  it("handles mix of subsumed, independent, and null filters", () => {
+    // Metric 1: A AND B (subsumed by metric 3)
+    // Metric 2: C AND D (independent)
+    // Metric 3: A (less restrictive)
+    expect(buildMinimalOrCondition([["A", "B"], ["C", "D"], ["A"]])).toBe(
+      "((C AND D)\nOR\nA)",
+    );
+  });
+
+  it("ignores null filters within groups", () => {
+    expect(buildMinimalOrCondition([["A", null, "B"], ["A"]])).toBe("A");
+  });
+
+  it("deduplicates filters within a group", () => {
+    expect(buildMinimalOrCondition([["A", "A", "B"]])).toBe("(A AND B)");
+  });
+
+  it("handles transitive subsumption correctly", () => {
+    // Group 0: {A, B} — subsumed by group 2
+    // Group 1: {A, B, C} — subsumed by group 0, and transitively by group 2
+    // Group 2: {A}
+    expect(buildMinimalOrCondition([["A", "B"], ["A", "B", "C"], ["A"]])).toBe(
+      "A",
+    );
+  });
+
+  it("handles transitive subsumption correctly with different filters", () => {
+    // Group 0: {A, C} — subsumed by group 1
+    // Group 1: {A, B, C} — subsumed by group 0
+    expect(
+      buildMinimalOrCondition([
+        ["A", "C"],
+        ["A", "B", "C"],
+      ]),
+    ).toBe("(A AND C)");
+  });
+
+  it("keeps non-overlapping groups intact", () => {
+    expect(buildMinimalOrCondition([["A"], ["B"], ["C"]])).toBe(
+      "(A\nOR\nB\nOR\nC)",
+    );
+  });
+
+  it("keeps overlapping but non-subset groups", () => {
+    // {A, B} and {B, C} share condition B but neither is a subset of the other
+    expect(
+      buildMinimalOrCondition([
+        ["A", "B"],
+        ["B", "C"],
+      ]),
+    ).toBe("((A AND B)\nOR\n(B AND C))");
+  });
+
+  it("dominates a group that is a superset of multiple independent minimals", () => {
+    // {A, B} and {C, D} are independent minimals
+    // {A, B, C, D} is a superset of both — should be removed
+    expect(
+      buildMinimalOrCondition([
+        ["A", "B"],
+        ["C", "D"],
+        ["A", "B", "C", "D"],
+      ]),
+    ).toBe("((A AND B)\nOR\n(C AND D))");
+  });
+
+  it("keeps a partial-overlap chain where no group dominates another", () => {
+    // {A, B}, {B, C}, {C, D} — each pair overlaps but none is a subset
+    expect(
+      buildMinimalOrCondition([
+        ["A", "B"],
+        ["B", "C"],
+        ["C", "D"],
+      ]),
+    ).toBe("((A AND B)\nOR\n(B AND C)\nOR\n(C AND D))");
+  });
+
+  it("collapses many duplicates of the same group to one", () => {
+    expect(
+      buildMinimalOrCondition([
+        ["A", "B"],
+        ["A", "B"],
+        ["A", "B"],
+        ["A", "B"],
+      ]),
+    ).toBe("(A AND B)");
   });
 });
 
@@ -423,5 +641,30 @@ describe("encodeSQLResults", () => {
 
     const decoded = decodeSQLResults(encoded);
     expect(decoded).toEqual(results);
+  });
+
+  it("preserves columns that are missing from the first row", () => {
+    const results = [
+      { id: 1, name: "Alice" },
+      { id: 2, name: "Bob", grid: [1, 2, 3] },
+    ];
+
+    const encoded = encodeSQLResults(results);
+    expect(encoded).toEqual([
+      {
+        numRows: 2,
+        data: {
+          id: [1, 2],
+          name: ["Alice", "Bob"],
+          grid: [null, [1, 2, 3]],
+        },
+      },
+    ]);
+
+    const decoded = decodeSQLResults(encoded);
+    expect(decoded).toEqual([
+      { id: 1, name: "Alice", grid: null },
+      { id: 2, name: "Bob", grid: [1, 2, 3] },
+    ]);
   });
 });

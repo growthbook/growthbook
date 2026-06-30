@@ -16,11 +16,12 @@ import {
   getBlockSnapshotAnalysis,
   getBlockAnalysisSettings,
   snapshotSatisfiesBlock,
+  resolveBlockComparison,
   DashboardInterface,
 } from "shared/enterprise";
 import { getSnapshotAnalysis, isDefined, isString } from "shared/util";
 import { Queries, QueryStatus } from "shared/types/query";
-import { SavedQuery } from "shared/validators";
+import { ProductAnalyticsExploration, SavedQuery } from "shared/validators";
 import {
   CreateMetricAnalysisProps,
   MetricAnalysisInterface,
@@ -98,6 +99,7 @@ export default function DashboardSnapshotProvider({
     snapshots: ExperimentSnapshotInterface[];
     savedQueries: SavedQuery[];
     metricAnalyses: MetricAnalysisInterface[];
+    explorations: ProductAnalyticsExploration[];
   }>(`/dashboards/${dashboard?.id}/snapshots`, {
     shouldRun: () => !!dashboard?.id && dashboard.id !== "new",
   });
@@ -116,6 +118,7 @@ export default function DashboardSnapshotProvider({
     const allSnapshots = allSnapshotsData?.snapshots || [];
     const allSavedQueries = allSnapshotsData?.savedQueries || [];
     const allMetricAnalyses = allSnapshotsData?.metricAnalyses || [];
+    const allExplorations = allSnapshotsData?.explorations || [];
     const savedQueriesMap = new Map(
       allSavedQueries.map((savedQuery) => [savedQuery.id, savedQuery]),
     );
@@ -140,10 +143,17 @@ export default function DashboardSnapshotProvider({
         allMetricAnalyses.flatMap(
           (metricAnalysis) => metricAnalysis.queries || [],
         ),
+      )
+      .concat(
+        allExplorations.flatMap((exploration) => exploration.queries || []),
       );
-    const snapshotError = allSnapshots.find(
-      (snapshot) => snapshot.error,
-    )?.error;
+    const snapshotError: string | undefined =
+      (allSnapshots.find((snapshot) => snapshot.error)?.error ||
+        allMetricAnalyses.find((metricAnalysis) => metricAnalysis.error)
+          ?.error ||
+        allExplorations.find((exploration) => exploration.error)?.error ||
+        allSavedQueries.find((q) => q.results?.error)?.results?.error) ??
+      undefined;
     const { status } = getQueryStatus(allQueries, snapshotError);
 
     return {
@@ -278,9 +288,21 @@ export function useDashboardSnapshot(
     useState(false);
   const [fetchingSnapshot, setFetchingSnapshot] = useState(false);
   const [fetchingSnapshotFailed, setFetchingSnapshotFailed] = useState(false);
+  // Store fetched snapshots locally for new/unsaved dashboards where snapshotsMap is empty
+  const [localSnapshotsMap, setLocalSnapshotsMap] = useState<
+    Map<string, ExperimentSnapshotInterface>
+  >(new Map());
+
+  // Store setBlock in a ref so we can access the latest version without it being a dependency
+  const setBlockRef = useRef(setBlock);
+  useEffect(() => {
+    setBlockRef.current = setBlock;
+  }, [setBlock]);
 
   const blockSnapshotId = block?.snapshotId;
-  const blockSnapshot = snapshotsMap.get(blockSnapshotId ?? "");
+  const blockSnapshot =
+    snapshotsMap.get(blockSnapshotId ?? "") ||
+    localSnapshotsMap.get(blockSnapshotId ?? "");
 
   const snapshot =
     blockSnapshotId && blockSnapshot ? blockSnapshot : defaultSnapshot;
@@ -308,7 +330,7 @@ export function useDashboardSnapshot(
   useEffect(() => {
     if (
       !block ||
-      !setBlock ||
+      !setBlockRef.current ||
       !experiment ||
       !snapshot ||
       snapshotSettingsMatch ||
@@ -329,7 +351,14 @@ export function useDashboardSnapshot(
       if (!res.snapshot) {
         setFetchingSnapshotFailed(true);
       } else {
-        setBlock({ ...block, snapshotId: res.snapshot.id });
+        const fetchedSnapshot = res.snapshot;
+        // Store the snapshot locally so it can be found even on unsaved dashboards
+        setLocalSnapshotsMap((prev) => {
+          const newMap = new Map(prev);
+          newMap.set(fetchedSnapshot.id, fetchedSnapshot);
+          return newMap;
+        });
+        setBlockRef.current?.({ ...block, snapshotId: fetchedSnapshot.id });
       }
       setFetchingSnapshot(false);
     };
@@ -342,7 +371,6 @@ export function useDashboardSnapshot(
     fetchingSnapshotFailed,
     apiCall,
     block,
-    setBlock,
   ]);
 
   // If unable to get the necessary analysis on the current snapshot, post the updated settings
@@ -405,12 +433,22 @@ export function useDashboardMetricAnalysis(
   const { apiCall } = useAuth();
   const [postError, setPostError] = useState<string | undefined>(undefined);
   const [postLoading, setPostLoading] = useState(false);
+  const [comparisonPostError, setComparisonPostError] = useState<
+    string | undefined
+  >(undefined);
+  const [comparisonPostLoading, setComparisonPostLoading] = useState(false);
 
   const blockHasMetricAnalysis = blockHasFieldOfType(
     block,
     "metricAnalysisId",
     isString,
   );
+
+  // Only metric-explorer blocks support compare-to-previous-period. Narrowing on
+  // the discriminant gives us typed access to analysisSettings/comparison below
+  // without conditional hooks.
+  const metricExplorerBlock =
+    block.type === "metric-explorer" ? block : undefined;
 
   const metricAnalysisFromMap = useMemo(
     () =>
@@ -565,11 +603,223 @@ export function useDashboardMetricAnalysis(
     refreshAnalysis,
   ]);
 
+  // ---- Compare to previous period (metric-explorer only) ----
+  // Resolved through the shared seam so a future dashboard-wide compare toggle
+  // drives this the same way the per-block setting does today.
+  const compareEnabled =
+    !!metricExplorerBlock &&
+    !!resolveBlockComparison({ comparison: metricExplorerBlock.comparison })
+      ?.enabled;
+
+  const comparisonMetricAnalysisId =
+    metricExplorerBlock?.comparisonMetricAnalysisId;
+
+  // The previous window is derived from the current one — an adjacent window of
+  // equal length immediately preceding it. We never reserve/persist these dates;
+  // they roll with whatever the block's current timeframe resolves to.
+  const previousAnalysisSettings = useMemo(() => {
+    if (!metricExplorerBlock) return undefined;
+    const settings = metricExplorerBlock.analysisSettings;
+    const curStart = getValidDate(settings.startDate);
+    const curEnd = getValidDate(settings.endDate);
+    const spanMs = curEnd.getTime() - curStart.getTime();
+    return {
+      ...settings,
+      startDate: new Date(curStart.getTime() - spanMs),
+      endDate: curStart,
+    };
+  }, [metricExplorerBlock]);
+
+  const comparisonFromMap = useMemo(
+    () =>
+      comparisonMetricAnalysisId
+        ? metricAnalysesMap.get(comparisonMetricAnalysisId)
+        : undefined,
+    [comparisonMetricAnalysisId, metricAnalysesMap],
+  );
+
+  const shouldFetchComparison = useCallback(
+    () =>
+      compareEnabled &&
+      !!comparisonMetricAnalysisId &&
+      comparisonMetricAnalysisId.length > 0 &&
+      !comparisonFromMap,
+    [compareEnabled, comparisonMetricAnalysisId, comparisonFromMap],
+  );
+
+  const { data: comparisonAnalysisData, mutate: mutateComparisonAnalysis } =
+    useApi<{
+      status: number;
+      metricAnalysis: MetricAnalysisInterface;
+    }>(`/metric-analysis/${comparisonMetricAnalysisId || ""}`, {
+      shouldRun: shouldFetchComparison,
+    });
+
+  const comparisonMetricAnalysis = useMemo(
+    () => comparisonFromMap ?? comparisonAnalysisData?.metricAnalysis,
+    [comparisonFromMap, comparisonAnalysisData],
+  );
+
+  // Poll the comparison analysis while it's running, mirroring the primary.
+  useEffect(() => {
+    const intervalId = setInterval(async () => {
+      if (
+        shouldFetchComparison() &&
+        comparisonMetricAnalysis &&
+        ["running", "queued"].includes(
+          getQueryStatus(
+            comparisonMetricAnalysis.queries,
+            comparisonMetricAnalysis.error,
+          ).status,
+        )
+      ) {
+        await apiCall(
+          `/metric-analysis/${comparisonMetricAnalysis.id}/refreshStatus`,
+          { method: "POST" },
+        );
+        mutateComparisonAnalysis();
+      } else {
+        clearInterval(intervalId);
+      }
+    }, 2000);
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [
+    comparisonMetricAnalysis,
+    mutateComparisonAnalysis,
+    shouldFetchComparison,
+    apiCall,
+  ]);
+
+  const refreshComparison = useCallback(async () => {
+    if (!setBlock || !metricExplorerBlock || !previousAnalysisSettings) return;
+    if (!compareEnabled) return;
+    if (
+      !metricExplorerBlock.factMetricId ||
+      !previousAnalysisSettings.userIdType
+    )
+      return;
+    const body: CreateMetricAnalysisProps = {
+      id: metricExplorerBlock.factMetricId,
+      userIdType: previousAnalysisSettings.userIdType,
+      lookbackDays: previousAnalysisSettings.lookbackDays,
+      startDate: getValidDate(previousAnalysisSettings.startDate).toISOString(),
+      endDate: getValidDate(previousAnalysisSettings.endDate).toISOString(),
+      populationType: previousAnalysisSettings.populationType,
+      populationId: previousAnalysisSettings.populationId || null,
+      force: true,
+      source: "metric",
+      additionalNumeratorFilters:
+        previousAnalysisSettings.additionalNumeratorFilters,
+      additionalDenominatorFilters:
+        previousAnalysisSettings.additionalDenominatorFilters,
+    };
+
+    setComparisonPostLoading(true);
+    setComparisonPostError(undefined);
+    try {
+      const response = await apiCall<{
+        metricAnalysis: MetricAnalysisInterface;
+      }>(`/metric-analysis`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      });
+      setBlock({
+        ...metricExplorerBlock,
+        comparisonMetricAnalysisId: response.metricAnalysis.id,
+      });
+      mutateAnalysesMap();
+    } catch (e) {
+      setComparisonPostError(e.message);
+    } finally {
+      setComparisonPostLoading(false);
+    }
+  }, [
+    setBlock,
+    metricExplorerBlock,
+    previousAnalysisSettings,
+    compareEnabled,
+    apiCall,
+    mutateAnalysesMap,
+  ]);
+
+  // Clear a prior comparison failure when the inputs change, so the next attempt
+  // (user edits settings, re-enables compare, or hits Refresh) can run again.
+  useEffect(() => {
+    setComparisonPostError(undefined);
+  }, [compareEnabled, previousAnalysisSettings]);
+
+  // Kick off (or refresh) the previous-period analysis whenever compare is on and
+  // the cached comparison doesn't match the derived previous window.
+  useEffect(() => {
+    if (!metricExplorerBlock || !compareEnabled || !previousAnalysisSettings)
+      return;
+    // Bail while a request is in flight, the analysis is still running, or the
+    // last attempt errored. Without the error guard a persistent failure
+    // (warehouse down, bad metric) would re-fire one POST per render forever,
+    // since comparisonPostLoading flipping back to false re-triggers this effect
+    // and the isEqual short-circuit is never reached. The error is cleared above
+    // when the inputs change, which is the retry path.
+    if (
+      comparisonPostLoading ||
+      comparisonPostError ||
+      ["queued", "running"].includes(comparisonMetricAnalysis?.status ?? "")
+    )
+      return;
+
+    if (comparisonMetricAnalysis) {
+      const desired = {
+        ...previousAnalysisSettings,
+        startDate: getValidDate(previousAnalysisSettings.startDate),
+        endDate: getValidDate(previousAnalysisSettings.endDate),
+        populationId: previousAnalysisSettings.populationId || "",
+        additionalNumeratorFilters:
+          previousAnalysisSettings.additionalNumeratorFilters ?? [],
+        additionalDenominatorFilters:
+          previousAnalysisSettings.additionalDenominatorFilters ?? [],
+      };
+      const existing = {
+        ...comparisonMetricAnalysis.settings,
+        startDate: getValidDate(comparisonMetricAnalysis.settings.startDate),
+        endDate: getValidDate(comparisonMetricAnalysis.settings.endDate),
+        populationId: comparisonMetricAnalysis.settings.populationId || "",
+        additionalNumeratorFilters:
+          comparisonMetricAnalysis.settings.additionalNumeratorFilters ?? [],
+        additionalDenominatorFilters:
+          comparisonMetricAnalysis.settings.additionalDenominatorFilters ?? [],
+      };
+      if (isEqual(desired, existing)) return;
+    }
+
+    refreshComparison();
+  }, [
+    metricExplorerBlock,
+    compareEnabled,
+    previousAnalysisSettings,
+    comparisonMetricAnalysis,
+    comparisonPostLoading,
+    comparisonPostError,
+    refreshComparison,
+  ]);
+
   return {
     metricAnalysis,
+    comparisonMetricAnalysis: compareEnabled
+      ? comparisonMetricAnalysis
+      : undefined,
+    compareEnabled,
     refreshAnalysis,
-    loading: getMetricAnalysisLoading || contextLoading || postLoading,
-    error: contextError || existingMetricAnalysisError || postError,
+    loading:
+      getMetricAnalysisLoading ||
+      contextLoading ||
+      postLoading ||
+      comparisonPostLoading,
+    error:
+      contextError ||
+      existingMetricAnalysisError ||
+      postError ||
+      comparisonPostError,
     mutate: shouldFetchMetricAnalysis()
       ? mutateSingleAnalysis
       : mutateAnalysesMap,

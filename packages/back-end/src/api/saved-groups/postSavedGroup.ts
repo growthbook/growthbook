@@ -1,12 +1,15 @@
 import { ID_LIST_DATATYPES, validateCondition } from "shared/util";
-import { PostSavedGroupResponse } from "shared/types/openapi";
 import { postSavedGroupValidator } from "shared/validators";
+import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { validateListSize } from "back-end/src/routers/saved-group/saved-group.controller";
+import { BadRequestError } from "back-end/src/util/errors";
+import { getAdapter } from "back-end/src/revisions";
 
 export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(
-  async (req): Promise<PostSavedGroupResponse> => {
+  async (req) => {
     const { name, attributeKey, values, condition, owner, projects } = req.body;
+    const bypassApproval = req.body.bypassApproval === true;
 
     if (!req.context.permissions.canCreateSavedGroup({ ...req.body })) {
       req.context.permissions.throwPermissionError();
@@ -24,6 +27,33 @@ export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(
         type = "condition";
       } else if (attributeKey && values) {
         type = "list";
+      }
+    }
+
+    // Approval-flow gate. There's no existing entity to draft against on
+    // create, so the only valid bypass path is "publish now with bypass + the
+    // bypass permission". Without bypass we redirect to the revision flow
+    // (which is currently UI-only — REST callers can manage drafts on an
+    // existing saved group via /saved-groups/:id/revisions/...).
+    const adapter = getAdapter("saved-group");
+    const approvalRequired = adapter.isApprovalRequired(req.context);
+    if (approvalRequired) {
+      if (!bypassApproval) {
+        throw new BadRequestError(
+          "This organization requires approvals on saved groups. " +
+            "Use the GrowthBook UI to create a saved group through the approval flow, " +
+            'or pass `{ "bypassApproval": true }` if you have the `bypassApprovalChecks` permission on every target project.',
+        );
+      }
+      // Scope the bypass permission to the *target* projects so a caller with
+      // bypass in some projects can't create one in projects they can't bypass.
+      const canBypass =
+        !!req.organization.settings?.restApiBypassesReviews ||
+        adapter.canBypassApproval(req.context, {
+          projects: projects ?? [],
+        } as Parameters<typeof adapter.canBypassApproval>[1]);
+      if (!canBypass) {
+        req.context.permissions.throwPermissionError();
       }
     }
 
@@ -81,14 +111,19 @@ export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(
       type: type,
       values: values || [],
       groupName: name,
-      owner: owner || "",
+      // Falls back to the authenticated user (only present for Personal Access
+      // Tokens) when no owner is provided, otherwise stays empty.
+      owner: owner || req.context.userId || "",
       condition: condition || "",
       attributeKey,
       projects,
     });
 
     return {
-      savedGroup: req.context.models.savedGroups.toApiInterface(savedGroup),
+      savedGroup: await resolveOwnerEmail(
+        req.context.models.savedGroups.toApiInterface(savedGroup),
+        req.context,
+      ),
     };
   },
 );

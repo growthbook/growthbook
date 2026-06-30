@@ -10,7 +10,12 @@ import {
 import React, { useContext, useEffect, useMemo, useState, useRef } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { isNumber, isString, isStringArray } from "shared/util";
-import { SavedQuery } from "shared/validators";
+import {
+  FactTableExplorationConfig,
+  DataSourceExplorationConfig,
+  MetricExplorationConfig,
+  SavedQuery,
+} from "shared/validators";
 import {
   PiCopySimple,
   PiPencilSimpleFill,
@@ -20,6 +25,7 @@ import {
   PiCaretRightFill,
 } from "react-icons/pi";
 import { UNSUPPORTED_METRIC_EXPLORER_TYPES } from "shared/constants";
+import { getLatestPhaseVariations } from "shared/experiments";
 import { FormatOptionLabelMeta } from "react-select";
 import Collapsible from "react-collapsible";
 import {
@@ -31,13 +37,13 @@ import {
   getMetricOptions,
   getSliceOptions,
   formatSliceOptionLabel,
-  formatMetricTagOptionLabel,
   formatMetricOptionLabel,
 } from "@/components/Experiment/ResultsFilter/ResultsFilter";
 import Button from "@/ui/Button";
 import Checkbox from "@/ui/Checkbox";
 import Link from "@/ui/Link";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
+import TagsInput from "@/components/Tags/TagsInput";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField, { SingleValue } from "@/components/Forms/SelectField";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -50,18 +56,24 @@ import { getDimensionOptions } from "@/components/Dimensions/DimensionChooser";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import MetricName from "@/components/Metrics/MetricName";
 import Avatar from "@/ui/Avatar";
-import { getPrecomputedDimensions } from "@/components/Experiment/SnapshotProvider";
+import {
+  getPrecomputedDimensions,
+  getPrecomputedUnitDimensionIds,
+} from "@/components/Experiment/SnapshotProvider";
 import RadioGroup from "@/ui/RadioGroup";
 import Callout from "@/ui/Callout";
 import { useIncrementalRefresh } from "@/hooks/useIncrementalRefresh";
 import Modal from "@/components/Modal";
 import { useAuth } from "@/services/auth";
+import { useUser } from "@/services/UserContext";
 import {
   useDashboardSnapshot,
   DashboardSnapshotContext,
 } from "@/enterprise/components/Dashboards/DashboardSnapshotProvider";
 import { BLOCK_TYPE_INFO } from "@/enterprise/components/Dashboards/DashboardEditor";
+import { isSubmittableConfig } from "@/enterprise/components/ProductAnalytics/util";
 import MetricExplorerSettings from "./MetricExplorerSettings";
+import ProductAnalyticsExplorerSettings from "./ProductAnalyticsExplorerSettings";
 
 type RequiredField = {
   field: string;
@@ -80,6 +92,27 @@ const REQUIRED_FIELDS: {
     {
       field: "savedQueryId",
       validation: (sqId) => typeof sqId === "string" && sqId.length > 0,
+    },
+  ],
+  "metric-exploration": [
+    {
+      field: "config",
+      validation: (config) =>
+        isSubmittableConfig(config as MetricExplorationConfig),
+    },
+  ],
+  "fact-table-exploration": [
+    {
+      field: "config",
+      validation: (config) =>
+        isSubmittableConfig(config as FactTableExplorationConfig),
+    },
+  ],
+  "data-source-exploration": [
+    {
+      field: "config",
+      validation: (config) =>
+        isSubmittableConfig(config as DataSourceExplorationConfig),
     },
   ],
 };
@@ -194,10 +227,13 @@ export default function EditSingleBlock({
     getMetricGroupById,
     getDatasourceById,
     getFactTableById,
+    getTagById,
     factMetrics,
     factTables,
   } = useDefinitions();
   const { apiCall } = useAuth();
+  const { hasCommercialFeature } = useUser();
+  const hasPipelineModeFeature = hasCommercialFeature("pipeline-mode");
   const {
     data: savedQueriesData,
     mutate: mutateQueries,
@@ -228,6 +264,12 @@ export default function EditSingleBlock({
     blockHasFieldOfType(block, "metricTagFilter", isStringArray) &&
       (block.metricTagFilter?.length || 0) > 0,
   );
+  const [saveAndCloseTrigger, setSaveAndCloseTrigger] = useState(0);
+
+  const isExplorationBlock =
+    block?.type === "metric-exploration" ||
+    block?.type === "fact-table-exploration" ||
+    block?.type === "data-source-exploration";
   const prevMetricTagFilterRef = useRef(
     blockHasFieldOfType(block, "metricTagFilter", isStringArray)
       ? block.metricTagFilter?.length || 0
@@ -514,7 +556,6 @@ export default function EditSingleBlock({
   const metricTagOptions = useMemo(() => {
     const blockMetricTagFilter =
       block && "metricTagFilter" in block ? block.metricTagFilter || [] : [];
-    const availableTagSet = new Set(availableMetricTags);
     const allTagIds = Array.from(
       new Set([...availableMetricTags, ...blockMetricTagFilter]),
     );
@@ -522,7 +563,6 @@ export default function EditSingleBlock({
     return allTagIds.map((tag) => ({
       value: tag,
       label: tag,
-      isOrphaned: !availableTagSet.has(tag),
     }));
   }, [availableMetricTags, block]);
 
@@ -549,6 +589,12 @@ export default function EditSingleBlock({
         defaultSnapshot,
         dimensionless,
       ),
+      precomputedUnitDimensionIds: getPrecomputedUnitDimensionIds(
+        experiment,
+        defaultSnapshot,
+        dimensionless,
+      ),
+      hasPipelineModeFeature,
       datasource,
       dimensions,
       exposureQueryId: experiment.exposureQueryId,
@@ -568,6 +614,7 @@ export default function EditSingleBlock({
     defaultSnapshot,
     dimensionless,
     incrementalRefresh,
+    hasPipelineModeFeature,
   ]);
 
   const savedQueryId = blockHasFieldOfType(block, "savedQueryId", isString)
@@ -624,14 +671,17 @@ export default function EditSingleBlock({
     : 0;
   // Only compute baseline/variation options when the block type depends on an experiment
   const hasExperimentContext = !!experiment && requireBaselineVariation;
+  const latestVariations = hasExperimentContext
+    ? getLatestPhaseVariations(experiment)
+    : [];
   const baselineVariation = hasExperimentContext
-    ? experiment.variations.find((_, i) => i === baselineIndex) ||
-      experiment.variations[0]
+    ? latestVariations.find((_, i) => i === baselineIndex) ||
+      latestVariations[0]
     : null;
   const variationOptions = hasExperimentContext
     ? (requireBaselineVariation
-        ? experiment.variations.filter((_, i) => i !== baselineIndex)
-        : experiment.variations
+        ? latestVariations.filter((_, i) => i !== baselineIndex)
+        : latestVariations
       ).map((variation) => ({ label: variation.name, value: variation.id }))
     : [];
   const setVariations = (
@@ -654,6 +704,7 @@ export default function EditSingleBlock({
     <>
       {savedQuery && showDeleteSavedQueryConfirmation && (
         <Modal
+          useRadixButton={false}
           trackingEventModalType=""
           header={"Delete Saved Query?"}
           close={() => setShowDeleteSavedQueryConfirmation(false)}
@@ -1033,9 +1084,6 @@ export default function EditSingleBlock({
                           meta?.context !== "menu", // Show icon when NOT in dropdown mode
                         );
                       }}
-                      formatGroupLabel={(group) => (
-                        <div className="pb-1 pt-2">{group.label}</div>
-                      )}
                     />
                     {shouldShowEditorField(block, "_toggleSortByMetricIds") &&
                       blockHasFieldOfType(block, "metricIds", isStringArray) &&
@@ -1074,23 +1122,25 @@ export default function EditSingleBlock({
                         {(block.metricTagFilter?.length || 0) > 0 ||
                         showMetricTags ? (
                           <Box>
-                            <MultiSelectField
-                              label="Tags"
-                              containerClassName="mb-0"
-                              labelClassName="font-weight-bold"
-                              placeholder="Type to search..."
-                              value={block.metricTagFilter}
+                            <Text weight="bold" mb="2" as="label">
+                              Tags
+                            </Text>
+                            <TagsInput
+                              value={block.metricTagFilter || []}
                               onChange={(value) =>
                                 setBlock({ ...block, metricTagFilter: value })
                               }
-                              options={metricTagOptions.map((tag) => ({
-                                label: tag.label,
-                                value: tag.value,
-                                isOrphaned: tag.isOrphaned,
+                              prompt="Type to search..."
+                              closeMenuOnSelect={false}
+                              autoFocus={false}
+                              creatable={false}
+                              customClassName="multiselect-unfixed"
+                              tagOptions={metricTagOptions.map((tag) => ({
+                                id: tag.value,
+                                description: "",
+                                color:
+                                  getTagById(tag.value)?.color || "#029dd1",
                               }))}
-                              formatOptionLabel={(option) =>
-                                formatMetricTagOptionLabel(option)
-                              }
                             />
                             {shouldShowEditorField(
                               block,
@@ -1285,10 +1335,12 @@ export default function EditSingleBlock({
                   }
                   options={
                     experiment
-                      ? experiment.variations.map((variation, i) => ({
-                          label: variation.name,
-                          value: i.toString(),
-                        }))
+                      ? getLatestPhaseVariations(experiment).map(
+                          (variation, i) => ({
+                            label: variation.name,
+                            value: i.toString(),
+                          }),
+                        )
                       : []
                   }
                   formatOptionLabel={({ value, label }) => (
@@ -1328,7 +1380,7 @@ export default function EditSingleBlock({
                   options={variationOptions}
                   formatOptionLabel={({ value, label }) => {
                     const varIndex = experiment
-                      ? experiment.variations.findIndex(
+                      ? getLatestPhaseVariations(experiment).findIndex(
                           ({ id }) => id === value,
                         )
                       : -1;
@@ -1620,6 +1672,30 @@ export default function EditSingleBlock({
             {block.type === "metric-explorer" && (
               <MetricExplorerSettings block={block} setBlock={setBlock} />
             )}
+            {block.type === "metric-exploration" && (
+              <ProductAnalyticsExplorerSettings
+                block={block}
+                setBlock={setBlock}
+                saveAndCloseTrigger={saveAndCloseTrigger}
+                onSaveAndClose={submit}
+              />
+            )}
+            {block.type === "fact-table-exploration" && (
+              <ProductAnalyticsExplorerSettings
+                block={block}
+                setBlock={setBlock}
+                saveAndCloseTrigger={saveAndCloseTrigger}
+                onSaveAndClose={submit}
+              />
+            )}
+            {block.type === "data-source-exploration" && (
+              <ProductAnalyticsExplorerSettings
+                block={block}
+                setBlock={setBlock}
+                saveAndCloseTrigger={saveAndCloseTrigger}
+                onSaveAndClose={submit}
+              />
+            )}
           </Flex>
           <Flex mt="5" gap="3" align="center" justify="center">
             <Button
@@ -1635,7 +1711,14 @@ export default function EditSingleBlock({
             <Button
               style={{ flexBasis: "45%", flexGrow: 1 }}
               onClick={() => {
-                submit();
+                if (
+                  isExplorationBlock &&
+                  !("explorerAnalysisId" in block && block.explorerAnalysisId)
+                ) {
+                  setSaveAndCloseTrigger((n) => n + 1);
+                } else {
+                  submit();
+                }
               }}
               disabled={
                 !!(REQUIRED_FIELDS[block.type] || []).find(

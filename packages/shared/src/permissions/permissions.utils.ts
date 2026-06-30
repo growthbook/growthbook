@@ -50,6 +50,14 @@ export function getRoleById(
   return roles.find((role) => role.id === roleId) || null;
 }
 
+export function getRoleDisplayName(
+  roleId: string,
+  organization: Partial<OrganizationInterface>,
+): string {
+  const role = getRoleById(roleId, organization);
+  return role?.displayName || roleId;
+}
+
 export function getRoles(org: Partial<OrganizationInterface>) {
   // Always start with default roles
   const roles = Object.values(DEFAULT_ROLES);
@@ -167,7 +175,7 @@ export function roleSupportsEnvLimit(
   roleId: string,
   org: Partial<OrganizationInterface>,
 ): boolean {
-  if (roleId === "admin") return false;
+  if (["admin", "gbDefault_projectAdmin"].includes(roleId)) return false;
 
   const role = getRoleById(roleId, org);
 
@@ -181,4 +189,78 @@ export function roleToPermissionMap(
   const role = getRoleById(roleId || "readonly", org);
   const policies = role?.policies || [];
   return getPermissionsObjectByPolicies(policies);
+}
+
+export type EffectiveRoleSource = {
+  role: string;
+  sourceType: "user" | "team";
+  sourceName: string;
+};
+
+/**
+ * Resolve the roles that actually apply to a member, combining their own role
+ * with any teams they're on, using the same precedence as the back-end
+ * permission merge (mergeUserAndTeamPermissions): an explicit project-scoped
+ * role — from the member or any team — takes precedence over global roles for
+ * that project, and only when no explicit project role applies do global roles
+ * contribute. The result is the set of contributing roles (a union, which may
+ * be more than one role). Pass `project = null` to resolve global roles.
+ */
+export function getEffectiveRolesForProject(
+  member: Pick<MemberRoleInfo, "role"> & {
+    projectRoles?: ProjectMemberRole[];
+    teams?: string[];
+  },
+  project: string | null,
+  teams: {
+    id: string;
+    name: string;
+    role: string;
+    projectRoles?: ProjectMemberRole[];
+  }[],
+): EffectiveRoleSource[] {
+  const teamsById = new Map(teams.map((t) => [t.id, t]));
+
+  const principals: {
+    sourceType: "user" | "team";
+    sourceName: string;
+    role: string;
+    projectRoles?: ProjectMemberRole[];
+  }[] = [
+    {
+      sourceType: "user",
+      sourceName: "user",
+      role: member.role,
+      projectRoles: member.projectRoles,
+    },
+  ];
+  (member.teams || []).forEach((teamId) => {
+    const team = teamsById.get(teamId);
+    if (team) {
+      principals.push({
+        sourceType: "team",
+        sourceName: team.name,
+        role: team.role,
+        projectRoles: team.projectRoles,
+      });
+    }
+  });
+
+  const explicit: EffectiveRoleSource[] = [];
+  const globals: EffectiveRoleSource[] = [];
+  principals.forEach((p) => {
+    const projectRole = project
+      ? p.projectRoles?.find((r) => r.project === project)
+      : undefined;
+    const { sourceType, sourceName } = p;
+    if (projectRole) {
+      explicit.push({ role: projectRole.role, sourceType, sourceName });
+    } else {
+      globals.push({ role: p.role, sourceType, sourceName });
+    }
+  });
+
+  // An explicit project role takes precedence over global roles, so only fall
+  // back to global roles when no explicit project role applies.
+  return explicit.length ? explicit : globals;
 }
