@@ -480,7 +480,7 @@ function pyTypeFor(
   if (Array.isArray(node.enum) && node.enum.length) {
     const allowed = node.enum
       .filter((v) => v !== null)
-      .map((v) => JSON.stringify(String(v)))
+      .map((v) => JSON.stringify(v))
       .join(", ");
     ctx.imports.add("Literal");
     return { token: `Literal[${allowed}]` };
@@ -638,8 +638,10 @@ export function fieldsToPython(
     header.push(`from typing import ${typingNames.join(", ")}`);
   }
 
-  // Nested classes first (definition order), then the root.
-  return [header.join("\n"), ...nested.reverse(), root].join("\n\n");
+  // Nested classes first, then the root. `nested` is already deepest-first
+  // (a class is pushed only after its own nested classes), which is exactly the
+  // definition order Python needs — do NOT reverse it.
+  return [header.join("\n"), ...nested, root].join("\n\n");
 }
 
 export const pythonConverter: SchemaConverter = {

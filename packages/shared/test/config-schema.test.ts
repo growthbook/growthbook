@@ -1436,3 +1436,63 @@ class AppConfig(BaseModel):
     expect(py).toContain("backoff_ms: Optional[int] = None");
   });
 });
+
+describe("converter review regressions", () => {
+  it("python: defines multi-level nested classes before use", () => {
+    const py = fieldsToPython(
+      [
+        field({
+          key: "outer",
+          jsonSchema: JSON.stringify({
+            type: "object",
+            required: ["inner"],
+            properties: {
+              inner: {
+                type: "object",
+                required: ["leaf"],
+                properties: { leaf: { type: "string" } },
+              },
+            },
+          }),
+        }),
+      ],
+      { name: "Root" },
+    );
+    // Inner is referenced by Outer, so it must be defined first (no NameError).
+    expect(
+      py.search(/class \w*Inner\w*\(BaseModel\)|class Inner\b/),
+    ).toBeLessThan(py.search(/class Outer\b/));
+    expect(py.search(/class Outer\b/)).toBeLessThan(py.search(/class Root\b/));
+  });
+
+  it("python: renders a numeric enum as numeric Literal (not stringified)", () => {
+    const py = fieldsToPython([
+      field({
+        key: "level",
+        jsonSchema: JSON.stringify({ type: "integer", enum: [1, 2, 3] }),
+      }),
+    ]);
+    expect(py).toContain("Literal[1, 2, 3]");
+  });
+
+  it("go: resolves a slice-of-pointers field ([]*Foo) and picks the right root", () => {
+    const src =
+      `type Foo struct {
+  A string ` +
+      '`json:"a"`' +
+      `
+}
+type Cfg struct {
+  Items []*Foo ` +
+      '`json:"items"`' +
+      `
+  Name  string ` +
+      '`json:"name"`' +
+      `
+}`;
+    const { fields, projection } = golangToFields(src);
+    expect(fields.map((f) => f.key).sort()).toEqual(["items", "name"]);
+    expect(projection?.rootName).toBe("Cfg");
+    expect(projection?.typeNames).toEqual({ "/properties/items/items": "Foo" });
+  });
+});

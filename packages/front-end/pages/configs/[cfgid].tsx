@@ -443,9 +443,8 @@ export default function ConfigDetailPage(): React.ReactElement {
       config.schema ?? null,
     );
     if (schemaChanged) {
-      set.add("json");
-      set.add("typescript");
-      set.add("protobuf");
+      // Every format derives from the schema, so flag them all.
+      SCHEMA_EXPORT_FORMATS.forEach((f) => set.add(f.id));
     }
     const draftRP = displayedConfig.renderProjections ?? {};
     const liveRP = config.renderProjections ?? {};

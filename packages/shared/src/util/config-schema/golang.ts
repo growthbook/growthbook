@@ -207,15 +207,27 @@ function structBodyToNode(
   return schema;
 }
 
+// Strip every leading `*`, `[]`, and `map[...]` wrapper to the base type name,
+// in any order/combination (e.g. `[]*Foo`, `*[]Foo`, `map[string]*Foo` → `Foo`).
+function goBaseType(token: string): string {
+  let prev: string;
+  let t = token;
+  do {
+    prev = t;
+    t = t
+      .replace(/^\*/, "")
+      .replace(/^\[\]/, "")
+      .replace(/^map\[[^\]]+\]/, "");
+  } while (t !== prev);
+  return t;
+}
+
 function referencesIn(decl: GoStruct, byName: Map<string, GoStruct>): string[] {
   const refs: string[] = [];
   for (const line of goFieldLines(decl.body)) {
     const f = parseGoField(line);
     if (!f) continue;
-    const token = f.type
-      .replace(/^\*/, "")
-      .replace(/^\[\]/, "")
-      .replace(/^map\[[^\]]+\]/, "");
+    const token = goBaseType(f.type);
     if (byName.has(token) && token !== decl.name) refs.push(token);
   }
   return refs;
@@ -245,10 +257,7 @@ function captureStructNames(
     const field = parseGoField(line);
     if (!field) continue;
     const isArray = field.type.replace(/^\*/, "").startsWith("[]");
-    const token = field.type
-      .replace(/^\*/, "")
-      .replace(/^\[\]/, "")
-      .replace(/^map\[[^\]]+\]/, "");
+    const token = goBaseType(field.type);
     const decl = byName.get(token);
     if (!decl || seen.has(token)) continue;
     const seg = `/properties/${jsonPointerEscape(field.key)}`;
