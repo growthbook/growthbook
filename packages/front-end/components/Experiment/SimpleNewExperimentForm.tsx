@@ -267,6 +267,7 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
     }) !== "";
   const showLinkIdentifierCallout =
     !!autoDatasource &&
+    autoDatasource.type !== "growthbook_clickhouse" &&
     permissionsUtil.canUpdateDataSourceSettings(autoDatasource) &&
     autoDsExposureQueries.length > 0 &&
     !hashAttributeLinkedToIdentifier &&
@@ -424,8 +425,9 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
         <SDKCapabilityWarning
           capability="bucketingV2"
           project={selectedProject}
-          someMessage="Some of your SDK Connections may not support V2 hashing."
-          noneMessage="None of your SDK Connections support V2 hashing."
+          someMessage="Using V1 hashing algorithm as some of your SDK Connections may not support V2 hashing."
+          noneMessage="Using V1 hashing algorithm as none of your SDK Connections support V2 hashing."
+          popoverTriggerText="Show incompatible SDKs"
           size="medium"
         />
       </Flex>

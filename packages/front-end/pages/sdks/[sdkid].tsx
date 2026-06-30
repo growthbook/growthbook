@@ -1,5 +1,8 @@
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
-import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
+import {
+  getConnectionSDKCapabilities,
+  getSDKCapabilityVersion,
+} from "shared/sdk-versioning";
 import { useRouter } from "next/router";
 import React, { useState } from "react";
 import { FaInfoCircle } from "react-icons/fa";
@@ -27,6 +30,7 @@ import {
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
 import { capitalizeFirstLetter } from "@/services/utils";
+import Text from "@/ui/Text";
 
 export default function SDKConnectionPage() {
   const router = useRouter();
@@ -68,6 +72,11 @@ export default function SDKConnectionPage() {
 
   const supportsBucketingV2 =
     getConnectionSDKCapabilities(connection).includes("bucketingV2");
+
+  const bucketingV2IntroducedVersion = getSDKCapabilityVersion(
+    connection.languages?.[0],
+    "bucketingV2",
+  );
 
   const canDuplicate = permissionsUtil.canCreateSDKConnection(connection);
   const canUpdate = permissionsUtil.canUpdateSDKConnection(connection, {});
@@ -184,8 +193,10 @@ export default function SDKConnectionPage() {
       {!supportsBucketingV2 && (
         <Callout status="warning" mb="3">
           This SDK version doesn&apos;t support V2 hashing. Until it&apos;s
-          upgraded, new experiments in the same projects as this connection will
-          fall back to the V1 hashing algorithm.
+          upgraded, new experiments in the same project as this connection will
+          fall back to the V1 hashing algorithm. To enable V2 hashing, upgrade
+          to <Text weight="semibold">{bucketingV2IntroducedVersion}</Text> or
+          later.
         </Callout>
       )}
       <ConnectionDiagram
