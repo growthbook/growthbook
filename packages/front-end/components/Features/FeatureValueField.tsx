@@ -779,6 +779,8 @@ export default function FeatureValueField({
             defaultHeight={codeInputDefaultHeight}
             showCopyButton={!copyHidden}
             showFullscreenButton={showFullscreenButton}
+            fontSize="0.75rem"
+            slimGutter
             onEditorLoad={(e) => (jsonEditorRef.current = e)}
           />
         </Box>

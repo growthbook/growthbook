@@ -211,6 +211,9 @@ export type Props = CodeTextAreaFieldProps & {
   // Editor font size (Ace accepts px number or any CSS size). Smaller values
   // also shrink line height, so a fixed line count takes less vertical space.
   fontSize?: string | number;
+  // Hide the fold-widget caret so the line-number gutter is as narrow as
+  // possible — useful for cramped inline editors (e.g. feature/config values).
+  slimGutter?: boolean;
   fullHeight?: boolean;
   onCtrlEnter?: () => void;
   wrapperClassName?: string;
@@ -238,6 +241,7 @@ export default function CodeTextArea({
   minLines = 10,
   maxLines = 50,
   fontSize = "1em",
+  slimGutter = false,
   setCursorData,
   fullHeight,
   onCtrlEnter,
@@ -448,6 +452,7 @@ export default function CodeTextArea({
                   {...heightProps}
                   setOptions={{
                     wrap: true,
+                    ...(slimGutter ? { showFoldWidgets: false } : {}),
                     ...(language === "sql"
                       ? {
                           enableBasicAutocompletion: true,
