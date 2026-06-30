@@ -19,6 +19,7 @@ import { DocLink, DocSection } from "@/components/DocLink";
 import { DataSourceInlineEditIdentifierTypes } from "@/components/Settings/EditDataSource/DataSourceInlineEditIdentifierTypes/DataSourceInlineEditIdentifierTypes";
 import { DataSourceInlineEditIdentityJoins } from "@/components/Settings/EditDataSource/DataSourceInlineEditIdentityJoins/DataSourceInlineEditIdentityJoins";
 import { ExperimentAssignmentQueries } from "@/components/Settings/EditDataSource/ExperimentAssignmentQueries/ExperimentAssignmentQueries";
+import { ContextualBanditAssignmentQueries } from "@/components/Settings/EditDataSource/ContextualBanditAssignmentQueries/ContextualBanditAssignmentQueries";
 import { DataSourceViewEditExperimentProperties } from "@/components/Settings/EditDataSource/DataSourceExperimentProperties/DataSourceViewEditExperimentProperties";
 import { DataSourceJupyterNotebookQuery } from "@/components/Settings/EditDataSource/DataSourceJupypterQuery/DataSourceJupyterNotebookQuery";
 import DataSourceForm from "@/components/Settings/DataSourceForm";
@@ -56,6 +57,7 @@ function quotePropertyName(name: string) {
 }
 
 export const EAQ_ANCHOR_ID = "experiment-assignment-queries";
+export const CBAQ_ANCHOR_ID = "contextual-bandit-assignment-queries";
 
 const DataSourcePage: FC = () => {
   const permissionsUtil = usePermissionsUtil();
@@ -502,6 +504,15 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                     canEdit={canUpdateDataSourceSettings}
                   />
                 </Frame>
+
+                {hasCommercialFeature("contextual-bandits") && (
+                  <Frame id={CBAQ_ANCHOR_ID}>
+                    <ContextualBanditAssignmentQueries
+                      dataSource={d}
+                      canEdit={canUpdateDataSourceSettings}
+                    />
+                  </Frame>
+                )}
 
                 {d.settings?.userIdTypes &&
                 d.settings.userIdTypes.length > 1 ? (

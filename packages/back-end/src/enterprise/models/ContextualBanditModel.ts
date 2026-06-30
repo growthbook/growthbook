@@ -418,6 +418,13 @@ export class ContextualBanditModel extends BaseClass {
     });
   }
 
+  /** All contextual bandits that reference a given contextual bandit query. */
+  public getByContextualBanditQueryId(
+    contextualBanditQueryId: string,
+  ): Promise<ContextualBanditInterface[]> {
+    return this._find({ contextualBanditQueryId });
+  }
+
   public async clearStalePendingFeatureDrafts(
     featureId: string,
     keepIds: string[],
