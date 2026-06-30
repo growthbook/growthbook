@@ -318,17 +318,24 @@ export const getSlackOAuthIntegrations = async (
     .map(slackEventWebhookToIntegration);
 };
 
-export const connectSlackOAuthIntegration = async ({
+/**
+ * Exchange a Slack OAuth `code` and attach (or update) the resulting Slack
+ * connection to `context.org`. This is the shared core for both install paths;
+ * it assumes the caller has already authorized the attach:
+ *
+ * - GrowthBook-initiated: {@link connectSlackOAuthIntegration} verifies a
+ *   signed `state` that binds the install to the initiating user/org.
+ * - Slack-initiated (App Directory): {@link connectSlackOAuthInstallFromSession}
+ *   relies on the logged-in session + an explicit in-app org confirmation, the
+ *   same way the visual-editor extension attaches to an org.
+ */
+const attachSlackOAuthCode = async ({
   context,
   code,
-  state,
 }: {
   context: ReqContext;
   code: string;
-  state: string;
 }) => {
-  assertSlackOAuthState({ state, context });
-
   const slackOAuthResponse = await exchangeSlackOAuthCode(code);
   const existing = await findExistingSlackEventWebhook({
     context,
@@ -385,6 +392,43 @@ export const connectSlackOAuthIntegration = async ({
 
   const updated = await getEventWebHookById(created.id, context.org.id);
   return slackEventWebhookToIntegration(updated || created);
+};
+
+/**
+ * GrowthBook-initiated install: the user clicked "Connect to Slack" inside the
+ * app, so we verify the signed `state` that ties this callback to the same
+ * user/org before attaching.
+ */
+export const connectSlackOAuthIntegration = async ({
+  context,
+  code,
+  state,
+}: {
+  context: ReqContext;
+  code: string;
+  state: string;
+}) => {
+  assertSlackOAuthState({ state, context });
+  return attachSlackOAuthCode({ context, code });
+};
+
+/**
+ * Slack-initiated install: the user added the app from the Slack App Directory,
+ * so Slack returns a `code` with no GrowthBook `state`. There's no initiating
+ * GrowthBook session to bind to, so authorization is established by the caller
+ * instead — the user is logged in, has explicitly confirmed which org to attach
+ * to in the UI, and the controller has checked `canManageIntegrations`. The
+ * org comes from the confirmed session context. Mirrors how the visual-editor
+ * extension attaches to an org.
+ */
+export const connectSlackOAuthInstallFromSession = async ({
+  context,
+  code,
+}: {
+  context: ReqContext;
+  code: string;
+}) => {
+  return attachSlackOAuthCode({ context, code });
 };
 
 export const deleteSlackOAuthIntegration = async ({

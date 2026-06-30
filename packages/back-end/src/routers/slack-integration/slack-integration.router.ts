@@ -32,6 +32,20 @@ router.post(
   slackIntegrationController.postSlackOAuthCallback,
 );
 
+// Slack-initiated install (App Directory): code only, no signed state. The org
+// is taken from the confirmed session (X-Organization header).
+router.post(
+  "/oauth-install",
+  validateRequestMiddleware({
+    body: z
+      .object({
+        code: z.string().min(1),
+      })
+      .strict(),
+  }),
+  slackIntegrationController.postSlackOAuthInstall,
+);
+
 router.get(
   "/:id",
   validateRequestMiddleware({

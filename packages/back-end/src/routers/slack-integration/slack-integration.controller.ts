@@ -10,6 +10,7 @@ import { getContextFromReq } from "back-end/src/services/organizations";
 import * as SlackIntegration from "back-end/src/models/SlackIntegrationModel";
 import {
   connectSlackOAuthIntegration,
+  connectSlackOAuthInstallFromSession,
   deleteSlackOAuthIntegration,
   getSlackOAuthAuthorizeUrl,
   getSlackOAuthIntegrations,
@@ -117,6 +118,42 @@ export const postSlackOAuthCallback = async (
 };
 
 // endregion POST /integrations/slack/oauth-callback
+
+// region POST /integrations/slack/oauth-install
+
+// Slack-initiated install (App Directory "Add to Slack"): Slack returns a
+// `code` with no GrowthBook `state`, so the attach is authorized by the
+// logged-in session + this permission check + the org the user confirmed in
+// the UI (sent via the X-Organization header), rather than a signed state.
+type PostSlackOAuthInstallRequest = AuthRequest<{
+  code: string;
+}>;
+
+type PostSlackOAuthInstallResponse = {
+  slackIntegration: SlackOAuthIntegrationInterface;
+};
+
+export const postSlackOAuthInstall = async (
+  req: PostSlackOAuthInstallRequest,
+  res: Response<PostSlackOAuthInstallResponse | ApiErrorResponse>,
+) => {
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canManageIntegrations()) {
+    context.permissions.throwPermissionError();
+  }
+
+  const slackIntegration = await connectSlackOAuthInstallFromSession({
+    context,
+    code: req.body.code,
+  });
+
+  return res.json({
+    slackIntegration,
+  });
+};
+
+// endregion POST /integrations/slack/oauth-install
 
 // region GET /integrations/slack/:id
 

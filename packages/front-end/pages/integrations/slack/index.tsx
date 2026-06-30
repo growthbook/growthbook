@@ -753,10 +753,22 @@ const SlackRecipeCustomizeModal = ({
 const SlackIntegrationsPage: NextPage = () => {
   const permissionsUtils = usePermissionsUtil();
   const router = useRouter();
-  const { apiCall } = useAuth();
+  const { apiCall, orgId, organizations, setOrgId } = useAuth();
   const callbackProcessed = useRef(false);
   const [connectError, setConnectError] = useState<string | null>(null);
   const [connecting, setConnecting] = useState(false);
+
+  // Slack-initiated install (App Directory "Add to Slack"): Slack returns a
+  // `code` with no GrowthBook `state`. Unlike the in-app "Connect" flow, we
+  // can't silently attach — we don't know which org the user means — so we
+  // hold the code and show an explicit org-confirmation screen, mirroring the
+  // visual-editor extension connect flow.
+  const [installCode, setInstallCode] = useState<string | null>(null);
+  const [installStatus, setInstallStatus] = useState<
+    "confirming" | "connecting" | "done" | "error"
+  >("confirming");
+  const [installError, setInstallError] = useState<string | null>(null);
+  const installInFlight = useRef(false);
   const [savingPresetFor, setSavingPresetFor] = useState<string | null>(null);
   const [recipeErrorFor, setRecipeErrorFor] = useState<{
     id: string;
@@ -792,7 +804,18 @@ const SlackIntegrationsPage: NextPage = () => {
 
     const code = getQueryStringValue(router.query.code);
     const state = getQueryStringValue(router.query.state);
-    if (!code || !state) return;
+    if (!code) return;
+
+    // No state → Slack-initiated install. Stash the code and show the
+    // org-confirmation screen instead of attaching silently. Strip the code
+    // from the URL so a refresh doesn't try to reuse a now-consumed code.
+    if (!state) {
+      callbackProcessed.current = true;
+      setInstallCode(code);
+      setInstallStatus("confirming");
+      router.replace("/integrations/slack", undefined, { shallow: true });
+      return;
+    }
 
     callbackProcessed.current = true;
     setConnecting(true);
@@ -830,6 +853,53 @@ const SlackIntegrationsPage: NextPage = () => {
     );
     window.location.href = response.url;
   }, [apiCall]);
+
+  const installOrgOptions = useMemo(
+    () =>
+      (organizations || []).map((o) => ({
+        value: o.id,
+        label: o.name || o.id,
+      })),
+    [organizations],
+  );
+  const currentOrgName =
+    installOrgOptions.find((o) => o.value === orgId)?.label || orgId || "—";
+
+  // Keep the picked org in sync with the auth context so the eventual
+  // X-Organization header (and future logins) use the confirmed org.
+  const onSwitchInstallOrg = useCallback(
+    (newOrgId: string) => {
+      if (!setOrgId || !newOrgId || newOrgId === orgId) return;
+      setOrgId(newOrgId);
+      try {
+        localStorage.setItem("gb-last-picked-org", `"${newOrgId}"`);
+      } catch (e) {
+        // Best-effort — localStorage can be blocked in some browser modes.
+        console.warn("Unable to save last org in localStorage");
+      }
+    },
+    [orgId, setOrgId],
+  );
+
+  const confirmInstall = useCallback(async () => {
+    if (!installCode || installInFlight.current) return;
+    installInFlight.current = true;
+    setInstallStatus("connecting");
+    setInstallError(null);
+    try {
+      await apiCall("/integrations/slack/oauth-install", {
+        method: "POST",
+        body: JSON.stringify({ code: installCode }),
+      });
+      await mutate();
+      setInstallStatus("done");
+    } catch (e) {
+      setInstallError(e instanceof Error ? e.message : String(e));
+      setInstallStatus("error");
+    } finally {
+      installInFlight.current = false;
+    }
+  }, [apiCall, installCode, mutate]);
 
   const deleteIntegration = useCallback(
     async (slackIntegration: SlackOAuthIntegrationInterface) => {
@@ -965,6 +1035,96 @@ const SlackIntegrationsPage: NextPage = () => {
     [apiCall, mutate],
   );
 
+  // Slack-initiated install: an explicit org-confirmation screen, shown in
+  // place of the normal management page until the user confirms (or it's done).
+  if (installCode && installStatus !== "done") {
+    return (
+      <div className="container-fluid pagecontents">
+        <Flex
+          align="center"
+          justify="center"
+          px="4"
+          style={{ minHeight: "60vh" }}
+        >
+          <Box style={{ maxWidth: 520, width: "100%" }}>
+            {installStatus === "connecting" ? (
+              <Flex direction="column" align="center" gap="3">
+                <Heading as="h1" size="medium" align="center" mb="0">
+                  Connecting…
+                </Heading>
+                <Text as="p" color="text-mid" align="center">
+                  Linking your Slack workspace to {currentOrgName}.
+                </Text>
+              </Flex>
+            ) : (
+              <Flex direction="column" gap="4">
+                <Box>
+                  <Heading as="h1" size="large" mb="2">
+                    Connect Slack to GrowthBook
+                  </Heading>
+                  <Text as="p" color="text-mid">
+                    You added the GrowthBook app from Slack. Choose which
+                    GrowthBook organization to connect this Slack workspace to.
+                  </Text>
+                </Box>
+
+                <Box
+                  p="4"
+                  style={{
+                    border: "1px solid var(--slate-a5)",
+                    borderRadius: 8,
+                    background: "var(--color-panel-solid)",
+                  }}
+                >
+                  <Text size="small" color="text-mid" as="p" mb="1">
+                    Connecting to
+                  </Text>
+                  <Heading as="h2" size="medium" mb="2">
+                    {currentOrgName}
+                  </Heading>
+                  {installOrgOptions.length > 1 && (
+                    <Box mt="3">
+                      <Select
+                        label="Organization"
+                        value={orgId || ""}
+                        setValue={onSwitchInstallOrg}
+                      >
+                        {installOrgOptions.map((o) => (
+                          <SelectItem key={o.value} value={o.value}>
+                            {o.label}
+                          </SelectItem>
+                        ))}
+                      </Select>
+                    </Box>
+                  )}
+                </Box>
+
+                {installError && (
+                  <Callout status="error">{installError}</Callout>
+                )}
+
+                <Flex gap="3" align="center">
+                  <Button onClick={confirmInstall}>
+                    Connect to {currentOrgName}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      setInstallCode(null);
+                      setInstallError(null);
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </Flex>
+              </Flex>
+            )}
+          </Box>
+        </Flex>
+      </div>
+    );
+  }
+
   if (!permissionsUtils.canManageIntegrations()) {
     return (
       <div className="container-fluid pagecontents">
@@ -977,6 +1137,12 @@ const SlackIntegrationsPage: NextPage = () => {
 
   return (
     <div className="container-fluid pagecontents">
+      {installStatus === "done" && (
+        <Callout status="success" mb="4">
+          Your Slack workspace is now connected. Configure notifications and the
+          assistant below.
+        </Callout>
+      )}
       {customizeRecipe && (
         <SlackRecipeCustomizeModal
           slackIntegration={customizeRecipe.slackIntegration}
