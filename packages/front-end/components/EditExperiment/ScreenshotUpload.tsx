@@ -1,6 +1,7 @@
 import React, {
   DetailedHTMLProps,
   HTMLAttributes,
+  ClipboardEvent,
   ReactElement,
   ReactNode,
   useState,
@@ -42,6 +43,24 @@ const ScreenshotUpload = ({
     );
 
   const onDrop = async (files: File[]) => {
+    await uploadScreenshots(files);
+  };
+
+  const onPaste = async (e: ClipboardEvent<HTMLDivElement>) => {
+    const files = Array.from(e.clipboardData.items || [])
+      .filter((item) => item.kind === "file" && item.type.startsWith("image/"))
+      .map((item) => item.getAsFile())
+      .filter((file): file is File => !!file);
+
+    if (!files.length) return;
+
+    e.preventDefault();
+    await uploadScreenshots(files);
+  };
+
+  const uploadScreenshots = async (files: File[]) => {
+    if (!files.length) return;
+
     setLoading((previous) => previous + files.length);
 
     for (const file of files) {
@@ -60,14 +79,13 @@ const ScreenshotUpload = ({
           },
         );
 
-        setLoading((previous) => previous - 1);
-
         onSuccess(variation, {
           path: fileURL,
           description: "",
         });
       } catch (e) {
         alert(e.message);
+      } finally {
         setLoading((previous) => previous - 1);
       }
     }
@@ -85,6 +103,8 @@ const ScreenshotUpload = ({
     <>
       <div
         {...typedRootProps}
+        onPaste={onPaste}
+        tabIndex={0}
         className={clsx(styles.droparea, {
           [styles.dragging]: isDragActive,
         })}
@@ -102,7 +122,7 @@ const ScreenshotUpload = ({
       >
         {loading > 0 ? <LoadingOverlay /> : ""}
         <input {...getInputProps()} />
-        <div className={styles.message}>Drop Image Here...</div>
+        <div className={styles.message}>Drop or paste image here...</div>
         {children}
       </div>
     </>
