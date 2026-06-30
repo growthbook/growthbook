@@ -105,7 +105,7 @@ export const HoldoutSelect = ({
   }
 
   if (holdoutsWithExperiment.length === 0) {
-    if (hideEmptyStatePromo) return null;
+    if (hideEmptyStatePromo || holdouts.length > 0) return null;
     return (
       <Callout
         mt="3"

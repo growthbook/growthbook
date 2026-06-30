@@ -107,7 +107,11 @@ export default function StickyBucketingSettings() {
             someMessage={
               <>
                 Ensure that Sticky Bucketing is correctly integrated (
-                <DocLink docSection="stickyBucketing" className="underline">
+                <DocLink
+                  useRadix={false}
+                  docSection="stickyBucketing"
+                  className="underline"
+                >
                   see docs
                 </DocLink>
                 ) with your SDK.

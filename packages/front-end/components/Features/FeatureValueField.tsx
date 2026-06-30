@@ -938,6 +938,7 @@ function SimpleSchemaEditor({
       <>
         {open ? (
           <Modal
+            useRadixButton={false}
             trackingEventModalType=""
             open={true}
             header="Edit Value"
