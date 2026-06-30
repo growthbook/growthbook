@@ -5,6 +5,7 @@ import {
   FactTableExplorationBlockInterface,
   DataSourceExplorationBlockInterface,
   buildComparisonDateRange,
+  dashboardBlockHasIds,
 } from "shared/enterprise";
 import type {
   ExplorationDateRange,
@@ -78,7 +79,7 @@ export default function ProductAnalyticsExplorerSettings({
       }
     : effectiveInitialConfig;
   const explorerProviderKey = [
-    block.id,
+    dashboardBlockHasIds(block) ? block.id : "",
     block.explorerAnalysisId,
     block.useDashboardFilters === true,
     JSON.stringify(dashboardFilters?.dateRange ?? null),

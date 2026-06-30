@@ -13,9 +13,11 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { DashboardSnapshotContext } from "@/enterprise/components/Dashboards/DashboardSnapshotProvider";
 import { ControlledDateRangePicker } from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/DateRangePicker";
 
-const DEFAULT_DASHBOARD_DATE_RANGE: NonNullable<
+type DashboardDateRange = NonNullable<
   NonNullable<DashboardInterface["filters"]>["dateRange"]
-> = {
+>;
+
+const DEFAULT_DASHBOARD_DATE_RANGE: DashboardDateRange = {
   predefined: "last30Days",
   lookbackValue: null,
   lookbackUnit: null,
@@ -23,9 +25,7 @@ const DEFAULT_DASHBOARD_DATE_RANGE: NonNullable<
   endDate: null,
 };
 
-function hasCompleteDateRange(
-  dateRange: NonNullable<DashboardInterface["filters"]>["dateRange"],
-): boolean {
+function hasCompleteDateRange(dateRange: DashboardDateRange): boolean {
   if (dateRange.predefined === "customDateRange") {
     return Boolean(dateRange.startDate && dateRange.endDate);
   }
