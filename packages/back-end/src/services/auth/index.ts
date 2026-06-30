@@ -119,7 +119,7 @@ export async function processJWT(
   // assert arbitrary emails and match or join as an existing user. For now we only
   // log the mismatch (monitor-only) so we can identify affected orgs before enforcing.
   if (usingOpenId() && isEnterpriseSSO(req.loginMethod) && !verified) {
-    logger.warn(
+    logger.error(
       {
         email,
         loginMethod: req.loginMethod?.id,
