@@ -1167,6 +1167,10 @@ export async function buildSDKPayloadForConnection(
     projectsMap = new Map(allProjects.map((p) => [p.id, p]));
   }
 
+  // Expands $inGroup -> $in whenever resolvedSavedGroupReferencesEnabled is
+  // false. getFeatureDefinitionsResponse relies on this via
+  // featuresHaveInlinedSavedGroups below; keep the two in lockstep if this
+  // expansion condition ever changes.
   const featureDefinitions = generateFeaturesPayload({
     features: filteredFeatures,
     environment,
@@ -1256,6 +1260,8 @@ export async function buildSDKPayloadForConnection(
     capabilities,
     usedSavedGroups,
     savedGroupReferencesEnabled: resolvedSavedGroupReferencesEnabled,
+    // generateFeaturesPayload above already expanded $inGroup when references
+    // are off, so the inlining pass downstream would be a redundant no-op.
     featuresHaveInlinedSavedGroups: !resolvedSavedGroupReferencesEnabled,
     organization: context.org,
   });
