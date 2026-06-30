@@ -30,6 +30,7 @@ import { isEqual } from "lodash";
 import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiPlusBold, PiCaretDown, PiCheckBold, PiCopy } from "react-icons/pi";
+import { REVIEW_REQUESTED_STATUSES } from "shared/validators";
 import useApi from "@/hooks/useApi";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import Button from "@/ui/Button";
@@ -41,8 +42,7 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import PageHead from "@/components/Layout/PageHead";
 import Owner from "@/components/Avatar/Owner";
 import Markdown from "@/components/Markdown/Markdown";
-// eslint-disable-next-line no-restricted-imports
-import Modal from "@/components/Modal";
+
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Badge from "@/ui/Badge";
@@ -61,7 +61,13 @@ import {
 } from "@/ui/DropdownMenu";
 import RevisionDropdown from "@/components/Revision/RevisionDropdown";
 import RevisionSummaryCard from "@/components/Revision/RevisionSummaryCard";
-import RevisionDetail from "@/components/Revision/RevisionDetail";
+import ReviewAndPublishTab from "@/components/Revision/ReviewAndPublishTab";
+import ArchiveModal from "@/components/Revision/ArchiveModal";
+import RevertModal from "@/components/Revision/RevertModal";
+import RevisionDraftSelectorForChanges from "@/components/Revision/RevisionDraftSelectorForChanges";
+import EditRevisionDescriptionModal from "@/components/Reviews/EditRevisionDescriptionModal";
+import { draftStatusTooltip } from "@/components/Reviews/RevisionStatusBadge";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import CompareRevisionsModal from "@/components/Revision/CompareRevisionsModal";
 import AuditHistoryExplorerModal from "@/components/AuditHistoryExplorer/AuditHistoryExplorerModal";
 import { OVERFLOW_SECTION_LABEL } from "@/components/AuditHistoryExplorer/useAuditDiff";
@@ -74,13 +80,12 @@ import {
   getConstantValuesBadges,
   getConstantSchemaBadges,
 } from "@/components/Constants/ConstantDiffRenders";
-import {
-  ConstantConflictModal,
-  useConstantMergeResult,
-} from "@/components/Constants/useConstantConflictModal";
 import { useConstantRevision } from "@/hooks/useConstantRevision";
-import { useConfigFamilyReferences } from "@/hooks/useConstantReferences";
-import ConstantArchiveModal from "@/components/Constants/ConstantArchiveModal";
+import {
+  useConfigFamilyReferences,
+  useConstantReferences,
+} from "@/hooks/useConstantReferences";
+import ConstantReferencesList from "@/components/Constants/ConstantReferencesList";
 import { ConstantRevisionContext } from "@/components/Constants/useConstantDraftTarget";
 import ConfigModal from "@/components/Configs/ConfigModal";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
@@ -219,6 +224,19 @@ function ConfigExportMenu({ payloads }: { payloads: ConfigExportPayloads }) {
   );
 }
 
+// Fields a config revert can restore (mirrors ConstantRevertModal). `archived`
+// is handled separately via an explicit opt-in inside RevertModal.
+const CONFIG_REVERTABLE_FIELDS = [
+  "name",
+  "owner",
+  "description",
+  "project",
+  "value",
+  "extends",
+  "schema",
+  "renderProjections",
+] as const satisfies readonly (keyof ConfigInterface)[];
+
 export default function ConfigDetailPage(): React.ReactElement {
   const router = useRouter();
   const { cfgid } = router.query;
@@ -231,15 +249,19 @@ export default function ConfigDetailPage(): React.ReactElement {
     projects,
     mutateDefinitions,
   } = useDefinitions();
-  const { organization, userId, hasCommercialFeature } = useUser();
+  const { organization, hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
 
   const [editInfoOpen, setEditInfoOpen] = useState(false);
-  const [conflictOpen, setConflictOpen] = useState(false);
-  const [showChangesModal, setShowChangesModal] = useState(false);
   const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [showAuditModal, setShowAuditModal] = useState(false);
   const [compareOpen, setCompareOpen] = useState(false);
+  const [confirmRevert, setConfirmRevert] = useState(false);
+  const [revisionToRevert, setRevisionToRevert] = useState<Revision | null>(
+    null,
+  );
+  const [editDescriptionModal, setEditDescriptionModal] = useState(false);
+  const [tab, setTab] = useState<"overview" | "review">("overview");
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showOverrides, setShowOverrides] = useState(false);
@@ -286,9 +308,11 @@ export default function ConfigDetailPage(): React.ReactElement {
     // The reused page instance can otherwise carry a modal open from the
     // previous config (e.g. the review/publish dialog popping up after a
     // lineage/tag link lands on a different config).
-    setShowChangesModal(false);
+    setTab("overview");
     setCompareOpen(false);
-    setConflictOpen(false);
+    setConfirmRevert(false);
+    setRevisionToRevert(null);
+    setEditDescriptionModal(false);
     setShowArchiveModal(false);
     setShowAuditModal(false);
     setEditInfoOpen(false);
@@ -322,6 +346,41 @@ export default function ConfigDetailPage(): React.ReactElement {
   const { references: familyReferences, loading: familyReferencesLoading } =
     useConfigFamilyReferences(config?.id);
 
+  // On "live" (no explicit selection) fall back to the latest merged revision so
+  // the Review tab renders its read-only Live view instead of the empty state.
+  const displayRevision = useMemo(() => {
+    if (selectedRevision) return selectedRevision;
+    return [...allRevisions]
+      .filter((r) => r.status === "merged")
+      .sort(
+        (a, b) =>
+          new Date(b.dateUpdated).getTime() - new Date(a.dateUpdated).getTime(),
+      )[0];
+  }, [selectedRevision, allRevisions]);
+
+  // Drives the count bubble on the "Review & Publish" tab.
+  const draftStatusCounts: Partial<Record<string, number>> = {};
+  allRevisions.forEach((r) => {
+    if ((REVIEW_REQUESTED_STATUSES as readonly string[]).includes(r.status)) {
+      draftStatusCounts[r.status] = (draftStatusCounts[r.status] ?? 0) + 1;
+    }
+  });
+  const activeDraftCount = Object.values(draftStatusCounts).reduce<number>(
+    (sum, n) => sum + (n ?? 0),
+    0,
+  );
+
+  // References that block archiving — only fetched while the archive modal is
+  // open and we're archiving (unarchiving is never blocked).
+  const { references: archiveReferences, loading: archiveReferencesLoading } =
+    useConstantReferences(
+      showArchiveModal && !config?.archived ? config?.id : null,
+      "configs",
+    );
+  const archiveReferenceCount =
+    (archiveReferences?.features.length ?? 0) +
+    (archiveReferences?.constants.length ?? 0);
+
   // Constant-picker scope: cycle-creating keys + this config's own key are
   // scrubbed so a value can't reference back into a cycle.
   const { data: cyclicData } = useApi<{ cyclicKeys: string[] }>(
@@ -349,6 +408,7 @@ export default function ConfigDetailPage(): React.ReactElement {
   }, [data?.constants, config?.project]);
 
   const settings = organization.settings || {};
+  const revertsBypassApproval = !!settings.revertsBypassApproval;
   const hasApprovalsFeature = hasCommercialFeature("require-approvals");
   // Creating configs (incl. child override configs) is premium-gated; editing
   // existing ones is not (permissive on license lapse).
@@ -458,13 +518,6 @@ export default function ConfigDetailPage(): React.ReactElement {
         value: f.value === undefined ? undefined : squashConstants(f.value),
       })),
     [resolved.fields, squashConstants],
-  );
-
-  const mergeResult = useConstantMergeResult(
-    config,
-    selectedRevision,
-    isDraft,
-    "config",
   );
 
   const parentKey = useMemo(() => {
@@ -1317,309 +1370,329 @@ export default function ConfigDetailPage(): React.ReactElement {
               </Box>
             )}
 
-            <RevisionSummaryCard
-              allRevisions={allRevisions}
-              selectedRevision={selectedRevision}
-              entityNoun="config"
-              hasRevisions={allRevisions.length > 0}
-              metadataReviewRequired={metadataReviewRequired}
-              requiresApproval={selectedRevisionRequiresApproval}
-              mergeResult={mergeResult}
-              currentUserId={userId}
-              fallbackOwnerId={config.owner}
-              fallbackDateCreated={config.dateCreated}
-              onSelectRevision={selectRevision}
-              onTitleCommit={async (revisionId, title) => {
-                await apiCall(`/revision/${revisionId}/title`, {
-                  method: "PATCH",
-                  body: JSON.stringify({ title }),
-                });
-                await mutateRevisions();
-              }}
-              onReopen={async (revisionId) => {
-                await handleReopen(revisionId);
-              }}
-              onDiscard={async (revisionId) => {
-                await handleDiscard(revisionId);
-              }}
-              onNewDraft={canUpdate ? handleNewDraft : undefined}
-              onCompare={() => setCompareOpen(true)}
-              onFixConflicts={() => setConflictOpen(true)}
-              onReviewPublish={() => setShowChangesModal(true)}
-              promptDraftWhenLive
-            />
-
-            <Box mb="4" pb="5" px="6" className="appbox">
+            <Box mb="4">
               <Tabs
-                value={activeTab}
-                onValueChange={(v) => {
-                  cancelEdits();
-                  setActiveTab(
-                    v === "json"
-                      ? "json"
-                      : v === "resolved"
-                        ? "resolved"
-                        : "form",
-                  );
-                }}
+                value={tab}
+                onValueChange={(v) => setTab(v as "overview" | "review")}
               >
-                {/* Single tab bar with consistent meanings on every revision:
+                <TabsList>
+                  <TabsTrigger value="overview">Overview</TabsTrigger>
+                  <TabsTrigger value="review">
+                    Review &amp; Publish
+                    {activeDraftCount > 0 && (
+                      <Tooltip body={draftStatusTooltip(draftStatusCounts)}>
+                        <Badge
+                          label={String(activeDraftCount)}
+                          color="red"
+                          variant="solid"
+                          radius="full"
+                          ml="2"
+                          style={{ minWidth: 18, height: 18 }}
+                        />
+                      </Tooltip>
+                    )}
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </Box>
+
+            {tab === "overview" && (
+              <>
+                <RevisionSummaryCard
+                  allRevisions={allRevisions}
+                  selectedRevision={selectedRevision}
+                  entityNoun="config"
+                  hasRevisions={allRevisions.length > 0}
+                  canEditTitle={canUpdate}
+                  canEditDescription={canUpdate}
+                  fallbackOwnerId={config.owner}
+                  fallbackDateCreated={config.dateCreated}
+                  onSelectRevision={selectRevision}
+                  onTitleCommit={async (revisionId, title) => {
+                    await apiCall(`/revision/${revisionId}/title`, {
+                      method: "PATCH",
+                      body: JSON.stringify({ title }),
+                    });
+                    await mutateRevisions();
+                  }}
+                  onNewDraft={canUpdate ? handleNewDraft : undefined}
+                  onReviewPublish={() => setTab("review")}
+                  onEditDescription={() => setEditDescriptionModal(true)}
+                  promptDraftWhenLive
+                />
+
+                <Box mb="4" pb="5" px="6" className="appbox">
+                  <Tabs
+                    value={activeTab}
+                    onValueChange={(v) => {
+                      cancelEdits();
+                      setActiveTab(
+                        v === "json"
+                          ? "json"
+                          : v === "resolved"
+                            ? "resolved"
+                            : "form",
+                      );
+                    }}
+                  >
+                    {/* Single tab bar with consistent meanings on every revision:
                     Form/JSON show this config's own definition (editable only on
                     a draft); Resolved is the read-only resolved value + effective
                     schema after inheritance/constants. The right-hand controls
                     live inside the (full-width) TabsList so its underline runs
                     the whole width of the appbox and sits under them too. */}
-                <Box pt="4" mb="4">
-                  <TabsList style={{ width: "100%" }}>
-                    <TabsTrigger value="form">Form</TabsTrigger>
-                    <TabsTrigger value="json">JSON</TabsTrigger>
-                    <TabsTrigger value="resolved">Resolved</TabsTrigger>
-                    {/* stopPropagation so the interactive controls don't feed
+                    <Box pt="4" mb="4">
+                      <TabsList style={{ width: "100%" }}>
+                        <TabsTrigger value="form">Form</TabsTrigger>
+                        <TabsTrigger value="json">JSON</TabsTrigger>
+                        <TabsTrigger value="resolved">Resolved</TabsTrigger>
+                        {/* stopPropagation so the interactive controls don't feed
                         the TabsList's arrow-key roving focus. */}
-                    <Flex
-                      align="center"
-                      gap="5"
-                      ml="auto"
-                      pl="4"
-                      onKeyDown={(e) => e.stopPropagation()}
-                    >
-                      <ConfigExportMenu payloads={exportPayloads} />
-                    </Flex>
-                  </TabsList>
-                </Box>
-
-                {/* Form — per-field resolved values (override / reset). */}
-                <TabsContent value="form">
-                  <Box>
-                    {canEditInline && reconciliationPreview.length > 0 && (
-                      <Callout status="info" mt="3">
-                        Publishing will remove{" "}
-                        {reconciliationPreview
-                          .map(
-                            (h) =>
-                              `${h.keys.map((k) => `"${k}"`).join(", ")} from ${h.name}`,
-                          )
-                          .join("; ")}{" "}
-                        — this config now defines{" "}
-                        {reconciliationPreview.length === 1 &&
-                        reconciliationPreview[0].keys.length === 1
-                          ? "that field"
-                          : "those fields"}
-                        , so the descendant keeps only a value override (base
-                        wins).
-                      </Callout>
-                    )}
-                    <Box style={{ minWidth: 800 }}>
-                      {/* Column header — same grid template as the rows so it
-                      aligns. The 5th (actions) column holds the right-aligned
-                      "Show overrides" toggle. */}
-                      <Grid
-                        columns={FIELD_GRID_TEMPLATE}
-                        gapX="5"
-                        align="start"
-                        pt="3"
-                        pb="1"
-                        px="3"
-                        style={{
-                          borderBottom: "1px solid var(--slate-a4)",
-                          position: "sticky",
-                          // Pin just below the fixed 56px top nav (.topbar) — the
-                          // page scrolls the document, so top:0 would hide the
-                          // header behind the nav.
-                          top: 56,
-                          zIndex: 2,
-                          background: "var(--color-panel-solid)",
-                        }}
-                      >
-                        {["Key", "Value", "Type", "Source"].map((label) => (
-                          <Box key={label} style={{ minWidth: 0 }}>
-                            <Flex align="center" style={{ minHeight: 24 }}>
-                              <Text
-                                size="small"
-                                weight="medium"
-                                color="text-low"
-                                textTransform="uppercase"
-                              >
-                                {label}
-                              </Text>
-                            </Flex>
-                          </Box>
-                        ))}
                         <Flex
                           align="center"
-                          justify="end"
-                          style={{ minHeight: 24 }}
+                          gap="5"
+                          ml="auto"
+                          pl="4"
+                          onKeyDown={(e) => e.stopPropagation()}
                         >
-                          {overrideCount > 0 && (
-                            <Switch
-                              value={showOverrides}
-                              onChange={setShowOverrides}
-                              label="Show overrides"
-                            />
-                          )}
+                          <ConfigExportMenu payloads={exportPayloads} />
                         </Flex>
-                      </Grid>
-
-                      {renderExtendsRow()}
-                      {renderComposeRow()}
-
-                      {resolved.fields.map((f) => {
-                        // Editing an own field replaces the row with the full editor
-                        // (definition + value); the value is seeded from the resolved
-                        // value, mirroring the inherited-field value editor.
-                        if (schemaEdit === f.key) {
-                          const isJson = isJsonField(f.field);
-                          // JSON editors accept `null` as literal text, so only
-                          // non-JSON fields use the null flag/checkbox.
-                          const seedNull = f.value === null && !isJson;
-                          const seedVal =
-                            f.value !== undefined && f.value !== null
-                              ? f.value
-                              : typeDefault(f.field);
-                          return (
-                            <FieldDefForm
-                              key={f.key}
-                              withValue
-                              initial={
-                                ownSchema().fields.find(
-                                  (sf) => sf.key === f.key,
-                                ) ?? blankField()
-                              }
-                              initialValue={
-                                seedNull
-                                  ? ""
-                                  : isJson
-                                    ? JSON.stringify(
-                                        f.value !== undefined
-                                          ? f.value
-                                          : seedVal,
-                                        null,
-                                        2,
-                                      )
-                                    : String(seedVal)
-                              }
-                              initialNull={seedNull}
-                              existingKeys={resolved.fields.map((rf) => rf.key)}
-                              constantContext={constantContext}
-                              onCancel={() => setSchemaEdit(null)}
-                              onSave={saveField}
-                            />
-                          );
-                        }
-                        return (
-                          <ConfigFieldRow
-                            key={f.key}
-                            field={f}
-                            configKey={config.key}
-                            isOwnField={ownSchemaKeys.includes(f.key)}
-                            canEditInline={canEditInline}
-                            constantContext={constantContext}
-                            squashConstants={squashConstants}
-                            editing={editKey === f.key}
-                            editText={editText}
-                            editKind={editKind}
-                            editError={editError}
-                            setEditText={setEditText}
-                            setEditKind={setEditKind}
-                            onStartEdit={() => startOverride(f)}
-                            onSubmit={submitOverride}
-                            onCancelEdit={() => setEditKey(null)}
-                            onEditDefinition={() => {
-                              setEditKey(null);
-                              setSchemaEdit(f.key);
-                            }}
-                            onRemoveField={() => removeField(f.key)}
-                            onRemoveOverride={() => removeOverride(f.key)}
-                            showParentValue={
-                              showOverrides && isOverrideField(f)
-                            }
-                            parentValue={parentFieldValues.get(f.key)}
-                          />
-                        );
-                      })}
-
-                      {resolved.fields.length === 0 && schemaEdit !== "add" && (
-                        <Text
-                          as="p"
-                          size="small"
-                          color="text-low"
-                          mt="3"
-                          mb="1"
-                        >
-                          No fields yet.
-                        </Text>
-                      )}
-                      {renderAddField()}
-                      {renderAddMixin()}
+                      </TabsList>
                     </Box>
-                  </Box>
-                </TabsContent>
 
-                {/* JSON (own value + schema; editable only on a draft) and
+                    {/* Form — per-field resolved values (override / reset). */}
+                    <TabsContent value="form">
+                      <Box>
+                        {canEditInline && reconciliationPreview.length > 0 && (
+                          <Callout status="info" mt="3">
+                            Publishing will remove{" "}
+                            {reconciliationPreview
+                              .map(
+                                (h) =>
+                                  `${h.keys.map((k) => `"${k}"`).join(", ")} from ${h.name}`,
+                              )
+                              .join("; ")}{" "}
+                            — this config now defines{" "}
+                            {reconciliationPreview.length === 1 &&
+                            reconciliationPreview[0].keys.length === 1
+                              ? "that field"
+                              : "those fields"}
+                            , so the descendant keeps only a value override
+                            (base wins).
+                          </Callout>
+                        )}
+                        <Box style={{ minWidth: 800 }}>
+                          {/* Column header — same grid template as the rows so it
+                      aligns. The 5th (actions) column holds the right-aligned
+                      "Show overrides" toggle. */}
+                          <Grid
+                            columns={FIELD_GRID_TEMPLATE}
+                            gapX="5"
+                            align="start"
+                            pt="3"
+                            pb="1"
+                            px="3"
+                            style={{
+                              borderBottom: "1px solid var(--slate-a4)",
+                              position: "sticky",
+                              // Pin just below the fixed 56px top nav (.topbar) — the
+                              // page scrolls the document, so top:0 would hide the
+                              // header behind the nav.
+                              top: 56,
+                              zIndex: 2,
+                              background: "var(--color-panel-solid)",
+                            }}
+                          >
+                            {["Key", "Value", "Type", "Source"].map((label) => (
+                              <Box key={label} style={{ minWidth: 0 }}>
+                                <Flex align="center" style={{ minHeight: 24 }}>
+                                  <Text
+                                    size="small"
+                                    weight="medium"
+                                    color="text-low"
+                                    textTransform="uppercase"
+                                  >
+                                    {label}
+                                  </Text>
+                                </Flex>
+                              </Box>
+                            ))}
+                            <Flex
+                              align="center"
+                              justify="end"
+                              style={{ minHeight: 24 }}
+                            >
+                              {overrideCount > 0 && (
+                                <Switch
+                                  value={showOverrides}
+                                  onChange={setShowOverrides}
+                                  label="Show overrides"
+                                />
+                              )}
+                            </Flex>
+                          </Grid>
+
+                          {renderExtendsRow()}
+                          {renderComposeRow()}
+
+                          {resolved.fields.map((f) => {
+                            // Editing an own field replaces the row with the full editor
+                            // (definition + value); the value is seeded from the resolved
+                            // value, mirroring the inherited-field value editor.
+                            if (schemaEdit === f.key) {
+                              const isJson = isJsonField(f.field);
+                              // JSON editors accept `null` as literal text, so only
+                              // non-JSON fields use the null flag/checkbox.
+                              const seedNull = f.value === null && !isJson;
+                              const seedVal =
+                                f.value !== undefined && f.value !== null
+                                  ? f.value
+                                  : typeDefault(f.field);
+                              return (
+                                <FieldDefForm
+                                  key={f.key}
+                                  withValue
+                                  initial={
+                                    ownSchema().fields.find(
+                                      (sf) => sf.key === f.key,
+                                    ) ?? blankField()
+                                  }
+                                  initialValue={
+                                    seedNull
+                                      ? ""
+                                      : isJson
+                                        ? JSON.stringify(
+                                            f.value !== undefined
+                                              ? f.value
+                                              : seedVal,
+                                            null,
+                                            2,
+                                          )
+                                        : String(seedVal)
+                                  }
+                                  initialNull={seedNull}
+                                  existingKeys={resolved.fields.map(
+                                    (rf) => rf.key,
+                                  )}
+                                  constantContext={constantContext}
+                                  onCancel={() => setSchemaEdit(null)}
+                                  onSave={saveField}
+                                />
+                              );
+                            }
+                            return (
+                              <ConfigFieldRow
+                                key={f.key}
+                                field={f}
+                                configKey={config.key}
+                                isOwnField={ownSchemaKeys.includes(f.key)}
+                                canEditInline={canEditInline}
+                                constantContext={constantContext}
+                                squashConstants={squashConstants}
+                                editing={editKey === f.key}
+                                editText={editText}
+                                editKind={editKind}
+                                editError={editError}
+                                setEditText={setEditText}
+                                setEditKind={setEditKind}
+                                onStartEdit={() => startOverride(f)}
+                                onSubmit={submitOverride}
+                                onCancelEdit={() => setEditKey(null)}
+                                onEditDefinition={() => {
+                                  setEditKey(null);
+                                  setSchemaEdit(f.key);
+                                }}
+                                onRemoveField={() => removeField(f.key)}
+                                onRemoveOverride={() => removeOverride(f.key)}
+                                showParentValue={
+                                  showOverrides && isOverrideField(f)
+                                }
+                                parentValue={parentFieldValues.get(f.key)}
+                              />
+                            );
+                          })}
+
+                          {resolved.fields.length === 0 &&
+                            schemaEdit !== "add" && (
+                              <Text
+                                as="p"
+                                size="small"
+                                color="text-low"
+                                mt="3"
+                                mb="1"
+                              >
+                                No fields yet.
+                              </Text>
+                            )}
+                          {renderAddField()}
+                          {renderAddMixin()}
+                        </Box>
+                      </Box>
+                    </TabsContent>
+
+                    {/* JSON (own value + schema; editable only on a draft) and
                     Resolved (resolved value + effective schema, read-only) share
                     ONE editor instance at a fixed tree position, so switching
                     between them only flips the `view` prop — the component stays
                     mounted and edit buffers survive. */}
-                {(activeTab === "json" || activeTab === "resolved") && (
-                  <ConfigJsonEditor
-                    valueJson={displayedConfig.value ?? "{}"}
-                    schemaJson={JSON.stringify(ownSchema().fields)}
-                    ancestorOwnedKeys={ancestorOwnedKeys}
-                    resolvedFields={resolvedFieldsResolved}
-                    effectiveSchema={resolved.effectiveSchema}
-                    schemaType={ownSchema().type}
-                    extensible={effectiveExtensible}
-                    constantContext={constantContext}
-                    canEdit={canEditInline}
-                    view={activeTab === "resolved" ? "preview" : "edit"}
-                    parentKey={parentKey}
-                    parentName={parentName}
-                    renderProjections={displayedConfig.renderProjections}
-                    unpublishedFormats={unpublishedFormats}
-                    onSave={(value, fields, renderProjections) =>
-                      saveSchema(fields, value, renderProjections)
-                    }
-                  />
-                )}
-              </Tabs>
-            </Box>
+                    {(activeTab === "json" || activeTab === "resolved") && (
+                      <ConfigJsonEditor
+                        valueJson={displayedConfig.value ?? "{}"}
+                        schemaJson={JSON.stringify(ownSchema().fields)}
+                        ancestorOwnedKeys={ancestorOwnedKeys}
+                        resolvedFields={resolvedFieldsResolved}
+                        effectiveSchema={resolved.effectiveSchema}
+                        schemaType={ownSchema().type}
+                        extensible={effectiveExtensible}
+                        constantContext={constantContext}
+                        canEdit={canEditInline}
+                        view={activeTab === "resolved" ? "preview" : "edit"}
+                        parentKey={parentKey}
+                        parentName={parentName}
+                        renderProjections={displayedConfig.renderProjections}
+                        unpublishedFormats={unpublishedFormats}
+                        onSave={(value, fields, renderProjections) =>
+                          saveSchema(fields, value, renderProjections)
+                        }
+                      />
+                    )}
+                  </Tabs>
+                </Box>
+              </>
+            )}
+
+            {tab === "review" && (
+              <ReviewAndPublishTab<ConfigInterface>
+                revision={selectedRevision ?? displayRevision ?? null}
+                allRevisions={allRevisions}
+                currentState={config}
+                diffConfig={REVISION_CONFIG_DIFF_CONFIG}
+                entityName={config.name}
+                entityNoun="config"
+                requiresApproval={selectedRevisionRequiresApproval}
+                canEditEntity={canUpdate}
+                canBypassApproval={canBypassApproval}
+                selectRevision={selectRevision}
+                onPublish={handlePublish}
+                onDiscard={handleDiscard}
+                onReopen={handleReopen}
+                onRevert={(rev) => {
+                  setRevisionToRevert(rev);
+                  setConfirmRevert(true);
+                }}
+                onCompareRevisions={
+                  allRevisions.length >= 2
+                    ? () => setCompareOpen(true)
+                    : undefined
+                }
+                mutate={async () => {
+                  await Promise.all([mutateRevisions(), mutate()]);
+                }}
+              />
+            )}
           </Box>
         </Flex>
       </Box>
-
-      {showChangesModal && selectedRevision && (
-        <Modal
-          header={selectedRevision.title || "Revision"}
-          trackingEventModalType="config-revision-changes"
-          close={() => setShowChangesModal(false)}
-          open={showChangesModal}
-          dismissible
-          size="max"
-          hideCta={true}
-          closeCta="Close"
-          useRadixButton={true}
-        >
-          <RevisionDetail<ConfigInterface>
-            diffConfig={REVISION_CONFIG_DIFF_CONFIG}
-            revision={selectedRevision}
-            currentState={config}
-            mutate={async () => {
-              await Promise.all([mutateRevisions(), mutate()]);
-            }}
-            setCurrentRevision={(r) => selectRevision(r)}
-            onPublish={async (revisionId) => {
-              await handlePublish(revisionId);
-            }}
-            onReopen={async (revisionId) => {
-              await handleReopen(revisionId);
-            }}
-            allRevisions={allRevisions}
-            requiresApproval={selectedRevisionRequiresApproval}
-            closeModal={() => setShowChangesModal(false)}
-            canUpdateEntity={(s) => permissionsUtil.canUpdateConfig(s, {})}
-          />
-        </Modal>
-      )}
 
       {editInfoOpen && (
         <ConfigModal
@@ -1633,13 +1706,47 @@ export default function ConfigDetailPage(): React.ReactElement {
       )}
 
       {showArchiveModal && (
-        <ConstantArchiveModal
-          constant={displayedConfig}
-          entity="configs"
-          revisionCtx={revisionCtx}
-          onSaved={onRevisionCreated}
-          selectFlow={selectRevision}
+        <ArchiveModal
+          entityNoun="Config"
+          entityId={config.id}
+          isArchived={!!config.archived}
+          apiPathBase="/configs"
+          openRevisions={openRevisions}
+          approvalRequired={approvalRequired}
+          canBypassApproval={canBypassApproval}
+          referenceCount={archiveReferenceCount}
+          referencesLoading={archiveReferencesLoading}
+          referencesList={
+            <ConstantReferencesList
+              features={archiveReferences?.features ?? []}
+              constants={archiveReferences?.constants ?? []}
+            />
+          }
+          renderDraftSelector={({
+            mode,
+            setMode,
+            selectedDraftId,
+            setSelectedDraftId,
+            canAutoPublish,
+            approvalRequired: gated,
+          }) => (
+            <RevisionDraftSelectorForChanges
+              entityId={config.id}
+              openRevisions={openRevisions}
+              allRevisions={allRevisions}
+              mode={mode}
+              setMode={setMode}
+              selectedDraftId={selectedDraftId}
+              setSelectedDraftId={setSelectedDraftId}
+              canAutoPublish={canAutoPublish}
+              approvalRequired={gated}
+            />
+          )}
+          trackingEventModalType="config-archive-modal"
           close={() => setShowArchiveModal(false)}
+          onRevisionCreated={onRevisionCreated}
+          selectFlow={selectRevision}
+          onSaved={mutateDefinitions}
         />
       )}
 
@@ -1655,6 +1762,64 @@ export default function ConfigDetailPage(): React.ReactElement {
             await Promise.all([mutateRevisions(), mutate()]);
           }}
           requiresApproval={approvalRequired}
+        />
+      )}
+
+      {confirmRevert && revisionToRevert && (
+        <RevertModal<ConfigInterface>
+          liveEntity={config}
+          revertableFields={CONFIG_REVERTABLE_FIELDS}
+          apiPathBase="/configs"
+          revision={revisionToRevert}
+          allRevisions={allRevisions}
+          diffConfig={REVISION_CONFIG_DIFF_CONFIG}
+          revertsBypassApproval={revertsBypassApproval}
+          approvalRequired={approvalRequired}
+          canBypassApproval={canBypassApproval}
+          renderDraftSelector={({
+            mode,
+            setMode,
+            canAutoPublish,
+            approvalRequired: gated,
+          }) => (
+            <RevisionDraftSelectorForChanges
+              entityId={config.id}
+              openRevisions={[]}
+              allRevisions={allRevisions}
+              mode={mode}
+              setMode={setMode}
+              selectedDraftId={null}
+              setSelectedDraftId={() => undefined}
+              canAutoPublish={canAutoPublish}
+              approvalRequired={gated}
+              hideExisting
+              defaultExpanded
+              triggerPrefix="Revert will be"
+            />
+          )}
+          close={() => {
+            setConfirmRevert(false);
+            setRevisionToRevert(null);
+          }}
+          onRevisionCreated={async (rev) => {
+            await onRevisionCreated(rev);
+            setConfirmRevert(false);
+            setRevisionToRevert(null);
+          }}
+        />
+      )}
+
+      {editDescriptionModal && displayRevision && (
+        <EditRevisionDescriptionModal
+          initialValue={displayRevision.comment || ""}
+          close={() => setEditDescriptionModal(false)}
+          onSubmit={async (description) => {
+            await apiCall(`/revision/${displayRevision.id}/description`, {
+              method: "PATCH",
+              body: JSON.stringify({ description }),
+            });
+            await Promise.all([mutateRevisions(), mutate()]);
+          }}
         />
       )}
 
@@ -1699,17 +1864,6 @@ export default function ConfigDetailPage(): React.ReactElement {
             hiddenLabelSections: [OVERFLOW_SECTION_LABEL],
           }}
           onClose={() => setShowAuditModal(false)}
-        />
-      )}
-
-      {conflictOpen && selectedRevision && (
-        <ConstantConflictModal
-          constant={config}
-          selectedRevision={selectedRevision}
-          close={() => setConflictOpen(false)}
-          mutate={async () => {
-            await Promise.all([mutateRevisions(), mutate()]);
-          }}
         />
       )}
 
