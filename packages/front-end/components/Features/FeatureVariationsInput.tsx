@@ -1,5 +1,5 @@
 import { FeatureInterface, FeatureValueType } from "shared/types/feature";
-import { Slider } from "@radix-ui/themes";
+import { Box, Flex, Slider } from "@radix-ui/themes";
 import React, { useState } from "react";
 import { getEqualWeights } from "shared/experiments";
 import { PiArrowsClockwise, PiLockSimpleFill } from "react-icons/pi";
@@ -412,12 +412,10 @@ export default function FeatureVariationsInput({
                   setWeight &&
                   !onlySafeToEditVariationMetadata && (
                     <tr>
-                      <td colSpan={10} className="px-0">
-                        <div className="row">
+                      <td colSpan={10} style={{ paddingLeft: 0 }}>
+                        <Box>
                           {valueType !== "boolean" && setVariations && (
-                            <Button
-                              variant="ghost"
-                              icon={<GBAddCircle />}
+                            <Link
                               onClick={() => {
                                 const newWeights = distributeWeights(
                                   [...weights, 0],
@@ -445,8 +443,10 @@ export default function FeatureVariationsInput({
                                 }
                               }}
                             >
-                              Add variation
-                            </Button>
+                              <Flex align="center" gap="2">
+                                <GBAddCircle /> Add variation
+                              </Flex>
+                            </Link>
                           )}
                           {valueType === "boolean" && (
                             <>
@@ -458,7 +458,7 @@ export default function FeatureVariationsInput({
                               </Tooltip>
                             </>
                           )}
-                        </div>
+                        </Box>
                       </td>
                     </tr>
                   )}
