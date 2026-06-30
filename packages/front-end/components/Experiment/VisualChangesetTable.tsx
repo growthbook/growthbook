@@ -508,8 +508,7 @@ function VariationRow({
             </a>
           )}
           {canEdit && change && (
-            <Button
-              variant="ghost"
+            <Link
               onClick={() =>
                 setEditingVisualChange({
                   visualChange: change,
@@ -518,8 +517,8 @@ function VariationRow({
                 })
               }
             >
-              Edit
-            </Button>
+              <Text weight="semibold">Edit</Text>
+            </Link>
           )}
           {canDeleteVariation && (
             <button
@@ -590,13 +589,9 @@ function TargetingRows({
           <RuleChip key={`inc-${i}-${p.type}-${p.pattern}`} rule={p} />
         ))}
         {canEdit && (
-          <button
-            type="button"
-            className={styles.editTargetingBtn}
-            onClick={onEdit}
-          >
-            Edit
-          </button>
+          <Link onClick={onEdit}>
+            <Text weight="semibold">Edit</Text>
+          </Link>
         )}
       </Flex>
       {exc.length > 0 && (

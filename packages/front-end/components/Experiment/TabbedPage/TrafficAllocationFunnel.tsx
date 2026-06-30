@@ -17,7 +17,7 @@ import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
-import Button from "@/ui/Button";
+import Link from "@/ui/Link";
 import styles from "./TrafficAllocationFunnel.module.scss";
 
 export interface Props {
@@ -229,13 +229,12 @@ export default function TrafficAllocationFunnel({
           safeToEdit &&
           !hasNamespace &&
           !!namespaces?.length && (
-            <Button
-              variant="ghost"
-              onClick={editNamespace}
-              icon={<PiPlus size="15" />}
-            >
-              Add Namespace
-            </Button>
+            <Link onClick={editNamespace}>
+              <Flex align="center" gap="1">
+                <PiPlus size="15" />
+                <Text weight="semibold">Add Namespace</Text>
+              </Flex>
+            </Link>
           )}
       </Flex>
 

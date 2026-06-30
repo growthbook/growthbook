@@ -34,6 +34,7 @@ import { useAuth } from "@/services/auth";
 import { HoldoutSchedule } from "@/components/Holdout/HoldoutSchedule";
 import Heading from "@/ui/Heading";
 import Tooltip from "@/ui/Tooltip";
+import Text from "@/ui/Text";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -157,24 +158,22 @@ export default function SetupTabOverview({
           <Heading color="text-high" as="h2" size="large" mb="0">
             Overview
           </Heading>
-          <Flex align="center">
+          <Flex align="center" gap="4">
             {canEditExperiment && !experiment.description ? (
-              <Button
-                variant="ghost"
-                onClick={() => setShowDescriptionModal(true)}
-                icon={<PiPlus size="15" />}
-              >
-                Add Description
-              </Button>
+              <Link onClick={() => setShowDescriptionModal(true)}>
+                <Flex align="center" gap="1">
+                  <PiPlus size="15" />
+                  <Text weight="semibold">Add Description</Text>
+                </Flex>
+              </Link>
             ) : null}
             {showAddHoldoutSchedule || showAddExperimentSchedule ? (
-              <Button
-                variant="ghost"
-                onClick={() => editSchedule()}
-                icon={<PiPlus size="15" />}
-              >
-                Add Schedule
-              </Button>
+              <Link onClick={() => editSchedule()}>
+                <Flex align="center" gap="1">
+                  <PiPlus size="15" />
+                  <Text weight="semibold">Add Schedule</Text>
+                </Flex>
+              </Link>
             ) : null}
             {experiment.status === "draft" &&
             experiment.type !== "holdout" &&
@@ -229,16 +228,15 @@ export default function SetupTabOverview({
                         mutate();
                       }}
                     />
-                    <Button
-                      variant="ghost"
-                      stopPropagation={true}
+                    <Link
                       mr={experiment.description ? "3" : "0"}
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.stopPropagation();
                         editSchedule();
                       }}
                     >
-                      Edit
-                    </Button>
+                      <Text weight="semibold">Edit</Text>
+                    </Link>
                   </>
                 ) : null}
               </Flex>
@@ -254,12 +252,9 @@ export default function SetupTabOverview({
                 Hypothesis
               </Heading>
               {canEditExperiment && (
-                <Button
-                  variant="ghost"
-                  onClick={() => setShowHypothesisModal(true)}
-                >
-                  Edit
-                </Button>
+                <Link onClick={() => setShowHypothesisModal(true)}>
+                  <Text weight="semibold">Edit</Text>
+                </Link>
               )}
             </Flex>
             {experiment.hypothesis ? (
@@ -352,13 +347,14 @@ export default function SetupTabOverview({
                     </Heading>
                     <Flex align="center" gap="2">
                       {canEditExperiment ? (
-                        <Button
-                          variant="ghost"
-                          stopPropagation
-                          onClick={() => setShowDescriptionModal(true)}
+                        <Link
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShowDescriptionModal(true);
+                          }}
                         >
-                          Edit
-                        </Button>
+                          <Text weight="semibold">Edit</Text>
+                        </Link>
                       ) : null}
                       {experiment.description ? (
                         <FaAngleRight className="chevron" />

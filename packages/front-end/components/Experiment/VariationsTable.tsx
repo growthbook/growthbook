@@ -17,8 +17,8 @@ import { trafficSplitPercentages } from "@/services/utils";
 import Carousel from "@/components/Carousel";
 import ScreenshotUpload from "@/components/EditExperiment/ScreenshotUpload";
 import AuthorizedImage from "@/components/AuthorizedImage";
-import Button from "@/ui/Button";
 import Text from "@/ui/Text";
+import Link from "@/ui/Link";
 import ExperimentCarouselModal from "@/components/Experiment/ExperimentCarouselModal";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Metadata from "@/ui/Metadata";
@@ -351,14 +351,14 @@ export function VariationBox({
                       experiment={experiment.id}
                       onSuccess={() => mutate?.()}
                     >
-                      <Button
-                        icon={<PiUploadSimple size="15" />}
-                        variant="ghost"
-                        size="xs"
-                        style={{ padding: 0, margin: 0 }}
-                      >
-                        Image
-                      </Button>
+                      <Link>
+                        <Flex align="center" gap="1">
+                          <PiUploadSimple size="15" />
+                          <Text size="small" weight="semibold">
+                            Image
+                          </Text>
+                        </Flex>
+                      </Link>
                     </ScreenshotUpload>
                   </div>
                 )}
