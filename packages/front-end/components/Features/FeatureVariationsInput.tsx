@@ -18,7 +18,6 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import Field from "@/components/Forms/Field";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
-import Button from "@/ui/Button";
 import styles from "./VariationsInput.module.scss";
 import ExperimentSplitVisual from "./ExperimentSplitVisual";
 import {
@@ -455,10 +454,17 @@ export default function FeatureVariationsInput({
                           {valueType === "boolean" && (
                             <>
                               <Tooltip body="Boolean features can only have two variations. Use a different feature type to add multiple variations.">
-                                <Button variant="ghost" disabled>
-                                  <GBAddCircle />
-                                  Add variation
-                                </Button>
+                                <Link
+                                  style={{
+                                    cursor: "not-allowed",
+                                  }}
+                                >
+                                  <Flex align="center" gap="2">
+                                    <Text color="text-disabled">
+                                      <GBAddCircle /> Add variation
+                                    </Text>
+                                  </Flex>
+                                </Link>
                               </Tooltip>
                             </>
                           )}

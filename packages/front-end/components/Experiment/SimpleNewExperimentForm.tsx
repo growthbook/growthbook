@@ -146,11 +146,8 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
   } = useTemplates();
   const { experimentsMap, holdoutsMap } = useHoldouts();
   const { demoDataSourceId } = useDemoDataSourceProject();
-  const {
-    data: sdkConnectionsData,
-    isLoading: sdkConnectionsLoading,
-    error: sdkConnectionsError,
-  } = useSDKConnections();
+  const { data: sdkConnectionsData, isLoading: sdkConnectionsLoading } =
+    useSDKConnections();
 
   const showSwitchToOldExpCreate = useFeatureIsOn(
     "show-switch-to-old-exp-create",
@@ -223,8 +220,7 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
     ? permissionsUtil.canViewExperimentModal(selectedProject)
     : allowAllProjects;
 
-  const canSubmit =
-    hasProjectPermission && !sdkConnectionsLoading && !sdkConnectionsError;
+  const canSubmit = hasProjectPermission && !sdkConnectionsLoading;
 
   // When the project changes, drop any selection that's no longer valid there
   useEffect(() => {
@@ -340,12 +336,6 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
     const hashAttribute = rawValue.hashAttribute;
     if (!hashAttribute) {
       throw new Error("You must select an assignment attribute");
-    }
-
-    if (sdkConnectionsError) {
-      throw new Error(
-        "Couldn't verify SDK Connection compatibility. Please try again.",
-      );
     }
 
     const hasSDKWithNoBucketingV2 = !allConnectionsSupportBucketingV2(
