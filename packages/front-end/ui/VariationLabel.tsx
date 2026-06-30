@@ -48,7 +48,7 @@ export default function VariationLabel({
     const observer = new ResizeObserver(measure);
     observer.observe(root);
     return () => observer.disconnect();
-  }, [name, size, number]);
+  }, [name, size, number, hideName]);
 
   const variationNumber = <VariationNumber ref={numberRef} number={number} />;
 
