@@ -2,7 +2,12 @@ import { GrowthBookClient, setPolyfills } from "@growthbook/growthbook";
 import * as EventSource from "eventsource";
 import { AppFeatures } from "shared/types/app-features";
 import { logger } from "back-end/src/util/logger";
-import { GB_SDK_ID, IS_CLOUD, IS_MULTI_ORG } from "back-end/src/util/secrets";
+import {
+  GB_SDK_ID,
+  IS_CLOUD,
+  IS_LOCALHOST,
+  IS_MULTI_ORG,
+} from "back-end/src/util/secrets";
 
 // Set up Node.js polyfills for streaming support
 setPolyfills({ EventSource });
@@ -16,7 +21,7 @@ let initPromise: Promise<void> | null = null;
  * by reusing the same core instance across all requests
  */
 export function getGrowthBookClient(): GrowthBookClient<AppFeatures> | null {
-  if (!IS_CLOUD) return null;
+  if (!IS_CLOUD && !IS_LOCALHOST) return null;
 
   if (!gbClient) {
     gbClient = new GrowthBookClient<AppFeatures>({
@@ -39,7 +44,7 @@ export function getGrowthBookClient(): GrowthBookClient<AppFeatures> | null {
  * Enables real-time feature updates via Server-Sent Events
  */
 export async function initializeGrowthBookClient(): Promise<void> {
-  if (!IS_CLOUD) {
+  if (!IS_CLOUD && !IS_LOCALHOST) {
     logger.info(
       "GrowthBook client not initialized - not running in cloud mode",
     );
