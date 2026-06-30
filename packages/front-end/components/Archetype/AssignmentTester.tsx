@@ -469,6 +469,7 @@ export default function AssignmentTester({
             />
           ) : (
             <Modal
+              useRadixButton={false}
               trackingEventModalType=""
               open={true}
               close={() => setOpenArchetypeModal(null)}

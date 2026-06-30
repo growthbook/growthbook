@@ -181,7 +181,7 @@ const IdeaPage = (): ReactElement => {
             )}
           {canEdit && (
             <div className="col-auto d-flex">
-              <MoreMenu>
+              <MoreMenu useRadix={false}>
                 <a
                   href="#"
                   className="dropdown-item"
@@ -205,6 +205,7 @@ const IdeaPage = (): ReactElement => {
                   <FaArchive /> {idea.archived ? "Unarchive" : "Archive"}
                 </a>
                 <DeleteButton
+                  useRadix={false}
                   displayName="Idea"
                   link={true}
                   className="dropdown-item text-dark"

@@ -328,7 +328,9 @@ const StopExperimentForm: FC<{
                 <small className="form-text text-muted">
                   Keep the {isBandit ? "Bandit" : "Experiment"} running until
                   you can implement the changes in code.{" "}
-                  <DocLink docSection="temporaryRollout">Learn more</DocLink>
+                  <DocLink useRadix={false} docSection="temporaryRollout">
+                    Learn more
+                  </DocLink>
                 </small>
               </div>
             </div>
