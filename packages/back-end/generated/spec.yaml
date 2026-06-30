@@ -2996,6 +2996,27 @@ paths:
                             additionalProperties: false
                         additionalProperties:
                           type: boolean
+                        invariants:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              name:
+                                type: string
+                                maxLength: 128
+                              rule:
+                                type: object
+                                propertyNames:
+                                  type: string
+                                additionalProperties: {}
+                              message:
+                                type: string
+                                maxLength: 10000
+                            required:
+                              - name
+                              - rule
+                              - message
+                            additionalProperties: false
                       required:
                         - type
                         - fields
@@ -7945,6 +7966,27 @@ paths:
                             additionalProperties: false
                         additionalProperties:
                           type: boolean
+                        invariants:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              name:
+                                type: string
+                                maxLength: 128
+                              rule:
+                                type: object
+                                propertyNames:
+                                  type: string
+                                additionalProperties: {}
+                              message:
+                                type: string
+                                maxLength: 10000
+                            required:
+                              - name
+                              - rule
+                              - message
+                            additionalProperties: false
                       required:
                         - type
                         - fields
@@ -43084,6 +43126,13 @@ components:
             - comment
         comment:
           type: string
+        stale:
+          description: >-
+            True if a later review cycle (re-submit, approval reset, recall, or
+            reopen) superseded this verdict. Stale verdicts are kept for
+            attribution but no longer count as an active approval or
+            change-request.
+          type: boolean
         dateCreated:
           format: date-time
           type: string
@@ -43109,9 +43158,14 @@ components:
             - approved
             - requested-changes
             - commented
+            - review-requested
+            - review-retracted
             - merged
             - discarded
             - reopened
+            - scheduled-publish
+            - scheduled-publish-updated
+            - scheduled-publish-canceled
         description:
           anyOf:
             - type: string
