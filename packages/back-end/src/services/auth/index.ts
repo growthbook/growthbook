@@ -1,6 +1,8 @@
+import { createHash } from "crypto";
 import { NextFunction, Request, Response } from "express";
 import { SSO_CONFIG } from "shared/enterprise";
 import { ExpressCookieStickyBucketService } from "@growthbook/growthbook";
+import { GROWTHBOOK_SECURE_ATTRIBUTE_SALT } from "shared/constants";
 import { userHasPermission } from "shared/permissions";
 import { AuditInterface } from "shared/types/audit";
 import { Permission } from "shared/types/organization";
@@ -40,7 +42,7 @@ import {
   getLicenseMetaData,
   getUserCodesForOrg,
 } from "back-end/src/services/licenseData";
-import { licenseInit, getAccountPlan } from "back-end/src/enterprise";
+import { licenseInit, getEffectiveAccountPlan } from "back-end/src/enterprise";
 import { getGrowthBookClient } from "back-end/src/services/growthbook";
 import { TeamModel } from "back-end/src/models/TeamModel";
 import { AuthConnection } from "./AuthConnection";
@@ -322,6 +324,13 @@ export async function processJWT(
 
       if (gbClient) {
         const build = getBuild();
+        const org = req.organization;
+        const orgId = org?.id || "";
+        const hashedOrganizationId = orgId
+          ? createHash("sha256")
+              .update(GROWTHBOOK_SECURE_ATTRIBUTE_SALT + orgId)
+              .digest("hex")
+          : "";
 
         // Create sticky bucket service for Express
         const stickyBucketService = new ExpressCookieStickyBucketService({
@@ -335,23 +344,27 @@ export async function processJWT(
         // Note: cloud and multiOrg are set as globalAttributes in growthbook.ts
         const attributes = {
           id: user.id,
+          user_id: user.id,
           url: req.originalUrl,
-          freeSeats: req.organization?.freeSeats,
-          discountCode: req.organization?.discountCode,
-          organizationId: req.organization?.id,
-          accountPlan: req.organization
-            ? getAccountPlan(req.organization)
-            : undefined,
+          freeSeats: org?.freeSeats,
+          discountCode: org?.discountCode,
+          organizationId: hashedOrganizationId,
+          cloudOrgId: orgId,
+          accountPlan: org ? getEffectiveAccountPlan(org) : "loading",
           superAdmin: user.superAdmin,
-          orgDateCreated: req.organization?.dateCreated,
+          orgDateCreated: org?.dateCreated
+            ? new Date(org.dateCreated).toISOString()
+            : "",
           anonymous_id: req.cookies["gb_device_id"],
-          role: req.organization?.members.find((m) => m.id === user.id)?.role,
-          hasLicenseKey: req.organization?.licenseKey ? true : false,
+          role: org?.members.find((m) => m.id === user.id)?.role,
+          hasLicenseKey: org?.licenseKey ? true : false,
           configFile: usingFileConfig(),
           usingSSO: usingOpenId(),
           buildSHA: build.sha,
           buildDate: build.date,
           buildVersion: build.lastVersion,
+          orgOwnerJobTitle: org?.demographicData?.ownerJobTitle,
+          orgOwnerUsageIntents: org?.demographicData?.ownerUsageIntents,
         };
 
         try {

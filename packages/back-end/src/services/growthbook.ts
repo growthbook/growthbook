@@ -25,6 +25,7 @@ export function getGrowthBookClient(): GrowthBookClient<AppFeatures> | null {
       globalAttributes: {
         cloud: IS_CLOUD,
         multiOrg: IS_MULTI_ORG,
+        requestSource: "backend",
       },
     });
   }
