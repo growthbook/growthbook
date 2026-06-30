@@ -24,7 +24,7 @@ export interface Props {
   phaseIndex?: number | null;
   experiment: ExperimentInterfaceStringDates;
   editTargeting?: (() => void) | null;
-  editTraffic?: ((variationIndex?: number) => void) | null;
+  editTraffic?: ((variationId?: string) => void) | null;
   editNamespace?: (() => void) | null;
   setEditVariationIndex?: (index: number) => void;
   canEditExperiment?: boolean;

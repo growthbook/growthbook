@@ -48,7 +48,7 @@ const ExperimentPage = (): ReactElement => {
   const [targetingModalOpen, setTargetingModalOpen] = useState(false);
   const [trafficModalOpen, setTrafficModalOpen] = useState(false);
   const [trafficFocusVariation, setTrafficFocusVariation] = useState<
-    number | null
+    string | null
   >(null);
   const [namespaceModalOpen, setNamespaceModalOpen] = useState(false);
   const [editScheduleModalOpen, setEditScheduleModalOpen] = useState(false);
@@ -140,10 +140,10 @@ const ExperimentPage = (): ReactElement => {
     ? () => setTargetingModalOpen(true)
     : null;
   const editTraffic = canRunExperiment
-    ? (variationIndex?: number) => {
-        // Callers may pass a DOM event, so only numeric values focus a variation.
+    ? (variationId?: string) => {
+        // Callers may pass a DOM event, so only string ids focus a variation.
         setTrafficFocusVariation(
-          typeof variationIndex === "number" ? variationIndex : null,
+          typeof variationId === "string" ? variationId : null,
         );
         setTrafficModalOpen(true);
       }
@@ -262,7 +262,7 @@ const ExperimentPage = (): ReactElement => {
           mutate={mutate}
           experiment={experiment}
           safeToEdit={safeToEdit}
-          focusVariationIndex={trafficFocusVariation}
+          focusVariationId={trafficFocusVariation}
         />
       )}
       {namespaceModalOpen && (

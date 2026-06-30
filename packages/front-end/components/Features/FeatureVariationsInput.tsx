@@ -55,8 +55,9 @@ export interface Props {
   simple?: boolean;
   sortableClassName?: string;
   onlySafeToEditVariationMetadata?: boolean;
-  // When set, the matching variation's Name field is auto-focused on mount.
-  autoFocusVariationIndex?: number | null;
+  // When set, the variation with this id has its Name field auto-focused on
+  // mount.
+  autoFocusVariationId?: string | null;
   // JSON features only. When true, each variation value is rendered as a sparse
   // patch (merged onto the feature default). Pass-through to the value editor;
   // callers own the sparse toggle since it's a rule-level flag.
@@ -91,7 +92,7 @@ export default function FeatureVariationsInput({
   simple,
   sortableClassName,
   onlySafeToEditVariationMetadata,
-  autoFocusVariationIndex,
+  autoFocusVariationId,
   sparse,
 }: Props) {
   const weights = variations?.map((v) => v.weight) || [];
@@ -399,7 +400,10 @@ export default function FeatureVariationsInput({
                         feature={feature}
                         showDescription={showDescriptions}
                         className={sortableClassName}
-                        autoFocusName={(autoFocusVariationIndex ?? null) === i}
+                        autoFocusName={
+                          (autoFocusVariationId ?? null) !== null &&
+                          variation.id === autoFocusVariationId
+                        }
                         sparse={sparse}
                       />
                     ))}

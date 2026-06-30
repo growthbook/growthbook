@@ -156,7 +156,7 @@ interface Props {
   shareType?: "experiment" | "report";
   onEditMetadata?: (variationIndex: number) => void;
   onAddVariation?: () => void;
-  onEditTraffic?: (variationIndex?: number) => void;
+  onEditTraffic?: (variationId?: string) => void;
   // When true, the grid is centered and capped at 3 columns.
   centered?: boolean;
 }
@@ -237,7 +237,7 @@ export function VariationBox({
   shareUid?: string;
   shareType?: "experiment" | "report";
   onEditMetadata?: (variationIndex: number) => void;
-  onEditTraffic?: (variationIndex?: number) => void;
+  onEditTraffic?: (variationId?: string) => void;
   capWidth?: boolean;
 }) {
   const { blockFileUploads } = useOrgSettings();
@@ -286,7 +286,7 @@ export function VariationBox({
                   if (experiment.status === "running") {
                     onEditMetadata(i);
                   } else {
-                    onEditTraffic(i);
+                    onEditTraffic(v.id);
                   }
                 }}
                 aria-label="Edit variation"

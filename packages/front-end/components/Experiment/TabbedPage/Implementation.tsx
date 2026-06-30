@@ -40,7 +40,7 @@ export interface Props {
   urlRedirects: URLRedirectInterface[];
   mutate: () => void;
   editTargeting?: (() => void) | null;
-  editTraffic?: ((variationIndex?: number) => void) | null;
+  editTraffic?: ((variationId?: string) => void) | null;
   editNamespace?: (() => void) | null;
   editVariations?: (() => void) | null;
   setFeatureModal: (open: boolean) => void;
