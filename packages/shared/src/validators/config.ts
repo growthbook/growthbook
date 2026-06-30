@@ -7,7 +7,11 @@ import {
   optionalOwnerInputField,
 } from "./owner-field";
 import { simpleSchemaValidator } from "./features";
-import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
+import {
+  apiPaginationFieldsValidator,
+  paginationQueryFields,
+  schemaValidationQueryFields,
+} from "./shared";
 import { namedSchema } from "./openapi-helpers";
 
 // Per-source naming captured from an import, replayed on typed-projection export.
@@ -584,7 +588,7 @@ export const getConfigValidator = {
 
 export const postConfigValidator = {
   bodySchema: postConfigApiBody,
-  querySchema: z.never(),
+  querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
   paramsSchema: z.never(),
   responseSchema: apiConfigResponseWithWarnings,
   summary: "Create a single config",
@@ -603,7 +607,7 @@ export const postConfigValidator = {
 
 export const updateConfigValidator = {
   bodySchema: updateConfigApiBody,
-  querySchema: z.never(),
+  querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
   paramsSchema: configKeyParams,
   responseSchema: apiConfigResponseWithWarnings,
   summary: "Partially update a single config",

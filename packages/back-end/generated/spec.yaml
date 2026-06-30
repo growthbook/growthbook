@@ -18866,6 +18866,9 @@ paths:
       summary: Create a single config
       tags:
         - configs
+      parameters:
+        - $ref: '#/components/parameters/skipSchemaValidation'
+        - $ref: '#/components/parameters/ignoreWarnings'
       requestBody:
         required: true
         content:
@@ -19371,6 +19374,8 @@ paths:
           schema:
             description: The key of the config
             type: string
+        - $ref: '#/components/parameters/skipSchemaValidation'
+        - $ref: '#/components/parameters/ignoreWarnings'
       requestBody:
         required: true
         content:
@@ -19819,6 +19824,8 @@ paths:
               - type: integer
               - type: string
                 const: new
+        - $ref: '#/components/parameters/skipSchemaValidation'
+        - $ref: '#/components/parameters/ignoreWarnings'
       requestBody:
         required: true
         content:
@@ -19912,6 +19919,8 @@ paths:
               - type: integer
               - type: string
                 const: new
+        - $ref: '#/components/parameters/skipSchemaValidation'
+        - $ref: '#/components/parameters/ignoreWarnings'
       requestBody:
         required: true
         content:
@@ -19999,6 +20008,8 @@ paths:
               - type: integer
               - type: string
                 const: new
+        - $ref: '#/components/parameters/skipSchemaValidation'
+        - $ref: '#/components/parameters/ignoreWarnings'
       requestBody:
         required: true
         content:
@@ -20077,6 +20088,8 @@ paths:
               - type: integer
               - type: string
                 const: new
+        - $ref: '#/components/parameters/skipSchemaValidation'
+        - $ref: '#/components/parameters/ignoreWarnings'
       requestBody:
         required: true
         content:
@@ -20499,6 +20512,8 @@ paths:
           schema:
             type: string
         - $ref: '#/components/parameters/version'
+        - $ref: '#/components/parameters/skipSchemaValidation'
+        - $ref: '#/components/parameters/ignoreWarnings'
       requestBody:
         required: true
         content:
@@ -20602,6 +20617,8 @@ paths:
           schema:
             type: string
         - $ref: '#/components/parameters/version'
+        - $ref: '#/components/parameters/skipSchemaValidation'
+        - $ref: '#/components/parameters/ignoreWarnings'
       requestBody:
         required: true
         content:
@@ -36213,6 +36230,52 @@ components:
           Restrict results to revisions for a single saved group. When omitted,
           returns revisions across every saved group the caller can read.
         type: string
+    skipSchemaValidation:
+      name: skipSchemaValidation
+      in: query
+      description: >-
+        Skip JSON-schema validation of the value(s) being written. Only honored
+        for callers with org-wide bypass authority (the `bypassApprovalChecks`
+        permission on all projects); ignored otherwise. Validation is enforced
+        by default.
+      schema:
+        description: >-
+          Skip JSON-schema validation of the value(s) being written. Only
+          honored for callers with org-wide bypass authority (the
+          `bypassApprovalChecks` permission on all projects); ignored otherwise.
+          Validation is enforced by default.
+        anyOf:
+          - type: string
+            const: 'true'
+          - type: string
+            const: 'false'
+          - type: string
+            const: '0'
+          - type: string
+            const: '1'
+          - type: boolean
+    ignoreWarnings:
+      name: ignoreWarnings
+      in: query
+      description: >-
+        Proceed despite soft validation warnings — e.g. publishing values that
+        don't match the schema when the org has `blockPublishOnSchemaError`
+        disabled (warn mode).
+      schema:
+        description: >-
+          Proceed despite soft validation warnings — e.g. publishing values that
+          don't match the schema when the org has `blockPublishOnSchemaError`
+          disabled (warn mode).
+        anyOf:
+          - type: string
+            const: 'true'
+          - type: string
+            const: 'false'
+          - type: string
+            const: '0'
+          - type: string
+            const: '1'
+          - type: boolean
     effective:
       name: effective
       in: query

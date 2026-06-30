@@ -3,6 +3,7 @@ import {
   paginationQueryFields,
   skipPaginationQueryField,
   apiPaginationFieldsValidator,
+  schemaValidationQueryFields,
 } from "./shared";
 import {
   apiConfigValidator,
@@ -326,7 +327,7 @@ export const postConfigRevisionPublishValidator = {
         ),
     })
     .strict(),
-  querySchema: z.never(),
+  querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
   responseSchema: revisionResponse,
 };
 
@@ -346,7 +347,7 @@ export const postConfigRevisionRevertValidator = {
       comment: z.string().optional(),
     })
     .strict(),
-  querySchema: z.never(),
+  querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
   responseSchema: revisionResponse,
 };
 
@@ -443,7 +444,7 @@ export const putConfigRevisionMetadataValidator = {
       extensible: z.boolean().optional(),
     })
     .strict(),
-  querySchema: z.never(),
+  querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
   responseSchema: revisionResponse,
 };
 
@@ -470,7 +471,7 @@ export const putConfigRevisionValueValidator = {
         ),
     })
     .strict(),
-  querySchema: z.never(),
+  querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
   responseSchema: revisionResponseWithWarnings,
 };
 
@@ -499,7 +500,7 @@ export const putConfigRevisionSchemaValidator = {
         ),
     })
     .strict(),
-  querySchema: z.never(),
+  querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
   responseSchema: revisionResponseWithWarnings,
 };
 
@@ -531,7 +532,7 @@ export const putConfigRevisionProjectionValidator = {
         ),
     })
     .strict(),
-  querySchema: z.never(),
+  querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
   responseSchema: revisionResponseWithWarnings,
 };
 
