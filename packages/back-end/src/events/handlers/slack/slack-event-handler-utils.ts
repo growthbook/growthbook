@@ -1132,7 +1132,6 @@ const buildSlackMessageForConfigUpdatedEvent = async (
         itemLabelFields: [
           "name",
           "value",
-          "environmentValues",
           "description",
           "project",
           "schema",
