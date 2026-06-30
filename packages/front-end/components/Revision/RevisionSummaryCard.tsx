@@ -61,6 +61,9 @@ export interface RevisionSummaryCardProps {
   onNewDraft?: () => void;
   onReviewPublish?: () => void;
   onEditDescription?: () => void;
+  // Render the banner inline (scrolls with the page) instead of pinning it to
+  // the top on scroll. The sticky banner doesn't suit denser pages like Configs.
+  disablePinning?: boolean;
 }
 
 // Shared revision header used by every revisioned entity's detail page: the
@@ -81,6 +84,7 @@ export default function RevisionSummaryCard({
   onNewDraft,
   onReviewPublish,
   onEditDescription,
+  disablePinning = false,
 }: RevisionSummaryCardProps) {
   const { getOwnerDisplay } = useUser();
   const [bannerPinned, setBannerPinned] = useState(false);
@@ -88,22 +92,25 @@ export default function RevisionSummaryCard({
   // (more reliable than getBoundingClientRect). Ref callback so the observer
   // re-attaches if the sentinel mounts later (e.g. a draft created on a bare page).
   const bannerSentinelObserver = useRef<IntersectionObserver | null>(null);
-  const bannerSentinelRef = useCallback((el: HTMLDivElement | null) => {
-    if (bannerSentinelObserver.current) {
-      bannerSentinelObserver.current.disconnect();
-      bannerSentinelObserver.current = null;
-    }
-    if (!el) {
-      setBannerPinned(false);
-      return;
-    }
-    const observer = new IntersectionObserver(
-      ([entry]) => setBannerPinned(!entry.isIntersecting),
-      { rootMargin: "-110px 0px 0px 0px", threshold: 0 },
-    );
-    observer.observe(el);
-    bannerSentinelObserver.current = observer;
-  }, []);
+  const bannerSentinelRef = useCallback(
+    (el: HTMLDivElement | null) => {
+      if (bannerSentinelObserver.current) {
+        bannerSentinelObserver.current.disconnect();
+        bannerSentinelObserver.current = null;
+      }
+      if (!el || disablePinning) {
+        setBannerPinned(false);
+        return;
+      }
+      const observer = new IntersectionObserver(
+        ([entry]) => setBannerPinned(!entry.isIntersecting),
+        { rootMargin: "-110px 0px 0px 0px", threshold: 0 },
+      );
+      observer.observe(el);
+      bannerSentinelObserver.current = observer;
+    },
+    [disablePinning],
+  );
 
   // The "Review and Publish" CTA portals between the card slot and the banner
   // slot so it stays reachable when pinned (mirrors the feature flow).
@@ -313,7 +320,7 @@ export default function RevisionSummaryCard({
           <div ref={bannerSentinelRef} aria-hidden style={{ height: 0 }} />
           <div
             style={{
-              position: "sticky",
+              position: disablePinning ? "static" : "sticky",
               top: 110,
               zIndex: 920,
               marginBottom: 12,

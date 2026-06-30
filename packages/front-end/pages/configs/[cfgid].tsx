@@ -265,9 +265,12 @@ export default function ConfigDetailPage(): React.ReactElement {
   const [showCreateChild, setShowCreateChild] = useState(false);
   const [composeAdding, setComposeAdding] = useState(false);
 
-  const [activeTab, setActiveTab] = useState<
-    "form" | "json" | "resolved" | "review"
-  >("form");
+  // Page-level tabs (Overview | Review & Publish) mirror constants/saved groups.
+  const [tab, setTab] = useState<"overview" | "review">("overview");
+  // Inner content view shown under the Overview tab.
+  const [activeTab, setActiveTab] = useState<"form" | "json" | "resolved">(
+    "form",
+  );
   const [editKey, setEditKey] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const [editError, setEditError] = useState<string | null>(null);
@@ -306,6 +309,25 @@ export default function ConfigDetailPage(): React.ReactElement {
     setConfirmDelete(false);
     setMenuOpen(false);
   }, [configKey]);
+
+  // Page-level tab driven by the URL hash. The hash may carry an inner sub-tab
+  // after a comma (`#review,changes`); only the first segment selects the page tab.
+  useEffect(() => {
+    const hash = (new URL(router.asPath, "http://x").hash
+      .replace(/^#/, "")
+      .split(",")[0] || undefined) as "overview" | "review" | undefined;
+    if (hash === "overview" || hash === "review") {
+      setTab(hash);
+    }
+  }, [router.asPath]);
+  const setTabAndScroll = (newTab: "overview" | "review") => {
+    setTab(newTab);
+    router.replace(
+      { pathname: router.pathname, query: router.query, hash: newTab },
+      undefined,
+      { shallow: true },
+    );
+  };
 
   // Forward the selected revision so a draft's unpublished lineage drives resolution server-side.
   const versionParam = typeof router.query.v === "string" ? router.query.v : "";
@@ -1293,294 +1315,313 @@ export default function ConfigDetailPage(): React.ReactElement {
               </Box>
             )}
 
-            <RevisionSummaryCard
-              allRevisions={allRevisions}
-              selectedRevision={selectedRevision}
-              entityNoun="config"
-              hasRevisions={allRevisions.length > 0}
-              canEditTitle={canUpdate}
-              canEditDescription={canUpdate}
-              fallbackOwnerId={config.owner}
-              fallbackDateCreated={config.dateCreated}
-              onSelectRevision={selectRevision}
-              onTitleCommit={async (revisionId, title) => {
-                await apiCall(`/revision/${revisionId}/title`, {
-                  method: "PATCH",
-                  body: JSON.stringify({ title }),
-                });
-                await mutateRevisions();
-              }}
-              onNewDraft={canUpdate ? handleNewDraft : undefined}
-              onReviewPublish={() => setActiveTab("review")}
-              onEditDescription={
-                canUpdate ? () => setEditDescriptionModal(true) : undefined
-              }
-            />
-
-            <Box mb="4" pb="5" px="6" className="appbox">
+            <Box mb="4">
               <Tabs
-                value={activeTab}
-                onValueChange={(v) => {
-                  cancelEdits();
-                  setActiveTab(
-                    v === "json"
-                      ? "json"
-                      : v === "resolved"
-                        ? "resolved"
-                        : v === "review"
-                          ? "review"
-                          : "form",
-                  );
-                }}
+                value={tab}
+                onValueChange={(v) =>
+                  setTabAndScroll(v as "overview" | "review")
+                }
               >
-                {/* Right-hand controls live inside the full-width TabsList so its
-                    underline runs the whole width and sits under them too. */}
-                <Box pt="4" mb="4">
-                  <TabsList style={{ width: "100%" }}>
-                    <TabsTrigger value="form">Form</TabsTrigger>
-                    <TabsTrigger value="json">JSON</TabsTrigger>
-                    <TabsTrigger value="resolved">Resolved</TabsTrigger>
-                    <TabsTrigger value="review">
-                      Review &amp; Publish
-                      {openRevisions.length > 0 && (
-                        <Tooltip body={draftStatusTooltip(draftStatusCounts)}>
-                          <Badge
-                            label={String(openRevisions.length)}
-                            color="red"
-                            variant="solid"
-                            radius="full"
-                            ml="2"
-                            style={{ minWidth: 18, height: 18 }}
-                          />
-                        </Tooltip>
-                      )}
-                    </TabsTrigger>
-                    {/* stopPropagation so these controls don't feed the TabsList's roving focus. */}
-                    <Flex
-                      align="center"
-                      gap="5"
-                      ml="auto"
-                      pl="4"
-                      onKeyDown={(e) => e.stopPropagation()}
-                    >
-                      <ConfigExportMenu payloads={exportPayloads} />
-                    </Flex>
-                  </TabsList>
-                </Box>
-
-                <TabsContent value="form">
-                  <Box>
-                    {canEditInline && reconciliationPreview.length > 0 && (
-                      <Callout status="info" mt="3">
-                        Publishing will remove{" "}
-                        {reconciliationPreview
-                          .map(
-                            (h) =>
-                              `${h.keys.map((k) => `"${k}"`).join(", ")} from ${h.name}`,
-                          )
-                          .join("; ")}{" "}
-                        — this config now defines{" "}
-                        {reconciliationPreview.length === 1 &&
-                        reconciliationPreview[0].keys.length === 1
-                          ? "that field"
-                          : "those fields"}
-                        , so the descendant keeps only a value override (base
-                        wins).
-                      </Callout>
+                <TabsList>
+                  <TabsTrigger value="overview">Overview</TabsTrigger>
+                  <TabsTrigger value="review">
+                    Review &amp; Publish
+                    {openRevisions.length > 0 && (
+                      <Tooltip body={draftStatusTooltip(draftStatusCounts)}>
+                        <Badge
+                          label={String(openRevisions.length)}
+                          color="red"
+                          variant="solid"
+                          radius="full"
+                          ml="2"
+                          style={{ minWidth: 18, height: 18 }}
+                        />
+                      </Tooltip>
                     )}
-                    <Box style={{ minWidth: 800 }}>
-                      <Grid
-                        columns={FIELD_GRID_TEMPLATE}
-                        gapX="5"
-                        align="start"
-                        pt="3"
-                        pb="1"
-                        px="3"
-                        style={{
-                          borderBottom: "1px solid var(--slate-a4)",
-                          position: "sticky",
-                          // Pin below the fixed 56px top nav; the page scrolls the document.
-                          top: 56,
-                          zIndex: 2,
-                          background: "var(--color-panel-solid)",
-                        }}
-                      >
-                        {["Key", "Value", "Type", "Source"].map((label) => (
-                          <Box key={label} style={{ minWidth: 0 }}>
-                            <Flex align="center" style={{ minHeight: 24 }}>
-                              <Text
-                                size="small"
-                                weight="medium"
-                                color="text-low"
-                                textTransform="uppercase"
-                              >
-                                {label}
-                              </Text>
-                            </Flex>
-                          </Box>
-                        ))}
-                        <Flex
-                          align="center"
-                          justify="end"
-                          style={{ minHeight: 24 }}
-                        >
-                          {overrideCount > 0 && (
-                            <Switch
-                              value={showOverrides}
-                              onChange={setShowOverrides}
-                              label="Show overrides"
-                            />
-                          )}
-                        </Flex>
-                      </Grid>
-
-                      {renderExtendsRow()}
-                      {renderComposeRow()}
-
-                      {resolved.fields.map((f) => {
-                        if (schemaEdit === f.key) {
-                          const isJson = isJsonField(f.field);
-                          // JSON editors accept `null` as literal text, so only
-                          // non-JSON fields use the null flag/checkbox.
-                          const seedNull = f.value === null && !isJson;
-                          const seedVal =
-                            f.value !== undefined && f.value !== null
-                              ? f.value
-                              : typeDefault(f.field);
-                          return (
-                            <FieldDefForm
-                              key={f.key}
-                              withValue
-                              initial={
-                                ownSchema().fields.find(
-                                  (sf) => sf.key === f.key,
-                                ) ?? blankField()
-                              }
-                              initialValue={
-                                seedNull
-                                  ? ""
-                                  : isJson
-                                    ? JSON.stringify(
-                                        f.value !== undefined
-                                          ? f.value
-                                          : seedVal,
-                                        null,
-                                        2,
-                                      )
-                                    : String(seedVal)
-                              }
-                              initialNull={seedNull}
-                              existingKeys={resolved.fields.map((rf) => rf.key)}
-                              constantContext={constantContext}
-                              onCancel={() => setSchemaEdit(null)}
-                              onSave={saveField}
-                            />
-                          );
-                        }
-                        return (
-                          <ConfigFieldRow
-                            key={f.key}
-                            field={f}
-                            configKey={config.key}
-                            isOwnField={ownSchemaKeys.includes(f.key)}
-                            canEditInline={canEditInline}
-                            constantContext={constantContext}
-                            squashConstants={squashConstants}
-                            editing={editKey === f.key}
-                            editText={editText}
-                            editKind={editKind}
-                            editError={editError}
-                            setEditText={setEditText}
-                            setEditKind={setEditKind}
-                            onStartEdit={() => startOverride(f)}
-                            onSubmit={submitOverride}
-                            onCancelEdit={() => setEditKey(null)}
-                            onEditDefinition={() => {
-                              setEditKey(null);
-                              setSchemaEdit(f.key);
-                            }}
-                            onRemoveField={() => removeField(f.key)}
-                            onRemoveOverride={() => removeOverride(f.key)}
-                            showParentValue={
-                              showOverrides && isOverrideField(f)
-                            }
-                            parentValue={parentFieldValues.get(f.key)}
-                          />
-                        );
-                      })}
-
-                      {resolved.fields.length === 0 && schemaEdit !== "add" && (
-                        <Text
-                          as="p"
-                          size="small"
-                          color="text-low"
-                          mt="3"
-                          mb="1"
-                        >
-                          No fields yet.
-                        </Text>
-                      )}
-                      {renderAddField()}
-                      {renderAddMixin()}
-                    </Box>
-                  </Box>
-                </TabsContent>
-
-                {/* JSON and Resolved share ONE editor instance (only the `view` prop
-                    flips), so the component stays mounted and edit buffers survive. */}
-                {(activeTab === "json" || activeTab === "resolved") && (
-                  <ConfigJsonEditor
-                    valueJson={displayedConfig.value ?? "{}"}
-                    schemaJson={JSON.stringify(ownSchema().fields)}
-                    ancestorOwnedKeys={ancestorOwnedKeys}
-                    resolvedFields={resolvedFieldsResolved}
-                    effectiveSchema={resolved.effectiveSchema}
-                    schemaType={ownSchema().type}
-                    extensible={effectiveExtensible}
-                    constantContext={constantContext}
-                    canEdit={canEditInline}
-                    view={activeTab === "resolved" ? "preview" : "edit"}
-                    parentKey={parentKey}
-                    parentName={parentName}
-                    renderProjections={displayedConfig.renderProjections}
-                    unpublishedFormats={unpublishedFormats}
-                    onSave={(value, fields, renderProjections) =>
-                      saveSchema(fields, value, renderProjections)
-                    }
-                  />
-                )}
-
-                {activeTab === "review" && (
-                  <ReviewAndPublishTab<ConfigInterface>
-                    revision={selectedRevision ?? null}
-                    allRevisions={allRevisions}
-                    currentState={config}
-                    diffConfig={REVISION_CONFIG_DIFF_CONFIG}
-                    entityName={config.name}
-                    entityNoun="config"
-                    requiresApproval={selectedRevisionRequiresApproval}
-                    canEditEntity={canUpdate}
-                    canBypassApproval={canBypassApproval}
-                    selectRevision={selectRevision}
-                    onPublish={handlePublish}
-                    onDiscard={handleDiscard}
-                    onReopen={handleReopen}
-                    onRevert={(rev) => {
-                      setRevisionToRevert(rev);
-                      setConfirmRevert(true);
-                    }}
-                    onCompareRevisions={
-                      allRevisions.length >= 2
-                        ? () => setCompareOpen(true)
-                        : undefined
-                    }
-                    mutate={async () => {
-                      await Promise.all([mutateRevisions(), mutate()]);
-                    }}
-                  />
-                )}
+                  </TabsTrigger>
+                </TabsList>
               </Tabs>
             </Box>
+
+            {tab === "overview" && (
+              <>
+                <RevisionSummaryCard
+                  allRevisions={allRevisions}
+                  selectedRevision={selectedRevision}
+                  entityNoun="config"
+                  hasRevisions={allRevisions.length > 0}
+                  canEditTitle={canUpdate}
+                  canEditDescription={canUpdate}
+                  fallbackOwnerId={config.owner}
+                  fallbackDateCreated={config.dateCreated}
+                  onSelectRevision={selectRevision}
+                  onTitleCommit={async (revisionId, title) => {
+                    await apiCall(`/revision/${revisionId}/title`, {
+                      method: "PATCH",
+                      body: JSON.stringify({ title }),
+                    });
+                    await mutateRevisions();
+                  }}
+                  onNewDraft={canUpdate ? handleNewDraft : undefined}
+                  onReviewPublish={() => setTabAndScroll("review")}
+                  onEditDescription={
+                    canUpdate ? () => setEditDescriptionModal(true) : undefined
+                  }
+                  disablePinning
+                />
+
+                <Box mb="4" pb="5" px="6" className="appbox">
+                  <Tabs
+                    value={activeTab}
+                    onValueChange={(v) => {
+                      cancelEdits();
+                      setActiveTab(
+                        v === "json"
+                          ? "json"
+                          : v === "resolved"
+                            ? "resolved"
+                            : "form",
+                      );
+                    }}
+                  >
+                    {/* Right-hand controls live inside the full-width TabsList so its
+                    underline runs the whole width and sits under them too. */}
+                    <Box pt="4" mb="4">
+                      <TabsList style={{ width: "100%" }}>
+                        <TabsTrigger value="form">Form</TabsTrigger>
+                        <TabsTrigger value="json">JSON</TabsTrigger>
+                        <TabsTrigger value="resolved">Resolved</TabsTrigger>
+                        {/* stopPropagation so these controls don't feed the TabsList's roving focus. */}
+                        <Flex
+                          align="center"
+                          gap="5"
+                          ml="auto"
+                          pl="4"
+                          onKeyDown={(e) => e.stopPropagation()}
+                        >
+                          <ConfigExportMenu payloads={exportPayloads} />
+                        </Flex>
+                      </TabsList>
+                    </Box>
+
+                    <TabsContent value="form">
+                      <Box>
+                        {canEditInline && reconciliationPreview.length > 0 && (
+                          <Callout status="info" mt="3">
+                            Publishing will remove{" "}
+                            {reconciliationPreview
+                              .map(
+                                (h) =>
+                                  `${h.keys.map((k) => `"${k}"`).join(", ")} from ${h.name}`,
+                              )
+                              .join("; ")}{" "}
+                            — this config now defines{" "}
+                            {reconciliationPreview.length === 1 &&
+                            reconciliationPreview[0].keys.length === 1
+                              ? "that field"
+                              : "those fields"}
+                            , so the descendant keeps only a value override
+                            (base wins).
+                          </Callout>
+                        )}
+                        <Box style={{ minWidth: 800 }}>
+                          <Grid
+                            columns={FIELD_GRID_TEMPLATE}
+                            gapX="5"
+                            align="start"
+                            pt="3"
+                            pb="1"
+                            px="3"
+                            style={{
+                              borderBottom: "1px solid var(--slate-a4)",
+                              position: "sticky",
+                              // Pin below the fixed 56px top nav; the page scrolls the document.
+                              top: 56,
+                              zIndex: 2,
+                              background: "var(--color-panel-solid)",
+                            }}
+                          >
+                            {["Key", "Value", "Type", "Source"].map((label) => (
+                              <Box key={label} style={{ minWidth: 0 }}>
+                                <Flex align="center" style={{ minHeight: 24 }}>
+                                  <Text
+                                    size="small"
+                                    weight="medium"
+                                    color="text-low"
+                                    textTransform="uppercase"
+                                  >
+                                    {label}
+                                  </Text>
+                                </Flex>
+                              </Box>
+                            ))}
+                            <Flex
+                              align="center"
+                              justify="end"
+                              style={{ minHeight: 24 }}
+                            >
+                              {overrideCount > 0 && (
+                                <Switch
+                                  value={showOverrides}
+                                  onChange={setShowOverrides}
+                                  label="Show overrides"
+                                />
+                              )}
+                            </Flex>
+                          </Grid>
+
+                          {renderExtendsRow()}
+                          {renderComposeRow()}
+
+                          {resolved.fields.map((f) => {
+                            if (schemaEdit === f.key) {
+                              const isJson = isJsonField(f.field);
+                              // JSON editors accept `null` as literal text, so only
+                              // non-JSON fields use the null flag/checkbox.
+                              const seedNull = f.value === null && !isJson;
+                              const seedVal =
+                                f.value !== undefined && f.value !== null
+                                  ? f.value
+                                  : typeDefault(f.field);
+                              return (
+                                <FieldDefForm
+                                  key={f.key}
+                                  withValue
+                                  initial={
+                                    ownSchema().fields.find(
+                                      (sf) => sf.key === f.key,
+                                    ) ?? blankField()
+                                  }
+                                  initialValue={
+                                    seedNull
+                                      ? ""
+                                      : isJson
+                                        ? JSON.stringify(
+                                            f.value !== undefined
+                                              ? f.value
+                                              : seedVal,
+                                            null,
+                                            2,
+                                          )
+                                        : String(seedVal)
+                                  }
+                                  initialNull={seedNull}
+                                  existingKeys={resolved.fields.map(
+                                    (rf) => rf.key,
+                                  )}
+                                  constantContext={constantContext}
+                                  onCancel={() => setSchemaEdit(null)}
+                                  onSave={saveField}
+                                />
+                              );
+                            }
+                            return (
+                              <ConfigFieldRow
+                                key={f.key}
+                                field={f}
+                                configKey={config.key}
+                                isOwnField={ownSchemaKeys.includes(f.key)}
+                                canEditInline={canEditInline}
+                                constantContext={constantContext}
+                                squashConstants={squashConstants}
+                                editing={editKey === f.key}
+                                editText={editText}
+                                editKind={editKind}
+                                editError={editError}
+                                setEditText={setEditText}
+                                setEditKind={setEditKind}
+                                onStartEdit={() => startOverride(f)}
+                                onSubmit={submitOverride}
+                                onCancelEdit={() => setEditKey(null)}
+                                onEditDefinition={() => {
+                                  setEditKey(null);
+                                  setSchemaEdit(f.key);
+                                }}
+                                onRemoveField={() => removeField(f.key)}
+                                onRemoveOverride={() => removeOverride(f.key)}
+                                showParentValue={
+                                  showOverrides && isOverrideField(f)
+                                }
+                                parentValue={parentFieldValues.get(f.key)}
+                              />
+                            );
+                          })}
+
+                          {resolved.fields.length === 0 &&
+                            schemaEdit !== "add" && (
+                              <Text
+                                as="p"
+                                size="small"
+                                color="text-low"
+                                mt="3"
+                                mb="1"
+                              >
+                                No fields yet.
+                              </Text>
+                            )}
+                          {renderAddField()}
+                          {renderAddMixin()}
+                        </Box>
+                      </Box>
+                    </TabsContent>
+
+                    {/* JSON and Resolved share ONE editor instance (only the `view` prop
+                    flips), so the component stays mounted and edit buffers survive. */}
+                    {(activeTab === "json" || activeTab === "resolved") && (
+                      <ConfigJsonEditor
+                        valueJson={displayedConfig.value ?? "{}"}
+                        schemaJson={JSON.stringify(ownSchema().fields)}
+                        ancestorOwnedKeys={ancestorOwnedKeys}
+                        resolvedFields={resolvedFieldsResolved}
+                        effectiveSchema={resolved.effectiveSchema}
+                        schemaType={ownSchema().type}
+                        extensible={effectiveExtensible}
+                        constantContext={constantContext}
+                        canEdit={canEditInline}
+                        view={activeTab === "resolved" ? "preview" : "edit"}
+                        parentKey={parentKey}
+                        parentName={parentName}
+                        renderProjections={displayedConfig.renderProjections}
+                        unpublishedFormats={unpublishedFormats}
+                        onSave={(value, fields, renderProjections) =>
+                          saveSchema(fields, value, renderProjections)
+                        }
+                      />
+                    )}
+                  </Tabs>
+                </Box>
+              </>
+            )}
+
+            {tab === "review" && (
+              <ReviewAndPublishTab<ConfigInterface>
+                revision={selectedRevision ?? null}
+                allRevisions={allRevisions}
+                currentState={config}
+                diffConfig={REVISION_CONFIG_DIFF_CONFIG}
+                entityName={config.name}
+                entityNoun="config"
+                requiresApproval={selectedRevisionRequiresApproval}
+                canEditEntity={canUpdate}
+                canBypassApproval={canBypassApproval}
+                selectRevision={selectRevision}
+                onPublish={handlePublish}
+                onDiscard={handleDiscard}
+                onReopen={handleReopen}
+                onRevert={(rev) => {
+                  setRevisionToRevert(rev);
+                  setConfirmRevert(true);
+                }}
+                onCompareRevisions={
+                  allRevisions.length >= 2
+                    ? () => setCompareOpen(true)
+                    : undefined
+                }
+                mutate={async () => {
+                  await Promise.all([mutateRevisions(), mutate()]);
+                }}
+              />
+            )}
           </Box>
         </Flex>
       </Box>
