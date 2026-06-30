@@ -16,6 +16,7 @@ export default function LicenseSuccessModal({
 }: Props) {
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       open={true}
       cta="Invite Members"

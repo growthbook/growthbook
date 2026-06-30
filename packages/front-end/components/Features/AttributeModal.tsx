@@ -119,6 +119,7 @@ export default function AttributeModal({ close, attribute }: Props) {
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       open={true}
       close={close}

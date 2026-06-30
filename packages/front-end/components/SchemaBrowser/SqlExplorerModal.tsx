@@ -796,7 +796,6 @@ export default function SqlExplorerModal({
         submit={async () => await handleSubmit()}
         trackingEventModalType="sql-explorer"
         trackingEventModalSource={trackingEventModalSource}
-        useRadixButton={true}
       >
         {managedWarehousePendingEvents ? (
           <Box px="4" py="4">

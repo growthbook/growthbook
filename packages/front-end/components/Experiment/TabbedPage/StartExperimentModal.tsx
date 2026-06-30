@@ -150,7 +150,6 @@ function SecondaryActionButton({
   return (
     <Button
       variant="ghost"
-      color="red"
       type="button"
       setError={setError}
       onClick={async () => {

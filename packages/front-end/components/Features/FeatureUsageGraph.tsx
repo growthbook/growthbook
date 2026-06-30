@@ -1295,6 +1295,7 @@ export function FeatureUsageSparkline({
       </Tooltip>
       {modalOpen && (
         <Modal
+          useRadixButton={false}
           trackingEventModalType="feature-usage-sparkline"
           open={true}
           close={() => setModalOpen(false)}
