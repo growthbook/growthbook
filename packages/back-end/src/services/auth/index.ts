@@ -115,15 +115,18 @@ export async function processJWT(
   const { email, name, verified } = parsedJWT;
 
   // Enterprise / self-hosted SSO ties access to email (including domain auto-join).
-  // Require a positive email_verified claim so a permissive or malicious IdP cannot
-  // assert arbitrary emails and match or join as an existing user.
+  // Without a positive email_verified claim, a permissive or malicious IdP could
+  // assert arbitrary emails and match or join as an existing user. For now we only
+  // log the mismatch (monitor-only) so we can identify affected orgs before enforcing.
   if (usingOpenId() && isEnterpriseSSO(req.loginMethod) && !verified) {
-    res.status(403).json({
-      status: 403,
-      message:
-        "Your identity provider did not confirm this email address (email_verified). Use a verified account or ask your admin to fix IdP configuration.",
-    });
-    return;
+    logger.warn(
+      {
+        email,
+        loginMethod: req.loginMethod?.id,
+        organization: req.loginMethod?.organization,
+      },
+      "SSO login without a verified email_verified claim",
+    );
   }
 
   req.authSubject = parsedJWT.sub || "";
