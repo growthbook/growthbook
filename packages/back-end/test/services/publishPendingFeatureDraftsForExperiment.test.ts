@@ -35,7 +35,10 @@ jest.mock("shared/util", () => ({
   checkIfRevisionNeedsReview: jest.fn(),
 }));
 
-import { publishPendingFeatureDraftsForExperiment } from "back-end/src/services/experiment-feature";
+import {
+  formatPendingDraftFailureMessage,
+  publishPendingFeatureDraftsForExperiment,
+} from "back-end/src/services/experiment-feature";
 import {
   getFeature,
   prevalidatePublishRevision,
@@ -338,5 +341,96 @@ describe("publishPendingFeatureDraftsForExperiment", () => {
     expect(result.failed.map((f) => f.featureId)).toEqual(["feat_b"]);
     expect(result.failed[0].reason).toBe("merge-conflict");
     expect(mockPublishRevision).toHaveBeenCalledTimes(2);
+  });
+
+  it("fails with needs-rebase (not merge-conflict) for a mergeable diverged draft when the org requires rebase before publish", async () => {
+    const rebaseCtx = {
+      ...ctx,
+      org: { id: "org_1", settings: { requireRebaseBeforePublish: true } },
+    } as unknown as ReqContext;
+    mockGetRevision.mockResolvedValue({
+      version: 6,
+      status: "draft",
+      baseVersion: 4,
+      rules: [],
+    } as never);
+    // Live advanced past the draft's base, but the merge itself is clean.
+    mockGetLiveAndBase.mockResolvedValue({
+      live: { version: 5, rules: [] },
+      base: { version: 4, rules: [] },
+    } as never);
+
+    const experiment = makeExperiment([
+      { featureId: "j2-test", revisionVersion: 6 },
+    ]);
+
+    const result = await publishPendingFeatureDraftsForExperiment(
+      rebaseCtx,
+      experiment,
+    );
+
+    expect(result.published).toEqual([]);
+    expect(result.failed).toEqual([
+      { featureId: "j2-test", revisionVersion: 6, reason: "needs-rebase" },
+    ]);
+    expect(mockPublishRevision).not.toHaveBeenCalled();
+  });
+
+  it("auto-merges and publishes a mergeable diverged draft when the org does not require rebase before publish", async () => {
+    mockGetRevision.mockResolvedValue({
+      version: 6,
+      status: "draft",
+      baseVersion: 4,
+      rules: [],
+    } as never);
+    mockGetLiveAndBase.mockResolvedValue({
+      live: { version: 5, rules: [] },
+      base: { version: 4, rules: [] },
+    } as never);
+
+    const experiment = makeExperiment([
+      { featureId: "j2-test", revisionVersion: 6 },
+    ]);
+
+    const result = await publishPendingFeatureDraftsForExperiment(
+      ctx,
+      experiment,
+    );
+
+    expect(result.published).toEqual([
+      { featureId: "j2-test", revisionVersion: 6 },
+    ]);
+    expect(result.failed).toEqual([]);
+  });
+});
+
+describe("formatPendingDraftFailureMessage", () => {
+  it("distinguishes a rebase-only failure from a true merge conflict", () => {
+    expect(
+      formatPendingDraftFailureMessage([
+        { featureId: "feat_a", revisionVersion: 6, reason: "needs-rebase" },
+      ]),
+    ).toBe(
+      "Cannot start experiment: feature flag draft could not be published (draft behind live (rebase needed, no conflicts) on: feat_a). Resolve the issue and try again.",
+    );
+    expect(
+      formatPendingDraftFailureMessage([
+        { featureId: "feat_a", revisionVersion: 6, reason: "merge-conflict" },
+      ]),
+    ).toBe(
+      "Cannot start experiment: feature flag draft could not be published (merge conflict in: feat_a). Resolve the issue and try again.",
+    );
+  });
+
+  it("combines reasons and dedupes feature ids", () => {
+    expect(
+      formatPendingDraftFailureMessage([
+        { featureId: "feat_a", revisionVersion: 5, reason: "merge-conflict" },
+        { featureId: "feat_a", revisionVersion: 7, reason: "merge-conflict" },
+        { featureId: "feat_b", revisionVersion: 2, reason: "needs-rebase" },
+      ]),
+    ).toBe(
+      "Cannot start experiment: feature flag drafts could not be published (merge conflict in: feat_a; draft behind live (rebase needed, no conflicts) on: feat_b). Resolve the issues and try again.",
+    );
   });
 });

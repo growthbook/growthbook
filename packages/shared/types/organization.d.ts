@@ -71,6 +71,7 @@ export type RequireReview = {
   featureRequireMetadataReview?: boolean;
   // When true, co-authors (contributors[]) are also blocked from approving, not just the original author.
   blockSelfApproval?: boolean;
+  autopublishOnApproval?: boolean;
 };
 
 export type OwnerJobTitle = keyof typeof OWNER_JOB_TITLES;
@@ -206,6 +207,7 @@ export type ApprovalFlowConfiguration = {
   // is blocked from approving the revision. A separate, non-contributor
   // reviewer is required.
   blockSelfApproval?: boolean;
+  autopublishOnApproval?: boolean;
   // TODO: Should we add support for these additional settings?
   canBypassReview?: boolean;
   resetReviewOnChange?: boolean;
@@ -265,6 +267,21 @@ export interface OrganizationSettings {
   /** @deprecated */
   killswitchConfirmation?: boolean;
   requireReviews?: boolean | RequireReview[];
+  // When enabled, a feature draft whose base version is behind the current
+  // live version (or whose approval has gone stale) must be rebased
+  // ("Rebase with live") before it can be published.
+  requireRebaseBeforePublish?: boolean;
+  // When enabled, anyone with publish permission can revert to a previously
+  // published revision and publish it immediately, even when approvals are
+  // otherwise required. Reverts restore an already-reviewed state, so the
+  // revert UI defaults to "Publish now". Applies to features and saved groups.
+  revertsBypassApproval?: boolean;
+  // Soft cap on active (unpublished, non-discarded) drafts per feature.
+  // Advisory only: the UI warns and asks for confirmation, REST returns an
+  // escapable 409 (`overrideDraftLimit=true`), and automated processes
+  // (ramps, experiment linkages, reverts, reopens) ignore it entirely.
+  // 0 or absent = no cap.
+  maxConcurrentDrafts?: number;
   restApiBypassesReviews?: boolean;
   defaultDataSource?: string;
   testQueryDays?: number;
@@ -276,6 +293,11 @@ export interface OrganizationSettings {
   codeRefsPlatformUrl?: string;
   featureKeyExample?: string; // Example Key of feature flag (e.g. "feature-20240201-name")
   featureRegexValidator?: string; // Regex to validate feature flag name (e.g. ^.+-\d{8}-.+$)
+  // When enabled, new JSON feature-flag rules start in "sparse patch" mode (the
+  // rule value is a partial object merged onto the feature's default value).
+  // The rule editor opens already in sparse mode with a clean-slate value.
+  // Only affects new rules on eligible JSON features; off by default.
+  sparseJSONRulesByDefault?: boolean;
   requireProjectForFeatures?: boolean;
   requireProjectForSdkConnections?: boolean;
   // When true, saving a feature rule or experiment rejects hashAttribute,
@@ -299,6 +321,8 @@ export interface OrganizationSettings {
   metricPageMarkdown?: string;
   preferredEnvironment?: string | null; // null (or undefined) means "remember previous environment"
   maxMetricSliceLevels?: number;
+  topValuesLookbackValue?: number;
+  topValuesLookbackUnit?: "days";
   banditScheduleValue?: number;
   banditScheduleUnit?: "hours" | "days";
   banditBurnInValue?: number;

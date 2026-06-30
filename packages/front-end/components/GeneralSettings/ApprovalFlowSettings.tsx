@@ -212,6 +212,22 @@ export default function ApprovalFlowSettings() {
                             )
                           }
                         />
+                        <Checkbox
+                          id={`toggle-autopublish-on-approval-${i}`}
+                          label="Allow approve & publish in one step"
+                          description="Adds an 'Approve & Publish' option so reviewers with publish access can approve and publish a draft together."
+                          value={
+                            !!form.watch(
+                              `requireReviews.${i}.autopublishOnApproval`,
+                            )
+                          }
+                          setValue={(v) =>
+                            form.setValue(
+                              `requireReviews.${i}.autopublishOnApproval`,
+                              v,
+                            )
+                          }
+                        />
                         <Box mt="2">
                           <Text
                             as="label"
@@ -371,12 +387,62 @@ export default function ApprovalFlowSettings() {
                         )
                       }
                     />
+                    <Checkbox
+                      id="toggle-saved-group-autopublish-on-approval"
+                      label="Allow approve & publish in one step"
+                      description="Adds an 'Approve & Publish' option so reviewers with publish access can approve and publish a saved group change together."
+                      value={
+                        !!form.watch(
+                          `approvalFlows.savedGroups.0.autopublishOnApproval`,
+                        )
+                      }
+                      setValue={(v) =>
+                        form.setValue(
+                          `approvalFlows.savedGroups.0.autopublishOnApproval`,
+                          v,
+                        )
+                      }
+                    />
                   </Flex>
                 )}
               </>
             )}
           </Frame>
         </Box>
+
+        {hasRequireApprovals && (
+          <Box width="100%">
+            <Frame p="3" mb="0">
+              <Heading as="h4" size="small" weight="semibold" mb="4">
+                Global
+              </Heading>
+
+              <Text as="p" size="medium" mb="4" color="text-low">
+                These settings apply to every approval flow (features and saved
+                groups).
+              </Text>
+
+              <Flex direction="column" gap="3" align="start">
+                <Checkbox
+                  id="toggle-requireRebaseBeforePublish"
+                  label="Require drafts to be rebased with live before publishing"
+                  description="Drafts based on an older version — or with a stale approval — must be rebased with live before they can be published."
+                  value={form.watch("requireRebaseBeforePublish") === true}
+                  setValue={(v) =>
+                    form.setValue("requireRebaseBeforePublish", v)
+                  }
+                />
+                <Checkbox
+                  id="toggle-reverts-bypass-approval"
+                  label="Allow reverts without approval"
+                  description="Anyone with publish permission can revert to a past revision and publish it immediately, even when approvals are required."
+                  value={!!form.watch("revertsBypassApproval")}
+                  setValue={(v) => form.setValue("revertsBypassApproval", v)}
+                />
+              </Flex>
+            </Frame>
+          </Box>
+        )}
       </Flex>
     </Frame>
   );

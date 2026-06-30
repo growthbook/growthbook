@@ -2,7 +2,7 @@ import { ExperimentUpdateExecutionLogger } from "back-end/src/services/experimen
 
 describe("ExperimentUpdateExecutionLogger", () => {
   beforeEach(() => {
-    jest.useFakeTimers("modern");
+    jest.useFakeTimers();
     jest.setSystemTime(0);
   });
 
@@ -15,7 +15,7 @@ describe("ExperimentUpdateExecutionLogger", () => {
     useCache: false,
     fullRefresh: true,
     fullRefreshReason:
-      "No prior incremental refresh state for this experiment.",
+      "No prior Incremental Pipeline state for this experiment.",
     incrementalFallbackReason: null,
   };
 

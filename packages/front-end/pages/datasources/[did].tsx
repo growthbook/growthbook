@@ -1,11 +1,15 @@
 import { useRouter } from "next/router";
-import React, { FC, useCallback, useState } from "react";
+import { FC, useCallback, useState } from "react";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import { isManagedWarehouseAwaitingProvisioning } from "shared/util";
+import {
+  isManagedWarehouseAwaitingProvisioning,
+  supportsEventForwarder,
+} from "shared/util";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiLinkBold } from "react-icons/pi";
 import { datetime } from "shared/dates";
+import { useFeatureValue } from "@growthbook/growthbook-react";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
@@ -20,6 +24,7 @@ import { DataSourceJupyterNotebookQuery } from "@/components/Settings/EditDataSo
 import DataSourceForm from "@/components/Settings/DataSourceForm";
 import Code from "@/components/SyntaxHighlighting/Code";
 import LoadingOverlay from "@/components/LoadingOverlay";
+import useApi from "@/hooks/useApi";
 import DataSourcePipeline from "@/components/Settings/EditDataSource/DataSourcePipeline/DataSourcePipeline";
 import { useUser } from "@/services/UserContext";
 import PageHead from "@/components/Layout/PageHead";
@@ -33,6 +38,7 @@ import {
 import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
 import ClickhouseMaterializedColumns from "@/components/Settings/EditDataSource/ClickhouseMaterializedColumns";
+import ClickhouseManagedWarehouseIdentifiers from "@/components/Settings/EditDataSource/ClickhouseManagedWarehouseIdentifiers";
 import SqlExplorerModal from "@/components/SchemaBrowser/SqlExplorerModal";
 import { useCombinedMetrics } from "@/components/Metrics/MetricsList";
 import { FeatureEvaluationQueries } from "@/components/Settings/EditDataSource/FeatureEvaluationQueries/FeatureEvaluationQueries";
@@ -40,6 +46,7 @@ import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import HistoryTable from "@/components/HistoryTable";
+import EventForwarder from "@/components/Settings/EditDataSource/EventForwarder/EventForwarder";
 
 function quotePropertyName(name: string) {
   if (name.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
@@ -56,6 +63,10 @@ const DataSourcePage: FC = () => {
   const [viewSqlExplorer, setViewSqlExplorer] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [auditModal, setAuditModal] = useState(false);
+  const [
+    deleteBlockedByEventForwarderModalOpen,
+    setDeleteBlockedByEventForwarderModalOpen,
+  ] = useState(false);
   const router = useRouter();
 
   const {
@@ -67,7 +78,17 @@ const DataSourcePage: FC = () => {
     factTables: allFactTables,
   } = useDefinitions();
   const { did } = router.query as { did: string };
-  const d = getDatasourceById(did);
+  const definitionDataSource = getDatasourceById(did);
+  const {
+    data: currentDataSource,
+    error: currentDataSourceError,
+    mutate: mutateCurrentDataSource,
+  } = useApi<DataSourceInterfaceWithParams>(`/datasource/${did}`, {
+    shouldRun: () => !!did,
+  });
+  const loadingCurrentDataSource =
+    !!did && !currentDataSource && !currentDataSourceError;
+  const d = currentDataSource || definitionDataSource;
 
   const combinedMetrics = useCombinedMetrics({});
   const metrics = combinedMetrics.filter((m) => m.datasource === did);
@@ -88,6 +109,8 @@ const DataSourcePage: FC = () => {
   const canDelete =
     (d && permissionsUtil.canDeleteDataSource(d) && !hasFileConfig()) || false;
 
+  const deleteBlockedByEventForwarder = Boolean(d?.eventForwarderConfig);
+
   const canUpdateConnectionParams =
     (d &&
       !isManagedWarehouse &&
@@ -100,6 +123,10 @@ const DataSourcePage: FC = () => {
     false;
 
   const pipelineEnabled = hasCommercialFeature("pipeline-mode");
+  const eventsForwarderFlag = useFeatureValue(
+    "events-forwarder-multi-step",
+    "OFF",
+  );
 
   /**
    * Update the data source provided.
@@ -107,26 +134,27 @@ const DataSourcePage: FC = () => {
    */
   const updateDataSourceSettings = useCallback(
     async (dataSource: DataSourceInterfaceWithParams) => {
-      const updates = {
-        settings: dataSource.settings,
-      };
       await apiCall(`/datasource/${dataSource.id}`, {
         method: "PUT",
-        body: JSON.stringify(updates),
+        body: JSON.stringify({
+          settings: dataSource.settings,
+        }),
       });
-      await mutateDefinitions({});
+      await Promise.all([mutateDefinitions({}), mutateCurrentDataSource()]);
     },
-    [mutateDefinitions, apiCall],
+    [mutateDefinitions, mutateCurrentDataSource, apiCall],
   );
 
-  if (error) {
+  if (error || currentDataSourceError) {
     return (
       <div className="container pagecontents">
-        <div className="alert alert-danger">{error}</div>
+        <div className="alert alert-danger">
+          {error || currentDataSourceError?.message}
+        </div>
       </div>
     );
   }
-  if (!ready) {
+  if (!ready || loadingCurrentDataSource) {
     return <LoadingOverlay />;
   }
   if (!d) {
@@ -141,6 +169,7 @@ const DataSourcePage: FC = () => {
 
   const supportsSQL = d.properties?.queryLanguage === "sql";
   const supportsEvents = d.properties?.events || false;
+  const datasourceSupportsEventForwarder = supportsEventForwarder(d);
 
   return (
     <div className="container pagecontents">
@@ -154,7 +183,11 @@ const DataSourcePage: FC = () => {
       {d.decryptionError && (
         <div className="alert alert-danger mb-2 d-flex justify-content-between align-items-center">
           <strong>Error Decrypting Data Source Credentials.</strong>{" "}
-          <DocLink docSection="env_prod" className="btn btn-primary">
+          <DocLink
+            useRadix={false}
+            docSection="env_prod"
+            className="btn btn-primary"
+          >
             View instructions for fixing
           </DocLink>
         </div>
@@ -222,6 +255,7 @@ const DataSourcePage: FC = () => {
                 }}
               >
                 <DocLink
+                  useRadix={false}
                   docSection={d.type as DocSection}
                   fallBackSection="datasources"
                 >
@@ -249,23 +283,35 @@ const DataSourcePage: FC = () => {
               {canDelete && (
                 <>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    color="red"
-                    confirmation={{
-                      confirmationTitle: `Delete "${d.name}" Datasource`,
-                      cta: "Delete",
-                      submit: async () => {
-                        await apiCall(`/datasource/${d.id}`, {
-                          method: "DELETE",
-                        });
-                        mutateDefinitions({});
-                        router.push("/datasources");
-                      },
-                      closeDropdown: () => setDropdownOpen(false),
-                    }}
-                  >
-                    Delete
-                  </DropdownMenuItem>
+                  {deleteBlockedByEventForwarder ? (
+                    <DropdownMenuItem
+                      color="red"
+                      onClick={() => {
+                        setDeleteBlockedByEventForwarderModalOpen(true);
+                        setDropdownOpen(false);
+                      }}
+                    >
+                      Delete
+                    </DropdownMenuItem>
+                  ) : (
+                    <DropdownMenuItem
+                      color="red"
+                      confirmation={{
+                        confirmationTitle: `Delete "${d.name}" Datasource`,
+                        cta: "Delete",
+                        submit: async () => {
+                          await apiCall(`/datasource/${d.id}`, {
+                            method: "DELETE",
+                          });
+                          mutateDefinitions({});
+                          router.push("/datasources");
+                        },
+                        closeDropdown: () => setDropdownOpen(false),
+                      }}
+                    >
+                      Delete
+                    </DropdownMenuItem>
+                  )}
                 </>
               )}
             </DropdownMenu>
@@ -396,7 +442,10 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                       Sending Events
                     </Heading>
                     <Text>
-                      <DocLink docSection="managedWarehouseTracking">
+                      <DocLink
+                        useRadix={false}
+                        docSection="managedWarehouseTracking"
+                      >
                         Read our full docs
                       </DocLink>{" "}
                       with instructions on how to send events from your app to
@@ -404,17 +453,37 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                     </Text>
                   </Frame>
                   <Frame>
-                    <ClickhouseMaterializedColumns
-                      dataSource={d}
-                      onCancel={() => undefined}
-                      canEdit={canUpdateDataSourceSettings}
-                      mutate={mutateDefinitions}
-                    />
+                    {d.settings.useJsonColumns ? (
+                      <ClickhouseManagedWarehouseIdentifiers dataSource={d} />
+                    ) : (
+                      <ClickhouseMaterializedColumns
+                        dataSource={d}
+                        onCancel={() => undefined}
+                        canEdit={canUpdateDataSourceSettings}
+                        mutate={mutateDefinitions}
+                      />
+                    )}
                   </Frame>
                 </>
               )
             ) : (
               <>
+                {datasourceSupportsEventForwarder &&
+                  eventsForwarderFlag !== "OFF" && (
+                    <Frame>
+                      <EventForwarder
+                        dataSource={d}
+                        canEdit={canUpdateDataSourceSettings}
+                        onRefresh={async () => {
+                          await Promise.all([
+                            mutateDefinitions({}),
+                            mutateCurrentDataSource(),
+                          ]);
+                        }}
+                      />
+                    </Frame>
+                  )}
+
                 {d.dateUpdated === d.dateCreated &&
                   d?.settings?.schemaFormat !== "custom" && (
                     <Callout status="info" mt="4" mb="4">
@@ -498,7 +567,10 @@ mixpanel.init('YOUR PROJECT TOKEN', {
           data={d}
           source={"datasource-detail"}
           onSuccess={async () => {
-            await mutateDefinitions({});
+            await Promise.all([
+              mutateDefinitions({}),
+              mutateCurrentDataSource(),
+            ]);
           }}
           onCancel={() => {
             setEditConn(false);
@@ -525,6 +597,19 @@ mixpanel.init('YOUR PROJECT TOKEN', {
           size="lg"
         >
           <HistoryTable type={"datasource"} id={d.id} />
+        </ModalStandard>
+      )}
+      {deleteBlockedByEventForwarderModalOpen && (
+        <ModalStandard
+          trackingEventModalType=""
+          open={true}
+          header={`Cannot delete "${d.name}"`}
+          close={() => setDeleteBlockedByEventForwarderModalOpen(false)}
+        >
+          <Text>
+            Please contact your account manager to remove the Event Forwarder
+            first; after that, you can delete this data source here.
+          </Text>
         </ModalStandard>
       )}
     </div>

@@ -17,6 +17,9 @@ import {
   NamespaceValue,
   buildReverseDependencyIndex,
   ReverseDependencyIndex,
+  buildExperimentDependencyIndex,
+  ExperimentDependencyIndex,
+  parsePlainJSONObject,
 } from "shared/util";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { GroupMap, SavedGroupInterface } from "shared/types/saved-group";
@@ -35,6 +38,8 @@ import {
   getJSONValue,
   getPayloadAllowedKeys,
   replaceSavedGroups,
+  resolveConstantRefs,
+  ConstantValueMap,
   SDKCapability,
 } from "shared/sdk-versioning";
 import { OrganizationInterface, Environment } from "shared/types/organization";
@@ -60,6 +65,7 @@ export interface FeatureLookups {
   reverseDependencyIndex: ReverseDependencyIndex;
   experiments: ExperimentInterfaceStringDates[];
   experimentMap: Map<string, ExperimentInterfaceStringDates>;
+  experimentDependencyIndex: ExperimentDependencyIndex;
 }
 
 /** Builds the shared lookup structures used by stale detection and dependents. */
@@ -72,7 +78,14 @@ export function buildFeatureLookups(
   const experiments =
     (allExperiments as unknown as ExperimentInterfaceStringDates[]) ?? [];
   const experimentMap = new Map(experiments.map((e) => [e.id, e]));
-  return { featuresMap, reverseDependencyIndex, experiments, experimentMap };
+  const experimentDependencyIndex = buildExperimentDependencyIndex(experiments);
+  return {
+    featuresMap,
+    reverseDependencyIndex,
+    experiments,
+    experimentMap,
+    experimentDependencyIndex,
+  };
 }
 
 export type MetadataOptions = {
@@ -521,6 +534,7 @@ export function getFeatureDefinition({
   metadataOptions,
   projectsMap,
   rampMonitoredRuleMap,
+  constantMap,
 }: {
   feature: FeatureInterface;
   environment: string;
@@ -547,6 +561,11 @@ export function getFeatureDefinition({
   metadataOptions?: MetadataOptions;
   projectsMap?: Map<string, ProjectInterface>;
   rampMonitoredRuleMap?: Map<string, RampMonitoredRuleInfo>;
+  // Per-environment constant values. When provided, `@const:` references in
+  // sparse rule values (and the default they merge onto) are resolved BEFORE the
+  // sparse merge, so the rule's own fields are applied last and win over the
+  // resolved constant. Non-sparse values are resolved by the caller afterward.
+  constantMap?: ConstantValueMap;
 }): FeatureDefinition | null {
   const settings = feature.environmentSettings?.[environment];
 
@@ -558,6 +577,64 @@ export function getFeatureDefinition({
   const defaultValue = revision
     ? (revision.defaultValue ?? feature.defaultValue)
     : feature.defaultValue;
+
+  // For `json` features, parse the default value once so rules flagged `sparse`
+  // can merge their partial object onto it. Null when the default isn't a plain
+  // key/val object (array, null, primitive) — sparse is then a no-op and rules
+  // emit their value as-is. When a constant map is supplied, resolve the
+  // default's `$extends` references first so they form the sparse merge base
+  // (the resolved default + its keys), which the patch then overrides.
+  const jsonDefaultObj = (() => {
+    if (feature.valueType !== "json") return null;
+    const base = parsePlainJSONObject(defaultValue);
+    if (!base || !constantMap) return base;
+    const resolved = resolveConstantRefs(
+      base,
+      constantMap,
+      undefined,
+      undefined,
+      feature.project || "",
+    );
+    return resolved !== null &&
+      typeof resolved === "object" &&
+      !Array.isArray(resolved)
+      ? (resolved as Record<string, unknown>)
+      : base;
+  })();
+
+  const valueForSDK = (valueStr: string, sparse?: boolean): unknown => {
+    if (sparse && jsonDefaultObj) {
+      const patch = parsePlainJSONObject(valueStr);
+      if (patch !== null) {
+        // Resolve the patch's constants BEFORE merging so the rule's fields are
+        // spread last and win over the (already-resolved) default — i.e. sparse
+        // fields are "further down". Non-object resolutions (e.g. a whole-value
+        // JSON constant that resolves to an array) replace the value outright.
+        const resolvedPatch = constantMap
+          ? resolveConstantRefs(
+              patch,
+              constantMap,
+              undefined,
+              undefined,
+              feature.project || "",
+            )
+          : patch;
+        if (
+          resolvedPatch !== null &&
+          typeof resolvedPatch === "object" &&
+          !Array.isArray(resolvedPatch)
+        ) {
+          return {
+            ...jsonDefaultObj,
+            ...(resolvedPatch as Record<string, unknown>),
+          };
+        }
+        return resolvedPatch;
+      }
+    }
+    // Non-sparse values are resolved by the caller's post-build pass.
+    return getJSONValue(feature.valueType, valueStr);
+  };
 
   // Rule source: revision's unified array (draft/published) > feature's (live).
   // Legacy `settings.rules` is test-only — production reads flow through
@@ -762,7 +839,7 @@ export function getFeatureDefinition({
             if (!variation) return null;
 
             // If a variation has been rolled out to 100%
-            rule.force = getJSONValue(feature.valueType, variation.value);
+            rule.force = valueForSDK(variation.value, r.sparse);
           }
           // Running experiment
           else {
@@ -770,9 +847,7 @@ export function getFeatureDefinition({
               const variation = r.variations?.find(
                 (ruleVariation) => v.id === ruleVariation.variationId,
               );
-              return variation
-                ? getJSONValue(feature.valueType, variation.value)
-                : null;
+              return variation ? valueForSDK(variation.value, r.sparse) : null;
             });
             rule.weights = phase.variationWeights;
             rule.key = exp.trackingKey;
@@ -846,7 +921,7 @@ export function getFeatureDefinition({
         }
 
         if (r.type === "force") {
-          rule.force = getJSONValue(feature.valueType, r.value);
+          rule.force = valueForSDK(r.value, r.sparse);
         } else if (r.type === "experiment") {
           rule.variations = r.values.map((v) =>
             getJSONValue(feature.valueType, v.value),
@@ -904,7 +979,7 @@ export function getFeatureDefinition({
               : feature.defaultValue;
 
             rule.variations = [
-              getJSONValue(feature.valueType, r.value),
+              valueForSDK(r.value, r.sparse),
               getJSONValue(feature.valueType, defaultValue),
             ];
             rule.weights = [0.5, 0.5];
@@ -955,7 +1030,7 @@ export function getFeatureDefinition({
                 "Monitored ramp rule missing hashAttribute — falling back to force rollout payload",
               );
             }
-            rule.force = getJSONValue(feature.valueType, r.value);
+            rule.force = valueForSDK(r.value, r.sparse);
             const clampedCoverage =
               r.coverage > 1 ? 1 : r.coverage < 0 ? 0 : r.coverage;
             if (clampedCoverage < 1) {

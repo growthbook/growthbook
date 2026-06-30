@@ -16,6 +16,7 @@ import {
   getAllVariations,
 } from "shared/experiments";
 import { getScopedSettings } from "shared/settings";
+import { isExperimentIncrementalEnabled } from "shared/enterprise";
 import { v4 as uuidv4 } from "uuid";
 import { IdeaInterface } from "shared/types/idea";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
@@ -130,6 +131,7 @@ import { PastExperimentsQueryRunner } from "back-end/src/queryRunners/PastExperi
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
+import { BadRequestError } from "back-end/src/util/errors";
 import {
   getFeature,
   getFeaturesByIds,
@@ -2752,7 +2754,12 @@ export async function postExperimentTargeting(
     context.permissions.throwPermissionError();
   }
 
-  // Opt-in attribute registration check (org-level setting).
+  // Opt-in attribute registration check (org-level setting). The targeting
+  // endpoint always receives the full payload (targeting + assignment), but a
+  // scoped modal only edited a subset. Pass the persisted values as
+  // `existingParts` so unchanged stale attributes don't block an unrelated
+  // save — only newly changed attributes are validated.
+  const lastPersistedPhase = experiment.phases[experiment.phases.length - 1];
   assertRegisteredAttributes(
     context,
     {
@@ -2761,7 +2768,11 @@ export async function postExperimentTargeting(
       condition,
     },
     "experiment",
-    undefined,
+    {
+      hashAttribute: experiment.hashAttribute || "id",
+      fallbackAttribute: experiment.fallbackAttribute,
+      condition: lastPersistedPhase?.condition,
+    },
     experiment.project,
   );
 
@@ -3171,44 +3182,50 @@ export async function postSnapshot(
     throw new Error("Could not find datasource for this experiment");
   }
 
-  const useCache = !req.query["force"];
-
-  try {
-    const { snapshot } = await createExperimentSnapshot({
-      context,
-      experiment,
-      datasource,
-      dimension,
-      phase,
-      useCache,
-      type:
-        experiment.type === "multi-armed-bandit" ? "exploratory" : undefined,
-    });
-
-    await req.audit({
-      event: "experiment.refresh",
-      entity: {
-        object: "experiment",
-        id: experiment.id,
-      },
-      details: auditDetailsCreate({
-        phase,
-        dimension,
-        useCache,
-        manual: false,
-      }),
-    });
-    res.status(200).json({
-      status: 200,
-      snapshot,
-    });
-  } catch (e) {
-    req.log.error(e, "Failed to create experiment snapshot");
-    res.status(400).json({
-      status: 400,
-      message: e.message,
-    });
+  const force = !!req.query["force"];
+  if (
+    dimension &&
+    force &&
+    isExperimentIncrementalEnabled(
+      datasource.settings.pipelineSettings,
+      experiment.id,
+      experiment.type,
+    )
+  ) {
+    throw new BadRequestError(
+      'The "force" parameter cannot be used on Dimension snapshots when Incremental Pipeline mode is enabled. You can re-issue this request with dimension: "" to force a Full Refresh on Overall Results.',
+    );
   }
+
+  const useCache = !force;
+
+  const { snapshot } = await createExperimentSnapshot({
+    context,
+    experiment,
+    datasource,
+    dimension,
+    phase,
+    useCache,
+    type: experiment.type === "multi-armed-bandit" ? "exploratory" : undefined,
+  });
+
+  await req.audit({
+    event: "experiment.refresh",
+    entity: {
+      object: "experiment",
+      id: experiment.id,
+    },
+    details: auditDetailsCreate({
+      phase,
+      dimension,
+      useCache,
+      manual: false,
+    }),
+  });
+  res.status(200).json({
+    status: 200,
+    snapshot,
+  });
 }
 export async function postSnapshotAnalysis(
   req: AuthRequest<
@@ -4162,6 +4179,7 @@ export async function postExperimentFeatureValues(
       revision,
       matchingRules,
       updatedVariationValues,
+      sparse: features[feature.id].sparse,
       user: res.locals.eventAudit,
       orgSettings: org.settings,
     });

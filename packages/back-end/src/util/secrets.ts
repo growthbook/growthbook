@@ -72,10 +72,21 @@ export const GOOGLE_OAUTH_CLIENT_ID = process.env.GOOGLE_OAUTH_CLIENT_ID || "";
 export const GOOGLE_OAUTH_CLIENT_SECRET =
   process.env.GOOGLE_OAUTH_CLIENT_SECRET || "";
 
+// Figma OAuth app credentials, used by the Visual Editor's "Figma →
+// Variant" feature. The client_id is exposed to the extension (not
+// secret); the client_secret stays server-side for the code↔token
+// exchange. Empty when the org's deployment hasn't configured Figma.
+export const FIGMA_OAUTH_CLIENT_ID = process.env.FIGMA_OAUTH_CLIENT_ID || "";
+export const FIGMA_OAUTH_CLIENT_SECRET =
+  process.env.FIGMA_OAUTH_CLIENT_SECRET || "";
+
 export const S3_BUCKET = process.env.S3_BUCKET || "";
 export const S3_REGION = process.env.S3_REGION || "us-east-1";
 export const S3_DOMAIN =
   process.env.S3_DOMAIN || `https://${S3_BUCKET}.s3.amazonaws.com/`;
+// Optional override for S3-compatible endpoints (MinIO, R2, etc.).
+// Leave empty to use AWS S3.
+export const S3_ENDPOINT = process.env.S3_ENDPOINT || "";
 
 // Separate public, CDN-fronted bucket for visual-editor assets. Falls
 // back to the private S3_BUCKET when not configured.
@@ -116,6 +127,17 @@ if ((prod || !IS_LOCALHOST) && !IS_CLOUD && JWT_SECRET === "dev") {
 }
 
 export const AWS_ASSUME_ROLE = process.env.AWS_ASSUME_ROLE || "";
+
+// Optional override for the session-replay S3 bucket — replay payload chunks
+// are stored in their own bucket so that the back-end's read role can be
+// scoped separately from the general uploads bucket (`S3_BUCKET`). Leave
+// empty to disable signed-URL session-replay reads.
+export const S3_SESSION_REPLAY_BUCKET =
+  process.env.S3_SESSION_REPLAY_BUCKET || "";
+// Optional override for the role used to read the session-replay bucket. Falls
+// back to AWS_ASSUME_ROLE when unset, so single-role setups need no extra env.
+export const S3_SESSION_REPLAY_ASSUME_ROLE =
+  process.env.S3_SESSION_REPLAY_ASSUME_ROLE || AWS_ASSUME_ROLE;
 
 export const EMAIL_ENABLED = stringToBoolean(process.env.EMAIL_ENABLED);
 export const EMAIL_HOST = process.env.EMAIL_HOST;

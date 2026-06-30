@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { savedGroupValidator } from "./saved-group";
+import { constantValidator } from "./constant";
 
 export const revisionStatus = [
   "draft",
@@ -24,6 +25,14 @@ export const reviewValidator = z.object({
   decision: z.enum(reviewDecision),
   comment: z.string().optional(),
   dateCreated: z.date(),
+  // A verdict demoted by a later cycle reset (re-submit, approval reset on edit,
+  // recall, reopen) — kept for attribution but no longer an active approval or
+  // block. Mirrors the feature flow's "-stale" verdict variants; verdict
+  // activeness is read from this flag, not recomputed from the activity log.
+  stale: z.boolean().optional().meta({
+    description:
+      "True if a later review cycle (re-submit, approval reset, recall, or reopen) superseded this verdict. Stale verdicts are kept for attribution but no longer count as an active approval or change-request.",
+  }),
 });
 export type Review = z.infer<typeof reviewValidator>;
 
@@ -34,7 +43,7 @@ export type Review = z.infer<typeof reviewValidator>;
 // 4. Create packages/back-end/src/revisions/adapters/feature.adapter.ts
 // 5. Register it in packages/back-end/src/revisions/index.ts registry
 // 6. Extend getRevisionKey / canUserReviewEntity switches in shared/src/revisions/helpers.ts
-export const revisionTargetType = ["saved-group"] as const;
+export const revisionTargetType = ["saved-group", "constant"] as const;
 export type RevisionTargetType = (typeof revisionTargetType)[number];
 
 export const jsonPatchOperationValidator = z.discriminatedUnion("op", [
@@ -70,9 +79,21 @@ export const activityLogEntryValidator = z.object({
     "approved",
     "requested-changes",
     "commented",
+    // Author submitted (or re-submitted) the revision for review. Starts a new
+    // review cycle, invalidating any prior verdicts. Distinct from "reopened"
+    // (which returns a revision to draft) so the timeline can render it as a
+    // dedicated "Review Requested" event.
+    "review-requested",
+    // A reviewer retracted their own verdict via undo-review. The verdict is
+    // removed from reviews[], so this entry preserves a visible trace (and the
+    // retracted decision) for the timeline. Does NOT reset the review cycle.
+    "review-retracted",
     "merged",
     "discarded",
     "reopened",
+    "scheduled-publish",
+    "scheduled-publish-updated",
+    "scheduled-publish-canceled",
   ]),
   description: z.string().nullish(),
   dateCreated: z.date(),
@@ -100,10 +121,21 @@ export type RevisionSavedGroupTarget = z.infer<
   typeof revisionSavedGroupTargetValidator
 >;
 
+export const revisionConstantTargetValidator = z.object({
+  type: z.literal("constant"),
+  id: z.string(),
+  snapshot: constantValidator,
+  proposedChanges: z.array(jsonPatchOperationValidator),
+});
+export type RevisionConstantTarget = z.infer<
+  typeof revisionConstantTargetValidator
+>;
+
 // Extension point: add new revisionXxxTargetValidator entries here as new entity types are added.
 // Each validator must have a unique `type` literal and a `snapshot` field with the entity's schema.
 export const revisionTargetValidator = z.discriminatedUnion("type", [
   revisionSavedGroupTargetValidator,
+  revisionConstantTargetValidator,
   // revisionFeatureTargetValidator,  ← add future entity types here
 ]);
 export type RevisionTarget = z.infer<typeof revisionTargetValidator>;
@@ -123,6 +155,28 @@ export const revisionValidator = z.object({
   // prevent contributors from approving their own work.
   // Optional for backward compatibility with revisions created before this field existed.
   contributors: z.array(z.string()).optional(),
+  autoPublishOnApproval: z.boolean().optional(),
+  // User ID of whoever most recently armed `autoPublishOnApproval` — the
+  // auto-publish executes with this user's authority. Falls back to
+  // `authorId` when absent.
+  autoPublishEnabledBy: z.string().optional(),
+  // ── Scheduled / deferred publish (shape mirrors FeatureRevisionInterface) ──
+  // Defers an armed revision's auto-publish until on/after this date (and, if
+  // required, approved). null/absent = publish as soon as approved.
+  scheduledPublishAt: z.union([z.null(), z.date()]).optional(),
+  // While pending, freeze content edits to this draft (rebase still allowed).
+  scheduledPublishLockEdits: z.boolean().optional(),
+  // While pending, block publishing other drafts of the same entity.
+  scheduledPublishLockOthers: z.boolean().optional(),
+  // True when an admin armed this schedule via the bypass-approval override; the
+  // schedule is then cancel-and-re-arm only. Fire-time bypass still derives from
+  // the armer's live role, not this flag.
+  scheduledPublishBypassApproval: z.boolean().optional(),
+  // Poller bookkeeping when a due publish can't go through yet (e.g. awaiting
+  // approval, merge conflict). Surfaces a "stuck" schedule instead of silently
+  // retrying. Cleared on a successful publish or when the schedule is canceled.
+  scheduledPublishAttempts: z.number().optional(),
+  scheduledPublishLastError: z.string().optional(),
   activityLog: z.array(activityLogEntryValidator),
   resolution: z
     .object({
@@ -137,6 +191,16 @@ export const revisionValidator = z.object({
   organization: z.string(),
 });
 export type Revision = z.infer<typeof revisionValidator>;
+
+// Input for arming/canceling a scheduled publish. `scheduledPublishAt: null`
+// cancels the schedule (and disarms auto-publish). Mirrors the feature
+// schedule-publish request body.
+export type ScheduledPublishInput = {
+  scheduledPublishAt: Date | null;
+  lockEdits?: boolean;
+  lockOthers?: boolean;
+  bypassApproval?: boolean;
+};
 
 export const revisionCreateValidator = z.object({
   target: z.object({

@@ -4,6 +4,7 @@ import {
   canShowRefreshMenuItem,
   canShowReenableIncrementalRefresh,
   isExperimentExcludedFromIncrementalRefresh,
+  shouldOfferMenuRefresh,
 } from "@/components/Experiment/ResultMoreMenu";
 
 const makeDatasource = (
@@ -28,14 +29,12 @@ const makeDatasource = (
 
 describe("ResultMoreMenu gating helpers", () => {
   describe("canShowRefreshMenuItem", () => {
-    it("allows refresh when forceRefresh, datasource, permission true, not included", () => {
+    it("allows refresh when forceRefresh, datasource, permission true", () => {
       const ds = makeDatasource();
       const result = canShowRefreshMenuItem({
         forceRefresh: async () => {},
         datasource: ds,
         canRunExperimentQueries: true,
-        isExperimentIncludedInIncrementalRefresh: false,
-        dimension: undefined,
       });
       expect(result).toBe(true);
     });
@@ -45,8 +44,6 @@ describe("ResultMoreMenu gating helpers", () => {
         forceRefresh: async () => {},
         datasource: null,
         canRunExperimentQueries: true,
-        isExperimentIncludedInIncrementalRefresh: false,
-        dimension: undefined,
       });
       expect(result).toBe(false);
     });
@@ -57,8 +54,6 @@ describe("ResultMoreMenu gating helpers", () => {
         forceRefresh: undefined,
         datasource: ds,
         canRunExperimentQueries: true,
-        isExperimentIncludedInIncrementalRefresh: false,
-        dimension: undefined,
       });
       expect(result).toBe(false);
     });
@@ -69,22 +64,60 @@ describe("ResultMoreMenu gating helpers", () => {
         forceRefresh: async () => {},
         datasource: ds,
         canRunExperimentQueries: false,
-        isExperimentIncludedInIncrementalRefresh: false,
-        dimension: undefined,
       });
       expect(result).toBe(false);
     });
+  });
 
-    it("blocks full refresh when included and dimension set", () => {
-      const ds = makeDatasource();
-      const result = canShowRefreshMenuItem({
-        forceRefresh: async () => {},
-        datasource: ds,
-        canRunExperimentQueries: true,
-        isExperimentIncludedInIncrementalRefresh: true,
-        dimension: "dim-1",
-      });
-      expect(result).toBe(false);
+  describe("shouldOfferMenuRefresh", () => {
+    it("offers refresh for non-incremental experiments", () => {
+      expect(
+        shouldOfferMenuRefresh({
+          isIncremental: false,
+          dimension: undefined,
+          overallNeedsFullRefresh: false,
+        }),
+      ).toBe(true);
+    });
+
+    it("offers refresh for non-incremental experiments with a dimension selected", () => {
+      expect(
+        shouldOfferMenuRefresh({
+          isIncremental: false,
+          dimension: "dim-1",
+          overallNeedsFullRefresh: false,
+        }),
+      ).toBe(true);
+    });
+
+    it("offers refresh for incremental experiments with no dimension and no pending full refresh", () => {
+      expect(
+        shouldOfferMenuRefresh({
+          isIncremental: true,
+          dimension: undefined,
+          overallNeedsFullRefresh: false,
+        }),
+      ).toBe(true);
+    });
+
+    it("blocks refresh for an incremental dimension run", () => {
+      expect(
+        shouldOfferMenuRefresh({
+          isIncremental: true,
+          dimension: "dim-1",
+          overallNeedsFullRefresh: false,
+        }),
+      ).toBe(false);
+    });
+
+    it("blocks refresh when the main button already shows the full refresh CTA", () => {
+      expect(
+        shouldOfferMenuRefresh({
+          isIncremental: true,
+          dimension: undefined,
+          overallNeedsFullRefresh: true,
+        }),
+      ).toBe(false);
     });
   });
 

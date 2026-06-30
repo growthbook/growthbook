@@ -2,8 +2,13 @@ import path from "path";
 import fs from "fs";
 import { z, ZodNever } from "zod";
 import yaml from "js-yaml";
-import { namedSchemaRegistry } from "shared/validators";
+import {
+  namedSchemaRegistry,
+  apiErrorRegistry,
+  ApiErrorCode,
+} from "shared/validators";
 import { allRoutes, apiModelTagMeta } from "back-end/src/api/api.router";
+import { getBuild } from "back-end/src/util/build";
 
 const openApiTags = [
   "projects",
@@ -27,6 +32,8 @@ const openApiTags = [
   "visual-changesets",
   "saved-groups",
   "saved-group-revisions",
+  "constants",
+  "constant-revisions",
   "organizations",
   "members",
   "code-references",
@@ -35,6 +42,7 @@ const openApiTags = [
   "settings",
   "attributes",
   "usage",
+  "meta",
 ] as const;
 
 export type OpenApiTag = (typeof openApiTags)[number];
@@ -140,6 +148,16 @@ const tags: Record<OpenApiTag, { display: string; description: string }> = {
     description:
       'Draft revisions for saved groups, including pending changes, approvals, and lifecycle (publish, discard, revert).\n\nMost callers can interact with these endpoints via shorthand actions (`/items/add`, `/items/remove`, single-field PUTs) instead of authoring JSON Patch ops directly. Pass `version: "new"` on edit endpoints to auto-create a draft.',
   },
+  constants: {
+    display: "Constants",
+    description:
+      "Reusable named values referenced from feature flag values as `@const:key` and resolved into the SDK payload at build time. String constants are interpolated via `{{ @const:key }}`; JSON (object) constants are composed via an `$extends` array.",
+  },
+  "constant-revisions": {
+    display: "Constant Revisions",
+    description:
+      'Draft revisions for constants, including pending changes, approvals, and lifecycle (publish, discard, revert). Pass `version: "new"` on edit endpoints to auto-create a draft.',
+  },
   members: {
     display: "Members",
     description: "Members are users who have been invited to an organization.",
@@ -174,6 +192,11 @@ const tags: Record<OpenApiTag, { display: string; description: string }> = {
   usage: {
     display: "Usage",
     description: "Usage information for metrics in experiments.",
+  },
+  meta: {
+    display: "Meta",
+    description:
+      "Server metadata, including the running build's version and commit for version-skew checks.",
   },
 };
 
@@ -350,13 +373,27 @@ type RequestBody = {
 };
 
 type Response = {
-  description?: string;
+  description: string;
   content: {
     "application/json": {
       schema: z.core.JSONSchema.BaseSchema;
     };
   };
 };
+
+function defaultResponseDescription(method: string): string {
+  switch (method.toLowerCase()) {
+    case "post":
+      return "Resource created";
+    case "put":
+    case "patch":
+      return "Resource updated";
+    case "delete":
+      return "Resource deleted";
+    default:
+      return "Successful response";
+  }
+}
 
 type Path = {
   operationId: string;
@@ -374,6 +411,7 @@ type CodeSample = { lang: string; source: string };
 
 async function run() {
   // TODO: add security, etc.
+  const version = getBuild().lastVersion || "1.0.0";
   const openapiSpec: {
     openapi: string;
     info: {
@@ -384,6 +422,10 @@ async function run() {
     servers: {
       url: string;
       description: string;
+      variables?: Record<
+        string,
+        { default: string; description?: string; enum?: string[] }
+      >;
     }[];
     tags: {
       name: string;
@@ -407,7 +449,7 @@ async function run() {
   } = {
     openapi: "3.1.0",
     info: {
-      version: "1.0.0",
+      version,
       title: "GrowthBook REST API",
       description: `GrowthBook offers a full REST API for interacting with the application.
 
@@ -473,6 +515,12 @@ The response body will be a JSON object with the following properties:
       {
         url: "https://{domain}/api",
         description: "Self-hosted GrowthBook",
+        variables: {
+          domain: {
+            default: "localhost:3100",
+            description: "Your self-hosted GrowthBook host (and port)",
+          },
+        },
       },
     ],
     tags: openApiTags.map((id) => ({
@@ -517,6 +565,32 @@ curl https://api.growthbook.io/api/v1/features \
   // Be able to look up a schema by its JSON stringified schema
   const schemaHashMap: Record<string, string> = {};
 
+  // Register per-code error detail schemas. These live in schemaRefs (not
+  // componentSchemas) so they don't pick up the auto-generated `_model` doc
+  // tags reserved for user-facing API resource models. We don't document
+  // generic errors per-endpoint — only the actionable, declared ones below.
+  // e.g. "pending_draft_publish_failed" → "ApiErrorPendingDraftPublishFailedDetails"
+  const errorDetailsSchemaName = (code: string) =>
+    `ApiError${code
+      .split("_")
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join("")}Details`;
+  for (const [code, { detailsSchema }] of Object.entries(apiErrorRegistry)) {
+    schemaRefs[errorDetailsSchemaName(code)] = toOpenApiSchema(detailsSchema);
+  }
+
+  // The response-level description is rendered prominently next to the status
+  // code (even when the response section is collapsed), so we use the standard
+  // HTTP reason phrase here. Per-code descriptions live on each schema variant.
+  const HTTP_STATUS_REASONS: Record<string, string> = {
+    "400": "Bad Request",
+    "401": "Unauthorized",
+    "403": "Forbidden",
+    "404": "Not Found",
+    "409": "Conflict",
+    "500": "Internal Server Error",
+  };
+
   for (const route of allRoutes) {
     if (route.excludeFromSpec) {
       continue;
@@ -533,6 +607,7 @@ curl https://api.growthbook.io/api/v1/features \
       exampleRequest,
       version,
       deprecated,
+      possibleErrors,
     } = route;
 
     if (!path || !method || !operationId) {
@@ -716,7 +791,7 @@ curl https://api.growthbook.io/api/v1/features \
 
     const responses: Record<string, Response> = {
       "200": {
-        ...(responseDescription && { description: responseDescription }),
+        description: responseDescription || defaultResponseDescription(method),
         content: {
           "application/json": {
             schema: responseSchema,
@@ -724,6 +799,44 @@ curl https://api.growthbook.io/api/v1/features \
         },
       },
     };
+
+    if (possibleErrors && possibleErrors.length > 0) {
+      const errorsByStatus: Partial<Record<string, ApiErrorCode[]>> = {};
+      for (const code of possibleErrors) {
+        const status = String(apiErrorRegistry[code].status);
+        (errorsByStatus[status] ??= []).push(code);
+      }
+
+      for (const [status, codes] of Object.entries(errorsByStatus)) {
+        if (!codes) continue;
+        const errorSchemas: z.core.JSONSchema.BaseSchema[] = codes.map(
+          (code) => ({
+            type: "object",
+            description: apiErrorRegistry[code].description,
+            properties: {
+              message: { type: "string" },
+              code: { type: "string", enum: [code] },
+              details: {
+                $ref: `#/components/schemas/${errorDetailsSchemaName(code)}`,
+              },
+            },
+            required: ["message", "code", "details"],
+          }),
+        );
+
+        responses[status] = {
+          description: HTTP_STATUS_REASONS[status] ?? "Error",
+          content: {
+            "application/json": {
+              schema:
+                errorSchemas.length === 1
+                  ? errorSchemas[0]
+                  : { oneOf: errorSchemas },
+            },
+          },
+        };
+      }
+    }
 
     // Replace express style path parameters with OpenAPI style path parameters,
     // and prefix with the version segment so the spec uses /v1/... or /v2/...
@@ -801,9 +914,11 @@ curl https://api.growthbook.io/api/v1/features \
     openapiSpec.components.schemas[name] = schema;
   });
 
-  // Generate _model tags for each named component schema (powers the "Models" section in docs)
+  // Generate _model tags for registered API resource models (powers the "Models"
+  // section in docs). Hoisted $defs from `componentSchema()` are omitted.
   const modelTags: string[] = [];
-  for (const name of Object.keys(componentSchemas).sort()) {
+  for (const name of [...namedSchemaRegistry.keys()].sort()) {
+    if (!componentSchemas[name]) continue;
     const tagName = `${name}_model`;
     modelTags.push(tagName);
     const modelDisplayName = name.replace(/([a-z])([A-Z])/g, "$1 $2");

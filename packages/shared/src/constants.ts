@@ -2,6 +2,11 @@ import { FactMetricType } from "shared/types/fact-table";
 import { EntityEvents } from "shared/types/audit";
 import { ApprovalFlowConfigurations } from "shared/types/organization";
 
+// The object property that carries a JSON constant's `$extends` reference list.
+// Single source of truth shared by the resolver (sdk-versioning/resolveConstants)
+// and the reference detector (validators/constant) so they can't drift.
+export const CONSTANT_EXTENDS_KEY = "$extends";
+
 export const DEFAULT_STATS_ENGINE = "bayesian" as const;
 export const DEFAULT_METRIC_HISTOGRAM_BINS = 25;
 export const DEFAULT_CONFIDENCE_LEVEL = 0.95;
@@ -42,6 +47,8 @@ export const DEFAULT_POST_STRATIFICATION_ENABLED = true;
 // Lookback Override:
 export const DEFAULT_LOOKBACK_OVERRIDE_VALUE_UNIT = "days";
 export const DEFAULT_LOOKBACK_OVERRIDE_VALUE_DAYS = 14;
+export const DEFAULT_TOP_VALUES_LOOKBACK_VALUE = 14;
+export const DEFAULT_TOP_VALUES_LOOKBACK_UNIT = "days";
 
 // Query settings
 export const DEFAULT_TEST_QUERY_DAYS = 30;
@@ -224,6 +231,7 @@ export const entityEvents = {
     "revision.requestChanges",
     "revision.comment",
     "revision.discard",
+    "revision.reopen",
     "revision.rebase",
   ],
   featureRevisionLog: ["create", "update", "delete"],
@@ -239,6 +247,7 @@ export const entityEvents = {
   organization: ["create", "update", "delete", "disable", "enable"],
   installation: ["update"],
   savedGroup: ["created", "deleted", "updated"],
+  constant: ["created", "updated", "deleted"],
   segment: ["create", "delete", "update"],
   archetype: ["created", "deleted", "updated"],
   team: ["create", "delete", "update"],
@@ -266,6 +275,7 @@ export const entityEvents = {
     "approval-bypassed",
   ],
   rampScheduleTemplate: ["create", "update", "delete"],
+  eventForwarderConfig: ["create", "update", "delete", "teardownFailure"],
 } as const;
 
 export const entityTypes = Object.keys(entityEvents) as [keyof EntityEvents];

@@ -377,6 +377,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
   return (
     <FormProvider {...form}>
       <PagedModal
+        useRadixButton={false}
         trackingEventModalType={trackingEventModalType}
         trackingEventModalSource={source}
         header={header}
@@ -701,6 +702,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
               collapseSecondary={true}
               goalMetricsDescription="The primary metrics you are trying to improve within this holdout. "
               filterConversionWindowMetrics={true}
+              experimentType="holdout"
             />
 
             <hr className="mt-4" />

@@ -100,6 +100,7 @@ const Webhooks: FC = () => {
                   <td>
                     {permissionsUtil.canManageLegacySDKWebhooks() ? (
                       <DeleteButton
+                        useRadix={false}
                         link={true}
                         className={"text-primary"}
                         displayName="Webhook"

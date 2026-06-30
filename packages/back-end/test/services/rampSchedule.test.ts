@@ -39,6 +39,7 @@ import {
   advanceScheduleManually,
   completeRollout,
   getStartPatchForRule,
+  resolveRampStartState,
   applyRampStartActions,
   startReadyScheduleNow,
   approveAndPublishStep,
@@ -277,6 +278,24 @@ describe("applyPatchToRule", () => {
     expect(result.enabled).toBe(base.enabled);
   });
 
+  it("preserves the rule's sparse flag when applying a force patch", () => {
+    // A ramp step sets a new (partial) value on a sparse rule; the sparse flag
+    // must survive so the SDK payload still merges it onto the default.
+    const sparseRule = {
+      ...base,
+      type: "force",
+      value: JSON.stringify({ b: 1 }),
+      sparse: true,
+    } as FeatureRule;
+    const result = applyPatchToRule(sparseRule, {
+      force: JSON.stringify({ b: 9 }),
+    });
+    expect((result as { value?: unknown }).value).toBe(
+      JSON.stringify({ b: 9 }),
+    );
+    expect((result as { sparse?: boolean }).sparse).toBe(true);
+  });
+
   it("allEnvironments:true wins when both allEnvironments and environments appear in the same patch", () => {
     // getStartPatchForRule on an allEnvironments:true rule produces both
     // allEnvironments:true and environments:null. Without the ordering fix the
@@ -474,6 +493,87 @@ function sparseSchedule(
     })),
   };
 }
+
+describe("resolveRampStartState", () => {
+  const rolloutRule = (coverage?: number) =>
+    ({
+      id: RULE_ID,
+      type: "rollout",
+      hashAttribute: "id",
+      enabled: true,
+      ...(coverage !== undefined ? { coverage } : {}),
+    }) as FeatureRule;
+
+  it("converts an explicit startState into startActions merged onto the rule state", () => {
+    const { startActions, warning } = resolveRampStartState({
+      rule: rolloutRule(0.1),
+      ruleId: RULE_ID,
+      startState: { coverage: 0 },
+      isCreate: true,
+    });
+
+    expect(warning).toBeUndefined();
+    expect(startActions).toHaveLength(1);
+    // Explicit coverage override wins; other targeting comes from the rule.
+    expect(startActions![0].patch).toMatchObject({
+      ruleId: RULE_ID,
+      coverage: 0,
+    });
+  });
+
+  it("warns on create when the anchor is inferred from a non-zero coverage", () => {
+    const { startActions, warning } = resolveRampStartState({
+      rule: rolloutRule(0.1),
+      ruleId: RULE_ID,
+      startState: undefined,
+      isCreate: true,
+    });
+
+    expect(startActions).toBeUndefined();
+    expect(warning).toContain("10%");
+  });
+
+  it("does not warn when the inferred coverage is already 0%", () => {
+    const { startActions, warning } = resolveRampStartState({
+      rule: rolloutRule(0),
+      ruleId: RULE_ID,
+      startState: undefined,
+      isCreate: true,
+    });
+
+    expect(startActions).toBeUndefined();
+    expect(warning).toBeUndefined();
+  });
+
+  it("does not warn for a rule with no coverage (e.g. a force rule)", () => {
+    const { warning } = resolveRampStartState({
+      rule: {
+        id: RULE_ID,
+        type: "force",
+        hashAttribute: "id",
+        enabled: true,
+        value: "x",
+      } as FeatureRule,
+      ruleId: RULE_ID,
+      startState: undefined,
+      isCreate: true,
+    });
+
+    expect(warning).toBeUndefined();
+  });
+
+  it("leaves the anchor alone (no warning) on update when startState is omitted", () => {
+    const { startActions, warning } = resolveRampStartState({
+      rule: rolloutRule(0.1),
+      ruleId: RULE_ID,
+      startState: undefined,
+      isCreate: false,
+    });
+
+    expect(startActions).toBeUndefined();
+    expect(warning).toBeUndefined();
+  });
+});
 
 describe("computeEffectivePatch", () => {
   // Returns the accumulated patch for TARGET_ID at the given stepIndex, as a plain object.

@@ -411,6 +411,7 @@ function SafeRolloutMetricDrilldownModal({
 
   return (
     <Modal
+      useRadixButton={false}
       open={true}
       header={<MetricName metric={metric} officialBadgePosition="right" />}
       subHeader={
@@ -455,6 +456,7 @@ function SafeRolloutMetricDrilldownModal({
         preloadedTimeSeries={timeSeries}
         valueColumnWidth={170}
         labelMaxWidth={120}
+        oneSided
       />
     </Modal>
   );
@@ -624,7 +626,6 @@ export function MetricSection({
               const stats = row.variations[1] || { value: 0, cr: 0, users: 0 };
               const rr = allRowResults[i];
               const metricTs = timeSeries[row.metric.id];
-              const isInverse = !!row.metric.inverse;
 
               const hasData = rr.enoughData || (stats.users ?? 0) > 0;
 
@@ -671,7 +672,6 @@ export function MetricSection({
                         <SafeRolloutTimeSeriesGraph
                           data={metricTs ?? emptyTimeSeries(row.metric.id)}
                           xDateRange={dateExtent}
-                          inverse={isInverse}
                           eventMarkers={eventMarkers}
                         />
                       </div>

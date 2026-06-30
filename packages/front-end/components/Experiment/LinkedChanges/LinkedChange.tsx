@@ -80,15 +80,19 @@ export default function LinkedChange({
             {changeType === "flag" ? (
               <Link href={`/features/${feature?.id}`}>
                 <Heading as="h4" size="small" weight="medium" mb="0">
-                  {heading}
-                  <PiArrowSquareOut className="ml-2" />
+                  <Flex align="center">
+                    {heading}
+                    <PiArrowSquareOut className="ml-2" />
+                  </Flex>
                 </Heading>
               </Link>
             ) : headingLink ? (
               <Link href={headingLink}>
                 <Heading as="h4" size="small" weight="medium" mb="0">
-                  {heading}
-                  <PiArrowSquareOut className="ml-2" />
+                  <Flex align="center">
+                    {heading}
+                    <PiArrowSquareOut className="ml-2" />
+                  </Flex>
                 </Heading>
               </Link>
             ) : (
@@ -113,7 +117,6 @@ export default function LinkedChange({
               {onDelete && (
                 <DeleteButton
                   className="btn-sm ml-4"
-                  useRadix={true}
                   text="Remove"
                   stopPropagation={true}
                   onClick={() => onDelete()}
@@ -129,6 +132,7 @@ export default function LinkedChange({
                 experiment?.status === "draft" &&
                 !experiment?.nextScheduledStatusUpdate && (
                   <OpenVisualEditorLink
+                    useRadix={false}
                     visualChangeset={vc}
                     useLink={true}
                     button={

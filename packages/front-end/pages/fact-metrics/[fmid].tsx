@@ -13,6 +13,7 @@ import {
   quantileMetricType,
   getRowFilterSQL,
 } from "shared/experiments";
+import { createLikeStringMatchFn } from "shared/sql";
 import { formatAIRateLimitRetryMessage } from "shared/ai";
 
 import { useGrowthBook } from "@growthbook/growthbook-react";
@@ -161,6 +162,10 @@ function RowFilterCodeDisplay({
               rowFilter: rf,
               factTable,
               escapeStringLiteral: (s) => s.replace(/'/g, "''"),
+              stringMatch: createLikeStringMatchFn({
+                escapeStringLiteral: (s) => s.replace(/'/g, "''"),
+                emitEscapeClause: false,
+              }),
               evalBoolean: (col, value) =>
                 `${col} IS ${value ? "TRUE" : "FALSE"}`,
               jsonExtract: (col, path) => `${col}.${path}`,
@@ -391,6 +396,7 @@ export default function FactMetricPage() {
     <div className="pagecontents container-fluid">
       {auditModal && (
         <Modal
+          useRadixButton={false}
           trackingEventModalType=""
           open={true}
           header="Audit Log"
@@ -419,6 +425,7 @@ export default function FactMetricPage() {
       )}
       {showDeleteModal && (
         <Modal
+          useRadixButton={false}
           trackingEventModalType=""
           header={`Delete Metric`}
           close={() => setShowDeleteModal(false)}
@@ -798,7 +805,7 @@ export default function FactMetricPage() {
               <Text as="p" mb="2" color="text-mid">
                 Choose metric breakdowns to automatically analyze in your
                 experiments.{" "}
-                <DocLink docSection="autoSlices">
+                <DocLink useRadix={false} docSection="autoSlices">
                   Learn More <PiArrowSquareOut />
                 </DocLink>
               </Text>

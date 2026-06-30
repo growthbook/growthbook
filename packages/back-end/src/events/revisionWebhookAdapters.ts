@@ -5,6 +5,7 @@ import type {
 } from "shared/enterprise";
 import type { Context } from "back-end/src/models/BaseModel";
 import { dispatchSavedGroupRevisionEvent } from "back-end/src/services/savedGroupRevisionEvents";
+import { dispatchConstantRevisionEvent } from "back-end/src/services/constantRevisionEvents";
 
 // Webhook-event plugin layer for the generic revision system.
 //
@@ -33,7 +34,9 @@ export type RevisionLifecycleAction =
   // dispatcher derives it from the revision's proposed-changes.
   | {
       type: "updated";
-      change?: "metadata" | "condition" | "values" | "archive";
+      // Union across entity types: saved groups use condition/values; constants
+      // use value. The dispatcher narrows to its entity's valid subset.
+      change?: "metadata" | "condition" | "values" | "value" | "archive";
     }
   | { type: "reviewRequested" }
   | {
@@ -67,6 +70,7 @@ export interface RevisionWebhookAdapter {
 // Plug in a new approval type's webhook events here.
 const registry: Partial<Record<RevisionTargetType, RevisionWebhookAdapter>> = {
   "saved-group": { dispatch: dispatchSavedGroupRevisionEvent },
+  constant: { dispatch: dispatchConstantRevisionEvent },
 };
 
 /** Return the webhook adapter for the given entity type, if one is registered. */

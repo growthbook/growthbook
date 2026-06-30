@@ -211,6 +211,11 @@ export function useDomain(
   variations: ExperimentReportVariation[], // must be ordered, baseline first
   rows: ExperimentTableRow[],
   differenceType: DifferenceType,
+  // When the analysis uses one-sided intervals (e.g. safe rollouts), one CI
+  // bound is "fake" (±Infinity). In that case we anchor the open side at 0
+  // rather than inferring a finite extent from it, so the domain is "0 +
+  // padding around the real bound" instead of "[ci, ci]".
+  oneSided = false,
 ): [number, number] {
   const { metricDefaults } = useOrganizationMetricDefaults();
 
@@ -282,7 +287,19 @@ export function useDomain(
       const loFinite = Number.isFinite(ci0);
       const hiFinite = Number.isFinite(ci1);
 
-      if (loFinite && hiFinite) {
+      if (oneSided) {
+        // One bound is fake (±Infinity). Build the extent from the *real*
+        // values only — the finite bound and the point estimate — plus 0 as a
+        // reference. Because we take min/max, 0 only widens the domain when it
+        // is actually the extreme (the real CI sits entirely on one side of
+        // it); a "proper" CI that has drifted across 0 keeps its real bounds
+        // and 0 simply sits interior. The open side is drawn out to the plot
+        // edge by the consuming graph.
+        const realValues = [expected, 0];
+        if (loFinite) realValues.push(ci0);
+        if (hiFinite) realValues.push(ci1);
+        addBounds(Math.min(...realValues), Math.max(...realValues));
+      } else if (loFinite && hiFinite) {
         addBounds(ci0, ci1);
       } else if (!loFinite && hiFinite) {
         // One-sided [-Infinity, X]: infer a symmetric-ish finite left extent.
@@ -942,6 +959,7 @@ export function getHonoredPrecomputedUnitDimensionIds(
 export function getIsExperimentIncludedInIncrementalRefresh(
   datasource: DataSourceInterfaceWithParams | undefined,
   experimentId: string | undefined,
+  experimentType: ExperimentInterfaceStringDates["type"],
 ): boolean {
   const pipelineSettings = datasource?.settings.pipelineSettings;
   if (!pipelineSettings) return false;
@@ -959,7 +977,11 @@ export function getIsExperimentIncludedInIncrementalRefresh(
     );
   }
 
-  return isExperimentIncrementalEnabled(pipelineSettings, experimentId);
+  return isExperimentIncrementalEnabled(
+    pipelineSettings,
+    experimentId,
+    experimentType,
+  );
 }
 
 // Returns updated pipeline settings that disable incremental refresh for the

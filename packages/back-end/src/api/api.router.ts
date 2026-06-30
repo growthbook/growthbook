@@ -29,6 +29,7 @@ import { projectsRoutes } from "./projects/projects.router";
 import { environmentsRoutes } from "./environments/environments.router";
 import { attributesRoutes } from "./attributes/attributes.router";
 import { savedGroupsRoutes } from "./saved-groups/saved-groups.router";
+import { constantsRoutes } from "./constants/constants.router";
 import { sdkConnectionsRoutes } from "./sdk-connections/sdk-connections.router";
 import { sdkPayloadRoutes } from "./sdk-payload/sdk-payload.router";
 import { dataSourcesRoutes } from "./data-sources/data-sources.router";
@@ -45,6 +46,7 @@ import { visualEditorAiRoutes } from "./visual-editor-ai/visualEditorAi.router";
 import { archetypesRoutes } from "./archetypes/archetypes.router";
 import { queriesRoutes } from "./queries/queries.router";
 import { settingsRoutes } from "./settings/settings.router";
+import { metaRoutes } from "./meta/meta.router";
 import { informationSchemaTablesRoutes } from "./information-schema-tables/information-schema-tables.router";
 import { rampSchedulesRoutes } from "./ramp-schedules/ramp-schedules.router";
 import { reportRoutes } from "./reports/reports.router";
@@ -161,6 +163,7 @@ export const allRoutes = [
   ...dataSourcesRoutes,
   ...visualChangesetsRoutes,
   ...savedGroupsRoutes,
+  ...constantsRoutes,
   ...organizationsRoutes,
   ...sdkPayloadRoutes,
   ...factTablesRoutes,
@@ -170,6 +173,7 @@ export const allRoutes = [
   ...membersRoutes,
   ...queriesRoutes,
   ...settingsRoutes,
+  ...metaRoutes,
   ...informationSchemaTablesRoutes,
   ...rampSchedulesRoutes,
   ...reportRoutes,

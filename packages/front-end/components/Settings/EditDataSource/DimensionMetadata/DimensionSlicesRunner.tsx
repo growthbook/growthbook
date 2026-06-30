@@ -206,7 +206,6 @@ const RefreshData = ({
           </Flex>
         ) : null}
         <RunQueriesButton
-          useRadixButton={true}
           radixVariant="soft"
           cta={`${dimensionSlices ? "Refresh" : "Query"} Traffic Data`}
           icon={dimensionSlices ? "refresh" : "run"}
