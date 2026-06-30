@@ -22,6 +22,9 @@ import { postConfigRevisionRebase } from "./postConfigRevisionRebase";
 import { postConfigRevisionRevert } from "./postConfigRevisionRevert";
 import { postConfigRevisionRequestReview } from "./postConfigRevisionRequestReview";
 import { postConfigRevisionSubmitReview } from "./postConfigRevisionSubmitReview";
+import { postConfigRevisionReopen } from "./postConfigRevisionReopen";
+import { postConfigRevisionRecallReview } from "./postConfigRevisionRecallReview";
+import { postConfigRevisionSchedulePublish } from "./postConfigRevisionSchedulePublish";
 import { putConfigRevisionMetadata } from "./putConfigRevisionMetadata";
 import { putConfigRevisionValue } from "./putConfigRevisionValue";
 import { putConfigRevisionSchema } from "./putConfigRevisionSchema";
@@ -61,6 +64,9 @@ export const configsRoutes: OpenApiRoute[] = [
 
   postConfigRevisionRequestReview,
   postConfigRevisionSubmitReview,
+  postConfigRevisionRecallReview,
+  postConfigRevisionReopen,
+  postConfigRevisionSchedulePublish,
   getConfigRevisionMergeStatus,
   postConfigRevisionRebase,
   postConfigRevisionPublish,

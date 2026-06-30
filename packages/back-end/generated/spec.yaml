@@ -20388,6 +20388,158 @@ paths:
             'https://api.growthbook.io/api/v1/configs-revisions/{key}/{version}/submit-review'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/configs-revisions/{key}/{version}/recall-review:
+    post:
+      operationId: postConfigRevisionRecallReview
+      summary: Recall a review request
+      description: >-
+        Pulls a revision in review (`pending-review`, `changes-requested`, or
+        `approved`) back to `draft`, clearing existing reviews and disarming any
+        auto-publish-on-approval.
+      tags:
+        - config-revisions
+      parameters:
+        - name: key
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - $ref: '#/components/parameters/version'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {}
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/ConfigRevision'
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/configs-revisions/{key}/{version}/recall-review'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/configs-revisions/{key}/{version}/reopen:
+    post:
+      operationId: postConfigRevisionReopen
+      summary: Reopen a discarded revision
+      description: >-
+        Returns a previously discarded revision to `draft` status so it can be
+        edited and published again. Only discarded revisions can be reopened.
+      tags:
+        - config-revisions
+      parameters:
+        - name: key
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - $ref: '#/components/parameters/version'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {}
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/ConfigRevision'
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/configs-revisions/{key}/{version}/reopen'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/configs-revisions/{key}/{version}/schedule-publish:
+    post:
+      operationId: postConfigRevisionSchedulePublish
+      summary: Schedule (or cancel) a deferred publish
+      description: >-
+        Arms a revision to publish automatically at a future time. Pass
+        `scheduledPublishAt` as an RFC3339 timestamp in the future to arm, or
+        `null` to cancel a pending schedule. Requires the `scheduled-revisions`
+        commercial feature and publish permission on the config. A draft that
+        still requires approval must request review first (or be armed with
+        `bypassApproval` by a caller who can bypass).
+      tags:
+        - config-revisions
+      parameters:
+        - name: key
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - $ref: '#/components/parameters/version'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                scheduledPublishAt:
+                  anyOf:
+                    - type: string
+                    - type: 'null'
+                lockEdits:
+                  type: boolean
+                lockOthers:
+                  type: boolean
+                bypassApproval:
+                  type: boolean
+              required:
+                - scheduledPublishAt
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/ConfigRevision'
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/configs-revisions/{key}/{version}/schedule-publish'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/configs-revisions/{key}/{version}/merge-status:
     get:
       operationId: getConfigRevisionMergeStatus
