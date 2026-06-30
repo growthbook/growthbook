@@ -313,7 +313,7 @@ export default function TrafficAllocationFunnel({
             disabled={!safeToEdit}
           >
             {!isHoldout ? (
-              <Box>
+              <Box mb="1">
                 <Text weight="semibold" color="text-high">
                   Included in this experiment:{" "}
                   <Text color="text-high" weight="regular">
