@@ -108,7 +108,7 @@ const ScreenshotUpload = ({
       >
         {loading > 0 ? <LoadingOverlay /> : ""}
         <input {...getInputProps()} />
-        <div className={styles.message}>Drop Image Here...</div>
+        <div className={styles.message}>Drop or paste image here...</div>
         {children}
       </div>
     </>
