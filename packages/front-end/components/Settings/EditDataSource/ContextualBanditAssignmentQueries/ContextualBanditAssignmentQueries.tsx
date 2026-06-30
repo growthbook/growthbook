@@ -101,6 +101,7 @@ export const ContextualBanditAssignmentQueries: FC<
             <Heading as="h3" size="medium" mb="0">
               Contextual Bandit Assignment Queries
             </Heading>
+            <Badge label="BETA" color="gray" variant="solid" />
             <Badge
               label={contextualBanditQueries.length + ""}
               color="gray"
