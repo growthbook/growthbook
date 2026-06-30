@@ -788,6 +788,55 @@ describe("BaseModel", () => {
     expect(updated.testDefaultField).toBeUndefined();
   });
 
+  it("update() return value matches a subsequent read after clearing an optional field", async () => {
+    const model = new TestModel(defaultContext);
+
+    const updateOneMock = jest.fn();
+    const findOneMock = jest.fn();
+    model.dangerousGetCollectionMock.mockReturnValue({
+      updateOne: updateOneMock,
+      findOne: findOneMock,
+    });
+
+    const existing = {
+      name: "foo",
+      id: "aabb",
+      testDefaultField: "bla",
+      organization: "a",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+    };
+
+    const updated = await model.update(existing, {
+      testDefaultField: undefined,
+    });
+
+    // The write removes the field from the stored document...
+    expect(updateOneMock).toHaveBeenCalledWith(
+      { id: "aabb", organization: "a" },
+      { $unset: { testDefaultField: "" } },
+      { ignoreUndefined: true },
+    );
+
+    // ...so a fresh read of that document (field now absent) returns the same
+    // shape as update()'s return value. This is the core BaseModel invariant —
+    // newDoc equals a subsequent read — that the old undefined->null write
+    // violated (it stored null, which read back as null and failed validation).
+    findOneMock.mockReturnValueOnce({
+      _id: "removed",
+      id: "aabb",
+      name: "foo",
+      organization: "a",
+      dateCreated: existing.dateCreated,
+      dateUpdated: updated.dateUpdated,
+    });
+
+    const reRead = await model.getById("aabb");
+
+    expect(reRead).toEqual(updated);
+    expect(reRead).not.toHaveProperty("testDefaultField");
+  });
+
   it("omits $set entirely when an update only unsets fields", async () => {
     const model = new TestModel(defaultContext);
 
