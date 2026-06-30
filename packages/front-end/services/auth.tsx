@@ -5,6 +5,7 @@ import React, {
   ReactElement,
   ReactNode,
   useCallback,
+  useRef,
 } from "react";
 import { useRouter } from "next/router";
 import {
@@ -18,12 +19,14 @@ import {
 import { setUser as sentrySetUser } from "@sentry/nextjs";
 import { roleSupportsEnvLimit } from "shared/permissions";
 import Modal from "@/components/Modal";
+import ApiWarningModal from "@/components/ApiWarningModal";
 import { DocLink } from "@/components/DocLink";
 import Welcome from "@/components/Auth/Welcome";
 import { useSessionStorage } from "@/hooks/useSessionStorage";
 import type { InitialPlanOptions } from "@/components/Auth/SelectInitialPlan";
 import { getApiHost, getAppOrigin, isCloud, isSentryEnabled } from "./env";
 import { useProject, LOCALSTORAGE_PROJECT_KEY } from "./DefinitionsContext";
+import { captureAttribution } from "./attribution-capture";
 
 export type UserOrganizations = { id: string; name: string }[];
 // eslint-disable-next-line
@@ -33,6 +36,11 @@ export type ApiCallType<T> = (
   options?: RequestInit,
   errorHandler?: ErrorHandler,
 ) => Promise<T>;
+
+// Append the ignoreWarnings flag so the server skips soft warnings on retry.
+export function appendIgnoreWarnings(url: string): string {
+  return url + (url.includes("?") ? "&" : "?") + "ignoreWarnings=true";
+}
 
 export interface AuthContextValue {
   isAuthenticated: boolean;
@@ -44,6 +52,9 @@ export interface AuthContextValue {
     errorHandler?: ErrorHandler,
   ) => Promise<T>;
   fetchRaw: (url: string, options?: RequestInit) => Promise<Response>;
+  // Show the global "Save anyway?" dialog; resolves true if the user proceeds.
+  confirmIgnoreWarnings: (warnings: string[]) => Promise<boolean>;
+  ssoConnectionId: string;
   orgId: string | null;
   setOrgId?: (orgId: string) => void;
   organizations?: UserOrganizations;
@@ -67,6 +78,8 @@ export const AuthContext = React.createContext<AuthContextValue>({
     return x;
   },
   fetchRaw: async () => new Response(),
+  confirmIgnoreWarnings: async () => false,
+  ssoConnectionId: "",
   orgId: null,
 });
 
@@ -175,7 +188,9 @@ function getDetailedError(error: string): string | ReactElement {
           environment variables{" "}
           <code className="font-weight-bold">APP_ORIGIN</code> and{" "}
           <code className="font-weight-bold">API_HOST</code>.{" "}
-          <DocLink docSection="config_domains_and_ports">View docs</DocLink>
+          <DocLink useRadix={false} docSection="config_domains_and_ports">
+            View docs
+          </DocLink>
         </div>
       );
     }
@@ -212,6 +227,7 @@ export const AuthProvider: React.FC<{
 }> = ({ exitOnNoAuth = true, children }) => {
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState("");
+  const [ssoConnectionId, setSsoConnectionId] = useState("");
   const [orgId, setOrgId] = useState<string | null>(null);
   const [organizations, setOrganizations] = useState<UserOrganizations>([]);
   const [specialOrg, setSpecialOrg] =
@@ -219,6 +235,11 @@ export const AuthProvider: React.FC<{
   const [authComponent, setAuthComponent] = useState<ReactElement | null>(null);
   const [initError, setInitError] = useState("");
   const [sessionError, setSessionError] = useState(false);
+  // Pending soft-warning requests, batched so concurrent ones share one dialog.
+  const pendingWarnings = useRef<
+    { warnings: string[]; resolve: (proceed: boolean) => void }[]
+  >([]);
+  const [currentWarnings, setCurrentWarnings] = useState<string[] | null>(null);
   const [initialPlanSelection, setInitialPlanSelection] =
     useSessionStorage<InitialPlanOptions>(
       INITIAL_PLAN_SELECTION_SESSION_KEY,
@@ -231,6 +252,12 @@ export const AuthProvider: React.FC<{
 
   async function init() {
     if (typeof window !== "undefined") {
+      // Capture marketing attribution into gb_attr cookie before any OAuth
+      // redirect. Handles direct app landings (e.g. paid ads pointing at
+      // app.growthbook.io). The Webflow site sets the same cookie for users
+      // arriving via the marketing funnel.
+      captureAttribution();
+
       const plan = new URLSearchParams(window.location.search).get("plan");
       if ((plan === "pro" || plan === "starter") && isCloud()) {
         setInitialPlanSelection(plan);
@@ -240,6 +267,9 @@ export const AuthProvider: React.FC<{
     if ("token" in resp) {
       setInitError("");
       setToken(resp.token);
+      if (resp.ssoConnectionId) {
+        setSsoConnectionId(resp.ssoConnectionId);
+      }
       setLoading(false);
     } else if (!exitOnNoAuth) {
       setInitError("");
@@ -248,6 +278,7 @@ export const AuthProvider: React.FC<{
       if (resp.confirm) {
         setAuthComponent(
           <Modal
+            useRadixButton={false}
             trackingEventModalType=""
             open={true}
             submit={async () => {
@@ -361,7 +392,10 @@ export const AuthProvider: React.FC<{
       const init = { ...options };
       init.headers = init.headers || {};
       init.headers["Authorization"] = `Bearer ${token}`;
-      init.credentials = "include";
+
+      if (!init.credentials) {
+        init.credentials = "include";
+      }
 
       if (init.body && !init.headers["Content-Type"]) {
         init.headers["Content-Type"] = "application/json";
@@ -383,6 +417,9 @@ export const AuthProvider: React.FC<{
             const resp = await refreshToken();
             if ("token" in resp) {
               setToken(resp.token);
+              if (resp.ssoConnectionId) {
+                setSsoConnectionId(resp.ssoConnectionId);
+              }
               init.headers["Authorization"] = `Bearer ${resp.token}`;
               return fetch(getApiHost() + url, init);
             } else if ("redirectURI" in resp) {
@@ -416,6 +453,24 @@ export const AuthProvider: React.FC<{
     [orgId, token],
   );
 
+  // Register a warning request; all pending requests share one dialog.
+  const confirmIgnoreWarnings = useCallback((warnings: string[]) => {
+    return new Promise<boolean>((resolve) => {
+      pendingWarnings.current.push({ warnings, resolve });
+      setCurrentWarnings([
+        ...new Set(pendingWarnings.current.flatMap((w) => w.warnings)),
+      ]);
+    });
+  }, []);
+
+  // Resolve every pending warning with the same choice and close the dialog.
+  const resolveWarnings = useCallback((proceed: boolean) => {
+    const pending = pendingWarnings.current;
+    pendingWarnings.current = [];
+    setCurrentWarnings(null);
+    pending.forEach((w) => w.resolve(proceed));
+  }, []);
+
   const apiCall = useCallback(
     async (
       url: string | null,
@@ -432,6 +487,9 @@ export const AuthProvider: React.FC<{
           const resp = await refreshToken();
           if ("token" in resp) {
             setToken(resp.token);
+            if (resp.ssoConnectionId) {
+              setSsoConnectionId(resp.ssoConnectionId);
+            }
             responseData = await _makeApiCall(url, resp.token, options);
             // Still failing
             if (responseData.status && responseData.status >= 400) {
@@ -458,6 +516,29 @@ export const AuthProvider: React.FC<{
           );
         }
 
+        // Soft warning: let the user acknowledge, then re-submit ignoring warnings.
+        if (
+          responseData.status === 422 &&
+          Array.isArray(responseData.warnings)
+        ) {
+          const proceed = await confirmIgnoreWarnings(responseData.warnings);
+          if (proceed) {
+            responseData = await _makeApiCall(
+              appendIgnoreWarnings(url),
+              token,
+              options,
+            );
+            if (responseData.status && responseData.status >= 400) {
+              if (errorHandler) {
+                errorHandler(responseData);
+              }
+              throw new Error(responseData.message || "There was an error");
+            }
+            return responseData;
+          }
+          throw new Error(responseData.message || "Action cancelled");
+        }
+
         if (errorHandler) {
           errorHandler(responseData);
         }
@@ -466,7 +547,7 @@ export const AuthProvider: React.FC<{
 
       return responseData;
     },
-    [token, _makeApiCall],
+    [token, _makeApiCall, confirmIgnoreWarnings],
   );
 
   const wrappedSetOrganizations = useCallback(
@@ -509,6 +590,7 @@ export const AuthProvider: React.FC<{
   if (initError) {
     return (
       <Modal
+        useRadixButton={false}
         trackingEventModalType=""
         header="logo"
         open={true}
@@ -535,6 +617,7 @@ export const AuthProvider: React.FC<{
   if (sessionError) {
     return (
       <Modal
+        useRadixButton={false}
         trackingEventModalType=""
         open={true}
         cta="OK"
@@ -563,6 +646,7 @@ export const AuthProvider: React.FC<{
           setOrganizations([]);
           setSpecialOrg(null);
           setToken("");
+          setSsoConnectionId("");
           setInitialPlanSelection("");
           if (isSentryEnabled()) {
             sentrySetUser(null);
@@ -571,6 +655,8 @@ export const AuthProvider: React.FC<{
         },
         apiCall,
         fetchRaw,
+        confirmIgnoreWarnings,
+        ssoConnectionId,
         orgId,
         setOrgId,
         organizations: orgList,
@@ -596,6 +682,13 @@ export const AuthProvider: React.FC<{
       <>
         {children}
         {authComponent}
+        {currentWarnings && (
+          <ApiWarningModal
+            warnings={currentWarnings}
+            onConfirm={() => resolveWarnings(true)}
+            onCancel={() => resolveWarnings(false)}
+          />
+        )}
       </>
     </AuthContext.Provider>
   );

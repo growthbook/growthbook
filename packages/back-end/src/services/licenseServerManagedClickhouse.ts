@@ -1,18 +1,20 @@
 /**
- * Delegates managed ClickHouse provisioning to central-license-server
+ * Delegates managed ClickHouse operations to central-license-server
  * (see managed-clickhouse/* routes there).
  */
-import type {
-  DataSourceParams,
-  MaterializedColumn,
-} from "shared/types/datasource";
-import type { Response } from "node-fetch";
+import type { AIPromptType } from "shared/ai";
+import type { MaterializedColumn } from "shared/types/datasource";
+import type { DailyUsage } from "shared/types/organization";
+import { dailyUsageForOrgResponseValidator } from "shared/validators";
+import type { RequestInit, Response } from "node-fetch";
 import { LICENSE_SERVER_URL } from "back-end/src/enterprise/licenseUtil";
 import { logger } from "back-end/src/util/logger";
 import { fetch } from "back-end/src/util/http.util";
-import { CLOUD_SECRET } from "back-end/src/util/secrets";
+import { CLOUD_SECRET, IS_CLOUD } from "back-end/src/util/secrets";
 
 const MAX_SENTRY_RESPONSE_BODY_LENGTH = 16_000;
+/** Long cap so outbound requests cannot hang indefinitely (e.g. black-holed TCP). */
+const MANAGED_CLICKHOUSE_FETCH_TIMEOUT_MS = 60 * 60 * 1000;
 
 function errorDetailForLog(text: string, status: number): string {
   const trimmed = text.trim();
@@ -49,6 +51,11 @@ async function postManagedClickhouse(
     : `${LICENSE_SERVER_URL}/`;
   const url = `${base}managed-clickhouse/${path}`;
 
+  const abortController = new AbortController();
+  const timeoutId = setTimeout(() => {
+    abortController.abort();
+  }, MANAGED_CLICKHOUSE_FETCH_TIMEOUT_MS);
+
   let res: Response;
   try {
     res = await fetch(url, {
@@ -58,20 +65,29 @@ async function postManagedClickhouse(
         Authorization: `Bearer ${CLOUD_SECRET}`,
       },
       body: JSON.stringify(body),
+      signal: abortController.signal as RequestInit["signal"],
     });
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err));
+    const timedOut = error.name === "AbortError";
     logger.error(
       {
         err: error,
         license_server_managed_clickhouse_path: path,
         license_server_managed_clickhouse_url: url,
+        license_server_managed_clickhouse_timed_out: timedOut,
       },
-      "License server managed ClickHouse request failed before HTTP response",
+      timedOut
+        ? "License server managed ClickHouse request timed out before HTTP response"
+        : "License server managed ClickHouse request failed before HTTP response",
     );
     throw new Error(
-      "We couldn't reach the managed warehouse service. Please try again in a few minutes. If the problem continues, contact support.",
+      timedOut
+        ? "The managed warehouse service did not respond in time. Please try again in a few minutes. If the problem continues, contact support."
+        : "We couldn't reach the managed warehouse service. Please try again in a few minutes. If the problem continues, contact support.",
     );
+  } finally {
+    clearTimeout(timeoutId);
   }
 
   if (!res.ok) {
@@ -107,34 +123,32 @@ async function postManagedClickhouse(
   return res;
 }
 
-export async function createClickhouseUserViaLicenseServer(
-  orgId: string,
-  materializedColumns: MaterializedColumn[] = [],
-): Promise<DataSourceParams> {
-  const res = await postManagedClickhouse("provision", {
-    orgId,
-    materializedColumns,
-  });
-  return (await res.json()) as DataSourceParams;
+async function postManagedClickhouseJson<T>(
+  path: string,
+  body: unknown,
+): Promise<T> {
+  const res = await postManagedClickhouse(path, body);
+  const text = await res.text();
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    throw new Error(
+      "The managed warehouse service returned invalid JSON. Please try again or contact support if this continues.",
+    );
+  }
 }
 
-export async function dangerousRecreateClickhouseTablesViaLicenseServer(
+export async function dangerousRecreateClickhouseTables(
   orgId: string,
-  materializedColumns: MaterializedColumn[] = [],
 ): Promise<void> {
-  await postManagedClickhouse("recreate-tables", {
-    orgId,
-    materializedColumns,
-  });
+  await postManagedClickhouse("recreate-tables", { orgId });
 }
 
-export async function deleteClickhouseUserViaLicenseServer(
-  orgId: string,
-): Promise<void> {
+export async function deleteClickhouseUser(orgId: string): Promise<void> {
   await postManagedClickhouse("delete", { orgId });
 }
 
-export async function addCloudSDKMappingViaLicenseServer(
+export async function addCloudSDKMapping(
   key: string,
   organization: string,
 ): Promise<void> {
@@ -144,13 +158,13 @@ export async function addCloudSDKMappingViaLicenseServer(
   });
 }
 
-export async function migrateOverageEventsForOrgIdViaLicenseServer(
+export async function migrateOverageEventsForOrgId(
   orgId: string,
 ): Promise<void> {
   await postManagedClickhouse("migrate-overage", { orgId });
 }
 
-export async function updateMaterializedColumnsInClickhouseViaLicenseServer({
+export async function updateMaterializedColumnsInClickhouse({
   orgId,
   columnsToAdd,
   columnsToDelete,
@@ -173,4 +187,63 @@ export async function updateMaterializedColumnsInClickhouseViaLicenseServer({
     finalColumns,
     originalColumns,
   });
+}
+
+export async function logCloudAIUsage({
+  organization,
+  type,
+  model,
+  temperature,
+  numPromptTokensUsed,
+  numCompletionTokensUsed,
+  usedDefaultPrompt,
+}: {
+  organization: string;
+  type: AIPromptType;
+  model: string;
+  numPromptTokensUsed?: number;
+  numCompletionTokensUsed?: number;
+  temperature?: number;
+  usedDefaultPrompt: boolean;
+}): Promise<void> {
+  if (!IS_CLOUD) {
+    return;
+  }
+
+  try {
+    await postManagedClickhouse("log-ai-usage", {
+      organization,
+      type,
+      model,
+      temperature,
+      numPromptTokensUsed,
+      numCompletionTokensUsed,
+      usedDefaultPrompt,
+    });
+  } catch (e) {
+    logger.error(e, "Failed to log AI usage to Clickhouse");
+  }
+}
+
+export async function getDailyUsageForOrg(
+  orgId: string,
+  start: Date,
+  end: Date,
+): Promise<DailyUsage[]> {
+  const json = await postManagedClickhouseJson("daily-usage-for-org", {
+    orgId,
+    start: start.toISOString(),
+    end: end.toISOString(),
+  });
+  const parsed = dailyUsageForOrgResponseValidator.safeParse(json);
+  if (!parsed.success) {
+    logger.error(
+      { zodError: parsed.error.flatten() },
+      "Unexpected response shape from daily-usage-for-org endpoint",
+    );
+    throw new Error(
+      "Unexpected response shape from daily-usage-for-org endpoint",
+    );
+  }
+  return parsed.data.days;
 }

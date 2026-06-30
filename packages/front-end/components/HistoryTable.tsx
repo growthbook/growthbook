@@ -1,6 +1,6 @@
 import { FC, useState, useMemo } from "react";
 import { AuditInterface, EventType } from "shared/types/audit";
-import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
+import ReactDiffViewer, { DiffMethod } from "react-diff-viewer-continued";
 import { BsArrowRepeat } from "react-icons/bs";
 import { FaAngleDown, FaAngleUp } from "react-icons/fa";
 import { datetime } from "shared/dates";
@@ -156,7 +156,13 @@ export function HistoryTableRow({
 }
 
 const HistoryTable: FC<{
-  type: "experiment" | "metric" | "feature" | "savedGroup";
+  type:
+    | "experiment"
+    | "metric"
+    | "feature"
+    | "savedGroup"
+    | "factTable"
+    | "datasource";
   showName?: boolean;
   showType?: boolean;
   id?: string;

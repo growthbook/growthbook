@@ -1,0 +1,96 @@
+// Pills overlaid on Redoc's API reference (sidebar tag groups + right-pane
+// section headings).
+//
+// Two pill slots per element — `::before` and `::after` — enabled by forcing
+// the host into flex layout with explicit `order` so badges land between the
+// title and the caret (sidebar) / right of the title (heading).
+
+@mixin pill-style($bg, $fg) {
+  background-color: $bg;
+  color: $fg;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  padding: 0 8px;
+  align-items: center;
+  display: inline-flex;
+  height: 18px;
+  vertical-align: middle;
+}
+
+// Layout primitives applied to any tag that needs to host pseudo-element
+// pills. Reused via @extend below so we can opt new tag groups in by name.
+%pill-host-label {
+  justify-content: flex-start;
+  align-items: center;
+  gap: 8px;
+
+  > span:first-of-type {
+    order: 1;
+  }
+  &::before {
+    order: 2;
+  }
+  &::after {
+    order: 3;
+  }
+  > svg {
+    order: 99;
+    margin-left: auto;
+  }
+}
+
+%pill-host-h2 {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+
+  &::before {
+    order: 2;
+  }
+  &::after {
+    order: 3;
+  }
+}
+
+// v2-suffixed tag groups (sidebar label + right-pane h2) get the layout
+// primitives so the v2 pill below can attach via ::after.
+li[data-item-id^="tag/"][data-item-id$="-v2"] > label {
+  @extend %pill-host-label;
+}
+[id^="tag/"][id$="-v2"] h2 {
+  @extend %pill-host-h2;
+}
+
+// v2 pill — every tag group whose id ends with `-v2`. Radix blue-6 / blue-11.
+li[data-item-id^="tag/"][data-item-id$="-v2"] > label::after,
+[id^="tag/"][id$="-v2"] h2::after {
+  content: "v2";
+  @include pill-style(#c2e6ff, #0d74ce);
+}
+
+// BETA pill — applied per-tag to brand-new groups still under active
+// iteration. Each tag here also gets the layout primitives so the pill
+// renders inline regardless of whether the tag also matches the -v2 rules
+// above.
+@mixin beta-tag($tag) {
+  li[data-item-id="tag/#{$tag}"] > label {
+    @extend %pill-host-label;
+    &::before {
+      content: "BETA";
+      @include pill-style(#fbbf24, #78350f);
+    }
+  }
+  [id="tag/#{$tag}"] h2 {
+    @extend %pill-host-h2;
+    &::before {
+      content: "BETA";
+      @include pill-style(#fbbf24, #78350f);
+    }
+  }
+}
+
+@include beta-tag("feature-revisions-v2");
+@include beta-tag("saved-group-revisions");

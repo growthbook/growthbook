@@ -17,6 +17,7 @@ export type CommercialFeature =
   | "advanced-permissions"
   | "encrypt-features-endpoint"
   | "schedule-feature-flag"
+  | "events-forwarder"
   | "custom-metadata"
   | "override-metrics"
   | "regression-adjustment"
@@ -62,6 +63,7 @@ export type CommercialFeature =
   | "unlimited-managed-warehouse-usage"
   | "safe-rollout"
   | "require-project-for-features-setting"
+  | "require-project-for-sdk-connections-setting"
   | "holdouts"
   | "saveSqlExplorerQueries"
   | "metric-effects"
@@ -75,7 +77,8 @@ export type CommercialFeature =
   | "manage-official-resources"
   | "incremental-refresh"
   | "adv-presentations"
-  | "ramp-schedules";
+  | "ramp-schedules"
+  | "scheduled-revisions";
 
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
@@ -192,6 +195,7 @@ const commercialFeaturesPro: CommercialFeature[] = [
   "advanced-permissions",
   "encrypt-features-endpoint",
   "schedule-feature-flag",
+  "events-forwarder",
   "override-metrics",
   "regression-adjustment",
   "sequential-testing",
@@ -214,6 +218,7 @@ const commercialFeaturesPro: CommercialFeature[] = [
   "historical-power",
   "decision-framework",
   "safe-rollout",
+  "ramp-schedules",
   "unlimited-managed-warehouse-usage",
   "saveSqlExplorerQueries",
   "precomputed-dimensions",
@@ -249,6 +254,7 @@ const commercialFeaturesEnterpriseOnly: CommercialFeature[] = [
   "environment-inheritance",
   "templates",
   "require-project-for-features-setting",
+  "require-project-for-sdk-connections-setting",
   "holdouts",
   "metric-effects",
   "metric-correlations",
@@ -259,7 +265,7 @@ const commercialFeaturesEnterpriseOnly: CommercialFeature[] = [
   "share-product-analytics-dashboards",
   "incremental-refresh",
   "adv-presentations",
-  "ramp-schedules",
+  "scheduled-revisions",
 ];
 
 const commercialFeaturesEnterprise: CommercialFeature[] = [

@@ -62,6 +62,7 @@ export default {
             "features/targeting", // Targeting Conditions (attributes, conditions, saved groups)
             "features/safe-rollouts", // Safe Rollouts
             "features/prerequisites", // Prerequisite Features
+            "features/constants", // Constants (reusable referenced values)
           ],
         },
         {
@@ -71,6 +72,7 @@ export default {
           collapsed: false,
           items: [
             "features/publishing-and-approval-flows", // Publishing & Approval Flows (NEW)
+            "features/saved-group-revisions-api", // Saved Group Revisions API (BETA)
             "features/json-schema-validation", // JSON Schema Validation
             "features/stale-detection", // Stale Feature Detection
             "features/code-references", // Code References
@@ -326,9 +328,60 @@ export default {
           label: "Feature Flag Experiments",
         },
         {
-          type: "doc",
-          id: "visual-editor",
+          type: "category",
           label: "Visual Editor",
+          className: "beta",
+          link: {
+            type: "doc",
+            id: "visual-editor",
+          },
+          items: [
+            {
+              type: "doc",
+              id: "visual-editor/install-and-connect",
+              label: "Install and connect",
+            },
+            {
+              type: "doc",
+              id: "visual-editor/ai-mode",
+              label: "AI mode",
+            },
+            {
+              type: "doc",
+              id: "visual-editor/manual-mode",
+              label: "Manual mode",
+            },
+            {
+              type: "doc",
+              id: "visual-editor/images",
+              label: "Images",
+            },
+            {
+              type: "doc",
+              id: "visual-editor/design-import",
+              label: "Figma & image import",
+            },
+            {
+              type: "doc",
+              id: "visual-editor/running-on-your-site",
+              label: "Running on your site",
+            },
+            {
+              type: "doc",
+              id: "visual-editor/preview-and-qa",
+              label: "Preview and QA",
+            },
+            {
+              type: "doc",
+              id: "visual-editor/troubleshooting",
+              label: "Troubleshooting",
+            },
+            {
+              type: "doc",
+              id: "visual-editor/legacy",
+              label: "Legacy (in-page) editor",
+            },
+          ],
         },
         {
           type: "doc",
@@ -480,10 +533,26 @@ export default {
       label: "Insights",
     },
     {
-      type: "doc",
-      id: "product-analytics",
+      type: "category",
       label: "Product Analytics",
       className: "pill-new",
+      collapsed: true,
+      link: {
+        type: "doc",
+        id: "product-analytics/index",
+      },
+      items: [
+        {
+          type: "doc",
+          id: "product-analytics/explorer",
+          label: "Explorer",
+        },
+        {
+          type: "doc",
+          id: "product-analytics/dashboards",
+          label: "Dashboards",
+        },
+      ],
     },
     {
       type: "category",
@@ -542,9 +611,38 @@ export default {
       collapsed: true,
       items: [
         {
-          type: "doc",
-          id: "integrations/mcp",
-          label: "MCP Server",
+          type: "category",
+          label: "AI Agents",
+          collapsed: true,
+          link: { type: "doc", id: "integrations/ai-agents/index" },
+          items: [
+            {
+              type: "doc",
+              id: "integrations/mcp",
+              label: "MCP Server",
+            },
+            {
+              type: "category",
+              label: "Agent Skills",
+              collapsed: true,
+              link: {
+                type: "doc",
+                id: "integrations/ai-agents/agent-skills/index",
+              },
+              items: [
+                {
+                  type: "doc",
+                  id: "integrations/ai-agents/agent-skills/feature-flags",
+                  label: "Feature flag skills",
+                },
+                {
+                  type: "doc",
+                  id: "integrations/ai-agents/agent-skills/experiments",
+                  label: "Experiment skills",
+                },
+              ],
+            },
+          ],
         },
         {
           type: "doc",

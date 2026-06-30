@@ -190,6 +190,12 @@ export interface SnapshotBanditSettings {
 // Also used to determine when to show "out-of-date" in the UI
 export interface ExperimentSnapshotSettings {
   dimensions: DimensionForSnapshot[];
+  /**
+   * Experiment-level always-computed unit dimensions.
+   * We use this field to gather the required data in 1 pass, and then this is used
+   * to create individual analyses for each unit dimension.
+   */
+  precomputedUnitDimensionIds?: string[];
   metricSettings: MetricForSnapshot[];
   goalMetrics: string[];
   secondaryMetrics: string[];
@@ -227,6 +233,10 @@ export interface ExperimentSnapshotInterface {
   // Status and meta info about the snapshot run
   error?: string;
   dateCreated: Date;
+  // For incremental-pipeline exploratory snapshots as their analysis
+  // is built on top of the overall results snapshot
+  sourceSnapshotId?: string;
+  sourceSnapshotDateCreated?: Date;
   runStarted: Date | null;
   status: "running" | "success" | "error";
   settings: ExperimentSnapshotSettings;
@@ -252,6 +262,30 @@ export interface ExperimentSnapshotInterface {
 export interface ExperimentWithSnapshot extends ExperimentInterfaceStringDates {
   snapshot?: ExperimentSnapshotInterface;
 }
+
+/**
+ * Subset of `ExperimentSnapshotInterface` returned by the dedicated
+ * `GET /experiment/:id/snapshot-summary/:phase` endpoint. The endpoint only
+ * fetches top-level snapshot fields (no per-metric analysis chunks), so
+ * `analyses[].results` are not available here — only fields needed to
+ * render refresh status, queries, errors, and other top-level snapshot
+ * metadata. The narrow return type, not a runtime flag, encodes the "no
+ * per-metric results" contract.
+ */
+export type SnapshotStatusSummary = Pick<
+  ExperimentSnapshotInterface,
+  | "id"
+  | "status"
+  | "error"
+  | "queries"
+  | "runStarted"
+  | "dateCreated"
+  | "multipleExposures"
+  | "health"
+  | "banditResult"
+  | "type"
+  | "triggeredBy"
+>;
 
 export interface ExperimentSnapshotHealth {
   traffic: ExperimentSnapshotTraffic;

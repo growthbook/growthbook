@@ -30,7 +30,6 @@ export interface Props {
   setStatusModalOpen: (open: boolean) => void;
   setVersion: (version: number) => void;
   environment: string;
-  i: number;
   feature: FeatureInterface;
   mutate?: () => void;
 }
@@ -86,7 +85,6 @@ export default function SafeRolloutStatusModal({
   setStatusModalOpen,
   setVersion,
   environment,
-  i,
   feature,
   mutate,
 }: Props) {
@@ -141,6 +139,7 @@ export default function SafeRolloutStatusModal({
 
   return (
     <Modal
+      useRadixButton={false}
       open={open}
       close={() => setStatusModalOpen(false)}
       header={`End Safe Rollout`}
@@ -153,8 +152,7 @@ export default function SafeRolloutStatusModal({
             body: JSON.stringify({
               status: values.status,
               environment,
-              safeRolloutFields: values,
-              i,
+              ruleId: rule.id,
             }),
           },
         );

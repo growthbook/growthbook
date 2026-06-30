@@ -276,6 +276,7 @@ export default function DashboardsPage() {
                 description="Turn your data and metrics into actionable product insights, share with your team, and make smarter decisions about what to build next."
                 leftButton={
                   <Button
+                    disabled={!canCreate}
                     onClick={() =>
                       router.push("/product-analytics/dashboards/new")
                     }
@@ -292,7 +293,7 @@ export default function DashboardsPage() {
             <p>
               Create curated dashboards to visualize key metrics and track
               performance.{" "}
-              <DocLink docSection="productAnalytics" useRadix={true}>
+              <DocLink docSection="productAnalytics">
                 View Docs <FaArrowRight size={10} />
               </DocLink>
             </p>
@@ -466,12 +467,7 @@ export default function DashboardsPage() {
                                           <DropdownMenuItem
                                             color="red"
                                             confirmation={{
-                                              confirmationTitle: (
-                                                <>
-                                                  Delete Dashboard{" "}
-                                                  <i>{d.title}</i>?
-                                                </>
-                                              ),
+                                              confirmationTitle: `Delete Dashboard "${d.title}"?`,
                                               cta: "Delete",
                                               submit: async () => {
                                                 await apiCall(

@@ -25,11 +25,15 @@ export function getIdentitiesQuery(
             ${id2}
           FROM
             (
-              ${compileSqlTemplate(join.query, {
-                startDate: from,
-                endDate: to,
-                experimentId,
-              })}
+              ${compileSqlTemplate(
+                join.query,
+                {
+                  startDate: from,
+                  endDate: to,
+                  experimentId,
+                },
+                dialect,
+              )}
             ) i
           GROUP BY
             ${id1}, ${id2}
@@ -49,11 +53,15 @@ export function getIdentitiesQuery(
           user_id,
           anonymous_id
         FROM
-          (${compileSqlTemplate(settings.queries.pageviewsQuery, {
-            startDate: from,
-            endDate: to,
-            experimentId,
-          })}) i
+          (${compileSqlTemplate(
+            settings.queries.pageviewsQuery,
+            {
+              startDate: from,
+              endDate: to,
+              experimentId,
+            },
+            dialect,
+          )}) i
         WHERE
           ${timestampColumn} >= ${dialect.toTimestamp(from)}
           ${to ? `AND ${timestampColumn} <= ${dialect.toTimestamp(to)}` : ""}

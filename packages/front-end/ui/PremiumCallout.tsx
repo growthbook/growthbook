@@ -1,5 +1,10 @@
 import { CommercialFeature } from "shared/enterprise";
-import { Flex, IconButton, Callout as RadixCallout } from "@radix-ui/themes";
+import {
+  Flex,
+  IconButton,
+  Callout as RadixCallout,
+  Text,
+} from "@radix-ui/themes";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { useState } from "react";
 import { PiArrowSquareOut, PiLightbulb, PiX } from "react-icons/pi";
@@ -65,7 +70,7 @@ export default function PremiumCallout({
 
   const link =
     hasFeature && docSection ? (
-      <DocLink docSection={docSection} useRadix={true}>
+      <DocLink docSection={docSection}>
         View docs <PiArrowSquareOut size={15} />
       </DocLink>
     ) : pro ? (
@@ -109,12 +114,15 @@ export default function PremiumCallout({
         }}
       >
         <RadixCallout.Icon>{icon}</RadixCallout.Icon>
-        <RadixCallout.Text size="2">
+        {/* Render as a div instead of RadixCallout.Text (which forces <p>)
+            so block-level children and the inner Flex don't produce invalid
+            <div>-inside-<p> nesting. */}
+        <Text as="div" size="2">
           <Flex align="start" gap="1" pr="3">
             <div>{children}</div>
             <div style={{ flex: 1 }}>{link}</div>
           </Flex>
-        </RadixCallout.Text>
+        </Text>
         {dismissable ? (
           <IconButton
             variant="ghost"

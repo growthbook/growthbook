@@ -4,11 +4,12 @@ import {
   FeatureInterface,
   FeatureValueType,
 } from "shared/types/feature";
-import React, { ReactElement } from "react";
+import React, { ReactElement, useState } from "react";
 import { validateFeatureValue } from "shared/util";
 import { PiInfo } from "react-icons/pi";
-import { Box } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { HoldoutSelect } from "@/components/Holdout/HoldoutSelect";
+import { useFeatureMetaInfo } from "@/hooks/useFeatureMetaInfo";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -21,7 +22,6 @@ import {
 } from "@/services/features";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useWatching } from "@/services/WatchProvider";
-import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
 import {
@@ -35,6 +35,8 @@ import useProjectOptions from "@/hooks/useProjectOptions";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import SelectField from "@/components/Forms/SelectField";
 import Callout from "@/ui/Callout";
+import Link from "@/ui/Link";
+import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import FeatureKeyField from "./FeatureKeyField";
 import EnvironmentSelect from "./EnvironmentSelect";
 import TagsField from "./TagsField";
@@ -70,9 +72,8 @@ const genEnvironmentSettings = ({
       ? (featureToDuplicate?.environmentSettings?.[e.id]?.enabled ??
         defaultEnabled)
       : false;
-    const rules = featureToDuplicate?.environmentSettings?.[e.id]?.rules ?? [];
 
-    envSettings[e.id] = { enabled, rules };
+    envSettings[e.id] = { enabled };
   });
 
   return envSettings;
@@ -99,6 +100,7 @@ const genFormDefaultValues = ({
   | "project"
   | "id"
   | "environmentSettings"
+  | "rules"
   | "customFields"
   | "holdout"
   | "jsonSchema"
@@ -127,6 +129,7 @@ const genFormDefaultValues = ({
         project: featureToDuplicate.project ?? project,
         tags: featureToDuplicate.tags,
         environmentSettings,
+        rules: featureToDuplicate.rules ?? [],
         customFields: customFieldValues,
         holdout: featureToDuplicate.holdout?.id
           ? featureToDuplicate.holdout
@@ -141,6 +144,7 @@ const genFormDefaultValues = ({
         project,
         tags: [],
         environmentSettings,
+        rules: [],
         customFields: customFieldValues,
         holdout: undefined,
       };
@@ -178,6 +182,11 @@ export default function FeatureModal({
       : undefined,
   });
 
+  const [showDescription, setShowDescription] = useState(
+    !!defaultValues.description?.length,
+  );
+  const [showTags, setShowTags] = useState(!!defaultValues.tags?.length);
+
   const form = useForm({ defaultValues });
 
   const projectOptions = useProjectOptions(
@@ -196,6 +205,10 @@ export default function FeatureModal({
   );
   const { projectId: demoProjectId } = useDemoDataSourceProject();
   const { apiCall } = useAuth();
+  // During early onboarding the holdouts promo is noise. We still want to show
+  // the real holdout selector if the org has set holdouts up.
+  const { features: allFeatures } = useFeatureMetaInfo();
+  const hideHoldoutPromo = allFeatures.length < 5;
 
   const valueType = form.watch("valueType") as FeatureValueType;
   const environmentSettings = form.watch("environmentSettings");
@@ -224,6 +237,7 @@ export default function FeatureModal({
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       open
       size="lg"
@@ -324,11 +338,6 @@ export default function FeatureModal({
           </>
         )}
 
-        <TagsField
-          value={form.watch("tags") || []}
-          onChange={(tags) => form.setValue("tags", tags)}
-        />
-
         <HoldoutSelect
           selectedProject={selectedProject}
           selectedHoldoutId={form.watch("holdout")?.id}
@@ -336,6 +345,7 @@ export default function FeatureModal({
             form.setValue("holdout", { id: holdoutId, value: "" });
           }}
           formType="feature"
+          hideEmptyStatePromo={hideHoldoutPromo}
         />
 
         {!featureToDuplicate && (
@@ -377,31 +387,25 @@ export default function FeatureModal({
             value={form.watch("defaultValue")}
             setValue={(v) => form.setValue("defaultValue", v)}
             valueType={valueType}
+            // The feature doesn't exist yet, so scope the constant picker to the
+            // selected project instead of passing a `feature`.
+            constantContext={{ project: selectedProject || undefined }}
             useCodeInput={true}
             showFullscreenButton={true}
           />
         )}
 
-        <EnvironmentSelect
-          environmentSettings={environmentSettings}
-          environments={environments}
-          project={selectedProject}
-          setValue={(env, on) => {
-            environmentSettings[env.id].enabled = on;
-            form.setValue("environmentSettings", environmentSettings);
-          }}
-        />
-
-        <div className="mb-4">
-          <label>Description</label>
-          <Box mt="1">
-            <MarkdownInput
-              value={form.watch("description") || ""}
-              setValue={(value) => form.setValue("description", value)}
-              autofocus={!featureToDuplicate?.description?.length}
-            />
-          </Box>
-        </div>
+        <Box className="appbox bg-light" px="4" pt="4" pb="1" mb="3">
+          <EnvironmentSelect
+            environmentSettings={environmentSettings}
+            environments={environments}
+            project={selectedProject}
+            setValue={(env, on) => {
+              environmentSettings[env.id].enabled = on;
+              form.setValue("environmentSettings", environmentSettings);
+            }}
+          />
+        </Box>
 
         {hasCommercialFeature("custom-metadata") &&
           customFields &&
@@ -418,6 +422,39 @@ export default function FeatureModal({
               />
             </div>
           )}
+
+        <Flex direction="column" mt="3">
+          {showTags && (
+            <TagsField
+              value={form.watch("tags") || []}
+              onChange={(tags) => form.setValue("tags", tags)}
+              autoFocus={!defaultValues.tags?.length}
+            />
+          )}
+          {showDescription && (
+            <div className="form-group" style={{ width: "100%" }}>
+              <label>Description</label>
+              <Box mt="1">
+                <MarkdownInput
+                  value={form.watch("description") || ""}
+                  setValue={(description) =>
+                    form.setValue("description", description)
+                  }
+                  autofocus={!defaultValues.description?.length}
+                />
+              </Box>
+            </div>
+          )}
+
+          <Flex gap="4">
+            {!showTags && <Link onClick={() => setShowTags(true)}>+ tags</Link>}
+            {!showDescription && (
+              <Link onClick={() => setShowDescription(true)}>
+                + description
+              </Link>
+            )}
+          </Flex>
+        </Flex>
       </FormProvider>
     </Modal>
   );

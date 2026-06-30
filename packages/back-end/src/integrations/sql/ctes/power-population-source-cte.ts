@@ -60,6 +60,7 @@ export function getPowerPopulationSourceCTE(
             endDate: settings.endDate ?? undefined,
             templateVariables: { eventName: factTable.eventName },
           },
+          dialect,
         );
       } else {
         throw new Error("Fact Table not found");

@@ -6,6 +6,7 @@ import {
 } from "shared/validators";
 import type { PopulationDataInterface } from "shared/types/population-data";
 import { QueryLanguage } from "./datasource";
+import { SnapshotTriggeredBy, SnapshotType } from "./experiment-snapshot";
 
 export type SqlResultChunkInterface = z.infer<typeof sqlResultChunkValidator>;
 
@@ -28,7 +29,8 @@ export type QueryStatistics = {
 };
 
 export type QueryType =
-  | ""
+  // Internal fallback. Do not use this value.
+  | "unknown"
 
   // ---
   // Metadata queries used to power various GrowthBook features
@@ -70,24 +72,39 @@ export type QueryType =
   | "experimentIncrementalRefreshDropMetricsCovariateTable"
   | "experimentIncrementalRefreshCreateMetricsCovariateTable"
   | "experimentIncrementalRefreshInsertMetricsCovariateData"
+  | "experimentIncrementalRefreshInsertMetricsCovariateDataFromAggregated"
   | "experimentIncrementalRefreshStatistics"
   | "experimentIncrementalRefreshHealth"
+
+  // Queries that maintain shared daily aggregated fact tables (materialization)
+  | "aggregatedFactTableDrop"
+  | "aggregatedFactTableCreate"
+  | "aggregatedFactTableInsertData"
+  | "aggregatedFactTableMaxTimestamp"
 
   // ---
   // Standalone analysis queries
   // ---
   // Standalone metric analysis query on legacy of fact metric page
   | "metricAnalysis"
+  // Metric impact / idea estimation
+  | "impactEstimate"
   // Query used by the product analytics tool
   | "productAnalyticsExploration"
 
   // ---
   // Non-persisted / utility queries (for cost attribution tracking)
   // ---
-  // SQL explorer ad-hoc queries
+  // User-provided SQL (SQL explorer ad-hoc queries)
   | "freeFormQuery"
-  // Connection tests and validation queries
+  // User-initiated datasource test / validation queries
   | "testQuery"
+  // Datasource connectivity probe (SELECT 1)
+  | "connectionTest"
+  // Schema introspection: list tables + column counts
+  | "informationSchema"
+  // Schema introspection: a single table's column data types
+  | "tableColumns"
   // Fact table column/SQL validation
   | "factTableValidation"
   // Pipeline write permission tests
@@ -96,6 +113,13 @@ export type QueryType =
   | "userExposure"
   // Feature evaluation diagnostics
   | "featureEvalDiagnostics"
+  // Fact table column top-values scan (auto-slices + column refresh)
+  | "columnTopValues"
+  // Auto fact table tracked-event discovery scan
+  | "trackedEvents"
+  // Session replay metadata queries
+  | "sessionReplayList"
+  | "sessionReplayDetail"
 
   // ---
   // Legacy, should be deprecated
@@ -103,9 +127,12 @@ export type QueryType =
   | "experimentResults";
 
 export type ExperimentQueryMetadata = {
+  experimentId?: string;
   experimentProject?: string;
   experimentOwner?: string;
   experimentTags?: string[];
+  snapshotTriggeredBy?: SnapshotTriggeredBy;
+  snapshotType?: SnapshotType;
 };
 
 export type AdditionalQueryMetadata = ExperimentQueryMetadata;
@@ -119,6 +146,9 @@ export type QueryMetadata = AdditionalQueryMetadata &
     userName?: string;
     userId?: string;
   };
+
+// queryType is required to ensure visibility into query costs at the data warehouse
+export type RunQueryMetadata = QueryMetadata & { queryType: QueryType };
 
 export interface QueryInterface {
   id: string;
@@ -143,6 +173,9 @@ export interface QueryInterface {
   cachedQueryUsed?: string;
   statistics?: QueryStatistics;
   externalId?: string;
+  // Integration-specific side-data for managing the external job (e.g.
+  // BigQuery job location). Passed back to cancelQuery.
+  externalIdMetadata?: Record<string, string>;
   hasChunkedResults?: boolean;
 }
 export type PopulationDataQuerySettings = Pick<

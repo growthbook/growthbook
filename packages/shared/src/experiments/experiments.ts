@@ -48,7 +48,7 @@ import {
   StatsEngine,
 } from "shared/types/stats";
 import { MetricGroupInterface } from "shared/types/metric-groups";
-import { TemplateVariables } from "shared/types/sql";
+import { StringMatchFn, TemplateVariables } from "shared/types/sql";
 import { stringToBoolean } from "../util";
 
 export type ExperimentMetricInterface = MetricInterface | FactMetricInterface;
@@ -144,6 +144,7 @@ export function getColumnRefWhereClause({
   factTable,
   columnRef,
   escapeStringLiteral,
+  stringMatch,
   jsonExtract,
   evalBoolean,
   showSourceComment = false,
@@ -152,6 +153,7 @@ export function getColumnRefWhereClause({
   factTable: Pick<FactTableInterface, "columns" | "filters" | "userIdTypes">;
   columnRef: ColumnRef;
   escapeStringLiteral: (s: string) => string;
+  stringMatch: StringMatchFn;
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => string;
   evalBoolean: (col: string, value: boolean) => string;
   showSourceComment?: boolean;
@@ -216,6 +218,7 @@ export function getColumnRefWhereClause({
       factTable,
       jsonExtract,
       escapeStringLiteral,
+      stringMatch,
       evalBoolean,
       showSourceComment,
     });
@@ -232,6 +235,7 @@ export function getRowFilterSQL({
   factTable,
   jsonExtract,
   escapeStringLiteral,
+  stringMatch,
   evalBoolean,
   showSourceComment = false,
 }: {
@@ -239,6 +243,7 @@ export function getRowFilterSQL({
   factTable: Pick<FactTableInterface, "columns" | "filters" | "userIdTypes">;
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => string;
   escapeStringLiteral: (s: string) => string;
+  stringMatch: StringMatchFn;
   evalBoolean: (col: string, value: boolean) => string;
   showSourceComment?: boolean;
 }): string | null {
@@ -331,11 +336,6 @@ export function getRowFilterSQL({
     }
   }
 
-  const likeEscapedValue = escapeStringLiteral(rowFilter.values[0]).replace(
-    /([%_])/g,
-    "\\$1",
-  );
-
   // Handle remaining operators
   switch (operator) {
     case "=":
@@ -350,13 +350,10 @@ export function getRowFilterSQL({
     case "not_in":
       return `(${columnExpr} NOT IN (\n  ${escapedValues.join(",\n  ")}\n))`;
     case "starts_with":
-      return `(${columnExpr} LIKE '${likeEscapedValue}%')`;
     case "ends_with":
-      return `(${columnExpr} LIKE '%${likeEscapedValue}')`;
     case "contains":
-      return `(${columnExpr} LIKE '%${likeEscapedValue}%')`;
     case "not_contains":
-      return `(${columnExpr} NOT LIKE '%${likeEscapedValue}%')`;
+      return `(${stringMatch(columnExpr, operator, rowFilter.values[0])})`;
 
     // IMPORTANT: no default to ensure missing cases are caught by the compiler
   }
@@ -1431,6 +1428,57 @@ export function createAutoSliceDataForMetric({
   return sliceData;
 }
 
+// Auto-slice metric variants of a base fact metric (clones with slice-encoded
+// ids `<baseId>?dim:col=value`, plus an "other" bucket). Experiment-independent
+// so it can be reused outside `expandAllSliceMetricsInMap`.
+export function getAutoSliceMetrics({
+  metric,
+  factTable,
+}: {
+  metric: FactMetricInterface;
+  factTable: FactTableInterface;
+}): FactMetricInterface[] {
+  if (!metric.metricAutoSlices?.length) return [];
+
+  const autoSliceColumns = factTable.columns.filter(
+    (col) =>
+      col.isAutoSliceColumn &&
+      !col.deleted &&
+      (col.autoSlices?.length || 0) > 0 &&
+      metric.metricAutoSlices?.includes(col.column),
+  );
+
+  const sliceMetrics: FactMetricInterface[] = [];
+
+  autoSliceColumns.forEach((col) => {
+    const autoSlices = col.autoSlices || [];
+
+    // One metric per configured auto slice value.
+    autoSlices.forEach((value: string) => {
+      const sliceString = generateSliceString({ [col.column]: value });
+      sliceMetrics.push({
+        ...metric,
+        id: `${metric.id}?${sliceString}`,
+        name: `${metric.name} (${col.name || col.column}: ${value})`,
+        description: `Slice analysis of ${metric.name} for ${col.name || col.column} = ${value}`,
+      });
+    });
+
+    // An "other" bucket for values not in autoSlices (includes NULL for boolean).
+    if (autoSlices.length > 0 || col.datatype === "boolean") {
+      const sliceString = generateSliceString({ [col.column]: "" });
+      sliceMetrics.push({
+        ...metric,
+        id: `${metric.id}?${sliceString}`,
+        name: `${metric.name} (${col.name || col.column}: other)`,
+        description: `Slice analysis of ${metric.name} for ${col.name || col.column} = other`,
+      });
+    }
+  });
+
+  return sliceMetrics;
+}
+
 // Creates custom slice data for a fact metric by using the experiment's customMetricSlices
 export function createCustomSliceDataForMetric({
   metricId,
@@ -1636,6 +1684,25 @@ export function expandMetricGroups(
     }
   });
   return expandedMetricIds;
+}
+
+export function resolveMetricTiers(
+  guardrailIds: string[],
+  signalIds: string[],
+  metricGroups: MetricGroupInterface[],
+): { guardrail: Set<string>; signal: Set<string> } {
+  const expandedGuardrail = new Set(
+    expandMetricGroups(guardrailIds, metricGroups),
+  );
+  const expandedSignal = new Set(expandMetricGroups(signalIds, metricGroups));
+
+  for (const id of expandedSignal) {
+    if (expandedGuardrail.has(id)) {
+      expandedSignal.delete(id);
+    }
+  }
+
+  return { guardrail: expandedGuardrail, signal: expandedSignal };
 }
 
 export function isMetricJoinable(
@@ -1876,47 +1943,9 @@ export function expandAllSliceMetricsInMap({
     if (!factTable) continue;
 
     // 1. Add auto slice metrics
-    if (metric.metricAutoSlices?.length) {
-      const autoSliceColumns = factTable.columns.filter(
-        (col) =>
-          col.isAutoSliceColumn &&
-          !col.deleted &&
-          (col.autoSlices?.length || 0) > 0 &&
-          metric.metricAutoSlices?.includes(col.column),
-      );
-
-      autoSliceColumns.forEach((col) => {
-        const autoSlices = col.autoSlices || [];
-
-        // Create a metric for each auto slice
-        autoSlices.forEach((value: string) => {
-          const sliceString = generateSliceString({
-            [col.column]: value,
-          });
-          const sliceMetric: ExperimentMetricInterface = {
-            ...metric,
-            id: `${metric.id}?${sliceString}`,
-            name: `${metric.name} (${col.name || col.column}: ${value})`,
-            description: `Slice analysis of ${metric.name} for ${col.name || col.column} = ${value}`,
-          };
-          metricMap.set(sliceMetric.id, sliceMetric);
-        });
-
-        // Create an "other" metric for values not in autoSlices (includes NULL for boolean)
-        if (autoSlices.length > 0 || col.datatype === "boolean") {
-          const sliceString = generateSliceString({
-            [col.column]: "",
-          });
-          const otherMetric: ExperimentMetricInterface = {
-            ...metric,
-            id: `${metric.id}?${sliceString}`,
-            name: `${metric.name} (${col.name || col.column}: other)`,
-            description: `Slice analysis of ${metric.name} for ${col.name || col.column} = other`,
-          };
-          metricMap.set(otherMetric.id, otherMetric);
-        }
-      });
-    }
+    getAutoSliceMetrics({ metric, factTable }).forEach((sliceMetric) => {
+      metricMap.set(sliceMetric.id, sliceMetric);
+    });
 
     // 2. Add custom slice metrics
     if (experiment.customMetricSlices) {
@@ -1974,8 +2003,20 @@ export function expandAllSliceMetricsInMap({
   }
 }
 
-export function isPrecomputedDimension(dimension: string | undefined): boolean {
-  return dimension?.startsWith(PRECOMPUTED_DIMENSION_PREFIX) ?? false;
+/**
+ * True when the dimension is either precomputed, or a unit dimension explicitly listed in `snapshotUnitDimensionIds`.
+ * snapshotUnitDimensionIds is derived from experiment.precomputedUnitDimensionIds, and in this case it should be
+ * treated the same, as it is precomputed.
+ */
+export function isDimensionPrecomputed(
+  dimension: string | undefined,
+  snapshotUnitDimensionIds: string[],
+): boolean {
+  if (dimension?.startsWith(PRECOMPUTED_DIMENSION_PREFIX)) {
+    return true;
+  }
+
+  return !!dimension && snapshotUnitDimensionIds.includes(dimension);
 }
 
 /**

@@ -1,0 +1,131 @@
+import { isEqual } from "lodash";
+import type { Revision } from "shared/enterprise";
+import type { Context } from "back-end/src/models/BaseModel";
+
+/**
+ * Narrow a proposed-changes object to the fields an adapter may write, dropping
+ * undefined or unchanged values. Shared by adapters' `applyChanges`. Lives in
+ * this leaf module (not revisions/util) to avoid an adapter→util→index cycle.
+ */
+export function filterUpdatableChanges(
+  changes: Record<string, unknown>,
+  entity: Record<string, unknown>,
+  updatableFields: ReadonlySet<string>,
+): Record<string, unknown> {
+  const filtered: Record<string, unknown> = {};
+  for (const key of Object.keys(changes)) {
+    if (!updatableFields.has(key)) continue;
+    const newVal = changes[key];
+    if (newVal !== undefined && !isEqual(newVal, entity[key])) {
+      filtered[key] = newVal;
+    }
+  }
+  return filtered;
+}
+
+/**
+ * Adapter interface that each entity type must implement to participate in the
+ * revision system. All saved-group-specific logic lives in the saved-group adapter;
+ * adding a new entity type requires only creating a new adapter and registering it.
+ *
+ * See revisions/adapters/saved-group.adapter.ts for the reference implementation.
+ */
+export interface EntityRevisionAdapter<
+  TSnapshot extends Record<string, unknown> = Record<string, unknown>,
+> {
+  /** Return the BaseModel for this entity type, used for loading the live entity. */
+  getModel(
+    context: Context,
+  ): { getById(id: string): Promise<TSnapshot | null> } | null;
+
+  /** Normalize an entity object for storage as a revision snapshot. */
+  buildSnapshot(entity: TSnapshot): TSnapshot;
+
+  /** Whether the approval-flow revision workflow is required for this org/entity. */
+  isRevisionRequired(context: Context): boolean;
+
+  /**
+   * The set of top-level field names that a merge is allowed to write to the
+   * live entity. Used to filter desiredState before calling applyChanges.
+   */
+  getUpdatableFields(): ReadonlySet<string>;
+
+  // ---------- Permissions ----------
+
+  canRead(context: Context, snapshot: TSnapshot): boolean;
+  canCreate(context: Context, snapshot: TSnapshot): boolean;
+  canUpdate(context: Context, snapshot: TSnapshot): boolean;
+  canDelete(context: Context, snapshot: TSnapshot): boolean;
+
+  // ---------- Approval flow ----------
+
+  /** Whether this org requires approval before a revision can be merged. */
+  isApprovalRequired(context: Context): boolean;
+
+  /**
+   * Whether approval is required for this *specific* revision. Defaults to
+   * `isApprovalRequired(context)` for adapters that don't care about the
+   * revision's contents — override when an entity-type's review settings
+   * gate on what changed (e.g. saved-group's `requireMetadataReview`, which
+   * lets metadata-only revisions skip review).
+   */
+  isApprovalRequiredForRevision?(context: Context, revision: Revision): boolean;
+
+  /** Whether the current user can bypass the approval requirement. */
+  canBypassApproval(context: Context, snapshot: TSnapshot): boolean;
+
+  /**
+   * Whether an *approved* revision should reset to pending-review when its
+   * proposed changes are subsequently modified. Defaults (when not implemented)
+   * to the entity's approval-flow `resetReviewOnChange` toggle. Override when the
+   * decision depends on what changed and/or the settings live elsewhere — e.g.
+   * constants, which use the feature `requireReviews` model.
+   */
+  shouldResetReviewOnChange?(context: Context, revision: Revision): boolean;
+
+  /**
+   * Whether auto-publish-on-approval may be armed for this entity. Defaults
+   * (when not implemented) to the entity's approval-flow `autopublishOnApproval`
+   * toggle. Override for entities whose review settings live elsewhere — e.g.
+   * constants.
+   */
+  isAutopublishOnApprovalEnabled?(
+    context: Context,
+    snapshot: TSnapshot,
+  ): boolean;
+
+  // ---------- Merge ----------
+
+  /**
+   * Persist the computed changes (already filtered to updatable fields) back to
+   * the live entity. Called by postMerge after conflicts are resolved.
+   *
+   * `options.isRevert` is set when the revision being merged carries a
+   * `revertedFrom` link, so adapters can skip validations that would otherwise
+   * block restoring a previously-published state.
+   */
+  applyChanges(
+    context: Context,
+    entity: TSnapshot,
+    changes: Record<string, unknown>,
+    options?: { isRevert?: boolean },
+  ): Promise<void>;
+
+  // ---------- Scheduled publish (optional overrides; sensible defaults) ----------
+
+  /**
+   * Whether the caller may ARM a date-based scheduled publish. When absent,
+   * defaults to the `scheduled-revisions` premium feature plus publish
+   * authority (`canPublishRevision`) — so every revisioned entity supports
+   * scheduling out of the box. Override only to narrow it.
+   */
+  canSchedulePublish?(context: Context, snapshot: TSnapshot): boolean;
+
+  /**
+   * Publish authority over the entity — gates publishing, canceling a pending
+   * schedule, and taking one over. Defaults to `canUpdate` when absent.
+   * Override when publish authority differs from edit (e.g. an
+   * environment-scoped publish permission).
+   */
+  canPublishRevision?(context: Context, snapshot: TSnapshot): boolean;
+}

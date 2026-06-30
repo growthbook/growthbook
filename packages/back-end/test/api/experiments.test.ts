@@ -6,7 +6,11 @@ import {
   getAllExperiments,
   updateExperiment,
 } from "../../src/models/ExperimentModel";
-import { getLatestSnapshot } from "../../src/models/ExperimentSnapshotModel";
+import {
+  getLatestSuccessfulSnapshot,
+  getLatestSnapshotMultipleExperiments,
+} from "../../src/models/ExperimentSnapshotModel";
+import { getMetricsByIds } from "../../src/models/MetricModel";
 import { getDataSourceById } from "../../src/models/DataSourceModel";
 import { setupApp } from "./api.setup";
 
@@ -26,11 +30,13 @@ jest.mock("../../src/models/ExperimentModel", () => ({
 }));
 
 jest.mock("../../src/models/ExperimentSnapshotModel", () => ({
-  getLatestSnapshot: jest.fn(),
+  getLatestSuccessfulSnapshot: jest.fn(),
+  getLatestSnapshotMultipleExperiments: jest.fn(),
 }));
 
 jest.mock("../../src/models/MetricModel", () => ({
   getMetricMap: jest.fn().mockResolvedValue(new Map()),
+  getMetricsByIds: jest.fn().mockResolvedValue([]),
 }));
 
 jest.mock("../../src/models/DataSourceModel", () => ({
@@ -76,6 +82,10 @@ describe("experiments API", () => {
               queries: { exposure: [{ id: "user_id", name: "User ID" }] },
             },
           }),
+        },
+        factMetrics: {
+          getAll: jest.fn().mockResolvedValue([]),
+          getByIds: jest.fn().mockResolvedValue([]),
         },
       },
       permissions: {
@@ -654,7 +664,78 @@ describe("experiments API", () => {
 
       expect(res.status).toBe(200);
       expect(res.body).toHaveProperty("experiment");
+      // When bypassDuplicateKeyCheck is true and the org doesn't require unique
+      // tracking keys, the duplicate-key lookup is skipped entirely.
       expect(getExperimentByTrackingKey).not.toHaveBeenCalled();
+    });
+
+    it("rejects duplicate trackingKey when requireUniqueExperimentTrackingKeys is enabled, even with bypassDuplicateKeyCheck", async () => {
+      (getExperimentByTrackingKey as jest.Mock).mockResolvedValue(experiment);
+
+      const orgWithSetting = {
+        ...org,
+        settings: { requireUniqueExperimentTrackingKeys: true },
+      };
+
+      updateReqContext({
+        org: orgWithSetting,
+        organization: orgWithSetting,
+        models: {
+          decisionCriteria: {
+            getById: jest.fn().mockResolvedValue(null),
+          },
+          projects: {
+            getById: jest.fn().mockResolvedValue(null),
+            ensureProjectsExist: jest.fn().mockResolvedValue(undefined),
+            getByIds: jest.fn().mockResolvedValue([]),
+          },
+          metricGroups: {
+            getAll: jest.fn().mockResolvedValue([]),
+          },
+          customFields: {
+            getCustomFieldsBySectionAndProject: jest.fn().mockResolvedValue([]),
+          },
+        },
+        permissions: {
+          canViewExperiment: () => true,
+          canCreateExperiment: () => true,
+          canUpdateExperiment: () => true,
+          canAddComment: () => true,
+        },
+      });
+
+      const createPayload = {
+        trackingKey: "exp_123",
+        name: "Duplicate Experiment",
+        hypothesis: "",
+        assignmentQueryId: "user_id",
+        bypassDuplicateKeyCheck: true,
+        variations: [
+          {
+            key: "control",
+            name: "Control",
+            description: "",
+            screenshots: [],
+          },
+          {
+            key: "treatment",
+            name: "Treatment",
+            description: "",
+            screenshots: [],
+          },
+        ],
+      };
+
+      const res = await request(app)
+        .post("/api/v1/experiments")
+        .send(createPayload)
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(400);
+      expect(res.body).toHaveProperty("message");
+      expect(res.body.message).toContain(
+        "requires unique experiment tracking keys",
+      );
     });
 
     it("validates datasource exists", async () => {
@@ -1140,6 +1221,7 @@ describe("experiments API", () => {
 
     it("allows duplicate trackingKey on update when bypassDuplicateKeyCheck is true", async () => {
       (getExperimentById as jest.Mock).mockResolvedValue(experiment);
+      (getExperimentByTrackingKey as jest.Mock).mockResolvedValue(experiment);
       (updateExperiment as jest.Mock).mockResolvedValue({
         ...experiment,
         trackingKey: "existing_key",
@@ -1156,7 +1238,68 @@ describe("experiments API", () => {
         .set("Authorization", "Bearer foo");
 
       expect(res.status).toBe(200);
-      expect(getExperimentByTrackingKey).not.toHaveBeenCalled();
+      expect(getExperimentByTrackingKey).toHaveBeenCalledTimes(0);
+    });
+
+    it("rejects duplicate trackingKey on update when requireUniqueExperimentTrackingKeys is enabled, even with bypassDuplicateKeyCheck", async () => {
+      const existingExperimentWithDifferentKey = {
+        ...experiment,
+        trackingKey: "original_key",
+      };
+      const anotherExperiment = {
+        ...experiment,
+        id: "exp_456",
+        trackingKey: "existing_key",
+      };
+
+      (getExperimentById as jest.Mock).mockResolvedValue(
+        existingExperimentWithDifferentKey,
+      );
+      (getExperimentByTrackingKey as jest.Mock).mockResolvedValue(
+        anotherExperiment,
+      );
+
+      const orgWithSetting = {
+        ...org,
+        settings: { requireUniqueExperimentTrackingKeys: true },
+      };
+
+      updateReqContext({
+        org: orgWithSetting,
+        organization: orgWithSetting,
+        models: {
+          projects: {
+            ensureProjectsExist: jest.fn().mockResolvedValue(undefined),
+            getById: jest.fn().mockResolvedValue(null),
+            getByIds: jest.fn().mockResolvedValue([]),
+          },
+          metricGroups: {
+            getAll: jest.fn().mockResolvedValue([]),
+          },
+          customFields: {
+            getCustomFieldsBySectionAndProject: jest.fn().mockResolvedValue([]),
+          },
+        },
+        permissions: {
+          canUpdateExperiment: () => true,
+        },
+      });
+
+      const updatePayload = {
+        trackingKey: "existing_key",
+        bypassDuplicateKeyCheck: true,
+      };
+
+      const res = await request(app)
+        .post("/api/v1/experiments/exp_123")
+        .send(updatePayload)
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(400);
+      expect(res.body).toHaveProperty("message");
+      expect(res.body.message).toContain(
+        "requires unique experiment tracking keys",
+      );
     });
 
     it("updates experiment variations with signed URLs", async () => {
@@ -1729,7 +1872,7 @@ describe("experiments API", () => {
         ],
       };
       (getExperimentById as jest.Mock).mockResolvedValue(experimentWithPhases);
-      (getLatestSnapshot as jest.Mock).mockResolvedValue({
+      (getLatestSuccessfulSnapshot as jest.Mock).mockResolvedValue({
         id: "snap_123",
         organization: "org_1",
         experiment: "exp_123",
@@ -1768,6 +1911,116 @@ describe("experiments API", () => {
       expect(res.body).toHaveProperty("result");
     });
 
+    it("includes metricName and variationName for each metric/variation pair", async () => {
+      updateReqContext({
+        org,
+        permissions: {
+          canViewExperiment: () => true,
+        },
+      });
+
+      const experimentWithResults = {
+        ...experiment,
+        variations: [
+          {
+            id: "0",
+            key: "control",
+            name: "Control Variation",
+            description: "",
+            screenshots: [],
+          },
+          {
+            id: "1",
+            key: "treatment",
+            name: "Treatment Variation",
+            description: "",
+            screenshots: [],
+          },
+        ],
+        goalMetrics: ["met_1"],
+        phases: [
+          {
+            name: "Main",
+            dateStarted: new Date("2024-01-01"),
+            dateEnded: null,
+            reason: "",
+            seed: "test-seed",
+            coverage: 1,
+            variationWeights: [0.5, 0.5],
+            condition: "",
+            savedGroups: [],
+            prerequisites: [],
+            namespace: { enabled: false },
+          },
+        ],
+      };
+      (getExperimentById as jest.Mock).mockResolvedValue(experimentWithResults);
+      (getMetricsByIds as jest.Mock).mockResolvedValue([
+        { id: "met_1", name: "Signups" },
+      ]);
+      (getLatestSuccessfulSnapshot as jest.Mock).mockResolvedValue({
+        id: "snap_123",
+        organization: "org_1",
+        experiment: "exp_123",
+        phase: 0,
+        dimension: null,
+        dateCreated: new Date(),
+        runStarted: new Date(),
+        queries: [],
+        unknownVariations: [],
+        multipleExposures: 0,
+        hasCorrectedStats: false,
+        analyses: [
+          {
+            settings: { statsEngine: "bayesian" },
+            results: [
+              {
+                name: "",
+                srm: 1,
+                variations: [
+                  { users: 100, metrics: { met_1: { value: 10, users: 100 } } },
+                  { users: 100, metrics: { met_1: { value: 12, users: 100 } } },
+                ],
+              },
+            ],
+          },
+        ],
+        settings: {
+          manual: false,
+          activationMetric: null,
+          queryFilter: "",
+          segment: "",
+          skipPartialData: false,
+          attributionModel: "firstExposure",
+          experimentId: "exp_123",
+          statsEngine: "bayesian",
+          regressionAdjustmentEnabled: false,
+          sequentialTestingEnabled: false,
+          sequentialTestingTuningParameter: 5000,
+          pValueThreshold: 0.05,
+          pValueCorrection: null,
+          differenceType: "relative",
+        },
+      });
+
+      const res = await request(app)
+        .get("/api/v1/experiments/exp_123/results")
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(200);
+      const metrics = res.body.result.results[0].metrics;
+      expect(metrics).toHaveLength(1);
+      expect(metrics[0].metricId).toBe("met_1");
+      expect(metrics[0].metricName).toBe("Signups");
+      expect(metrics[0].variations).toHaveLength(2);
+      expect(metrics[0].variations[0].variationId).toBe("0");
+      expect(metrics[0].variations[0].variationName).toBe("Control Variation");
+      expect(metrics[0].variations[1].variationId).toBe("1");
+      expect(metrics[0].variations[1].variationName).toBe(
+        "Treatment Variation",
+      );
+    });
+
     it("returns 400 when experiment not found", async () => {
       (getExperimentById as jest.Mock).mockResolvedValue(null);
 
@@ -1781,7 +2034,7 @@ describe("experiments API", () => {
 
     it("returns 400 when no results found", async () => {
       (getExperimentById as jest.Mock).mockResolvedValue(experiment);
-      (getLatestSnapshot as jest.Mock).mockResolvedValue(null);
+      (getLatestSuccessfulSnapshot as jest.Mock).mockResolvedValue(null);
 
       const res = await request(app)
         .get("/api/v1/experiments/exp_123/results")
@@ -1790,6 +2043,196 @@ describe("experiments API", () => {
       expect(res.status).toBe(400);
       expect(res.body).toHaveProperty("message");
       expect(res.body.message).toContain("No results found");
+    });
+  });
+
+  describe("GET /api/v1/experiments/results", () => {
+    const phase = {
+      name: "Main",
+      dateStarted: new Date("2024-01-01"),
+      dateEnded: null,
+      reason: "",
+      seed: "test-seed",
+      coverage: 1,
+      variationWeights: [0.5, 0.5],
+      condition: "",
+      savedGroups: [],
+      prerequisites: [],
+      namespace: { enabled: false },
+    };
+
+    const experimentA = {
+      ...experiment,
+      id: "exp_a",
+      trackingKey: "exp_a",
+      phases: [phase],
+    };
+    const experimentB = {
+      ...experiment,
+      id: "exp_b",
+      trackingKey: "exp_b",
+      phases: [phase],
+    };
+
+    const snapshotFor = (experimentId: string) => ({
+      id: `snap_${experimentId}`,
+      organization: "org_1",
+      experiment: experimentId,
+      phase: 0,
+      dimension: null,
+      dateCreated: new Date(),
+      runStarted: new Date(),
+      queries: [],
+      unknownVariations: [],
+      multipleExposures: 0,
+      hasCorrectedStats: false,
+      results: [],
+      settings: {
+        manual: false,
+        activationMetric: null,
+        queryFilter: "",
+        segment: "",
+        skipPartialData: false,
+        attributionModel: "firstExposure",
+        experimentId,
+        statsEngine: "bayesian",
+        regressionAdjustmentEnabled: false,
+        sequentialTestingEnabled: false,
+        sequentialTestingTuningParameter: 5000,
+        pValueThreshold: 0.05,
+        pValueCorrection: null,
+        differenceType: "relative",
+      },
+    });
+
+    it("returns the latest snapshot for each experiment", async () => {
+      (getAllExperiments as jest.Mock).mockResolvedValue([
+        experimentA,
+        experimentB,
+      ]);
+      (getLatestSnapshotMultipleExperiments as jest.Mock).mockResolvedValue([
+        snapshotFor("exp_a"),
+        snapshotFor("exp_b"),
+      ]);
+
+      const res = await request(app)
+        .get("/api/v1/experiments/results")
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(200);
+      expect(res.body.experimentResults).toHaveLength(2);
+      expect(res.body.experimentResults.map((r) => r.experimentId)).toEqual([
+        "exp_a",
+        "exp_b",
+      ]);
+      expect(res.body.total).toBe(2);
+      expect(res.body.count).toBe(2);
+      expect(res.body.hasMore).toBe(false);
+    });
+
+    it("silently skips experiments without a snapshot", async () => {
+      (getAllExperiments as jest.Mock).mockResolvedValue([
+        experimentA,
+        experimentB,
+      ]);
+      (getLatestSnapshotMultipleExperiments as jest.Mock).mockResolvedValue([
+        snapshotFor("exp_a"),
+      ]);
+
+      const res = await request(app)
+        .get("/api/v1/experiments/results")
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(200);
+      expect(res.body.experimentResults).toHaveLength(1);
+      expect(res.body.experimentResults[0].experimentId).toBe("exp_a");
+      // `count` is overridden in the handler to match the response array
+      // length; `total` still reflects experiments matching the filter.
+      expect(res.body.total).toBe(2);
+      expect(res.body.count).toBe(1);
+    });
+
+    it("returns an empty page when no experiments match", async () => {
+      (getAllExperiments as jest.Mock).mockResolvedValue([]);
+      (getLatestSnapshotMultipleExperiments as jest.Mock).mockResolvedValue([]);
+
+      const res = await request(app)
+        .get("/api/v1/experiments/results")
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(200);
+      expect(res.body.experimentResults).toEqual([]);
+      expect(res.body.total).toBe(0);
+      expect(res.body.count).toBe(0);
+    });
+
+    it("forwards projectId, datasourceId, status, and trackingKey filters", async () => {
+      (getAllExperiments as jest.Mock).mockResolvedValue([]);
+
+      await request(app)
+        .get(
+          "/api/v1/experiments/results?status=running&projectId=proj_1&datasourceId=ds_123&trackingKey=my-exp",
+        )
+        .set("Authorization", "Bearer foo");
+
+      expect(getAllExperiments).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          project: "proj_1",
+          datasourceId: "ds_123",
+          status: "running",
+          trackingKey: "my-exp",
+          includeArchived: true,
+        }),
+      );
+    });
+
+    it("excludes experiments without phases from the snapshot lookup", async () => {
+      const experimentWithoutPhases = {
+        ...experiment,
+        id: "exp_c",
+        trackingKey: "exp_c",
+        phases: [],
+      };
+      (getAllExperiments as jest.Mock).mockResolvedValue([
+        experimentA,
+        experimentWithoutPhases,
+      ]);
+      (getLatestSnapshotMultipleExperiments as jest.Mock).mockResolvedValue([
+        snapshotFor("exp_a"),
+      ]);
+
+      const res = await request(app)
+        .get("/api/v1/experiments/results")
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(200);
+      const phaseMap = (getLatestSnapshotMultipleExperiments as jest.Mock).mock
+        .calls[0][1] as Map<string, number>;
+      expect(phaseMap.has("exp_a")).toBe(true);
+      expect(phaseMap.has("exp_c")).toBe(false);
+    });
+
+    it("returns count:0 with hasMore:true when a one-item page lacks a snapshot", async () => {
+      // Two experiments matching the filter, page size 1, first one has no
+      // snapshot. Page 0 returns count:0 (nothing dropped through). hasMore is
+      // true so the consumer keeps paginating.
+      (getAllExperiments as jest.Mock).mockResolvedValue([
+        experimentA,
+        experimentB,
+      ]);
+      (getLatestSnapshotMultipleExperiments as jest.Mock).mockResolvedValue([]);
+
+      const res = await request(app)
+        .get("/api/v1/experiments/results?limit=1&offset=0")
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(200);
+      expect(res.body.experimentResults).toEqual([]);
+      expect(res.body.count).toBe(0);
+      expect(res.body.total).toBe(2);
+      expect(res.body.hasMore).toBe(true);
+      expect(res.body.nextOffset).toBe(1);
     });
   });
 

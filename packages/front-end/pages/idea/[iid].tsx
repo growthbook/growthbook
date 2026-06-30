@@ -38,6 +38,7 @@ import { useUser } from "@/services/UserContext";
 import SortedTags from "@/components/Tags/SortedTags";
 import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Callout from "@/ui/Callout";
 
 const IdeaPage = (): ReactElement => {
   const router = useRouter();
@@ -95,9 +96,7 @@ const IdeaPage = (): ReactElement => {
 
   if (dataError) {
     return (
-      <div className="alert alert-danger">
-        There was a problem loading this idea
-      </div>
+      <Callout status="error">There was a problem loading this idea</Callout>
     );
   }
   if (!data) {
@@ -182,7 +181,7 @@ const IdeaPage = (): ReactElement => {
             )}
           {canEdit && (
             <div className="col-auto d-flex">
-              <MoreMenu>
+              <MoreMenu useRadix={false}>
                 <a
                   href="#"
                   className="dropdown-item"
@@ -206,6 +205,7 @@ const IdeaPage = (): ReactElement => {
                   <FaArchive /> {idea.archived ? "Unarchive" : "Archive"}
                 </a>
                 <DeleteButton
+                  useRadix={false}
                   displayName="Idea"
                   link={true}
                   className="dropdown-item text-dark"

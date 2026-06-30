@@ -53,6 +53,7 @@ const EditEnvironmentsModal = ({
 
   return (
     <Modal
+      useRadixButton={false}
       open={true}
       trackingEventModalType=""
       header="Edit Included Environments"
@@ -76,6 +77,7 @@ const EditEnvironmentsModal = ({
           </Callout>
         )}
         <EnvironmentSelect
+          isEditing={true}
           environmentSettings={environmentSettings}
           environments={environments}
           setValue={(env, on) => {

@@ -6,6 +6,7 @@ import {
   isMultiOrg,
   showMultiOrgSelfSelector,
 } from "@/services/env";
+import Callout from "@/ui/Callout";
 
 const CreateOrJoinOrganizationPage: FC = () => {
   if (
@@ -15,11 +16,11 @@ const CreateOrJoinOrganizationPage: FC = () => {
   ) {
     return (
       <div className="container pagecontents">
-        <div className="alert alert-danger">
+        <Callout status="error">
           This page is only available for self-hosted multi-org customers with
           either SHOW_MULTI_ORG_SELF_SELECTOR or ALLOW_SELF_ORG_CREATION
           environment variables enabled.
-        </div>
+        </Callout>
       </div>
     );
   }

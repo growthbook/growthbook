@@ -10,6 +10,7 @@ import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { DocLink } from "@/components/DocLink";
+import Callout from "@/ui/Callout";
 
 const SaveMessage = ({ showMessage, close }) => {
   return (
@@ -75,9 +76,9 @@ const CustomMarkdown: React.FC = () => {
   if (!permissionsUtil.canManageOrgSettings()) {
     return (
       <div className="container-fluid pagecontents">
-        <div className="alert alert-danger">
+        <Callout status="error">
           You do not have access to view this page.
-        </div>
+        </Callout>
       </div>
     );
   }
@@ -95,9 +96,12 @@ const CustomMarkdown: React.FC = () => {
         Custom markdown allows you to provide organization-specific guidance and
         documentation to your team on key pages within GrowthBook.
         <br />
-        <DocLink docSection={"customMarkdown"}>View Documentation &gt;</DocLink>
+        <DocLink useRadix={false} docSection={"customMarkdown"}>
+          View Documentation &gt;
+        </DocLink>
       </p>
       <Modal
+        useRadixButton={false}
         trackingEventModalType=""
         cta={"Save"}
         header={false}

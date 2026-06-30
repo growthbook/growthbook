@@ -9,8 +9,13 @@ import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
 import { logger } from "back-end/src/util/logger";
-import { revisionToApiInterface } from "back-end/src/services/features";
+import {
+  revisionToApiInterface,
+  toApiRevision,
+} from "back-end/src/services/features";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
+import { deriveRevisionEventEnvironments } from "back-end/src/events/eventEnvironments";
+import { getEnvironments } from "back-end/src/util/organization.util";
 
 type RevisionChange = FeatureRevisionUpdatedPayload["change"];
 
@@ -47,32 +52,15 @@ export async function dispatchFeatureRevisionEvent<
   opts: { environments?: string[] } = {},
 ): Promise<void> {
   try {
-    const apiRevision = revisionToApiInterface(revision);
+    const apiRevision = toApiRevision(revision, ctx, feature);
     const projects = feature.project ? [feature.project] : [];
     const tags = feature.tags ?? [];
-    // Environment filter precedence:
-    //   1. Caller-provided (e.g. specific env(s) touched for revision.updated)
-    //   2. Envs declared on the revision
-    //   3. All envs configured on the feature
-    // In all cases, filter to envs that belong to the feature's project so that
-    // webhook/Slack filters scoped to a project don't receive irrelevant envs.
-    const featureProject = feature.project;
-    const orgEnvs = ctx.org.settings?.environments ?? [];
-    const inProject = (envId: string) => {
-      const envDef = orgEnvs.find((e) => e.id === envId);
-      return (
-        !envDef ||
-        !envDef.projects?.length ||
-        !featureProject ||
-        envDef.projects.includes(featureProject)
-      );
-    };
-    const rawEnvironments =
-      opts.environments ??
-      (revision.rules && Object.keys(revision.rules).length > 0
-        ? Object.keys(revision.rules)
-        : Object.keys(feature.environmentSettings ?? {}));
-    const environments = rawEnvironments.filter(inProject);
+    const environments = deriveRevisionEventEnvironments(
+      feature,
+      revision,
+      getEnvironments(ctx.org),
+      opts.environments,
+    );
 
     const object = {
       ...apiRevision,

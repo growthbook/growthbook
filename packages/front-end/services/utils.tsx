@@ -5,8 +5,8 @@ import { getEqualWeights } from "shared/experiments";
 import {
   BrowserCookieStickyBucketService,
   Context,
-  GrowthBook,
 } from "@growthbook/growthbook-react";
+import { GrowthBook } from "@growthbook/growthbook";
 import Cookies from "js-cookie";
 import { v4 as uuidv4 } from "uuid";
 import { AccountPlan } from "shared/enterprise";
@@ -56,6 +56,34 @@ export function formatTrafficSplit(weights: number[], decimals = 0): string {
   return trafficSplitPercentages(weights)
     .map((w) => w.toFixed(decimals))
     .join(" / ");
+}
+
+// Single source of truth for the holdout traffic breakdown shown in the start
+// summary and the traffic/targeting card.
+export function getHoldoutTrafficBreakdown(
+  phase:
+    | {
+        coverage: number;
+        variationWeights: number[];
+      }
+    | undefined,
+): {
+  inHoldoutPercent: number;
+  forMeasurementPercent: number;
+  notForMeasurementPercent: number;
+} {
+  const coverage = phase?.coverage ?? 0;
+  const weights = phase?.variationWeights ?? [];
+  const inHoldoutWeight = weights[0] ?? 0;
+  const forMeasurementWeight = weights[1] ?? 0;
+
+  return {
+    inHoldoutPercent: Math.floor(coverage * inHoldoutWeight * 100),
+    forMeasurementPercent: Math.floor(coverage * forMeasurementWeight * 100),
+    notForMeasurementPercent: Math.floor(
+      (1 - coverage * (inHoldoutWeight + forMeasurementWeight)) * 100,
+    ),
+  };
 }
 
 // Get the number of decimals +1 needed to differentiate between

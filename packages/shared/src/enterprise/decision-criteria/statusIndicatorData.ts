@@ -9,7 +9,7 @@ import { getExperimentResultStatus } from "./decisionCriteria";
 
 export type StatusIndicatorData = {
   color: "amber" | "green" | "red" | "gold" | "indigo" | "gray" | "pink";
-  status: "Running" | "Stopped" | "Draft" | "Archived";
+  status: "Running" | "Stopped" | "Draft" | "Scheduled" | "Archived";
   detailedStatus?: string;
   needsAttention?: boolean;
   tooltip?: string;
@@ -32,6 +32,13 @@ export function getStatusIndicatorData(
   }
 
   if (experimentData.status === "draft") {
+    if (experimentData.nextScheduledStatusUpdate) {
+      return {
+        color: "indigo",
+        status: "Scheduled",
+        sortOrder: 7,
+      };
+    }
     return {
       color: "pink",
       status: "Draft",
@@ -98,9 +105,6 @@ export function getStatusIndicatorData(
         };
     }
   }
-
-  // TODO: Future statuses
-  // return ["indigo", "soft", "Scheduled"];
 
   // FIXME: How can we make this rely on the typechecker instead of throwing an error?
   throw new Error(`Unknown experiment status`);

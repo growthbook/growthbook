@@ -23,11 +23,13 @@ import NewPhaseForm from "@/components/Experiment/NewPhaseForm";
 import EditPhasesModal from "@/components/Experiment/EditPhasesModal";
 import EditPhaseModal from "@/components/Experiment/EditPhaseModal";
 import EditTargetingModal from "@/components/Experiment/EditTargetingModal";
+import EditTrafficModal from "@/components/Experiment/EditTrafficModal";
 import TabbedPage from "@/components/Experiment/TabbedPage";
 import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator";
 import { useHoldouts } from "@/hooks/useHoldouts";
+import EditScheduleModal from "@/components/Experiment/EditScheduleModal";
 
 const ExperimentPage = (): ReactElement => {
   const permissionsUtil = usePermissionsUtil();
@@ -43,9 +45,8 @@ const ExperimentPage = (): ReactElement => {
   const [editPhasesOpen, setEditPhasesOpen] = useState(false);
   const [editPhaseId, setEditPhaseId] = useState<number | null>(null);
   const [targetingModalOpen, setTargetingModalOpen] = useState(false);
-  const [checklistItemsRemaining, setChecklistItemsRemaining] = useState<
-    number | null
-  >(null);
+  const [trafficModalOpen, setTrafficModalOpen] = useState(false);
+  const [editScheduleModalOpen, setEditScheduleModalOpen] = useState(false);
 
   const { data, error, mutate } = useApi<{
     experiment: ExperimentInterfaceStringDates;
@@ -105,8 +106,7 @@ const ExperimentPage = (): ReactElement => {
   const runningExperimentStatus = getRunningExperimentResultStatus(experiment);
 
   const canEditExperiment =
-    permissionsUtil.canViewExperimentModal(experiment.project) &&
-    !experiment.archived;
+    permissionsUtil.canUpdateExperiment(experiment, {}) && !experiment.archived;
 
   let canRunExperiment = !experiment.archived;
   if (envs.length > 0) {
@@ -133,6 +133,10 @@ const ExperimentPage = (): ReactElement => {
     : null;
   const editTargeting = canRunExperiment
     ? () => setTargetingModalOpen(true)
+    : null;
+  const editTraffic = canRunExperiment ? () => setTrafficModalOpen(true) : null;
+  const editSchedule = canEditExperiment
+    ? () => setEditScheduleModalOpen(true)
     : null;
 
   const safeToEdit =
@@ -233,6 +237,21 @@ const ExperimentPage = (): ReactElement => {
           // source="eid"
         />
       )}
+      {trafficModalOpen && (
+        <EditTrafficModal
+          close={() => setTrafficModalOpen(false)}
+          mutate={mutate}
+          experiment={experiment}
+          safeToEdit={safeToEdit}
+        />
+      )}
+      {editScheduleModalOpen && (
+        <EditScheduleModal
+          experiment={experiment}
+          close={() => setEditScheduleModalOpen(false)}
+          mutate={mutate}
+        />
+      )}
 
       <PageHead
         breadcrumb={[
@@ -261,10 +280,10 @@ const ExperimentPage = (): ReactElement => {
           editPhase={editPhase}
           envs={envs}
           editTargeting={editTargeting}
-          checklistItemsRemaining={checklistItemsRemaining}
-          setChecklistItemsRemaining={setChecklistItemsRemaining}
+          editTraffic={editTraffic}
           visualChangesetEnvStates={visualChangesetEnvStates}
           urlRedirectEnvStates={urlRedirectEnvStates}
+          editSchedule={editSchedule}
         />
       </SnapshotProvider>
     </>

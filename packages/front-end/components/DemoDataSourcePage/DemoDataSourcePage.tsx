@@ -8,6 +8,7 @@ import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
 import Button from "@/components/Button";
+import UIButton from "@/ui/Button";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 type DemoDataSourcePageProps = {
@@ -63,13 +64,9 @@ export const DemoDataSourcePage: FC<DemoDataSourcePageProps> = ({
 
             {/* Delete button */}
             {exists && (
-              <DeleteButton
-                displayName="Sample Data"
-                title="Sample Data"
-                text="Delete Sample Data"
-                outline={false}
-                onClick={onDelete}
-              />
+              <UIButton color="red" onClick={onDelete}>
+                Delete Sample Data
+              </UIButton>
             )}
           </div>
         )}
@@ -93,9 +90,11 @@ export async function deleteDemoDatasource(
 export function DeleteDemoDatasourceButton({
   onDelete,
   source,
+  asLink,
 }: {
   onDelete: () => void;
   source: string;
+  asLink?: boolean;
 }) {
   const { organization } = useUser();
   const { apiCall } = useAuth();
@@ -115,7 +114,8 @@ export function DeleteDemoDatasourceButton({
       displayName="Sample Data"
       title="Sample Data"
       text="Delete Sample Data"
-      useRadix={true}
+      useRadix={!asLink}
+      link={asLink}
       onClick={async () => {
         track("Delete Sample Project", {
           source,
