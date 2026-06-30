@@ -66,3 +66,33 @@ The `latest` tag is updated with every commit to the main branch. We run this ta
 We periodically create stable release tags (e.g. `4.1.0`) if you prefer to have more control over updates. Check out the [Releases page on GitHub](https://github.com/growthbook/growthbook/releases) for a list of releases with detailed release notes.
 
 Lastly, if you need to reference the image for a specific git commit for any reason, you can use the git shorthash tag (e.g. `git-41278e9`).
+
+## Hardened (non-root, shell-less) image
+
+The GrowthBook runtime image is a distroless [Docker Hardened Image](https://www.docker.com/products/hardened-images): it runs as a **non-root user (uid 1000)** and contains **no shell or package manager**. This removes a recurring class of OS-package CVEs. If you pull the image directly (`docker run`, Docker Compose, or a pinned `latest`/git-sha tag), there are two things to know.
+
+### Local file uploads must be writable by uid 1000
+
+If you use `UPLOAD_METHOD=local`, a volume created by an older (root) GrowthBook image contains root-owned files that the non-root process can't write to. Newly created volumes work automatically; an **existing** volume needs a one-time ownership fix:
+
+```bash
+# Docker named volume (e.g. the docker-compose "uploads" volume):
+docker run --rm -v <volume-name>:/data busybox chown -R 1000:1000 /data
+
+# Host bind-mount:
+sudo chown -R 1000:1000 /path/to/uploads
+```
+
+Alternatively, keep running as root by setting `user: "0:0"` on the service, or switch to `s3`/`google-cloud` storage (no local volume needed). On Kubernetes, the Helm chart sets `fsGroup: 1000`, which handles this for you.
+
+### Debugging without a shell
+
+`docker exec <container> sh` no longer works. To inspect a running container, attach a throwaway debug container that shares its process namespace:
+
+```bash
+docker run --rm -it --pid=container:<container-name> --cap-add=SYS_PTRACE busybox sh
+# the running container's filesystem is under /proc/1/root/, e.g.:
+#   ls /proc/1/root/usr/local/src/app
+```
+
+`--cap-add=SYS_PTRACE` is required to read the target process's filesystem. Any image with a shell works (`busybox`, `debian`); the matching `dhi.io/node:<version>-debian12-dev` image gives you the same libraries for running the app's own binaries. On Kubernetes, use `kubectl debug -it <pod> --image=busybox --target=<container>`. One-off admin scripts (e.g. encryption-key migration) are run via `node` directly — see [Environment Variables](/self-host/env).
