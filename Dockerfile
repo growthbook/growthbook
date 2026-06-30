@@ -22,19 +22,14 @@ RUN \
   && pip install --no-cache-dir -r requirements.txt \
   && pip install --no-cache-dir dist/*.whl ddtrace==4.3.2
 
-# Strip poetry and its build-time-only footprint so non-runtime deps don't ship in the venv.
-# These are poetry's own dependencies, not gbstats' (`poetry install --without dev` above already
-# drops gbstats' dev group): poetry pulls in dulwich, keyring (and its credential-store backend
-# SecretStorage -> jeepney -> cryptography) and jaraco.classes, and setuptools/wheel are build
-# tooling. Removing them keeps their CVEs out of the image — e.g. dulwich (CVE-2026-42305 /
-# GHSA-897w-fcg9-f6xj) and cryptography, which gbstats has no runtime need for. cryptography
-# used to be version-pinned above to dodge its CVEs; uninstalling it ends that treadmill.
-# The package list is sourced from check_stripped_deps.STRIPPED so it can't drift from the guard.
+# Remove poetry's build-only footprint (poetry + its keyring/cryptography backend, setuptools,
+# wheel, etc.) from the runtime venv. None are gbstats runtime deps, so dropping them shrinks the
+# image and its vulnerability surface. The list lives in check_stripped_deps.STRIPPED so it stays
+# in sync with the guard below.
 RUN pip uninstall -y $(python -c "from check_stripped_deps import STRIPPED; print(*STRIPPED)")
 
-# Guard against dependency drift: gbstats must still import using only the runtime deps, and the
-# distributions stripped above must stay absent. Fails the build if a future dep change needs one
-# of them or pulls one back in. See the script for details.
+# Verify the strip held: gbstats still imports with only its runtime deps, and nothing pulled a
+# removed package back in. Fails the build otherwise.
 RUN python check_stripped_deps.py
 
 # Build the nodejs app
