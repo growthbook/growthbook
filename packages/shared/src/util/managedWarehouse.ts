@@ -392,38 +392,19 @@ function customIdentifierSelectExpr(property: string): string {
   return `${path} AS ${chIdentifier(property)}`;
 }
 
-function customIdentifierAliasClause(
-  attributeSchema: SDKAttributeSchema | undefined,
-  extraIdentifiers: string[] = [],
-): string {
-  const custom = getManagedWarehouseCustomIdentifiers(
-    attributeSchema,
-    extraIdentifiers,
-  );
-  if (!custom.length) return "";
-  return (
-    ",\n  " +
-    custom.map((property) => customIdentifierSelectExpr(property)).join(",\n  ")
-  );
-}
-
 // Non-identifier materialized columns (dimensions) preserved from a legacy migration,
 // re-exposed as top-level SELECT aliases out of `attributes` (under their legacy column
 // name) so bare references keep resolving. Drops any whose name collides with a custom
 // identifier alias (identifiers win) and de-dupes by column name to keep the SELECT valid.
-function getMigratedDimensionAliasColumns(
-  attributeSchema: SDKAttributeSchema | undefined,
-  extraIdentifiers: string[],
+function dedupeMigratedDimensions(
+  customIdentifiers: string[],
   migratedColumns: MaterializedColumn[],
 ): MaterializedColumn[] {
-  const identifiers = new Set(
-    getManagedWarehouseCustomIdentifiers(attributeSchema, extraIdentifiers),
-  );
+  const identifiers = new Set(customIdentifiers);
   const seen = new Set<string>();
   const out: MaterializedColumn[] = [];
   for (const col of migratedColumns) {
-    if (identifiers.has(col.columnName)) continue;
-    if (seen.has(col.columnName)) continue;
+    if (identifiers.has(col.columnName) || seen.has(col.columnName)) continue;
     seen.add(col.columnName);
     out.push(col);
   }
@@ -445,9 +426,20 @@ function migratedColumnSelectExpr(col: MaterializedColumn): string {
   return `${expr} AS ${chIdentifier(col.columnName)}`;
 }
 
-function migratedColumnAliasClause(cols: MaterializedColumn[]): string {
-  if (!cols.length) return "";
-  return ",\n  " + cols.map(migratedColumnSelectExpr).join(",\n  ");
+// The full SELECT-list alias clause for a migrated warehouse: custom identifiers
+// (join-key aliases) followed by preserved dimensions, each aliased out of `attributes`.
+// Empty when there's nothing to alias. Callers must pass dimensions already deduped
+// against the identifiers via `dedupeMigratedDimensions`.
+function attributeAliasClause(
+  customIdentifiers: string[],
+  dimensions: MaterializedColumn[],
+): string {
+  const exprs = [
+    ...customIdentifiers.map(customIdentifierSelectExpr),
+    ...dimensions.map(migratedColumnSelectExpr),
+  ];
+  if (!exprs.length) return "";
+  return ",\n  " + exprs.join(",\n  ");
 }
 
 /**
@@ -472,23 +464,10 @@ export function buildManagedWarehouseAttributeAliasClause(
   const customIdentifiers = (s.userIdTypes || [])
     .map((u) => u.userIdType)
     .filter((t) => !builtins.has(t));
-  const identifierSet = new Set(customIdentifiers);
-
-  const seen = new Set<string>();
-  const dimensions: MaterializedColumn[] = [];
-  for (const col of s.migratedColumns || []) {
-    if (identifierSet.has(col.columnName)) continue;
-    if (seen.has(col.columnName)) continue;
-    seen.add(col.columnName);
-    dimensions.push(col);
-  }
-
-  const exprs = [
-    ...customIdentifiers.map(customIdentifierSelectExpr),
-    ...dimensions.map(migratedColumnSelectExpr),
-  ];
-  if (!exprs.length) return "";
-  return ",\n  " + exprs.join(",\n  ");
+  return attributeAliasClause(
+    customIdentifiers,
+    dedupeMigratedDimensions(customIdentifiers, s.migratedColumns || []),
+  );
 }
 
 // SQL for the `ch_events` fact table: `SELECT *` exposes the standard + JSON columns;
@@ -499,15 +478,15 @@ export function buildManagedWarehouseEventsFactTableSql(
   extraIdentifiers: string[] = [],
   migratedColumns: MaterializedColumn[] = [],
 ): string {
-  const dimensionAliases = getMigratedDimensionAliasColumns(
+  const customIdentifiers = getManagedWarehouseCustomIdentifiers(
     attributeSchema,
     extraIdentifiers,
+  );
+  const dimensionAliases = dedupeMigratedDimensions(
+    customIdentifiers,
     migratedColumns,
   );
-  return `SELECT *${customIdentifierAliasClause(
-    attributeSchema,
-    extraIdentifiers,
-  )}${migratedColumnAliasClause(dimensionAliases)}
+  return `SELECT *${attributeAliasClause(customIdentifiers, dimensionAliases)}
 FROM ${MANAGED_WAREHOUSE_EVENTS_TABLE}
 WHERE timestamp BETWEEN '{{startDate}}' AND '{{endDate}}'`;
 }
@@ -518,15 +497,18 @@ export function buildManagedWarehouseExposureQueries(
   extraIdentifiers: string[] = [],
   migratedColumns: MaterializedColumn[] = [],
 ): ExposureQuery[] {
-  const dimensionAliases = getMigratedDimensionAliasColumns(
+  const customIdentifiers = getManagedWarehouseCustomIdentifiers(
     attributeSchema,
     extraIdentifiers,
+  );
+  const dimensionAliases = dedupeMigratedDimensions(
+    customIdentifiers,
     migratedColumns,
   );
-  const query = `SELECT *${customIdentifierAliasClause(
-    attributeSchema,
-    extraIdentifiers,
-  )}${migratedColumnAliasClause(dimensionAliases)}
+  const query = `SELECT *${attributeAliasClause(
+    customIdentifiers,
+    dimensionAliases,
+  )}
 FROM ${MANAGED_WAREHOUSE_EXPERIMENT_VIEWS_TABLE}
 WHERE
   experiment_id LIKE '{{ experimentId }}'
@@ -591,9 +573,12 @@ export function getManagedWarehouseEventsFactTableColumns(
   extraIdentifiers: string[] = [],
   migratedColumns: MaterializedColumn[] = [],
 ): ManagedWarehouseFactColumn[] {
-  const dimensionAliases = getMigratedDimensionAliasColumns(
+  const customIdentifiers = getManagedWarehouseCustomIdentifiers(
     attributeSchema,
     extraIdentifiers,
+  );
+  const dimensionAliases = dedupeMigratedDimensions(
+    customIdentifiers,
     migratedColumns,
   );
   const jsonFields = getManagedWarehouseAttributesJsonFields(
@@ -606,13 +591,12 @@ export function getManagedWarehouseEventsFactTableColumns(
         ? { ...c, jsonFields }
         : c,
     );
-  const custom: ManagedWarehouseFactColumn[] =
-    getManagedWarehouseCustomIdentifiers(attributeSchema, extraIdentifiers).map(
-      (property) => ({
-        column: property,
-        datatype: "string",
-      }),
-    );
+  const custom: ManagedWarehouseFactColumn[] = customIdentifiers.map(
+    (property) => ({
+      column: property,
+      datatype: "string",
+    }),
+  );
   // Preserved dimensions are real top-level columns (via the SELECT alias), so a bare
   // metric ref to one validates without any rewrite. A live attribute also remains an
   // `attributes.<field>` JSON field; that duplicate listing is harmless (both resolve).
