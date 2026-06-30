@@ -64,8 +64,10 @@ const AceEditor = dynamic(
       import("ace-builds/src-min-noconflict/mode-python"),
       import("ace-builds/src-min-noconflict/mode-yaml"),
       import("ace-builds/src-min-noconflict/mode-json"),
-      // Highlighting-only mode (no worker), like TypeScript.
+      // Highlighting-only modes (no worker), like TypeScript.
       import("ace-builds/src-min-noconflict/mode-protobuf"),
+      import("ace-builds/src-min-noconflict/mode-golang"),
+      import("ace-builds/src-min-noconflict/mode-rust"),
       import("ace-builds/src-min-noconflict/theme-textmate"),
       import("ace-builds/src-min-noconflict/theme-tomorrow_night"),
     ]);
@@ -180,7 +182,9 @@ export type Language =
   | "typescript"
   | "python"
   | "yml"
-  | "protobuf";
+  | "protobuf"
+  | "golang"
+  | "rust";
 
 export const FIVE_LINES_HEIGHT = 97;
 export const TEN_LINES_HEIGHT = 194;

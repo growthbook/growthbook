@@ -8,6 +8,12 @@ import { SchemaField, SimpleSchema } from "shared/types/feature";
 import {
   fieldsToTsType,
   fieldsToProto,
+  fieldsToGolang,
+  golangToFields,
+  fieldsToRust,
+  rustToFields,
+  fieldsToPython,
+  pythonToFields,
   inferJsonSchemaForValue,
   jsonSchemaStringToFields,
   protoToFields,
@@ -35,9 +41,49 @@ import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import Modal from "@/components/Modal";
 import { ResolvedField } from "@/components/Configs/fieldSchema";
 
-// The schema editor speaks JSON Schema, TypeScript, or Protobuf; all compile to
-// the same SchemaField[]. JSON Schema stays the canonical/default surface.
-type SchemaLang = "json" | "typescript" | "protobuf";
+// The schema editor speaks JSON Schema or one of the typed-code languages; all
+// compile to the same SchemaField[]. JSON Schema stays the canonical/default
+// surface. The non-`json` ids match the converter ids (also a projection's
+// `language`), so one dispatch map serves both the schema buffer and projections.
+type SchemaLang = "json" | "typescript" | "protobuf" | "python" | "go" | "rust";
+
+type CodeRenderer = (
+  fields: SchemaField[],
+  opts: { additionalProperties: boolean; projection?: SchemaProjection },
+) => string;
+
+const CODE_RENDERERS: Record<string, CodeRenderer> = {
+  typescript: fieldsToTsType,
+  protobuf: fieldsToProto,
+  python: fieldsToPython,
+  go: fieldsToGolang,
+  rust: fieldsToRust,
+};
+
+const CODE_PARSERS: Record<string, (text: string) => SchemaConversionResult> = {
+  typescript: tsTypesToFields,
+  protobuf: protoToFields,
+  python: pythonToFields,
+  go: golangToFields,
+  rust: rustToFields,
+};
+
+// The CodeTextArea (Ace) mode for a typed-code language; Go's Ace mode is
+// `golang`. JSON Schema is edited as `json`.
+function aceMode(
+  lang: string,
+): "json" | "typescript" | "protobuf" | "golang" | "rust" | "python" {
+  if (lang === "go") return "golang";
+  if (
+    lang === "typescript" ||
+    lang === "protobuf" ||
+    lang === "rust" ||
+    lang === "python"
+  ) {
+    return lang;
+  }
+  return "json";
+}
 
 type Props = {
   // Stable saved strings — local state reseeds whenever these change (after a
@@ -126,12 +172,8 @@ function compileFieldsToText(
   additionalProperties: boolean,
   lang: SchemaLang,
 ): string {
-  if (lang === "typescript") {
-    return fieldsToTsType(fields, { additionalProperties });
-  }
-  if (lang === "protobuf") {
-    return fieldsToProto(fields, { additionalProperties });
-  }
+  const render = CODE_RENDERERS[lang];
+  if (render) return render(fields, { additionalProperties });
   if (!fields.length) return emptySchemaText(additionalProperties);
   try {
     return JSON.stringify(
@@ -150,9 +192,7 @@ function parseSchemaText(
   text: string,
   lang: SchemaLang,
 ): SchemaConversionResult {
-  if (lang === "typescript") return tsTypesToFields(text);
-  if (lang === "protobuf") return protoToFields(text);
-  return jsonSchemaStringToFields(text);
+  return (CODE_PARSERS[lang] ?? jsonSchemaStringToFields)(text);
 }
 
 // Seed the editable schema buffer from the config's declared own fields (or an
@@ -182,12 +222,8 @@ function seedProjectionText(
   additionalProperties: boolean,
   projection: SchemaProjection,
 ): string {
-  if (projection.language === "protobuf") {
-    return fieldsToProto(fields, { additionalProperties, projection });
-  }
-  if (projection.language === "typescript") {
-    return fieldsToTsType(fields, { additionalProperties, projection });
-  }
+  const render = CODE_RENDERERS[projection.language];
+  if (render) return render(fields, { additionalProperties, projection });
   return compileFieldsToText(fields, type, additionalProperties, "json");
 }
 
@@ -195,9 +231,7 @@ function parseProjectionText(
   text: string,
   lang: ProjectionLang,
 ): SchemaConversionResult {
-  if (lang === "protobuf") return protoToFields(text);
-  if (lang === "typescript") return tsTypesToFields(text);
-  return jsonSchemaStringToFields(text);
+  return (CODE_PARSERS[lang] ?? jsonSchemaStringToFields)(text);
 }
 
 // Compile fields to a JSON Schema string for read-only display. `simpleToJSONSchema`
@@ -367,9 +401,11 @@ export default function ConfigJsonEditor({
   // Editor format selector: JSON Schema / TypeScript / Protobuf edit in place; a
   // named projection (`proj:<source>`) edits in its own buffer with name capture.
   const onEditorFormatSelect = (v: string) => {
-    if (v === "json" || v === "typescript" || v === "protobuf") {
+    // JSON Schema + every typed-code language edit in place; a `proj:<source>`
+    // selection is a named projection (its own editable buffer / preview).
+    if (v === "json" || v in CODE_RENDERERS) {
       setSchemaPreviewSel(null);
-      switchSchemaLang(v);
+      switchSchemaLang(v as SchemaLang);
     } else {
       setSchemaPreviewSel(v);
     }
@@ -574,33 +610,28 @@ export default function ConfigJsonEditor({
     />
   );
 
-  // Read-only TypeScript rendering of a field set, using the standard syntax
-  // highlighter (the same renderer ValueDisplay uses for JSON) rather than a
-  // disabled code editor.
-  const readonlyTsSchema = (schemaFields: SchemaField[]): ReactNode => (
-    <Box style={{ maxHeight: 320, overflowY: "auto", maxWidth: "100%" }}>
-      <InlineCode
-        language="typescript"
-        code={fieldsToTsType(schemaFields, {
-          additionalProperties: extensible,
-        })}
-        fontSize="0.75rem"
-      />
-    </Box>
-  );
-
-  // Read-only Protobuf (proto3) rendering of a field set.
-  const readonlyProtoSchema = (schemaFields: SchemaField[]): ReactNode => (
-    <Box style={{ maxHeight: 320, overflowY: "auto", maxWidth: "100%" }}>
-      <InlineCode
-        language="protobuf"
-        code={fieldsToProto(schemaFields, {
-          additionalProperties: extensible,
-        })}
-        fontSize="0.75rem"
-      />
-    </Box>
-  );
+  // Read-only rendering of a field set in a typed-code language, using the
+  // standard syntax highlighter (the same renderer ValueDisplay uses for JSON)
+  // rather than a disabled code editor. A projection reproduces named types.
+  const readonlyCodeSchema = (
+    lang: string,
+    schemaFields: SchemaField[],
+    projection?: SchemaProjection,
+  ): ReactNode => {
+    const render = CODE_RENDERERS[lang] ?? fieldsToTsType;
+    return (
+      <Box style={{ maxHeight: 320, overflowY: "auto", maxWidth: "100%" }}>
+        <InlineCode
+          language={lang === "go" ? "go" : (lang as "typescript")}
+          code={render(schemaFields, {
+            additionalProperties: extensible,
+            projection,
+          })}
+          fontSize="0.75rem"
+        />
+      </Box>
+    );
+  };
 
   // A child config with no own schema still inherits its parent's; say so rather
   // than the bare "No schema defined." (which reads as "no schema at all").
@@ -621,6 +652,9 @@ export default function ConfigJsonEditor({
     typescript: "TypeScript",
     "json-schema": "JSON Schema",
     protobuf: "Protobuf",
+    python: "Python",
+    go: "Go",
+    rust: "Rust",
   };
   const schemaFormatSelect = (
     sel: string,
@@ -634,6 +668,9 @@ export default function ConfigJsonEditor({
       { label: "JSON Schema", value: "json" },
       { label: "TypeScript", value: "typescript" },
       { label: "Protobuf", value: "protobuf" },
+      { label: "Python", value: "python" },
+      { label: "Go", value: "go" },
+      { label: "Rust", value: "rust" },
     ];
     const entries = Object.entries(projections ?? {});
     if (entries.length) {
@@ -692,23 +729,15 @@ export default function ConfigJsonEditor({
     if (sel.startsWith("proj:")) {
       const projection = projections?.[sel.slice("proj:".length)];
       if (projection) {
-        return (
-          <Box style={{ maxHeight: 320, overflowY: "auto", maxWidth: "100%" }}>
-            <InlineCode
-              language="typescript"
-              code={fieldsToTsType(schemaFields, {
-                additionalProperties: extensible,
-                projection,
-              })}
-              fontSize="0.75rem"
-            />
-          </Box>
+        return readonlyCodeSchema(
+          projection.language,
+          schemaFields,
+          projection,
         );
       }
-      return readonlyTsSchema(schemaFields); // projection gone — fall back
+      return readonlyCodeSchema("typescript", schemaFields); // projection gone
     }
-    if (sel === "typescript") return readonlyTsSchema(schemaFields);
-    if (sel === "protobuf") return readonlyProtoSchema(schemaFields);
+    if (sel in CODE_RENDERERS) return readonlyCodeSchema(sel, schemaFields);
     return readonlyJsonSchema(jsonString);
   };
 
@@ -863,13 +892,7 @@ export default function ConfigJsonEditor({
     <>
       <CodeTextArea
         key={`proj:${projectionSource}:${projectionLang}`}
-        language={
-          projectionLang === "protobuf"
-            ? "protobuf"
-            : projectionLang === "typescript"
-              ? "typescript"
-              : "json"
-        }
+        language={aceMode(projectionLang)}
         value={projectionText}
         setValue={setProjectionText}
         minLines={12}
@@ -964,13 +987,7 @@ export default function ConfigJsonEditor({
                 // often), so a fresh editor per language keeps it editable.
                 <CodeTextArea
                   key={schemaLang}
-                  language={
-                    schemaLang === "typescript"
-                      ? "typescript"
-                      : schemaLang === "protobuf"
-                        ? "protobuf"
-                        : "json"
-                  }
+                  language={aceMode(schemaLang)}
                   value={schemaText}
                   setValue={setSchemaText}
                   minLines={12}
@@ -1056,6 +1073,9 @@ export default function ConfigJsonEditor({
         options={[
           { label: "TypeScript", value: "typescript" },
           { label: "Protobuf", value: "protobuf" },
+          { label: "Python", value: "python" },
+          { label: "Go", value: "go" },
+          { label: "Rust", value: "rust" },
         ]}
       />
     </Modal>
