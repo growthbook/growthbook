@@ -15,9 +15,7 @@ import {
 } from "./validations";
 import { toApiConfigRevision } from "./toApiConfigRevision";
 
-// Remove one source's render projection on a draft. The canonical schema is
-// untouched; only `renderProjections[source]` is dropped. Staged + published
-// through the normal flow.
+// The canonical schema is untouched; only `renderProjections[source]` is dropped.
 export const deleteConfigRevisionProjection = createApiRequestHandler(
   deleteConfigRevisionProjectionValidator,
 )(async (req) => {

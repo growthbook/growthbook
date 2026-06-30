@@ -64,7 +64,7 @@ const AceEditor = dynamic(
       import("ace-builds/src-min-noconflict/mode-python"),
       import("ace-builds/src-min-noconflict/mode-yaml"),
       import("ace-builds/src-min-noconflict/mode-json"),
-      // Highlighting-only modes (no worker), like TypeScript.
+      // Highlighting-only modes (no worker).
       import("ace-builds/src-min-noconflict/mode-protobuf"),
       import("ace-builds/src-min-noconflict/mode-golang"),
       import("ace-builds/src-min-noconflict/mode-rust"),

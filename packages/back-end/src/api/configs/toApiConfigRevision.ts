@@ -45,9 +45,6 @@ function activityLogToApi(entries: ActivityLogEntry[] | undefined) {
   }));
 }
 
-// Build the API response for a config revision: hides the raw `target` shape
-// and surfaces base/proposed config views + the raw patch ops. Owner emails for
-// both projected snapshots are resolved in one batched lookup.
 export async function toApiConfigRevision(
   revision: Revision,
   context: ApiReqContext,

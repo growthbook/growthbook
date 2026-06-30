@@ -31,7 +31,7 @@ export const putConfigRevisionArchive = createApiRequestHandler(
   const { archived } = req.body;
 
   // Block staging an archive while the config is still referenced or has live
-  // children (parity with the direct archive endpoint). Unarchiving is allowed.
+  // children. Unarchiving is allowed.
   if (archived && !config.archived) {
     await assertConfigArchivable(req.context, config);
   }

@@ -10,8 +10,7 @@ export const getConfigReferences = createApiRequestHandler(
   if (!config) {
     throw new NotFoundError("Could not find config with that key");
   }
-  // References span both collections (constants + configs); the loader is keyed
-  // by the shared internal id.
+  // Spans both collections: constants and configs share the internal id namespace.
   const refs = await loadConstantReferences(req.context, config.id);
   if (!refs) {
     throw new NotFoundError("Could not find config with that key");

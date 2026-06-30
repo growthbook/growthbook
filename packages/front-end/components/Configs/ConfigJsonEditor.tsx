@@ -41,10 +41,8 @@ import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import Modal from "@/components/Modal";
 import { ResolvedField } from "@/components/Configs/fieldSchema";
 
-// The schema editor speaks JSON Schema or one of the typed-code languages; all
-// compile to the same SchemaField[]. JSON Schema stays the canonical/default
-// surface. The non-`json` ids match the converter ids (also a projection's
-// `language`), so one dispatch map serves both the schema buffer and projections.
+// Non-`json` ids match the converter ids (also a projection's `language`), so
+// one dispatch map serves both the schema buffer and projections.
 type SchemaLang = "json" | "typescript" | "protobuf" | "python" | "go" | "rust";
 
 type CodeRenderer = (
@@ -68,8 +66,7 @@ const CODE_PARSERS: Record<string, (text: string) => SchemaConversionResult> = {
   rust: rustToFields,
 };
 
-// The CodeTextArea (Ace) mode for a typed-code language; Go's Ace mode is
-// `golang`. JSON Schema is edited as `json`.
+// Go's Ace mode is `golang`.
 function aceMode(
   lang: string,
 ): "json" | "typescript" | "protobuf" | "golang" | "rust" | "python" {
@@ -93,7 +90,6 @@ type Props = {
   // Schema field keys owned by an ancestor; declaring these is a "base wins"
   // collision (blocked), and values for them are overrides (not own fields).
   ancestorOwnedKeys: string[];
-  // For the read-only preview of the fully-resolved value + effective schema.
   resolvedFields: ResolvedField[];
   effectiveSchema: SchemaField[];
   schemaType: SimpleSchema["type"];
@@ -102,18 +98,16 @@ type Props = {
   extensible: boolean;
   constantContext: { project?: string; excludeKeys?: string[] };
   canEdit: boolean;
-  // Which surface to render. The page owns the Form/JSON/Preview tab bar, so the
-  // editor no longer carries its own Edit/Preview tabs. "preview" is read-only
-  // and driven entirely by props (resolved value + effective schema).
+  // "preview" is read-only and driven entirely by props (resolved value +
+  // effective schema).
   view?: "edit" | "preview";
   // Parent config (when this is a child), used to clarify the empty-schema state
   // ("inherits base schema from …") rather than the bare "No schema defined."
   parentKey?: string | null;
   parentName?: string | null;
-  // Captured per-source render projections (source id → named-type projection),
-  // offered as named output options for this config's own schema. On a draft
-  // they're editable: editing the named source re-derives the schema (which
-  // projects into the Config) and recaptures that source's names.
+  // Captured per-source render projections (source id → named-type projection).
+  // On a draft they're editable: editing the source re-derives the schema and
+  // recaptures that source's names.
   renderProjections?: Record<string, SchemaProjection>;
   // Schema-format option values (`json`/`typescript`/`protobuf`/`proj:<source>`)
   // whose backing data differs between this draft and the published config — the
@@ -163,9 +157,6 @@ function emptySchemaText(additionalProperties: boolean): string {
   );
 }
 
-// Compile a set of fields into the editable schema buffer for the active
-// language. JSON Schema is pretty-printed; TypeScript emits a `.d.ts`-style
-// interface. `additionalProperties` reflects family extensibility.
 function compileFieldsToText(
   fields: SchemaField[],
   type: SimpleSchema["type"],
@@ -186,8 +177,6 @@ function compileFieldsToText(
   }
 }
 
-// Parse the editable buffer back to fields for the active language. Both
-// converters return the uniform `SchemaConversionResult` shape.
 function parseSchemaText(
   text: string,
   lang: SchemaLang,
@@ -195,8 +184,6 @@ function parseSchemaText(
   return (CODE_PARSERS[lang] ?? jsonSchemaStringToFields)(text);
 }
 
-// Seed the editable schema buffer from the config's declared own fields (or an
-// empty object schema for a config that declares none yet).
 function seedSchemaText(
   schemaJson: string,
   type: SimpleSchema["type"],
@@ -211,9 +198,8 @@ function seedSchemaText(
   );
 }
 
-// A projection is edited in its own captured language. Seed renders the current
-// fields with that source's named types; parse compiles the edited source back
-// to fields AND recaptures the projection (named-type structure).
+// A projection is edited in its own captured language; parse recaptures the
+// projection's named-type structure alongside the fields.
 type ProjectionLang = SchemaProjection["language"];
 
 function seedProjectionText(
@@ -234,9 +220,8 @@ function parseProjectionText(
   return (CODE_PARSERS[lang] ?? jsonSchemaStringToFields)(text);
 }
 
-// Compile fields to a JSON Schema string for read-only display. `simpleToJSONSchema`
-// already returns JSON text (and throws on an empty/invalid schema), so we hand
-// that string straight to the renderer — never re-stringify it.
+// `simpleToJSONSchema` already returns JSON text, so hand it straight to the
+// renderer — never re-stringify it.
 function schemaToJsonString(
   type: SimpleSchema["type"],
   fields: SchemaField[],
@@ -276,28 +261,19 @@ export default function ConfigJsonEditor({
   const [parseError, setParseError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  // Schema editor surface: Ace code editor (default) vs. a plain textarea, with
-  // a Format JSON action — mirrors the value editor's CTAs.
   const [schemaCodeMode, setSchemaCodeMode] = useState(true);
-  // Active schema language. Held in a ref too so the reseed effect (which must
-  // not re-run on a language switch) can read the current language.
+  // Held in a ref too so the reseed effect (which must not re-run on a language
+  // switch) can read the current language.
   const [schemaLang, setSchemaLang] = useState<SchemaLang>("json");
   // Display-only schema format for the read-only views, kept separate from the
-  // editable buffer's language so viewing as TS never desyncs the JSON-seeded
-  // edit buffer. A value of `proj:<source>` selects a named projection (own
-  // schema only). Per-column so selecting a projection on the own schema doesn't
-  // leak to the Resolved/effective view (different pointers).
+  // editable buffer's language so viewing as e.g. TS never desyncs the edit
+  // buffer. Per-column so a projection selection doesn't leak across views.
   const [ownSchemaSel, setOwnSchemaSel] = useState<string>("json");
   const [resolvedSchemaSel, setResolvedSchemaSel] = useState<string>("json");
-  // In the editable editor, JSON Schema / TypeScript are edited in place; other
-  // formats (Protobuf, named projections) are read-only previews of the current
-  // fields. Non-null means "previewing" — the editable buffer is left untouched.
+  // Non-null means a read-only preview (Protobuf etc.) of the current fields —
+  // the editable buffer is left untouched.
   const [schemaPreviewSel, setSchemaPreviewSel] = useState<string | null>(null);
-  // Editable buffer for the named-source projection currently selected (in its
-  // captured language). Only used on a draft; reseeded from the saved fields +
-  // projection whenever the selection or saved state changes.
   const [projectionText, setProjectionText] = useState<string>("");
-  // "New projection" modal (source name + language).
   const [showNewProjection, setShowNewProjection] = useState(false);
   const [newProjSource, setNewProjSource] = useState("");
   const [newProjLang, setNewProjLang] = useState<ProjectionLang>("typescript");
@@ -306,8 +282,8 @@ export default function ConfigJsonEditor({
     schemaLangRef.current = schemaLang;
   }, [schemaLang]);
 
-  // Value keys we've already auto-seeded into the schema. Each new key is added
-  // once; after that the author fully owns the schema text (no clobber/re-add).
+  // Value keys we've already auto-seeded into the schema; each is added once,
+  // then the author fully owns the schema text (no clobber/re-add).
   const seededKeys = useRef<Set<string>>(new Set());
 
   const ancestorOwnedSig = ancestorOwnedKeys.join(",");
@@ -329,10 +305,8 @@ export default function ConfigJsonEditor({
   }, [schemaJson, schemaType, extensible]);
 
   // Live assist (draft only): when the value introduces a brand-new own key,
-  // splice a best-guess property into the schema once. Existing properties — and
-  // any key the author already removed — are left alone. Override keys
-  // (ancestor-owned) are never added; they belong to a parent. Only JSON Schema
-  // is auto-grown (TS is hand-edited; reconciliation keeps saves clean).
+  // splice a best-guess property into the schema once. Keys the author removed,
+  // and ancestor-owned override keys, are left alone. JSON Schema only.
   useEffect(() => {
     if (!canEdit || view === "preview") return;
     const valueObj = parsePlainObject(valueText);
@@ -341,7 +315,6 @@ export default function ConfigJsonEditor({
       return;
     }
     setParseError(null);
-    // Auto-grow only applies to JSON Schema; TS schemas are hand-edited.
     if (schemaLang !== "json") return;
     const valueKeys = Object.keys(valueObj).filter((k) => k !== "$extends");
     setSchemaText((prev) => {
@@ -389,8 +362,8 @@ export default function ConfigJsonEditor({
   const schemaError = parsedSchema.error;
   const schemaWarnings = parsedSchema.warnings;
 
-  // Switch the schema language: recompile the current fields into the target
-  // language so existing definitions carry over (no blank slate / lost work).
+  // Recompile the current fields into the target language so existing
+  // definitions carry over (no blank slate / lost work).
   const switchSchemaLang = (next: SchemaLang) => {
     if (next === schemaLang) return;
     setSchemaText(compileFieldsToText(fields, schemaType, extensible, next));
@@ -398,11 +371,9 @@ export default function ConfigJsonEditor({
     seededKeys.current = new Set();
   };
 
-  // Editor format selector: JSON Schema / TypeScript / Protobuf edit in place; a
-  // named projection (`proj:<source>`) edits in its own buffer with name capture.
+  // JSON Schema + every typed-code language edit in place; a `proj:<source>`
+  // selection is a named projection (its own editable buffer / preview).
   const onEditorFormatSelect = (v: string) => {
-    // JSON Schema + every typed-code language edit in place; a `proj:<source>`
-    // selection is a named projection (its own editable buffer / preview).
     if (v === "json" || v in CODE_RENDERERS) {
       setSchemaPreviewSel(null);
       switchSchemaLang(v as SchemaLang);
@@ -411,9 +382,8 @@ export default function ConfigJsonEditor({
     }
   };
 
-  // The config's own stored fields, independent of the editable buffer /
-  // language toggle — drives the read-only (off-draft) schema display so the
-  // language toggle there can flip purely the rendering, not the parse.
+  // The config's own stored fields, independent of the editable buffer — drives
+  // the read-only schema display so its language toggle flips only the rendering.
   const ownFields = useMemo(() => parseFields(schemaJson), [schemaJson]);
   const ownSchemaString = useMemo(
     () => schemaToJsonString(schemaType, ownFields, extensible),
@@ -424,10 +394,8 @@ export default function ConfigJsonEditor({
     [schemaType, effectiveSchema, extensible],
   );
 
-  // Projection editing (draft only): when a `proj:<source>` format is selected,
-  // the named source becomes editable in its captured language. Editing it
-  // re-derives the config schema (which projects into the value) and recaptures
-  // that source's named-type structure — both staged together on the draft.
+  // Projection editing (draft only): editing the selected source re-derives the
+  // config schema and recaptures that source's named types — staged together.
   const projectionSource = schemaPreviewSel?.startsWith("proj:")
     ? schemaPreviewSel.slice("proj:".length)
     : null;
@@ -450,8 +418,7 @@ export default function ConfigJsonEditor({
         : "",
     [activeProjection, ownFields, schemaType, extensible],
   );
-  // Reseed when entering a projection or after the saved state changes (mutate);
-  // keystrokes update `projectionText` directly, so this never clobbers edits.
+  // Keystrokes update `projectionText` directly, so this never clobbers edits.
   useEffect(() => {
     if (editingProjection) setProjectionText(projectionSeed);
   }, [editingProjection, projectionSeed]);
@@ -463,8 +430,7 @@ export default function ConfigJsonEditor({
     [editingProjection, projectionText, projectionLang],
   );
 
-  // Fields backing the active surface: the projection buffer when editing one,
-  // otherwise the JSON/TS schema buffer.
+  // Fields backing the active surface: projection buffer or schema buffer.
   const activeFields =
     editingProjection && parsedProjection ? parsedProjection.fields : fields;
   const conflictKeys = useMemo(
@@ -472,19 +438,16 @@ export default function ConfigJsonEditor({
     [activeFields, ancestorOwned],
   );
 
-  // Conversion is lossy-by-design: unresolved/unrepresentable types degrade to a
-  // permissive type (`any`/object), index signatures are skipped, etc. These are
-  // all INFORMATIONAL — they never block the save (only a hard parse error does).
-  // The schema saves with the degraded field; the warning tells you what was lost.
+  // Conversion is lossy-by-design; the resulting warnings are informational and
+  // never block a save (only a hard parse error does).
   const resolvedValueString = useMemo(() => {
     const obj: Record<string, unknown> = {};
     for (const f of resolvedFields) obj[f.key] = f.value;
     return JSON.stringify(obj);
   }, [resolvedFields]);
 
-  // The value/schema exactly as they exist on this revision, in the active
-  // schema language — what Cancel reverts the buffers to. A clean language
-  // switch round-trips to the same text, so it doesn't read as a change.
+  // What Cancel reverts to. A clean language switch round-trips to the same
+  // text, so it doesn't read as a change.
   const pristineValue = prettyValue(valueJson);
   const pristineSchema = seedSchemaText(
     schemaJson,
@@ -498,8 +461,6 @@ export default function ConfigJsonEditor({
     valueText !== pristineValue ||
     (editingProjection ? projectionDirty : schemaText !== pristineSchema);
 
-  // Save mirrors Cancel: both only apply when there are unsaved edits. With
-  // nothing changed there's nothing to save (or cancel).
   const canSave =
     canEdit &&
     dirty &&
@@ -523,15 +484,14 @@ export default function ConfigJsonEditor({
     try {
       const stripped = stripConfigExtends(valueText) ?? valueText;
       const obj = JSON.parse(stripped) as Record<string, unknown>;
-      // Reuse stored field objects for keys whose meaning is unchanged so a
-      // no-op save doesn't rewrite them into canonical form (no spurious diff).
+      // Reuse stored field objects for unchanged keys so a no-op save doesn't
+      // rewrite them into canonical form (no spurious diff).
       const reconciled = reconcileSchemaFields(
         parseFields(schemaJson),
         activeFields,
       );
       if (editingProjection && projectionSource && parsedProjection) {
-        // The edited source derives the schema (above) AND recaptures its own
-        // named types; a language with no names yields an empty projection.
+        // A language with no names yields an empty projection.
         const captured = parsedProjection.projection ?? {
           language: projectionLang,
           typeNames: {},
@@ -550,13 +510,11 @@ export default function ConfigJsonEditor({
     }
   };
 
-  // Menu actions operate on the config's saved value (not the editable buffer),
-  // so creating/removing a projection never drags in unrelated value edits.
+  // Menu actions operate on the saved value, not the editable buffer, so they
+  // never drag in unrelated value edits.
   const savedValueObject = (): Record<string, unknown> =>
     parsePlainObject(valueJson) ?? {};
 
-  // Drop one source's projection (schema untouched). Routes through the same
-  // save path with `renderProjections` cleared of that source.
   const handleRemoveProjection = async () => {
     if (!projectionSource) return;
     setSaving(true);
@@ -575,8 +533,6 @@ export default function ConfigJsonEditor({
     }
   };
 
-  // Add a new named projection (empty named types = the default rendering in the
-  // chosen language), then select it for editing. Schema is untouched.
   const handleNewProjection = async () => {
     const source = newProjSource.trim();
     if (!source) throw new Error("Enter a source name");
@@ -598,8 +554,6 @@ export default function ConfigJsonEditor({
     </Text>
   );
 
-  // A read-only JSON panel rendered with the same formatter feature flag rules
-  // use (json-stringify-pretty-compact + constant linkify + copy/fullscreen).
   const readonlyJsonSchema = (jsonString: string): ReactNode => (
     <ValueDisplay
       value={jsonString}
@@ -610,9 +564,8 @@ export default function ConfigJsonEditor({
     />
   );
 
-  // Read-only rendering of a field set in a typed-code language, using the
-  // standard syntax highlighter (the same renderer ValueDisplay uses for JSON)
-  // rather than a disabled code editor. A projection reproduces named types.
+  // Uses the syntax highlighter rather than a disabled code editor. A projection
+  // reproduces named types.
   const readonlyCodeSchema = (
     lang: string,
     schemaFields: SchemaField[],
@@ -633,8 +586,8 @@ export default function ConfigJsonEditor({
     );
   };
 
-  // A child config with no own schema still inherits its parent's; say so rather
-  // than the bare "No schema defined." (which reads as "no schema at all").
+  // A child with no own schema still inherits its parent's; say so rather than
+  // the bare "No schema defined."
   const ownSchemaEmptyState: ReactNode =
     parentKey && parentName ? (
       <Text size="medium" color="text-low" as="div">
@@ -643,11 +596,6 @@ export default function ConfigJsonEditor({
       </Text>
     ) : undefined;
 
-  // Schema format picker for the read-only views: the generic conversions
-  // (JSON Schema / TypeScript) sit ungrouped at the top (the defaults, no label),
-  // and — when the config has captured projections — a labelled "Named
-  // projections" group follows, each labelled with its source and language.
-  // Selecting `proj:<source>` renders that consumer's named types.
   const LANG_LABELS: Record<string, string> = {
     typescript: "TypeScript",
     "json-schema": "JSON Schema",
@@ -677,8 +625,7 @@ export default function ConfigJsonEditor({
       options.push({
         label: "Named projections",
         options: entries.map(([source, p]) => ({
-          // `language` is always set on capture; fall back defensively so a
-          // legacy projection never renders "(undefined)".
+          // Fall back so a legacy projection never renders "(undefined)".
           label: `${source} (${
             LANG_LABELS[p.language] ?? p.language ?? "TypeScript"
           })`,
@@ -741,9 +688,6 @@ export default function ConfigJsonEditor({
     return readonlyJsonSchema(jsonString);
   };
 
-  // Read-only schema column: heading + format picker + the schema rendered in
-  // the chosen format. Used off-draft (own schema, with projections) and on the
-  // Resolved tab (effective schema, generic conversions only).
   const readonlySchemaColumn = (
     sel: string,
     setSel: (v: string) => void,
@@ -794,9 +738,7 @@ export default function ConfigJsonEditor({
     </Flex>
   );
 
-  // Schema editor CTAs (toggle Ace/textarea + Format JSON), styled to match the
-  // value editor's links and rendered as the editor's helpText. Format JSON only
-  // applies to the JSON Schema surface.
+  // Format JSON only applies to the JSON Schema surface.
   const formattedSchema = schemaLang === "json" ? formatJSON(schemaText) : null;
   const schemaCtas = (
     <Flex gap="3" justify="end" width="100%">
@@ -839,8 +781,7 @@ export default function ConfigJsonEditor({
       align="center"
       mb="1"
       gap="3"
-      // Fixed label-row height so the schema editor lines up with the value
-      // editor (the value column's label row uses the same height).
+      // Fixed label-row height so it lines up with the value editor's.
       style={{ minHeight: 40 }}
     >
       <Text weight="semibold" size="medium" as="div">
@@ -887,7 +828,6 @@ export default function ConfigJsonEditor({
     </Flex>
   );
 
-  // Editable named-source projection, in its captured language.
   const projectionEditor = (
     <>
       <CodeTextArea
@@ -941,8 +881,7 @@ export default function ConfigJsonEditor({
         <>
           <FeatureValueField
             id="config-json-value"
-            // Fixed-height label row matching the schema column's so both
-            // editors start at the same y.
+            // Fixed-height label row so both editors start at the same y.
             label={
               <Box
                 style={{ display: "flex", alignItems: "center", minHeight: 40 }}
@@ -970,9 +909,8 @@ export default function ConfigJsonEditor({
             // Editable named-source projection — derives the schema on save.
             projectionEditor
           ) : schemaPreviewSel ? (
-            // Read-only preview (Protobuf, or a projection that's since been
-            // removed) of the current fields — JSON Schema / TypeScript edit
-            // in place.
+            // Read-only preview of the current fields (e.g. a projection that's
+            // since been removed); typed-code languages otherwise edit in place.
             renderReadonlySchema(
               schemaPreviewSel,
               fields,
@@ -982,9 +920,8 @@ export default function ConfigJsonEditor({
           ) : (
             <>
               {schemaCodeMode ? (
-                // Remount on language switch: swapping Ace's mode in place can
-                // leave the session unable to register keystrokes (TS most
-                // often), so a fresh editor per language keeps it editable.
+                // Remount per language: swapping Ace's mode in place can leave
+                // the session unable to register keystrokes (TS most often).
                 <CodeTextArea
                   key={schemaLang}
                   language={aceMode(schemaLang)}
@@ -1081,15 +1018,11 @@ export default function ConfigJsonEditor({
     </Modal>
   ) : null;
 
-  // Resolved (read-only) view — resolved value + effective schema. Available on
-  // every revision (draft or not) and driven entirely by props, so "Resolved"
-  // always means the same thing.
   if (view === "preview") {
     return <Box mt="3">{previewContent}</Box>;
   }
 
-  // Off-draft: read-only view of this config's own stored value + schema. "JSON"
-  // always means the config's own definition; here it just isn't editable.
+  // Off-draft: read-only view of this config's own stored value + schema.
   if (!canEdit) {
     return (
       <Box mt="3">
@@ -1111,7 +1044,6 @@ export default function ConfigJsonEditor({
     );
   }
 
-  // Editable value + schema, with Save anchored top-right.
   return (
     <Box mt="3">
       <Flex justify="end" gap="2" mb="3">

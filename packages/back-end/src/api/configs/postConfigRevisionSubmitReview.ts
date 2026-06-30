@@ -38,8 +38,7 @@ export const postConfigRevisionSubmitReview = createApiRequestHandler(
     throw new BadRequestError("Cannot submit a review on a draft you created");
   }
 
-  // Block contributor self-approve when `blockSelfApproval` is set. Configs use
-  // the feature `requireReviews` model (matched by project), same as constants.
+  // Block contributor self-approve when `blockSelfApproval` is set.
   if (
     decision === "approve" &&
     constantBlockSelfApproval(

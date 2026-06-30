@@ -18,10 +18,8 @@ import {
 } from "./validations";
 import { toApiConfigRevision } from "./toApiConfigRevision";
 
-// Set/update a per-source render projection on a draft. The named `schema`
-// source derives the config's canonical schema (so the edit projects into the
-// Config) AND captures that source's named-type structure under
-// `renderProjections[source]`; both are staged together and published normally.
+// The named `schema` source both derives the config's canonical schema AND
+// captures the source's named-type structure under `renderProjections[source]`.
 export const putConfigRevisionProjection = createApiRequestHandler(
   putConfigRevisionProjectionValidator,
 )(async (req) => {

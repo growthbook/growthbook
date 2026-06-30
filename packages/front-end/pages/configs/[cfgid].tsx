@@ -106,33 +106,25 @@ import {
 type ResolvedResponse = {
   status: number;
   config: ConfigInterface;
-  // Lineage chain (base → leaf); re-resolved client-side so a selected draft's
-  // proposed value shows in the field table.
+  // Re-resolved client-side so a selected draft's proposed value shows in the field table.
   chain: ConfigChainNode[];
   effectiveSchema: SchemaField[];
-  // Whether this config family permits extra keys (root policy / org default).
   extensible?: boolean;
   fields: ResolvedField[];
   lineage: LineageNode[];
-  // Families that compose this config as a mixin (`extends`), one entry per
-  // composing `parent`-spine family. Lets a mixin view render "where am I used"
-  // as N trees instead of a lone node. Keyed by the family's spine root.
+  // Families that compose this config as a mixin, one per composing spine family,
+  // so a mixin view can render "where am I used" as N trees. Keyed by spine root.
   composerFamilies?: { rootKey: string; lineage: LineageNode[] }[];
-  // Own-value field count per config key (covers mixins outside the family).
   fieldCounts?: Record<string, number>;
-  // Display name per config key (covers mixins outside the family).
   configNames?: Record<string, string>;
-  // Archived flag per config key (covers mixins outside the family).
   archivedByKey?: Record<string, boolean>;
-  // Project-scoped value-map inputs so the field table can squash `@const:`
-  // refs client-side. The editor and JSON view keep references raw.
+  // The editor and JSON view keep references raw; this drives `@const:` squashing in the table.
   constants: (Pick<
     ConstantInterface,
     "key" | "type" | "value" | "project" | "archived"
   > & { source: ConstantSource })[];
 };
 
-// Schema export formats offered in the Copy Config submenus + payload map keys.
 const SCHEMA_EXPORT_FORMATS: { id: string; label: string }[] = [
   { id: "json", label: "JSON Schema" },
   { id: "typescript", label: "TypeScript" },
@@ -151,10 +143,8 @@ const SCHEMA_LANG_LABEL: Record<string, string> = {
   "json-schema": "JSON Schema",
 };
 
-// The strings the Export menu copies. All are derived from the displayed
-// revision, so the export is revision-sensitive (drafts export their proposed
-// state, the live revision exports live). Schemas are keyed by format id; named
-// projections (a consumer's captured types) are listed separately.
+// Derived from the displayed revision, so the export is revision-sensitive.
+// Schemas keyed by format id; named projections listed separately.
 type ConfigExportPayloads = {
   ownValue: string;
   resolvedValue: string;
@@ -163,9 +153,7 @@ type ConfigExportPayloads = {
   ownProjections: { source: string; label: string; text: string }[];
 };
 
-// Export-as dropdown, modeled on the review "Copy as" widget: copies the
-// config's value/schema to the clipboard in the chosen shape. "Resolved"
-// variants walk the inheritance tree (and resolve constants for the value).
+// "Resolved" variants walk the inheritance tree (and resolve constants for the value).
 function ConfigExportMenu({ payloads }: { payloads: ConfigExportPayloads }) {
   const { performCopy, copySuccess, copySupported } = useCopyToClipboard({
     timeout: 2000,
@@ -205,8 +193,7 @@ function ConfigExportMenu({ payloads }: { payloads: ConfigExportPayloads }) {
         <Button variant="ghost" size="sm">
           <Flex align="center" gap="1">
             {copySuccess ? <PiCheckBold /> : <PiCopy />}
-            {/* Fixed width so swapping "Copy Config..." ↔ "Copied!" doesn't
-                shift the surrounding layout. */}
+            {/* Fixed width so the "Copied!" swap doesn't shift layout. */}
             <Box
               style={{ width: 92, textAlign: "center", whiteSpace: "nowrap" }}
             >
@@ -275,36 +262,30 @@ export default function ConfigDetailPage(): React.ReactElement {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showOverrides, setShowOverrides] = useState(false);
   const [showCreateChild, setShowCreateChild] = useState(false);
-  // Whether the inline "compose a mixin config" picker is showing.
   const [composeAdding, setComposeAdding] = useState(false);
 
-  // Field currently being overridden (inline value edit), and the draft text.
   const [activeTab, setActiveTab] = useState<"form" | "json" | "resolved">(
     "form",
   );
   const [editKey, setEditKey] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const [editError, setEditError] = useState<string | null>(null);
-  // Separate from the text so an explicit null and a concrete value stay
-  // distinct. (Not overriding at all is a third axis: the inherit / Reset action.)
+  // Separate from the text so an explicit null and a concrete value stay distinct
+  // (not overriding at all is a third axis: the inherit / Reset action).
   const [editKind, setEditKind] = useState<"value" | "null" | "undefined">(
     "value",
   );
 
-  // Inline schema authoring: "add" shows a blank field form; a key string edits
-  // that field's definition.
+  // "add" shows a blank field form; a key string edits that field's definition.
   const [schemaEdit, setSchemaEdit] = useState<"add" | string | null>(null);
 
-  // Surfaced when a composition (mixin) write fails.
   const [composeError, setComposeError] = useState<string | null>(null);
 
-  // Serializes mixin (`extends`) writes: two quick add/remove clicks each compute
-  // `next` from a stale `mixinKeys` snapshot, so without a guard the second write
-  // can clobber the first and silently drop (or re-add) a mixin.
+  // Serializes mixin (`extends`) writes: without it, two quick clicks each compute
+  // `next` from a stale snapshot and the second clobbers the first.
   const savingExtendsRef = useRef(false);
 
-  // Switching configs (e.g. via the lineage tree) reuses this page instance, so
-  // clear any in-progress row edit / insert when the addressed config changes.
+  // The page instance is reused across configs, so clear in-progress edits when it changes.
   useEffect(() => {
     setEditKey(null);
     setEditText("");
@@ -314,9 +295,7 @@ export default function ConfigDetailPage(): React.ReactElement {
     setShowCreateChild(false);
     setComposeAdding(false);
     setShowOverrides(false);
-    // The reused page instance can otherwise carry a modal open from the
-    // previous config (e.g. the review/publish dialog popping up after a
-    // lineage/tag link lands on a different config).
+    // Also close any modal carried over from the previous config.
     setShowChangesModal(false);
     setCompareOpen(false);
     setConflictOpen(false);
@@ -327,9 +306,7 @@ export default function ConfigDetailPage(): React.ReactElement {
     setMenuOpen(false);
   }, [configKey]);
 
-  // Addressed by `key`; the resolved endpoint returns the config plus its
-  // lineage chain + tree. The selected revision (`?v=` in the URL) is forwarded
-  // so a draft's unpublished lineage/composition drives resolution server-side.
+  // Forward the selected revision so a draft's unpublished lineage drives resolution server-side.
   const versionParam = typeof router.query.v === "string" ? router.query.v : "";
   const { data, error, mutate } = useApi<ResolvedResponse>(
     `/configs/${configKey}/resolved${versionParam ? `?v=${versionParam}` : ""}`,
@@ -353,8 +330,7 @@ export default function ConfigDetailPage(): React.ReactElement {
   const { references: familyReferences, loading: familyReferencesLoading } =
     useConfigFamilyReferences(config?.id);
 
-  // Constant-picker scope: cycle-creating keys + this config's own key are
-  // scrubbed so a value can't reference back into a cycle.
+  // Scrub cycle-creating keys + own key so a value can't reference back into a cycle.
   const { data: cyclicData } = useApi<{ cyclicKeys: string[] }>(
     config?.id ? `/configs/${config.id}/cyclic-keys` : "",
     { shouldRun: () => !!config?.id },
@@ -370,8 +346,7 @@ export default function ConfigDetailPage(): React.ReactElement {
     [config?.project, config?.key, cyclicData?.cyclicKeys],
   );
 
-  // Squash `@const:` refs to default values for the table display (cross-project
-  // refs scrubbed like the payload). The editor and JSON view keep refs raw.
+  // Table display only; the editor and JSON view keep refs raw.
   const squashConstants = useMemo(() => {
     const map = buildConstantValueMap(data?.constants ?? [], "");
     const project = config?.project || "";
@@ -381,12 +356,10 @@ export default function ConfigDetailPage(): React.ReactElement {
 
   const settings = organization.settings || {};
   const hasApprovalsFeature = hasCommercialFeature("require-approvals");
-  // Creating configs (incl. child override configs) is premium-gated; editing
-  // existing ones is not (permissive on license lapse).
+  // Creating configs is premium-gated; editing existing ones is not (permissive on lapse).
   const hasConfigsFeature = hasCommercialFeature("feature-configs");
 
-  // Configs inherit the feature `requireReviews` settings. This rule drives the
-  // coarse "is approval configured" gate; per-revision uses constantRequiresReview.
+  // Drives the coarse "is approval configured" gate; per-revision uses constantRequiresReview.
   const requireReviews = settings.requireReviews;
   const reviewRule =
     hasApprovalsFeature && Array.isArray(requireReviews)
@@ -431,10 +404,8 @@ export default function ConfigDetailPage(): React.ReactElement {
     ) as ConfigInterface;
   }, [selectedRevision, config]);
 
-  // Schema-format options whose backing data differs between the displayed
-  // draft and the published config — the editor renders an amber dot on each.
-  // A schema change touches every format (all derive from it); a projection's
-  // own change (added/removed/renamed) additionally flags that one source.
+  // Formats whose data differs between draft and published (editor shows an amber dot).
+  // A schema change flags every format; a projection change also flags that one source.
   const unpublishedFormats = useMemo(() => {
     const set = new Set<string>();
     if (!config || !displayedConfig) return set;
@@ -462,8 +433,7 @@ export default function ConfigDetailPage(): React.ReactElement {
     return set;
   }, [config, displayedConfig]);
 
-  // Re-resolve the chain with this node's displayed (possibly draft) value
-  // substituted in, so the field table reflects the revision in view.
+  // Substitute this node's displayed (possibly draft) value so the table reflects the revision.
   const resolved = useMemo(() => {
     if (!data || !displayedConfig)
       return {
@@ -478,9 +448,7 @@ export default function ConfigDetailPage(): React.ReactElement {
     return resolveConfigChain(chain);
   }, [data, displayedConfig]);
 
-  // Resolved fields with `@const:`/`@config:` refs squashed to their values, for
-  // the read-only Resolved tab (which shows the fully-resolved value: inheritance
-  // *and* constants). The Form tab squashes per-row separately.
+  // For the read-only Resolved tab (inheritance *and* constants); the Form tab squashes per-row.
   const resolvedFieldsResolved = useMemo(
     () =>
       resolved.fields.map((f) => ({
@@ -502,9 +470,8 @@ export default function ConfigDetailPage(): React.ReactElement {
     return self?.parentKey ?? null;
   }, [data?.lineage, config?.key]);
 
-  // Family extensibility ("Allow extra fields"). The flag lives on the root, so
-  // a root config reads it draft-aware off the displayed revision; a child uses
-  // the server-computed (live) family value. Drives schema `additionalProperties`.
+  // The flag lives on the root: a root reads it draft-aware off the displayed revision,
+  // a child uses the server-computed family value. Drives schema `additionalProperties`.
   const effectiveExtensible =
     parentKey === null
       ? (displayedConfig?.extensible ??
@@ -512,8 +479,8 @@ export default function ConfigDetailPage(): React.ReactElement {
         true)
       : (data?.extensible ?? settings.configsExtensibleByDefault ?? true);
 
-  // Per-field value as resolved by the parent chain (this config excluded), so
-  // an override row can show the inherited value it replaces.
+  // Resolved by the parent chain (this config excluded) so an override row can show
+  // the inherited value it replaces.
   const parentFieldValues = useMemo(() => {
     const map = new Map<string, unknown>();
     if (!data || !displayedConfig || !parentKey) return map;
@@ -534,10 +501,8 @@ export default function ConfigDetailPage(): React.ReactElement {
     return map;
   }, [data, displayedConfig, parentKey]);
 
-  // Descendants that currently declare a field key this config also declares.
-  // Publishing makes this config the owner of those keys, so the cascade strips
-  // the redundant definitions from each descendant ("base wins"). Surfaced as an
-  // informational Callout. Kept above the loading guard for stable hook order.
+  // Descendants declaring a key this config also declares; publishing strips the
+  // redundant definitions ("base wins"). Above the loading guard for stable hook order.
   const reconciliationPreview = useMemo(() => {
     if (!data || !displayedConfig)
       return [] as { name: string; keys: string[] }[];
@@ -549,10 +514,8 @@ export default function ConfigDetailPage(): React.ReactElement {
     );
   }, [data, displayedConfig]);
 
-  // Clipboard-export strings for the Export menu, derived from the displayed
-  // revision (so drafts export their proposed state). Schemas are pretty-printed
-  // JSON Schema or TS; the empty schema still emits a valid object schema. Kept
-  // above the loading guard so the hook order stays stable.
+  // Derived from the displayed revision (drafts export their proposed state).
+  // Above the loading guard for stable hook order.
   const exportPayloads = useMemo<ConfigExportPayloads>(() => {
     const prettyJSON = (text: string): string => {
       try {
@@ -590,8 +553,6 @@ export default function ConfigDetailPage(): React.ReactElement {
       }
     };
 
-    // Resolved value = inheritance-merged fields (constants squashed), excluding
-    // fields with no value set anywhere.
     const resolvedObj: Record<string, unknown> = {};
     for (const f of resolved.fields) {
       if (f.value !== undefined) resolvedObj[f.key] = f.value;
@@ -599,8 +560,6 @@ export default function ConfigDetailPage(): React.ReactElement {
 
     const ownFields = displayedConfig?.schema?.fields ?? [];
     const ap = effectiveExtensible;
-    // Render a field set in a given format. JSON Schema is pretty-printed; the
-    // typed-code languages go through their converter (projection-aware).
     const codeRenderers: Record<
       string,
       (f: SchemaField[], p?: SchemaProjection) => string
@@ -661,7 +620,6 @@ export default function ConfigDetailPage(): React.ReactElement {
     return <LoadingOverlay />;
   }
 
-  // Start an empty draft regardless of approval settings.
   const handleNewDraft = async () => {
     const res = await apiCall<{ revision?: Revision }>(
       `/configs/${config.id}?forceCreateRevision=1`,
@@ -673,10 +631,8 @@ export default function ConfigDetailPage(): React.ReactElement {
   const canUpdate = permissionsUtil.canUpdateConfig(config, config);
   const canDeleteNow =
     permissionsUtil.canDeleteConfig(config) && !!config.archived;
-  // Editing is only meaningful on the live state or a draft.
   const canEditNow = canUpdate && (!selectedRevision || isDraft);
-  // Inline editing is draft-only; the non-draft view shows an "Edit" button
-  // (handleEdit) that drops into a draft.
+  // Inline editing is draft-only; non-draft views show an "Edit" button that drops into a draft.
   const canEditInline = canUpdate && isDraft;
   const canBypassApproval = permissionsUtil.canBypassApprovalChecks({
     project: config.project || "",
@@ -696,12 +652,10 @@ export default function ConfigDetailPage(): React.ReactElement {
       displayedConfig.project)
     : "";
 
-  // Own-value object of the currently-displayed config (own fields only).
   const ownValue = (): Record<string, unknown> =>
     parsePlainJSONObject(displayedConfig.value ?? "") ?? {};
 
-  // Inline edits target the selected draft; the forceCreateRevision fallback is
-  // defensive and should not be reached (gated by canEditInline).
+  // forceCreateRevision is a defensive fallback, not normally reached (gated by canEditInline).
   const writeQuery = (): string =>
     selectedRevision && isDraft
       ? `?revisionId=${selectedRevision.id}`
@@ -716,11 +670,7 @@ export default function ConfigDetailPage(): React.ReactElement {
     if (res?.revision) await onRevisionCreated(res.revision);
   };
 
-  // Set the composition mixins (the `extends` array). Staged into the draft via
-  // the same revision-aware write query as value/schema edits.
-  //
-  // Serialized via a ref + awaited (see savingExtendsRef above): errors are
-  // surfaced instead of becoming unhandled rejections.
+  // Serialized via savingExtendsRef + awaited so errors surface instead of unhandled rejections.
   const saveExtends = async (next: string[]) => {
     if (savingExtendsRef.current) return;
     savingExtendsRef.current = true;
@@ -741,8 +691,7 @@ export default function ConfigDetailPage(): React.ReactElement {
     }
   };
 
-  // Value override (editKey) and schema add/edit (schemaEdit) are mutually
-  // exclusive; both cancelled on tab switch so no editor lingers off-tab.
+  // Both cancelled on tab switch so no editor lingers off-tab.
   const cancelEdits = () => {
     setEditKey(null);
     setEditError(null);
@@ -752,7 +701,6 @@ export default function ConfigDetailPage(): React.ReactElement {
   const startOverride = (f: ResolvedField) => {
     setSchemaEdit(null);
     setEditError(null);
-    // Seed from the resolved value (explicit null, concrete value, or type default).
     // JSON editors accept `null` as literal text, so they never use the null kind.
     const isJson = isJsonField(f.field);
     if (f.value === null && !isJson) {
@@ -810,8 +758,7 @@ export default function ConfigDetailPage(): React.ReactElement {
         parsed = editText;
       }
     }
-    // Surface backend rejections (schema violation, conflict) inline — the Save
-    // button has no setError, so an unhandled rejection would be swallowed.
+    // Surface backend rejections inline; the Save button has no setError of its own.
     try {
       await saveValue({ ...ownValue(), [editKey]: parsed });
       setEditKey(null);
@@ -820,18 +767,15 @@ export default function ConfigDetailPage(): React.ReactElement {
     }
   };
 
-  // The fields this config appends (its own schema); inherited fields aren't editable here.
   const ownSchema = (): SimpleSchema =>
     displayedConfig.schema ?? { type: "object", fields: [] };
   const ownSchemaKeys = ownSchema().fields.map((sf) => sf.key);
 
-  // Effective-schema keys this config does NOT declare itself — owned by an
-  // ancestor. Declaring one is a "base wins" collision; valuing one is an override.
+  // Ancestor-owned keys: declaring one is a "base wins" collision; valuing one is an override.
   const ancestorOwnedKeys = resolved.effectiveSchema
     .map((sf) => sf.key)
     .filter((k) => !ownSchemaKeys.includes(k));
 
-  // Persist the appended schema (optionally with a value override in the same write).
   const saveSchema = async (
     fields: SchemaField[],
     valueOverride?: Record<string, unknown>,
@@ -866,7 +810,6 @@ export default function ConfigDetailPage(): React.ReactElement {
     setSchemaEdit(null);
   };
 
-  // Remove an own field entirely: drop it from the schema and clear its value.
   const removeField = async (key: string) => {
     const v = ownValue();
     const hadOverride = key in v;
@@ -877,15 +820,13 @@ export default function ConfigDetailPage(): React.ReactElement {
     );
   };
 
-  // Remove just this config's override of an inherited field (reverts to the
-  // inherited value); the field definition is the parent's, so it's untouched.
+  // Removes only this config's override (reverts to inherited); the parent's definition is untouched.
   const removeOverride = async (key: string) => {
     const v = ownValue();
     delete v[key];
     await saveValue(v);
   };
 
-  // Compact create row when adding, a button otherwise.
   const renderAddField = () =>
     schemaEdit === "add" ? (
       <FieldDefForm
@@ -917,11 +858,8 @@ export default function ConfigDetailPage(): React.ReactElement {
       )
     );
 
-  // Composition mixins: configs layered on top of the `parent` spine. Candidates
-  // exclude self, the parent, current mixins, and this config's own descendants
-  // (which would close a cycle). Archived configs are hidden as candidates, but
-  // the descendant walk uses the archived-inclusive graph so a cycle through an
-  // archived intermediate is still excluded.
+  // Candidates exclude self, parent, current mixins, and descendants (cycle). The descendant
+  // walk uses the archived-inclusive graph so a cycle through an archived node is still excluded.
   const mixinKeys = displayedConfig.extends ?? [];
   const mixinDescendants = new Set(
     getConfigSubtree(config.key, allConfigsForGraph),
@@ -937,12 +875,7 @@ export default function ConfigDetailPage(): React.ReactElement {
     )
     .map((c) => ({ label: c.name, value: c.key }));
 
-  // The composition row sits at the top of the field table (above the rows and
-  // the "Add field" CTA): a "COMPOSES" label, the mixin configs (removable in a
-  // draft), and a "+ Add config mixin" affordance.
-  // Top-of-table row showing the `parent` this config extends. Mirrors the
-  // compose row but has no actions — the parent is fixed (set at creation), so
-  // there's nothing to remove here.
+  // The parent is fixed at creation, so this row has no actions.
   const renderExtendsRow = () => {
     if (!parentKey) return null;
     const name =
@@ -975,15 +908,11 @@ export default function ConfigDetailPage(): React.ReactElement {
             </Link>
           </Flex>
         </Box>
-        {/* No actions: the parent is locked in. */}
         <Box />
       </Grid>
     );
   };
 
-  // Top-of-table row listing the composition mixins, with a right-justified
-  // actions menu (matching the field rows). Only shown when mixins exist; the
-  // "+ Add config mixin" entry point lives at the bottom by "Add field".
   const renderComposeRow = () => {
     if (mixinKeys.length === 0) return null;
     return (
@@ -995,7 +924,6 @@ export default function ConfigDetailPage(): React.ReactElement {
         px="3"
         style={{ borderBottom: "1px solid var(--slate-a3)" }}
       >
-        {/* Key column: row label. */}
         <Box style={{ minWidth: 0 }}>
           <Flex align="center" style={{ minHeight: 32 }}>
             <Text
@@ -1009,7 +937,6 @@ export default function ConfigDetailPage(): React.ReactElement {
           </Flex>
         </Box>
 
-        {/* Spans the value/type/source columns: the mixin configs. */}
         <Box style={{ minWidth: 0, gridColumn: "span 3" }}>
           <Flex align="center" gap="3" wrap="wrap" style={{ minHeight: 32 }}>
             {mixinKeys.map((k) => {
@@ -1024,7 +951,6 @@ export default function ConfigDetailPage(): React.ReactElement {
           </Flex>
         </Box>
 
-        {/* Actions column: right-justified menu, matching the field rows. */}
         <Flex
           gap="2"
           align="center"
@@ -1064,7 +990,6 @@ export default function ConfigDetailPage(): React.ReactElement {
     );
   };
 
-  // Bottom-of-table entry point for adding a mixin, mirroring "Add field".
   const renderAddMixin = () => {
     if (!canEditInline) return null;
     return composeAdding ? (
@@ -1117,8 +1042,7 @@ export default function ConfigDetailPage(): React.ReactElement {
     );
   };
 
-  // An override = an inherited field re-valued by this config (not one of its
-  // own schema fields).
+  // An override is an inherited field re-valued here, not one of this config's own fields.
   const isOverrideField = (f: ResolvedField) =>
     f.source === config.key && !ownSchemaKeys.includes(f.key);
   const overrideCount = resolved.fields.filter(isOverrideField).length;
@@ -1137,8 +1061,7 @@ export default function ConfigDetailPage(): React.ReactElement {
       />
       <Box className="contents container-fluid pagecontents" mt="2">
         <Flex gap="6" align="start">
-          {/* Sidebar — the lineage family (Configs) and the features that
-              reference it (Features). */}
+          {/* Sidebar */}
           <Box
             style={{
               width: 220,
@@ -1185,8 +1108,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                     fieldCounts={data.fieldCounts}
                     namesByKey={data.configNames}
                     archivedByKey={data.archivedByKey}
-                    // Only the local/active draft is merged into the tree, so flag
-                    // just this node when a draft revision is in view.
+                    // Only this node's draft is merged into the tree, so flag only it.
                     draftKeys={isDraft ? { [config.key]: true } : undefined}
                   />
                 </Box>
@@ -1235,8 +1157,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                           fieldCounts={data.fieldCounts}
                           namesByKey={data.configNames}
                           archivedByKey={data.archivedByKey}
-                          // The mixin row in each composer tree is this config,
-                          // so flag it as a draft when a draft revision is in view.
+                          // This config is the mixin row in each composer tree; flag it as draft.
                           draftKeys={
                             isDraft ? { [config.key]: true } : undefined
                           }
@@ -1259,7 +1180,6 @@ export default function ConfigDetailPage(): React.ReactElement {
             </Tabs>
           </Box>
 
-          {/* Main */}
           <Box style={{ flex: 1, minWidth: 0 }}>
             <Flex align="start" justify="between" gap="2" mb="2">
               <Box style={{ marginTop: "-4px" }}>
@@ -1419,19 +1339,14 @@ export default function ConfigDetailPage(): React.ReactElement {
                   );
                 }}
               >
-                {/* Single tab bar with consistent meanings on every revision:
-                    Form/JSON show this config's own definition (editable only on
-                    a draft); Resolved is the read-only resolved value + effective
-                    schema after inheritance/constants. The right-hand controls
-                    live inside the (full-width) TabsList so its underline runs
-                    the whole width of the appbox and sits under them too. */}
+                {/* Right-hand controls live inside the full-width TabsList so its
+                    underline runs the whole width and sits under them too. */}
                 <Box pt="4" mb="4">
                   <TabsList style={{ width: "100%" }}>
                     <TabsTrigger value="form">Form</TabsTrigger>
                     <TabsTrigger value="json">JSON</TabsTrigger>
                     <TabsTrigger value="resolved">Resolved</TabsTrigger>
-                    {/* stopPropagation so the interactive controls don't feed
-                        the TabsList's arrow-key roving focus. */}
+                    {/* stopPropagation so these controls don't feed the TabsList's roving focus. */}
                     <Flex
                       align="center"
                       gap="5"
@@ -1444,7 +1359,6 @@ export default function ConfigDetailPage(): React.ReactElement {
                   </TabsList>
                 </Box>
 
-                {/* Form — per-field resolved values (override / reset). */}
                 <TabsContent value="form">
                   <Box>
                     {canEditInline && reconciliationPreview.length > 0 && (
@@ -1466,9 +1380,6 @@ export default function ConfigDetailPage(): React.ReactElement {
                       </Callout>
                     )}
                     <Box style={{ minWidth: 800 }}>
-                      {/* Column header — same grid template as the rows so it
-                      aligns. The 5th (actions) column holds the right-aligned
-                      "Show overrides" toggle. */}
                       <Grid
                         columns={FIELD_GRID_TEMPLATE}
                         gapX="5"
@@ -1479,9 +1390,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                         style={{
                           borderBottom: "1px solid var(--slate-a4)",
                           position: "sticky",
-                          // Pin just below the fixed 56px top nav (.topbar) — the
-                          // page scrolls the document, so top:0 would hide the
-                          // header behind the nav.
+                          // Pin below the fixed 56px top nav; the page scrolls the document.
                           top: 56,
                           zIndex: 2,
                           background: "var(--color-panel-solid)",
@@ -1520,9 +1429,6 @@ export default function ConfigDetailPage(): React.ReactElement {
                       {renderComposeRow()}
 
                       {resolved.fields.map((f) => {
-                        // Editing an own field replaces the row with the full editor
-                        // (definition + value); the value is seeded from the resolved
-                        // value, mirroring the inherited-field value editor.
                         if (schemaEdit === f.key) {
                           const isJson = isJsonField(f.field);
                           // JSON editors accept `null` as literal text, so only
@@ -1611,11 +1517,8 @@ export default function ConfigDetailPage(): React.ReactElement {
                   </Box>
                 </TabsContent>
 
-                {/* JSON (own value + schema; editable only on a draft) and
-                    Resolved (resolved value + effective schema, read-only) share
-                    ONE editor instance at a fixed tree position, so switching
-                    between them only flips the `view` prop — the component stays
-                    mounted and edit buffers survive. */}
+                {/* JSON and Resolved share ONE editor instance (only the `view` prop
+                    flips), so the component stays mounted and edit buffers survive. */}
                 {(activeTab === "json" || activeTab === "resolved") && (
                   <ConfigJsonEditor
                     valueJson={displayedConfig.value ?? "{}"}

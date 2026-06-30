@@ -44,17 +44,15 @@ async function setArchivedState(
     return buildResponse(context, config);
   }
 
-  // Block archiving a still-referenced config or one with live children (parity
-  // with the internal flow). Unarchiving is always allowed.
+  // Block archiving a still-referenced config or one with live children.
+  // Unarchiving is always allowed.
   if (archived) {
     await assertConfigArchivable(context, config);
   }
 
-  // Archiving/unarchiving is a metadata-only change. Respect the same approval
-  // gate as the dashboard flow and the REST update endpoint — otherwise these
-  // endpoints would bypass required (metadata) reviews. They take no body, so
-  // bypass is only via the org's `restApiBypassesReviews` setting or the
-  // caller's bypass permission.
+  // Metadata-only, but still respect the approval gate so it can't bypass
+  // required metadata reviews. No body, so bypass is only via the org's
+  // `restApiBypassesReviews` setting or the caller's bypass permission.
   const adapter = getAdapter("config");
   const patchOps = buildPatchOps({ archived });
   const approvalRequired = adapter.isApprovalRequiredForRevision
@@ -78,9 +76,8 @@ async function setArchivedState(
           } it through a draft, or use a role/token with the bypass permission.`,
       );
     }
-    // Record the already-merged revision FIRST, then apply it to the live
-    // entity. If the apply fails, delete the just-created revision so we never
-    // leave a merged record with no corresponding live change.
+    // Record the merged revision FIRST, then apply to the live entity; roll the
+    // revision back if the apply fails, so a merged record never lacks a live change.
     await ensureLiveRevisionExists(
       context,
       "config",

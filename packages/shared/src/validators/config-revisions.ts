@@ -39,8 +39,7 @@ const revisionParamsStrict = configKeyParams.extend({
   version: z.coerce.number().int(),
 });
 
-// Optional metadata applied when an endpoint auto-creates a draft via
-// `version: "new"`. Ignored when editing an existing revision.
+// Applied only when an endpoint auto-creates a draft via `version: "new"`.
 const newDraftMetadataFields = {
   revisionTitle: z.string().optional(),
   revisionComment: z.string().optional(),
@@ -95,8 +94,7 @@ const apiActivityLogEntryValidator = namedSchema(
     .strict(),
 );
 
-// API-facing revision projection. Hides the raw `target` shape used internally
-// and surfaces the config view directly (mirrors constant revisions).
+// Hides the raw internal `target` shape, surfacing the config view directly.
 export const apiConfigRevisionValidator = namedSchema(
   "ConfigRevision",
   z
@@ -123,8 +121,7 @@ export const apiConfigRevisionValidator = namedSchema(
       dateUpdated: z.string().meta({ format: "date-time" }),
       // Snapshot of the config at the time the revision was created.
       baseConfig: apiConfigValidator,
-      // The config with this revision's proposed changes applied — what it would
-      // look like if merged against its current snapshot.
+      // The config with this revision's changes applied, against its current snapshot.
       proposedConfig: apiConfigValidator,
       // Raw JSON Patch ops (RFC 6902); escape hatch for inspecting deltas.
       proposedChanges: z.array(jsonPatchOperationValidator),

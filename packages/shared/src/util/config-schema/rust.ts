@@ -15,17 +15,12 @@ import {
   SchemaWarning,
 } from "./types";
 
-// Rust (serde) structs <-> SchemaField[], a thin layer over the JSON Schema
-// pivot — same strategy as the Go converter. Best-effort parser for the common
-// subset found in config-shaped structs: scalar fields, `Vec<T>`, `Option<T>`
-// (optional/nullable), `HashMap<K,V>`/`BTreeMap<K,V>`, and nested struct
-// references. Anything outside that (enums, traits, tuples, generics) degrades
-// to a permissive type rather than failing.
+// Rust (serde) structs <-> SchemaField[] over the JSON Schema pivot. Best-effort:
+// handles scalars, `Vec<T>`, `Option<T>`, `HashMap`/`BTreeMap`, and nested structs;
+// anything else degrades to a permissive type.
 //
-// Conventions: a field is required unless it's an `Option<...>`. A serde
-// `#[serde(rename = "key")]` attribute on the preceding line supplies the json
-// key (falling back to the field name). `enum` bodies aren't modeled yet, so an
-// enum reference degrades to `string`.
+// A field is optional if it's `Option<...>`. A preceding `#[serde(rename = "key")]`
+// supplies the json key. `enum` bodies aren't modeled, so enums degrade to `string`.
 
 const MAX_NEST_DEPTH = 6;
 
@@ -66,14 +61,12 @@ function collectStructs(text: string): RustStruct[] {
 }
 
 type ParsedRustField = {
-  type: string; // raw type token, e.g. `Option<Foo>`, `Vec<String>`
-  key: string; // json key (from serde rename, else field name)
-  optional: boolean; // `Option<...>`
+  type: string;
+  key: string;
+  optional: boolean;
 };
 
-// Lines inside a struct body. Strips `#[...]` attributes and `//` comments, but
-// a preceding `#[serde(rename = "KEY")]` supplies the json key for the next
-// field line. Nested anonymous braces aren't modeled, so brace lines are skipped.
+// A preceding `#[serde(rename = "KEY")]` supplies the json key for the next field.
 function rustFieldLines(body: string): ParsedRustField[] {
   const out: ParsedRustField[] = [];
   let pendingRename: string | null = null;
@@ -97,8 +90,6 @@ function rustFieldLines(body: string): ParsedRustField[] {
   return out;
 }
 
-// `[pub ]name: Type,` — a single field line. `rename` (from a preceding serde
-// attribute) overrides the field name as the json key.
 function parseRustField(
   line: string,
   rename: string | null,
@@ -111,7 +102,6 @@ function parseRustField(
   return { type: rawType, key: rename ?? fieldName, optional };
 }
 
-// Strip a single `Option<...>` wrapper, returning the inner type.
 function unwrapOption(token: string): string {
   const m = token.match(/^Option\s*<(.+)>$/);
   return m ? m[1].trim() : token;
@@ -231,7 +221,6 @@ function structBodyToNode(
   return schema;
 }
 
-// Names referenced by a struct's field types (for DAG root selection).
 function referencesIn(
   decl: RustStruct,
   byName: Map<string, RustStruct>,
@@ -257,8 +246,7 @@ function selectRoot(
   return structs.find((d) => !referenced.has(d.name)) ?? structs[0] ?? null;
 }
 
-// JSON-Pointer path -> the Rust struct name declared there (for round-trip
-// render). A `Vec<StructRef>` field records under `…/items`.
+// JSON-Pointer path -> the Rust struct name declared there, for round-trip render.
 function captureStructNames(
   body: string,
   byName: Map<string, RustStruct>,
@@ -340,11 +328,8 @@ export function rustToFields(text: string): SchemaConversionResult {
   };
 }
 
-// =========================================================================
-// Export: SchemaField[] -> Rust structs. Inverse of the import; lossy where
-// Rust is more rigid than JSON Schema (enums become a documented `String`;
-// nested objects become generated nested structs).
-// =========================================================================
+// Export: SchemaField[] -> Rust structs. Lossy where Rust is more rigid than JSON
+// Schema (enums become a documented `String`; nested objects become structs).
 
 type RustRenderCtx = {
   pointer: string;
@@ -360,7 +345,6 @@ function childCtx(ctx: RustRenderCtx, seg: string): RustRenderCtx {
   };
 }
 
-// A valid snake_case Rust identifier derived from a json key.
 function snakeCaseIdent(key: string): string {
   const ident = key
     .toLowerCase()
@@ -369,8 +353,6 @@ function snakeCaseIdent(key: string): string {
   return ident || "field";
 }
 
-// The Rust type for a node, generating nested structs into `nested`. Returns the
-// type token + an optional trailing comment (e.g. enum values).
 function rustTypeFor(
   node: Record<string, unknown>,
   key: string,

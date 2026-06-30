@@ -42,16 +42,13 @@ export const getConfigSchema = createApiRequestHandler(
   let additionalProperties: boolean;
 
   if (effective) {
-    // Linearize the full base DAG (parent + every `extends` mixin) base → leaf,
-    // then resolve to accumulate the family's effective schema (first-seen key
-    // wins, "base wins"). Lineage can span projects the caller can't read, so use
-    // the unfiltered set (read access to the target itself was gated above).
+    // Resolve the base DAG (parent + `extends` mixins) base → leaf, "base wins".
+    // Uses the unfiltered set since lineage can span projects the caller can't
+    // read (read access to the target itself was gated above).
     //
-    // NOTE (intentional disclosure): the effective schema can include field
-    // definitions inherited from ancestor configs in projects the caller can't
-    // independently read. This is by design — the effective schema is incomplete
-    // without ancestors — but it does surface ancestor-declared field shapes
-    // (not values) across project boundaries.
+    // Intentional disclosure: the effective schema surfaces ancestor-declared
+    // field shapes (not values) across project boundaries — it's incomplete
+    // without them.
     const all = await req.context.models.configs.getAllForReconcile();
     const byKey = new Map(all.map((c) => [c.key, c]));
     byKey.set(config.key, config);
@@ -69,14 +66,12 @@ export const getConfigSchema = createApiRequestHandler(
     additionalProperties = config.schema?.additionalProperties ?? false;
   }
 
-  // A captured per-source projection reproduces that consumer's named types.
   const projection = req.query.source
     ? config.renderProjections?.[req.query.source]
     : undefined;
 
-  // Typed-code render formats share the same `(fields, opts)` signature; a
-  // projection reproduces that consumer's named types. JSON Schema is separate
-  // (it returns a native object, not a source string).
+  // Typed-code formats share a `(fields, opts)` signature; JSON Schema is
+  // separate (it returns a native object, not a source string).
   const codeRenderers = {
     typescript: fieldsToTsType,
     protobuf: fieldsToProto,

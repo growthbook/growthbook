@@ -19,15 +19,12 @@ export const getConfigLineage = createApiRequestHandler(
     throw new NotFoundError("Could not find config with that key");
   }
 
-  // Lineage spans projects (an ancestor/descendant may live in a project the
-  // caller can't read), so build the family from the unfiltered set. Read access
-  // is gated above by `getByKey`, which respects per-config read permissions.
+  // Build the family from the unfiltered set since lineage can span projects the
+  // caller can't read (read access to the target was gated above by `getByKey`).
   //
-  // NOTE (intentional disclosure): once a caller can read the target config, the
-  // returned tree includes the keys/names/field-counts of cross-project lineage
-  // members they may not independently have read access to. This is by design —
-  // lineage is meaningless without the full family — but it does surface metadata
-  // (not values) of related configs across project boundaries.
+  // Intentional disclosure: the tree surfaces keys/names/field-counts (not
+  // values) of cross-project lineage members — lineage is meaningless without
+  // the full family.
   const all = await req.context.models.configs.getAllForReconcile();
   const byKey = new Map(all.map((c) => [c.key, c]));
 
@@ -52,9 +49,7 @@ export const getConfigLineage = createApiRequestHandler(
     return [...incompatible];
   };
 
-  // Walk up the `parent` spine to the root, collecting the ancestor chain
-  // (root-first). The tree shape follows `parent`; mixins are carried per-node
-  // in `extends`.
+  // Walk up the `parent` spine to the root, ancestors root-first.
   const ancestors: string[] = [];
   const seen = new Set<string>([config.key]);
   let parentKey = getConfigParentKey(config);
@@ -65,14 +60,11 @@ export const getConfigLineage = createApiRequestHandler(
   }
   const root = ancestors.length ? ancestors[0] : config.key;
 
-  // The whole family is the spine root plus its `parent`-spine subtree (the tree
-  // shape follows `parent`; mixins are carried per-node in `extends`, not as
-  // separate branches, so descent must not pull in cross-family composers).
-  // BFS, root-first.
+  // Family = the spine root plus its `parent`-spine subtree. Descent follows
+  // `parent` only; mixins (`extends`) must not pull in cross-family composers.
   const familyKeys = getConfigSpineSubtree(root, all);
 
-  // Depth from the root along the `parent` spine. BFS order guarantees a parent
-  // precedes its children.
+  // BFS order guarantees a parent precedes its children.
   const depth = new Map<string, number>();
   const nodes = familyKeys.flatMap((key) => {
     const c = byKey.get(key);

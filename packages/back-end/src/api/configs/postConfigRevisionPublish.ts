@@ -35,9 +35,8 @@ export const postConfigRevisionPublish = createApiRequestHandler(
 
   const adapter = getAdapter("config");
 
-  // Re-check edit permission against the LIVE entity (a `project` move in the
-  // proposed changes shouldn't launder write access) before leaking any
-  // revision state.
+  // Re-check edit permission against the LIVE entity (a proposed `project` move
+  // shouldn't launder write access) before leaking any revision state.
   if (!adapter.canUpdate(req.context, config as Record<string, unknown>)) {
     req.context.permissions.throwPermissionError();
   }
@@ -67,8 +66,8 @@ export const postConfigRevisionPublish = createApiRequestHandler(
 
   const isBypass = approvalRequired && revision.status !== "approved";
 
-  // Layer proposed changes on top of LIVE (not the snapshot) so out-of-band
-  // writes to fields the revision didn't touch are preserved.
+  // Layer proposed changes on LIVE (not the snapshot) so out-of-band writes to
+  // untouched fields are preserved.
   const desiredState = buildMergeDesiredState(
     config as unknown as Record<string, unknown>,
     revision.target.snapshot as Record<string, unknown>,
@@ -103,12 +102,9 @@ export const postConfigRevisionPublish = createApiRequestHandler(
 
   const updatableFields = adapter.getUpdatableFields();
 
-  // Same-base governance: when the org enforces rebase-before-publish, a stale
-  // (diverged) revision must be rebased first. Note `mergeNow` has no observable
-  // effect here: a non-bypass caller is always blocked when diverged (forceMerge
-  // requires `canBypass`), and a bypass caller always passes the `!canBypass`
-  // gate anyway — so bypass callers publish whether `mergeNow` is true or false.
-  // It's retained only as an explicit intent signal / forward-compat affordance.
+  // When the org enforces rebase-before-publish, a diverged revision must rebase
+  // first. `mergeNow` has no observable effect (non-bypass callers are always
+  // blocked when diverged; bypass callers always pass) — kept as an intent signal.
   if (req.organization.settings?.requireRebaseBeforePublish) {
     const forceMerge = !!req.body.mergeNow && canBypass;
     if (!forceMerge) {
@@ -134,9 +130,8 @@ export const postConfigRevisionPublish = createApiRequestHandler(
     );
   });
 
-  // No diff vs live: a genuine no-op publish, or a recovery retry after a
-  // partial failure. Either way, just merge the revision so a stranded draft
-  // self-heals.
+  // No diff vs live (no-op publish or recovery retry): just merge so a stranded
+  // draft self-heals.
   if (!hasChanges) {
     const merged = await req.context.models.revisions.merge(
       revision.id,
@@ -149,9 +144,8 @@ export const postConfigRevisionPublish = createApiRequestHandler(
     return { revision: await toApiConfigRevision(merged, req.context) };
   }
 
-  // Publish-time safety net (org-configurable strictness): the post-publish
-  // value must still conform to its effective schema (catches ancestor-schema
-  // changes and skip-flag stages).
+  // Publish-time safety net: the post-publish value must still conform to its
+  // effective schema (catches ancestor-schema changes and skip-flag stages).
   const postValue = (desiredState.value as string | undefined) ?? config.value;
   await assertConfigValueValidForPublish(
     req.context,

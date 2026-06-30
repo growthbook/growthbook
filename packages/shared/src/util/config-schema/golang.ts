@@ -15,17 +15,12 @@ import {
   SchemaWarning,
 } from "./types";
 
-// Go structs <-> SchemaField[], a thin layer over the JSON Schema pivot — same
-// strategy as the Protobuf converter. Best-effort parser for the common subset
-// found in config-shaped structs: scalar fields, `[]T` slices, `*T` pointers
-// (optional/nullable), `map[K]V`, and nested struct references. Anything outside
-// that (interfaces, channels, embedded structs, generics) degrades to a
-// permissive type WITH a warning rather than failing.
+// Go structs <-> SchemaField[] over the JSON Schema pivot. Best-effort: handles
+// scalars, `[]T`, `*T`, `map[K]V`, and nested structs; anything else degrades to
+// a permissive type with a warning.
 //
-// Conventions: a field is required unless it's a pointer (`*T`) or its json tag
-// carries `,omitempty`. The json tag supplies the key (falling back to the field
-// name); a `json:"-"` field is skipped. Go has no enum type, so an enum renders
-// as `string` with a documenting comment.
+// A field is optional if it's a pointer (`*T`) or its json tag has `,omitempty`.
+// Go has no enum type, so enums render as `string` with a documenting comment.
 
 const MAX_NEST_DEPTH = 6;
 
@@ -62,12 +57,11 @@ function collectStructs(text: string): GoStruct[] {
 }
 
 type ParsedGoField = {
-  type: string; // raw type token, e.g. `*Foo`, `[]string`, `map[string]int`
-  key: string; // json key (from tag, else field name)
-  optional: boolean; // pointer or `,omitempty`
+  type: string;
+  key: string;
+  optional: boolean;
 };
 
-// `Name Type` optionally followed by a backtick struct tag, one per line.
 function parseGoField(line: string): ParsedGoField | null {
   const m = line.match(/^([A-Za-z_]\w*)\s+([^\s`]+)(?:\s+`([^`]*)`)?$/);
   if (!m) return null;
@@ -88,7 +82,7 @@ function goFieldLines(body: string): string[] {
       .split("\n")
       .map((l) => l.trim())
       .filter(Boolean)
-      // Skip nested anonymous-struct braces and embedded-struct lines we can't model.
+      // Skip anonymous-struct braces and embedded-struct lines we can't model.
       .filter((l) => !l.includes("{") && !l.includes("}"))
   );
 }
@@ -207,8 +201,7 @@ function structBodyToNode(
   return schema;
 }
 
-// Strip every leading `*`, `[]`, and `map[...]` wrapper to the base type name,
-// in any order/combination (e.g. `[]*Foo`, `*[]Foo`, `map[string]*Foo` → `Foo`).
+// Strip every leading `*`, `[]`, and `map[...]` wrapper to the base type name.
 function goBaseType(token: string): string {
   let prev: string;
   let t = token;
@@ -243,7 +236,7 @@ function selectRoot(
   return structs.find((d) => !referenced.has(d.name)) ?? structs[0] ?? null;
 }
 
-// JSON-Pointer path -> the Go struct name declared there (for round-trip render).
+// JSON-Pointer path -> the Go struct name declared there, for round-trip render.
 function captureStructNames(
   body: string,
   byName: Map<string, GoStruct>,
@@ -325,11 +318,8 @@ export function golangToFields(text: string): SchemaConversionResult {
   };
 }
 
-// =========================================================================
-// Export: SchemaField[] -> Go structs. Inverse of the import; lossy where Go is
-// more rigid than JSON Schema (enums become a documented `string`; nested
-// objects become generated nested structs).
-// =========================================================================
+// Export: SchemaField[] -> Go structs. Lossy where Go is more rigid than JSON
+// Schema (enums become a documented `string`; nested objects become structs).
 
 type GoRenderCtx = {
   pointer: string;
@@ -345,8 +335,6 @@ function childCtx(ctx: GoRenderCtx, seg: string): GoRenderCtx {
   };
 }
 
-// The Go type for a node, generating nested structs into `nested`. Returns the
-// type token + an optional trailing comment (e.g. enum values).
 function goTypeFor(
   node: Record<string, unknown>,
   key: string,
@@ -434,7 +422,7 @@ function renderField(
     token = `[]${token}`;
   } else {
     ({ token, comment } = goTypeFor(node, key, nested, depth, ctx));
-    // Optional/nullable scalars & structs become pointers so absence is nil.
+    // Optional/nullable become pointers so absence is nil.
     if ((isNullable || !required) && !token.startsWith("map[")) {
       token = `*${token}`;
     }

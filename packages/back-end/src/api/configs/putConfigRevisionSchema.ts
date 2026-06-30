@@ -54,9 +54,8 @@ export const putConfigRevisionSchema = createApiRequestHandler(
       );
     }
 
-    // The schema is resolved against the draft's own (possibly staged) value and
-    // parent, so an `infer` import and "base wins" normalization both reflect
-    // what the revision will publish.
+    // Resolve against the draft's own staged value/parent so `infer` and "base
+    // wins" reflect what the revision will publish.
     const draft = applyRevisionToSnapshot(revision);
 
     const { schema, warnings } = resolveConfigSchemaSource({
