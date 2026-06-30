@@ -172,7 +172,9 @@ export default function VariationChooserColumnLabel({
   if (singleSelected && !isHoldout) {
     const selectedVariation = filteredVariations[0];
     triggerContent = (
-      <Box style={{ maxWidth: labelMaxWidth + 20, minWidth: 0 }}>
+      <Box
+        style={{ maxWidth: labelMaxWidth + 20, minWidth: 0, marginLeft: -4 }}
+      >
         <VariationLabel
           number={selectedVariation.index}
           name={selectedVariation.name}

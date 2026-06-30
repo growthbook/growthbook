@@ -186,7 +186,13 @@ export default function BaselineChooserColumnLabel({
               Holdout
             </OverflowText>
           ) : (
-            <Box style={{ maxWidth: labelMaxWidth + 20, minWidth: 0 }}>
+            <Box
+              style={{
+                maxWidth: labelMaxWidth + 20,
+                minWidth: 0,
+                marginLeft: -4,
+              }}
+            >
               <VariationLabel
                 number={baselineVariation.index}
                 name={baselineVariation.name}

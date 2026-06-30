@@ -89,7 +89,7 @@ export default function RunningExperimentDecisionBanner({
               <Box>
                 <Flex direction="row" align="center">
                   {decisionContent}
-                  <Flex direction="row" gap="1" ml="2">
+                  <Flex direction="row" align="center" gap="1" ml="2">
                     {decidedVariations.map((v, i) => (
                       <>
                         <Box key={v.id}>{variationNames[v.id]}</Box>
