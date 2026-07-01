@@ -206,6 +206,7 @@ export function VariationBox({
   i,
   v,
   experiment,
+  showDescription = true,
   showIds,
   showNoImage = true,
   height = 200,
@@ -225,6 +226,7 @@ export function VariationBox({
   i: number;
   v: Variation;
   experiment: ExperimentInterfaceStringDates;
+  showDescription?: boolean;
   showIds?: boolean;
   showNoImage?: boolean;
   height?: number;
@@ -330,7 +332,9 @@ export function VariationBox({
           </Box>
         )}
         <Box mt="2">
-          {v.description ? <Box mb="2">{v.description}</Box> : null}
+          {showDescription && v.description ? (
+            <Box mb="2">{v.description}</Box>
+          ) : null}
           {showIds ? <code className="small">ID: {v.key}</code> : null}
           <Flex align="center" justify="between">
             <Box>

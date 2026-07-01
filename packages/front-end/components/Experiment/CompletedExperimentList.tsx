@@ -215,6 +215,7 @@ const CompletedExperimentList = ({
                       i={variantImageToShow || 0}
                       v={variations[variantImageToShow || 0]}
                       experiment={e}
+                      showDescription={false}
                       showIds={false}
                       height={maxImageHeight}
                       canEdit={false}
