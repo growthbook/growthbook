@@ -113,6 +113,8 @@ export default function Implementation({
     experiment.status !== "running" ||
     !experimentHasLiveLinkedChanges(experiment, linkedFeatures);
 
+  // Temporary check while we test the new traffic funnel
+  // TODO: Remove this once we're to support holdouts in the new traffic funnel UI.
   const showTrafficFunnel = !isHoldout && simpleExperimentFlow;
   const canEditHoldoutDefaultState =
     isHoldout &&
