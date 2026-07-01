@@ -192,6 +192,11 @@ const RAIL = 6;
 const COLS = [30, 150, 84, 84, 74, "flex" as const, 82];
 const VIOLIN_DOMAIN: [number, number] = [-20, 20];
 const CI_DOMAIN: [number, number] = [-10, 10];
+// The interval chart (violin / CI pill) spans this width; the flex interval
+// column is wider than the chart, so extra room sits to its right. Extra left
+// padding separates it from the Chance column.
+const INTERVAL_W = 320;
+const INTERVAL_PAD_LEFT = 28;
 
 // ---------------------------------------------------------------------------
 // Data model (mirrors the prototype's EXPS shape).
@@ -513,7 +518,9 @@ function gridRow(
           display: "flex",
           alignItems: "center",
           justifyContent: align,
-          ...(w === "flex" ? { flexGrow: 1 } : { width: w }),
+          ...(w === "flex"
+            ? { flexGrow: 1, paddingLeft: INTERVAL_PAD_LEFT }
+            : { width: w }),
         },
         cells[i] ? [cells[i]] : [],
       );
@@ -528,7 +535,7 @@ function colHeader(goalLabel: string): El {
     "Control",
     "Variation",
     "Chance",
-    "Interval",
+    "",
     "Change",
   ];
   return el(
@@ -573,15 +580,15 @@ function goalRowEl(r: CardGoalRow): El {
     [
       r.vio
         ? svgImg(
-            violinSvg(190, 40, VIOLIN_DOMAIN, r.vio, { ci: r.ci }),
-            190,
+            violinSvg(INTERVAL_W, 40, VIOLIN_DOMAIN, r.vio, { ci: r.ci }),
+            INTERVAL_W,
             40,
           )
         : null,
       // Axis labels (moved out of the SVG so resvg needs no fonts).
       el(
         "div",
-        { display: "flex", justifyContent: "space-between", width: 190 },
+        { display: "flex", justifyContent: "space-between", width: INTERVAL_W },
         [
           txt(
             fmtPct(VIOLIN_DOMAIN[0]),
@@ -602,7 +609,7 @@ function goalRowEl(r: CardGoalRow): El {
             {
               fontSize: 9.5,
               color: P.subtle,
-              width: 190,
+              width: INTERVAL_W,
               justifyContent: "center",
             },
             true,
@@ -649,7 +656,11 @@ function ciRowEl(m: CardCiMetric, color: string): El {
       txt(m.vr, { fontSize: 13, fontWeight: 500, color: P.text }, true),
       txt(m.sig ? "sig" : "ns", { fontSize: 11, color: P.subtle }, true),
       el("div", { display: "flex", flexGrow: 1 }, [
-        svgImg(ciPillSvg(190, 32, CI_DOMAIN, m.ci, color), 190, 32),
+        svgImg(
+          ciPillSvg(INTERVAL_W, 32, CI_DOMAIN, m.ci, color),
+          INTERVAL_W,
+          32,
+        ),
       ]),
       m.chg && m.dir
         ? pctCell(m.chg, m.dir, 13)
