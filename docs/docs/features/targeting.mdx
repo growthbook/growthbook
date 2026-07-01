@@ -67,13 +67,11 @@ GrowthBook supports the following attribute data types:
 | **Array of Numbers**        | List of numeric values                                 | `[1, 2, 3, 5, 8]`                  |
 | **Array of Secure Strings** | Multiple hashed string values for secure targeting     | `["user123", "user456"]`           |
 
-#### Constrained Lists ("EnumList")
+#### Constrained List Attributes
 
-Array attributes (**Array of Strings**, **Array of Numbers**, **Array of Secure Strings**) can optionally be restricted to a fixed set of allowed values. When creating or editing an array attribute under **SDK Configurations → Attributes**, fill in the **Allowed Values** field with a comma-separated list.
+Array attributes (**Array of Strings**, **Array of Numbers**, **Array of Secure Strings**) can optionally be restricted to a fixed set of allowed values. When creating or editing an array attribute under **SDK Configurations → Attributes**, fill in the **Allowed Values** field with a comma-separated list — a user can still hold multiple values at once (e.g. `["admin", "editor"]`), but each must be one of the allowed values.
 
-Once restricted, targeting conditions on that attribute use a typeahead multi-select that only accepts the allowed values (no free-form entry), and offer the `includes any of` / `includes none of` operators. Leave **Allowed Values** blank to keep the list unrestricted.
-
-This combines a list-valued attribute (a user can carry multiple values at once, e.g. `["admin", "editor"]`) with enum-style validation — the "EnumList" pattern.
+Once restricted, targeting conditions on that attribute use a typeahead multi-select that only accepts the allowed values (no free-form entry) and offer the `includes any of` / `includes none of` operators. Leave **Allowed Values** blank to keep the list unrestricted.
 
 #### Changing an Attribute's Data Type
 

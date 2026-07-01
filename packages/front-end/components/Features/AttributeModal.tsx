@@ -80,7 +80,7 @@ export default function AttributeModal({ close, attribute }: Props) {
   const datatypeChanged = !!attribute && datatype !== current?.datatype;
 
   const isArrayDatatype = datatype.endsWith("[]");
-  // Enum options constrain both scalar enums and list ("EnumList") attributes.
+  // Enum options constrain both scalar enums and array (list) attributes.
   const supportsEnumOptions = datatype === "enum" || isArrayDatatype;
 
   const hashAttributeDataTypes: SDKAttributeType[] = [
@@ -89,7 +89,7 @@ export default function AttributeModal({ close, attribute }: Props) {
     "secureString",
   ];
 
-  // Constraining an in-use attribute (converting to enum/enum-list, or tightening
+  // Constraining an in-use attribute (converting to enum or a restricted list, or tightening
   // its allowed values) restricts how existing conditions can be edited, so surface
   // where it's referenced as a heads-up. Fires on both datatype and enum-value edits.
   const isConstrainedType =
