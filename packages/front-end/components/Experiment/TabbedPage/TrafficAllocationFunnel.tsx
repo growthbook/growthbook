@@ -4,7 +4,7 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { calculateNamespaceCoverage } from "shared/util";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
-import { PiCaretDownBold, PiPencilSimple, PiPlus } from "react-icons/pi";
+import { PiCaretDownBold, PiPencilSimpleFill, PiPlus } from "react-icons/pi";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import { AttributeBadge } from "@/components/Features/AttributeBadge";
 import { getHoldoutTrafficBreakdown } from "@/services/utils";
@@ -80,7 +80,7 @@ function FunnelCard({
             size="1"
             aria-label={`Edit ${title}`}
           >
-            <PiPencilSimple size="15" />
+            <PiPencilSimpleFill size="15" />
           </IconButton>
         ) : null}
       </Flex>
