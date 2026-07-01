@@ -61,6 +61,7 @@ export class GrowthBookClient<
   private _payload: FeatureApiResponse | undefined;
   private _decryptedPayload: FeatureApiResponse | undefined;
   private _destroyed?: boolean;
+  private _initTimeout?: number;
 
   constructor(options?: ClientOptions) {
     options = options || {};
@@ -123,6 +124,9 @@ export class GrowthBookClient<
 
   public async init(options?: InitOptions): Promise<InitResponse> {
     options = options || {};
+
+    // Remember the timeout so later refreshFeatures() calls can fall back to it
+    this._initTimeout = options.timeout;
 
     if (options.cacheSettings) {
       configureCache(options.cacheSettings);
@@ -194,7 +198,7 @@ export class GrowthBookClient<
     // Trigger refresh in feature repository
     return refreshFeatures({
       instance: this,
-      timeout,
+      timeout: timeout ?? this._initTimeout,
       skipCache: skipCache || this._options.disableCache,
       allowStale,
       backgroundSync: streaming ?? true,
