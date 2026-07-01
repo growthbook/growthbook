@@ -1,5 +1,5 @@
 import { FC, ReactElement, useMemo, useState, useEffect, useRef } from "react";
-import { Flex, IconButton, Text } from "@radix-ui/themes";
+import { Box, Flex, IconButton, Text } from "@radix-ui/themes";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
@@ -666,7 +666,7 @@ export function getRenderLabelColumn({
     // Render non-slice metric
     return (
       <>
-        <div>
+        <Box pl="4">
           <span
             className="ml-2"
             style={
@@ -774,7 +774,7 @@ export function getRenderLabelColumn({
               </Text>
             </span>
           </span>
-        </div>
+        </Box>
       </>
     );
   };
