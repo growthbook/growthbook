@@ -16,6 +16,7 @@ import {
   reconcileConfigDescendants,
   assertConfigDescendantsReconcilable,
 } from "back-end/src/services/configReconcile";
+import { assertConfigInvariantsValid } from "back-end/src/services/configValidation";
 
 // Mirrors constant.adapter.ts (see it for rationale); only model + permissions differ.
 const SNAPSHOT_ALLOWED_KEYS = Object.keys(configValidator.shape) as Array<
@@ -200,6 +201,27 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
         ...filteredChanges,
       } as ConfigInterface);
     }
+
+    // Enforce cross-field invariants here — the chokepoint every publish path
+    // (direct, scheduled, autopublish-on-approval) flows through — against the
+    // revision's proposed (draft) state.
+    await assertConfigInvariantsValid(
+      context,
+      {
+        key: entity.key,
+        name: entity.name,
+        value: (filteredChanges.value as string | undefined) ?? entity.value,
+        schema:
+          (filteredChanges.schema as ConfigInterface["schema"]) ??
+          entity.schema,
+        parent: (filteredChanges.parent as string | undefined) ?? entity.parent,
+        extends:
+          "extends" in filteredChanges
+            ? (filteredChanges.extends as string[] | undefined)
+            : entity.extends,
+      },
+      (filteredChanges.value as string | undefined) ?? entity.value,
+    );
 
     await context.models.configs.update(
       entity,

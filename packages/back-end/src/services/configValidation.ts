@@ -226,3 +226,26 @@ export async function assertConfigValueValidForPublish(
   }
   throw new BadRequestError(errors.join("; "));
 }
+
+// Cross-field invariants, enforced from the revision adapter's applyChanges so
+// EVERY publish path (direct, scheduled publish, autopublish-on-approval) runs
+// them against the revision's *proposed* (draft) resolved value — not the live
+// one. Honors the same block-vs-warn + skip settings as the schema check.
+export async function assertConfigInvariantsValid(
+  context: Context,
+  leaf: ConfigLeaf,
+  rawValue: string | undefined,
+): Promise<void> {
+  if (context.skipSchemaValidation) return;
+  const errors = await collectInvariantViolations(context, leaf, rawValue);
+  if (!errors.length) return;
+  if (context.org.settings?.blockPublishOnSchemaError === false) {
+    if (context.ignoreWarnings) return;
+    throw new SoftWarningError(
+      "Publishing config value(s) that violate a validation rule:\n" +
+        errors.join("\n"),
+      errors,
+    );
+  }
+  throw new BadRequestError(errors.join("; "));
+}
