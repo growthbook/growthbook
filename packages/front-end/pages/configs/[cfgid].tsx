@@ -975,17 +975,29 @@ export default function ConfigDetailPage(): React.ReactElement {
     const v = ownValue();
     const hadOverride = key in v;
     delete v[key];
-    await saveSchema(
-      ownSchema().fields.filter((f) => f.key !== key),
-      hadOverride ? v : undefined,
-    );
+    setEditError(null);
+    try {
+      await saveSchema(
+        ownSchema().fields.filter((f) => f.key !== key),
+        hadOverride ? v : undefined,
+      );
+    } catch (e) {
+      setEditError(e instanceof Error ? e.message : "Failed to remove field");
+    }
   };
 
   // Removes only this config's override (reverts to inherited); the parent's definition is untouched.
   const removeOverride = async (key: string) => {
     const v = ownValue();
     delete v[key];
-    await saveValue(v);
+    setEditError(null);
+    try {
+      await saveValue(v);
+    } catch (e) {
+      setEditError(
+        e instanceof Error ? e.message : "Failed to remove override",
+      );
+    }
   };
 
   const renderAddField = () =>

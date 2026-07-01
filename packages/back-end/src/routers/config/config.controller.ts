@@ -55,6 +55,7 @@ import {
   assertConfigValueValid,
   assertConfigValueValidForPublish,
 } from "back-end/src/services/configValidation";
+import { runValidateConfigHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
 import {
   assertConfigNotLocked,
   resolveConfigLockTarget,
@@ -393,6 +394,38 @@ export const postConfig = async (
       body.schema,
     );
 
+  // Validate the value against its schema (incl. cross-field invariants) and run
+  // customer validateConfig hooks — same as the REST create path, so a config
+  // saved from the UI can't persist a value that violates its own schema.
+  const storedValue = stripConfigExtends(body.value);
+  await assertConfigValueValid(
+    context,
+    {
+      key: body.key,
+      name: body.name,
+      value: storedValue,
+      schema: normalizedSchema,
+      parent: parent || undefined,
+      extends: extendsKeys,
+      extensible: body.extensible,
+    },
+    { value: storedValue },
+  );
+  await runValidateConfigHooks({
+    context,
+    config: {
+      key: body.key,
+      name: body.name,
+      project: body.project || "",
+      value: storedValue,
+      schema: normalizedSchema,
+      parent: parent || undefined,
+      extends: extendsKeys,
+      extensible: body.extensible,
+    },
+    original: null,
+  });
+
   // Permission is enforced by the model's canCreate.
   const config = await context.models.configs.create({
     key: body.key,
@@ -400,7 +433,7 @@ export const postConfig = async (
     owner: body.owner || context.userId,
     parent: parent || undefined,
     extends: extendsKeys,
-    value: stripConfigExtends(body.value),
+    value: storedValue,
     description: body.description,
     project: body.project,
     schema: normalizedSchema,

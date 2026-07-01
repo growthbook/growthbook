@@ -327,6 +327,12 @@ describe("format converters (mongo canonical, CEL/JSONLogic at the boundary)", (
     );
   });
 
+  it("celToMongo: rejects a malformed number instead of storing null", () => {
+    expect(() => celToMongo("replicas == 1.2.3")).toThrow(/number/i);
+    // a valid number still parses
+    expect(celToMongo("replicas == 3")).toEqual({ replicas: { $eq: 3 } });
+  });
+
   it("jsonLogicToMongo: JSONLogic → mongo", () => {
     expect(
       jsonLogicToMongo({

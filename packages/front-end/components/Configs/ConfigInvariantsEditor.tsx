@@ -15,6 +15,7 @@ import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
+import Callout from "@/ui/Callout";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
@@ -347,6 +348,8 @@ export default function ConfigInvariantsEditor({
   const [groupB, setGroupB] = useState<Group>([
     newCondition(fieldKeys[0] ?? ""),
   ]);
+  // Surfaced for row-level actions (delete); the add/edit modal shows its own errors.
+  const [listError, setListError] = useState<string | null>(null);
 
   const currentRule = advanced
     ? safeParse(ruleText)
@@ -462,7 +465,12 @@ export default function ConfigInvariantsEditor({
   };
 
   const remove = async (index: number) => {
-    await onChange(invariants.filter((_, i) => i !== index));
+    setListError(null);
+    try {
+      await onChange(invariants.filter((_, i) => i !== index));
+    } catch (e) {
+      setListError(e instanceof Error ? e.message : "Failed to delete rule");
+    }
   };
 
   // Live pass/fail per rule against the current resolved value.
@@ -743,6 +751,12 @@ export default function ConfigInvariantsEditor({
           the resolved value at publish.
         </em>
       </Box>
+
+      {listError && (
+        <Callout status="error" mb="3">
+          {listError}
+        </Callout>
+      )}
 
       {invariants.length === 0 && (
         <Text as="div" size="small" color="text-low">

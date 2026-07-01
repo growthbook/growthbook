@@ -505,7 +505,15 @@ function celToAst(cel: string): Ast {
       return { kind: "ast", ast: e };
     }
     if (t.type === "str") return { kind: "lit", value: t.value };
-    if (t.type === "num") return { kind: "lit", value: Number(t.value) };
+    if (t.type === "num") {
+      const n = Number(t.value);
+      // The tokenizer accepts any run of [0-9.], so a typo like `1.2.3` reaches
+      // here as NaN — reject it rather than silently storing `$eq: null`.
+      if (Number.isNaN(n)) {
+        throw new Error(`Invalid number "${t.value}" in CEL rule`);
+      }
+      return { kind: "lit", value: n };
+    }
     if (t.type === "bool") return { kind: "lit", value: t.value === "true" };
     if (t.type === "null") return { kind: "lit", value: null };
     if (t.type === "ident") return { kind: "ident", name: t.value };
