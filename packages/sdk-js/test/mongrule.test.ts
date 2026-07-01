@@ -172,4 +172,65 @@ describe("Mongrule", () => {
       ).toBe(false);
     });
   });
+
+  describe("$ref (field-to-field)", () => {
+    it("compares a field to another field via $ref", () => {
+      // streams <= devices
+      expect(
+        evalCondition(
+          { streams: 2, devices: 5 },
+          { streams: { $lte: { $ref: "devices" } } },
+          {},
+        ),
+      ).toBe(true);
+      expect(
+        evalCondition(
+          { streams: 6, devices: 5 },
+          { streams: { $lte: { $ref: "devices" } } },
+          {},
+        ),
+      ).toBe(false);
+    });
+
+    it("supports $eq / $ne between two fields", () => {
+      expect(
+        evalCondition({ a: "x", b: "x" }, { a: { $eq: { $ref: "b" } } }, {}),
+      ).toBe(true);
+      expect(
+        evalCondition({ a: "x", b: "y" }, { a: { $ne: { $ref: "b" } } }, {}),
+      ).toBe(true);
+    });
+
+    it("resolves a nested dot-path ref", () => {
+      expect(
+        evalCondition(
+          { a: 3, limits: { max: 5 } },
+          { a: { $lte: { $ref: "limits.max" } } },
+          {},
+        ),
+      ).toBe(true);
+    });
+
+    it("resolves a missing ref field to null", () => {
+      expect(
+        evalCondition({ a: 1 }, { a: { $eq: { $ref: "missing" } } }, {}),
+      ).toBe(false);
+    });
+
+    it("works inside $or (implication: streams<=devices OR unlimited)", () => {
+      const cond = {
+        $or: [{ unlimited: true }, { streams: { $lte: { $ref: "devices" } } }],
+      };
+      expect(
+        evalCondition({ unlimited: false, streams: 9, devices: 5 }, cond, {}),
+      ).toBe(false);
+      expect(
+        evalCondition({ unlimited: true, streams: 9, devices: 5 }, cond, {}),
+      ).toBe(true);
+    });
+
+    it("leaves ordinary literal conditions unchanged", () => {
+      expect(evalCondition({ a: 3 }, { a: { $lte: 5 } }, {})).toBe(true);
+    });
+  });
 });

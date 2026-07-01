@@ -18988,8 +18988,8 @@ paths:
                 invariants:
                   description: >-
                     Cross-field validation rules. Each rule's expression may be
-                    JSONLogic or CEL. Stored on the config schema and enforced
-                    at publish.
+                    a mongo condition (mongrule), JSONLogic, or CEL. Stored on
+                    the config schema and enforced at publish.
                   type: array
                   items:
                     type: object
@@ -18999,9 +18999,10 @@ paths:
                         maxLength: 128
                       rule:
                         description: >-
-                          The rule expression, as a JSONLogic object or a CEL
-                          string (e.g. "!hdr_enabled || max_resolution ==
-                          '4k'"). CEL is converted to JSONLogic on write.
+                          The rule expression, as a mongo condition (mongrule)
+                          object, a JSONLogic object, or a CEL string (e.g.
+                          "!hdr_enabled || max_resolution == '4k'"). Converted
+                          to the canonical mongo condition on write.
                         anyOf:
                           - type: string
                           - type: object
@@ -19516,9 +19517,9 @@ paths:
                 invariants:
                   description: >-
                     Replace the config's cross-field validation rules. Each
-                    rule's expression may be JSONLogic or CEL. Send the complete
-                    set; an empty array clears all rules. Omit to leave them
-                    unchanged.
+                    rule's expression may be a mongo condition (mongrule),
+                    JSONLogic, or CEL. Send the complete set; an empty array
+                    clears all rules. Omit to leave them unchanged.
                   type: array
                   items:
                     type: object
@@ -19528,9 +19529,10 @@ paths:
                         maxLength: 128
                       rule:
                         description: >-
-                          The rule expression, as a JSONLogic object or a CEL
-                          string (e.g. "!hdr_enabled || max_resolution ==
-                          '4k'"). CEL is converted to JSONLogic on write.
+                          The rule expression, as a mongo condition (mongrule)
+                          object, a JSONLogic object, or a CEL string (e.g.
+                          "!hdr_enabled || max_resolution == '4k'"). Converted
+                          to the canonical mongo condition on write.
                         anyOf:
                           - type: string
                           - type: object
@@ -43241,7 +43243,9 @@ components:
                 type: string
                 maxLength: 128
               rule:
-                description: A JSONLogic boolean expression over the config's fields.
+                description: >-
+                  A mongo condition (mongrule) boolean expression over the
+                  config's fields.
                 type: object
                 propertyNames:
                   type: string

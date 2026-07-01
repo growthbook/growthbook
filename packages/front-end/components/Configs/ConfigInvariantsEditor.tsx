@@ -14,7 +14,7 @@ import Switch from "@/ui/Switch";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import Frame from "@/ui/Frame";
-import Callout from "@/ui/Callout";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
@@ -26,15 +26,15 @@ type Props = {
   // The resolved (inherited+own) value, for live pass/fail feedback.
   resolvedValue: Record<string, unknown>;
   canEdit: boolean;
-  saving?: boolean;
   onChange: (next: ConfigInvariant[]) => Promise<void>;
 };
 
 // ---- Condition model -------------------------------------------------------
 // A condition is one predicate over a single field. Conditions within a group
 // are AND-joined (matching the feature-targeting builder); rule kinds compose
-// one or two groups. Every operator emitted (var, ==, !=, <, <=, >, >=, !, and)
-// is standard json-logic-js — see the evaluator in shared/util/config-schema.
+// one or two groups. Rules are emitted as mongo conditions (mongrule syntax,
+// with `$ref` for field-to-field) — the canonical stored form; see the evaluator
+// in shared/util/config-schema.
 
 const COMPARISON_OPS = ["==", "!=", "<=", "<", ">=", ">"] as const;
 const UNARY_OPS = ["isTrue", "isFalse", "isNull", "isNotNull"] as const;
@@ -89,15 +89,32 @@ function newCondition(field: string): Condition {
   return { field, op: "==", rhsKind: "value", rhs: "" };
 }
 
-function isVar(x: unknown): x is { var: string } {
+function isRef(x: unknown): x is { $ref: string } {
   return (
     !!x &&
     typeof x === "object" &&
     !Array.isArray(x) &&
     Object.keys(x as object).length === 1 &&
-    typeof (x as { var?: unknown }).var === "string"
+    typeof (x as { $ref?: unknown }).$ref === "string"
   );
 }
+
+const MONGO_OP: Record<CompOp, string> = {
+  "==": "$eq",
+  "!=": "$ne",
+  "<": "$lt",
+  "<=": "$lte",
+  ">": "$gt",
+  ">=": "$gte",
+};
+const MONGO_OP_INV: Record<string, CompOp> = {
+  $eq: "==",
+  $ne: "!=",
+  $lt: "<",
+  $lte: "<=",
+  $gt: ">",
+  $gte: ">=",
+};
 
 // Parse a typed right-hand-side value: JSON first (so 5, true, null, "quoted",
 // {objects}/[arrays] keep their type), then a bare word falls back to a string.
@@ -123,27 +140,26 @@ function formatLiteral(v: unknown): string {
   return v;
 }
 
-function conditionToLogic(c: Condition): unknown {
+function conditionToMongo(c: Condition): Record<string, unknown> {
   switch (c.op) {
     case "isTrue":
-      return { var: c.field };
+      return { [c.field]: { $eq: true } };
     case "isFalse":
-      return { "!": { var: c.field } };
+      return { [c.field]: { $eq: false } };
     case "isNull":
-      return { "==": [{ var: c.field }, null] };
+      return { [c.field]: { $exists: false } };
     case "isNotNull":
-      return { "!=": [{ var: c.field }, null] };
+      return { [c.field]: { $exists: true } };
     default: {
-      const rhs = c.rhsKind === "field" ? { var: c.rhs } : parseLiteral(c.rhs);
-      return { [c.op]: [{ var: c.field }, rhs] };
+      const rhs = c.rhsKind === "field" ? { $ref: c.rhs } : parseLiteral(c.rhs);
+      return { [c.field]: { [MONGO_OP[c.op]]: rhs } };
     }
   }
 }
 
-function groupToLogic(g: Group): Record<string, unknown> {
-  const parts = g.map(conditionToLogic);
-  if (parts.length === 1) return parts[0] as Record<string, unknown>;
-  return { and: parts };
+function groupToMongo(g: Group): Record<string, unknown> {
+  const parts = g.map(conditionToMongo);
+  return parts.length === 1 ? parts[0] : { $and: parts };
 }
 
 function buildRule(
@@ -153,69 +169,75 @@ function buildRule(
 ): Record<string, unknown> {
   switch (kind) {
     case "single":
-      return groupToLogic(a);
+      return groupToMongo(a);
     case "implication":
       // A → B  ≡  ¬A ∨ B
-      return { or: [{ "!": groupToLogic(a) }, groupToLogic(b)] };
+      return { $or: [{ $not: groupToMongo(a) }, groupToMongo(b)] };
     case "iff":
-      // A ↔ B  ≡  A == B
-      return { "==": [groupToLogic(a), groupToLogic(b)] };
+      // A ↔ B: both hold, or neither holds.
+      return {
+        $or: [
+          { $and: [groupToMongo(a), groupToMongo(b)] },
+          { $nor: [groupToMongo(a), groupToMongo(b)] },
+        ],
+      };
     case "exclusive":
       // Can't all be true: ¬(A ∧ B ∧ …)
-      return { "!": groupToLogic(a) };
+      return { $not: groupToMongo(a) };
   }
 }
 
-// JSONLogic → Condition (inverse of conditionToLogic); null if not representable.
+// A single mongo field condition → Condition; null if not representable.
 function parseCondition(node: unknown): Condition | null {
-  if (isVar(node)) {
-    return { field: node.var, op: "isTrue", rhsKind: "value", rhs: "" };
-  }
   if (!node || typeof node !== "object" || Array.isArray(node)) return null;
   const obj = node as Record<string, unknown>;
   const keys = Object.keys(obj);
   if (keys.length !== 1) return null;
-  const op = keys[0];
-  const arg = obj[op];
-  if (op === "!" && isVar(arg)) {
-    return { field: arg.var, op: "isFalse", rhsKind: "value", rhs: "" };
+  const field = keys[0];
+  if (field.startsWith("$")) return null; // an operator, not a field
+  const val = obj[field];
+  // Shorthand: `{field: <primitive>}`.
+  if (val === null) return { field, op: "isNull", rhsKind: "value", rhs: "" };
+  if (typeof val !== "object" || Array.isArray(val)) {
+    if (val === true) return { field, op: "isTrue", rhsKind: "value", rhs: "" };
+    if (val === false)
+      return { field, op: "isFalse", rhsKind: "value", rhs: "" };
+    return { field, op: "==", rhsKind: "value", rhs: formatLiteral(val) };
   }
-  if (isComp(op as CondOp) && Array.isArray(arg) && arg.length === 2) {
-    const [lhs, rhs] = arg;
-    if (!isVar(lhs)) return null;
-    if (rhs === null) {
-      if (op === "==")
-        return { field: lhs.var, op: "isNull", rhsKind: "value", rhs: "" };
-      if (op === "!=")
-        return { field: lhs.var, op: "isNotNull", rhsKind: "value", rhs: "" };
-      return null;
-    }
-    if (isVar(rhs)) {
-      return {
-        field: lhs.var,
-        op: op as CondOp,
-        rhsKind: "field",
-        rhs: rhs.var,
-      };
-    }
+  const opObj = val as Record<string, unknown>;
+  if (Object.keys(opObj).length !== 1) return null;
+  const op = Object.keys(opObj)[0];
+  const arg = opObj[op];
+  if (op === "$exists") {
     return {
-      field: lhs.var,
-      op: op as CondOp,
+      field,
+      op: arg ? "isNotNull" : "isNull",
       rhsKind: "value",
-      rhs: formatLiteral(rhs),
+      rhs: "",
     };
   }
-  return null;
+  const cmp = MONGO_OP_INV[op];
+  if (!cmp) return null;
+  if (cmp === "==" && arg === true)
+    return { field, op: "isTrue", rhsKind: "value", rhs: "" };
+  if (cmp === "==" && arg === false)
+    return { field, op: "isFalse", rhsKind: "value", rhs: "" };
+  if (cmp === "==" && arg === null)
+    return { field, op: "isNull", rhsKind: "value", rhs: "" };
+  if (cmp === "!=" && arg === null)
+    return { field, op: "isNotNull", rhsKind: "value", rhs: "" };
+  if (isRef(arg)) return { field, op: cmp, rhsKind: "field", rhs: arg.$ref };
+  return { field, op: cmp, rhsKind: "value", rhs: formatLiteral(arg) };
 }
 
-// A single condition, or an AND group of conditions. OR groups aren't builder-
+// A single condition, or a `$and` group of conditions. OR groups aren't builder-
 // representable → null (they open in the Advanced editor).
 function parseGroup(node: unknown): Group | null {
   if (node && typeof node === "object" && !Array.isArray(node)) {
     const obj = node as Record<string, unknown>;
     const keys = Object.keys(obj);
-    if (keys.length === 1 && keys[0] === "and" && Array.isArray(obj.and)) {
-      const conds = (obj.and as unknown[]).map(parseCondition);
+    if (keys.length === 1 && keys[0] === "$and" && Array.isArray(obj.$and)) {
+      const conds = (obj.$and as unknown[]).map(parseCondition);
       if (conds.length > 0 && conds.every((c): c is Condition => c !== null)) {
         return conds;
       }
@@ -236,51 +258,57 @@ function parseRule(obj: Record<string, unknown>): ParsedRule | null {
   const op = keys[0];
   const arg = obj[op];
 
-  // Can't all be true: {"!": {and: [...]}}
-  if (
-    op === "!" &&
-    arg &&
-    typeof arg === "object" &&
-    !Array.isArray(arg) &&
-    "and" in (arg as object)
-  ) {
+  // Can't all be true: {$not: <group>}
+  if (op === "$not") {
     const g = parseGroup(arg);
     if (g) return { kind: "exclusive", groupA: g };
+    return null;
   }
 
-  // Implication: {or: [{"!": A}, B]}
-  if (op === "or" && Array.isArray(arg) && arg.length === 2) {
+  if (op === "$or" && Array.isArray(arg) && arg.length === 2) {
+    // Implication: {$or: [{$not: A}, B]}
     const x = arg[0];
     if (
       x &&
       typeof x === "object" &&
       !Array.isArray(x) &&
       Object.keys(x).length === 1 &&
-      "!" in (x as object)
+      "$not" in (x as object)
     ) {
-      const gA = parseGroup((x as Record<string, unknown>)["!"]);
+      const gA = parseGroup((x as Record<string, unknown>).$not);
       const gB = parseGroup(arg[1]);
       if (gA && gB) return { kind: "implication", groupA: gA, groupB: gB };
+    }
+    // Both or neither: {$or: [{$and:[A,B]}, {$nor:[A,B]}]}. The $nor arm must
+    // mirror the $and arm, or it isn't an iff — fall through to Advanced rather
+    // than mislabel it and silently rewrite on save.
+    const first = arg[0] as Record<string, unknown> | undefined;
+    const second = arg[1] as Record<string, unknown> | undefined;
+    if (
+      first &&
+      Array.isArray(first.$and) &&
+      first.$and.length === 2 &&
+      second &&
+      Array.isArray(second.$nor) &&
+      JSON.stringify(first.$and) === JSON.stringify(second.$nor)
+    ) {
+      const gA = parseGroup(first.$and[0]);
+      const gB = parseGroup(first.$and[1]);
+      if (gA && gB) return { kind: "iff", groupA: gA, groupB: gB };
     }
     return null;
   }
 
-  // Single simple condition (comparison / unary).
-  const c = parseCondition(obj);
-  if (c) return { kind: "single", groupA: [c] };
-
-  // Single AND-group.
-  if (op === "and" && Array.isArray(arg)) {
+  // Single $and-group.
+  if (op === "$and" && Array.isArray(arg)) {
     const g = parseGroup(obj);
     if (g) return { kind: "single", groupA: g };
+    return null;
   }
 
-  // Both or neither: {"==": [A, B]} with condition-group operands.
-  if (op === "==" && Array.isArray(arg) && arg.length === 2) {
-    const gA = parseGroup(arg[0]);
-    const gB = parseGroup(arg[1]);
-    if (gA && gB) return { kind: "iff", groupA: gA, groupB: gB };
-  }
+  // Single field condition.
+  const c = parseCondition(obj);
+  if (c) return { kind: "single", groupA: [c] };
 
   return null;
 }
@@ -297,13 +325,12 @@ function safeParse(text: string): Record<string, unknown> | null {
 // Named cross-field rules on a config schema, built with the same condition-row
 // layout as feature targeting: field · operator · value rows joined by AND, with
 // IF/THEN framing for the relational kinds. An "Advanced" toggle swaps in a raw
-// JSONLogic editor for anything the builder can't represent.
+// mongo-condition editor for anything the builder can't represent.
 export default function ConfigInvariantsEditor({
   invariants,
   fieldKeys,
   resolvedValue,
   canEdit,
-  saving,
   onChange,
 }: Props) {
   // null = closed, -1 = adding, >=0 = editing that row.
@@ -319,7 +346,6 @@ export default function ConfigInvariantsEditor({
   const [groupB, setGroupB] = useState<Group>([
     newCondition(fieldKeys[0] ?? ""),
   ]);
-  const [error, setError] = useState<string | null>(null);
 
   const currentRule = advanced
     ? safeParse(ruleText)
@@ -332,27 +358,33 @@ export default function ConfigInvariantsEditor({
   };
 
   const open = (index: number) => {
-    setError(null);
     setEditingIndex(index);
     const inv = index >= 0 ? invariants[index] : undefined;
     setName(inv?.name ?? "");
     setMessage(inv?.message ?? "");
-    const parsed = inv ? safeParse(inv.rule) : null;
+    if (!inv) {
+      // New rule: start in the builder with a single blank condition.
+      setKind("single");
+      setGroupA([newCondition(fieldKeys[0] ?? "")]);
+      setGroupB([newCondition(fieldKeys[0] ?? "")]);
+      setAdvanced(false);
+      setRuleText("{}");
+      return;
+    }
+    const parsed = safeParse(inv.rule);
     const b = parsed ? parseRule(parsed) : null;
     if (b) {
       applyParsed(b);
       setAdvanced(false);
       setRuleText(parsed ? JSON.stringify(parsed, null, 2) : "{}");
     } else {
+      // Existing rule the builder can't represent → open in Advanced.
       setAdvanced(true);
-      setRuleText(
-        parsed ? JSON.stringify(parsed, null, 2) : (inv?.rule ?? "{}"),
-      );
+      setRuleText(parsed ? JSON.stringify(parsed, null, 2) : inv.rule);
     }
   };
   const close = () => {
     setEditingIndex(null);
-    setError(null);
   };
 
   const onKindChange = (k: RuleKind) => {
@@ -406,16 +438,16 @@ export default function ConfigInvariantsEditor({
   };
 
   const save = async () => {
-    if (!name.trim()) return setError("Name is required.");
-    if (!message.trim()) return setError("Message is required.");
+    if (!name.trim()) throw new Error("Name is required.");
+    if (!message.trim()) throw new Error("Message is required.");
     if (!advanced) {
       const err = validateBuilder();
-      if (err) return setError(err);
+      if (err) throw new Error(err);
     }
     const rule = advanced
       ? safeParse(ruleText)
       : buildRule(kind, groupA, groupB);
-    if (!rule) return setError("Rule must be a JSONLogic object.");
+    if (!rule) throw new Error("Rule must be a valid rule object.");
     const next: ConfigInvariant = {
       name: name.trim(),
       rule: JSON.stringify(rule),
@@ -426,7 +458,6 @@ export default function ConfigInvariantsEditor({
         ? invariants.map((iv, i) => (i === editingIndex ? next : iv))
         : [...invariants, next];
     await onChange(list);
-    close();
   };
 
   const remove = async (index: number) => {
@@ -596,8 +627,10 @@ export default function ConfigInvariantsEditor({
     </Box>
   );
 
-  const editor = (
-    <Frame mb="3">
+  const isEditingExisting = editingIndex !== null && editingIndex >= 0;
+
+  const editorBody = (
+    <>
       <Field
         label="Name"
         value={name}
@@ -612,7 +645,7 @@ export default function ConfigInvariantsEditor({
         <Switch
           value={advanced}
           onChange={toggleAdvanced}
-          label="Advanced (JSONLogic)"
+          label="Advanced (raw rule)"
           size="1"
         />
       </Flex>
@@ -626,7 +659,7 @@ export default function ConfigInvariantsEditor({
           maxLines={16}
           helpText={
             <Flex justify="between" align="center">
-              <span>JSONLogic — a boolean expression over the fields.</span>
+              <span>Raw rule — a boolean expression over the fields.</span>
               <Link
                 onClick={(e) => {
                   e.preventDefault();
@@ -679,37 +712,21 @@ export default function ConfigInvariantsEditor({
           />
         </Box>
       )}
-      {error && (
-        <Callout status="error" mt="2">
-          {error}
-        </Callout>
-      )}
-
-      <Flex gap="2" mt="3">
-        <Button onClick={save} loading={saving}>
-          {editingIndex !== null && editingIndex >= 0
-            ? "Save rule"
-            : "Add rule"}
-        </Button>
-        <Button variant="ghost" onClick={close}>
-          Cancel
-        </Button>
-      </Flex>
-    </Frame>
+    </>
   );
 
   return (
     <Box>
       <Flex align="center" justify="between" mb="2">
         <Text weight="medium">Validation rules</Text>
-        {canEdit && editingIndex === null && (
+        {canEdit && (
           <Button variant="ghost" onClick={() => open(-1)}>
             + Add rule
           </Button>
         )}
       </Flex>
 
-      {invariants.length === 0 && editingIndex === null && (
+      {invariants.length === 0 && (
         <Text as="div" size="small" color="text-low">
           No cross-field rules yet — add relational checks JSON Schema
           can&apos;t express (implications, both-or-neither, or comparing two
@@ -718,54 +735,62 @@ export default function ConfigInvariantsEditor({
       )}
 
       {invariants.map((iv, i) => (
-        <Box key={i}>
-          {editingIndex === i ? (
-            editor
-          ) : (
-            <Frame mb="2">
-              <Flex align="center" gap="2">
-                <Text weight="semibold">{iv.name}</Text>
-                <Badge
-                  color={failing.has(i) ? "red" : "green"}
-                  variant="soft"
-                  label={failing.has(i) ? "fails" : "ok"}
-                />
-                {canEdit && (
-                  <Flex gap="2" ml="auto">
-                    <Button variant="ghost" size="xs" onClick={() => open(i)}>
-                      Edit
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="xs"
-                      color="red"
-                      onClick={() => remove(i)}
-                    >
-                      Delete
-                    </Button>
-                  </Flex>
-                )}
+        <Frame mb="2" key={i}>
+          <Flex align="center" gap="2">
+            <Text weight="semibold">{iv.name}</Text>
+            <Badge
+              color={failing.has(i) ? "red" : "green"}
+              variant="soft"
+              label={failing.has(i) ? "fails" : "ok"}
+            />
+            {canEdit && (
+              <Flex gap="2" ml="auto">
+                <Button variant="ghost" size="xs" onClick={() => open(i)}>
+                  Edit
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="xs"
+                  color="red"
+                  onClick={() => remove(i)}
+                >
+                  Delete
+                </Button>
               </Flex>
-              <Box
-                mt="1"
-                style={{
-                  fontFamily: "var(--font-mono, monospace)",
-                  fontSize: 12,
-                  color: "var(--gray-11)",
-                  wordBreak: "break-all",
-                }}
-              >
-                {describeInvariantRule(iv.rule)}
-              </Box>
-              <Text as="div" size="small" color="text-low" mt="1">
-                {iv.message}
-              </Text>
-            </Frame>
-          )}
-        </Box>
+            )}
+          </Flex>
+          <Box
+            mt="1"
+            style={{
+              fontFamily: "var(--font-mono, monospace)",
+              fontSize: 12,
+              color: "var(--gray-11)",
+              wordBreak: "break-all",
+            }}
+          >
+            {describeInvariantRule(iv.rule)}
+          </Box>
+          <Text as="div" size="small" color="text-low" mt="1">
+            {iv.message}
+          </Text>
+        </Frame>
       ))}
 
-      {editingIndex === -1 && editor}
+      {editingIndex !== null && (
+        <ModalStandard
+          open
+          trackingEventModalType="config-invariant-rule"
+          header={
+            isEditingExisting ? "Edit validation rule" : "Add validation rule"
+          }
+          size="lg"
+          cta={isEditingExisting ? "Save rule" : "Add rule"}
+          close={close}
+          submit={save}
+        >
+          {editorBody}
+        </ModalStandard>
+      )}
     </Box>
   );
 }

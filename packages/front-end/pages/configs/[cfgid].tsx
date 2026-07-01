@@ -25,6 +25,7 @@ import {
   evaluateInvariants,
   invariantRuleFields,
   toCel,
+  mongoToJsonLogic,
   SchemaProjection,
 } from "shared/util";
 import {
@@ -161,6 +162,7 @@ type ConfigExportPayloads = {
   effectiveSchema: Record<string, string>;
   ownProjections: { source: string; label: string; text: string }[];
   // Validation rules, empty strings when the config has none.
+  validationMongrule: string;
   validationJsonLogic: string;
   validationCel: string;
 };
@@ -245,10 +247,11 @@ function ConfigExportMenu({ payloads }: { payloads: ConfigExportPayloads }) {
           </React.Fragment>
         ))}
       </DropdownSubMenu>
-      {payloads.validationJsonLogic && (
+      {payloads.validationMongrule && (
         <>
           <DropdownMenuSeparator />
           <DropdownSubMenu trigger="Validation">
+            {item("Mongrule", "Stored format", payloads.validationMongrule)}
             {item("JSONLogic", null, payloads.validationJsonLogic)}
             {item("CEL", null, payloads.validationCel)}
           </DropdownSubMenu>
@@ -677,7 +680,7 @@ export default function ConfigDetailPage(): React.ReactElement {
     }));
 
     const ownInvariants = displayedConfig?.schema?.invariants ?? [];
-    const validationJsonLogic = ownInvariants.length
+    const validationMongrule = ownInvariants.length
       ? JSON.stringify(
           ownInvariants.map((iv) => {
             let rule: unknown = iv.rule;
@@ -688,6 +691,17 @@ export default function ConfigDetailPage(): React.ReactElement {
             }
             return { name: iv.name, rule, message: iv.message };
           }),
+          null,
+          2,
+        )
+      : "";
+    const validationJsonLogic = ownInvariants.length
+      ? JSON.stringify(
+          ownInvariants.map((iv) => ({
+            name: iv.name,
+            rule: mongoToJsonLogic(iv.rule),
+            message: iv.message,
+          })),
           null,
           2,
         )
@@ -710,6 +724,7 @@ export default function ConfigDetailPage(): React.ReactElement {
       ownSchema: renderAll(ownFields),
       effectiveSchema: renderAll(resolved.effectiveSchema),
       ownProjections,
+      validationMongrule,
       validationJsonLogic,
       validationCel,
     };
