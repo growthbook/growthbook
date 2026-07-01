@@ -16,10 +16,10 @@ describe("normalizeChecklistTaskUrl", () => {
     expect(result).toBe("https://example.com/MyPath");
   });
 
-  it("detects an existing scheme case-insensitively and preserves it", () => {
+  it("lowercases an existing scheme while preserving the rest of the URL", () => {
     const upper = normalizeChecklistTaskUrl("HTTP://Example.com/A");
-    expect(upper).toBe("HTTP://Example.com/A");
+    expect(upper).toBe("http://Example.com/A");
     const mixed = normalizeChecklistTaskUrl("Https://Example.com/B");
-    expect(mixed).toBe("Https://Example.com/B");
+    expect(mixed).toBe("https://Example.com/B");
   });
 });

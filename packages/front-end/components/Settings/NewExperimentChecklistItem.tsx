@@ -19,18 +19,15 @@ type AutoChecklistOption = {
     | "schedule";
 };
 
-/**
- * Normalize a checklist task URL: prefix `https://` when no scheme is present.
- * The scheme check is case-insensitive, but the stored URL must preserve its
- * original casing — paths and query strings (e.g. Google Drive links) are
- * case-sensitive, so lower-casing the whole URL breaks them. See #6237.
- */
+// Prefix https:// when no scheme is present. Only the scheme is lower-cased;
+// the rest of the URL keeps its casing since paths/query strings are
+// case-sensitive (e.g. Google Drive links). See #6237.
 export function normalizeChecklistTaskUrl(rawValue: string): string {
-  const url = rawValue;
-  const containsHttp =
-    url.toLowerCase().startsWith("http://") ||
-    url.toLowerCase().startsWith("https://");
-  return containsHttp ? url : "https://" + url;
+  const match = rawValue.match(/^(https?):\/\//i);
+  if (match) {
+    return match[1].toLowerCase() + "://" + rawValue.slice(match[0].length);
+  }
+  return "https://" + rawValue;
 }
 
 export default function NewExperimentChecklistItem({
