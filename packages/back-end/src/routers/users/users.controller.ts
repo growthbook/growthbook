@@ -1,7 +1,13 @@
 import { createHmac } from "node:crypto";
 import { Response } from "express";
 import { OrganizationInterface } from "shared/types/organization";
-import { IS_CLOUD } from "back-end/src/util/secrets";
+import { KnownBlock } from "@slack/types";
+import {
+  IS_CLOUD,
+  INTERNAL_NPS_SLACK_WEBHOOK,
+} from "back-end/src/util/secrets";
+import { cancellableFetch } from "back-end/src/util/http.util";
+import { logger } from "back-end/src/util/logger";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { usingOpenId } from "back-end/src/services/auth";
 import { findOrganizationsByMemberId } from "back-end/src/models/OrganizationModel";
@@ -107,6 +113,8 @@ export async function getUser(req: AuthRequest, res: Response) {
     email: req.email,
     pylonHmacHash: createPylonHmacHash(req.email),
     superAdmin: !!req.superAdmin,
+    npsSurveyStatus: req.currentUser?.npsSurveyStatus,
+    npsSurveyAt: req.currentUser?.npsSurveyAt?.toISOString(),
     organizations: validOrgs.map((org) => {
       return {
         id: org.id,
@@ -125,6 +133,144 @@ export async function putUserName(
 
   try {
     await updateUser(userId, { name });
+    res.status(200).json({
+      status: 200,
+    });
+  } catch (e) {
+    res.status(400).json({
+      status: 400,
+      message: e.message || "An error occurred",
+    });
+  }
+}
+
+// Neutralize Slack mrkdwn control sequences in user-supplied text. Escaping
+// these three chars stops `<!channel>`/`<!here>` mentions and link markup from
+// being interpreted, so a comment can't ping the channel or inject links.
+function escapeSlackMrkdwn(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+const MAX_FEEDBACK_LENGTH = 1500;
+
+async function sendNpsResponseToSlack({
+  score,
+  feedback,
+  email,
+}: {
+  score: number;
+  feedback: string;
+  email: string;
+}): Promise<void> {
+  const category =
+    score >= 9 ? "Promoter" : score <= 6 ? "Detractor" : "Passive";
+  // Left color bar on the attachment carries the sentiment, so sentiment reads
+  // at a glance and stacked responses stay visually separated.
+  const color = score >= 9 ? "#2eb67d" : score <= 6 ? "#e01e5a" : "#ecb22e";
+
+  const safeFeedback = escapeSlackMrkdwn(
+    feedback.slice(0, MAX_FEEDBACK_LENGTH),
+  );
+  const sectionText = safeFeedback
+    ? `*NPS ${score}/10 · ${category}*\n> ${safeFeedback.replace(/\n/g, "\n> ")}`
+    : `*NPS ${score}/10 · ${category}*`;
+
+  const blocks: KnownBlock[] = [
+    {
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: sectionText,
+      },
+    },
+    {
+      type: "context",
+      elements: [
+        {
+          type: "mrkdwn",
+          text: `:bust_in_silhouette:  ${email}`,
+        },
+      ],
+    },
+  ];
+
+  const payload = {
+    attachments: [
+      {
+        color,
+        // Notification-only fallback; not shown in-channel.
+        fallback: `NPS ${score}/10 (${category}) from ${email}`,
+        blocks,
+      },
+    ],
+  };
+
+  try {
+    const { stringBody, responseWithoutBody } = await cancellableFetch(
+      INTERNAL_NPS_SLACK_WEBHOOK,
+      {
+        method: "POST",
+        body: JSON.stringify(payload),
+      },
+      {
+        maxTimeMs: 15000,
+        maxContentSize: 500,
+      },
+    );
+    if (!responseWithoutBody.ok) {
+      logger.error(
+        { text: stringBody },
+        "Failed to send NPS response to Slack",
+      );
+    }
+  } catch (e) {
+    logger.error(e, "Failed to send NPS response to Slack");
+  }
+}
+
+export async function postNpsResponse(
+  req: AuthRequest<{
+    status: "responded" | "dismissed";
+    score?: number;
+    feedback?: string;
+  }>,
+  res: Response,
+) {
+  const { status, score, feedback } = req.body;
+  if (status !== "responded" && status !== "dismissed") {
+    return res.status(400).json({
+      status: 400,
+      message: "Invalid status",
+    });
+  }
+
+  const { userId } = getContextFromReq(req);
+
+  try {
+    await updateUser(userId, {
+      npsSurveyStatus: status,
+      npsSurveyAt: new Date(),
+    });
+
+    // Internal-only: forward actual responses to GrowthBook's own Slack.
+    // Gated on a private webhook env var that only GrowthBook Cloud sets, so
+    // self-hosted and Cloud users never trigger or see this. Fire-and-forget —
+    // a Slack failure must never affect the user's request.
+    if (
+      status === "responded" &&
+      typeof score === "number" &&
+      Number.isInteger(score) &&
+      score >= 0 &&
+      score <= 10 &&
+      INTERNAL_NPS_SLACK_WEBHOOK
+    ) {
+      void sendNpsResponseToSlack({
+        score,
+        feedback: feedback?.trim() || "",
+        email: req.email,
+      });
+    }
+
     res.status(200).json({
       status: 200,
     });
