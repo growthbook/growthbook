@@ -47,8 +47,10 @@ export const PREREQUISITE_RULE_KEYS = ["parentConditions"] as const;
 
 // Preserved only when the SDK declares `contextualBandits` capability.
 export const CONTEXTUAL_BANDIT_RULE_KEYS = [
-  "isContextualBandit",
+  "type",
   "attributesRequired",
+  "contexts",
+  "banditVersion",
 ] as const;
 
 export function getPayloadAllowedKeys(capabilities: SDKCapability[]): {

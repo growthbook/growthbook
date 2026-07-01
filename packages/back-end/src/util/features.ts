@@ -904,7 +904,7 @@ export function getFeatureDefinition({
             capabilities === undefined ||
             capabilities.includes("contextualBandits");
           if (cbCapable) {
-            rule.isContextualBandit = true;
+            rule.type = "contextual-bandit";
             rule.attributesRequired = cb.contextualAttributes;
             // Per-leaf weights: each entry carries the leaf's routing condition and
             // its positional variation weights so the SDK can assign within a leaf.
@@ -913,6 +913,7 @@ export function getFeatureDefinition({
               condition: lw.condition,
               weights: pairedWeightsToPositional(lw.weights, cb.variations),
             }));
+            rule.banditVersion = cb.banditVersion;
           }
 
           rule.key = cb.trackingKey;
