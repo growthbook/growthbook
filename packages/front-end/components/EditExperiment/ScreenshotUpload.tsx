@@ -105,7 +105,6 @@ const ScreenshotUpload = ({
         className={clsx(styles.droparea, {
           [styles.dragging]: isDragActive,
         })}
-        style={typedRootProps.style}
       >
         {loading > 0 ? <LoadingOverlay /> : ""}
         <input {...getInputProps()} />
