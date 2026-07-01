@@ -888,7 +888,7 @@ describe("BaseModel", () => {
     expect(updated).toBe(existing);
   });
 
-  it("throws when an update tries to unset a required field", async () => {
+  it("ignores an explicitly-undefined value for a field that can't be undefined", async () => {
     const model = new TestModel(defaultContext);
 
     const updateOneMock = jest.fn();
@@ -904,10 +904,41 @@ describe("BaseModel", () => {
       dateUpdated: new Date(),
     };
 
-    await expect(model.update(existing, { name: undefined })).rejects.toThrow(
-      'Cannot unset required field "name"',
-    );
+    // `name` is required — it can't be undefined, so an undefined value is a
+    // no-op (not an error, not a write) rather than a clear.
+    const updated = await model.update(existing, { name: undefined });
+
     expect(updateOneMock).not.toHaveBeenCalled();
+    expect(updated).toBe(existing);
+  });
+
+  it("writes an explicit null to a nullable field instead of unsetting it", async () => {
+    const model = new TestModel(defaultContext);
+
+    const updateOneMock = jest.fn();
+    model.dangerousGetCollectionMock.mockReturnValue({
+      updateOne: updateOneMock,
+    });
+
+    const existing = {
+      name: "foo",
+      id: "aabb",
+      nullableField: "bar",
+      organization: "a",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+    };
+
+    // A null (not undefined) is a real value on a nullable field — it's written
+    // as null, not dropped by ignoreUndefined and not translated to $unset.
+    const updated = await model.update(existing, { nullableField: null });
+
+    expect(updateOneMock).toHaveBeenCalledWith(
+      { id: "aabb", organization: "a" },
+      { $set: { nullableField: null, dateUpdated: expect.any(Date) } },
+      { ignoreUndefined: true },
+    );
+    expect(updated.nullableField).toBeNull();
   });
 
   it("throws when updating a doc with an undefined primary key value", async () => {

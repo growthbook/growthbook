@@ -601,6 +601,12 @@ export abstract class BaseModel<
   ): Promise<z.infer<T>> {
     return this._createOne(props, writeOptions, true);
   }
+  // Undefined handling: passing `field: undefined` requests that the field
+  // become absent. It's honored (as a $unset) only for fields whose schema
+  // permits absence (.optional()/.nullish()); for fields that can't be
+  // undefined (required, or .nullable() without .optional()) it's treated as
+  // "no change" and ignored. Omitting a key entirely is always "no change". To
+  // set a .nullable() field to null, pass `null`.
   public update(
     existing: z.infer<T>,
     updates: PKeyUpdateProps<T, PKey, PK>,
@@ -1002,6 +1008,25 @@ export abstract class BaseModel<
       updates.owner = await resolveOwnerToUserId(updates.owner, this.context);
     }
 
+    // An explicit `undefined` requests that a field become absent. This is
+    // honored only where the schema permits absence (.optional()/.nullish()),
+    // where it becomes a $unset below. For a field that can't be undefined
+    // (required, or .nullable() without .optional()) absence is impossible, so
+    // the undefined is treated as "no change" and dropped rather than erroring
+    // — matching how ORMs ignore undefined, and sparing partial-update
+    // call-sites that spread possibly-undefined values. To clear a .nullable()
+    // field to null, pass `null` explicitly. Dropped before the diff so the key
+    // never reaches newDoc or the write, keeping the returned doc equal to a
+    // subsequent read.
+    for (const [k, v] of Object.entries(updates)) {
+      if (
+        v === undefined &&
+        !z.safeParse(this.config.schema.shape[k], undefined).success
+      ) {
+        delete (updates as Record<string, unknown>)[k];
+      }
+    }
+
     // Only consider updates that actually change the value
     const updatedFields = Object.entries(updates)
       .filter(([k, v]) => !isEqual(doc[k as keyof z.infer<T>], v))
@@ -1062,17 +1087,6 @@ export abstract class BaseModel<
     await this.beforeUpdate(doc, updates, newDoc, options?.writeOptions);
 
     await this.customValidation(newDoc, doc, options?.writeOptions);
-
-    // Explicitly-undefined fields mean "clear this field" ($unset) — only
-    // legal when the schema allows the field to be absent
-    for (const [k, v] of Object.entries(allUpdates)) {
-      if (
-        v === undefined &&
-        !z.safeParse(this.config.schema.shape[k], undefined).success
-      ) {
-        throw new Error(`Cannot unset required field "${k}"`);
-      }
-    }
 
     const writeResult = await this._dangerousGetCollection().updateOne(
       {
