@@ -14,7 +14,6 @@ import {
   MetricPowerResponseFromStatsEngine,
   RealizedSettings,
   SupplementalResults,
-  ContextualBanditSnapshot,
 } from "shared/types/stats";
 import { QueryLanguage } from "./datasource";
 import { DimensionInterface } from "./dimension";
@@ -88,8 +87,6 @@ export interface SnapshotBanditSettings {
   windowSettings?: MetricWindowSettings;
   contextualBandit?: boolean;
   targetingAttributeColumns?: string[];
-  /** When false, SQL skips pooled `__theta` (used by CB). Defaults to true for MAB. */
-  poolRegressionTheta?: boolean;
 }
 
 export interface ExperimentSnapshotSettings {
@@ -250,8 +247,6 @@ export interface ExperimentSnapshotInterface {
   chunkedAnalysesMeta?: Record<AnalysisKeyType, AnalysisMetaEntry>;
   banditResult?: BanditResult;
 
-  // @teresayung, I think this is unused
-  contextualBanditSnapshot?: ContextualBanditSnapshot | null;
   health?: ExperimentSnapshotHealth;
 }
 

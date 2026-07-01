@@ -51,16 +51,17 @@ function makeCb(
     minUsersPerLeaf: 100,
     maxLeaves: 8,
     holdoutPercent: 0,
-    canonicalFormVersion: 1,
+    banditModelVersion: 1,
     decisionMetric: "met_g1",
-    metricOverrides: [],
-    regressionAdjustmentEnabled: false,
     variations: [
       { id: "v0", name: "Control", key: "0", screenshots: [] },
       { id: "v1", name: "Treatment", key: "1", screenshots: [] },
     ],
     dateStarted: new Date("2025-01-02T00:00:00Z"),
-    variationWeights: [0.4, 0.6],
+    variationWeights: [
+      { variationId: "v0", weight: 0.4 },
+      { variationId: "v1", weight: 0.6 },
+    ],
     currentLeafWeights: [
       {
         leafId: 0,
@@ -146,11 +147,10 @@ describe("buildContextualBanditSnapshotSettings", () => {
     const cb = makeCb();
     const eaq = makeExposureQuery();
 
-    const settings = buildContextualBanditSnapshotSettings(cb, eaq, false);
+    const settings = buildContextualBanditSnapshotSettings(cb, eaq);
 
     expect(settings).not.toHaveProperty("activationMetric");
     expect(settings).not.toHaveProperty("phase");
-    expect(settings.regressionAdjustmentEnabled).toBe(false);
 
     expect(() =>
       contextualBanditSnapshotSettingsValidator.parse(settings),
@@ -171,7 +171,6 @@ describe("buildContextualBanditSnapshotSettings", () => {
     const settings = buildContextualBanditSnapshotSettings(
       makeCb({ trackingKey: "first_contextual_bandit" }),
       makeExposureQuery(),
-      false,
     );
 
     expect(settings.experimentId).toBe("cb_1");
@@ -182,7 +181,6 @@ describe("buildContextualBanditSnapshotSettings", () => {
     const cbSettings = buildContextualBanditSnapshotSettings(
       makeCb({ trackingKey: "first_contextual_bandit" }),
       makeExposureQuery(),
-      false,
     );
 
     expect(buildSnapshotSettingsForCb(cbSettings).experimentId).toBe(
@@ -194,7 +192,7 @@ describe("buildContextualBanditSnapshotSettings", () => {
     const cb = makeCb({ contextualAttributes: ["plan_tier"] });
     const eaq = makeExposureQuery({ targetingAttributeColumns: undefined });
 
-    const settings = buildContextualBanditSnapshotSettings(cb, eaq, false);
+    const settings = buildContextualBanditSnapshotSettings(cb, eaq);
 
     expect(settings.contextualAttributes).toEqual(["plan_tier"]);
   });
@@ -213,7 +211,6 @@ describe("buildContextualBanditSnapshotSettings", () => {
     const settings = buildContextualBanditSnapshotSettings(
       cb,
       makeExposureQuery(),
-      false,
     );
 
     expect(settings.variations).toEqual([
@@ -221,20 +218,6 @@ describe("buildContextualBanditSnapshotSettings", () => {
       { id: "v1", weight: 1 / 3 },
       { id: "v2", weight: 1 / 3 },
     ]);
-  });
-
-  it("threads CUPED into SQL settings without pooled theta", () => {
-    const cbSettings = buildContextualBanditSnapshotSettings(
-      makeCb({ regressionAdjustmentEnabled: true }),
-      makeExposureQuery(),
-      true,
-    );
-
-    expect(cbSettings.regressionAdjustmentEnabled).toBe(true);
-
-    const expSettings = buildSnapshotSettingsForCb(cbSettings);
-    expect(expSettings.regressionAdjustmentEnabled).toBe(true);
-    expect(expSettings.banditSettings?.poolRegressionTheta).toBe(false);
   });
 });
 
@@ -454,7 +437,7 @@ describe("getContextualBanditResultsForUi", () => {
       responses: cbe.responses,
       leaf_map: cbe.leaf_map,
     });
-    expect(results.latest).toEqual(
+    expect(results.latestSnapshotSummary).toEqual(
       toContextualBanditSnapshotStatusSummary(cbs),
     );
   });

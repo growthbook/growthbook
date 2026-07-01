@@ -86,7 +86,7 @@ function makeSnapshotSettings(
 
     minUsersPerLeaf: 100,
     maxLeaves: 8,
-    canonicalFormVersion: 1,
+    banditModelVersion: 1,
 
     startDate: new Date("2025-01-01T00:00:00Z"),
     endDate: null,
@@ -112,7 +112,7 @@ function makeCb(
     maxLeaves: 8,
     holdoutPercent: 0,
     stickyBucketing: false,
-    canonicalFormVersion: 1,
+    banditModelVersion: 1,
     dateStarted: new Date("2025-01-02T00:00:00Z"),
     currentLeafWeights: [
       {
@@ -168,10 +168,10 @@ function makeIntegration(): SourceIntegrationInterface {
         },
       },
     },
-    getSnapshotMetricQuery: jest
+    getExperimentFactMetricsQuery: jest
       .fn()
       .mockReturnValue("-- contextual-bandit metric SQL"),
-    runSnapshotMetricQuery: jest.fn().mockResolvedValue({ rows: [] }),
+    runExperimentFactMetricsQuery: jest.fn().mockResolvedValue({ rows: [] }),
   } as unknown as SourceIntegrationInterface;
 }
 
@@ -450,7 +450,7 @@ describe("ContextualBanditResultsQueryRunner", () => {
   });
 
   describe("startQueries seam", () => {
-    it("generates SQL via integration.getSnapshotMetricQuery and registers the query", async () => {
+    it("generates SQL via integration.getExperimentFactMetricsQuery and registers the query", async () => {
       const cb = makeCb();
       const context = makeContext(cb);
       const integration = makeIntegration();
@@ -469,9 +469,11 @@ describe("ContextualBanditResultsQueryRunner", () => {
         variationNames: ["Control", "Treatment"],
       });
 
-      expect(integration.getSnapshotMetricQuery).toHaveBeenCalledTimes(1);
-      const callArgs = (integration.getSnapshotMetricQuery as jest.Mock).mock
-        .calls[0][0];
+      expect(integration.getExperimentFactMetricsQuery).toHaveBeenCalledTimes(
+        1,
+      );
+      const callArgs = (integration.getExperimentFactMetricsQuery as jest.Mock)
+        .mock.calls[0][0];
       expect(callArgs.settings.experimentId).toBe("exp_1");
       expect(callArgs.settings.banditSettings.contextualBandit).toBe(true);
       expect(

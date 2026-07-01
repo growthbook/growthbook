@@ -154,6 +154,4 @@ export const baseDialect: Omit<SqlDialect, "unpivotLabeledPairs"> = {
   // Dialects with 0-based arrays or JSON-encoded arrays override this.
   arrayElement: (arrayCol: string, index: number) =>
     `${arrayCol}[${index + 1}]`,
-
-  maxContextualBanditContexts: 3000,
 };

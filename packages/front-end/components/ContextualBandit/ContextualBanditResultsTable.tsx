@@ -460,7 +460,7 @@ export default function ContextualBanditResultsTable({
         {headerActions}
       </Flex>
 
-      {cb.contextualBanditStage === "explore" ? (
+      {cb.stage === "explore" ? (
         <Callout status="info" mb="3">
           This Contextual Bandit is in its exploratory stage. Updating results
           recomputes stats but does not change variation weights — weights stay

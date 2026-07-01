@@ -433,12 +433,12 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
       contextualBanditQueryId: data.exposureQueryId ?? "",
       decisionMetric: data.decisionMetric ?? "",
 
-      contextualBanditScheduleValue: data.banditScheduleValue,
-      contextualBanditScheduleUnit: data.banditScheduleUnit,
-      contextualBanditBurnInValue: data.banditBurnInValue,
-      contextualBanditBurnInUnit: data.banditBurnInUnit,
-      banditConversionWindowValue,
-      banditConversionWindowUnit,
+      scheduleValue: data.banditScheduleValue,
+      scheduleUnit: data.banditScheduleUnit,
+      burnInValue: data.banditBurnInValue,
+      burnInUnit: data.banditBurnInUnit,
+      conversionWindowValue: banditConversionWindowValue,
+      conversionWindowUnit: banditConversionWindowUnit,
 
       contextualAttributes: submitContextualAttributes,
     };

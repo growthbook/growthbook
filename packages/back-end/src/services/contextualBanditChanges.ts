@@ -93,16 +93,12 @@ export async function executeContextualBanditStart(
     status: "running",
     dateStarted: cb.dateStarted ?? now,
     autoSnapshots: true,
-    contextualBanditStage: "explore",
-    contextualBanditStageDateStarted: now,
-    contextualBanditScheduleValue:
-      cb.contextualBanditScheduleValue ?? s?.banditScheduleValue ?? 1,
-    contextualBanditScheduleUnit:
-      cb.contextualBanditScheduleUnit ?? s?.banditScheduleUnit ?? "days",
-    contextualBanditBurnInValue:
-      cb.contextualBanditBurnInValue ?? s?.banditBurnInValue ?? 1,
-    contextualBanditBurnInUnit:
-      cb.contextualBanditBurnInUnit ?? s?.banditBurnInUnit ?? "days",
+    stage: "explore",
+    stageDateStarted: now,
+    scheduleValue: cb.scheduleValue ?? s?.banditScheduleValue ?? 1,
+    scheduleUnit: cb.scheduleUnit ?? s?.banditScheduleUnit ?? "days",
+    burnInValue: cb.burnInValue ?? s?.banditBurnInValue ?? 1,
+    burnInUnit: cb.burnInUnit ?? s?.banditBurnInUnit ?? "days",
   };
   startChanges.nextSnapshotAttempt = determineNextContextualBanditSchedule({
     ...cb,

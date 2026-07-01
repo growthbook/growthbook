@@ -40,7 +40,7 @@ const BaseClass = MakeModelClass({
     archived: false,
     minUsersPerLeaf: 100,
     maxLeaves: 12,
-    canonicalFormVersion: 1,
+    banditModelVersion: 1,
     currentLeafWeights: [],
     banditVersion: 0,
   },
@@ -164,17 +164,17 @@ export function toApiContextualBandit(
     minUsersPerLeaf: doc.minUsersPerLeaf,
     maxLeaves: doc.maxLeaves,
     holdoutPercent: doc.holdoutPercent,
-    canonicalFormVersion: doc.canonicalFormVersion,
+    banditModelVersion: doc.banditModelVersion,
     banditVersion: doc.banditVersion ?? 0,
-    contextualBanditScheduleValue: doc.contextualBanditScheduleValue,
-    contextualBanditScheduleUnit: doc.contextualBanditScheduleUnit,
-    contextualBanditBurnInValue: doc.contextualBanditBurnInValue,
-    contextualBanditBurnInUnit: doc.contextualBanditBurnInUnit,
-    banditConversionWindowValue: doc.banditConversionWindowValue,
-    banditConversionWindowUnit: doc.banditConversionWindowUnit,
-    contextualBanditStage: doc.contextualBanditStage,
-    contextualBanditStageDateStarted:
-      doc.contextualBanditStageDateStarted?.toISOString(),
+    scheduleValue: doc.scheduleValue,
+    scheduleUnit: doc.scheduleUnit,
+    burnInValue: doc.burnInValue,
+    burnInUnit: doc.burnInUnit,
+    conversionWindowValue: doc.conversionWindowValue,
+    conversionWindowUnit: doc.conversionWindowUnit,
+    stage: doc.stage,
+    stageDateStarted:
+      doc.stageDateStarted?.toISOString(),
   };
 }
 
@@ -234,25 +234,25 @@ export class ContextualBanditModel extends BaseClass {
 
     return {
       ...body,
-      contextualBanditScheduleValue:
-        body.contextualBanditScheduleValue ??
+      scheduleValue:
+        body.scheduleValue ??
         orgSettings?.banditScheduleValue ??
         1,
-      contextualBanditScheduleUnit:
-        body.contextualBanditScheduleUnit ??
+      scheduleUnit:
+        body.scheduleUnit ??
         orgSettings?.banditScheduleUnit ??
         "days",
-      contextualBanditBurnInValue:
-        body.contextualBanditBurnInValue ?? orgSettings?.banditBurnInValue ?? 1,
-      contextualBanditBurnInUnit:
-        body.contextualBanditBurnInUnit ??
+      burnInValue:
+        body.burnInValue ?? orgSettings?.banditBurnInValue ?? 1,
+      burnInUnit:
+        body.burnInUnit ??
         orgSettings?.banditBurnInUnit ??
         "days",
       tags: body.tags ?? [],
       owner: body.owner ?? "",
       archived: false,
       holdoutPercent: 0,
-      canonicalFormVersion: 1,
+      banditModelVersion: 1,
       minUsersPerLeaf: body.minUsersPerLeaf ?? 100,
       maxLeaves: body.maxLeaves ?? 12,
       hashAttribute: body.hashAttribute ?? "id",

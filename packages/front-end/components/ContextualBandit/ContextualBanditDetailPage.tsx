@@ -139,11 +139,11 @@ export default function ContextualBanditDetailPage({
       ? decisionMetricObj.windowSettings
       : null;
   const conversionWindowOverride =
-    (cb.banditConversionWindowValue ?? null) !== null &&
-    (cb.banditConversionWindowUnit ?? null) !== null
+    (cb.conversionWindowValue ?? null) !== null &&
+    (cb.conversionWindowUnit ?? null) !== null
       ? formatConversionWindow(
-          cb.banditConversionWindowValue as number,
-          cb.banditConversionWindowUnit as string,
+          cb.conversionWindowValue as number,
+          cb.conversionWindowUnit as string,
         )
       : null;
 
@@ -500,14 +500,14 @@ export default function ContextualBanditDetailPage({
               <div className="row mt-3">
                 <DetailSectionColumn label="Exploratory Stage">
                   {formatExploratoryStage(
-                    cb.contextualBanditBurnInValue,
-                    cb.contextualBanditBurnInUnit,
+                    cb.burnInValue,
+                    cb.burnInUnit,
                   )}
                 </DetailSectionColumn>
                 <DetailSectionColumn label="Update Cadence">
                   {formatUpdateCadence(
-                    cb.contextualBanditScheduleValue,
-                    cb.contextualBanditScheduleUnit,
+                    cb.scheduleValue,
+                    cb.scheduleUnit,
                   )}
                 </DetailSectionColumn>
               </div>

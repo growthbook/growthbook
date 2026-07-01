@@ -136,8 +136,6 @@ export function getExperimentFactMetricsQuery(
 
   // CBs are weighted in TS from raw stats, so they skip MAB period weighting; `getBanditDates` returns undefined for them.
   const banditDates = getBanditDates(settings.banditSettings);
-  const poolRegressionTheta =
-    settings.banditSettings?.poolRegressionTheta !== false;
 
   const dimensionCols: DimensionColumnData[] = params.dimensions.map((d) =>
     getDimensionCol(dialect, d),
@@ -152,11 +150,7 @@ export function getExperimentFactMetricsQuery(
     });
   }
 
-  appendContextualBanditTargetingAttributeCols(
-    dialect,
-    dimensionCols,
-    settings,
-  );
+  appendContextualBanditTargetingAttributeCols(dimensionCols, settings);
 
   const computeOnActivatedUsersOnly =
     activationMetric !== null &&
@@ -652,7 +646,6 @@ export function getExperimentFactMetricsQuery(
             factTablesWithIndices,
             regressionAdjustedTableIndices,
             percentileTableIndices,
-            poolRegressionTheta,
           })
         : `
     -- One row per variation/dimension with aggregations

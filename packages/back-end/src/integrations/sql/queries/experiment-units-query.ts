@@ -83,10 +83,7 @@ export function getExperimentUnitsQuery(
     unitsSettings.attributionModel === "experimentDuration" ||
     unitsSettings.attributionModel === "lookbackOverride";
 
-  const contextualBanditCfg = getContextualBanditUnitsSqlConfig(
-    dialect,
-    unitsSettings,
-  );
+  const contextualBanditCfg = getContextualBanditUnitsSqlConfig(unitsSettings);
 
   const {
     contextualExposureSelectCols,

@@ -93,8 +93,6 @@ export function getSnapshotMetricQuery(
   // columns appended to the dimensions). `getBanditDates` returns undefined
   // when `contextualBandit` is set, which short-circuits the CB path here.
   const banditDates = getBanditDates(settings.banditSettings);
-  const poolRegressionTheta =
-    settings.banditSettings?.poolRegressionTheta !== false;
 
   // redundant checks to make sure configuration makes sense and we only build expensive queries for the cases
   // where RA is actually possible
@@ -529,7 +527,6 @@ WITH
           ],
           dimensionCols,
           hasRegressionAdjustment: regressionAdjusted,
-          poolRegressionTheta,
           hasCapping: isPercentileCapped || denominatorIsPercentileCapped,
           ignoreNulls: "ignoreNulls" in metric && metric.ignoreNulls,
           denominatorIsPercentileCapped,

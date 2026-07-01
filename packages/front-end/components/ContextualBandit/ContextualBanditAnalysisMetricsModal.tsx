@@ -55,17 +55,17 @@ export default function ContextualBanditAnalysisMetricsModal({
     useState(false);
 
   const scheduleHours =
-    (cb.contextualBanditScheduleValue ?? 0) *
-    (cb.contextualBanditScheduleUnit === "days" ? 24 : 1);
+    (cb.scheduleValue ?? 0) *
+    (cb.scheduleUnit === "days" ? 24 : 1);
 
   const initialConversionWindow = useMemo(() => {
     if (
-      (cb.banditConversionWindowValue ?? null) !== null &&
-      (cb.banditConversionWindowUnit ?? null) !== null
+      (cb.conversionWindowValue ?? null) !== null &&
+      (cb.conversionWindowUnit ?? null) !== null
     ) {
       return {
-        value: cb.banditConversionWindowValue as number,
-        unit: cb.banditConversionWindowUnit as "hours" | "days",
+        value: cb.conversionWindowValue as number,
+        unit: cb.conversionWindowUnit as "hours" | "days",
       };
     }
     const decisionMetric = cb.decisionMetric
@@ -88,16 +88,16 @@ export default function ContextualBanditAnalysisMetricsModal({
       exposureQueryId: cb.contextualBanditQueryId ?? "",
       decisionMetric: cb.decisionMetric ?? "",
       banditScheduleValue:
-        cb.contextualBanditScheduleValue ??
+        cb.scheduleValue ??
         scopedSettings.banditScheduleValue.value,
       banditScheduleUnit:
-        cb.contextualBanditScheduleUnit ??
+        cb.scheduleUnit ??
         scopedSettings.banditScheduleUnit.value,
       banditBurnInValue:
-        cb.contextualBanditBurnInValue ??
+        cb.burnInValue ??
         scopedSettings.banditBurnInValue.value,
       banditBurnInUnit:
-        cb.contextualBanditBurnInUnit ?? scopedSettings.banditBurnInUnit.value,
+        cb.burnInUnit ?? scopedSettings.banditBurnInUnit.value,
       banditConversionWindowValue: initialConversionWindow.value,
       banditConversionWindowUnit: initialConversionWindow.unit,
     },
@@ -157,15 +157,15 @@ export default function ContextualBanditAnalysisMetricsModal({
               contextualBanditQueryId: data.exposureQueryId || undefined,
               contextualAttributes,
               decisionMetric: data.decisionMetric || undefined,
-              contextualBanditScheduleValue: data.banditScheduleValue,
-              contextualBanditScheduleUnit: data.banditScheduleUnit,
-              contextualBanditBurnInValue: data.banditBurnInValue,
-              contextualBanditBurnInUnit: data.banditBurnInUnit,
+              scheduleValue: data.banditScheduleValue,
+              scheduleUnit: data.banditScheduleUnit,
+              burnInValue: data.banditBurnInValue,
+              burnInUnit: data.banditBurnInUnit,
               // null clears the override so the decision metric's own window applies.
-              banditConversionWindowValue: includeConversionWindow
+              conversionWindowValue: includeConversionWindow
                 ? Number(data.banditConversionWindowValue)
                 : null,
-              banditConversionWindowUnit: includeConversionWindow
+              conversionWindowUnit: includeConversionWindow
                 ? data.banditConversionWindowUnit
                 : null,
             }),

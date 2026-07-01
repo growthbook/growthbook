@@ -24,12 +24,14 @@ type ContextualBanditTargetingSettings = Pick<
   "banditSettings" | "variations"
 >;
 
+// @todo(contextual-bandits): fine tune by dialect
+const MAX_CONTEXTUAL_BANDIT_CONTEXTS = 5000;
+
 export function appendContextualBanditTargetingAttributeCols(
-  dialect: SqlDialect,
   dimensionCols: DimensionColumnData[],
   settings: ContextualBanditTargetingSettings,
 ): void {
-  const cfg = getContextualBanditUnitsSqlConfig(dialect, settings);
+  const cfg = getContextualBanditUnitsSqlConfig(settings);
   if (!cfg) {
     return;
   }
@@ -57,7 +59,6 @@ export type ContextualBanditUnitsSqlConfig = {
 };
 
 export function getContextualBanditUnitsSqlConfig(
-  dialect: SqlDialect,
   settings: ContextualBanditTargetingSettings,
 ): ContextualBanditUnitsSqlConfig | null {
   const bs = settings.banditSettings;
@@ -74,7 +75,7 @@ export function getContextualBanditUnitsSqlConfig(
   const k = Math.max(1, settings.variations?.length ?? 1);
   const maxRankedContexts = Math.max(
     1,
-    Math.floor(dialect.maxContextualBanditContexts / k) - 1,
+    Math.floor(MAX_CONTEXTUAL_BANDIT_CONTEXTS / k) - 1,
   );
   return { aliases, maxRankedContexts };
 }

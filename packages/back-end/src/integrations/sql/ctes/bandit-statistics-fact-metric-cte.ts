@@ -15,7 +15,6 @@ export function getBanditStatisticsFactMetricCTE(
     factTablesWithIndices,
     regressionAdjustedTableIndices,
     percentileTableIndices,
-    poolRegressionTheta = true,
   }: {
     baseIdType: string;
     metricData: BanditMetricData[];
@@ -23,7 +22,6 @@ export function getBanditStatisticsFactMetricCTE(
     factTablesWithIndices: { factTable: FactTableInterface; index: number }[];
     regressionAdjustedTableIndices: Set<number>;
     percentileTableIndices: Set<number>;
-    poolRegressionTheta?: boolean;
   },
 ): string {
   return `
@@ -126,11 +124,7 @@ export function getBanditStatisticsFactMetricCTE(
         ${dimensionCols.map((d) => `, ${d.alias} AS ${d.alias}`).join("\n")}
       FROM 
         __banditPeriodStatistics
-      GROUP BY
-      -- @lukebrawleysmith GROUP BY 1 will cause this query to
-      -- fail as it groups by the first column. Instead the whole thing needs to just skil the group by
-      -- or we need to use a different way to group by ALL
-      ${dimensionCols.map((d) => `${d.alias}`).join(", ") || "1"}
+      ${dimensionCols.length > 0 ? `GROUP BY ${dimensionCols.map((d) => `${d.alias}`).join(", ")}` : ""}
     ),
     __banditPeriodWeights AS (
       SELECT
@@ -175,7 +169,7 @@ export function getBanditStatisticsFactMetricCTE(
         ${dimensionCols.map((d) => `, bps.${d.alias}`).join("\n")}
     )
     ${
-      regressionAdjustedTableIndices.size > 0 && poolRegressionTheta
+      regressionAdjustedTableIndices.size > 0
         ? `
         , __theta AS (
         SELECT
@@ -201,9 +195,7 @@ export function getBanditStatisticsFactMetricCTE(
           .join("\n")}
         FROM
           __banditPeriodWeights
-        GROUP BY
-          -- @lukebrawleysmith same here
-          ${dimensionCols.map((d) => `${d.alias}`).join(", ") || "1"}
+        ${dimensionCols.length > 0 ? `GROUP BY ${dimensionCols.map((d) => `${d.alias}`).join(", ")}` : ""}
         )
       `
         : ""
@@ -287,7 +279,7 @@ export function getBanditStatisticsFactMetricCTE(
               SUM(bpw.weight * bps.${alias}main_sum / bps.users) * SUM(bpw.weight * bps.${alias}covariate_sum / bps.users)
             )
           ) AS ${alias}main_covariate_sum_product
-        ${poolRegressionTheta ? `, MAX(t.${alias}theta) AS ${alias}theta` : ""}
+        , MAX(t.${alias}theta) AS ${alias}theta
           `
           : ""
       }`;
@@ -308,7 +300,7 @@ export function getBanditStatisticsFactMetricCTE(
         }
       )
     ${
-      regressionAdjustedTableIndices.size > 0 && poolRegressionTheta
+      regressionAdjustedTableIndices.size > 0
         ? `
       LEFT JOIN
         __theta t

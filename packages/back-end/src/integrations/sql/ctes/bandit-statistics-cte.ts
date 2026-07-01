@@ -24,8 +24,6 @@ export function getBanditStatisticsCTE(
     metricData,
     dimensionCols,
     hasRegressionAdjustment,
-    // @lukebrawleysmith is `poolRegressionTheta` still necessary?
-    poolRegressionTheta = true,
     hasCapping,
     ignoreNulls,
     denominatorIsPercentileCapped,
@@ -34,8 +32,6 @@ export function getBanditStatisticsCTE(
     metricData: BanditMetricData[];
     dimensionCols: DimensionColumnData[];
     hasRegressionAdjustment: boolean;
-    /** When false, emit CUPED covariate columns but skip pooled __theta. */
-    poolRegressionTheta?: boolean;
     hasCapping: boolean;
     ignoreNulls?: boolean;
     denominatorIsPercentileCapped?: boolean;
@@ -181,7 +177,7 @@ export function getBanditStatisticsCTE(
       ${dimensionCols.map((d) => `, bps.${d.alias}`).join("\n")}
   )
   ${
-    hasRegressionAdjustment && poolRegressionTheta
+    hasRegressionAdjustment
       ? `
       , __theta AS (
       SELECT
@@ -292,7 +288,7 @@ export function getBanditStatisticsCTE(
             SUM(bpw.weight * bps.${alias}main_sum / bps.users) * SUM(bpw.weight * bps.${alias}covariate_sum / bps.users)
           )
         ) AS ${alias}main_covariate_sum_product
-      ${poolRegressionTheta ? `, MAX(t.${alias}theta) AS ${alias}theta` : ""}
+      , MAX(t.${alias}theta) AS ${alias}theta
         `
         : ""
     }`;
@@ -313,7 +309,7 @@ export function getBanditStatisticsCTE(
       }
     )
   ${
-    hasRegressionAdjustment && poolRegressionTheta
+    hasRegressionAdjustment
       ? `
     LEFT JOIN
       __theta t

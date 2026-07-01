@@ -12,48 +12,41 @@ export type ContextualBanditUpdate = Partial<
 export function determineNextContextualBanditSchedule(
   cb: ContextualBanditInterface,
 ): Date {
-  const start = (
-    cb.contextualBanditStageDateStarted ??
-    cb.dateStarted ??
-    new Date()
-  ).getTime();
+  const start = (cb.stageDateStarted ?? cb.dateStarted ?? new Date()).getTime();
 
-  if (cb.contextualBanditBurnInValue === undefined) {
+  if (cb.burnInValue === undefined) {
     throw new Error(
-      "Cannot schedule next contextual bandit update. contextualBanditBurnInValue is unset.",
+      "Cannot schedule next contextual bandit update. burnInValue is unset.",
     );
   }
-  if (cb.contextualBanditBurnInUnit === undefined) {
+  if (cb.burnInUnit === undefined) {
     throw new Error(
-      "Cannot schedule next contextual bandit update. contextualBanditBurnInUnit is unset.",
+      "Cannot schedule next contextual bandit update. burnInUnit is unset.",
     );
   }
-  if (cb.contextualBanditScheduleValue === undefined) {
+  if (cb.scheduleValue === undefined) {
     throw new Error(
-      "Cannot schedule next contextual bandit update. contextualBanditScheduleValue is unset.",
+      "Cannot schedule next contextual bandit update. scheduleValue is unset.",
     );
   }
-  if (cb.contextualBanditScheduleUnit === undefined) {
+  if (cb.scheduleUnit === undefined) {
     throw new Error(
-      "Cannot schedule next contextual bandit update. contextualBanditScheduleUnit is unset.",
+      "Cannot schedule next contextual bandit update. scheduleUnit is unset.",
     );
   }
 
-  const standardHoursMultiple =
-    cb.contextualBanditScheduleUnit === "days" ? 24 : 1;
-  const standardInterval =
-    cb.contextualBanditScheduleValue * standardHoursMultiple * HOUR_MS;
+  const standardHoursMultiple = cb.scheduleUnit === "days" ? 24 : 1;
+  const standardInterval = cb.scheduleValue * standardHoursMultiple * HOUR_MS;
   const elapsedTime = Date.now() - start;
   const intervalsPassed = Math.floor(elapsedTime / standardInterval);
   const nextStandardRunDate = new Date(
     start + (intervalsPassed + 1) * standardInterval,
   );
 
-  if (cb.contextualBanditStage === "explore") {
-    const burnInHoursMultiple =
-      cb.contextualBanditBurnInUnit === "days" ? 24 : 1;
+  if (cb.stage === "explore") {
+    const burnInHoursMultiple = cb.burnInUnit === "days" ? 24 : 1;
     const burnInRunDate = new Date(
-      start + cb.contextualBanditBurnInValue * burnInHoursMultiple * HOUR_MS,
+      start + cb.burnInValue * burnInHoursMultiple * HOUR_MS,
     );
     if (burnInRunDate < nextStandardRunDate) {
       return burnInRunDate;
@@ -68,22 +61,18 @@ export function computeContextualBanditStageAndSchedule(
 ): ContextualBanditUpdate {
   const changes: ContextualBanditUpdate = {};
   const now = new Date();
-  const stageStart =
-    cb.contextualBanditStageDateStarted ?? cb.dateStarted ?? now;
+  const stageStart = cb.stageDateStarted ?? cb.dateStarted ?? now;
 
-  if (cb.contextualBanditStage === "explore") {
-    const burnInHoursMultiple =
-      cb.contextualBanditBurnInUnit === "days" ? 24 : 1;
-    const burnInMs =
-      (cb.contextualBanditBurnInValue ?? 0) * burnInHoursMultiple * HOUR_MS;
+  if (cb.stage === "explore") {
+    const burnInHoursMultiple = cb.burnInUnit === "days" ? 24 : 1;
+    const burnInMs = (cb.burnInValue ?? 0) * burnInHoursMultiple * HOUR_MS;
     if (now.getTime() > stageStart.getTime() + burnInMs) {
-      changes.contextualBanditStage = "exploit";
-      changes.contextualBanditStageDateStarted = now;
+      changes.stage = "exploit";
+      changes.stageDateStarted = now;
     }
   }
 
-  const effectiveStage =
-    changes.contextualBanditStage ?? cb.contextualBanditStage;
+  const effectiveStage = changes.stage ?? cb.stage;
   if (effectiveStage === "exploit") {
     changes.nextSnapshotAttempt = determineNextContextualBanditSchedule({
       ...cb,

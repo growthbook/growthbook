@@ -316,7 +316,7 @@ export async function persistContextualBanditEvent(
   // banditVersion, but we do NOT apply new weights — weights stay at their current
   // (even) split until the bandit transitions to exploit. Passing an empty leafWeights
   // array leaves `currentLeafWeights` untouched in `patchLeafWeights`.
-  const inExploreStage = cb.contextualBanditStage === "explore";
+  const inExploreStage = cb.stage === "explore";
   const weightsWereUpdated = inExploreStage
     ? false
     : contextualBanditWeightsWereUpdated(
@@ -397,7 +397,7 @@ export function buildContextualBanditSnapshotSettings(
 
     minUsersPerLeaf: cb.minUsersPerLeaf,
     maxLeaves: cb.maxLeaves,
-    canonicalFormVersion: cb.canonicalFormVersion,
+    banditModelVersion: cb.banditModelVersion,
 
     startDate: cb.dateStarted ?? new Date(),
     endDate: cb.dateStopped ?? null,
@@ -449,8 +449,6 @@ export function buildSnapshotSettingsForCb(
       seed: cbSnapshotSettings.banditWeightsSeed,
       currentWeights: cbSnapshotSettings.variations.map((v) => v.weight),
       historicalWeights: [],
-      // CUPED covariate aggregates yes; pooled bandit-period theta no.
-      poolRegressionTheta: false,
     },
   };
 }

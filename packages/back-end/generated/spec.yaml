@@ -28545,25 +28545,25 @@ paths:
                 maxLeaves:
                   type: integer
                   exclusiveMinimum: 0
-                contextualBanditScheduleValue:
+                scheduleValue:
                   type: number
-                contextualBanditScheduleUnit:
+                scheduleUnit:
                   type: string
                   enum:
                     - days
                     - hours
-                contextualBanditBurnInValue:
+                burnInValue:
                   type: number
-                contextualBanditBurnInUnit:
+                burnInUnit:
                   type: string
                   enum:
                     - days
                     - hours
-                banditConversionWindowValue:
+                conversionWindowValue:
                   anyOf:
                     - type: number
                     - type: 'null'
-                banditConversionWindowUnit:
+                conversionWindowUnit:
                   anyOf:
                     - type: string
                       enum:
@@ -28716,23 +28716,23 @@ paths:
                 maxLeaves:
                   type: integer
                   exclusiveMinimum: 0
-                contextualBanditScheduleValue:
+                scheduleValue:
                   type: number
-                contextualBanditScheduleUnit:
+                scheduleUnit:
                   type: string
                   enum:
                     - days
                     - hours
-                contextualBanditBurnInValue:
+                burnInValue:
                   type: number
-                contextualBanditBurnInUnit:
+                burnInUnit:
                   type: string
                   enum:
                     - days
                     - hours
-                banditConversionWindowValue:
+                conversionWindowValue:
                   type: number
-                banditConversionWindowUnit:
+                conversionWindowUnit:
                   type: string
                   enum:
                     - hours
@@ -44872,41 +44872,41 @@ components:
           type: number
           minimum: 0
           maximum: 0.5
-        canonicalFormVersion:
+        banditModelVersion:
           type: integer
           minimum: 0
-        contextualBanditScheduleValue:
+        scheduleValue:
           type: number
-        contextualBanditScheduleUnit:
+        scheduleUnit:
           type: string
           enum:
             - days
             - hours
-        contextualBanditBurnInValue:
+        burnInValue:
           type: number
-        contextualBanditBurnInUnit:
+        burnInUnit:
           type: string
           enum:
             - days
             - hours
-        banditConversionWindowValue:
+        conversionWindowValue:
           anyOf:
             - type: number
             - type: 'null'
-        banditConversionWindowUnit:
+        conversionWindowUnit:
           anyOf:
             - type: string
               enum:
                 - hours
                 - days
             - type: 'null'
-        contextualBanditStage:
+        stage:
           type: string
           enum:
             - explore
             - exploit
             - paused
-        contextualBanditStageDateStarted:
+        stageDateStarted:
           type: string
           format: date-time
       required:
@@ -44929,7 +44929,7 @@ components:
         - minUsersPerLeaf
         - maxLeaves
         - holdoutPercent
-        - canonicalFormVersion
+        - banditModelVersion
       additionalProperties: false
     ContextualBanditQuery:
       type: object

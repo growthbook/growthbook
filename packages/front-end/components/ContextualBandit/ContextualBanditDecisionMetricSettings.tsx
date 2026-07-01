@@ -292,7 +292,7 @@ export default function ContextualBanditDecisionMetricSettings({
         noQuantileGoalMetrics={true}
         noLegacyMetrics={true}
         requireDatasource={true}
-        experimentType={undefined} //@teresayung check this
+        experimentType={undefined}
         goalMetricsDescription={" "}
         goalMetrics={decisionMetricId ? [decisionMetricId] : []}
         secondaryMetrics={[]}

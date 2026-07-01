@@ -27,7 +27,7 @@ function buildSettings(
 
     minUsersPerLeaf: 100,
     maxLeaves: 8,
-    canonicalFormVersion: 1,
+    banditModelVersion: 1,
 
     startDate: new Date("2025-01-01T00:00:00Z"),
     endDate: null,

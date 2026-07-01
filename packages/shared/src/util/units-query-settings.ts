@@ -47,8 +47,6 @@ export function buildUnitsQuerySettingsFromCb(
       seed: cbSettings.banditWeightsSeed,
       currentWeights: cbSettings.variations.map((v) => v.weight),
       historicalWeights: [],
-      // CUPED covariate aggregates yes; pooled bandit-period theta no.
-      poolRegressionTheta: false,
     },
   };
 }

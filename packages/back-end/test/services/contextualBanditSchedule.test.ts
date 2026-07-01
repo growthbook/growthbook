@@ -15,12 +15,12 @@ function makeCb(
     id: "cb_1",
     organization: "org_1",
     dateStarted: NOW,
-    contextualBanditStage: "explore",
-    contextualBanditStageDateStarted: NOW,
-    contextualBanditScheduleValue: 1,
-    contextualBanditScheduleUnit: "days",
-    contextualBanditBurnInValue: 6,
-    contextualBanditBurnInUnit: "hours",
+    stage: "explore",
+    stageDateStarted: NOW,
+    scheduleValue: 1,
+    scheduleUnit: "days",
+    burnInValue: 6,
+    burnInUnit: "hours",
     ...overrides,
   } as unknown as ContextualBanditInterface;
 }
@@ -41,7 +41,7 @@ describe("determineNextContextualBanditSchedule", () => {
 
   it("returns the next standard cadence boundary during exploit", () => {
     const next = determineNextContextualBanditSchedule(
-      makeCb({ contextualBanditStage: "exploit" }),
+      makeCb({ stage: "exploit" }),
     );
     expect(next.getTime()).toBe(NOW.getTime() + DAY);
   });
@@ -50,8 +50,8 @@ describe("determineNextContextualBanditSchedule", () => {
     // burn-in 2d >= schedule 1d => standard boundary wins.
     const next = determineNextContextualBanditSchedule(
       makeCb({
-        contextualBanditBurnInValue: 2,
-        contextualBanditBurnInUnit: "days",
+        burnInValue: 2,
+        burnInUnit: "days",
       }),
     );
     expect(next.getTime()).toBe(NOW.getTime() + DAY);
@@ -60,9 +60,9 @@ describe("determineNextContextualBanditSchedule", () => {
   it("throws when a schedule/burn-in field is unset", () => {
     expect(() =>
       determineNextContextualBanditSchedule(
-        makeCb({ contextualBanditScheduleValue: undefined }),
+        makeCb({ scheduleValue: undefined }),
       ),
-    ).toThrow(/contextualBanditScheduleValue is unset/);
+    ).toThrow(/scheduleValue is unset/);
   });
 });
 
@@ -77,7 +77,7 @@ describe("computeContextualBanditStageAndSchedule", () => {
   it("makes no changes while still inside the explore (burn-in) window", () => {
     // stage started 1h ago, burn-in is 6h => not elapsed.
     const cb = makeCb({
-      contextualBanditStageDateStarted: new Date(NOW.getTime() - 1 * HOUR),
+      stageDateStarted: new Date(NOW.getTime() - 1 * HOUR),
     });
     expect(computeContextualBanditStageAndSchedule(cb)).toEqual({});
   });
@@ -85,22 +85,22 @@ describe("computeContextualBanditStageAndSchedule", () => {
   it("transitions explore -> exploit once burn-in elapses and schedules the next run", () => {
     // stage started 7h ago, burn-in is 6h => elapsed.
     const cb = makeCb({
-      contextualBanditStageDateStarted: new Date(NOW.getTime() - 7 * HOUR),
+      stageDateStarted: new Date(NOW.getTime() - 7 * HOUR),
     });
     const changes = computeContextualBanditStageAndSchedule(cb);
-    expect(changes.contextualBanditStage).toBe("exploit");
-    expect(changes.contextualBanditStageDateStarted).toEqual(NOW);
+    expect(changes.stage).toBe("exploit");
+    expect(changes.stageDateStarted).toEqual(NOW);
     // Now in exploit, anchored at NOW => next run one cadence (1d) out.
     expect(changes.nextSnapshotAttempt?.getTime()).toBe(NOW.getTime() + DAY);
   });
 
   it("reschedules without a stage change when already in exploit", () => {
     const cb = makeCb({
-      contextualBanditStage: "exploit",
-      contextualBanditStageDateStarted: NOW,
+      stage: "exploit",
+      stageDateStarted: NOW,
     });
     const changes = computeContextualBanditStageAndSchedule(cb);
-    expect(changes.contextualBanditStage).toBeUndefined();
+    expect(changes.stage).toBeUndefined();
     expect(changes.nextSnapshotAttempt?.getTime()).toBe(NOW.getTime() + DAY);
   });
 });
