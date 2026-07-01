@@ -4,10 +4,14 @@ import { evaluateInvariants } from "shared/util";
 import type { ConfigInvariant } from "shared/util";
 import Button from "@/ui/Button";
 import Badge from "@/ui/Badge";
-import Callout from "@/ui/Callout";
+import Switch from "@/ui/Switch";
+import Link from "@/ui/Link";
 import Text from "@/ui/Text";
+import Frame from "@/ui/Frame";
+import Callout from "@/ui/Callout";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
+import CodeTextArea from "@/components/Forms/CodeTextArea";
 
 type Props = {
   invariants: ConfigInvariant[];
@@ -20,7 +24,46 @@ type Props = {
   onChange: (next: ConfigInvariant[]) => Promise<void>;
 };
 
-const OPS = ["==", "!=", "<=", "<", ">=", ">"];
+const COMPARISON_OPS = ["==", "!=", "<=", "<", ">=", ">"];
+
+type SimpleRule = {
+  field: string;
+  op: string;
+  rhsKind: "value" | "field";
+  rhs: string;
+};
+
+function isVar(x: unknown): x is { var: string } {
+  return (
+    !!x &&
+    typeof x === "object" &&
+    !Array.isArray(x) &&
+    Object.keys(x as object).length === 1 &&
+    typeof (x as { var?: unknown }).var === "string"
+  );
+}
+
+// A rule the simple builder can represent: a single binary comparison of a field
+// against a literal or another field. Anything compound (or/and/!, nesting) is
+// advanced-only.
+function toSimpleRule(rule: Record<string, unknown> | null): SimpleRule | null {
+  if (!rule) return null;
+  const keys = Object.keys(rule);
+  if (keys.length !== 1) return null;
+  const op = keys[0];
+  if (!COMPARISON_OPS.includes(op)) return null;
+  const args = rule[op];
+  if (!Array.isArray(args) || args.length !== 2) return null;
+  const [lhs, rhs] = args;
+  if (!isVar(lhs)) return null;
+  if (isVar(rhs)) return { field: lhs.var, op, rhsKind: "field", rhs: rhs.var };
+  if (rhs === null)
+    return { field: lhs.var, op, rhsKind: "value", rhs: "null" };
+  if (["string", "number", "boolean"].includes(typeof rhs)) {
+    return { field: lhs.var, op, rhsKind: "value", rhs: String(rhs) };
+  }
+  return null;
+}
 
 function parseLiteral(s: string): unknown {
   const t = s.trim();
@@ -31,9 +74,23 @@ function parseLiteral(s: string): unknown {
   return t.replace(/^["']|["']$/g, "");
 }
 
-// Named cross-field rules on a config schema. Rules are JSONLogic; a small
-// builder generates the common field·op·(value|field) comparison, and the raw
-// JSONLogic stays editable for compound rules (implications, both-or-neither…).
+function buildComparison(r: SimpleRule): Record<string, unknown> {
+  const rhs = r.rhsKind === "field" ? { var: r.rhs } : parseLiteral(r.rhs);
+  return { [r.op]: [{ var: r.field }, rhs] };
+}
+
+function safeParse(text: string): Record<string, unknown> | null {
+  try {
+    const p = JSON.parse(text);
+    return p && typeof p === "object" && !Array.isArray(p) ? p : null;
+  } catch {
+    return null;
+  }
+}
+
+// Named cross-field rules on a config schema. Mirrors the feature condition
+// editor: a simple field·op·value/field builder, with an "Advanced" toggle that
+// swaps in a raw JSONLogic editor for compound rules — never both at once.
 export default function ConfigInvariantsEditor({
   invariants,
   fieldKeys,
@@ -46,15 +103,18 @@ export default function ConfigInvariantsEditor({
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [name, setName] = useState("");
   const [message, setMessage] = useState("");
+  const [advanced, setAdvanced] = useState(false);
   const [ruleText, setRuleText] = useState("{}");
-  const [bField, setBField] = useState(fieldKeys[0] ?? "");
-  const [bOp, setBOp] = useState("==");
-  const [bRhsKind, setBRhsKind] = useState("value");
-  const [bRhsValue, setBRhsValue] = useState("");
-  const [bRhsField, setBRhsField] = useState(
-    fieldKeys[1] ?? fieldKeys[0] ?? "",
-  );
+  const [simple, setSimple] = useState<SimpleRule>({
+    field: fieldKeys[0] ?? "",
+    op: "==",
+    rhsKind: "value",
+    rhs: "",
+  });
   const [error, setError] = useState<string | null>(null);
+
+  const currentRule = advanced ? safeParse(ruleText) : buildComparison(simple);
+  const canGoSimple = !advanced || toSimpleRule(safeParse(ruleText)) !== null;
 
   const open = (index: number) => {
     setError(null);
@@ -62,14 +122,17 @@ export default function ConfigInvariantsEditor({
     const inv = index >= 0 ? invariants[index] : undefined;
     setName(inv?.name ?? "");
     setMessage(inv?.message ?? "");
-    if (inv) {
-      try {
-        setRuleText(JSON.stringify(JSON.parse(inv.rule), null, 2));
-      } catch {
-        setRuleText(inv.rule);
-      }
+    const parsed = inv ? safeParse(inv.rule) : null;
+    const s = toSimpleRule(parsed);
+    if (s) {
+      setSimple(s);
+      setAdvanced(false);
+      setRuleText(parsed ? JSON.stringify(parsed, null, 2) : "{}");
     } else {
-      setRuleText("{}");
+      setAdvanced(true);
+      setRuleText(
+        parsed ? JSON.stringify(parsed, null, 2) : (inv?.rule ?? "{}"),
+      );
     }
   };
   const close = () => {
@@ -77,28 +140,26 @@ export default function ConfigInvariantsEditor({
     setError(null);
   };
 
-  const parsedRule = useMemo<Record<string, unknown> | null>(() => {
-    try {
-      const p = JSON.parse(ruleText);
-      return p && typeof p === "object" && !Array.isArray(p) ? p : null;
-    } catch {
-      return null;
+  const toggleAdvanced = (checked: boolean) => {
+    if (checked) {
+      setRuleText(JSON.stringify(buildComparison(simple), null, 2));
+      setAdvanced(true);
+    } else {
+      const s = toSimpleRule(safeParse(ruleText));
+      if (!s) return; // not representable simply — stay advanced
+      setSimple(s);
+      setAdvanced(false);
     }
-  }, [ruleText]);
-
-  const applyBuilder = () => {
-    const rhs =
-      bRhsKind === "field" ? { var: bRhsField } : parseLiteral(bRhsValue);
-    setRuleText(JSON.stringify({ [bOp]: [{ var: bField }, rhs] }, null, 2));
   };
 
   const save = async () => {
     if (!name.trim()) return setError("Name is required.");
     if (!message.trim()) return setError("Message is required.");
-    if (!parsedRule) return setError("Rule must be a JSONLogic object.");
+    const rule = advanced ? safeParse(ruleText) : buildComparison(simple);
+    if (!rule) return setError("Rule must be a JSONLogic object.");
     const next: ConfigInvariant = {
       name: name.trim(),
-      rule: JSON.stringify(parsedRule),
+      rule: JSON.stringify(rule),
       message: message.trim(),
     };
     const list =
@@ -122,87 +183,119 @@ export default function ConfigInvariantsEditor({
     return set;
   }, [invariants, resolvedValue]);
 
-  const fieldOptions = fieldKeys.map((k) => ({ label: k, value: k }));
-
-  const hintFails = parsedRule
+  const previewFails = currentRule
     ? evaluateInvariants(resolvedValue, [
-        { name, rule: JSON.stringify(parsedRule), message },
+        { name, rule: JSON.stringify(currentRule), message },
       ]).length > 0
     : null;
 
+  const fieldOptions = fieldKeys.map((k) => ({ label: k, value: k }));
+
   const editor = (
-    <Box className="appbox" p="3" mb="2">
+    <Frame mb="3">
       <Field
         label="Name"
         value={name}
         onChange={(e) => setName(e.target.value)}
         placeholder="e.g. streams_lte_devices"
       />
-      <Flex align="end" gap="2" mt="2" wrap="wrap">
-        <SelectField
-          label="Field"
-          value={bField}
-          onChange={setBField}
-          options={fieldOptions}
+
+      <Flex justify="between" align="center" mt="3" mb="1">
+        <Text size="small" weight="medium">
+          Rule
+        </Text>
+        <Switch
+          value={advanced}
+          onChange={toggleAdvanced}
+          label="Advanced (JSONLogic)"
+          size="1"
+          disabled={advanced && !canGoSimple}
         />
-        <SelectField
-          label="Operator"
-          value={bOp}
-          onChange={setBOp}
-          options={OPS.map((o) => ({ label: o, value: o }))}
-          sort={false}
+      </Flex>
+
+      {advanced ? (
+        <CodeTextArea
+          language="json"
+          value={ruleText}
+          setValue={setRuleText}
+          minLines={4}
+          maxLines={16}
+          helpText={
+            <Flex justify="between" align="center">
+              <span>JSONLogic — a boolean expression over the fields.</span>
+              <Link
+                onClick={(e) => {
+                  e.preventDefault();
+                  const p = safeParse(ruleText);
+                  if (p) setRuleText(JSON.stringify(p, null, 2));
+                }}
+              >
+                Format JSON
+              </Link>
+            </Flex>
+          }
         />
-        <SelectField
-          label="Compare to"
-          value={bRhsKind}
-          onChange={setBRhsKind}
-          options={[
-            { label: "a value", value: "value" },
-            { label: "another field", value: "field" },
-          ]}
-          sort={false}
-        />
-        {bRhsKind === "field" ? (
+      ) : (
+        <Flex gap="2" align="end" wrap="wrap">
           <SelectField
             label="Field"
-            value={bRhsField}
-            onChange={setBRhsField}
+            value={simple.field}
+            onChange={(v) => setSimple({ ...simple, field: v })}
             options={fieldOptions}
           />
-        ) : (
-          <Field
-            label="Value"
-            value={bRhsValue}
-            onChange={(e) => setBRhsValue(e.target.value)}
-            placeholder="'4k', 5, true, null"
+          <SelectField
+            label="Operator"
+            value={simple.op}
+            onChange={(v) => setSimple({ ...simple, op: v })}
+            options={COMPARISON_OPS.map((o) => ({ label: o, value: o }))}
+            sort={false}
           />
-        )}
-        <Button variant="soft" onClick={applyBuilder}>
-          Build rule →
-        </Button>
-      </Flex>
-      <Box mt="2">
+          <SelectField
+            label="Compare to"
+            value={simple.rhsKind}
+            onChange={(v) =>
+              setSimple({ ...simple, rhsKind: v as "value" | "field" })
+            }
+            options={[
+              { label: "a value", value: "value" },
+              { label: "another field", value: "field" },
+            ]}
+            sort={false}
+          />
+          {simple.rhsKind === "field" ? (
+            <SelectField
+              label="Field"
+              value={simple.rhs}
+              onChange={(v) => setSimple({ ...simple, rhs: v })}
+              options={fieldOptions}
+            />
+          ) : (
+            <Field
+              label="Value"
+              value={simple.rhs}
+              onChange={(e) => setSimple({ ...simple, rhs: e.target.value })}
+              placeholder="'4k', 5, true, null"
+            />
+          )}
+        </Flex>
+      )}
+
+      <Box mt="3">
         <Field
-          label="Rule (JSONLogic)"
-          textarea
-          minRows={3}
-          value={ruleText}
-          onChange={(e) => setRuleText(e.target.value)}
+          label="Error message"
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          placeholder="Shown to editors when the rule is violated"
         />
       </Box>
-      <Field
-        label="Error message"
-        value={message}
-        onChange={(e) => setMessage(e.target.value)}
-        placeholder="Shown to editors when the rule is violated"
-      />
-      {parsedRule && (
-        <Box mt="1">
+
+      {currentRule && (
+        <Box mt="2">
           <Badge
-            color={hintFails ? "red" : "green"}
+            color={previewFails ? "red" : "green"}
             variant="soft"
             label={
-              hintFails
+              previewFails
                 ? "Current value would fail this rule"
                 : "Current value passes this rule"
             }
@@ -214,6 +307,7 @@ export default function ConfigInvariantsEditor({
           {error}
         </Callout>
       )}
+
       <Flex gap="2" mt="3">
         <Button onClick={save} loading={saving}>
           {editingIndex !== null && editingIndex >= 0
@@ -224,7 +318,7 @@ export default function ConfigInvariantsEditor({
           Cancel
         </Button>
       </Flex>
-    </Box>
+    </Frame>
   );
 
   return (
@@ -239,9 +333,10 @@ export default function ConfigInvariantsEditor({
       </Flex>
 
       {invariants.length === 0 && editingIndex === null && (
-        <Text as="div" color="text-low" size="small">
-          No cross-field rules yet. Add relational checks JSON Schema can&apos;t
-          express — implications, both-or-neither, or comparing two fields.
+        <Text as="div" size="small" color="text-low">
+          No cross-field rules yet — add relational checks JSON Schema
+          can&apos;t express (implications, both-or-neither, or comparing two
+          fields).
         </Text>
       )}
 
@@ -250,7 +345,7 @@ export default function ConfigInvariantsEditor({
           {editingIndex === i ? (
             editor
           ) : (
-            <Box className="appbox" p="3" mb="2">
+            <Frame mb="2">
               <Flex align="center" gap="2">
                 <Text weight="semibold">{iv.name}</Text>
                 <Badge
@@ -280,6 +375,7 @@ export default function ConfigInvariantsEditor({
                   fontFamily: "var(--font-mono, monospace)",
                   fontSize: 12,
                   color: "var(--gray-11)",
+                  wordBreak: "break-all",
                 }}
               >
                 {iv.rule}
@@ -287,7 +383,7 @@ export default function ConfigInvariantsEditor({
               <Text as="div" size="small" color="text-low" mt="1">
                 {iv.message}
               </Text>
-            </Box>
+            </Frame>
           )}
         </Box>
       ))}
