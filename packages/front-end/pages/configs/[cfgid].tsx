@@ -103,6 +103,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import FieldDefForm from "@/components/Configs/FieldDefForm";
 import ConfigFieldRow from "@/components/Configs/ConfigFieldRow";
 import ConfigInvariantsEditor from "@/components/Configs/ConfigInvariantsEditor";
+import ConfigCustomHooksSection from "@/components/Configs/ConfigCustomHooksSection";
 import {
   FIELD_GRID_TEMPLATE,
   ResolvedField,
@@ -294,12 +295,14 @@ export default function ConfigDetailPage(): React.ReactElement {
   const [showCreateChild, setShowCreateChild] = useState(false);
   const [composeAdding, setComposeAdding] = useState(false);
 
-  // Page-level tabs (Overview | Review & Publish) mirror constants/saved groups.
-  const [tab, setTab] = useState<"overview" | "review">("overview");
+  // Page-level tabs (Overview | Validation | Review & Publish).
+  const [tab, setTab] = useState<"overview" | "validation" | "review">(
+    "overview",
+  );
   // Inner content view shown under the Overview tab.
-  const [activeTab, setActiveTab] = useState<
-    "form" | "json" | "resolved" | "validation"
-  >("form");
+  const [activeTab, setActiveTab] = useState<"form" | "json" | "resolved">(
+    "form",
+  );
   const [editKey, setEditKey] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const [editError, setEditError] = useState<string | null>(null);
@@ -344,12 +347,16 @@ export default function ConfigDetailPage(): React.ReactElement {
   useEffect(() => {
     const hash = (new URL(router.asPath, "http://x").hash
       .replace(/^#/, "")
-      .split(",")[0] || undefined) as "overview" | "review" | undefined;
-    if (hash === "overview" || hash === "review") {
+      .split(",")[0] || undefined) as
+      | "overview"
+      | "validation"
+      | "review"
+      | undefined;
+    if (hash === "overview" || hash === "validation" || hash === "review") {
       setTab(hash);
     }
   }, [router.asPath]);
-  const setTabAndScroll = (newTab: "overview" | "review") => {
+  const setTabAndScroll = (newTab: "overview" | "validation" | "review") => {
     setTab(newTab);
     router.replace(
       { pathname: router.pathname, query: router.query, hash: newTab },
@@ -1507,11 +1514,12 @@ export default function ConfigDetailPage(): React.ReactElement {
               <Tabs
                 value={tab}
                 onValueChange={(v) =>
-                  setTabAndScroll(v as "overview" | "review")
+                  setTabAndScroll(v as "overview" | "validation" | "review")
                 }
               >
                 <TabsList>
                   <TabsTrigger value="overview">Overview</TabsTrigger>
+                  <TabsTrigger value="validation">Validation</TabsTrigger>
                   <TabsTrigger value="review">
                     Review &amp; Publish
                     {openRevisions.length > 0 && (
@@ -1568,9 +1576,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                           ? "json"
                           : v === "resolved"
                             ? "resolved"
-                            : v === "validation"
-                              ? "validation"
-                              : "form",
+                            : "form",
                       );
                     }}
                   >
@@ -1581,7 +1587,6 @@ export default function ConfigDetailPage(): React.ReactElement {
                         <TabsTrigger value="form">Form</TabsTrigger>
                         <TabsTrigger value="json">JSON</TabsTrigger>
                         <TabsTrigger value="resolved">Resolved</TabsTrigger>
-                        <TabsTrigger value="validation">Validation</TabsTrigger>
                         {/* stopPropagation so these controls don't feed the TabsList's roving focus. */}
                         <Flex
                           align="center"
@@ -1796,28 +1801,29 @@ export default function ConfigDetailPage(): React.ReactElement {
                         }
                       />
                     )}
-
-                    {activeTab === "validation" && (
-                      <Box pt="2">
-                        <ConfigInvariantsEditor
-                          invariants={ownSchema().invariants ?? []}
-                          fieldKeys={resolved.fields.map((f) => f.key)}
-                          resolvedValue={invariantValue}
-                          canEdit={canEditInline}
-                          onChange={(next) =>
-                            saveSchema(
-                              ownSchema().fields,
-                              undefined,
-                              undefined,
-                              next,
-                            )
-                          }
-                        />
-                      </Box>
-                    )}
                   </Tabs>
                 </Box>
               </>
+            )}
+
+            {tab === "validation" && (
+              <Box>
+                <ConfigInvariantsEditor
+                  invariants={ownSchema().invariants ?? []}
+                  fieldKeys={resolved.fields.map((f) => f.key)}
+                  resolvedValue={invariantValue}
+                  canEdit={canEditInline}
+                  onChange={(next) =>
+                    saveSchema(ownSchema().fields, undefined, undefined, next)
+                  }
+                />
+                <Box mt="4">
+                  <ConfigCustomHooksSection
+                    config={config}
+                    canManage={canUpdate}
+                  />
+                </Box>
+              </Box>
             )}
 
             {tab === "review" && (

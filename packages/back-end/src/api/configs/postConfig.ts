@@ -12,6 +12,7 @@ import {
 } from "back-end/src/util/errors";
 import { assertKeyAvailable } from "back-end/src/services/constants";
 import { assertConfigValueValid } from "back-end/src/services/configValidation";
+import { runValidateConfigHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
 import { ensureLiveRevisionExists } from "back-end/src/revisions/util";
 import { resolveConfigSchemaSource } from "./validations";
 
@@ -106,6 +107,24 @@ export const postConfig = createApiRequestHandler(postConfigValidator)(async (
   );
 
   // Cycle rejection is enforced in ConfigModel (covers every write path).
+
+  // Customer publish-time checks: run validateConfig hooks on the new config
+  // (sandboxed, self-host + enterprise; a no-op otherwise). Hard-blocks or
+  // soft-warns before anything is persisted.
+  await runValidateConfigHooks({
+    context: req.context,
+    config: {
+      key,
+      name,
+      project: project || "",
+      value: stripConfigExtends(value),
+      schema: normalizedSchema,
+      parent: parent || undefined,
+      extends: extendsKeys,
+      extensible,
+    },
+    original: null,
+  });
 
   // Creation never requires approval: a brand-new config has no dependents, so
   // it can't change any resolved value. Approvals apply to later changes.

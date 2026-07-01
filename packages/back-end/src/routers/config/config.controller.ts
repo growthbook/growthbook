@@ -727,6 +727,7 @@ export const putConfig = async (
         context,
         proposedLeaf,
         proposedValues,
+        revision,
       );
 
       // Claim the merge first (CAS-guarded) so a concurrent discard can't orphan

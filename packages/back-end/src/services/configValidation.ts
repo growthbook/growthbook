@@ -10,7 +10,9 @@ import {
 } from "shared/util";
 import { SchemaField, SimpleSchema } from "shared/types/feature";
 import { ConfigInterface } from "shared/types/config";
+import { Revision } from "shared/enterprise";
 import { Context } from "back-end/src/models/BaseModel";
+import { runValidateConfigRevisionHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
 import { BadRequestError, SoftWarningError } from "back-end/src/util/errors";
 
 // The leaf config we're validating, with optional draft overrides for the
@@ -205,7 +207,45 @@ export async function assertConfigValueValidForPublish(
   context: Context,
   leaf: ConfigLeaf,
   values: ConfigValues,
+  // The revision being published, when available — lets a hook gate the publish
+  // on approval policy (reviews/status). Absent for direct (non-revision) writes.
+  revision?: Revision,
 ): Promise<void> {
+  // Customer-defined publish-time checks (sandboxed, self-host + enterprise).
+  // A separate gate from schema validation — runs on every publish path
+  // (including bypass-approval / schema-skip), can hard-block or soft-warn.
+  const stored = await context.models.configs.getByKey(leaf.key);
+  await runValidateConfigRevisionHooks({
+    context,
+    config: {
+      key: leaf.key,
+      name: leaf.name,
+      project: stored?.project ?? "",
+      value: values.value,
+      schema: leaf.schema,
+      parent: leaf.parent,
+      extends: leaf.extends,
+      extensible: leaf.extensible,
+    },
+    revision: revision
+      ? {
+          version: revision.version,
+          status: revision.status,
+          title: revision.title,
+          comment: revision.comment,
+          authorId: revision.authorId,
+          contributors: revision.contributors,
+          reviews: revision.reviews.map((r) => ({
+            userId: r.userId,
+            decision: r.decision,
+            comment: r.comment,
+            stale: r.stale,
+            dateCreated: r.dateCreated,
+          })),
+        }
+      : undefined,
+  });
+
   if (context.skipSchemaValidation) return;
   const errors = [
     ...(await collectConfigValueErrors(context, leaf, values)),

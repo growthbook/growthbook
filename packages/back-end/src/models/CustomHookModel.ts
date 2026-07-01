@@ -8,6 +8,21 @@ import { UpdateProps } from "shared/types/base-model";
 import { FeatureInterface } from "shared/types/feature";
 import { MakeModelClass } from "./BaseModel";
 
+// Whether a hook applies to the entity being validated. Entity-scoped hooks
+// (feature/config) match by their exact `entityId`; global/project hooks (no
+// entityType) match by project (empty projects = all). Callers pre-filter by
+// `hook` type, so an entity-scoped match can only ever be the correct entity
+// type. Pure + exported for unit testing.
+export function customHookMatchesScope(
+  hook: Pick<CustomHookInterface, "entityType" | "entityId" | "projects">,
+  target: { entityId?: string; project?: string },
+): boolean {
+  if (hook.entityType && hook.entityId) {
+    return hook.entityId === target.entityId;
+  }
+  return !hook.projects.length || hook.projects.includes(target.project ?? "");
+}
+
 const BaseClass = MakeModelClass({
   schema: customHookValidator,
   collectionName: "customhooks",
@@ -29,6 +44,13 @@ export class CustomHookModel extends BaseClass {
     if (doc.entityType !== "feature" || !doc.entityId) return null;
     return this.getForeignRefs(doc, false).feature ?? null;
   }
+
+  // Config-scoped hooks fall through to the generic `canCreate/Update/Delete
+  // CustomHook` gates below (org-level `manageCustomHooks`) rather than a
+  // per-config permission: configs aren't a `getForeignRefs` type, so a
+  // per-config check can't run in these synchronous permission methods. Managing
+  // sandboxed hooks is an org-level operation, so this is a deliberate (safe)
+  // simplification vs the feature-scoped `canManageFeatureCustomHooks` path.
 
   protected canCreate(doc: CustomHookInterface): boolean {
     const feature = this.featureRef(doc);
@@ -80,20 +102,24 @@ export class CustomHookModel extends BaseClass {
     if (entityType === "feature" && this.featureRef(doc) === null) {
       throw new Error(`Could not find feature for custom hook: ${entityId}`);
     }
+
+    // Configs are scoped by their org-unique `key`.
+    if (entityType === "config" && entityId) {
+      const config = await this.context.models.configs.getByKey(entityId);
+      if (!config) {
+        throw new Error(`Could not find config for custom hook: ${entityId}`);
+      }
+    }
   }
 
   public async getByHook(
     hook: CustomHookType,
     project: string = "",
-    featureId: string = "",
+    entityId: string = "",
   ) {
     const hooks = await this._find({ hook, enabled: true });
-
-    // Feature-scoped hooks match by entityId; others match by project (empty = all).
     return hooks.filter((h) =>
-      h.entityType === "feature" && h.entityId
-        ? h.entityId === featureId
-        : !h.projects.length || h.projects.includes(project),
+      customHookMatchesScope(h, { entityId, project }),
     );
   }
 

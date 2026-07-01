@@ -201,7 +201,7 @@ export async function publishRevision(
   // revision merged — it stays open and editable. A bypass/admin-override publish
   // skips approval, not validation. This is the primary publish-time gate for the
   // internal flow; applyChanges keeps its own checks as a post-merge backstop.
-  await adapter.assertPublishable?.(context, entity, desiredState, {
+  await adapter.assertPublishable?.(context, entity, desiredState, revision, {
     isRevert: !!revision.revertedFrom,
   });
 

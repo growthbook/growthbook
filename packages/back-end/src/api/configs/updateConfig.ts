@@ -18,7 +18,7 @@ import {
   reconcileConfigDescendants,
   assertConfigDescendantsReconcilable,
 } from "back-end/src/services/configReconcile";
-import { assertConfigValueValid } from "back-end/src/services/configValidation";
+import { assertConfigValueValidForPublish } from "back-end/src/services/configValidation";
 import { assertConfigNotLocked } from "back-end/src/services/configLock";
 import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
 import { resolveConfigSchemaSource } from "./validations";
@@ -205,7 +205,11 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
       extendsChanged
     ) {
       const postValue = fieldsToUpdate.value ?? config.value;
-      await assertConfigValueValid(
+      // Direct REST update publishes live, so run the full publish gate
+      // (schema + required fields + cross-field invariants + custom hooks),
+      // matching every other config publish path. No `revision` arg: this is a
+      // bypass/direct write with no review cycle.
+      await assertConfigValueValidForPublish(
         req.context,
         {
           key: config.key,

@@ -125,6 +125,7 @@ export interface EntityRevisionAdapter<
     context: Context,
     entity: TSnapshot,
     desiredState: Record<string, unknown>,
+    revision: Revision,
     options?: { isRevert?: boolean },
   ): Promise<void>;
 

@@ -248,6 +248,7 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
     context: Context,
     entity: ConfigInterface,
     desiredState: Record<string, unknown>,
+    revision: Revision,
   ): Promise<void> {
     // Pre-merge lock gate for the shared publishRevision action (auto-publish on
     // approval, scheduled-publish poller). Throwing here — before the merge is
@@ -296,6 +297,7 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
         extensible: entity.extensible,
       },
       { value: postValue },
+      revision,
     );
   },
 };
