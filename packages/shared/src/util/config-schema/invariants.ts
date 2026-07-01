@@ -123,3 +123,32 @@ export function describeInvariantRule(ruleJson: string): string {
   }
   return describeNode(parsed, 0);
 }
+
+// The field keys a rule references (every `{var}`), for row-level highlighting
+// of which fields a failing rule involves. Uses the top-level path segment
+// (configs are flat). Never throws.
+export function invariantRuleFields(ruleJson: string): string[] {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(ruleJson);
+  } catch {
+    return [];
+  }
+  const fields = new Set<string>();
+  const walk = (n: unknown): void => {
+    if (!n || typeof n !== "object") return;
+    if (Array.isArray(n)) {
+      n.forEach(walk);
+      return;
+    }
+    const obj = n as Record<string, unknown>;
+    if (Object.keys(obj).length === 1 && typeof obj.var === "string") {
+      const top = obj.var.split(".")[0];
+      if (top) fields.add(top);
+      return;
+    }
+    Object.values(obj).forEach(walk);
+  };
+  walk(parsed);
+  return [...fields];
+}

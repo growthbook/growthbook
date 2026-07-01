@@ -20,6 +20,7 @@ import {
   getConfigSubtree,
   computeConfigReconciliationPreview,
   evaluateInvariants,
+  invariantRuleFields,
   SchemaProjection,
 } from "shared/util";
 import {
@@ -605,6 +606,20 @@ export default function ConfigDetailPage(): React.ReactElement {
       ),
     [invariantValue, displayedConfig],
   );
+
+  // Field key → messages of the failing rules that reference it, for row-level
+  // highlighting in the Form tab.
+  const failingFieldInfo = useMemo(() => {
+    const map = new Map<string, string[]>();
+    const failingNames = new Set(failingInvariants.map((v) => v.name));
+    for (const inv of displayedConfig?.schema?.invariants ?? []) {
+      if (!failingNames.has(inv.name)) continue;
+      for (const key of invariantRuleFields(inv.rule)) {
+        map.set(key, [...(map.get(key) ?? []), inv.message]);
+      }
+    }
+    return map;
+  }, [failingInvariants, displayedConfig]);
 
   const parentKey = useMemo(() => {
     const self = data?.lineage.find((n) => n.key === config?.key);
@@ -1801,6 +1816,10 @@ export default function ConfigDetailPage(): React.ReactElement {
                                   showOverrides && isOverrideField(f)
                                 }
                                 parentValue={parentFieldValues.get(f.key)}
+                                hasValidationError={failingFieldInfo.has(f.key)}
+                                validationTooltip={failingFieldInfo
+                                  .get(f.key)
+                                  ?.join("; ")}
                               />
                             );
                           })}

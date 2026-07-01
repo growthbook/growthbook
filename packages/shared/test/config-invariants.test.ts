@@ -1,6 +1,7 @@
 import {
   evaluateInvariants,
   describeInvariantRule,
+  invariantRuleFields,
   ConfigInvariant,
 } from "../src/util/config-schema/invariants";
 
@@ -298,5 +299,28 @@ describe("describeInvariantRule", () => {
 
   it("falls back to the raw string for unparseable input", () => {
     expect(describeInvariantRule("{ not json")).toBe("{ not json");
+  });
+});
+
+describe("invariantRuleFields", () => {
+  const fields = (r: unknown) => invariantRuleFields(JSON.stringify(r)).sort();
+
+  it("collects every referenced field key", () => {
+    expect(fields({ "<=": [{ var: "a" }, { var: "b" }] })).toEqual(["a", "b"]);
+    expect(
+      fields({
+        or: [{ "!": { var: "hdr" } }, { "==": [{ var: "res" }, "4k"] }],
+      }),
+    ).toEqual(["hdr", "res"]);
+  });
+
+  it("dedupes and uses the top-level path segment", () => {
+    expect(
+      fields({ and: [{ var: "a" }, { "==": [{ var: "a.b" }, 1] }] }),
+    ).toEqual(["a"]);
+  });
+
+  it("returns [] for an unparseable rule", () => {
+    expect(invariantRuleFields("{ not json")).toEqual([]);
   });
 });
