@@ -984,15 +984,28 @@ function ConditionAndGroupInput({
                 { label: "is NULL", value: "$notExists" },
               ]
             : attribute.array
-              ? [
-                  { label: "includes", value: "$includes" },
-                  { label: "does not include", value: "$notIncludes" },
-                  { label: "is empty", value: "$empty" },
-                  { label: "is not empty", value: "$notEmpty" },
-                  { label: "is not NULL", value: "$exists" },
-                  { label: "is NULL", value: "$notExists" },
-                ]
-              : attribute.enum?.length || 0 > 0
+              ? attribute.enum.length
+                ? [
+                    // Enum-constrained list: set operators drive the restricted
+                    // MultiSelect; the single-value ops keep older conditions editable.
+                    { label: "includes any of", value: "$in" },
+                    { label: "includes none of", value: "$nin" },
+                    { label: "includes", value: "$includes" },
+                    { label: "does not include", value: "$notIncludes" },
+                    { label: "is empty", value: "$empty" },
+                    { label: "is not empty", value: "$notEmpty" },
+                    { label: "is not NULL", value: "$exists" },
+                    { label: "is NULL", value: "$notExists" },
+                  ]
+                : [
+                    { label: "includes", value: "$includes" },
+                    { label: "does not include", value: "$notIncludes" },
+                    { label: "is empty", value: "$empty" },
+                    { label: "is not empty", value: "$notEmpty" },
+                    { label: "is not NULL", value: "$exists" },
+                    { label: "is NULL", value: "$notExists" },
+                  ]
+              : attribute.enum.length
                 ? [
                     { label: "is equal to", value: "$eq" },
                     { label: "is not equal to", value: "$ne" },

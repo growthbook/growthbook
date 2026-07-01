@@ -6,7 +6,9 @@ import {
 } from "shared/types/organization";
 import { FaExclamationCircle, FaInfoCircle } from "react-icons/fa";
 import React from "react";
+import { Box } from "@radix-ui/themes";
 import { useAttributeSchema } from "@/services/features";
+import { useAttributeReferences } from "@/hooks/useAttributeReferences";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
@@ -21,6 +23,7 @@ import useProjectOptions from "@/hooks/useProjectOptions";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
+import AttributeReferencesList from "./AttributeReferencesList";
 import SDKCapabilityWarning from "./SDKCapabilityWarning";
 import TagsField from "./FeatureModal/TagsField";
 
@@ -76,11 +79,28 @@ export default function AttributeModal({ close, attribute }: Props) {
   const propertyChanged = !!attribute && form.watch("property") !== attribute;
   const datatypeChanged = !!attribute && datatype !== current?.datatype;
 
+  const isArrayDatatype = datatype.endsWith("[]");
+  // Enum options constrain both scalar enums and list ("EnumList") attributes.
+  const supportsEnumOptions = datatype === "enum" || isArrayDatatype;
+
   const hashAttributeDataTypes: SDKAttributeType[] = [
     "string",
     "number",
     "secureString",
   ];
+
+  // Converting an in-use attribute to a constrained type restricts how existing
+  // conditions can be edited, so surface where it's referenced as a heads-up.
+  const constrainingDatatypeChange =
+    datatypeChanged &&
+    (datatype === "enum" || (isArrayDatatype && !!form.watch("enum")));
+  const { references } = useAttributeReferences(
+    constrainingDatatypeChange && attribute ? [attribute] : [],
+  );
+  const refs = attribute ? references?.[attribute] : undefined;
+  const refCount = refs
+    ? refs.features.length + refs.experiments.length + refs.savedGroups.length
+    : 0;
 
   const permissionRequired = (project: string) => {
     return attribute
@@ -132,7 +152,8 @@ export default function AttributeModal({ close, attribute }: Props) {
           value.format = "";
           value.disableEqualityConditions = false;
         }
-        if (value.datatype !== "enum") {
+        // Enum options are valid for scalar enums and list attributes; clear them otherwise.
+        if (value.datatype !== "enum" && !value.datatype.endsWith("[]")) {
           value.enum = "";
         }
         if (!hashAttributeDataTypes.includes(value.datatype)) {
@@ -354,16 +375,41 @@ export default function AttributeModal({ close, attribute }: Props) {
           )}
         </>
       )}
-      {datatype === "enum" && (
+      {supportsEnumOptions && (
         <Field
-          label="Enum Options"
+          label={datatype === "enum" ? "Enum Options" : "Allowed Values"}
           textarea
           minRows={1}
-          required
+          required={datatype === "enum"}
           {...form.register(`enum`)}
-          helpText="Comma-separated list of all possible values"
+          helpText={
+            datatype === "enum"
+              ? "Comma-separated list of all possible values"
+              : "Optional. Restrict this list to a fixed set of values (comma-separated). Leave blank to allow any values."
+          }
         />
       )}
+      {constrainingDatatypeChange ? (
+        <>
+          <Callout status="warning" mt="2" mb="2">
+            This change is applied in place — no new attribute is created and
+            features are not updated automatically. Existing targeting
+            conditions keep evaluating. Make sure the values above include every
+            value already used in targeting; conditions using an out-of-list
+            value or a now-unavailable operator will keep running but become
+            hard to edit.
+          </Callout>
+          {refCount > 0 && refs ? (
+            <Box mb="3">
+              <AttributeReferencesList
+                features={refs.features}
+                experiments={refs.experiments}
+                conditionGroups={refs.savedGroups}
+              />
+            </Box>
+          ) : null}
+        </>
+      ) : null}
       {hashAttributeDataTypes.includes(datatype) && (
         <Checkbox
           label="Unique Identifier"
