@@ -1,4 +1,4 @@
-import React, { FC, Fragment, useMemo, useState } from "react";
+import React, { FC, useMemo, useState } from "react";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import {
@@ -13,7 +13,7 @@ import { useForm } from "react-hook-form";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import { TestQueryRow } from "shared/types/integrations";
 import Code from "@/components/SyntaxHighlighting/Code";
-import StringArrayField from "@/components/Forms/StringArrayField";
+import MultiSelectField from "@/components/Forms/MultiSelectField";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Callout from "@/ui/Callout";
 import Field from "@/components/Forms/Field";
@@ -21,6 +21,7 @@ import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
 import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
+import { useAttributeSchema } from "@/services/features";
 
 type CbQueryFormValues = {
   name: string;
@@ -56,6 +57,9 @@ export const AddEditContextualBanditQueryModal: FC<Props> = ({
   const { apiCall } = useAuth();
   const { settings } = useUser();
   const attributeSchema = settings?.attributeSchema ?? [];
+  // The non-archived attributes the user has access to — same list used across the
+  // app for attribute pickers. These are the only valid targeting columns.
+  const accessibleAttributes = useAttributeSchema(false);
 
   const userIdTypeOptions = dataSource?.settings?.userIdTypes?.map(
     ({ userIdType }) => ({ display: userIdType, value: userIdType }),
@@ -105,10 +109,18 @@ export const AddEditContextualBanditQueryModal: FC<Props> = ({
     ]);
   }, [userEnteredUserIdType, userEnteredTargetingAttributeColumns]);
 
+  // Options for the targeting-attribute multiselect: the attributes the user has
+  // access to, plus any already-selected columns not in that list (e.g. an attribute
+  // archived after the query was authored) so editing never silently drops them.
+  const targetingAttributeOptions = useMemo(() => {
+    const accessible = accessibleAttributes.map((a) => a.property);
+    const selected = userEnteredTargetingAttributeColumns ?? [];
+    const extras = selected.filter((c) => !accessible.includes(c));
+    return [...accessible, ...extras].map((p) => ({ label: p, value: p }));
+  }, [accessibleAttributes, userEnteredTargetingAttributeColumns]);
+
   const saveEnabled = !!userEnteredUserIdType && !!userEnteredQuery;
 
-  // @teresayung: handleSubmit here doesn't seem to verify that you have the required attribute columns in the query
-  // Without ever editing the SQL I'm able to add attribute columns that aren't in the SQL at all
   const handleSubmit = form.handleSubmit(async (value) => {
     // CreatableSelect only commits pending text on blur; force blur first.
     (document.activeElement as HTMLElement | null)?.blur?.();
@@ -148,8 +160,23 @@ export const AddEditContextualBanditQueryModal: FC<Props> = ({
       );
     }
 
-    const body = {
-      datasourceId: dataSource.id,
+    // Each targeting attribute column must actually appear in the SQL (as a selected
+    // column / alias), otherwise the bandit has no value for that context at runtime.
+    const missingInQuery = columns.filter(
+      (col) => !new RegExp(`\\b${col}\\b`).test(value.query ?? ""),
+    );
+    if (missingInQuery.length > 0) {
+      throw new Error(
+        `These targeting attribute columns are not referenced in your SQL: ${missingInQuery.join(
+          ", ",
+        )}. Add them to your SELECT, or remove them from the list.`,
+      );
+    }
+
+    // The update endpoint's body is strict and does NOT accept `datasourceId`
+    // (a CB query can't be re-pointed to a different datasource), so only the
+    // create body includes it.
+    const sharedFields = {
       name: value.name,
       description: value.description || undefined,
       userIdType: value.userIdType,
@@ -163,13 +190,16 @@ export const AddEditContextualBanditQueryModal: FC<Props> = ({
             contextualBanditQuery: ApiContextualBanditQueryInterface;
           }>(`/api/v1/contextual-bandit-queries/${contextualBanditQuery.id}`, {
             method: "PUT",
-            body: JSON.stringify(body),
+            body: JSON.stringify(sharedFields),
           })
         : await apiCall<{
             contextualBanditQuery: ApiContextualBanditQueryInterface;
           }>("/api/v1/contextual-bandit-queries", {
             method: "POST",
-            body: JSON.stringify(body),
+            body: JSON.stringify({
+              datasourceId: dataSource.id,
+              ...sharedFields,
+            }),
           });
 
     onSave(res.contextualBanditQuery);
@@ -192,101 +222,105 @@ export const AddEditContextualBanditQueryModal: FC<Props> = ({
       ? "Add a Contextual Bandit query"
       : `Edit ${contextualBanditQuery?.name ?? "Contextual Bandit"} query`;
 
+  // The SQL editor is a legacy Modal with a lower z-index than ModalStandard (Radix),
+  // so it would render behind. While editing SQL we unmount the main modal entirely —
+  // the form state lives on this component (not inside ModalStandard) so nothing is
+  // lost, and the SQL editor is always interactable on top.
+  if (uiMode === "sql") {
+    return (
+      <EditSqlModal
+        close={() => setUiMode("view")}
+        datasourceId={dataSource.id || ""}
+        requiredColumns={requiredColumns}
+        value={userEnteredQuery}
+        save={async (sql) => {
+          form.setValue("query", sql);
+        }}
+        validateResponseOverride={validateResponse}
+        sqlObjectInfo={{
+          objectType: "Contextual Bandit Assignment Query",
+          objectName: form.watch("name"),
+        }}
+      />
+    );
+  }
+
   return (
-    <>
-      {uiMode === "sql" && (
-        <EditSqlModal
-          close={() => setUiMode("view")}
-          datasourceId={dataSource.id || ""}
-          requiredColumns={requiredColumns}
-          value={userEnteredQuery}
-          save={async (sql) => {
-            form.setValue("query", sql);
-          }}
-          validateResponseOverride={validateResponse}
-          sqlObjectInfo={{
-            objectType: "Experiment Assignment Query",
-            objectName: form.watch("name"),
-          }}
+    <ModalStandard
+      trackingEventModalType=""
+      open={true}
+      submit={handleSubmit}
+      close={onCancel}
+      size="lg"
+      header={modalTitle}
+      cta="Save"
+      ctaEnabled={saveEnabled}
+    >
+      <div className="my-2 ml-3 mr-3">
+        <Field label="Display Name" required {...form.register("name")} />
+        <Field
+          label="Description (optional)"
+          textarea
+          minRows={1}
+          maxLength={MAX_DESCRIPTION_LENGTH}
+          {...form.register("description")}
         />
-      )}
+        <Field
+          label="Identifier Type"
+          options={(dataSource.settings.userIdTypes || []).map(
+            (i) => i.userIdType,
+          )}
+          required
+          {...form.register("userIdType")}
+        />
 
-      <ModalStandard
-        trackingEventModalType=""
-        open={true}
-        submit={handleSubmit}
-        close={onCancel}
-        size="lg"
-        header={modalTitle}
-        cta="Save"
-        ctaEnabled={saveEnabled}
-      >
-        <div className="my-2 ml-3 mr-3">
-          <Field label="Display Name" required {...form.register("name")} />
-          <Field
-            label="Description (optional)"
-            textarea
-            minRows={1}
-            maxLength={MAX_DESCRIPTION_LENGTH}
-            {...form.register("description")}
-          />
-          <Field
-            label="Identifier Type"
-            options={(dataSource.settings.userIdTypes || []).map(
-              (i) => i.userIdType,
-            )}
-            required
-            {...form.register("userIdType")}
-          />
-
-          <div className="form-group">
-            <label className="mr-5">Query</label>
-            {userEnteredQuery === defaultQuery && (
-              <Callout status="info" mb="2">
-                The prefilled query below may require editing to fit your data
-                structure.
-              </Callout>
-            )}
-            {userEnteredQuery && (
-              <Code language="sql" code={userEnteredQuery} expandable={true} />
-            )}
-            <div>
-              <button
-                className="btn btn-primary mt-2"
-                type="button"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setUiMode("sql");
-                }}
-              >
-                <div className="d-flex align-items-center">
-                  Customize SQL
-                  <FaExternalLinkAlt className="ml-2" />
-                </div>
-              </button>
-            </div>
-          </div>
-
-          <div className="mt-3">
-            {/* @teresayung: I think this should be a multi-select that pulls from the organization's attributes */}
-            <StringArrayField
-              label="Targeting Attribute Columns"
-              value={userEnteredTargetingAttributeColumns ?? []}
-              onChange={(cols) => {
-                form.setValue("targetingAttributeColumns", cols);
+        <div className="form-group">
+          <label className="mr-5">Query</label>
+          {userEnteredQuery === defaultQuery && (
+            <Callout status="info" mb="2">
+              The prefilled query below may require editing to fit your data
+              structure.
+            </Callout>
+          )}
+          {userEnteredQuery && (
+            <Code language="sql" code={userEnteredQuery} expandable={true} />
+          )}
+          <div>
+            <button
+              className="btn btn-primary mt-2"
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                setUiMode("sql");
               }}
-            />
-            <small className="form-text text-muted d-block mt-1">
-              Column aliases in your assignment query must match organization
-              targeting attributes (
-              <Link href="/attributes">Settings → Attributes</Link>). Each name
-              must match a non-archived attribute property and appear in your
-              SELECT.
-            </small>
+            >
+              <div className="d-flex align-items-center">
+                Customize SQL
+                <FaExternalLinkAlt className="ml-2" />
+              </div>
+            </button>
           </div>
         </div>
-      </ModalStandard>
-    </>
+
+        <div className="mt-3">
+          <MultiSelectField
+            label="Targeting Attribute Columns"
+            value={userEnteredTargetingAttributeColumns ?? []}
+            onChange={(cols) => {
+              form.setValue("targetingAttributeColumns", cols);
+            }}
+            options={targetingAttributeOptions}
+            placeholder="Select targeting attributes…"
+          />
+          <small className="form-text text-muted d-block mt-1">
+            Pick from your organization&apos;s targeting attributes (
+            <Link href="/attributes">Settings → Attributes</Link>). Each
+            selected attribute must also appear as a column alias in your
+            SELECT.
+          </small>
+        </div>
+      </div>
+    </ModalStandard>
   );
 };
 

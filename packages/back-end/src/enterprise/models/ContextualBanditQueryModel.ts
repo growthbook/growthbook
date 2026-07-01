@@ -76,6 +76,20 @@ export class ContextualBanditQueryModel extends BaseClass {
     doc: ContextualBanditQueryInterface,
   ): Promise<void> {
     await this.assertCanEditDatasource(doc.datasourceId);
+
+    // Block deletion while a contextual bandit still references this query, otherwise
+    // the bandit's `contextualBanditQueryId` would be orphaned and it could no longer
+    // analyze results.
+    const referencingBandits =
+      await this.context.models.contextualBandits.getByContextualBanditQueryId(
+        doc.id,
+      );
+    if (referencingBandits.length > 0) {
+      const names = referencingBandits.map((b) => b.name).join(", ");
+      throw new Error(
+        `Cannot delete this contextual bandit query because it is in use by ${referencingBandits.length} contextual bandit(s): ${names}. Update or remove those bandits first.`,
+      );
+    }
   }
 
   /**

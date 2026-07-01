@@ -5,6 +5,7 @@ import {
   apiCreateContextualBanditBody,
   apiUpdateContextualBanditBody,
   ApiContextualBanditInterface,
+  assertExposureQueriesTargetingAttributeColumnsValid,
   CONTEXTUAL_BANDIT_API_UPDATE_FIELDS,
   ContextualBanditInterface,
   contextualBanditValidator,
@@ -186,6 +187,28 @@ export class ContextualBanditModel extends BaseClass {
 
   protected hasPremiumFeature(): boolean {
     return this.context.hasPremiumFeature("contextual-bandits");
+  }
+
+  protected async customValidation(
+    doc: ContextualBanditInterface,
+  ): Promise<void> {
+    const targetingAttributeColumns =
+      doc.targetingAttributeColumns ?? doc.contextualAttributes;
+    if ((targetingAttributeColumns?.length ?? 0) === 0) {
+      throw new Error(
+        "A contextual bandit must declare at least one contextual attribute.",
+      );
+    }
+    assertExposureQueriesTargetingAttributeColumnsValid(
+      this.context.org.settings?.attributeSchema,
+      [
+        {
+          id: doc.id,
+          name: doc.name,
+          targetingAttributeColumns,
+        },
+      ],
+    );
   }
 
   public override async handleApiList(
@@ -393,6 +416,13 @@ export class ContextualBanditModel extends BaseClass {
     await this.update(cb, {
       pendingFeatureDrafts: remaining,
     });
+  }
+
+  /** All contextual bandits that reference a given contextual bandit query. */
+  public getByContextualBanditQueryId(
+    contextualBanditQueryId: string,
+  ): Promise<ContextualBanditInterface[]> {
+    return this._find({ contextualBanditQueryId });
   }
 
   public async clearStalePendingFeatureDrafts(
