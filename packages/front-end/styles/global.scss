@@ -799,24 +799,24 @@ pre {
     }
   }
   .won {
-    color: var(--green-11);
-    font-weight: var(--font-weight-medium);
+    color: var(--jade-11);
+    font-weight: bold;
 
     &.results-ctw,
     &.results-pval,
     &.results-mean {
-      color: var(--color-text-mid);
-      background: var(--green-a3);
+      color: var(--alert-success-color);
+      background: var(--jade-a3); //rgba(10, 159, 106, 0.19);
     }
   }
   .lost {
     color: var(--red-11); //#bb1f37;
-    font-weight: var(--font-weight-medium);
+    font-weight: bold;
 
     &.results-ctw,
     &.results-pval,
     &.results-mean {
-      color: var(--color-text-mid);
+      color: var(--alert-danger-color);
       background: var(--red-a3); //#ce372930;
     }
   }

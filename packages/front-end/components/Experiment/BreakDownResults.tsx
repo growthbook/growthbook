@@ -41,7 +41,6 @@ import { useExperimentDimensionRows } from "@/hooks/useExperimentDimensionRows";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useMetricDrilldownContext } from "@/components/MetricDrilldown/useMetricDrilldownContext";
 import Link from "@/ui/Link";
-import Text from "@/ui/Text";
 import UsersTable from "./UsersTable";
 
 export const includeVariation = (
@@ -249,7 +248,10 @@ const BreakDownResults: FC<{
       {tables.map((table, i) => {
         return (
           <Fragment key={table.metric.id + "_" + i}>
-            <Text size="large" weight="semibold" color="text-high" ml="2">
+            <h4
+              className="mt-2 mb-1 d-flex position-relative ml-2"
+              style={{ gap: 4 }}
+            >
               {table.rows[0]?.resultGroup === "goal"
                 ? "Goal Metric"
                 : table.rows[0]?.resultGroup === "secondary"
@@ -257,7 +259,7 @@ const BreakDownResults: FC<{
                   : table.rows[0]?.resultGroup === "guardrail"
                     ? "Guardrail Metric"
                     : null}
-            </Text>
+            </h4>
             <ResultsTable
               key={i}
               experimentId={experimentId}
@@ -285,11 +287,7 @@ const BreakDownResults: FC<{
                 ) : (
                   <div style={{ marginBottom: 2 }}>
                     {getRenderLabelColumn({})({
-                      label: (
-                        <Text weight="semibold" color="text-high">
-                          {table.metric.name}
-                        </Text>
-                      ),
+                      label: table.metric.name,
                       metric: table.metric,
                       row: table.rows[0],
                     })}
@@ -304,7 +302,7 @@ const BreakDownResults: FC<{
               setDifferenceType={setDifferenceType}
               renderLabelColumn={({ label }) => (
                 <div
-                  className="pl-3"
+                  className="pl-3 font-weight-bold"
                   style={{
                     display: "-webkit-box",
                     WebkitLineClamp: 1,
@@ -317,9 +315,7 @@ const BreakDownResults: FC<{
                     label === NULL_DIMENSION_VALUE ? (
                       <em>{formatDimensionValueForDisplay(label)}</em>
                     ) : (
-                      <Text color="text-high" weight="medium">
-                        {label}
-                      </Text>
+                      label
                     )
                   ) : (
                     <em>unknown</em>

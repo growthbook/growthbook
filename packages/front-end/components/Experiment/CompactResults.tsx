@@ -666,7 +666,7 @@ export function getRenderLabelColumn({
     // Render non-slice metric
     return (
       <>
-        <div>
+        <div className="pl-3">
           <span
             className="ml-2"
             style={

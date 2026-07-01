@@ -152,20 +152,22 @@ export default function MetricValueColumn({
           <div className="result-number">{overall}</div>
           {showRatio && numerator ? (
             <div className="result-number-sub text-muted">
-              <span
-                style={{
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {numerator}
-              </span>
-              {!quantileMetric ? (
-                <>
-                  {" "}
-                  /&nbsp;
-                  {denominator}
-                </>
-              ) : null}
+              <em>
+                <span
+                  style={{
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {numerator}
+                </span>
+                {!quantileMetric ? (
+                  <>
+                    {" "}
+                    /&nbsp;
+                    {denominator}
+                  </>
+                ) : null}
+              </em>
             </div>
           ) : null}
         </>
