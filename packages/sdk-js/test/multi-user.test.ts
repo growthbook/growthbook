@@ -125,7 +125,7 @@ describe("GrowthBookClient", () => {
       },
     };
 
-    // Value is still returned, but no exposure logged
+    // Value is still returned, but no tracking fired
     const res = gb.evalFeature("feature", user, {
       disableTracking: true,
     });

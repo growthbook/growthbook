@@ -406,7 +406,7 @@ describe("features", () => {
     growthbook.destroy();
   });
 
-  it("does not pollute the dedupe cache when exposure logging is disabled", () => {
+  it("does not pollute the dedupe cache when tracking is disabled", () => {
     const context: Context = {
       attributes: { id: "1" },
       features: {

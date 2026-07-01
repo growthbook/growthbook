@@ -701,14 +701,14 @@ The `result` argument is the same thing returned from `gb.evalFeature`.
 
 Note: If you evaluate the same feature multiple times (and the value doesn't change), the callback will only be fired the first time.
 
-### Disabling Exposure Logging
+### Disabling Tracking
 
-Sometimes you want to read a feature's value without counting it as an exposure. A common example is evaluating features server-side to build a prefetch payload — the user hasn't actually been exposed to the feature yet, so you don't want to log a feature usage / exposure event at that point.
+Sometimes you want to read a feature's value without tracking it as usage. A common example is evaluating features server-side to build a prefetch payload — the user hasn't actually been shown the feature yet, so you don't want to fire a feature usage event at that point.
 
 The `isOn`, `isOff`, `getFeatureValue`, `evalFeature`, and `run` methods accept an optional trailing options argument with a `disableTracking` flag:
 
 ```ts
-// Evaluate without firing any feature usage / exposure tracking
+// Evaluate without firing any tracking
 const value = gb.getFeatureValue("button-color", "blue", {
   disableTracking: true,
 });
@@ -722,9 +722,9 @@ When `disableTracking` is `true`:
 
 - The feature is still evaluated and its value returned normally.
 - No feature usage callback, experiment tracking callback, deferred tracking, or [Event Forwarder](/app/event-forwarder) event is fired for that call.
-- The internal de-dupe cache is left untouched, so a **later** evaluation of the same feature (without the flag) will still log the exposure.
+- The internal de-dupe cache is left untouched, so a **later** evaluation of the same feature (without the flag) will still track.
 
-This lets you separate "evaluate the value" from "count the exposure" — for example, evaluate with the flag during a server-side prefetch, then evaluate again (without the flag) on the client at the moment the user is actually exposed.
+This lets you separate "evaluate the value" from "track the usage" — for example, evaluate with the flag during a server-side prefetch, then evaluate again (without the flag) on the client at the moment the user is actually shown the feature.
 
 ### Dev Mode
 

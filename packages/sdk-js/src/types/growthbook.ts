@@ -359,8 +359,8 @@ export type StackContext = {
   id?: string;
   evaluatedFeatures: Set<string>;
   // When true, evaluating features/experiments in this context will not fire
-  // any usage/exposure tracking (feature usage callbacks, experiment tracking
-  // callbacks, deferred tracking, or the event logger).
+  // any tracking (feature usage callbacks, experiment tracking callbacks,
+  // deferred tracking, or the event logger).
   disableTracking?: boolean;
 };
 
@@ -374,9 +374,9 @@ export type EvalContext = {
 export type FeatureEvalOptions = {
   // If true, this evaluation will not fire any tracking - neither feature usage
   // tracking nor experiment tracking. Useful when you want to read a value
-  // without counting it as usage/exposure (e.g. server-side prefetch). The
-  // value is still evaluated and returned normally, and the dedupe cache is
-  // left untouched so a later evaluation (without this flag) will still track.
+  // without counting it as usage (e.g. server-side prefetch). The value is
+  // still evaluated and returned normally, and the dedupe cache is left
+  // untouched so a later evaluation (without this flag) will still track.
   disableTracking?: boolean;
 };
 
