@@ -21,6 +21,9 @@ export function evalCondition(
   savedGroups?: SavedGroupsValues,
 ): boolean {
   savedGroups = savedGroups || {};
+  // Resolve any `{ $ref: "path" }` markers against the tested object so a rule
+  // can compare one field to another (no-op / same reference when none present).
+  condition = resolveConditionRefs(condition, obj);
   // Condition is an object, keys are either specific operators or object paths
   // values are either arguments for operators or conditions for paths
   for (const [k, v] of Object.entries(condition)) {
@@ -57,6 +60,41 @@ function getPath(obj: TestedObj, path: string) {
     }
   }
   return current;
+}
+
+// Resolve `{ $ref: "<path>" }` markers in a condition to the tested object's
+// value at that dot-path — enabling field-to-field comparisons, e.g.
+// `{ streams: { $lte: { $ref: "devices" } } }`. Returns the input unchanged
+// (same reference) when there are no refs, so the common path allocates nothing.
+function resolveConditionRefs(node: any, obj: TestedObj): any {
+  if (Array.isArray(node)) {
+    let changed = false;
+    const out = node.map((n) => {
+      const r = resolveConditionRefs(n, obj);
+      if (r !== n) changed = true;
+      return r;
+    });
+    return changed ? out : node;
+  }
+  if (node && typeof node === "object") {
+    const keys = Object.keys(node);
+    if (
+      keys.length === 1 &&
+      keys[0] === "$ref" &&
+      typeof node.$ref === "string"
+    ) {
+      return getPath(obj, node.$ref);
+    }
+    let changed = false;
+    const out: { [k: string]: any } = {};
+    for (const k of keys) {
+      const r = resolveConditionRefs(node[k], obj);
+      out[k] = r;
+      if (r !== node[k]) changed = true;
+    }
+    return changed ? out : node;
+  }
+  return node;
 }
 
 // Transform a regex string into a real RegExp object
