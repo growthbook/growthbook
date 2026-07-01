@@ -46,7 +46,8 @@ export default function EditTargetingModal({
   const environments = useEnvironments();
   const envs = environments.map((e) => e.id);
 
-  const { data: sdkConnectionsData } = useSDKConnections();
+  const { data: sdkConnectionsData, isLoading: sdkConnectionsLoading } =
+    useSDKConnections();
   const hasSDKWithNoBucketingV2 = !allConnectionsSupportBucketingV2(
     sdkConnectionsData?.connections,
     experiment.project,
@@ -164,13 +165,15 @@ export default function EditTargetingModal({
                   attributeSchema={attributeSchema}
                 />
               )}
-              {!hasSDKWithNoBucketingV2 && experiment.hashVersion === 1 && (
-                <HashVersionSelector
-                  value={form.watch("hashVersion")}
-                  onChange={(v) => form.setValue("hashVersion", v)}
-                  project={experiment.project}
-                />
-              )}
+              {!sdkConnectionsLoading &&
+                !hasSDKWithNoBucketingV2 &&
+                experiment.hashVersion === 1 && (
+                  <HashVersionSelector
+                    value={form.watch("hashVersion")}
+                    onChange={(v) => form.setValue("hashVersion", v)}
+                    project={experiment.project}
+                  />
+                )}
             </>
           ) : null}
 
