@@ -1,7 +1,6 @@
 import { ReactNode } from "react";
 import clsx from "clsx";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { calculateNamespaceCoverage } from "shared/util";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
 import { PiCaretDownBold, PiPencilSimpleFill, PiPlus } from "react-icons/pi";
@@ -9,6 +8,7 @@ import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import { AttributeBadge } from "@/components/Features/AttributeBadge";
 import { getHoldoutTrafficBreakdown } from "@/services/utils";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
+import { getNamespaceDisplayData } from "@/components/Features/NamespaceSelectorUtils";
 import VariationsTable, {
   getVariationGridColumns,
 } from "@/components/Experiment/VariationsTable";
@@ -184,16 +184,8 @@ export default function TrafficAllocationFunnel({
   const phase = experiment.phases?.[phaseIndex ?? experiment.phases.length - 1];
   const hasNamespace = phase?.namespace && phase.namespace.enabled;
 
-  // Fraction of traffic let through by the namespace (1 if none), for connector labels.
-  const namespaceRange =
-    hasNamespace && phase?.namespace
-      ? calculateNamespaceCoverage(phase.namespace)
-      : 1;
-
-  const namespaceName = hasNamespace
-    ? namespaces?.find((n) => n.name === phase!.namespace!.name)?.label ||
-      phase!.namespace!.name
-    : "";
+  const { coverage: namespaceCoverage, name: namespaceName } =
+    getNamespaceDisplayData(phase?.namespace, namespaces);
 
   const isBandit = experiment.type === "multi-armed-bandit";
   const isHoldout = experiment.type === "holdout";
@@ -215,7 +207,9 @@ export default function TrafficAllocationFunnel({
   }
 
   const holdoutTraffic = getHoldoutTrafficBreakdown(phase);
-  const includedLabel = `${percentFormatter.format(namespaceRange)} traffic included`;
+  const includedLabel = namespaceCoverage
+    ? `${percentFormatter.format(namespaceCoverage)} traffic included`
+    : undefined;
   const numVariations = getLatestPhaseVariations(experiment).length;
 
   return (
