@@ -555,7 +555,7 @@ export default function ConfigInvariantsEditor({
                           onChange={(e) =>
                             setAt(i, { ...c, rhs: e.target.value })
                           }
-                          placeholder={`4k, 5, true, {"a":1}`}
+                          placeholder={`text, 5, true, {"a":1}`}
                         />
                       )}
                     </Box>
@@ -574,7 +574,11 @@ export default function ConfigInvariantsEditor({
                   >
                     <PiXBold size={14} />
                   </IconButton>
-                ) : null
+                ) : (
+                  // Reserve the column so a single-condition row aligns with
+                  // multi-condition rows (the last condition can't be removed).
+                  <Box style={{ width: 24, height: 24 }} />
+                )
               }
             />
           </Box>
@@ -639,8 +643,8 @@ export default function ConfigInvariantsEditor({
         placeholder="e.g. start_before_end"
       />
 
-      <Flex justify="between" align="center" mt="3" mb="2">
-        <Text size="small" weight="medium">
+      <Flex justify="between" align="center" mt="4" mb="2">
+        <Text as="label" weight="semibold">
           Rule
         </Text>
         <Switch
@@ -658,6 +662,11 @@ export default function ConfigInvariantsEditor({
           setValue={setRuleText}
           minLines={4}
           maxLines={16}
+          fontSize="0.75rem"
+          slimGutter
+          resizable
+          showCopyButton
+          showFullscreenButton
           helpText={
             <Flex justify="between" align="center">
               <span>Raw rule — a boolean expression over the fields.</span>
