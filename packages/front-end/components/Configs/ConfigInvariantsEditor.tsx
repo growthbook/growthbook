@@ -24,14 +24,73 @@ type Props = {
   onChange: (next: ConfigInvariant[]) => Promise<void>;
 };
 
-const COMPARISON_OPS = ["==", "!=", "<=", "<", ">=", ">"];
+// ---- Condition model -------------------------------------------------------
+// A condition is a single predicate over one field. Comparison ops take a
+// right-hand side (a literal or another field); the unary ops don't. Rule kinds
+// compose one or two conditions into the JSONLogic the evaluator runs.
 
-type SimpleRule = {
+const COMPARISON_OPS = ["==", "!=", "<=", "<", ">=", ">"] as const;
+const UNARY_OPS = ["isTrue", "isFalse", "isNull", "isNotNull"] as const;
+type CompOp = (typeof COMPARISON_OPS)[number];
+type CondOp = CompOp | (typeof UNARY_OPS)[number];
+const ALL_OPS: CondOp[] = [...COMPARISON_OPS, ...UNARY_OPS];
+
+const OP_LABELS: Record<CondOp, string> = {
+  "==": "equals",
+  "!=": "does not equal",
+  "<": "is less than",
+  "<=": "is at most",
+  ">": "is greater than",
+  ">=": "is at least",
+  isTrue: "is true",
+  isFalse: "is false",
+  isNull: "is empty (null)",
+  isNotNull: "is set (not null)",
+};
+
+const OP_NEGATION: Record<CondOp, CondOp> = {
+  "==": "!=",
+  "!=": "==",
+  "<": ">=",
+  "<=": ">",
+  ">": "<=",
+  ">=": "<",
+  isTrue: "isFalse",
+  isFalse: "isTrue",
+  isNull: "isNotNull",
+  isNotNull: "isNull",
+};
+
+type Condition = {
   field: string;
-  op: string;
+  op: CondOp;
   rhsKind: "value" | "field";
   rhs: string;
 };
+
+type RuleKind = "single" | "implication" | "iff" | "exclusive";
+
+const RULE_KIND_OPTIONS: { label: string; value: RuleKind }[] = [
+  { label: "Field condition", value: "single" },
+  { label: "Implication (if … then)", value: "implication" },
+  { label: "Both or neither", value: "iff" },
+  { label: "Can't both be true", value: "exclusive" },
+];
+
+const RULE_KIND_HINTS: Record<RuleKind, string> = {
+  single: "A single field must satisfy a condition.",
+  implication: "When the first condition holds, the second must too.",
+  iff: "Both conditions must be true together, or both false together.",
+  exclusive: "At most one of the two boolean fields may be true.",
+};
+
+function isComp(op: CondOp): op is CompOp {
+  return (COMPARISON_OPS as readonly string[]).includes(op);
+}
+
+function newCondition(field: string): Condition {
+  return { field, op: "==", rhsKind: "value", rhs: "" };
+}
 
 function isVar(x: unknown): x is { var: string } {
   return (
@@ -43,28 +102,6 @@ function isVar(x: unknown): x is { var: string } {
   );
 }
 
-// A rule the simple builder can represent: a single binary comparison of a field
-// against a literal or another field. Anything compound (or/and/!, nesting) is
-// advanced-only.
-function toSimpleRule(rule: Record<string, unknown> | null): SimpleRule | null {
-  if (!rule) return null;
-  const keys = Object.keys(rule);
-  if (keys.length !== 1) return null;
-  const op = keys[0];
-  if (!COMPARISON_OPS.includes(op)) return null;
-  const args = rule[op];
-  if (!Array.isArray(args) || args.length !== 2) return null;
-  const [lhs, rhs] = args;
-  if (!isVar(lhs)) return null;
-  if (isVar(rhs)) return { field: lhs.var, op, rhsKind: "field", rhs: rhs.var };
-  if (rhs === null)
-    return { field: lhs.var, op, rhsKind: "value", rhs: "null" };
-  if (["string", "number", "boolean"].includes(typeof rhs)) {
-    return { field: lhs.var, op, rhsKind: "value", rhs: String(rhs) };
-  }
-  return null;
-}
-
 function parseLiteral(s: string): unknown {
   const t = s.trim();
   if (t === "null") return null;
@@ -74,9 +111,159 @@ function parseLiteral(s: string): unknown {
   return t.replace(/^["']|["']$/g, "");
 }
 
-function buildComparison(r: SimpleRule): Record<string, unknown> {
-  const rhs = r.rhsKind === "field" ? { var: r.rhs } : parseLiteral(r.rhs);
-  return { [r.op]: [{ var: r.field }, rhs] };
+function formatLiteral(v: unknown): string {
+  return v === null ? "null" : String(v);
+}
+
+// Condition → JSONLogic. `isTrue` is the bare `{var}` (truthy) so both-or-neither
+// reads as `field == (other != null)`; the rest map to their operator form.
+function conditionToLogic(c: Condition): unknown {
+  switch (c.op) {
+    case "isTrue":
+      return { var: c.field };
+    case "isFalse":
+      return { "!": { var: c.field } };
+    case "isNull":
+      return { "==": [{ var: c.field }, null] };
+    case "isNotNull":
+      return { "!=": [{ var: c.field }, null] };
+    default: {
+      const rhs = c.rhsKind === "field" ? { var: c.rhs } : parseLiteral(c.rhs);
+      return { [c.op]: [{ var: c.field }, rhs] };
+    }
+  }
+}
+
+function negatedLogic(c: Condition): unknown {
+  return conditionToLogic({ ...c, op: OP_NEGATION[c.op] });
+}
+
+function buildRule(
+  kind: RuleKind,
+  condA: Condition,
+  condB: Condition,
+  exclA: string,
+  exclB: string,
+): Record<string, unknown> {
+  switch (kind) {
+    case "single":
+      return conditionToLogic(condA) as Record<string, unknown>;
+    case "implication":
+      // A → B  ≡  ¬A ∨ B
+      return { or: [negatedLogic(condA), conditionToLogic(condB)] };
+    case "iff":
+      // A ↔ B  ≡  A == B
+      return { "==": [conditionToLogic(condA), conditionToLogic(condB)] };
+    case "exclusive":
+      return { "!": { and: [{ var: exclA }, { var: exclB }] } };
+  }
+}
+
+// JSONLogic → Condition (inverse of conditionToLogic); null if not representable.
+function parseCondition(node: unknown): Condition | null {
+  if (isVar(node)) {
+    return { field: node.var, op: "isTrue", rhsKind: "value", rhs: "" };
+  }
+  if (!node || typeof node !== "object" || Array.isArray(node)) return null;
+  const obj = node as Record<string, unknown>;
+  const keys = Object.keys(obj);
+  if (keys.length !== 1) return null;
+  const op = keys[0];
+  const arg = obj[op];
+  if (op === "!" && isVar(arg)) {
+    return { field: arg.var, op: "isFalse", rhsKind: "value", rhs: "" };
+  }
+  if (isComp(op as CondOp) && Array.isArray(arg) && arg.length === 2) {
+    const [lhs, rhs] = arg;
+    if (!isVar(lhs)) return null;
+    if (rhs === null) {
+      if (op === "==")
+        return { field: lhs.var, op: "isNull", rhsKind: "value", rhs: "" };
+      if (op === "!=")
+        return { field: lhs.var, op: "isNotNull", rhsKind: "value", rhs: "" };
+      return null;
+    }
+    if (isVar(rhs)) {
+      return {
+        field: lhs.var,
+        op: op as CondOp,
+        rhsKind: "field",
+        rhs: rhs.var,
+      };
+    }
+    if (["string", "number", "boolean"].includes(typeof rhs)) {
+      return {
+        field: lhs.var,
+        op: op as CondOp,
+        rhsKind: "value",
+        rhs: formatLiteral(rhs),
+      };
+    }
+  }
+  return null;
+}
+
+type ParsedRule = {
+  kind: RuleKind;
+  condA?: Condition;
+  condB?: Condition;
+  exclA?: string;
+  exclB?: string;
+};
+
+// Best-effort: recognize a stored rule as one of the builder kinds so it can be
+// edited in the simple view. Anything else returns null → the Advanced editor.
+function parseRule(obj: Record<string, unknown>): ParsedRule | null {
+  const keys = Object.keys(obj);
+  if (keys.length !== 1) return null;
+  const op = keys[0];
+  const arg = obj[op];
+
+  // Can't both be true: {"!": {and: [{var}, {var}]}}
+  if (op === "!" && arg && typeof arg === "object" && !Array.isArray(arg)) {
+    const inner = arg as Record<string, unknown>;
+    if (
+      Object.keys(inner).length === 1 &&
+      Array.isArray(inner.and) &&
+      inner.and.length === 2 &&
+      isVar(inner.and[0]) &&
+      isVar(inner.and[1])
+    ) {
+      return {
+        kind: "exclusive",
+        exclA: (inner.and[0] as { var: string }).var,
+        exclB: (inner.and[1] as { var: string }).var,
+      };
+    }
+  }
+
+  // Implication: {or: [¬A, B]}
+  if (op === "or" && Array.isArray(arg) && arg.length === 2) {
+    const negA = parseCondition(arg[0]);
+    const condB = parseCondition(arg[1]);
+    if (negA && condB) {
+      return {
+        kind: "implication",
+        condA: { ...negA, op: OP_NEGATION[negA.op] },
+        condB,
+      };
+    }
+    return null;
+  }
+
+  // Single field condition (a comparison or unary predicate).
+  const single = parseCondition(obj);
+  if (single) return { kind: "single", condA: single };
+
+  // Both or neither: {"==": [A, B]} where the operands are themselves conditions
+  // (a plain `field == value` is caught as `single` above).
+  if (op === "==" && Array.isArray(arg) && arg.length === 2) {
+    const condA = parseCondition(arg[0]);
+    const condB = parseCondition(arg[1]);
+    if (condA && condB) return { kind: "iff", condA, condB };
+  }
+
+  return null;
 }
 
 function safeParse(text: string): Record<string, unknown> | null {
@@ -88,9 +275,10 @@ function safeParse(text: string): Record<string, unknown> | null {
   }
 }
 
-// Named cross-field rules on a config schema. Mirrors the feature condition
-// editor: a simple field·op·value/field builder, with an "Advanced" toggle that
-// swaps in a raw JSONLogic editor for compound rules — never both at once.
+// Named cross-field rules on a config schema. A template-driven builder (single
+// condition, implication, both-or-neither, mutual-exclusion) covers the common
+// relational patterns; an "Advanced" toggle swaps in a raw JSONLogic editor for
+// anything the builder can't represent — never both at once.
 export default function ConfigInvariantsEditor({
   invariants,
   fieldKeys,
@@ -105,15 +293,28 @@ export default function ConfigInvariantsEditor({
   const [message, setMessage] = useState("");
   const [advanced, setAdvanced] = useState(false);
   const [ruleText, setRuleText] = useState("{}");
-  const [simple, setSimple] = useState<SimpleRule>({
-    field: fieldKeys[0] ?? "",
-    op: "==",
-    rhsKind: "value",
-    rhs: "",
-  });
+  const [kind, setKind] = useState<RuleKind>("single");
+  const [condA, setCondA] = useState<Condition>(
+    newCondition(fieldKeys[0] ?? ""),
+  );
+  const [condB, setCondB] = useState<Condition>(
+    newCondition(fieldKeys[0] ?? ""),
+  );
+  const [exclA, setExclA] = useState(fieldKeys[0] ?? "");
+  const [exclB, setExclB] = useState(fieldKeys[1] ?? fieldKeys[0] ?? "");
   const [error, setError] = useState<string | null>(null);
 
-  const currentRule = advanced ? safeParse(ruleText) : buildComparison(simple);
+  const currentRule = advanced
+    ? safeParse(ruleText)
+    : buildRule(kind, condA, condB, exclA, exclB);
+
+  const applyParsed = (b: ParsedRule) => {
+    setKind(b.kind);
+    if (b.condA) setCondA(b.condA);
+    if (b.condB) setCondB(b.condB);
+    if (b.exclA) setExclA(b.exclA);
+    if (b.exclB) setExclB(b.exclB);
+  };
 
   const open = (index: number) => {
     setError(null);
@@ -122,9 +323,14 @@ export default function ConfigInvariantsEditor({
     setName(inv?.name ?? "");
     setMessage(inv?.message ?? "");
     const parsed = inv ? safeParse(inv.rule) : null;
-    const s = toSimpleRule(parsed);
-    if (s) {
-      setSimple(s);
+    const b = parsed ? parseRule(parsed) : null;
+    if (b) {
+      // Reset unused slots to sensible defaults so a prior edit doesn't leak in.
+      setKind(b.kind);
+      setCondA(b.condA ?? newCondition(fieldKeys[0] ?? ""));
+      setCondB(b.condB ?? newCondition(fieldKeys[0] ?? ""));
+      setExclA(b.exclA ?? fieldKeys[0] ?? "");
+      setExclB(b.exclB ?? fieldKeys[1] ?? fieldKeys[0] ?? "");
       setAdvanced(false);
       setRuleText(parsed ? JSON.stringify(parsed, null, 2) : "{}");
     } else {
@@ -141,27 +347,57 @@ export default function ConfigInvariantsEditor({
 
   const toggleAdvanced = (checked: boolean) => {
     if (checked) {
-      setRuleText(JSON.stringify(buildComparison(simple), null, 2));
+      setRuleText(
+        JSON.stringify(buildRule(kind, condA, condB, exclA, exclB), null, 2),
+      );
       setAdvanced(true);
     } else {
-      // Load the JSON into the builder when it's a single comparison; otherwise
-      // keep the builder's current values so you can still author a simple rule.
-      const s = toSimpleRule(safeParse(ruleText));
-      if (s) setSimple(s);
+      // Load the JSON back into the builder when it maps to a known kind;
+      // otherwise keep the builder's current values.
+      const b = parseRule(safeParse(ruleText) ?? {});
+      if (b) applyParsed(b);
       setAdvanced(false);
     }
+  };
+
+  const validateCondition = (c: Condition, label: string): string | null => {
+    if (!c.field) return `Choose a field for ${label}.`;
+    if (isComp(c.op)) {
+      if (c.rhsKind === "field" && !c.rhs)
+        return `Choose a field to compare to for ${label}.`;
+      if (c.rhsKind === "value" && c.rhs.trim() === "")
+        return `Enter a value for ${label}.`;
+    }
+    return null;
+  };
+
+  const validateBuilder = (): string | null => {
+    if (kind === "exclusive") {
+      if (!exclA || !exclB) return "Choose both fields.";
+      if (exclA === exclB) return "Choose two different fields.";
+      return null;
+    }
+    const a = validateCondition(
+      condA,
+      kind === "single" ? "the rule" : "the first condition",
+    );
+    if (a) return a;
+    if (kind === "implication" || kind === "iff") {
+      return validateCondition(condB, "the second condition");
+    }
+    return null;
   };
 
   const save = async () => {
     if (!name.trim()) return setError("Name is required.");
     if (!message.trim()) return setError("Message is required.");
     if (!advanced) {
-      if (!simple.field) return setError("Choose a field for the rule.");
-      if (simple.rhsKind === "field" && !simple.rhs) {
-        return setError("Choose a field to compare to.");
-      }
+      const err = validateBuilder();
+      if (err) return setError(err);
     }
-    const rule = advanced ? safeParse(ruleText) : buildComparison(simple);
+    const rule = advanced
+      ? safeParse(ruleText)
+      : buildRule(kind, condA, condB, exclA, exclB);
     if (!rule) return setError("Rule must be a JSONLogic object.");
     const next: ConfigInvariant = {
       name: name.trim(),
@@ -196,6 +432,55 @@ export default function ConfigInvariantsEditor({
     : null;
 
   const fieldOptions = fieldKeys.map((k) => ({ label: k, value: k }));
+
+  const conditionRow = (c: Condition, set: (c: Condition) => void) => (
+    <Flex gap="2" align="end" wrap="wrap">
+      <SelectField
+        label="Field"
+        value={c.field}
+        onChange={(v) => set({ ...c, field: v })}
+        options={fieldOptions}
+        placeholder="field"
+      />
+      <SelectField
+        label="Condition"
+        value={c.op}
+        onChange={(v) => set({ ...c, op: v as CondOp })}
+        options={ALL_OPS.map((o) => ({ label: OP_LABELS[o], value: o }))}
+        sort={false}
+      />
+      {isComp(c.op) && (
+        <>
+          <SelectField
+            label="Compare to"
+            value={c.rhsKind}
+            onChange={(v) => set({ ...c, rhsKind: v as "value" | "field" })}
+            options={[
+              { label: "a value", value: "value" },
+              { label: "another field", value: "field" },
+            ]}
+            sort={false}
+          />
+          {c.rhsKind === "field" ? (
+            <SelectField
+              label="Field"
+              value={c.rhs}
+              onChange={(v) => set({ ...c, rhs: v })}
+              options={fieldOptions}
+              placeholder="field"
+            />
+          ) : (
+            <Field
+              label="Value"
+              value={c.rhs}
+              onChange={(e) => set({ ...c, rhs: e.target.value })}
+              placeholder="'4k', 5, true, null"
+            />
+          )}
+        </>
+      )}
+    </Flex>
+  );
 
   const editor = (
     <Frame mb="3">
@@ -241,48 +526,76 @@ export default function ConfigInvariantsEditor({
           }
         />
       ) : (
-        <Flex gap="2" align="end" wrap="wrap">
+        <Box>
           <SelectField
-            label="Field"
-            value={simple.field}
-            onChange={(v) => setSimple({ ...simple, field: v })}
-            options={fieldOptions}
-          />
-          <SelectField
-            label="Operator"
-            value={simple.op}
-            onChange={(v) => setSimple({ ...simple, op: v })}
-            options={COMPARISON_OPS.map((o) => ({ label: o, value: o }))}
+            label="Rule type"
+            value={kind}
+            onChange={(v) => setKind(v as RuleKind)}
+            options={RULE_KIND_OPTIONS}
             sort={false}
+            helpText={RULE_KIND_HINTS[kind]}
           />
-          <SelectField
-            label="Compare to"
-            value={simple.rhsKind}
-            onChange={(v) =>
-              setSimple({ ...simple, rhsKind: v as "value" | "field" })
-            }
-            options={[
-              { label: "a value", value: "value" },
-              { label: "another field", value: "field" },
-            ]}
-            sort={false}
-          />
-          {simple.rhsKind === "field" ? (
-            <SelectField
-              label="Field"
-              value={simple.rhs}
-              onChange={(v) => setSimple({ ...simple, rhs: v })}
-              options={fieldOptions}
-            />
-          ) : (
-            <Field
-              label="Value"
-              value={simple.rhs}
-              onChange={(e) => setSimple({ ...simple, rhs: e.target.value })}
-              placeholder="'4k', 5, true, null"
-            />
+
+          {kind === "single" && (
+            <Box mt="2">{conditionRow(condA, setCondA)}</Box>
           )}
-        </Flex>
+
+          {kind === "implication" && (
+            <Box mt="2">
+              <Text size="small" color="text-low" as="div" mb="1">
+                If
+              </Text>
+              {conditionRow(condA, setCondA)}
+              <Text size="small" color="text-low" as="div" mt="2" mb="1">
+                then
+              </Text>
+              {conditionRow(condB, setCondB)}
+            </Box>
+          )}
+
+          {kind === "iff" && (
+            <Box mt="2">
+              {conditionRow(condA, setCondA)}
+              <Text size="small" color="text-low" as="div" mt="2" mb="1">
+                if and only if
+              </Text>
+              {conditionRow(condB, setCondB)}
+            </Box>
+          )}
+
+          {kind === "exclusive" && (
+            <Flex gap="2" align="end" wrap="wrap" mt="2">
+              <SelectField
+                label="Field"
+                value={exclA}
+                onChange={setExclA}
+                options={fieldOptions}
+                placeholder="field"
+              />
+              <SelectField
+                label="Field"
+                value={exclB}
+                onChange={setExclB}
+                options={fieldOptions}
+                placeholder="field"
+              />
+            </Flex>
+          )}
+        </Box>
+      )}
+
+      {currentRule && (
+        <Box
+          mt="2"
+          style={{
+            fontFamily: "var(--font-mono, monospace)",
+            fontSize: 12,
+            color: "var(--gray-11)",
+            wordBreak: "break-all",
+          }}
+        >
+          {describeInvariantRule(JSON.stringify(currentRule))}
+        </Box>
       )}
 
       <Box mt="3">

@@ -274,6 +274,17 @@ describe("describeInvariantRule", () => {
     ).toBe("NOT (ad_supported AND skip_ads_enabled)");
   });
 
+  it("parenthesizes a nested comparison operand (both-or-neither, pattern 3)", () => {
+    expect(
+      rule({
+        "==": [
+          { var: "offline_downloads_enabled" },
+          { "!=": [{ var: "max_offline_titles" }, null] },
+        ],
+      }),
+    ).toBe("offline_downloads_enabled == (max_offline_titles ≠ null)");
+  });
+
   it("falls back to the raw string for unparseable input", () => {
     expect(describeInvariantRule("{ not json")).toBe("{ not json");
   });

@@ -43,6 +43,16 @@ const COMPARATORS: Record<string, string> = {
   ">=": "≥",
 };
 
+function isVarNode(x: unknown): boolean {
+  return (
+    !!x &&
+    typeof x === "object" &&
+    !Array.isArray(x) &&
+    Object.keys(x as object).length === 1 &&
+    "var" in (x as object)
+  );
+}
+
 function describeNode(node: unknown, depth: number): string {
   if (node === null) return "null";
   if (typeof node === "string") return JSON.stringify(node);
@@ -66,10 +76,14 @@ function describeNode(node: unknown, depth: number): string {
         return depth === 0 ? inner : `(${inner})`;
       }
       if (COMPARATORS[op] && Array.isArray(arg) && arg.length === 2) {
-        return `${describeNode(arg[0], depth + 1)} ${COMPARATORS[op]} ${describeNode(
-          arg[1],
-          depth + 1,
-        )}`;
+        // Parenthesize a nested expression operand (e.g. the `x != null` side of
+        // a both-or-neither rule) so `a == (b ≠ null)` doesn't read ambiguously;
+        // plain field/literal operands stay bare.
+        const operand = (a: unknown) => {
+          const s = describeNode(a, depth + 1);
+          return a && typeof a === "object" && !isVarNode(a) ? `(${s})` : s;
+        };
+        return `${operand(arg[0])} ${COMPARATORS[op]} ${operand(arg[1])}`;
       }
     }
   }
