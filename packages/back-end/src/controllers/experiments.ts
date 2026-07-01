@@ -1627,11 +1627,15 @@ export async function postExperiment(
     validateVariationIds(data.variations);
   }
 
+  const latestPhase = experiment.phases?.[experiment.phases.length - 1];
   const variationCountChanged =
     !!data.variations &&
     data.variations.length !== experiment.variations.length;
-  const coverageChanged = data.coverage !== undefined;
-  const variationWeightsChanged = data.variationWeights !== undefined;
+  const coverageChanged =
+    data.coverage !== undefined && data.coverage !== latestPhase?.coverage;
+  const variationWeightsChanged =
+    data.variationWeights !== undefined &&
+    !isEqual(data.variationWeights, latestPhase?.variationWeights);
   if (
     experiment.status === "running" &&
     (variationCountChanged || coverageChanged || variationWeightsChanged)
@@ -1645,14 +1649,19 @@ export async function postExperiment(
       linkedFeaturesForPayload,
     );
     if (inPayload) {
-      const field = variationCountChanged
-        ? "the number of variations"
-        : coverageChanged
-          ? "coverage"
-          : "traffic split";
+      const fields = [];
+      if (variationCountChanged) {
+        fields.push("variations");
+      }
+      if (coverageChanged) {
+        fields.push("coverage");
+      }
+      if (variationWeightsChanged) {
+        fields.push("variationWeights");
+      }
       res.status(400).json({
         status: 400,
-        message: `Cannot change ${field} while the experiment is running and live in the SDK payload.`,
+        message: `Cannot change field(s): [${fields.join(", ")}] while the experiment is running and live in the SDK payload.`,
       });
       return;
     }
