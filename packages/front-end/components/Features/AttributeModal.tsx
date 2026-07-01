@@ -89,13 +89,16 @@ export default function AttributeModal({ close, attribute }: Props) {
     "secureString",
   ];
 
-  // Converting an in-use attribute to a constrained type restricts how existing
-  // conditions can be edited, so surface where it's referenced as a heads-up.
-  const constrainingDatatypeChange =
-    datatypeChanged &&
-    (datatype === "enum" || (isArrayDatatype && !!form.watch("enum")));
+  // Constraining an in-use attribute (converting to enum/enum-list, or tightening
+  // its allowed values) restricts how existing conditions can be edited, so surface
+  // where it's referenced as a heads-up. Fires on both datatype and enum-value edits.
+  const isConstrainedType =
+    datatype === "enum" || (isArrayDatatype && !!form.watch("enum"));
+  const enumChanged = (form.watch("enum") || "") !== (current?.enum || "");
+  const constrainingChange =
+    !!attribute && isConstrainedType && (datatypeChanged || enumChanged);
   const { references } = useAttributeReferences(
-    constrainingDatatypeChange && attribute ? [attribute] : [],
+    constrainingChange && attribute ? [attribute] : [],
   );
   const refs = attribute ? references?.[attribute] : undefined;
   const refCount = refs
@@ -389,7 +392,7 @@ export default function AttributeModal({ close, attribute }: Props) {
           }
         />
       )}
-      {constrainingDatatypeChange ? (
+      {constrainingChange ? (
         <>
           <Callout status="warning" mt="2" mb="2">
             This change is applied in place — no new attribute is created and
