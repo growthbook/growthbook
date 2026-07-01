@@ -44,6 +44,7 @@ declare global {
     analytics?: {
       track?: (name: string, props?: Record<string, unknown>) => void;
     };
+    snowplow?: (...args: unknown[]) => void;
     gtag?: (...args: unknown[]) => void;
   }
 }

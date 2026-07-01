@@ -5,7 +5,7 @@ import type {
   UserScopedGrowthBook,
 } from "../GrowthBookClient";
 
-export type Trackers = "gtag" | "gtm" | "segment";
+export type Trackers = "gtag" | "gtm" | "segment" | "snowplow";
 
 export function thirdPartyTrackingPlugin({
   additionalCallback,
@@ -66,6 +66,25 @@ export function thirdPartyTrackingPlugin({
           window.setTimeout(resolve, 300),
         );
         promises.push(segmentPromise);
+      }
+
+      if (trackers.includes("snowplow") && window.snowplow) {
+        window.snowplow("trackSelfDescribingEvent", {
+          event: {
+            schema: "iglu:com.growthbook/experiment_viewed/jsonschema/1-0-0",
+            data: {
+              experimentId: e.key,
+              variationId: r.key,
+              hashAttribute: r.hashAttribute,
+              hashValue: r.hashValue,
+            },
+          },
+        });
+        // snowplow uses local storage so we don't need to wait long
+        const snowplowPromise = new Promise((resolve) =>
+          window.setTimeout(resolve, 80)
+        );
+        promises.push(snowplowPromise);
       }
 
       await Promise.all(promises);
