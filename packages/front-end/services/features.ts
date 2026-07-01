@@ -1508,7 +1508,8 @@ export function useAttributeMap(
         datatype: getAttributeDataType(schema.datatype),
         array: !!schema.datatype.match(/\[\]$/),
         enum:
-          schema.datatype === "enum" && schema.enum
+          (schema.datatype === "enum" || schema.datatype.endsWith("[]")) &&
+          schema.enum
             ? schema.enum.split(",").map((x) => x.trim())
             : schema.format === "isoCountryCode"
               ? ALL_COUNTRY_CODES
@@ -1638,7 +1639,8 @@ export function getDefaultOperator(attribute: AttributeData) {
   if (attribute.datatype === "boolean") {
     return "$true";
   } else if (attribute.array) {
-    return "$includes";
+    // Enum-constrained lists use set operators so the restricted MultiSelect shows.
+    return attribute.enum.length ? "$in" : "$includes";
   } else if (attribute.format === "version") {
     return "$veq";
   } else if (attribute.disableEqualityConditions) {
