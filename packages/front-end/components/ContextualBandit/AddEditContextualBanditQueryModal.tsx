@@ -10,12 +10,13 @@ import {
   getMalformedTargetingAttributeColumnsForExposureQueries,
 } from "shared/validators";
 import { useForm } from "react-hook-form";
-import { FaExternalLinkAlt } from "react-icons/fa";
+import { PiArrowSquareOut } from "react-icons/pi";
 import { TestQueryRow } from "shared/types/integrations";
 import Code from "@/components/SyntaxHighlighting/Code";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Callout from "@/ui/Callout";
+import Button from "@/ui/Button";
 import Field from "@/components/Forms/Field";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
 import Link from "@/ui/Link";
@@ -286,19 +287,14 @@ export const AddEditContextualBanditQueryModal: FC<Props> = ({
             <Code language="sql" code={userEnteredQuery} expandable={true} />
           )}
           <div>
-            <button
-              className="btn btn-primary mt-2"
-              type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                setUiMode("sql");
-              }}
+            <Button
+              mt="2"
+              onClick={() => setUiMode("sql")}
+              icon={<PiArrowSquareOut />}
+              iconPosition="right"
             >
-              <div className="d-flex align-items-center">
-                Customize SQL
-                <FaExternalLinkAlt className="ml-2" />
-              </div>
-            </button>
+              Customize SQL
+            </Button>
           </div>
         </div>
 
