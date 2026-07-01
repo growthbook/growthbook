@@ -4,18 +4,22 @@ import {
   ContextualBanditSnapshotInterface,
   contextualBanditSnapshotSettingsValidator,
 } from "shared/validators";
-import { ReqContext } from "back-end/types/api";
+import { ApiReqContext, ReqContext } from "back-end/types/api";
 import {
   buildContextualBanditSnapshotSettings,
   buildSnapshotSettingsForCb,
   getContextualBanditResultsForUi,
   leafWeightsFromContextualBanditResult,
   persistContextualBanditEvent,
+  runContextualBanditSnapshot,
   toContextualBanditSnapshotStatusSummary,
 } from "back-end/src/enterprise/services/contextualBandits";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { getPayloadKeysForContextualBandit } from "back-end/src/services/contextualBanditChanges";
 import { ContextualBanditResult } from "back-end/src/enterprise/services/contextualBanditStats";
+import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import { getSourceIntegrationObject } from "back-end/src/services/datasource";
+import { ContextualBanditResultsQueryRunner } from "back-end/src/enterprise/queryRunners/ContextualBanditResultsQueryRunner";
 
 jest.mock("back-end/src/services/features", () => ({
   queueSDKPayloadRefresh: jest.fn(),
@@ -27,12 +31,36 @@ jest.mock("back-end/src/services/contextualBanditChanges", () => ({
     .mockReturnValue([{ project: "", environment: "production" }]),
 }));
 
+jest.mock("back-end/src/models/DataSourceModel", () => ({
+  getDataSourceById: jest.fn(),
+}));
+
+jest.mock("back-end/src/services/datasource", () => ({
+  getSourceIntegrationObject: jest.fn(),
+}));
+
+jest.mock(
+  "back-end/src/enterprise/queryRunners/ContextualBanditResultsQueryRunner",
+  () => ({
+    ContextualBanditResultsQueryRunner: jest.fn(),
+  }),
+);
+
 const queueSDKPayloadRefreshMock =
   queueSDKPayloadRefresh as jest.MockedFunction<typeof queueSDKPayloadRefresh>;
 const getPayloadKeysForContextualBanditMock =
   getPayloadKeysForContextualBandit as jest.MockedFunction<
     typeof getPayloadKeysForContextualBandit
   >;
+const getDataSourceByIdMock = getDataSourceById as jest.MockedFunction<
+  typeof getDataSourceById
+>;
+const getSourceIntegrationObjectMock =
+  getSourceIntegrationObject as jest.MockedFunction<
+    typeof getSourceIntegrationObject
+  >;
+const ContextualBanditResultsQueryRunnerMock =
+  ContextualBanditResultsQueryRunner as unknown as jest.Mock;
 
 function makeCb(
   overrides: Partial<ContextualBanditInterface> = {},
@@ -58,6 +86,12 @@ function makeCb(
       { id: "v1", name: "Treatment", key: "1", screenshots: [] },
     ],
     dateStarted: new Date("2025-01-02T00:00:00Z"),
+    stage: "exploit",
+    stageDateStarted: new Date("2025-01-02T00:00:00Z"),
+    scheduleValue: 1,
+    scheduleUnit: "days",
+    burnInValue: 1,
+    burnInUnit: "days",
     variationWeights: [
       { variationId: "v0", weight: 0.4 },
       { variationId: "v1", weight: 0.6 },
@@ -221,6 +255,90 @@ describe("buildContextualBanditSnapshotSettings", () => {
   });
 });
 
+describe("runContextualBanditSnapshot", () => {
+  const startAnalysisMock = jest.fn().mockResolvedValue(undefined);
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    startAnalysisMock.mockResolvedValue(undefined);
+    getDataSourceByIdMock.mockResolvedValue({
+      id: "ds_1",
+    } as unknown as Awaited<ReturnType<typeof getDataSourceById>>);
+    getSourceIntegrationObjectMock.mockReturnValue(
+      {} as unknown as ReturnType<typeof getSourceIntegrationObject>,
+    );
+    ContextualBanditResultsQueryRunnerMock.mockImplementation(() => ({
+      startAnalysis: startAnalysisMock,
+    }));
+  });
+
+  function makeContext(
+    overrides: Partial<{
+      update: jest.Mock;
+      cbeSnapshotId: string;
+    }> = {},
+  ) {
+    const updateMock =
+      overrides.update ?? jest.fn().mockImplementation((cb) => cb);
+    return {
+      hasPremiumFeature: jest.fn().mockReturnValue(true),
+      models: {
+        contextualBandits: { update: updateMock },
+        contextualBanditQueries: {
+          getById: jest.fn().mockResolvedValue({
+            id: "cbq_1",
+            query: "SELECT 1",
+            userIdType: "user_id",
+            targetingAttributeColumns: ["country"],
+          }),
+        },
+        contextualBanditSnapshots: {
+          create: jest
+            .fn()
+            .mockResolvedValue({ id: overrides.cbeSnapshotId ?? "cbs_1" }),
+        },
+      },
+    } as unknown as ApiReqContext;
+  }
+
+  it("resolves the explore -> exploit stage transition before starting the run", async () => {
+    jest.useFakeTimers().setSystemTime(new Date("2025-01-03T01:00:00Z"));
+    try {
+      // Burn-in (1 day from stageDateStarted) has already elapsed, but the CB
+      // doc still says "explore" since nothing has re-derived it yet.
+      const cb = makeCb({
+        stage: "explore",
+        stageDateStarted: new Date("2025-01-02T00:00:00Z"),
+        burnInValue: 1,
+        burnInUnit: "days",
+      });
+      const updateMock = jest.fn().mockImplementation((existing, changes) => ({
+        ...existing,
+        ...changes,
+      }));
+      const context = makeContext({ update: updateMock });
+
+      const result = await runContextualBanditSnapshot(context, cb, {
+        triggeredBy: "manual",
+      });
+
+      expect(updateMock).toHaveBeenCalledWith(
+        cb,
+        expect.objectContaining({ stage: "exploit" }),
+      );
+      // The stage/schedule update is persisted before the run kicks off, so
+      // persistContextualBanditEvent (called later, possibly async) sees the
+      // correct stage without having to recompute it.
+      expect(updateMock.mock.invocationCallOrder[0]).toBeLessThan(
+        startAnalysisMock.mock.invocationCallOrder[0],
+      );
+      expect(result.snapshotId).toBe("cbs_1");
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+});
+
 describe("persistContextualBanditEvent", () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -254,6 +372,7 @@ describe("persistContextualBanditEvent", () => {
         contextualBandits: {
           getById: getByIdMock,
           patchLeafWeights: patchLeafWeightsMock,
+          update: jest.fn().mockResolvedValue(cb),
         },
         contextualBanditEvents: {
           create: createCbeMock,
@@ -326,6 +445,7 @@ describe("persistContextualBanditEvent", () => {
         contextualBandits: {
           getById: jest.fn().mockResolvedValue(cb),
           patchLeafWeights: patchLeafWeightsMock,
+          update: jest.fn().mockResolvedValue(cb),
         },
         contextualBanditEvents: {
           create: createCbeMock,
@@ -358,6 +478,54 @@ describe("persistContextualBanditEvent", () => {
     ).rejects.toThrow(/No CB doc/);
   });
 
+  it("trusts the CB's persisted stage rather than recomputing it", async () => {
+    // Stage/schedule resolution now happens up front in
+    // runContextualBanditSnapshot, so persistContextualBanditEvent should
+    // just read whatever stage is already on the CB doc.
+    const cb = makeCb({ stage: "explore", currentLeafWeights: [] });
+    const cbs = makeCbs();
+    const result = makeResult();
+
+    const patchLeafWeightsMock = jest.fn().mockResolvedValue(cb);
+    const createCbeMock = jest.fn().mockResolvedValue({
+      id: "cbe_1",
+      organization: "org_1",
+      contextualBandit: cb.id,
+      snapshotId: cbs.id,
+      attributes: result.attributes,
+      responses: result.responses,
+      weightsWereUpdated: false,
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+    });
+
+    const updateMock = jest.fn();
+    const context = {
+      org: { id: "org_1" },
+      models: {
+        contextualBandits: {
+          getById: jest.fn().mockResolvedValue(cb),
+          patchLeafWeights: patchLeafWeightsMock,
+          update: updateMock,
+        },
+        contextualBanditEvents: {
+          create: createCbeMock,
+        },
+      },
+    } as unknown as ReqContext;
+
+    await persistContextualBanditEvent(context, cbs, result);
+
+    // Still "explore" per the CB doc, so weights are discarded for this run...
+    const [, leafWeightsArg] = patchLeafWeightsMock.mock.calls[0];
+    expect(leafWeightsArg).toEqual([]);
+    expect(createCbeMock).toHaveBeenCalledWith(
+      expect.objectContaining({ weightsWereUpdated: false }),
+    );
+    // ...and persistContextualBanditEvent no longer touches the schedule itself.
+    expect(updateMock).not.toHaveBeenCalled();
+  });
+
   it("skips the SDK payload refresh when there are no payload keys", async () => {
     getPayloadKeysForContextualBanditMock.mockReturnValueOnce([]);
     const cb = makeCb();
@@ -367,6 +535,7 @@ describe("persistContextualBanditEvent", () => {
         contextualBandits: {
           getById: jest.fn().mockResolvedValue(cb),
           patchLeafWeights: jest.fn().mockResolvedValue(cb),
+          update: jest.fn().mockResolvedValue(cb),
         },
         contextualBanditEvents: {
           create: jest.fn().mockResolvedValue({

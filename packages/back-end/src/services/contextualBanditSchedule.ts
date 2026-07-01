@@ -72,13 +72,10 @@ export function computeContextualBanditStageAndSchedule(
     }
   }
 
-  const effectiveStage = changes.stage ?? cb.stage;
-  if (effectiveStage === "exploit") {
-    changes.nextSnapshotAttempt = determineNextContextualBanditSchedule({
-      ...cb,
-      ...changes,
-    });
-  }
+  changes.nextSnapshotAttempt = determineNextContextualBanditSchedule({
+    ...cb,
+    ...changes,
+  });
 
   return changes;
 }

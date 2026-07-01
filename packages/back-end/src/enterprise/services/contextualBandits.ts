@@ -164,10 +164,21 @@ export async function runContextualBanditSnapshot(
     );
   }
 
-  const snapshotSettings = buildContextualBanditSnapshotSettings(cb, cbQuery);
+  // Compute bandit stage before running the update, in case this
+  // update moves bandits from explore to exploit.
+  const scheduleChanges = computeContextualBanditStageAndSchedule(cb);
+  const updatedCb = await context.models.contextualBandits.update(
+    cb,
+    scheduleChanges,
+  );
+
+  const snapshotSettings = buildContextualBanditSnapshotSettings(
+    updatedCb,
+    cbQuery,
+  );
 
   const cbs = await context.models.contextualBanditSnapshots.create({
-    contextualBandit: cb.id,
+    contextualBandit: updatedCb.id,
     status: "running",
     queries: [],
     runStarted: null,
@@ -184,7 +195,7 @@ export async function runContextualBanditSnapshot(
     false,
   );
 
-  const variationNames = (cb.variations ?? []).map((v) => v.name);
+  const variationNames = (updatedCb.variations ?? []).map((v) => v.name);
 
   await runner.startAnalysis({
     snapshotSettings,
@@ -330,15 +341,7 @@ export async function persistContextualBanditEvent(
     ...(result.srm ? { degreesOfFreedom: result.srm.degreesOfFreedom } : {}),
   });
 
-  const patched = await context.models.contextualBandits.patchLeafWeights(
-    cb.id,
-    leafWeights,
-  );
-
-  const scheduleChanges = computeContextualBanditStageAndSchedule(patched);
-  if (Object.keys(scheduleChanges).length > 0) {
-    await context.models.contextualBandits.update(patched, scheduleChanges);
-  }
+  await context.models.contextualBandits.patchLeafWeights(cb.id, leafWeights);
 
   const payloadKeys = getPayloadKeysForContextualBandit(context, cb);
   if (payloadKeys.length > 0) {

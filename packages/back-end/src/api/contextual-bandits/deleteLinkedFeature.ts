@@ -12,6 +12,14 @@ export const deleteContextualBanditLinkedFeature = createApiRequestHandler(
     req.params.id,
   );
 
+  if (
+    !req.context.permissions.canUpdateContextualBandit(contextualBandit, {})
+  ) {
+    req.context.permissions.throwPermissionError();
+  }
+
+  // Also require feature-side edit rights — unlinking cancels a queued
+  // autopublish that the feature team may be managing.
   const feature = await getFeature(req.context, req.params.featureId);
   if (feature && !req.context.permissions.canUpdateFeature(feature, {})) {
     req.context.permissions.throwPermissionError();

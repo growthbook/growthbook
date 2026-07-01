@@ -72,11 +72,19 @@ describe("computeContextualBanditStageAndSchedule", () => {
     jest.useRealTimers();
   });
 
-  it("makes no changes while still inside the explore (burn-in) window", () => {
+  it("reschedules without a stage change while still inside the explore (burn-in) window", () => {
+    // Started 1h ago with a 6h burn-in: still exploring, but the next attempt
+    // must advance (to the burn-in end) so the cron doesn't re-queue the CB
+    // on every tick.
     const cb = makeCb({
       stageDateStarted: new Date(NOW.getTime() - 1 * HOUR),
     });
-    expect(computeContextualBanditStageAndSchedule(cb)).toEqual({});
+    const changes = computeContextualBanditStageAndSchedule(cb);
+    expect(changes.stage).toBeUndefined();
+    expect(changes.stageDateStarted).toBeUndefined();
+    expect(changes.nextSnapshotAttempt?.getTime()).toBe(
+      NOW.getTime() + 5 * HOUR,
+    );
   });
 
   it("transitions explore -> exploit once burn-in elapses and schedules the next run", () => {

@@ -1,6 +1,7 @@
 import Agenda, { Job } from "agenda";
 import { dangerousFindContextualBanditsToUpdate } from "back-end/src/enterprise/models/ContextualBanditModel";
 import { runContextualBanditSnapshot } from "back-end/src/enterprise/services/contextualBandits";
+import { determineNextContextualBanditSchedule } from "back-end/src/services/contextualBanditSchedule";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
 
@@ -57,6 +58,18 @@ const updateSingleContextualBandit = async (job: UpdateSingleCBJob) => {
   if (!cb) return;
 
   try {
+    // Advance nextSnapshotAttempt to the next scheduled window BEFORE starting
+    // the run (mirrors createSafeRolloutSnapshot) so a failed or long-running
+    // snapshot isn't re-queued on every cron tick. If the run reaches
+    // runContextualBanditSnapshot, the schedule (and any explore -> exploit
+    // stage transition) gets re-derived and persisted again there; this is
+    // just a safety net for failures that happen before that point (e.g. a
+    // missing datasource/query).
+    await context.models.contextualBandits.update(cb, {
+      nextSnapshotAttempt: determineNextContextualBanditSchedule(cb),
+      lastSnapshotAttempt: new Date(),
+    });
+
     logger.info("Refreshing results for contextual bandit " + cbId);
     await runContextualBanditSnapshot(context, cb, {
       triggeredBy: "scheduled",

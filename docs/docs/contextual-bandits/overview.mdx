@@ -14,8 +14,6 @@ A Contextual Bandit is a [bandit](/bandits/overview) that personalizes which var
 
 In other words, a multi-armed bandit asks "which variation is best?" A contextual bandit asks "which variation is best **for this kind of user**?" Where a global winner would be applied to everyone, a contextual bandit can send users in one country to one variation and users in another country to a different one — whatever performs best on the **Decision Metric** within each context.
 
-[Get started with our Contextual Bandit setup guide!](/contextual-bandits/config)
-
 ### When should I run a Contextual Bandit?
 
 You should run a contextual bandit when:
@@ -47,8 +45,6 @@ To get started you will need:
 - An assignment query that selects your user id, timestamp, and one or more **context columns**.
 - A single **Decision Metric** to optimize toward.
 - Two or more **variations** to test.
-
-See [Setting up a Contextual Bandit](/contextual-bandits/config) for the full walkthrough, or [Driving a Contextual Bandit via API](/contextual-bandits/contextual-bandit-via-api) to run the entire lifecycle from the REST API.
 
 ### GrowthBook's Contextual Bandit implementation
 

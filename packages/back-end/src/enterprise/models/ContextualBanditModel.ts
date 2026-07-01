@@ -12,6 +12,7 @@ import {
   LeafWeight,
 } from "shared/validators";
 import { generateVariationId } from "shared/util";
+import { isFactMetricId } from "shared/experiments";
 import { resolveOwnerEmails } from "back-end/src/services/owner";
 import {
   contextualBanditApiSpec,
@@ -35,6 +36,8 @@ const BaseClass = MakeModelClass({
   collectionName: "contextualbandits",
   idPrefix: "cb_",
   globallyUniquePrimaryKeys: true,
+  skipAuditLogFields: ["nextSnapshotAttempt", "lastSnapshotAttempt"],
+  skipDateUpdatedFields: ["nextSnapshotAttempt", "lastSnapshotAttempt"],
   defaultValues: {
     holdoutPercent: 0,
     archived: false,
@@ -190,7 +193,36 @@ export class ContextualBanditModel extends BaseClass {
 
   protected async customValidation(
     doc: ContextualBanditInterface,
+    previousDoc?: ContextualBanditInterface,
   ): Promise<void> {
+    // Only re-validate the decision metric when it (or the datasource) changes
+    // so that CBs whose metric was deleted after the fact can still be
+    // updated (e.g. unlinked).
+    if (
+      doc.decisionMetric &&
+      (doc.decisionMetric !== previousDoc?.decisionMetric ||
+        doc.datasource !== previousDoc?.datasource)
+    ) {
+      if (!isFactMetricId(doc.decisionMetric)) {
+        throw new Error(
+          `Contextual bandit decision metric must be a fact metric: ${doc.decisionMetric}`,
+        );
+      }
+      const decisionMetric = await this.context.models.factMetrics.getById(
+        doc.decisionMetric,
+      );
+      if (!decisionMetric) {
+        throw new Error(
+          `Contextual bandit decision metric not found: ${doc.decisionMetric}`,
+        );
+      }
+      if (decisionMetric.datasource !== doc.datasource) {
+        throw new Error(
+          `Contextual bandit decision metric ${doc.decisionMetric} must belong to datasource ${doc.datasource}`,
+        );
+      }
+    }
+
     const targetingAttributeColumns =
       doc.targetingAttributeColumns ?? doc.contextualAttributes;
     if ((targetingAttributeColumns?.length ?? 0) === 0) {
