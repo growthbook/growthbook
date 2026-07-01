@@ -57,7 +57,7 @@ interface Props {
   projects: string[];
   experiment: ExperimentInterfaceStringDates | null;
   isGeneralDashboard?: boolean;
-  dashboardFilters?: DashboardInterface["filters"];
+  dashboardGlobalControls?: DashboardInterface["globalControls"];
   open: boolean;
   cancel: () => void;
   submit: () => void;
@@ -83,7 +83,7 @@ export default function DashboardEditorSidebar({
   dashboardId,
   experiment,
   isGeneralDashboard = false,
-  dashboardFilters,
+  dashboardGlobalControls,
   open,
   cancel,
   submit,
@@ -250,7 +250,7 @@ export default function DashboardEditorSidebar({
               dashboardId={dashboardId}
               experiment={experiment}
               projects={projects}
-              dashboardFilters={dashboardFilters}
+              dashboardGlobalControls={dashboardGlobalControls}
               cancel={cancel}
               submit={submit}
               block={stagedBlock}

@@ -70,7 +70,7 @@ import AsyncQueriesModal from "@/components/Queries/AsyncQueriesModal";
 import { DashboardSnapshotContext } from "@/enterprise/components/Dashboards/DashboardSnapshotProvider";
 import DashboardUpdateDisplay from "./DashboardUpdateDisplay";
 import DashboardBlock from "./DashboardBlock";
-import DashboardFilterBar from "./DashboardFilterBar";
+import DashboardGlobalControlsBar from "./DashboardGlobalControlsBar";
 
 export const DASHBOARD_TOPBAR_HEIGHT = "40px";
 export const BLOCK_TYPE_INFO: Record<
@@ -325,13 +325,12 @@ interface Props {
   isTabActive: boolean;
   title: string;
   blocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
-  filterBlocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
   id: string;
   isEditing: boolean;
   projects: string[];
   enableAutoUpdates: boolean;
   updateSchedule: DashboardUpdateSchedule | undefined;
-  filters?: DashboardInterface["filters"];
+  globalControls?: DashboardInterface["globalControls"];
   ownerId: string;
   initialEditLevel: DashboardEditLevel;
   initialShareLevel: DashboardShareLevel;
@@ -344,11 +343,11 @@ interface Props {
         index: number,
         block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
       ) => void);
-  onFiltersChange?: (
-    filters: DashboardInterface["filters"],
+  mutate: () => void;
+  onGlobalControlsChange?: (
+    globalControls: DashboardInterface["globalControls"],
     blocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[],
   ) => Promise<void>;
-  mutate: () => void;
   switchToExperimentView?: () => void;
   isGeneralDashboard: boolean;
   setIsEditing?: (v: boolean) => void;
@@ -360,11 +359,10 @@ function DashboardEditor({
   isTabActive,
   title,
   blocks,
-  filterBlocks,
   isEditing,
   enableAutoUpdates,
   updateSchedule,
-  filters,
+  globalControls,
   ownerId,
   initialEditLevel,
   initialShareLevel,
@@ -374,8 +372,8 @@ function DashboardEditor({
   dashboardLastUpdated,
   projects,
   setBlock,
-  onFiltersChange,
   mutate,
+  onGlobalControlsChange,
   switchToExperimentView,
   isGeneralDashboard = false,
   setIsEditing,
@@ -432,7 +430,9 @@ function DashboardEditor({
 
   const error = snapshotError;
   const count = queryStrings.length + savedQueryIds.length;
-  const hasDashboardDateFilter = Boolean(filters?.dateRange);
+  const hasGlobalControls = Boolean(
+    globalControls?.dateRange || globalControls?.dimensions?.length,
+  );
 
   const handleViewQueries = () => {
     setQueriesModalOpen(true);
@@ -458,7 +458,7 @@ function DashboardEditor({
       <DashboardBlock
         isTabActive={isTabActive}
         block={block}
-        dashboardFilters={filters}
+        dashboardGlobalControls={globalControls}
         blockIndex={i}
         isEditing={isEditing}
         isFocused={isFocused}
@@ -537,7 +537,7 @@ function DashboardEditor({
                 experimentId: "",
                 updateSchedule: data.updateSchedule,
                 projects: data.projects,
-                filters,
+                globalControls,
                 blocks: (data.blocks ?? []).map(getBlockData),
               }),
             });
@@ -600,7 +600,7 @@ function DashboardEditor({
             dashboardLastUpdated={dashboardLastUpdated}
             disabled={!!editSidebarDirty}
             isEditing={isEditing}
-            needsUpdate={needsUpdate}
+            needsUpdate={id === "new" ? false : needsUpdate}
             onUpdated={() => setNeedsUpdate(false)}
           />
           {isGeneralDashboard && setIsEditing && !isEditing ? (
@@ -720,14 +720,14 @@ function DashboardEditor({
           ) : null}
         </Flex>
         {isGeneralDashboard &&
-        onFiltersChange &&
-        (isEditing || hasDashboardDateFilter) ? (
-          <DashboardFilterBar
-            blocks={filterBlocks ?? blocks}
-            filters={filters}
+        onGlobalControlsChange &&
+        (isEditing || hasGlobalControls) ? (
+          <DashboardGlobalControlsBar
+            blocks={blocks}
+            globalControls={globalControls}
             canEdit={canEdit}
             isEditing={isEditing}
-            onFiltersChange={onFiltersChange}
+            onGlobalControlsChange={onGlobalControlsChange}
             setNeedsUpdate={setNeedsUpdate}
           />
         ) : null}

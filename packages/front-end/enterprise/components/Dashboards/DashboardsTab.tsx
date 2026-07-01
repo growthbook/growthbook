@@ -41,7 +41,7 @@ export type CreateDashboardArgs = {
     updateSchedule?: DashboardUpdateSchedule;
     blocks?: DashboardBlockData<DashboardBlockInterface>[];
     projects?: string[];
-    filters?: DashboardInterface["filters"];
+    globalControls?: DashboardInterface["globalControls"];
     comparison?: DashboardInterface["comparison"];
   };
 };
@@ -57,7 +57,7 @@ export type UpdateDashboardArgs = {
     enableAutoUpdates: boolean;
     updateSchedule?: DashboardUpdateSchedule;
     projects?: string[];
-    filters?: DashboardInterface["filters"];
+    globalControls?: DashboardInterface["globalControls"];
     comparison?: DashboardInterface["comparison"];
   }>;
 };
@@ -150,12 +150,16 @@ function DashboardsTab({
   const updateTemporaryDashboard = useCallback(
     (update: {
       blocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
+      globalControls?: DashboardInterface["globalControls"];
     }) => {
       setTemporaryDashboard((prev) => {
         if (!prev) return prev;
         return {
           ...prev,
           ...(update.blocks !== undefined ? { blocks: update.blocks } : {}),
+          ...(update.globalControls !== undefined
+            ? { globalControls: update.globalControls }
+            : {}),
         } as DashboardInterface;
       });
     },
@@ -212,7 +216,7 @@ function DashboardsTab({
                 enableAutoUpdates: data.enableAutoUpdates,
                 shareLevel: data.shareLevel,
                 userId: data.userId,
-                filters: data.filters,
+                globalControls: data.globalControls,
                 comparison: data.comparison ?? undefined,
               }
             : {
@@ -222,7 +226,7 @@ function DashboardsTab({
                 enableAutoUpdates: data.enableAutoUpdates,
                 shareLevel: data.shareLevel,
                 experimentId: experiment.id,
-                filters: data.filters,
+                globalControls: data.globalControls,
                 comparison: data.comparison ?? undefined,
               },
         ),

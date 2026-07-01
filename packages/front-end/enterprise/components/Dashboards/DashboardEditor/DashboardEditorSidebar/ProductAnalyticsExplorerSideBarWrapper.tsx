@@ -5,6 +5,8 @@ import {
   MetricExplorationBlockInterface,
   FactTableExplorationBlockInterface,
   DataSourceExplorationBlockInterface,
+  evaluateDashboardGlobalControlsForBlock,
+  getEffectiveExplorationConfig,
 } from "shared/enterprise";
 import type { BlockComparison } from "shared/enterprise";
 import { isEqual } from "lodash";
@@ -15,7 +17,7 @@ import { stripExplorerDraftFields } from "@/enterprise/components/ProductAnalyti
 export default function ProductAnalyticsExplorerSideBarWrapper({
   block,
   setBlock,
-  dashboardFilters,
+  dashboardGlobalControls,
   saveAndCloseTrigger,
   onSaveAndClose,
 }: {
@@ -31,7 +33,7 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
       | DataSourceExplorationBlockInterface
     >
   >;
-  dashboardFilters?: DashboardInterface["filters"];
+  dashboardGlobalControls?: DashboardInterface["globalControls"];
   saveAndCloseTrigger?: number;
   onSaveAndClose?: () => void;
 }) {
@@ -54,6 +56,31 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
       ? block.comparisonExplorerAnalysisId
       : undefined;
   const compareEnabled = draftExploreState.previousTimeFrame != null;
+  const globalControlsEvaluation = useMemo(
+    () =>
+      dashboardGlobalControls
+        ? evaluateDashboardGlobalControlsForBlock(block, {
+            globalControls: dashboardGlobalControls,
+          })
+        : null,
+    [block, dashboardGlobalControls],
+  );
+  const inheritedDashboardDimensions = useMemo(() => {
+    return (globalControlsEvaluation?.dimensions ?? [])
+      .filter((dimension) => dimension.target)
+      .map((dimension) => ({
+        id: dimension.dimension.id,
+        label: dimension.dimension.label,
+        column: dimension.column,
+        maxValues: dimension.maxValues,
+        enabled: dimension.enabled,
+        applied: dimension.applied,
+        skippedReason: dimension.skippedReason,
+      }));
+  }, [globalControlsEvaluation]);
+  const usesDashboardDimensions = inheritedDashboardDimensions.some(
+    (dimension) => dimension.applied,
+  );
 
   const nextComparison = useMemo<BlockComparison | undefined>(() => {
     const previousTimeFrame = draftExploreState.previousTimeFrame;
@@ -73,10 +100,18 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
   useEffect(() => {
     const nextDraftConfig = stripExplorerDraftFields(draftExploreState);
     const nextConfig =
-      block.useDashboardFilters === true && dashboardFilters?.dateRange
-        ? { ...nextDraftConfig, dateRange: block.config.dateRange }
+      block.globalControlSettings?.dateRange === true || usesDashboardDimensions
+        ? {
+            ...nextDraftConfig,
+            ...(block.globalControlSettings?.dateRange === true &&
+            dashboardGlobalControls?.dateRange
+              ? { dateRange: block.config.dateRange }
+              : {}),
+            ...(usesDashboardDimensions
+              ? { dimensions: block.config.dimensions }
+              : {}),
+          }
         : nextDraftConfig;
-
     if (
       (needsUpdate && !isEqual(block.config, nextConfig)) ||
       !isEqual(block.comparison, nextComparison)
@@ -102,8 +137,9 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
     setBlock,
     block,
     draftExploreState,
-    dashboardFilters,
+    dashboardGlobalControls,
     nextComparison,
+    usesDashboardDimensions,
   ]);
 
   // When Save & Close is requested and the block is stale, run the analysis first.
@@ -136,19 +172,44 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
   return (
     <ExplorerSideBar
       renderingInDashboardSidebar
-      dashboardDateRange={dashboardFilters?.dateRange}
-      useDashboardFilters={block.useDashboardFilters === true}
-      onUseDashboardFiltersChange={(useDashboardFilters) => {
-        setDraftExploreState((prev) => ({
-          ...prev,
-          dateRange:
-            useDashboardFilters && dashboardFilters?.dateRange
-              ? dashboardFilters.dateRange
-              : block.config.dateRange,
-        }));
+      dashboardDateRange={dashboardGlobalControls?.dateRange}
+      inheritedDashboardDimensions={inheritedDashboardDimensions}
+      useDashboardDateControl={block.globalControlSettings?.dateRange === true}
+      onGlobalControlSettingsChange={(settings) => {
+        const nextSettings = {
+          ...block.globalControlSettings,
+          ...settings,
+          dimensions: {
+            ...block.globalControlSettings?.dimensions,
+            ...settings.dimensions,
+          },
+        };
+        if (settings.dateRange !== undefined) {
+          setDraftExploreState((prev) => ({
+            ...prev,
+            dateRange:
+              settings.dateRange && dashboardGlobalControls?.dateRange
+                ? dashboardGlobalControls.dateRange
+                : block.config.dateRange,
+          }));
+        }
+        if (settings.dimensions !== undefined && dashboardGlobalControls) {
+          const blockWithSettings = {
+            ...block,
+            globalControlSettings: nextSettings,
+          } as typeof block;
+          const effectiveConfig = getEffectiveExplorationConfig(
+            blockWithSettings,
+            { globalControls: dashboardGlobalControls },
+          );
+          setDraftExploreState((prev) => ({
+            ...prev,
+            dimensions: effectiveConfig.dimensions,
+          }));
+        }
         setBlock({
           ...block,
-          useDashboardFilters,
+          globalControlSettings: nextSettings,
         } as
           | MetricExplorationBlockInterface
           | FactTableExplorationBlockInterface

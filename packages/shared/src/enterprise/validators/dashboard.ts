@@ -45,20 +45,43 @@ export const dashboardGridConfig = z
   .strict();
 export type DashboardGridConfig = z.infer<typeof dashboardGridConfig>;
 
-export const dashboardFiltersValidator = z
+export const dashboardGlobalDimensionTargetValidator = z
   .object({
-    dateRange: baseExplorationConfigValidator.shape.dateRange.optional(),
-    comparison: z
-      .object({
-        enabled: z.boolean(),
-        previousTimeFrame:
-          baseExplorationConfigValidator.shape.dateRange.optional(),
-      })
-      .strict()
-      .optional(),
+    blockId: z.string(),
+    column: z.string(),
+    valueIndex: z.number().int().min(0).optional(),
+    datasource: z.string().optional(),
+    factTableId: z.string().optional(),
+    metricId: z.string().optional(),
+    datatype: z.string().optional(),
   })
   .strict();
-export type DashboardFilters = z.infer<typeof dashboardFiltersValidator>;
+
+export const dashboardGlobalDimensionValidator = z
+  .object({
+    id: z.string(),
+    label: z.string(),
+    column: z.string(),
+    maxValues: z.number().int().min(1).max(20),
+    targets: z.array(dashboardGlobalDimensionTargetValidator),
+  })
+  .strict();
+
+export const dashboardGlobalControlsValidator = z
+  .object({
+    dateRange: baseExplorationConfigValidator.shape.dateRange.optional(),
+    dimensions: z.array(dashboardGlobalDimensionValidator).optional(),
+  })
+  .strict();
+export type DashboardGlobalControls = z.infer<
+  typeof dashboardGlobalControlsValidator
+>;
+export type DashboardGlobalDimension = z.infer<
+  typeof dashboardGlobalDimensionValidator
+>;
+export type DashboardGlobalDimensionTarget = z.infer<
+  typeof dashboardGlobalDimensionTargetValidator
+>;
 
 export const dashboardInterface = z
   .object({
@@ -75,7 +98,7 @@ export const dashboardInterface = z
     updateSchedule: dashboardUpdateSchedule.optional(),
     title: z.string(),
     blocks: z.array(dashboardBlockInterface),
-    filters: dashboardFiltersValidator.optional(),
+    globalControls: dashboardGlobalControlsValidator.optional(),
     // Dashboard-wide period comparison. Currently set only per exploration
     // block; this is the seam for a future dashboard-level compare toggle
     // (see resolveBlockComparison) and is honored on refresh/render already.
@@ -147,7 +170,7 @@ export const apiCreateDashboardBody = z
         "General Dashboards only, Experiment Dashboards use the experiment's projects",
       )
       .optional(),
-    filters: dashboardFiltersValidator.optional(),
+    globalControls: dashboardGlobalControlsValidator.optional(),
     comparison: blockComparisonValidator.optional(),
     blocks: z.array(apiCreateDashboardBlockInterface),
   })

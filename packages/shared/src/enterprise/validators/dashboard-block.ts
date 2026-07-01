@@ -330,7 +330,10 @@ const metricExplorerBlockInterface = baseBlockInterface
     // previous window is derived from the current one on each refresh. The id of
     // that derived analysis is tracked here so it can be fetched and rendered.
     comparison: blockComparisonValidator.optional(),
-    comparisonMetricAnalysisId: z.string().optional(),
+    comparisonMetricAnalysisId: z.preprocess(
+      (value) => (value === null ? undefined : value),
+      z.string().optional(),
+    ),
   })
   .strict();
 
@@ -342,9 +345,12 @@ export type MetricExplorerBlockInterface = z.infer<
   typeof metricExplorerBlockInterface
 >;
 
-const dashboardFilterBlockFields = {
-  useDashboardFilters: z.boolean().optional(),
-} as const;
+const globalControlSettingsValidator = z
+  .object({
+    dateRange: z.boolean().optional(),
+    dimensions: z.record(z.string(), z.boolean()).optional(),
+  })
+  .strict();
 
 // Fields shared by every product-analytics exploration block. `comparison` and
 // `comparisonExplorerAnalysisId` are optional so pre-existing blocks read as
@@ -352,8 +358,11 @@ const dashboardFilterBlockFields = {
 const explorationBlockCommon = {
   explorerAnalysisId: z.string(),
   comparison: blockComparisonValidator.optional(),
-  comparisonExplorerAnalysisId: z.string().optional(),
-  ...dashboardFilterBlockFields,
+  comparisonExplorerAnalysisId: z.preprocess(
+    (value) => (value === null ? undefined : value),
+    z.string().optional(),
+  ),
+  globalControlSettings: globalControlSettingsValidator.optional(),
 };
 
 const metricExplorationBlockInterface = baseBlockInterface.extend({
@@ -471,9 +480,6 @@ export const apiCreateDashboardBlockInterface = z.discriminatedUnion("type", [
   experimentTrafficBlockInterface.omit(createOmits),
   sqlExplorerBlockInterface.omit(createOmits),
   apiMetricExplorerBlockInterface.omit(createOmits),
-  metricExplorationBlockInterface.omit(createOmits),
-  factTableExplorationBlockInterface.omit(createOmits),
-  dataSourceExplorationBlockInterface.omit(createOmits),
 ]);
 export type CreateDashboardBlockInterface = z.infer<
   typeof createDashboardBlockInterface

@@ -16,7 +16,6 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import GraphTypeSelector from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/GraphTypeSelector";
 import DateRangePicker, {
-  ControlledDateRangePicker,
   ComparisonDateControls,
 } from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/DateRangePicker";
 import GranularitySelector from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/GranularitySelector";
@@ -35,22 +34,44 @@ import track from "@/services/track";
 import MetricTabContent from "./MetricTabContent";
 import FactTableTabContent from "./FactTableTabContent";
 import DatasourceTabContent from "./DatasourceTabContent";
-import GroupBySection from "./GroupBySection";
+import GroupBySection, { InheritedDashboardDimension } from "./GroupBySection";
 import ShowAsSection from "./ShowAsSection";
 import DatasourceConfigurator from "./DatasourceConfigurator";
 
 interface Props {
   renderingInDashboardSidebar?: boolean;
   dashboardDateRange?: ExplorationConfig["dateRange"];
-  useDashboardFilters?: boolean;
-  onUseDashboardFiltersChange?: (useDashboardFilters: boolean) => void;
+  inheritedDashboardDimensions?: InheritedDashboardDimension[];
+  useDashboardDateControl?: boolean;
+  onGlobalControlSettingsChange?: (settings: {
+    dateRange?: boolean;
+    dimensions?: Record<string, boolean>;
+  }) => void;
+}
+
+function formatDateRange(dateRange: ExplorationConfig["dateRange"]): string {
+  switch (dateRange.predefined) {
+    case "today":
+      return "Today";
+    case "last7Days":
+      return "Past 7 Days";
+    case "last30Days":
+      return "Past 30 Days";
+    case "last90Days":
+      return "Past 90 Days";
+    case "customLookback":
+      return `Past ${dateRange.lookbackValue ?? 30} ${dateRange.lookbackUnit ?? "day"}${(dateRange.lookbackValue ?? 30) === 1 ? "" : "s"}`;
+    case "customDateRange":
+      return `${dateRange.startDate ?? "Start"} to ${dateRange.endDate ?? "End"}`;
+  }
 }
 
 export default function ExplorerSideBar({
   renderingInDashboardSidebar = false,
   dashboardDateRange,
-  useDashboardFilters = false,
-  onUseDashboardFiltersChange,
+  inheritedDashboardDimensions = [],
+  useDashboardDateControl = false,
+  onGlobalControlSettingsChange,
 }: Props) {
   const [showSaveToDashboardModal, setShowSaveToDashboardModal] =
     useState(false);
@@ -261,25 +282,31 @@ export default function ExplorerSideBar({
             {dashboardDateRange ? (
               <Switch
                 size="1"
-                value={useDashboardFilters}
-                onChange={(checked) => {
-                  onUseDashboardFiltersChange?.(checked);
-                }}
-                label="Use dashboard filters"
+                value={useDashboardDateControl}
+                onChange={(checked) =>
+                  onGlobalControlSettingsChange?.({ dateRange: checked })
+                }
+                label="Use dashboard date range"
                 description={
-                  useDashboardFilters
+                  useDashboardDateControl
                     ? "This block uses the dashboard date range."
                     : "This block uses its own date range."
                 }
               />
             ) : null}
-            {dashboardDateRange && useDashboardFilters ? (
-              <ControlledDateRangePicker
-                value={dashboardDateRange}
-                onChange={() => {}}
-                fullWidth
-                disabled
-              />
+            {dashboardDateRange && useDashboardDateControl ? (
+              <Flex
+                p="2"
+                style={{
+                  border: "1px solid var(--gray-a3)",
+                  borderRadius: "var(--radius-3)",
+                  backgroundColor: "var(--gray-a2)",
+                }}
+              >
+                <Text size="small" color="text-low">
+                  {formatDateRange(dashboardDateRange)}
+                </Text>
+              </Flex>
             ) : showComparisonDateControls ? (
               <ComparisonDateControls fullWidth />
             ) : (
@@ -368,7 +395,19 @@ export default function ExplorerSideBar({
       {showAsAppliesTo(draftExploreState, getFactMetricById) && (
         <ShowAsSection />
       )}
-      {dataset?.values?.length > 0 && <GroupBySection />}
+      {dataset?.values?.length > 0 && (
+        <GroupBySection
+          inheritedDashboardDimensions={inheritedDashboardDimensions}
+          onInheritedDashboardDimensionToggle={
+            onGlobalControlSettingsChange
+              ? (dimensionId, enabled) =>
+                  onGlobalControlSettingsChange({
+                    dimensions: { [dimensionId]: enabled },
+                  })
+              : undefined
+          }
+        />
+      )}
     </Flex>
   );
 }

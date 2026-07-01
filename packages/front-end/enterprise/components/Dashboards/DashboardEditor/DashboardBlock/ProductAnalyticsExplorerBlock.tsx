@@ -8,6 +8,7 @@ import {
   resolveBlockComparison,
   computeExplorationComparisonPayload,
 } from "shared/enterprise";
+import { isEqual } from "lodash";
 import { ProductAnalyticsExploration } from "shared/validators";
 import { QueryInterface } from "shared/types/query";
 import useApi from "@/hooks/useApi";
@@ -20,7 +21,8 @@ import { BlockProps } from ".";
 
 export default function ProductAnalyticsExplorerBlock({
   block,
-  dashboardFilters,
+  dashboardGlobalControls,
+  blockIndex,
 }: BlockProps<
   | MetricExplorationBlockInterface
   | FactTableExplorationBlockInterface
@@ -59,14 +61,19 @@ export default function ProductAnalyticsExplorerBlock({
   // dashboard matches the Explorer: empty previous periods densify to zeros
   // instead of triggering the "no data, nothing to compare" message, and
   // big-number / table trends are computed identically.
-  const submittedExploreState =
-    data?.exploration?.config ??
-    getEffectiveExplorationConfig(block, { filters: dashboardFilters });
+  const submittedConfig =
+    block.config && dashboardGlobalControls
+      ? getEffectiveExplorationConfig(
+          block,
+          { globalControls: dashboardGlobalControls },
+          blockIndex,
+        )
+      : (block.config ?? data?.exploration?.config ?? null);
   const comparisonPayload = useMemo(() => {
     if (
       !compareEnabled ||
       !data?.exploration ||
-      !submittedExploreState ||
+      !submittedConfig ||
       !submittedPreviousTimeFrame
     ) {
       return null;
@@ -74,7 +81,7 @@ export default function ProductAnalyticsExplorerBlock({
     return computeExplorationComparisonPayload(
       data.exploration,
       rawComparisonExploration,
-      submittedExploreState,
+      submittedConfig,
       submittedPreviousTimeFrame,
       (id) => getFactMetricById(id) ?? null,
     );
@@ -82,7 +89,7 @@ export default function ProductAnalyticsExplorerBlock({
     compareEnabled,
     data?.exploration,
     rawComparisonExploration,
-    submittedExploreState,
+    submittedConfig,
     submittedPreviousTimeFrame,
     getFactMetricById,
   ]);
@@ -106,8 +113,19 @@ export default function ProductAnalyticsExplorerBlock({
     );
   }
 
+  if (submittedConfig && !isEqual(data.exploration.config, submittedConfig)) {
+    return (
+      <Box p="4" style={{ textAlign: "center" }}>
+        <Callout status="info">
+          Global controls changed. Click the <code>Update</code> button to
+          refresh this block.
+        </Callout>
+      </Box>
+    );
+  }
+
   const shouldShowTable = ["table", "timeseries-table"].includes(
-    submittedExploreState.chartType,
+    block.config?.chartType ?? "",
   );
 
   return (
@@ -119,7 +137,7 @@ export default function ProductAnalyticsExplorerBlock({
           compareEnabled={compareEnabled}
           serverTableTrendsByRow={comparisonPayload?.tableTrendsByRow ?? null}
           error={data.exploration.error ?? error?.message ?? null}
-          submittedExploreState={submittedExploreState}
+          submittedExploreState={submittedConfig ?? data.exploration.config}
           loading={isLoading}
           hasChart={false}
           query={data?.query ?? null}
@@ -133,7 +151,7 @@ export default function ProductAnalyticsExplorerBlock({
           serverBigNumberTrends={comparisonPayload?.bigNumberTrends ?? null}
           error={data?.exploration.error || error?.message || null}
           loading={isLoading}
-          submittedExploreState={submittedExploreState}
+          submittedExploreState={submittedConfig ?? data?.exploration.config}
         />
       )}
     </Flex>

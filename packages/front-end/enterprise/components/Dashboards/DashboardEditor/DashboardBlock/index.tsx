@@ -1,12 +1,13 @@
-import React, { useContext, useEffect, useRef, useState } from "react";
+import React, { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   DashboardBlockInterface,
   DashboardBlockInterfaceOrData,
   blockHasFieldOfType,
-  blockUsesDashboardFilters,
+  blockUsesDashboardDateControl,
   DashboardInterface,
-  isDashboardFilterSupportedBlock,
+  getDashboardGlobalControlApplicability,
+  isDashboardGlobalControlSupportedBlock,
 } from "shared/enterprise";
 import { Flex, IconButton, Text } from "@radix-ui/themes";
 import { PiDotsSixVertical, PiPencilSimpleFill } from "react-icons/pi";
@@ -83,7 +84,8 @@ type ObjectProps<Block> = {
 export type BlockProps<T extends DashboardBlockInterface> = {
   isTabActive: boolean;
   block: DashboardBlockInterfaceOrData<T>;
-  dashboardFilters?: DashboardInterface["filters"];
+  dashboardGlobalControls?: DashboardInterface["globalControls"];
+  blockIndex?: number;
   setBlock: undefined | React.Dispatch<DashboardBlockInterfaceOrData<T>>;
   snapshot: ExperimentSnapshotInterface;
   analysis: ExperimentSnapshotAnalysis;
@@ -95,7 +97,7 @@ export type BlockProps<T extends DashboardBlockInterface> = {
 interface Props<DashboardBlock extends DashboardBlockInterface> {
   isTabActive: boolean;
   block: DashboardBlockInterfaceOrData<DashboardBlock>;
-  dashboardFilters?: DashboardInterface["filters"];
+  dashboardGlobalControls?: DashboardInterface["globalControls"];
   blockIndex?: number;
   isFocused: boolean;
   isEditing: boolean;
@@ -133,7 +135,7 @@ const BLOCK_COMPONENTS: {
 export default function DashboardBlock<T extends DashboardBlockInterface>({
   isTabActive,
   block,
-  dashboardFilters,
+  dashboardGlobalControls,
   blockIndex,
   isEditing,
   isFocused,
@@ -174,10 +176,24 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
   );
 
   const [editTitle, setEditTitle] = useState(false);
-  const hasDashboardDateFilter = Boolean(dashboardFilters?.dateRange);
-  const shouldShowUnsupportedDashboardFilterBadge =
-    hasDashboardDateFilter &&
-    !isDashboardFilterSupportedBlock(block) &&
+  const dashboardGlobalControlApplicability = useMemo(
+    () =>
+      getDashboardGlobalControlApplicability({
+        blocks: [block],
+        globalControls: dashboardGlobalControls,
+      }),
+    [block, dashboardGlobalControls],
+  );
+  const activeDimensionLabels = dashboardGlobalControlApplicability.dimensions
+    .filter(({ affectedBlocks }) => affectedBlocks.length > 0)
+    .map(({ dimension }) => dimension.label);
+  const hasGlobalControls = Boolean(
+    dashboardGlobalControls?.dateRange ||
+      dashboardGlobalControls?.dimensions?.length,
+  );
+  const shouldShowUnsupportedGlobalControlBadge =
+    hasGlobalControls &&
+    !isDashboardGlobalControlSupportedBlock(block) &&
     block.type !== "markdown";
 
   // Type guards for sql-explorer blocks
@@ -510,11 +526,11 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
                 <PiPencilSimpleFill />
               </a>
             )}
-            {hasDashboardDateFilter &&
-            isDashboardFilterSupportedBlock(block) ? (
-              blockUsesDashboardFilters(block) ? (
+            {dashboardGlobalControls?.dateRange &&
+            isDashboardGlobalControlSupportedBlock(block) ? (
+              blockUsesDashboardDateControl(block) ? (
                 <Badge
-                  label="Dashboard filters"
+                  label="Dashboard date"
                   color="violet"
                   variant="soft"
                   size="xs"
@@ -522,16 +538,25 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
                 />
               ) : (
                 <Badge
-                  label="Uses block filters"
+                  label="Uses block date"
                   color="gray"
                   variant="soft"
                   size="xs"
                   ml="2"
                 />
               )
-            ) : shouldShowUnsupportedDashboardFilterBadge ? (
+            ) : null}
+            {activeDimensionLabels.length > 0 ? (
               <Badge
-                label="Not affected by dashboard date filter"
+                label={`Grouped by: ${activeDimensionLabels.join(", ")}`}
+                color="violet"
+                variant="soft"
+                size="xs"
+                ml="2"
+              />
+            ) : shouldShowUnsupportedGlobalControlBadge ? (
+              <Badge
+                label="Not affected by global controls"
                 color="gray"
                 variant="outline"
                 size="xs"
@@ -658,7 +683,8 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
           <BlockComponent
             isTabActive={isTabActive}
             block={block}
-            dashboardFilters={dashboardFilters}
+            dashboardGlobalControls={dashboardGlobalControls}
+            blockIndex={blockIndex}
             setBlock={setBlock}
             isEditing={isEditing}
             snapshot={

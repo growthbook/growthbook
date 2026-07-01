@@ -74,7 +74,7 @@ function SingleDashboardPage() {
         enableAutoUpdates?: DashboardInterface["enableAutoUpdates"];
         blocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
         userId?: string;
-        filters?: DashboardInterface["filters"];
+        globalControls?: DashboardInterface["globalControls"];
         comparison?: DashboardInterface["comparison"];
       };
     }) => {
@@ -90,7 +90,7 @@ function SingleDashboardPage() {
                   editLevel: data.editLevel,
                   enableAutoUpdates: data.enableAutoUpdates,
                   userId: data.userId,
-                  filters: data.filters,
+                  globalControls: data.globalControls,
                   comparison: data.comparison ?? undefined,
                 }
               : data,
@@ -204,16 +204,9 @@ function SingleDashboardPage() {
             isEditing={false}
             title={dashboard.title}
             blocks={dashboard.blocks}
-            filters={dashboard.filters}
+            globalControls={dashboard.globalControls}
             enableAutoUpdates={dashboard.enableAutoUpdates}
             setBlock={canEdit ? memoizedSetBlock : undefined}
-            onFiltersChange={async (filters, blocks) => {
-              await submitDashboard({
-                method: "PUT",
-                dashboardId: dashboard.id,
-                data: { filters, blocks },
-              });
-            }}
             projects={dashboard.projects ? dashboard.projects : []}
             mutate={mutate}
             updateSchedule={dashboard.updateSchedule || undefined}
@@ -221,6 +214,16 @@ function SingleDashboardPage() {
             dashboardLastUpdated={dashboard.lastUpdated}
             setIsEditing={setIsEditing}
             enterEditModeForBlock={enterEditModeForBlock}
+            onGlobalControlsChange={async (globalControls, controlBlocks) => {
+              await submitDashboard({
+                method: "PUT",
+                dashboardId: dashboard.id,
+                data: {
+                  globalControls,
+                  ...(controlBlocks ? { blocks: controlBlocks } : {}),
+                },
+              });
+            }}
           />
         )}
       </DashboardSnapshotProvider>

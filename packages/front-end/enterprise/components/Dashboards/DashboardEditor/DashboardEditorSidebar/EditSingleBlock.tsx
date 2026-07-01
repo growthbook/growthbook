@@ -122,7 +122,7 @@ interface Props {
   projects: string[];
   dashboardId: string;
   experiment: ExperimentInterfaceStringDates | null;
-  dashboardFilters?: DashboardInterface["filters"];
+  dashboardGlobalControls?: DashboardInterface["globalControls"];
   cancel: () => void;
   submit: () => void;
   block?: DashboardBlockInterfaceOrData<DashboardBlockInterface>;
@@ -216,7 +216,7 @@ function toggleBlockConfigItem(
 export default function EditSingleBlock({
   dashboardId,
   experiment,
-  dashboardFilters,
+  dashboardGlobalControls,
   cancel,
   submit,
   block,
@@ -707,6 +707,7 @@ export default function EditSingleBlock({
     <>
       {savedQuery && showDeleteSavedQueryConfirmation && (
         <Modal
+          useRadixButton={false}
           trackingEventModalType=""
           header={"Delete Saved Query?"}
           close={() => setShowDeleteSavedQueryConfirmation(false)}
@@ -1678,7 +1679,7 @@ export default function EditSingleBlock({
               <ProductAnalyticsExplorerSettings
                 block={block}
                 setBlock={setBlock}
-                dashboardFilters={dashboardFilters}
+                dashboardGlobalControls={dashboardGlobalControls}
                 saveAndCloseTrigger={saveAndCloseTrigger}
                 onSaveAndClose={submit}
               />
@@ -1687,7 +1688,7 @@ export default function EditSingleBlock({
               <ProductAnalyticsExplorerSettings
                 block={block}
                 setBlock={setBlock}
-                dashboardFilters={dashboardFilters}
+                dashboardGlobalControls={dashboardGlobalControls}
                 saveAndCloseTrigger={saveAndCloseTrigger}
                 onSaveAndClose={submit}
               />
@@ -1696,7 +1697,7 @@ export default function EditSingleBlock({
               <ProductAnalyticsExplorerSettings
                 block={block}
                 setBlock={setBlock}
-                dashboardFilters={dashboardFilters}
+                dashboardGlobalControls={dashboardGlobalControls}
                 saveAndCloseTrigger={saveAndCloseTrigger}
                 onSaveAndClose={submit}
               />

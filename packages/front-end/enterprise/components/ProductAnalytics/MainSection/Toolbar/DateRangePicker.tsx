@@ -1,11 +1,7 @@
 import React, { ReactNode, useState, useRef, useEffect } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { format } from "date-fns";
-import {
-  dateRangePredefined,
-  ExplorationConfig,
-  lookbackUnit,
-} from "shared/validators";
+import { dateRangePredefined, lookbackUnit } from "shared/validators";
 import { getValidDateOffsetByUTC } from "shared/dates";
 import { Select, SelectItem } from "@/ui/Select";
 import Text from "@/ui/Text";
@@ -22,189 +18,6 @@ const PREDEFINED_LABELS: Record<(typeof dateRangePredefined)[number], string> =
     customLookback: "Custom Lookback",
     customDateRange: "Custom Date Range",
   };
-
-interface ControlledDateRangePickerProps {
-  value: ExplorationConfig["dateRange"];
-  onChange: (dateRange: ExplorationConfig["dateRange"]) => void;
-  shouldWrap?: boolean;
-  fullWidth?: boolean;
-  disabled?: boolean;
-}
-
-export function ControlledDateRangePicker({
-  value: dateRange,
-  onChange,
-  shouldWrap = false,
-  fullWidth = false,
-  disabled = false,
-}: ControlledDateRangePickerProps) {
-  const [localLookbackValue, setLocalLookbackValue] = useState<string | null>(
-    null,
-  );
-  const latestLookbackRef = useRef<string>("");
-  const skipBlurCommitRef = useRef(false);
-
-  useEffect(() => {
-    if (dateRange.predefined !== "customLookback") {
-      setLocalLookbackValue(null);
-      latestLookbackRef.current = "";
-    }
-  }, [dateRange.predefined]);
-
-  const commitLookbackValue = (value: string) => {
-    const parsed = value ? parseInt(value, 10) : null;
-    const isValid = parsed !== null && parsed >= 1 && !isNaN(parsed);
-
-    if (!isValid) {
-      setLocalLookbackValue(null);
-      latestLookbackRef.current = "";
-      return;
-    }
-
-    onChange({
-      ...dateRange,
-      lookbackValue: parsed,
-      lookbackUnit: dateRange.lookbackUnit || "day",
-    });
-    setLocalLookbackValue(null);
-    latestLookbackRef.current = "";
-  };
-
-  return (
-    <Flex
-      align="center"
-      gap="2"
-      wrap={shouldWrap ? "wrap" : undefined}
-      width={shouldWrap || fullWidth ? "100%" : undefined}
-      direction={fullWidth ? "column" : undefined}
-      style={shouldWrap || fullWidth ? { minWidth: 0 } : undefined}
-    >
-      <Select
-        size="2"
-        style={fullWidth ? { width: "100%" } : undefined}
-        value={dateRange.predefined}
-        placeholder="Select range"
-        disabled={disabled}
-        setValue={(v) => {
-          const predefined = v as (typeof dateRangePredefined)[number];
-          onChange({
-            ...dateRange,
-            predefined,
-            ...(predefined === "customLookback" && {
-              lookbackUnit: dateRange.lookbackUnit || "day",
-            }),
-          });
-        }}
-      >
-        {dateRangePredefined.map((option) => (
-          <SelectItem key={option} value={option}>
-            {PREDEFINED_LABELS[option] || option}
-          </SelectItem>
-        ))}
-      </Select>
-
-      {dateRange.predefined === "customLookback" && (
-        <Flex gap="2" align="center" width={fullWidth ? "100%" : undefined}>
-          <Field
-            style={{
-              width: "55px",
-              paddingTop: "0px",
-              paddingBottom: "0px",
-              height: "32px",
-            }}
-            placeholder="#"
-            min="1"
-            disabled={disabled}
-            value={
-              localLookbackValue !== null
-                ? localLookbackValue
-                : dateRange.lookbackValue?.toString() || ""
-            }
-            onFocus={() => {
-              latestLookbackRef.current =
-                dateRange.lookbackValue?.toString() || "";
-            }}
-            onChange={(e) => {
-              const v = e.target.value;
-              latestLookbackRef.current = v;
-              setLocalLookbackValue(v);
-            }}
-            onBlur={() => {
-              if (skipBlurCommitRef.current) {
-                skipBlurCommitRef.current = false;
-                return;
-              }
-              const toCommit = latestLookbackRef.current;
-              commitLookbackValue(toCommit);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                const toCommit =
-                  latestLookbackRef.current ||
-                  dateRange.lookbackValue?.toString() ||
-                  "";
-                commitLookbackValue(toCommit);
-                skipBlurCommitRef.current = true;
-                (e.target as HTMLInputElement).blur();
-              }
-            }}
-          />
-          <Select
-            size="2"
-            style={fullWidth ? { width: "100%" } : undefined}
-            value={dateRange.lookbackUnit || "day"}
-            disabled={disabled}
-            setValue={(v) => {
-              onChange({
-                ...dateRange,
-                lookbackUnit: v as (typeof lookbackUnit)[number],
-              });
-            }}
-          >
-            {lookbackUnit.map((u) => (
-              <SelectItem key={u} value={u}>
-                {u}(s)
-              </SelectItem>
-            ))}
-          </Select>
-        </Flex>
-      )}
-
-      {dateRange.predefined === "customDateRange" && (
-        <DatePicker
-          containerClassName="mb-0"
-          compact
-          wrapRangeInputs={fullWidth ? false : shouldWrap}
-          date={
-            dateRange.startDate
-              ? getValidDateOffsetByUTC(dateRange.startDate)
-              : undefined
-          }
-          date2={
-            dateRange.endDate
-              ? getValidDateOffsetByUTC(dateRange.endDate)
-              : undefined
-          }
-          setDate={(d) => {
-            onChange({
-              ...dateRange,
-              startDate: d ? format(d, "yyyy-MM-dd") : null,
-            });
-          }}
-          setDate2={(d) => {
-            onChange({
-              ...dateRange,
-              endDate: d ? format(d, "yyyy-MM-dd") : null,
-            });
-          }}
-          precision="date"
-          disabled={disabled}
-        />
-      )}
-    </Flex>
-  );
-}
 
 function MicroLabel({ children }: { children: ReactNode }) {
   return (
@@ -223,6 +36,7 @@ function DateRangePresetSelect({
 }) {
   const { draftExploreState, setDraftExploreState } = useExplorerContext();
   const { dateRange } = draftExploreState;
+
   const [localLookbackValue, setLocalLookbackValue] = useState<string | null>(
     null,
   );
@@ -248,11 +62,7 @@ function DateRangePresetSelect({
 
     setDraftExploreState((prev) => ({
       ...prev,
-      dateRange: {
-        ...prev.dateRange,
-        lookbackValue: parsed,
-        lookbackUnit: prev.dateRange.lookbackUnit || "day",
-      },
+      dateRange: { ...prev.dateRange, lookbackValue: parsed },
     }));
     setLocalLookbackValue(null);
     latestLookbackRef.current = "";
@@ -340,9 +150,21 @@ function DateRangePresetSelect({
           dateRange: {
             ...prev.dateRange,
             predefined,
-            ...(predefined === "customLookback" && {
-              lookbackUnit: prev.dateRange.lookbackUnit || "day",
-            }),
+            ...(predefined === "customLookback"
+              ? {
+                  lookbackValue: prev.dateRange.lookbackValue || 30,
+                  lookbackUnit: prev.dateRange.lookbackUnit || "day",
+                }
+              : {}),
+            ...(predefined === "customDateRange"
+              ? {
+                  startDate:
+                    prev.dateRange.startDate ??
+                    format(new Date(), "yyyy-MM-dd"),
+                  endDate:
+                    prev.dateRange.endDate ?? format(new Date(), "yyyy-MM-dd"),
+                }
+              : {}),
           },
         }));
       }}

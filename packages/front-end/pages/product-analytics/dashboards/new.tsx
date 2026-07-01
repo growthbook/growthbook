@@ -76,7 +76,9 @@ export default function NewDashboardPage() {
                   experimentId: "",
                   projects: dashboard.projects || [],
                   blocks: args.data.blocks || dashboard.blocks,
-                  filters: args.data.filters ?? dashboard.filters,
+                  globalControls:
+                    args.data.globalControls ?? dashboard.globalControls,
+                  comparison: args.data.comparison ?? dashboard.comparison,
                   updateSchedule:
                     args.data.updateSchedule || dashboard.updateSchedule,
                   userId: args.data.userId || dashboard.userId,
@@ -91,7 +93,8 @@ export default function NewDashboardPage() {
                   updateSchedule:
                     args.data.updateSchedule ?? dashboard.updateSchedule,
                   userId: args.data.userId,
-                  filters: args.data.filters,
+                  globalControls: args.data.globalControls,
+                  comparison: args.data.comparison ?? undefined,
                 },
           ),
         });
@@ -148,12 +151,16 @@ export default function NewDashboardPage() {
         dashboardFirstSave={true}
         updateTemporaryDashboard={(update: {
           blocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
+          globalControls?: DashboardInterface["globalControls"];
         }) => {
           setDashboard((prev) => {
             if (!prev) return prev;
             return {
               ...prev,
               ...(update.blocks !== undefined ? { blocks: update.blocks } : {}),
+              ...(update.globalControls !== undefined
+                ? { globalControls: update.globalControls }
+                : {}),
             } as DashboardInterface;
           });
         }}

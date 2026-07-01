@@ -2,10 +2,11 @@ import { z } from "zod";
 import {
   blockHasFieldOfType,
   dashboardBlockHasIds,
-  isDashboardFilterSupportedBlock,
   snapshotSatisfiesBlock,
   DashboardInterface,
   DashboardBlockInterface,
+  isDashboardGlobalControlSupportedBlock,
+  getTemporaryDashboardBlockId,
 } from "shared/enterprise";
 import { isDefined, isString, stringToBoolean } from "shared/util";
 import { groupBy } from "lodash";
@@ -102,7 +103,7 @@ export async function createDashboard(
     title,
     blocks,
     projects,
-    filters,
+    globalControls,
     comparison,
     userId,
   } = req.body;
@@ -110,10 +111,36 @@ export async function createDashboard(
   const createdBlocks = blocks
     .map((blockData) => generateDashboardBlockIds(context.org.id, blockData))
     .map((block) =>
-      filters?.dateRange && isDashboardFilterSupportedBlock(block)
-        ? { ...block, useDashboardFilters: true }
+      globalControls?.dateRange && isDashboardGlobalControlSupportedBlock(block)
+        ? {
+            ...block,
+            globalControlSettings: {
+              ...block.globalControlSettings,
+              dateRange: true,
+            },
+          }
         : block,
     );
+
+  const remappedGlobalControls = globalControls?.dimensions
+    ? {
+        ...globalControls,
+        dimensions: globalControls.dimensions.map((dimension) => ({
+          ...dimension,
+          targets: dimension.targets.map((target) => {
+            const createdBlockIndex = createdBlocks.findIndex(
+              (_, index) =>
+                target.blockId === getTemporaryDashboardBlockId(index),
+            );
+            if (createdBlockIndex < 0) return target;
+            return {
+              ...target,
+              blockId: createdBlocks[createdBlockIndex].id,
+            };
+          }),
+        })),
+      }
+    : globalControls;
 
   const dashboard = await context.models.dashboards.create({
     isDefault: false,
@@ -126,7 +153,7 @@ export async function createDashboard(
     experimentId: experimentId || undefined,
     title,
     projects,
-    filters,
+    globalControls: remappedGlobalControls,
     comparison,
     blocks: createdBlocks,
   });
@@ -162,19 +189,35 @@ export async function updateDashboard(
         ? blockData
         : generateDashboardBlockIds(context.org.id, blockData),
     );
-    updates.blocks = createdBlocks;
+    updates.blocks =
+      !dashboard.globalControls?.dateRange && updates.globalControls?.dateRange
+        ? createdBlocks.map((block) =>
+            isDashboardGlobalControlSupportedBlock(block)
+              ? {
+                  ...block,
+                  globalControlSettings: {
+                    ...block.globalControlSettings,
+                    dateRange: true,
+                  },
+                }
+              : block,
+          )
+        : createdBlocks;
   }
 
   if (
     !updates.blocks &&
-    !dashboard.filters?.dateRange &&
-    updates.filters?.dateRange
+    !dashboard.globalControls?.dateRange &&
+    updates.globalControls?.dateRange
   ) {
     updates.blocks = dashboard.blocks.map((block) =>
-      isDashboardFilterSupportedBlock(block)
+      isDashboardGlobalControlSupportedBlock(block)
         ? {
             ...block,
-            useDashboardFilters: true,
+            globalControlSettings: {
+              ...block.globalControlSettings,
+              dateRange: true,
+            },
           }
         : block,
     );
@@ -364,23 +407,18 @@ export async function getDashboardSnapshots(
 
   const explorerAnalysisIds = [
     ...new Set(
-      dashboard.blocks
-        .filter(
-          (
-            block,
-          ): block is DashboardBlockInterface & {
-            explorerAnalysisId: string;
-          } =>
-            (block.type === "metric-exploration" ||
-              block.type === "fact-table-exploration" ||
-              block.type === "data-source-exploration") &&
-            "explorerAnalysisId" in block &&
-            typeof (block as { explorerAnalysisId?: string })
-              .explorerAnalysisId === "string" &&
-            (block as { explorerAnalysisId: string }).explorerAnalysisId
-              .length > 0,
-        )
-        .map((block) => block.explorerAnalysisId),
+      dashboard.blocks.flatMap((block) => {
+        if (
+          block.type !== "metric-exploration" &&
+          block.type !== "fact-table-exploration" &&
+          block.type !== "data-source-exploration"
+        ) {
+          return [];
+        }
+        return [block.explorerAnalysisId, block.comparisonExplorerAnalysisId]
+          .filter((id): id is string => typeof id === "string")
+          .filter((id) => id.length > 0);
+      }),
     ),
   ];
   const explorations: ProductAnalyticsExploration[] =

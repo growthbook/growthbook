@@ -352,6 +352,7 @@ export async function updateDashboardMetricAnalyses(
 
   return results.some((updated) => updated);
 }
+
 const PRODUCT_ANALYTICS_EXPLORATION_BLOCK_TYPES = [
   "metric-exploration",
   "fact-table-exploration",
@@ -373,6 +374,7 @@ function isProductAnalyticsExplorationBlock(
     "explorerAnalysisId" in block &&
     typeof (block as { explorerAnalysisId?: string }).explorerAnalysisId ===
       "string" &&
+    (block as { explorerAnalysisId: string }).explorerAnalysisId.length > 0 &&
     "config" in block &&
     (block as { config?: unknown }).config != null
   );
@@ -384,7 +386,7 @@ export async function updateDashboardExplorations(
   blocks: DashboardInterface["blocks"],
   // Optional so the future dashboard-wide compare toggle can drive every block
   // through resolveBlockComparison without changing this signature again.
-  dashboard?: Pick<DashboardInterface, "filters" | "comparison">,
+  dashboard?: Pick<DashboardInterface, "globalControls" | "comparison">,
 ): Promise<boolean> {
   const explorationBlocks = blocks.filter(isProductAnalyticsExplorationBlock);
   if (explorationBlocks.length === 0) return false;
@@ -428,8 +430,12 @@ export async function updateDashboardExplorations(
       }
       block.explorerAnalysisId = primaryResult.value.id;
       if (comparisonResult.status === "fulfilled") {
-        // Clear a stale comparison id when comparison is off (null result).
-        block.comparisonExplorerAnalysisId = comparisonResult.value?.id;
+        if (comparisonResult.value) {
+          block.comparisonExplorerAnalysisId = comparisonResult.value.id;
+        } else {
+          // Clear a stale comparison id when comparison is off.
+          delete block.comparisonExplorerAnalysisId;
+        }
       } else {
         // Keep the previous comparison id so the primary still refreshes.
         logger.warn(
