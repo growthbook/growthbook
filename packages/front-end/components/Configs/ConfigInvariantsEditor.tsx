@@ -447,7 +447,7 @@ export default function ConfigInvariantsEditor({
     const rule = advanced
       ? safeParse(ruleText)
       : buildRule(kind, groupA, groupB);
-    if (!rule) throw new Error("Rule must be a mongo condition object.");
+    if (!rule) throw new Error("Rule must be a valid rule object.");
     const next: ConfigInvariant = {
       name: name.trim(),
       rule: JSON.stringify(rule),
@@ -645,7 +645,7 @@ export default function ConfigInvariantsEditor({
         <Switch
           value={advanced}
           onChange={toggleAdvanced}
-          label="Advanced (mongo)"
+          label="Advanced (raw rule)"
           size="1"
         />
       </Flex>
@@ -659,7 +659,7 @@ export default function ConfigInvariantsEditor({
           maxLines={16}
           helpText={
             <Flex justify="between" align="center">
-              <span>Mongo condition — a boolean rule over the fields.</span>
+              <span>Raw rule — a boolean expression over the fields.</span>
               <Link
                 onClick={(e) => {
                   e.preventDefault();
