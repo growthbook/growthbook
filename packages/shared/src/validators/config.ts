@@ -263,8 +263,8 @@ const apiConfigInvariantInputValidator = z
       .union([z.string(), z.record(z.string(), z.unknown())])
       .describe(
         "The rule expression, as a mongo condition (mongrule) object, a " +
-          'JSONLogic object, or a CEL string (e.g. "!hdr_enabled || ' +
-          "max_resolution == '4k'\"). Converted to the canonical mongo " +
+          'JSONLogic object, or a CEL string (e.g. "min_replicas <= ' +
+          'max_replicas"). Converted to the canonical mongo ' +
           "condition on write.",
       ),
     message: z.string().max(MAX_DESCRIPTION_LENGTH),

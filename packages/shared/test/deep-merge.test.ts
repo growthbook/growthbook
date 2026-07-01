@@ -4,10 +4,12 @@ describe("deepMergePatch", () => {
   it("merges plain objects recursively, leaving unrestated leaves intact", () => {
     expect(
       deepMergePatch(
-        { abr: { levels: { low: 1500, medium: 4000, high: 12000 } } },
-        { abr: { levels: { high: 16000 } } },
+        { retry: { timeouts: { connect: 1000, read: 5000, write: 3000 } } },
+        { retry: { timeouts: { read: 8000 } } },
       ),
-    ).toEqual({ abr: { levels: { low: 1500, medium: 4000, high: 16000 } } });
+    ).toEqual({
+      retry: { timeouts: { connect: 1000, read: 8000, write: 3000 } },
+    });
   });
 
   it("replaces arrays wholesale (atomic, no element merge)", () => {

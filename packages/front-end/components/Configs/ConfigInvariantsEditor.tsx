@@ -635,7 +635,7 @@ export default function ConfigInvariantsEditor({
         label="Name"
         value={name}
         onChange={(e) => setName(e.target.value)}
-        placeholder="e.g. streams_lte_devices"
+        placeholder="e.g. start_before_end"
       />
 
       <Flex justify="between" align="center" mt="3" mb="2">

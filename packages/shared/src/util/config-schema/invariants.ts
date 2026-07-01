@@ -518,7 +518,7 @@ function celToAst(cel: string): Ast {
 
 // ---- Public converters (canonical form is the mongo condition string) ------
 
-// mongo rule string → CEL, e.g. `!hdr_enabled || max_resolution == '4k'`.
+// mongo rule string → CEL, e.g. `min_replicas <= max_replicas`.
 // Falls back to the raw string for anything it can't parse; never throws.
 export function toCel(ruleJson: string): string {
   try {

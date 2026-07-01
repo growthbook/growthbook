@@ -655,19 +655,19 @@ describe("resolveConfigChain — value merge precedence", () => {
       {
         key: "base",
         value: JSON.stringify({
-          abr: { levels: { low: 1500, medium: 4000, high: 12000 } },
+          retry: { timeouts: { connect: 1000, read: 5000, write: 3000 } },
         }),
       },
       {
-        key: "device",
-        value: JSON.stringify({ abr: { levels: { high: 16000 } } }),
+        key: "child",
+        value: JSON.stringify({ retry: { timeouts: { read: 8000 } } }),
       },
     ]);
-    // low/medium survive from base; only high is patched by the child.
-    expect(byKey.get("abr")!.value).toEqual({
-      levels: { low: 1500, medium: 4000, high: 16000 },
+    // connect/write survive from base; only read is patched by the child.
+    expect(byKey.get("retry")!.value).toEqual({
+      timeouts: { connect: 1000, read: 8000, write: 3000 },
     });
-    expect(byKey.get("abr")!.source).toBe("device");
+    expect(byKey.get("retry")!.source).toBe("child");
   });
 
   it("accumulates the effective schema base → leaf (first definition wins)", () => {

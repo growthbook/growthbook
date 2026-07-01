@@ -15,82 +15,82 @@ import {
 // matches the resolved value, a VIOLATION when it doesn't. Field-to-field
 // comparisons use the `$ref` marker added to mongrule.
 //
-// The 6 StreamingPlan patterns, in mongo form:
+// The 6 cross-field patterns, in mongo form:
 const RULE_DEFS: { name: string; rule: unknown; message: string }[] = [
-  // 1. implication: hdr_enabled → max_resolution == "4k"   (¬A ∨ B)
+  // 1. implication: burst_enabled → plan == "pro"   (¬A ∨ B)
   {
-    name: "hdr_requires_4k",
+    name: "burst_requires_pro",
     rule: {
       $or: [
-        { $not: { hdr_enabled: { $eq: true } } },
-        { max_resolution: { $eq: "4k" } },
+        { $not: { burst_enabled: { $eq: true } } },
+        { plan: { $eq: "pro" } },
       ],
     },
-    message: "HDR requires 4K resolution.",
+    message: "Burst limits require the Pro plan.",
   },
-  // 2. chain leaf: dolby_vision_enabled → hdr_enabled
+  // 2. chain leaf: priority_queue_enabled → burst_enabled
   {
-    name: "dolby_requires_hdr",
+    name: "priority_requires_burst",
     rule: {
       $or: [
-        { $not: { dolby_vision_enabled: { $eq: true } } },
-        { hdr_enabled: { $eq: true } },
+        { $not: { priority_queue_enabled: { $eq: true } } },
+        { burst_enabled: { $eq: true } },
       ],
     },
-    message: "Dolby Vision requires HDR.",
+    message: "Priority queue requires burst limits.",
   },
-  // 3. both-or-neither: downloads ⇔ (max_offline_titles set)
+  // 3. both-or-neither: quota ⇔ (max_requests set)
   {
-    name: "downloads_iff_limit",
+    name: "quota_iff_limit",
     rule: {
       $or: [
         {
           $and: [
-            { offline_downloads_enabled: { $eq: true } },
-            { max_offline_titles: { $exists: true } },
+            { quota_enabled: { $eq: true } },
+            { max_requests: { $exists: true } },
           ],
         },
         {
           $nor: [
-            { offline_downloads_enabled: { $eq: true } },
-            { max_offline_titles: { $exists: true } },
+            { quota_enabled: { $eq: true } },
+            { max_requests: { $exists: true } },
           ],
         },
       ],
     },
-    message: "Offline downloads and max offline titles must be set together.",
+    message: "Quota and max requests must be set together.",
   },
-  // 4. mutual exclusion: ¬(ad_supported ∧ skip_ads_enabled)
+  // 4. mutual exclusion: ¬(allow_overage ∧ hard_cap_enabled)
   {
-    name: "ads_mutually_exclusive",
+    name: "overage_cap_exclusive",
     rule: {
       $not: {
         $and: [
-          { ad_supported: { $eq: true } },
-          { skip_ads_enabled: { $eq: true } },
+          { allow_overage: { $eq: true } },
+          { hard_cap_enabled: { $eq: true } },
         ],
       },
     },
-    message: "Ad-supported and skip-ads can't both be enabled.",
+    message: "Overage and hard cap can't both be enabled.",
   },
-  // 5. enum-dependent: billing_mode == "metered" → overage set
+  // 5. enum-dependent: pricing_mode == "usage" → overage set
   {
-    name: "metered_requires_overage",
+    name: "usage_requires_rate",
     rule: {
       $or: [
-        { $not: { billing_mode: { $eq: "metered" } } },
-        { overage_rate_cents_per_gb: { $exists: true } },
+        { $not: { pricing_mode: { $eq: "usage" } } },
+        { overage_rate: { $exists: true } },
       ],
     },
-    message: "Metered billing requires an overage rate.",
+    message: "Usage-based billing requires an overage rate.",
   },
   // 6. field-to-field ordering via $ref
   {
-    name: "streams_lte_devices",
+    name: "min_le_max_replicas",
     rule: {
-      max_concurrent_streams: { $lte: { $ref: "max_registered_devices" } },
+      min_replicas: { $lte: { $ref: "max_replicas" } },
     },
-    message: "Concurrent streams cannot exceed registered devices.",
+    message: "Min replicas cannot exceed max replicas.",
   },
 ];
 
@@ -102,17 +102,17 @@ const RULES: ConfigInvariant[] = RULE_DEFS.map((r) => ({
 
 const valid: Record<string, unknown> = {
   plan_tier: "standard",
-  max_resolution: "4k",
-  hdr_enabled: true,
-  dolby_vision_enabled: true,
-  offline_downloads_enabled: true,
-  max_offline_titles: 25,
-  max_concurrent_streams: 2,
-  max_registered_devices: 5,
-  ad_supported: true,
-  skip_ads_enabled: false,
-  billing_mode: "flat",
-  overage_rate_cents_per_gb: null,
+  plan: "pro",
+  burst_enabled: true,
+  priority_queue_enabled: true,
+  quota_enabled: true,
+  max_requests: 25,
+  min_replicas: 2,
+  max_replicas: 5,
+  allow_overage: true,
+  hard_cap_enabled: false,
+  pricing_mode: "flat",
+  overage_rate: null,
 };
 
 const names = (value: Record<string, unknown>) =>
@@ -129,111 +129,109 @@ describe("evaluateInvariants — mongrule engine", () => {
     expect(evaluateInvariants(valid, null)).toEqual([]);
   });
 
-  it("pattern 1 — implication (HDR requires 4K)", () => {
+  it("pattern 1 — implication (burst requires Pro)", () => {
     expect(
       names({
         ...valid,
-        hdr_enabled: true,
-        max_resolution: "1080p",
-        dolby_vision_enabled: false,
+        burst_enabled: true,
+        plan: "1080p",
+        priority_queue_enabled: false,
       }),
-    ).toEqual(["hdr_requires_4k"]);
+    ).toEqual(["burst_requires_pro"]);
     expect(
       names({
         ...valid,
-        hdr_enabled: false,
-        dolby_vision_enabled: false,
-        max_resolution: "1080p",
+        burst_enabled: false,
+        priority_queue_enabled: false,
+        plan: "1080p",
       }),
     ).toEqual([]);
   });
 
-  it("pattern 2 — chain leaf (Dolby requires HDR)", () => {
+  it("pattern 2 — chain leaf (priority requires burst)", () => {
     expect(
       names({
         ...valid,
-        dolby_vision_enabled: true,
-        hdr_enabled: false,
-        max_resolution: "1080p",
+        priority_queue_enabled: true,
+        burst_enabled: false,
+        plan: "1080p",
       }),
-    ).toContain("dolby_requires_hdr");
+    ).toContain("priority_requires_burst");
   });
 
-  it("pattern 3 — both-or-neither (downloads ⇔ limit)", () => {
+  it("pattern 3 — both-or-neither (quota ⇔ limit)", () => {
     expect(
       names({
         ...valid,
-        offline_downloads_enabled: true,
-        max_offline_titles: null,
+        quota_enabled: true,
+        max_requests: null,
       }),
-    ).toContain("downloads_iff_limit");
+    ).toContain("quota_iff_limit");
     expect(
       names({
         ...valid,
-        offline_downloads_enabled: false,
-        max_offline_titles: 10,
+        quota_enabled: false,
+        max_requests: 10,
       }),
-    ).toContain("downloads_iff_limit");
+    ).toContain("quota_iff_limit");
     expect(
       names({
         ...valid,
-        offline_downloads_enabled: false,
-        max_offline_titles: null,
+        quota_enabled: false,
+        max_requests: null,
       }),
-    ).not.toContain("downloads_iff_limit");
+    ).not.toContain("quota_iff_limit");
   });
 
-  it("pattern 4 — at-most-one (ads)", () => {
+  it("pattern 4 — at-most-one (overage vs cap)", () => {
     expect(
-      names({ ...valid, ad_supported: true, skip_ads_enabled: true }),
-    ).toContain("ads_mutually_exclusive");
+      names({ ...valid, allow_overage: true, hard_cap_enabled: true }),
+    ).toContain("overage_cap_exclusive");
     expect(
-      names({ ...valid, ad_supported: true, skip_ads_enabled: false }),
-    ).not.toContain("ads_mutually_exclusive");
+      names({ ...valid, allow_overage: true, hard_cap_enabled: false }),
+    ).not.toContain("overage_cap_exclusive");
   });
 
-  it("pattern 5 — enum-dependent (metered requires overage)", () => {
+  it("pattern 5 — enum-dependent (usage requires rate)", () => {
     expect(
       names({
         ...valid,
-        billing_mode: "metered",
-        overage_rate_cents_per_gb: null,
+        pricing_mode: "usage",
+        overage_rate: null,
       }),
-    ).toContain("metered_requires_overage");
+    ).toContain("usage_requires_rate");
     expect(
       names({
         ...valid,
-        billing_mode: "metered",
-        overage_rate_cents_per_gb: 5,
+        pricing_mode: "usage",
+        overage_rate: 5,
       }),
-    ).not.toContain("metered_requires_overage");
+    ).not.toContain("usage_requires_rate");
   });
 
-  it("pattern 6 — field-to-field via $ref (streams ≤ devices)", () => {
-    expect(
-      names({ ...valid, max_concurrent_streams: 6, max_registered_devices: 5 }),
-    ).toEqual(["streams_lte_devices"]);
-    expect(
-      names({ ...valid, max_concurrent_streams: 5, max_registered_devices: 5 }),
-    ).not.toContain("streams_lte_devices");
+  it("pattern 6 — field-to-field via $ref (min ≤ max)", () => {
+    expect(names({ ...valid, min_replicas: 6, max_replicas: 5 })).toEqual([
+      "min_le_max_replicas",
+    ]);
+    expect(names({ ...valid, min_replicas: 5, max_replicas: 5 })).not.toContain(
+      "min_le_max_replicas",
+    );
   });
 
   it("returns the human message, not the rule", () => {
-    expect(
-      evaluateInvariants({ ...valid, max_concurrent_streams: 9 }, RULES),
-    ).toEqual([
+    expect(evaluateInvariants({ ...valid, min_replicas: 9 }, RULES)).toEqual([
       {
-        name: "streams_lte_devices",
-        message: "Concurrent streams cannot exceed registered devices.",
+        name: "min_le_max_replicas",
+        message: "Min replicas cannot exceed max replicas.",
       },
     ]);
   });
 
   it("treats a missing field as absent (sparse value)", () => {
-    // downloads absent → not true → iff satisfied when titles also absent
-    expect(
-      names({ max_concurrent_streams: 1, max_registered_devices: 1 }),
-    ).not.toContain("downloads_iff_limit");
+    // quota absent → not true → iff satisfied when max_requests also absent
+    expect(names({ min_replicas: 1, max_replicas: 1 })).not.toContain(
+      "quota_iff_limit",
+    );
   });
 
   it("surfaces a malformed rule as a violation instead of throwing", () => {
@@ -252,28 +250,26 @@ describe("invariantRuleFields — mongrule engine", () => {
   const fields = (r: unknown) => invariantRuleFields(JSON.stringify(r)).sort();
 
   it("collects the field on a simple condition", () => {
-    expect(fields({ max_resolution: { $eq: "4k" } })).toEqual([
-      "max_resolution",
-    ]);
+    expect(fields({ plan: { $eq: "pro" } })).toEqual(["plan"]);
   });
 
   it("collects both sides of a $ref comparison", () => {
     expect(
       fields({
-        max_concurrent_streams: { $lte: { $ref: "max_registered_devices" } },
+        min_replicas: { $lte: { $ref: "max_replicas" } },
       }),
-    ).toEqual(["max_concurrent_streams", "max_registered_devices"]);
+    ).toEqual(["max_replicas", "min_replicas"]);
   });
 
   it("recurses through $or / $and / $not", () => {
     expect(
       fields({
         $or: [
-          { $not: { hdr_enabled: { $eq: true } } },
-          { max_resolution: { $eq: "4k" } },
+          { $not: { burst_enabled: { $eq: true } } },
+          { plan: { $eq: "pro" } },
         ],
       }),
-    ).toEqual(["hdr_enabled", "max_resolution"]);
+    ).toEqual(["burst_enabled", "plan"]);
   });
 
   it("returns [] for an unparseable rule", () => {
@@ -283,57 +279,50 @@ describe("invariantRuleFields — mongrule engine", () => {
 
 describe("format converters (mongo canonical, CEL/JSONLogic at the boundary)", () => {
   const IMPLICATION = {
-    $or: [
-      { $not: { hdr_enabled: { $eq: true } } },
-      { max_resolution: { $eq: "4k" } },
-    ],
+    $or: [{ $not: { burst_enabled: { $eq: true } } }, { plan: { $eq: "pro" } }],
   };
   const EXCLUSIVE = {
     $not: {
       $and: [
-        { ad_supported: { $eq: true } },
-        { skip_ads_enabled: { $eq: true } },
+        { allow_overage: { $eq: true } },
+        { hard_cap_enabled: { $eq: true } },
       ],
     },
   };
   const ORDERING = {
-    max_concurrent_streams: { $lte: { $ref: "max_registered_devices" } },
+    min_replicas: { $lte: { $ref: "max_replicas" } },
   };
 
   it("toCel: mongo → CEL", () => {
     expect(toCel(JSON.stringify(IMPLICATION))).toBe(
-      "!hdr_enabled || max_resolution == '4k'",
+      "!burst_enabled || plan == 'pro'",
     );
     expect(toCel(JSON.stringify(EXCLUSIVE))).toBe(
-      "!(ad_supported && skip_ads_enabled)",
+      "!(allow_overage && hard_cap_enabled)",
     );
     expect(toCel(JSON.stringify(ORDERING))).toBe(
-      "max_concurrent_streams <= max_registered_devices",
+      "min_replicas <= max_replicas",
     );
   });
 
   it("describeInvariantRule: mongo → friendly", () => {
     expect(describeInvariantRule(JSON.stringify(IMPLICATION))).toBe(
-      "IF hdr_enabled THEN max_resolution == '4k'",
+      "IF burst_enabled THEN plan == 'pro'",
     );
     expect(describeInvariantRule(JSON.stringify(ORDERING))).toBe(
-      "max_concurrent_streams ≤ max_registered_devices",
+      "min_replicas ≤ max_replicas",
     );
     expect(
       describeInvariantRule(
-        JSON.stringify({ max_offline_titles: { $exists: true } }),
+        JSON.stringify({ max_requests: { $exists: true } }),
       ),
-    ).toBe("max_offline_titles is set");
+    ).toBe("max_requests is set");
   });
 
   it("celToMongo: CEL → mongo", () => {
-    expect(
-      celToMongo("max_concurrent_streams <= max_registered_devices"),
-    ).toEqual(ORDERING);
-    expect(celToMongo("!hdr_enabled || max_resolution == '4k'")).toEqual(
-      IMPLICATION,
-    );
-    expect(celToMongo("!(ad_supported && skip_ads_enabled)")).toEqual(
+    expect(celToMongo("min_replicas <= max_replicas")).toEqual(ORDERING);
+    expect(celToMongo("!burst_enabled || plan == 'pro'")).toEqual(IMPLICATION);
+    expect(celToMongo("!(allow_overage && hard_cap_enabled)")).toEqual(
       EXCLUSIVE,
     );
   });
@@ -341,17 +330,14 @@ describe("format converters (mongo canonical, CEL/JSONLogic at the boundary)", (
   it("jsonLogicToMongo: JSONLogic → mongo", () => {
     expect(
       jsonLogicToMongo({
-        "<=": [
-          { var: "max_concurrent_streams" },
-          { var: "max_registered_devices" },
-        ],
+        "<=": [{ var: "min_replicas" }, { var: "max_replicas" }],
       }),
     ).toEqual(ORDERING);
     expect(
       jsonLogicToMongo({
         or: [
-          { "!": { var: "hdr_enabled" } },
-          { "==": [{ var: "max_resolution" }, "4k"] },
+          { "!": { var: "burst_enabled" } },
+          { "==": [{ var: "plan" }, "pro"] },
         ],
       }),
     ).toEqual(IMPLICATION);
@@ -359,10 +345,7 @@ describe("format converters (mongo canonical, CEL/JSONLogic at the boundary)", (
 
   it("mongoToJsonLogic: mongo → JSONLogic", () => {
     expect(mongoToJsonLogic(JSON.stringify(ORDERING))).toEqual({
-      "<=": [
-        { var: "max_concurrent_streams" },
-        { var: "max_registered_devices" },
-      ],
+      "<=": [{ var: "min_replicas" }, { var: "max_replicas" }],
     });
   });
 
@@ -384,57 +367,51 @@ describe("format converters (mongo canonical, CEL/JSONLogic at the boundary)", (
     // expression. Must expand to the iff shape, not leave JSONLogic in $eq.
     const jl = {
       "==": [
-        { var: "offline_downloads_enabled" },
-        { "!=": [{ var: "max_offline_titles" }, null] },
+        { var: "quota_enabled" },
+        { "!=": [{ var: "max_requests" }, null] },
       ],
     };
     const IFF = {
       $or: [
         {
           $and: [
-            { offline_downloads_enabled: { $eq: true } },
-            { max_offline_titles: { $ne: null } },
+            { quota_enabled: { $eq: true } },
+            { max_requests: { $ne: null } },
           ],
         },
         {
           $nor: [
-            { offline_downloads_enabled: { $eq: true } },
-            { max_offline_titles: { $ne: null } },
+            { quota_enabled: { $eq: true } },
+            { max_requests: { $ne: null } },
           ],
         },
       ],
     };
     expect(jsonLogicToMongo(jl)).toEqual(IFF);
     expect(describeInvariantRule(JSON.stringify(IFF))).toBe(
-      "offline_downloads_enabled IF AND ONLY IF max_offline_titles is set",
+      "quota_enabled IF AND ONLY IF max_requests is set",
     );
     expect(invariantRuleFields(JSON.stringify(IFF)).sort()).toEqual([
-      "max_offline_titles",
-      "offline_downloads_enabled",
+      "max_requests",
+      "quota_enabled",
     ]);
     const rule = [
       { name: "iff", rule: JSON.stringify(IFF), message: "must match" },
     ];
     // Both set → satisfied; only one set → violation.
     expect(
-      evaluateInvariants(
-        { offline_downloads_enabled: true, max_offline_titles: 25 },
-        rule,
-      ),
+      evaluateInvariants({ quota_enabled: true, max_requests: 25 }, rule),
     ).toHaveLength(0);
     expect(
-      evaluateInvariants(
-        { offline_downloads_enabled: true, max_offline_titles: null },
-        rule,
-      ),
+      evaluateInvariants({ quota_enabled: true, max_requests: null }, rule),
     ).toHaveLength(1);
   });
 
   it("apiInvariantsToStored: mongo passes through; JSONLogic + CEL convert", () => {
     const mongo = {
       $or: [
-        { $not: { hdr_enabled: { $eq: true } } },
-        { max_resolution: { $eq: "4k" } },
+        { $not: { burst_enabled: { $eq: true } } },
+        { plan: { $eq: "pro" } },
       ],
     };
     // Single-key mongo (`$or`) must pass through, not get mis-routed to the
@@ -449,8 +426,8 @@ describe("format converters (mongo canonical, CEL/JSONLogic at the boundary)", (
         name: "r",
         rule: {
           or: [
-            { "!": { var: "hdr_enabled" } },
-            { "==": [{ var: "max_resolution" }, "4k"] },
+            { "!": { var: "burst_enabled" } },
+            { "==": [{ var: "plan" }, "pro"] },
           ],
         },
         message: "m",
@@ -461,7 +438,7 @@ describe("format converters (mongo canonical, CEL/JSONLogic at the boundary)", (
     const [fromCel] = apiInvariantsToStored([
       {
         name: "r",
-        rule: "!hdr_enabled || max_resolution == '4k'",
+        rule: "!burst_enabled || plan == 'pro'",
         message: "m",
       },
     ]);
@@ -470,30 +447,25 @@ describe("format converters (mongo canonical, CEL/JSONLogic at the boundary)", (
 
   it("round-trips CEL → mongo → CEL", () => {
     for (const cel of [
-      "!hdr_enabled || max_resolution == '4k'",
-      "max_concurrent_streams <= max_registered_devices",
-      "!(ad_supported && skip_ads_enabled)",
-      "billing_mode != 'metered' || overage != null",
+      "!burst_enabled || plan == 'pro'",
+      "min_replicas <= max_replicas",
+      "!(allow_overage && hard_cap_enabled)",
+      "pricing_mode != 'usage' || overage_rate != null",
     ]) {
       expect(toCel(JSON.stringify(celToMongo(cel)))).toBe(cel);
     }
   });
 
   it("uploaded CEL/JSONLogic evaluate the same once stored as mongo", () => {
-    const fromCel = celToMongo(
-      "max_concurrent_streams <= max_registered_devices",
-    );
+    const fromCel = celToMongo("min_replicas <= max_replicas");
     const fromJl = jsonLogicToMongo({
-      "<=": [
-        { var: "max_concurrent_streams" },
-        { var: "max_registered_devices" },
-      ],
+      "<=": [{ var: "min_replicas" }, { var: "max_replicas" }],
     });
     const rules = (rule: unknown): ConfigInvariant[] => [
-      { name: "r", rule: JSON.stringify(rule), message: "streams too high" },
+      { name: "r", rule: JSON.stringify(rule), message: "replicas too high" },
     ];
-    const bad = { max_concurrent_streams: 6, max_registered_devices: 5 };
-    const ok = { max_concurrent_streams: 2, max_registered_devices: 5 };
+    const bad = { min_replicas: 6, max_replicas: 5 };
+    const ok = { min_replicas: 2, max_replicas: 5 };
     expect(evaluateInvariants(bad, rules(fromCel))).toHaveLength(1);
     expect(evaluateInvariants(ok, rules(fromCel))).toHaveLength(0);
     expect(evaluateInvariants(bad, rules(fromJl))).toHaveLength(1);

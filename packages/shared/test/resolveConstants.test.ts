@@ -220,16 +220,16 @@ describe("resolveConstantRefs — $extends merge precedence", () => {
     const deepMap = mapOf({
       base: {
         type: "json",
-        value: '{"abr":{"levels":{"low":1500,"high":12000}}}',
+        value: '{"retry":{"timeouts":{"connect":1000,"read":5000}}}',
       },
     });
-    // Only `high` is restated; `low` is inherited (shallow merge would drop it).
+    // Only `read` is restated; `connect` is inherited (shallow merge would drop it).
     expect(
       resolveConstantRefs(
-        { $extends: ["@const:base"], abr: { levels: { high: 16000 } } },
+        { $extends: ["@const:base"], retry: { timeouts: { read: 8000 } } },
         deepMap,
       ),
-    ).toEqual({ abr: { levels: { low: 1500, high: 16000 } } });
+    ).toEqual({ retry: { timeouts: { connect: 1000, read: 8000 } } });
   });
 
   it("merges across separate array elements", () => {

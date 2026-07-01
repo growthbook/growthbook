@@ -78,7 +78,7 @@ Merge precedence, lowest to highest:
 
 So the position of `$extends` in the object doesn't matter — own keys always win — but the order of references _within_ the array does.
 
-**Own keys are a deep (targeted) patch.** When an own key and the merged base are both objects, they merge **recursively, key by key** — you restate only the leaves you want to change and inherit the rest. For example, extending a base of `{ "abr": { "levels": { "low": 1500, "high": 12000 } } }` with own keys `{ "abr": { "levels": { "high": 16000 } } }` resolves to `{ "abr": { "levels": { "low": 1500, "high": 16000 } } }` — `low` is inherited, not dropped. Two things replace wholesale rather than merging:
+**Own keys are a deep (targeted) patch.** When an own key and the merged base are both objects, they merge **recursively, key by key** — you restate only the leaves you want to change and inherit the rest. For example, extending a base of `{ "retry": { "timeouts": { "connect": 1000, "read": 5000 } } }` with own keys `{ "retry": { "timeouts": { "read": 8000 } } }` resolves to `{ "retry": { "timeouts": { "connect": 1000, "read": 8000 } } }` — `connect` is inherited, not dropped. Two things replace wholesale rather than merging:
 
 - **Arrays and scalars** — a patched array or scalar replaces the inherited value outright (arrays are never merged element-by-element).
 - **`null`** — writing `null` sets the value to `null`; it does **not** delete the inherited key.
