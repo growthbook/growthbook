@@ -79,6 +79,7 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
   if (showContactSupport) {
     return (
       <Modal
+        useRadixButton={false}
         trackingEventModalType=""
         open={true}
         close={close}
@@ -159,6 +160,7 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       close={close}
       header="Invite Member"

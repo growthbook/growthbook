@@ -1168,12 +1168,17 @@ export default function RuleModal({
           safeRolloutFields.maxDuration.unit = "days";
         }
       } else if (values.type === "force") {
-        // Force rules don't support hashAttribute or seed; strip them from the form
-        // They're only in the form state to be ready if converted to rollout
+        // Force rules don't support hashAttribute, seed, or hashVersion; strip
+        // them from the form. They're only in the form state to be ready if
+        // converted to rollout. hashVersion in particular is computed for the
+        // hashing widget regardless of rule type, so without this a force-rule
+        // edit (e.g. just changing a schedule's cutoff date) shows a spurious
+        // "Hash Version: unset → 2" change in the draft.
         // eslint-disable-next-line
         delete (values as any).hashAttribute;
         // eslint-disable-next-line
         delete (values as any).seed;
+        delete (values as { hashVersion?: number }).hashVersion;
       }
       if (
         values.scheduleRules &&
@@ -1356,7 +1361,12 @@ export default function RuleModal({
                 !isNoOpSchedule &&
                 rampState.mode === "edit" &&
                 ruleRampSchedule?.id &&
-                ruleRampSchedule.status !== "running"
+                // Multi-step ramps can't be edited once running (re-capturing
+                // steps/startDate mid-ramp is unsafe). Simple schedules have no
+                // step machinery — editing a running one only changes its
+                // cutoffDate/name, which the publish-time applier handles safely
+                // (FeatureModel.createRampSchedulesForRevision) — so allow it.
+                (isScheduleMode || ruleRampSchedule.status !== "running")
               ) {
                 rampScheduleInline = {
                   mode: "update",
@@ -1625,7 +1635,6 @@ export default function RuleModal({
         }
         ctaEnabled={!!overviewRuleType}
         header="New Rule"
-        useRadixButton={true}
         submit={submitOverview}
         autoCloseOnSubmit={false}
       >
@@ -1840,7 +1849,6 @@ export default function RuleModal({
           mode === "create" ? () => setNewRuleOverviewPage(true) : undefined
         }
         submit={submit}
-        useRadixButton={true}
         bodyPrefix={
           <DraftSelectorForChanges
             feature={feature}

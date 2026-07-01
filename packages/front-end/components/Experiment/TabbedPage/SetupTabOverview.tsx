@@ -212,7 +212,6 @@ export default function SetupTabOverview({
                         );
                         mutate();
                       }}
-                      useRadix={true}
                     />
                     <Button
                       variant="ghost"

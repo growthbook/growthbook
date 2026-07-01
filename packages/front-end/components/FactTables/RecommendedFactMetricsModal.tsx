@@ -163,6 +163,7 @@ export default function RecommendedFactMetricsModal({
 
   return (
     <Modal
+      useRadixButton={false}
       open
       header="Review Recommended Metrics"
       cta={`Create ${checked.size} Selected Metric${

@@ -62,6 +62,7 @@ export default {
             "features/targeting", // Targeting Conditions (attributes, conditions, saved groups)
             "features/safe-rollouts", // Safe Rollouts
             "features/prerequisites", // Prerequisite Features
+            "features/constants", // Constants (reusable referenced values)
           ],
         },
         {
@@ -919,6 +920,11 @@ export default {
           type: "doc",
           id: "kb/glossary",
           label: "Glossary",
+        },
+        {
+          type: "doc",
+          id: "command-palette",
+          label: "Command Palette",
         },
       ],
     },

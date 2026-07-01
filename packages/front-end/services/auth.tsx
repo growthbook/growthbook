@@ -192,7 +192,9 @@ function getDetailedError(error: string): string | ReactElement {
           environment variables{" "}
           <code className="font-weight-bold">APP_ORIGIN</code> and{" "}
           <code className="font-weight-bold">API_HOST</code>.{" "}
-          <DocLink docSection="config_domains_and_ports">View docs</DocLink>
+          <DocLink useRadix={false} docSection="config_domains_and_ports">
+            View docs
+          </DocLink>
         </div>
       );
     }
@@ -280,6 +282,7 @@ export const AuthProvider: React.FC<{
       if (resp.confirm) {
         setAuthComponent(
           <Modal
+            useRadixButton={false}
             trackingEventModalType=""
             open={true}
             submit={async () => {
@@ -599,6 +602,7 @@ export const AuthProvider: React.FC<{
   if (initError) {
     return (
       <Modal
+        useRadixButton={false}
         trackingEventModalType=""
         header="logo"
         open={true}
@@ -625,6 +629,7 @@ export const AuthProvider: React.FC<{
   if (sessionError) {
     return (
       <Modal
+        useRadixButton={false}
         trackingEventModalType=""
         open={true}
         cta="OK"

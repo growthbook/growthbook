@@ -265,6 +265,7 @@ export default function EditSqlModal({
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       open
       header={

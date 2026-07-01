@@ -1,7 +1,12 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { date, datetime } from "shared/dates";
 import Link from "next/link";
-import clsx from "clsx";
 import { Box, Flex } from "@radix-ui/themes";
 import {
   ComputedContextualBanditInterface,
@@ -33,19 +38,61 @@ import ContextualBanditEmptyState, {
   ContextualBanditEmptyStateKind,
 } from "@/components/ContextualBandit/ContextualBanditEmptyState";
 import Callout from "@/ui/Callout";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
+import useURLHash from "@/hooks/useURLHash";
 
 const NUM_PER_PAGE = 20;
+
+const CONTEXTUAL_BANDIT_LIST_TABS = [
+  "all",
+  "running",
+  "drafts",
+  "stopped",
+  "archived",
+] as const;
+type ContextualBanditListTab = (typeof CONTEXTUAL_BANDIT_LIST_TABS)[number];
+const isContextualBanditListTab = (
+  value: string,
+): value is ContextualBanditListTab =>
+  CONTEXTUAL_BANDIT_LIST_TABS.includes(value as ContextualBanditListTab);
 
 const ContextualBanditsPage = (): React.ReactElement => {
   const { ready, project, projects, datasources } = useDefinitions();
 
-  const [tabs, setTabs] = useLocalStorage<string[]>(
-    "contextual_bandit_tabs",
-    [],
+  const initialHashRef = useRef(
+    globalThis?.window ? window.location.hash.slice(1) : "",
   );
+  const hasInitialValidHash = isContextualBanditListTab(initialHashRef.current);
+  const [urlTab, setTab] = useURLHash<ContextualBanditListTab>(
+    CONTEXTUAL_BANDIT_LIST_TABS,
+  );
+  const tab: ContextualBanditListTab =
+    urlTab && isContextualBanditListTab(urlTab) ? urlTab : "all";
+  const [storedTab, setStoredTab] = useLocalStorage<ContextualBanditListTab>(
+    "contextual-bandits-list-tab",
+    "all",
+  );
+  const [didInitializeTab, setDidInitializeTab] = useState(false);
+  const activeTab: ContextualBanditListTab =
+    !hasInitialValidHash && !didInitializeTab ? storedTab : tab;
+
+  useEffect(() => {
+    if (didInitializeTab) return;
+    if (!hasInitialValidHash && storedTab !== tab) {
+      setTab(storedTab);
+    }
+    setDidInitializeTab(true);
+  }, [didInitializeTab, hasInitialValidHash, setTab, storedTab, tab]);
+
+  useEffect(() => {
+    if (!didInitializeTab) return;
+    if (storedTab !== tab) {
+      setStoredTab(tab);
+    }
+  }, [didInitializeTab, setStoredTab, storedTab, tab]);
 
   const { contextualBandits, error, loading, hasArchived, mutate } =
-    useContextualBandits(project, tabs.includes("archived"));
+    useContextualBandits(project, activeTab === "archived");
 
   const [showMineOnly, setShowMineOnly] = useLocalStorage(
     "showMyContextualBanditsOnly",
@@ -98,10 +145,10 @@ const ContextualBanditsPage = (): React.ReactElement => {
   }, [items]);
 
   const filtered = useMemo(() => {
-    return tabs.length
-      ? items.filter((item) => tabs.includes(item.tab))
+    return activeTab !== "all"
+      ? items.filter((item) => item.tab === activeTab)
       : items;
-  }, [tabs, items]);
+  }, [activeTab, items]);
 
   const showProjectColumn = !project && items.some((e) => e.project);
 
@@ -132,15 +179,6 @@ const ContextualBanditsPage = (): React.ReactElement => {
 
   const start = (currentPage - 1) * NUM_PER_PAGE;
   const end = start + NUM_PER_PAGE;
-
-  function onToggleTab(tab: string) {
-    return () => {
-      const newTabs = new Set(tabs);
-      if (newTabs.has(tab)) newTabs.delete(tab);
-      else newTabs.add(tab);
-      setTabs([...newTabs]);
-    };
-  }
 
   if (!hasContextualBanditFeature) {
     return (
@@ -195,86 +233,46 @@ const ContextualBanditsPage = (): React.ReactElement => {
               onCreate={() => setOpenNewModal(true)}
             />
           ) : (
-            <>
-              <Flex align="center" mb="3" gap="3" wrap="wrap">
-                <Flex align="center">
-                  {["running", "stopped", "drafts", "archived"].map(
-                    (tab, i) => {
-                      const active = tabs.includes(tab);
-
-                      if (tab === "archived" && !hasArchived) return null;
-
-                      const isLast =
-                        tab === "archived" ||
-                        (tab === "drafts" && !hasArchived);
-                      // @teresayung: we should use the same tab structure as we use on experiments, bandits, and holdouts list pages
+            <Tabs
+              value={activeTab}
+              onValueChange={(value) => {
+                if (isContextualBanditListTab(value)) {
+                  setTab(value);
+                }
+              }}
+            >
+              <Box mb="3">
+                <TabsList>
+                  <TabsTrigger value="all">All Contextual Bandits</TabsTrigger>
+                  {(["running", "drafts", "stopped", "archived"] as const).map(
+                    (tabValue) => {
+                      if (tabValue === "archived" && !hasArchived) return null;
                       return (
-                        <button
-                          key={tab}
-                          className={clsx({
-                            "badge-purple": active,
-                          })}
-                          style={{
-                            fontSize: "1em",
-                            opacity: active ? 1 : 0.8,
-                            padding: "6px 12px",
-                            border: "1px solid var(--color-panel-border)",
-                            marginBottom: 0,
-                            fontWeight: active ? 700 : undefined,
-                            color: active ? undefined : "var(--color-text-mid)",
-                            borderTopLeftRadius:
-                              i === 0 ? "0.25rem" : undefined,
-                            borderBottomLeftRadius:
-                              i === 0 ? "0.25rem" : undefined,
-                            borderTopRightRadius: isLast
-                              ? "0.25rem"
-                              : undefined,
-                            borderBottomRightRadius: isLast
-                              ? "0.25rem"
-                              : undefined,
-                            backgroundColor: active ? "" : "var(--color-panel)",
-                          }}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            onToggleTab(tab)();
-                          }}
-                          title={
-                            active && tabs.length > 1
-                              ? `Hide ${tab} contextual bandits`
-                              : active
-                                ? `Remove filter`
-                                : tabs.length === 0
-                                  ? `View only ${tab} contextual bandits`
-                                  : `Include ${tab} contextual bandits`
-                          }
-                        >
-                          <span style={{ marginRight: "0.25rem" }}>
-                            {tab.slice(0, 1).toUpperCase()}
-                            {tab.slice(1)}
-                          </span>
-                          {tab !== "archived" && (
+                        <TabsTrigger value={tabValue} key={tabValue}>
+                          {tabValue.slice(0, 1).toUpperCase()}
+                          {tabValue.slice(1)}
+                          {tabValue !== "archived" && (
                             <span
                               style={{
-                                display: "inline-block",
-                                padding: "0.25em 0.4em",
-                                fontSize: "75%",
-                                fontWeight: 700,
-                                lineHeight: 1,
-                                color: "var(--color-text-high)",
-                                backgroundColor: "var(--color-background)",
-                                border: "1px solid var(--color-panel-border)",
-                                borderRadius: "0.25rem",
-                                marginRight: "0.5rem",
+                                marginLeft: "var(--space-2)",
+                                background: "var(--gray-3)",
+                                border: "1px solid var(--gray-6)",
+                                borderRadius: "var(--radius-2)",
+                                padding: "0 var(--space-2)",
+                                fontSize: "var(--font-size-1)",
+                                color: "var(--gray-11)",
                               }}
                             >
-                              {tabCounts[tab] || 0}
+                              {tabCounts[tabValue] || 0}
                             </span>
                           )}
-                        </button>
+                        </TabsTrigger>
                       );
                     },
                   )}
-                </Flex>
+                </TabsList>
+              </Box>
+              <Flex align="center" mb="3" gap="3" wrap="wrap">
                 <Box>
                   <Field
                     placeholder="Search..."
@@ -299,127 +297,131 @@ const ContextualBanditsPage = (): React.ReactElement => {
                   />
                 </Box>
               </Flex>
-
-              <table className="appbox table experiment-table gbtable responsive-table">
-                <thead>
-                  <tr>
-                    <th></th>
-                    <SortableTH field="name" className="w-100">
-                      Contextual Bandit
-                    </SortableTH>
-                    {showProjectColumn && (
-                      <SortableTH field="projectName">Project</SortableTH>
-                    )}
-                    <SortableTH field="tags">Tags</SortableTH>
-                    <SortableTH field="ownerName">Owner</SortableTH>
-                    <SortableTH field="date">Date</SortableTH>
-                    <SortableTH field="status">Status</SortableTH>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.slice(start, end).map((e) => {
-                    return (
-                      <tr key={e.id} className="hover-highlight">
-                        <td data-title="Watching status:" className="watching">
-                          <WatchButton
-                            item={e.id}
-                            itemType="experiment"
-                            type="icon"
-                          />
-                        </td>
-                        <td
-                          data-title="Contextual Bandit name:"
-                          className="p-0"
-                        >
-                          <Link
-                            href={`/contextual-bandit/${e.id}`}
-                            style={{
-                              display: "block",
-                              padding: "0.5rem",
-                            }}
+              <TabsContent value={activeTab}>
+                <table className="appbox table experiment-table gbtable responsive-table">
+                  <thead>
+                    <tr>
+                      <th></th>
+                      <SortableTH field="name" className="w-100">
+                        Contextual Bandit
+                      </SortableTH>
+                      {showProjectColumn && (
+                        <SortableTH field="projectName">Project</SortableTH>
+                      )}
+                      <SortableTH field="tags">Tags</SortableTH>
+                      <SortableTH field="ownerName">Owner</SortableTH>
+                      <SortableTH field="date">Date</SortableTH>
+                      <SortableTH field="status">Status</SortableTH>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.slice(start, end).map((e) => {
+                      return (
+                        <tr key={e.id} className="hover-highlight">
+                          <td
+                            data-title="Watching status:"
+                            className="watching"
                           >
-                            <Flex direction="column">
-                              <Flex>
-                                <span className="testname">{e.name}</span>
-                              </Flex>
-                              {isFiltered && e.trackingKey && (
-                                <span
-                                  className="testid text-muted small"
-                                  title="Experiment Id"
-                                >
-                                  {e.trackingKey}
-                                </span>
-                              )}
-                            </Flex>
-                          </Link>
-                        </td>
-                        {showProjectColumn && (
-                          <td className="nowrap" data-title="Project:">
-                            {e.projectIsDeReferenced ? (
-                              <Tooltip
-                                body={
-                                  <>
-                                    Project <code>{e.project}</code> not found
-                                  </>
-                                }
-                              >
-                                <span className="text-danger">
-                                  Invalid project
-                                </span>
-                              </Tooltip>
-                            ) : (
-                              (e.projectName ?? <em>None</em>)
-                            )}
+                            <WatchButton
+                              item={e.id}
+                              itemType="experiment"
+                              type="icon"
+                            />
                           </td>
-                        )}
+                          <td
+                            data-title="Contextual Bandit name:"
+                            className="p-0"
+                          >
+                            <Link
+                              href={`/contextual-bandit/${e.id}`}
+                              style={{
+                                display: "block",
+                                padding: "0.5rem",
+                              }}
+                            >
+                              <Flex direction="column">
+                                <Flex>
+                                  <span className="testname">{e.name}</span>
+                                </Flex>
+                                {isFiltered && e.trackingKey && (
+                                  <span
+                                    className="testid text-muted small"
+                                    title="Experiment Id"
+                                  >
+                                    {e.trackingKey}
+                                  </span>
+                                )}
+                              </Flex>
+                            </Link>
+                          </td>
+                          {showProjectColumn && (
+                            <td className="nowrap" data-title="Project:">
+                              {e.projectIsDeReferenced ? (
+                                <Tooltip
+                                  body={
+                                    <>
+                                      Project <code>{e.project}</code> not found
+                                    </>
+                                  }
+                                >
+                                  <span className="text-danger">
+                                    Invalid project
+                                  </span>
+                                </Tooltip>
+                              ) : (
+                                (e.projectName ?? <em>None</em>)
+                              )}
+                            </td>
+                          )}
 
-                        <td data-title="Tags:" className="table-tags">
-                          <SortedTags
-                            tags={Object.values(e.tags)}
-                            useFlex={true}
-                            {...tagLinkProps("contextual-bandits")}
-                            onTagClick={tagFilterOnClick(
-                              searchInputProps.value,
-                              setSearchValue,
-                            )}
-                          />
-                        </td>
-                        <td className="nowrap" data-title="Owner:">
-                          {e.ownerName}
-                        </td>
-                        <td className="nowrap" title={datetime(e.date)}>
-                          {e.tab === "running"
-                            ? "started"
-                            : e.tab === "drafts"
-                              ? "created"
-                              : e.tab === "stopped"
-                                ? "ended"
-                                : e.tab === "archived"
-                                  ? "updated"
-                                  : ""}{" "}
-                          {date(e.date)}
-                        </td>
-                        <td className="nowrap" data-title="Status:">
-                          <ExperimentStatusIndicator
-                            experimentData={contextualBanditStatusIndicatorData(
-                              e,
-                            )}
-                          />
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-              {filtered.length > NUM_PER_PAGE && (
-                <Pagination
-                  numItemsTotal={filtered.length}
-                  currentPage={currentPage}
-                  perPage={NUM_PER_PAGE}
-                  onPageChange={setCurrentPage}
-                />
-              )}
-            </>
+                          <td data-title="Tags:" className="table-tags">
+                            <SortedTags
+                              tags={Object.values(e.tags)}
+                              useFlex={true}
+                              {...tagLinkProps("contextual-bandits")}
+                              onTagClick={tagFilterOnClick(
+                                searchInputProps.value,
+                                setSearchValue,
+                              )}
+                            />
+                          </td>
+                          <td className="nowrap" data-title="Owner:">
+                            {e.ownerName}
+                          </td>
+                          <td className="nowrap" title={datetime(e.date)}>
+                            {e.tab === "running"
+                              ? "started"
+                              : e.tab === "drafts"
+                                ? "created"
+                                : e.tab === "stopped"
+                                  ? "ended"
+                                  : e.tab === "archived"
+                                    ? "updated"
+                                    : ""}{" "}
+                            {date(e.date)}
+                          </td>
+                          <td className="nowrap" data-title="Status:">
+                            <ExperimentStatusIndicator
+                              experimentData={contextualBanditStatusIndicatorData(
+                                e,
+                              )}
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+                {filtered.length > NUM_PER_PAGE && (
+                  <Pagination
+                    numItemsTotal={filtered.length}
+                    currentPage={currentPage}
+                    perPage={NUM_PER_PAGE}
+                    onPageChange={setCurrentPage}
+                  />
+                )}
+              </TabsContent>
+            </Tabs>
           )}
         </Box>
       </Box>

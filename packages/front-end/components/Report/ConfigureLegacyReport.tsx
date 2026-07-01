@@ -184,6 +184,7 @@ export default function ConfigureLegacyReport({
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       inline={true}
       header=""

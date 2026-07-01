@@ -543,11 +543,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Features/RevisionDropdown.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Features/RolloutSummary.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -1034,16 +1029,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Revision/RevisionBanner.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Revision/RevisionDetail.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/SafeRollout/AnalysisSettingsSummary.tsx": {
     "local/no-alert-classname": {
       "count": 1
@@ -1054,22 +1039,12 @@
       "count": 1
     }
   },
-  "packages/front-end/components/SavedGroups/CompareSavedGroupRevisionsModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/SavedGroups/IdListItemInput.tsx": {
     "no-restricted-imports": {
       "count": 1
     }
   },
   "packages/front-end/components/SavedGroups/IdLists.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/SavedGroups/SavedGroupArchiveModal.tsx": {
     "no-restricted-imports": {
       "count": 1
     }
@@ -1753,7 +1728,7 @@
   },
   "packages/front-end/pages/saved-groups/index.tsx": {
     "no-restricted-imports": {
-      "count": 3
+      "count": 2
     }
   },
   "packages/front-end/pages/sdks/index.tsx": {

@@ -29,6 +29,19 @@ export type UnpivotLabeledPairsResult = {
   valueExpr: string;
 };
 
+export type ApproxTopValuesParams = {
+  /** One entry per string column: logical name + the value SQL expression (cast to string). */
+  pairs: UnpivotLabeledPair[];
+  /** CTE/table the aggregate scans (e.g. `__factTable`). */
+  fromTable: string;
+  /** Boolean predicate for the WHERE clause, without the `WHERE` keyword (e.g. `timestamp >= '...'`). */
+  whereClause: string;
+  /** Number of top values to return per column (k). */
+  limit: number;
+  /** Drop values longer than this many characters before counting. */
+  maxValueLength?: number;
+};
+
 export type TemplateVariables = {
   eventName?: string;
   valueColumn?: string;
@@ -126,4 +139,5 @@ export interface SqlDialect {
    * semantics (1-based vs 0-based, native array vs JSON).
    */
   arrayElement: (arrayCol: string, index: number) => string;
+  approxTopValuesCTEBody?: (params: ApproxTopValuesParams) => string;
 }

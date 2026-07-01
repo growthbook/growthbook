@@ -1,7 +1,7 @@
 import React, { FC, Fragment, useCallback, useState } from "react";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { ApiContextualBanditQueryInterface } from "shared/validators";
-import { FaChevronRight, FaPlus } from "react-icons/fa";
+import { PiCaretRight, PiPlus } from "react-icons/pi";
 import { Box, Card, Flex } from "@radix-ui/themes";
 import Heading from "@/ui/Heading";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
@@ -110,8 +110,8 @@ export const ContextualBanditAssignmentQueries: FC<
         </Box>
 
         <Box>
-          <Button onClick={handleAdd} disabled={!canEdit}>
-            <FaPlus className="mr-1" /> Add
+          <Button onClick={handleAdd} disabled={!canEdit} icon={<PiPlus />}>
+            Add
           </Button>
         </Box>
       </Flex>
@@ -197,7 +197,7 @@ export const ContextualBanditAssignmentQueries: FC<
                   className="btn ml-3 text-dark"
                   onClick={handleExpandCollapse(query.id)}
                 >
-                  <FaChevronRight
+                  <PiCaretRight
                     style={{
                       transform: `rotate(${isOpen ? "90deg" : "0deg"})`,
                     }}

@@ -5189,6 +5189,7 @@ export async function postFeatureEvaluate(
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const safeRolloutMap =
     await context.models.safeRollout.getAllPayloadSafeRollouts();
+  const constants = await context.models.constants.getAll();
   const results = evaluateFeature({
     feature,
     revision,
@@ -5202,6 +5203,7 @@ export async function postFeatureEvaluate(
     safeRolloutMap,
     namespaces: namespacesToMap(org.settings?.namespaces),
     organization: org,
+    constants,
   });
 
   res.status(200).json({

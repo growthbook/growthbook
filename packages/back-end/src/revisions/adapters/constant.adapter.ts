@@ -1,0 +1,191 @@
+import { ConstantInterface } from "shared/types/constant";
+import { Revision, getConstantRevisionChange } from "shared/enterprise";
+import {
+  constantRequiresReview,
+  constantResetReviewOnChange,
+  constantAutopublishOnApproval,
+} from "shared/util";
+import {
+  constantValidator,
+  constantUpdatableFieldsSchema,
+} from "shared/validators";
+import type { Context } from "back-end/src/models/BaseModel";
+import {
+  EntityRevisionAdapter,
+  filterUpdatableChanges,
+} from "back-end/src/revisions/EntityRevisionAdapter";
+
+// Whitelist of fields the snapshot is allowed to carry, derived from the schema
+// so the two can't drift. The snapshot validator runs in `.strict()` mode, so a
+// leftover legacy field on a stored entity would otherwise fail validation.
+const SNAPSHOT_ALLOWED_KEYS = Object.keys(constantValidator.shape) as Array<
+  keyof ConstantInterface
+>;
+
+const UPDATABLE_FIELDS: ReadonlySet<string> = new Set(
+  Object.keys(constantUpdatableFieldsSchema.shape),
+);
+
+// User must be able to bypass approval in the constant's project (treats the
+// unset case as the global "" project). Used both for the bypass-approval gate
+// and for non-author revision deletion, since discarding someone else's
+// in-flight revision is an admin-level action.
+function canBypassApprovalForConstant(
+  context: Context,
+  snapshot: ConstantInterface,
+): boolean {
+  return context.permissions.canBypassApprovalChecks({
+    project: snapshot.project || "",
+  });
+}
+
+// canCreate and canUpdate both gate on the constant edit permission; extract so
+// the two stay in sync.
+function canEditConstant(
+  context: Context,
+  snapshot: ConstantInterface,
+): boolean {
+  return context.permissions.canUpdateConstant(snapshot, {});
+}
+
+// Constants inherit the feature `requireReviews` org settings (drop-in for
+// feature config). Coarse, change-agnostic gate: does the org have any active
+// review rule? Used for inbox/badge surfacing; the precise per-change decision
+// lives in `isApprovalRequiredForRevision`.
+function constantApprovalConfigured(context: Context): boolean {
+  if (!context.hasPremiumFeature("require-approvals")) return false;
+  const requireReviews = context.org.settings?.requireReviews;
+  if (typeof requireReviews === "boolean") return requireReviews;
+  return (
+    Array.isArray(requireReviews) &&
+    requireReviews.some((r) => r.requireReviewOn)
+  );
+}
+
+export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
+  getModel(context: Context) {
+    return context.models.constants as {
+      getById(id: string): Promise<ConstantInterface | null>;
+    };
+  },
+
+  buildSnapshot(entity: ConstantInterface): ConstantInterface {
+    // Pick only schema-defined keys and drop nullish optional fields. This
+    // strips MongoDB internals (`_id`) as well as any legacy fields that may
+    // still exist on stored docs from earlier schema versions.
+    const source = entity as Record<string, unknown>;
+    const snapshot: Record<string, unknown> = {};
+    for (const key of SNAPSHOT_ALLOWED_KEYS) {
+      const value = source[key];
+      if (value === null || value === undefined) continue;
+      snapshot[key] = value;
+    }
+    return snapshot as unknown as ConstantInterface;
+  },
+
+  isRevisionRequired(context: Context): boolean {
+    return constantApprovalConfigured(context);
+  },
+
+  getUpdatableFields(): ReadonlySet<string> {
+    return UPDATABLE_FIELDS;
+  },
+
+  canRead(context: Context, snapshot: ConstantInterface): boolean {
+    return context.permissions.canReadSingleProjectResource(snapshot.project);
+  },
+
+  canCreate(context: Context, snapshot: ConstantInterface): boolean {
+    return canEditConstant(context, snapshot);
+  },
+
+  canUpdate(context: Context, snapshot: ConstantInterface): boolean {
+    return canEditConstant(context, snapshot);
+  },
+
+  // Gates non-author deletion of a revision document (authors can always delete
+  // their own — see RevisionModel.canDelete). Restricted to users who can
+  // bypass approval, since discarding another user's in-flight revision is an
+  // admin-level action.
+  canDelete(context: Context, snapshot: ConstantInterface): boolean {
+    return canBypassApprovalForConstant(context, snapshot);
+  },
+
+  isApprovalRequired(context: Context): boolean {
+    return constantApprovalConfigured(context);
+  },
+
+  // Precise, change-aware gate using the feature `requireReviews` model: a
+  // `value` change requires review (affects all environments); a per-environment
+  // override requires review only when that environment is in scope; a
+  // metadata-only change follows the rule's `featureRequireMetadataReview`.
+  isApprovalRequiredForRevision(context: Context, revision: Revision): boolean {
+    if (!context.hasPremiumFeature("require-approvals")) return false;
+    const snapshot = revision.target.snapshot as ConstantInterface;
+    return constantRequiresReview(
+      { project: snapshot.project },
+      getConstantRevisionChange(snapshot, revision.target.proposedChanges),
+      context.org.settings,
+    );
+  },
+
+  canBypassApproval(context: Context, snapshot: ConstantInterface): boolean {
+    return canBypassApprovalForConstant(context, snapshot);
+  },
+
+  // Constants borrow the feature `requireReviews` model (not `approvalFlows`),
+  // so reset-on-change and autopublish-on-approval are derived from the matched
+  // review rule rather than the default approval-flow toggles.
+  shouldResetReviewOnChange(context: Context, revision: Revision): boolean {
+    if (!context.hasPremiumFeature("require-approvals")) return false;
+    const snapshot = revision.target.snapshot as ConstantInterface;
+    const { valueChanged, changedEnvironments } = getConstantRevisionChange(
+      snapshot,
+      revision.target.proposedChanges,
+    );
+    return constantResetReviewOnChange(
+      { project: snapshot.project },
+      { valueChanged, changedEnvironments },
+      context.org.settings,
+    );
+  },
+
+  isAutopublishOnApprovalEnabled(
+    context: Context,
+    snapshot: ConstantInterface,
+  ): boolean {
+    if (!context.hasPremiumFeature("require-approvals")) return false;
+    return constantAutopublishOnApproval(
+      { project: snapshot.project },
+      context.org.settings,
+    );
+  },
+
+  async applyChanges(
+    context: Context,
+    entity: ConstantInterface,
+    changes: Record<string, unknown>,
+    // `isRevert` is intentionally NOT used to bypass validation. ConstantModel's
+    // cycle check (beforeUpdate → assertNoCycle) runs on every write, reverts
+    // included: restoring an old value that would reconstruct a reference cycle
+    // against the *current* graph is correctly rejected (a stored cycle leaks
+    // raw `@const:` placeholders into the payload). Unlike the saved-group
+    // adapter's stale-attribute skip, there's no revert-safe validation to opt
+    // out of here — so the flag is accepted for interface conformance only.
+    options?: { isRevert?: boolean },
+  ): Promise<void> {
+    void options;
+    const filteredChanges = filterUpdatableChanges(
+      changes,
+      entity as Record<string, unknown>,
+      UPDATABLE_FIELDS,
+    );
+
+    if (Object.keys(filteredChanges).length === 0) return;
+
+    await context.models.constants.update(
+      entity,
+      filteredChanges as Parameters<typeof context.models.constants.update>[1],
+    );
+  },
+};
