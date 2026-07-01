@@ -9,8 +9,9 @@ import {
   SlackEventWebhookTestResult,
 } from "back-end/src/services/slackBot";
 import {
-  renderExperimentResultsCard,
-  sampleResultsCard,
+  renderExperimentCard,
+  sampleCard,
+  CardState,
 } from "back-end/src/services/slack/chartImage";
 
 type PostEventWebhookRequest = AuthRequest<{
@@ -61,11 +62,21 @@ export const postEventWebhook = async (
 type GetChartPreviewRequest = AuthRequest<
   Record<string, never>,
   Record<string, never>,
-  Record<string, never>
+  { state?: string }
 >;
 
-// Phase 2 POC: render a sample experiment-results card to PNG so the output
-// quality of the Satori + resvg pipeline can be eyeballed in a browser.
+const CARD_STATES: CardState[] = [
+  "started",
+  "running",
+  "winner",
+  "loser",
+  "stopped",
+  "warning",
+];
+
+// Phase 2 POC: render a sample experiment card to PNG so the output quality of
+// the Satori + resvg pipeline can be eyeballed in a browser. `?state=` picks
+// which card state to preview (default "winner").
 export const getChartPreview = async (
   req: GetChartPreviewRequest,
   res: Response,
@@ -76,7 +87,13 @@ export const getChartPreview = async (
     context.permissions.throwPermissionError();
   }
 
-  const png = await renderExperimentResultsCard(sampleResultsCard());
+  const requested = req.query.state;
+  const state: CardState =
+    requested && CARD_STATES.includes(requested as CardState)
+      ? (requested as CardState)
+      : "winner";
+
+  const png = await renderExperimentCard(sampleCard(state));
 
   res.setHeader("Content-Type", "image/png");
   res.setHeader("Cache-Control", "no-store");

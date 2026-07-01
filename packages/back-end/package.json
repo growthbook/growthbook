@@ -136,6 +136,8 @@
     "zod": "^4.1.12"
   },
   "devDependencies": {
+    "@fontsource/inter": "^5.2.8",
+    "@fontsource/roboto-mono": "^5.2.9",
     "@slack/types": "^1.7.0",
     "@swc/cli": "^0.1.57",
     "@swc/core": "^1.3.4",
