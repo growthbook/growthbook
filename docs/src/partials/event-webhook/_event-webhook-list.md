@@ -5869,6 +5869,26 @@ Triggered when a config is created
             } | undefined;
             /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
             extensible?: boolean | undefined;
+            /** Cross-field validation rules (relational checks JSON Schema can't express, e.g. implications or comparing two fields), evaluated against the resolved value at publish. */
+            invariants?: {
+                /** Unique name for the rule. */
+                name: string;
+                /** A mongo condition (mongrule) boolean expression over the config's fields. */
+                rule: Record<string, unknown>;
+                /** Human-readable error shown when the rule is violated. */
+                message: string;
+            }[] | undefined;
+            /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
+            locked?: boolean | undefined;
+            /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
+            lockedRevision?: {
+                id: string;
+                version: number;
+            } | undefined;
+            /** Id of the user who locked the config (when `locked`). */
+            lockedBy?: string | undefined;
+            /** When the config was locked (when `locked`). */
+            dateLocked?: string | undefined;
             dateCreated: string;
             dateUpdated: string;
         };
@@ -5938,6 +5958,26 @@ Triggered when a config is updated
             } | undefined;
             /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
             extensible?: boolean | undefined;
+            /** Cross-field validation rules (relational checks JSON Schema can't express, e.g. implications or comparing two fields), evaluated against the resolved value at publish. */
+            invariants?: {
+                /** Unique name for the rule. */
+                name: string;
+                /** A mongo condition (mongrule) boolean expression over the config's fields. */
+                rule: Record<string, unknown>;
+                /** Human-readable error shown when the rule is violated. */
+                message: string;
+            }[] | undefined;
+            /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
+            locked?: boolean | undefined;
+            /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
+            lockedRevision?: {
+                id: string;
+                version: number;
+            } | undefined;
+            /** Id of the user who locked the config (when `locked`). */
+            lockedBy?: string | undefined;
+            /** When the config was locked (when `locked`). */
+            dateLocked?: string | undefined;
             dateCreated: string;
             dateUpdated: string;
         };
@@ -5967,6 +6007,26 @@ Triggered when a config is updated
             } | undefined;
             /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
             extensible?: boolean | undefined;
+            /** Cross-field validation rules (relational checks JSON Schema can't express, e.g. implications or comparing two fields), evaluated against the resolved value at publish. */
+            invariants?: {
+                /** Unique name for the rule. */
+                name: string;
+                /** A mongo condition (mongrule) boolean expression over the config's fields. */
+                rule: Record<string, unknown>;
+                /** Human-readable error shown when the rule is violated. */
+                message: string;
+            }[] | undefined;
+            /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
+            locked?: boolean | undefined;
+            /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
+            lockedRevision?: {
+                id: string;
+                version: number;
+            } | undefined;
+            /** Id of the user who locked the config (when `locked`). */
+            lockedBy?: string | undefined;
+            /** When the config was locked (when `locked`). */
+            dateLocked?: string | undefined;
             dateCreated?: string | undefined;
             dateUpdated?: string | undefined;
         };
@@ -6041,6 +6101,26 @@ Triggered when a config is deleted
             } | undefined;
             /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
             extensible?: boolean | undefined;
+            /** Cross-field validation rules (relational checks JSON Schema can't express, e.g. implications or comparing two fields), evaluated against the resolved value at publish. */
+            invariants?: {
+                /** Unique name for the rule. */
+                name: string;
+                /** A mongo condition (mongrule) boolean expression over the config's fields. */
+                rule: Record<string, unknown>;
+                /** Human-readable error shown when the rule is violated. */
+                message: string;
+            }[] | undefined;
+            /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
+            locked?: boolean | undefined;
+            /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
+            lockedRevision?: {
+                id: string;
+                version: number;
+            } | undefined;
+            /** Id of the user who locked the config (when `locked`). */
+            lockedBy?: string | undefined;
+            /** When the config was locked (when `locked`). */
+            dateLocked?: string | undefined;
             dateCreated: string;
             dateUpdated: string;
         };
@@ -6140,6 +6220,26 @@ Triggered when a new draft revision is created for a config
                 } | undefined;
                 /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
                 extensible?: boolean | undefined;
+                /** Cross-field validation rules (relational checks JSON Schema can't express, e.g. implications or comparing two fields), evaluated against the resolved value at publish. */
+                invariants?: {
+                    /** Unique name for the rule. */
+                    name: string;
+                    /** A mongo condition (mongrule) boolean expression over the config's fields. */
+                    rule: Record<string, unknown>;
+                    /** Human-readable error shown when the rule is violated. */
+                    message: string;
+                }[] | undefined;
+                /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
+                locked?: boolean | undefined;
+                /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
+                lockedRevision?: {
+                    id: string;
+                    version: number;
+                } | undefined;
+                /** Id of the user who locked the config (when `locked`). */
+                lockedBy?: string | undefined;
+                /** When the config was locked (when `locked`). */
+                dateLocked?: string | undefined;
                 dateCreated: string;
                 dateUpdated: string;
             };
@@ -6169,6 +6269,26 @@ Triggered when a new draft revision is created for a config
                 } | undefined;
                 /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
                 extensible?: boolean | undefined;
+                /** Cross-field validation rules (relational checks JSON Schema can't express, e.g. implications or comparing two fields), evaluated against the resolved value at publish. */
+                invariants?: {
+                    /** Unique name for the rule. */
+                    name: string;
+                    /** A mongo condition (mongrule) boolean expression over the config's fields. */
+                    rule: Record<string, unknown>;
+                    /** Human-readable error shown when the rule is violated. */
+                    message: string;
+                }[] | undefined;
+                /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
+                locked?: boolean | undefined;
+                /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
+                lockedRevision?: {
+                    id: string;
+                    version: number;
+                } | undefined;
+                /** Id of the user who locked the config (when `locked`). */
+                lockedBy?: string | undefined;
+                /** When the config was locked (when `locked`). */
+                dateLocked?: string | undefined;
                 dateCreated: string;
                 dateUpdated: string;
             };
@@ -6273,6 +6393,26 @@ Triggered when a draft revision's proposed changes are modified (value, schema, 
                 } | undefined;
                 /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
                 extensible?: boolean | undefined;
+                /** Cross-field validation rules (relational checks JSON Schema can't express, e.g. implications or comparing two fields), evaluated against the resolved value at publish. */
+                invariants?: {
+                    /** Unique name for the rule. */
+                    name: string;
+                    /** A mongo condition (mongrule) boolean expression over the config's fields. */
+                    rule: Record<string, unknown>;
+                    /** Human-readable error shown when the rule is violated. */
+                    message: string;
+                }[] | undefined;
+                /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
+                locked?: boolean | undefined;
+                /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
+                lockedRevision?: {
+                    id: string;
+                    version: number;
+                } | undefined;
+                /** Id of the user who locked the config (when `locked`). */
+                lockedBy?: string | undefined;
+                /** When the config was locked (when `locked`). */
+                dateLocked?: string | undefined;
                 dateCreated: string;
                 dateUpdated: string;
             };
@@ -6302,6 +6442,26 @@ Triggered when a draft revision's proposed changes are modified (value, schema, 
                 } | undefined;
                 /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
                 extensible?: boolean | undefined;
+                /** Cross-field validation rules (relational checks JSON Schema can't express, e.g. implications or comparing two fields), evaluated against the resolved value at publish. */
+                invariants?: {
+                    /** Unique name for the rule. */
+                    name: string;
+                    /** A mongo condition (mongrule) boolean expression over the config's fields. */
+                    rule: Record<string, unknown>;
+                    /** Human-readable error shown when the rule is violated. */
+                    message: string;
+                }[] | undefined;
+                /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
+                locked?: boolean | undefined;
+                /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
+                lockedRevision?: {
+                    id: string;
+                    version: number;
+                } | undefined;
+                /** Id of the user who locked the config (when `locked`). */
+                lockedBy?: string | undefined;
+                /** When the config was locked (when `locked`). */
+                dateLocked?: string | undefined;
                 dateCreated: string;
                 dateUpdated: string;
             };
@@ -6407,6 +6567,26 @@ Triggered when a draft revision is submitted for review
                 } | undefined;
                 /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
                 extensible?: boolean | undefined;
+                /** Cross-field validation rules (relational checks JSON Schema can't express, e.g. implications or comparing two fields), evaluated against the resolved value at publish. */
+                invariants?: {
+                    /** Unique name for the rule. */
+                    name: string;
+                    /** A mongo condition (mongrule) boolean expression over the config's fields. */
+                    rule: Record<string, unknown>;
+                    /** Human-readable error shown when the rule is violated. */
+                    message: string;
+                }[] | undefined;
+                /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
+                locked?: boolean | undefined;
+                /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
+                lockedRevision?: {
+                    id: string;
+                    version: number;
+                } | undefined;
+                /** Id of the user who locked the config (when `locked`). */
+                lockedBy?: string | undefined;
+                /** When the config was locked (when `locked`). */
+                dateLocked?: string | undefined;
                 dateCreated: string;
                 dateUpdated: string;
             };
@@ -6436,6 +6616,26 @@ Triggered when a draft revision is submitted for review
                 } | undefined;
                 /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
                 extensible?: boolean | undefined;
+                /** Cross-field validation rules (relational checks JSON Schema can't express, e.g. implications or comparing two fields), evaluated against the resolved value at publish. */
+                invariants?: {
+                    /** Unique name for the rule. */
+                    name: string;
+                    /** A mongo condition (mongrule) boolean expression over the config's fields. */
+                    rule: Record<string, unknown>;
+                    /** Human-readable error shown when the rule is violated. */
+                    message: string;
+                }[] | undefined;
+                /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
+                locked?: boolean | undefined;
+                /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
+                lockedRevision?: {
+                    id: string;
+                    version: number;
+                } | undefined;
+                /** Id of the user who locked the config (when `locked`). */
+                lockedBy?: string | undefined;
+                /** When the config was locked (when `locked`). */
+                dateLocked?: string | undefined;
                 dateCreated: string;
                 dateUpdated: string;
             };
@@ -6540,6 +6740,26 @@ Triggered when a draft revision is approved by a reviewer
                 } | undefined;
                 /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
                 extensible?: boolean | undefined;
+                /** Cross-field validation rules (relational checks JSON Schema can't express, e.g. implications or comparing two fields), evaluated against the resolved value at publish. */
+                invariants?: {
+                    /** Unique name for the rule. */
+                    name: string;
+                    /** A mongo condition (mongrule) boolean expression over the config's fields. */
+                    rule: Record<string, unknown>;
+                    /** Human-readable error shown when the rule is violated. */
+                    message: string;
+                }[] | undefined;
+                /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
+                locked?: boolean | undefined;
+                /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
+                lockedRevision?: {
+                    id: string;
+                    version: number;
+                } | undefined;
+                /** Id of the user who locked the config (when `locked`). */
+                lockedBy?: string | undefined;
+                /** When the config was locked (when `locked`). */
+                dateLocked?: string | undefined;
                 dateCreated: string;
                 dateUpdated: string;
             };
@@ -6569,6 +6789,26 @@ Triggered when a draft revision is approved by a reviewer
                 } | undefined;
                 /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
                 extensible?: boolean | undefined;
+                /** Cross-field validation rules (relational checks JSON Schema can't express, e.g. implications or comparing two fields), evaluated against the resolved value at publish. */
+                invariants?: {
+                    /** Unique name for the rule. */
+                    name: string;
+                    /** A mongo condition (mongrule) boolean expression over the config's fields. */
+                    rule: Record<string, unknown>;
+                    /** Human-readable error shown when the rule is violated. */
+                    message: string;
+                }[] | undefined;
+                /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
+                locked?: boolean | undefined;
+                /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
+                lockedRevision?: {
+                    id: string;
+                    version: number;
+                } | undefined;
+                /** Id of the user who locked the config (when `locked`). */
+                lockedBy?: string | undefined;
+                /** When the config was locked (when `locked`). */
+                dateLocked?: string | undefined;
                 dateCreated: string;
                 dateUpdated: string;
             };
@@ -6679,6 +6919,26 @@ Triggered when a reviewer requests changes on a draft revision
                 } | undefined;
                 /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
                 extensible?: boolean | undefined;
+                /** Cross-field validation rules (relational checks JSON Schema can't express, e.g. implications or comparing two fields), evaluated against the resolved value at publish. */
+                invariants?: {
+                    /** Unique name for the rule. */
+                    name: string;
+                    /** A mongo condition (mongrule) boolean expression over the config's fields. */
+                    rule: Record<string, unknown>;
+                    /** Human-readable error shown when the rule is violated. */
+                    message: string;
+                }[] | undefined;
+                /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
+                locked?: boolean | undefined;
+                /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
+                lockedRevision?: {
+                    id: string;
+                    version: number;
+                } | undefined;
+                /** Id of the user who locked the config (when `locked`). */
+                lockedBy?: string | undefined;
+                /** When the config was locked (when `locked`). */
+                dateLocked?: string | undefined;
                 dateCreated: string;
                 dateUpdated: string;
             };
@@ -6708,6 +6968,26 @@ Triggered when a reviewer requests changes on a draft revision
                 } | undefined;
                 /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
                 extensible?: boolean | undefined;
+                /** Cross-field validation rules (relational checks JSON Schema can't express, e.g. implications or comparing two fields), evaluated against the resolved value at publish. */
+                invariants?: {
+                    /** Unique name for the rule. */
+                    name: string;
+                    /** A mongo condition (mongrule) boolean expression over the config's fields. */
+                    rule: Record<string, unknown>;
+                    /** Human-readable error shown when the rule is violated. */
+                    message: string;
+                }[] | undefined;
+                /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
+                locked?: boolean | undefined;
+                /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
+                lockedRevision?: {
+                    id: string;
+                    version: number;
+                } | undefined;
+                /** Id of the user who locked the config (when `locked`). */
+                lockedBy?: string | undefined;
+                /** When the config was locked (when `locked`). */
+                dateLocked?: string | undefined;
                 dateCreated: string;
                 dateUpdated: string;
             };
@@ -6818,6 +7098,26 @@ Triggered when a comment is added to a draft revision
                 } | undefined;
                 /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
                 extensible?: boolean | undefined;
+                /** Cross-field validation rules (relational checks JSON Schema can't express, e.g. implications or comparing two fields), evaluated against the resolved value at publish. */
+                invariants?: {
+                    /** Unique name for the rule. */
+                    name: string;
+                    /** A mongo condition (mongrule) boolean expression over the config's fields. */
+                    rule: Record<string, unknown>;
+                    /** Human-readable error shown when the rule is violated. */
+                    message: string;
+                }[] | undefined;
+                /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
+                locked?: boolean | undefined;
+                /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
+                lockedRevision?: {
+                    id: string;
+                    version: number;
+                } | undefined;
+                /** Id of the user who locked the config (when `locked`). */
+                lockedBy?: string | undefined;
+                /** When the config was locked (when `locked`). */
+                dateLocked?: string | undefined;
                 dateCreated: string;
                 dateUpdated: string;
             };
@@ -6847,6 +7147,26 @@ Triggered when a comment is added to a draft revision
                 } | undefined;
                 /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
                 extensible?: boolean | undefined;
+                /** Cross-field validation rules (relational checks JSON Schema can't express, e.g. implications or comparing two fields), evaluated against the resolved value at publish. */
+                invariants?: {
+                    /** Unique name for the rule. */
+                    name: string;
+                    /** A mongo condition (mongrule) boolean expression over the config's fields. */
+                    rule: Record<string, unknown>;
+                    /** Human-readable error shown when the rule is violated. */
+                    message: string;
+                }[] | undefined;
+                /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
+                locked?: boolean | undefined;
+                /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
+                lockedRevision?: {
+                    id: string;
+                    version: number;
+                } | undefined;
+                /** Id of the user who locked the config (when `locked`). */
+                lockedBy?: string | undefined;
+                /** When the config was locked (when `locked`). */
+                dateLocked?: string | undefined;
                 dateCreated: string;
                 dateUpdated: string;
             };
@@ -6957,6 +7277,26 @@ Triggered when a draft revision is discarded
                 } | undefined;
                 /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
                 extensible?: boolean | undefined;
+                /** Cross-field validation rules (relational checks JSON Schema can't express, e.g. implications or comparing two fields), evaluated against the resolved value at publish. */
+                invariants?: {
+                    /** Unique name for the rule. */
+                    name: string;
+                    /** A mongo condition (mongrule) boolean expression over the config's fields. */
+                    rule: Record<string, unknown>;
+                    /** Human-readable error shown when the rule is violated. */
+                    message: string;
+                }[] | undefined;
+                /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
+                locked?: boolean | undefined;
+                /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
+                lockedRevision?: {
+                    id: string;
+                    version: number;
+                } | undefined;
+                /** Id of the user who locked the config (when `locked`). */
+                lockedBy?: string | undefined;
+                /** When the config was locked (when `locked`). */
+                dateLocked?: string | undefined;
                 dateCreated: string;
                 dateUpdated: string;
             };
@@ -6986,6 +7326,26 @@ Triggered when a draft revision is discarded
                 } | undefined;
                 /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
                 extensible?: boolean | undefined;
+                /** Cross-field validation rules (relational checks JSON Schema can't express, e.g. implications or comparing two fields), evaluated against the resolved value at publish. */
+                invariants?: {
+                    /** Unique name for the rule. */
+                    name: string;
+                    /** A mongo condition (mongrule) boolean expression over the config's fields. */
+                    rule: Record<string, unknown>;
+                    /** Human-readable error shown when the rule is violated. */
+                    message: string;
+                }[] | undefined;
+                /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
+                locked?: boolean | undefined;
+                /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
+                lockedRevision?: {
+                    id: string;
+                    version: number;
+                } | undefined;
+                /** Id of the user who locked the config (when `locked`). */
+                lockedBy?: string | undefined;
+                /** When the config was locked (when `locked`). */
+                dateLocked?: string | undefined;
                 dateCreated: string;
                 dateUpdated: string;
             };
@@ -7090,6 +7450,26 @@ Triggered when a draft revision is rebased onto the latest live state
                 } | undefined;
                 /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
                 extensible?: boolean | undefined;
+                /** Cross-field validation rules (relational checks JSON Schema can't express, e.g. implications or comparing two fields), evaluated against the resolved value at publish. */
+                invariants?: {
+                    /** Unique name for the rule. */
+                    name: string;
+                    /** A mongo condition (mongrule) boolean expression over the config's fields. */
+                    rule: Record<string, unknown>;
+                    /** Human-readable error shown when the rule is violated. */
+                    message: string;
+                }[] | undefined;
+                /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
+                locked?: boolean | undefined;
+                /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
+                lockedRevision?: {
+                    id: string;
+                    version: number;
+                } | undefined;
+                /** Id of the user who locked the config (when `locked`). */
+                lockedBy?: string | undefined;
+                /** When the config was locked (when `locked`). */
+                dateLocked?: string | undefined;
                 dateCreated: string;
                 dateUpdated: string;
             };
@@ -7119,6 +7499,26 @@ Triggered when a draft revision is rebased onto the latest live state
                 } | undefined;
                 /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
                 extensible?: boolean | undefined;
+                /** Cross-field validation rules (relational checks JSON Schema can't express, e.g. implications or comparing two fields), evaluated against the resolved value at publish. */
+                invariants?: {
+                    /** Unique name for the rule. */
+                    name: string;
+                    /** A mongo condition (mongrule) boolean expression over the config's fields. */
+                    rule: Record<string, unknown>;
+                    /** Human-readable error shown when the rule is violated. */
+                    message: string;
+                }[] | undefined;
+                /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
+                locked?: boolean | undefined;
+                /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
+                lockedRevision?: {
+                    id: string;
+                    version: number;
+                } | undefined;
+                /** Id of the user who locked the config (when `locked`). */
+                lockedBy?: string | undefined;
+                /** When the config was locked (when `locked`). */
+                dateLocked?: string | undefined;
                 dateCreated: string;
                 dateUpdated: string;
             };
@@ -7223,6 +7623,26 @@ Triggered when a draft revision is published. Overlaps with `config.updated` but
                 } | undefined;
                 /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
                 extensible?: boolean | undefined;
+                /** Cross-field validation rules (relational checks JSON Schema can't express, e.g. implications or comparing two fields), evaluated against the resolved value at publish. */
+                invariants?: {
+                    /** Unique name for the rule. */
+                    name: string;
+                    /** A mongo condition (mongrule) boolean expression over the config's fields. */
+                    rule: Record<string, unknown>;
+                    /** Human-readable error shown when the rule is violated. */
+                    message: string;
+                }[] | undefined;
+                /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
+                locked?: boolean | undefined;
+                /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
+                lockedRevision?: {
+                    id: string;
+                    version: number;
+                } | undefined;
+                /** Id of the user who locked the config (when `locked`). */
+                lockedBy?: string | undefined;
+                /** When the config was locked (when `locked`). */
+                dateLocked?: string | undefined;
                 dateCreated: string;
                 dateUpdated: string;
             };
@@ -7252,6 +7672,26 @@ Triggered when a draft revision is published. Overlaps with `config.updated` but
                 } | undefined;
                 /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
                 extensible?: boolean | undefined;
+                /** Cross-field validation rules (relational checks JSON Schema can't express, e.g. implications or comparing two fields), evaluated against the resolved value at publish. */
+                invariants?: {
+                    /** Unique name for the rule. */
+                    name: string;
+                    /** A mongo condition (mongrule) boolean expression over the config's fields. */
+                    rule: Record<string, unknown>;
+                    /** Human-readable error shown when the rule is violated. */
+                    message: string;
+                }[] | undefined;
+                /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
+                locked?: boolean | undefined;
+                /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
+                lockedRevision?: {
+                    id: string;
+                    version: number;
+                } | undefined;
+                /** Id of the user who locked the config (when `locked`). */
+                lockedBy?: string | undefined;
+                /** When the config was locked (when `locked`). */
+                dateLocked?: string | undefined;
                 dateCreated: string;
                 dateUpdated: string;
             };
@@ -7356,6 +7796,26 @@ Triggered when a config is reverted to a previous published revision
                 } | undefined;
                 /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
                 extensible?: boolean | undefined;
+                /** Cross-field validation rules (relational checks JSON Schema can't express, e.g. implications or comparing two fields), evaluated against the resolved value at publish. */
+                invariants?: {
+                    /** Unique name for the rule. */
+                    name: string;
+                    /** A mongo condition (mongrule) boolean expression over the config's fields. */
+                    rule: Record<string, unknown>;
+                    /** Human-readable error shown when the rule is violated. */
+                    message: string;
+                }[] | undefined;
+                /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
+                locked?: boolean | undefined;
+                /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
+                lockedRevision?: {
+                    id: string;
+                    version: number;
+                } | undefined;
+                /** Id of the user who locked the config (when `locked`). */
+                lockedBy?: string | undefined;
+                /** When the config was locked (when `locked`). */
+                dateLocked?: string | undefined;
                 dateCreated: string;
                 dateUpdated: string;
             };
@@ -7385,6 +7845,26 @@ Triggered when a config is reverted to a previous published revision
                 } | undefined;
                 /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
                 extensible?: boolean | undefined;
+                /** Cross-field validation rules (relational checks JSON Schema can't express, e.g. implications or comparing two fields), evaluated against the resolved value at publish. */
+                invariants?: {
+                    /** Unique name for the rule. */
+                    name: string;
+                    /** A mongo condition (mongrule) boolean expression over the config's fields. */
+                    rule: Record<string, unknown>;
+                    /** Human-readable error shown when the rule is violated. */
+                    message: string;
+                }[] | undefined;
+                /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
+                locked?: boolean | undefined;
+                /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
+                lockedRevision?: {
+                    id: string;
+                    version: number;
+                } | undefined;
+                /** Id of the user who locked the config (when `locked`). */
+                lockedBy?: string | undefined;
+                /** When the config was locked (when `locked`). */
+                dateLocked?: string | undefined;
                 dateCreated: string;
                 dateUpdated: string;
             };
@@ -7490,6 +7970,26 @@ Triggered when a discarded revision is reopened
                 } | undefined;
                 /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
                 extensible?: boolean | undefined;
+                /** Cross-field validation rules (relational checks JSON Schema can't express, e.g. implications or comparing two fields), evaluated against the resolved value at publish. */
+                invariants?: {
+                    /** Unique name for the rule. */
+                    name: string;
+                    /** A mongo condition (mongrule) boolean expression over the config's fields. */
+                    rule: Record<string, unknown>;
+                    /** Human-readable error shown when the rule is violated. */
+                    message: string;
+                }[] | undefined;
+                /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
+                locked?: boolean | undefined;
+                /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
+                lockedRevision?: {
+                    id: string;
+                    version: number;
+                } | undefined;
+                /** Id of the user who locked the config (when `locked`). */
+                lockedBy?: string | undefined;
+                /** When the config was locked (when `locked`). */
+                dateLocked?: string | undefined;
                 dateCreated: string;
                 dateUpdated: string;
             };
@@ -7519,6 +8019,26 @@ Triggered when a discarded revision is reopened
                 } | undefined;
                 /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
                 extensible?: boolean | undefined;
+                /** Cross-field validation rules (relational checks JSON Schema can't express, e.g. implications or comparing two fields), evaluated against the resolved value at publish. */
+                invariants?: {
+                    /** Unique name for the rule. */
+                    name: string;
+                    /** A mongo condition (mongrule) boolean expression over the config's fields. */
+                    rule: Record<string, unknown>;
+                    /** Human-readable error shown when the rule is violated. */
+                    message: string;
+                }[] | undefined;
+                /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
+                locked?: boolean | undefined;
+                /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
+                lockedRevision?: {
+                    id: string;
+                    version: number;
+                } | undefined;
+                /** Id of the user who locked the config (when `locked`). */
+                lockedBy?: string | undefined;
+                /** When the config was locked (when `locked`). */
+                dateLocked?: string | undefined;
                 dateCreated: string;
                 dateUpdated: string;
             };
