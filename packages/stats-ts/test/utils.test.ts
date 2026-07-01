@@ -87,7 +87,6 @@ describe("invertSymmetricMatrix", () => {
 });
 
 describe("randomNormal", () => {
-  /** Linear-interpolated sample quantile (R `quantile` type 7), ascending input. */
   function sampleQuantile(sorted: number[], p: number): number {
     const idx = (sorted.length - 1) * p;
     const lo = Math.floor(idx);
@@ -104,7 +103,6 @@ describe("randomNormal", () => {
     const samples = randomNormal(nSamples, mu, sigma);
     samples.sort((a, b) => a - b);
 
-    // Allow a multiple of the asymptotic quantile SE; 1-SE alone fails ~32% of the time.
     const N_STANDARD_ERRORS = 6;
 
     for (const q of [0.0001, 0.9999]) {

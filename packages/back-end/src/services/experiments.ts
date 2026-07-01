@@ -4654,9 +4654,6 @@ export async function getRefLinkedFeatureInfo({
 
   const filter = matchRule;
 
-  // Slice the ref rules matching this entity from a rules array (works for
-  // both feature.rules and revision.rules). Used to detect whether a draft is
-  // actually changing this entity's rule vs. just inheriting it from live.
   const refRulesForEntity = (rules: unknown): FeatureRule[] =>
     naiveFlattenV1Rules(rules).filter(matchRule);
 
@@ -4668,12 +4665,6 @@ export async function getRefLinkedFeatureInfo({
       const liveRefRules = refRulesForEntity(feature.rules);
 
       // Walk draft revisions newest-first and pick:
-      //   1. (preferred) a draft whose ref rule slice DIFFERS from live — i.e.
-      //      the draft is making changes to this entity's rule. Used to flip
-      //      state to "draft" even when live already has a matching rule.
-      //   2. (fallback) the first draft with any ref match for this entity,
-      //      even if unchanged from live. Preserves the legacy path where a
-      //      draft is introducing the rule for the first time (not yet started).
       const activeDrafts = revisions
         .filter((r) => DRAFT_REVISION_STATUSES.includes(r.status))
         .sort((a, b) => b.version - a.version);
@@ -4714,8 +4705,6 @@ export async function getRefLinkedFeatureInfo({
       if (feature.archived) {
         state = "archived";
       } else if (draftDiffersFromLive && refIsDraft) {
-        // A draft is changing this entity's rule and the entity is still in
-        // draft — surface the pending change even if the rule is already live.
         // Render uses draft values so the user sees what publishing will produce.
         state = "draft";
         matches = draftMatches;
@@ -4750,8 +4739,6 @@ export async function getRefLinkedFeatureInfo({
         }
       }
 
-      // Mirrors publishPendingFeatureDrafts's pre-flight: same autoMerge used
-      // on the FF detail page, plus an "unrelated edits" check.
       let hasMergeConflict: boolean | undefined;
       let hasUnrelatedDraftChanges: boolean | undefined;
       if (state === "draft" && matchedDraftRevision) {
@@ -4788,8 +4775,6 @@ export async function getRefLinkedFeatureInfo({
         }
       }
 
-      // experiment-ref and contextual-bandit-ref both expose `variations` of
-      // `{ variationId, value }`; experiment-ref additionally has `sparse`.
       const refRuleValues = (rule: FeatureRule | undefined) =>
         (rule as ExperimentRefRule | ContextualBanditRefRule | undefined)
           ?.variations || [];

@@ -1,6 +1,10 @@
 import { ReactNode } from "react";
-import { Flex } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
+import type { BoxProps } from "@radix-ui/themes";
 import Button from "@/ui/Button";
+import Frame from "@/ui/Frame";
+import Heading from "@/ui/Heading";
+import Text from "@/ui/Text";
 
 export function DetailSectionBox({
   title,
@@ -14,9 +18,11 @@ export function DetailSectionBox({
   children: ReactNode;
 }) {
   return (
-    <div className="box p-4 my-4">
-      <Flex align="center" justify="between" mb="4" className="text-dark">
-        <h4 className="m-0">{title}</h4>
+    <Frame>
+      <Flex align="center" justify="between" mb="4">
+        <Heading as="h4" size="small" mb="0">
+          {title}
+        </Heading>
         {onEdit ? (
           <Button variant="ghost" onClick={onEdit}>
             {editLabel}
@@ -24,25 +30,32 @@ export function DetailSectionBox({
         ) : null}
       </Flex>
       {children}
-    </div>
+    </Frame>
   );
 }
 
+/**
+ * A labeled field intended to sit inside a Radix `<Grid>`. Each column
+ * occupies a single grid cell by default; pass `gridColumn` (e.g. `"span 2"`)
+ * to span multiple cells.
+ */
 export function DetailSectionColumn({
   label,
   children,
-  width = "col-4",
+  gridColumn,
   className,
 }: {
   label: ReactNode;
   children: ReactNode;
-  width?: string;
+  gridColumn?: BoxProps["gridColumn"];
   className?: string;
 }) {
   return (
-    <div className={`${width}${className ? ` ${className}` : ""}`}>
-      <div className="h5">{label}</div>
-      <div>{children}</div>
-    </div>
+    <Box gridColumn={gridColumn} className={className}>
+      <Text as="div" weight="semibold" mb="1">
+        {label}
+      </Text>
+      <Box>{children}</Box>
+    </Box>
   );
 }

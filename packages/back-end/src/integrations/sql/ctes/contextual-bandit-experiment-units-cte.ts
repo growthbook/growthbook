@@ -16,9 +16,6 @@ import {
   isSafeSqlIdentifier,
 } from "shared/validators";
 
-// The CB targeting helpers only need the bandit config and variation list, so
-// they accept any settings object carrying those (units-query settings or a
-// full experiment snapshot settings).
 type ContextualBanditTargetingSettings = Pick<
   ExperimentUnitsQuerySettings,
   "banditSettings" | "variations"
@@ -66,8 +63,6 @@ export function getContextualBanditUnitsSqlConfig(
     return null;
   }
   const columns = bs.targetingAttributeColumns ?? [];
-  // No targeting columns: fall back to a single global context (degraded but
-  // still produces weight updates). Warning is surfaced by `hasUsableContextualBanditTargeting`.
   if (!columns.length) {
     return null;
   }
@@ -146,7 +141,6 @@ export function getContextualBanditUnitsCTEs(
     aliases: string[];
     maxRankedContexts: number;
     unitsBaseCteName: string;
-    /** Base unit columns to pass through, each already prefixed with `u.`. */
     baseColumnRefs: string;
   },
 ): string {

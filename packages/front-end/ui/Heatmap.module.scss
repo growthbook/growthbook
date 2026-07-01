@@ -4,16 +4,11 @@
     width: 100%;
   }
 
-  // Vertical column separators on body cells only (not the header): every
-  // column except the first (label) gets a left border, so Context | Units |
-  // each variation are visually divided.
   :global(.rt-TableCell:not(:first-child)) {
     border-left: 1px solid var(--gray-a4);
   }
 }
 
-// Tinted value cells: the fill bleeds edge-to-edge (no rounded corners), so the
-// grid reads as a continuous heat map, matching the design.
 .cell {
   padding: 6px 8px !important;
   vertical-align: middle;

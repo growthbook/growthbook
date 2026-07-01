@@ -9,12 +9,6 @@ export function contextTotalSampleSize(
   return sizes.reduce((sum, n) => sum + (n ?? 0), 0);
 }
 
-/**
- * Per-variation decision weights for a context, taken strictly from
- * `updatedWeights`. Throws if a context has no `updatedWeights` — we do not
- * substitute best-arm probabilities (a different quantity) for the bandit's
- * actual decision weights.
- */
 function contextVariationWeights(
   row: ContextualBanditResponseSnapshot,
   numVariations: number,

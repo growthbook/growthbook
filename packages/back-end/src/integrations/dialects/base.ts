@@ -150,8 +150,6 @@ export const baseDialect: Omit<SqlDialect, "unpivotLabeledPairs"> = {
 
   stringLength: (column: string) => `LENGTH(${column})`,
 
-  // Default: native arrays with 1-based indexing (Postgres, ClickHouse, Presto/Trino/Athena).
-  // Dialects with 0-based arrays or JSON-encoded arrays override this.
   arrayElement: (arrayCol: string, index: number) =>
     `${arrayCol}[${index + 1}]`,
 };

@@ -56,7 +56,6 @@ describe("contextualBanditSnapshotSettingsValidator", () => {
   });
 
   it("rejects `guardrailMetrics` (strict mode forbids unknown keys)", () => {
-    // Core invariant: CB snapshot settings must NEVER admit experiment-only fields.
     const bogus = {
       ...buildSettings(),
       guardrailMetrics: ["met_guard"],
@@ -64,7 +63,6 @@ describe("contextualBanditSnapshotSettingsValidator", () => {
     const result = contextualBanditSnapshotSettingsValidator.safeParse(bogus);
     expect(result.success).toBe(false);
     if (!result.success) {
-      // Issue path differs across zod versions; search the serialized form.
       const serialized = JSON.stringify(result.error.issues);
       expect(serialized).toMatch(/guardrailMetrics/);
     }

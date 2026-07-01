@@ -83,7 +83,6 @@ export default function ContextualBanditRefSummary({
       <Table>
         <TableBody>
           {cb.variations.map((v, i) => {
-            // Rule may predate a new variation; fall back to the variation name.
             const ruleVariation = rule.variations.find(
               (rv) => rv.variationId === v.id,
             );

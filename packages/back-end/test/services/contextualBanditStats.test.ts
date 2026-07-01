@@ -5,7 +5,6 @@ import {
   prepareRowsForContextualStats,
 } from "back-end/src/enterprise/services/contextualBanditStats";
 
-// Stub the stats engine module so the pure row-shaping helpers can run without Python.
 jest.mock("back-end/src/services/stats", () => ({
   getAnalysisSettingsForStatsEngine: jest.fn(),
   getMetricSettingsForStatsEngine: jest.fn(),
@@ -103,7 +102,6 @@ describe("prepareRowsForContextualStats", () => {
         },
       ]),
     );
-    // `m0_id` is renamed to `id` (mirrors Python `filter_query_rows`), not dropped.
     expect(result[0]).toEqual({
       variation: "0",
       users: 10,

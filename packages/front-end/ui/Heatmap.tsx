@@ -32,20 +32,15 @@ export type HeatmapColorScale =
 export type HeatmapAlign = "start" | "center" | "end";
 
 export interface HeatmapCellData {
-  /** Numeric value used to compute color intensity (and the default display). */
   value: number | null;
-  /** Overrides the rendered text. Defaults to `formatValue(value)`. */
   display?: ReactNode;
-  /** Native tooltip shown on hover. */
   title?: string;
 }
 
 export interface HeatmapColumn {
   key: string;
   header: ReactNode;
-  /** Alignment for the header (and cells, unless `cellAlign` is set). Default "end". */
   align?: HeatmapAlign;
-  /** Alignment for the value cells, when it should differ from the header. */
   cellAlign?: HeatmapAlign;
 }
 
@@ -53,50 +48,30 @@ export interface HeatmapLeadingColumn {
   key: string;
   header?: ReactNode;
   align?: HeatmapAlign;
-  /** Fixed width (CSS value). Defaults to "12%". */
   width?: string;
 }
 
 export interface HeatmapRow {
   key: string;
-  /** Primary left-most label cell (e.g. a context / rule description). */
   label: ReactNode;
-  /** Heat values, positionally aligned to `columns`. */
   cells: HeatmapCellData[];
-  /** Optional content for each `leadingColumns` entry, positionally aligned. */
   leading?: ReactNode[];
 }
 
 export interface HeatmapProps extends MarginProps {
   columns: HeatmapColumn[];
   rows: HeatmapRow[];
-  /** Header for the left-most label column. */
   labelHeader?: ReactNode;
-  /** Non-tinted descriptive columns rendered between the label and the cells. */
   leadingColumns?: HeatmapLeadingColumn[];
-  /** Width (CSS value) of the label column. Default "38%". */
   labelColumnWidth?: string;
-  /**
-   * How intensity is normalized:
-   * - "row" (default): min/max within each row.
-   * - "all": min/max across every cell in the grid.
-   */
   normalize?: "row" | "all";
-  /** Accent scale used for the gradient. Default "indigo". */
   colorScale?: HeatmapColorScale;
-  /** Formats a numeric value into the cell's display text. Default: percent. */
   formatValue?: (value: number) => string;
-  /** Rendered for null / non-numeric cells. Default "—". */
   emptyDisplay?: ReactNode;
   stickyHeader?: boolean;
   className?: string;
 }
 
-// Map normalized intensity (0..1) onto the accent *alpha* steps. Alpha overlays
-// tint the surface beneath them rather than painting an opaque swatch, so the
-// gradient adapts to light/dark themes and the default text color stays
-// readable. This matches the design, which tints cells with the indigo alpha
-// scale (--indigo-a2 … --indigo-a8).
 const MIN_STEP = 2;
 const MAX_STEP = 8;
 
@@ -116,7 +91,6 @@ function cellBackground(
   };
 }
 
-/** Normalize a list of values to [0, 1] against a shared min/max. */
 function normalizeValues(
   values: (number | null)[],
   bounds?: { min: number; max: number },

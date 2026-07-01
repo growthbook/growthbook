@@ -1,4 +1,3 @@
-/** TypeScript port of gbstats `utils.py`; inline normal/Cholesky helpers (no numpy/scipy). */
 import normal from "@stdlib/stats/base/dists/normal";
 
 export function randomNormal(
@@ -159,7 +158,6 @@ export type MatrixInversionResult = {
   error?: string;
 };
 
-/** Lower-triangular Cholesky factor L (v = L·Lᵀ), or null if not pos-definite. */
 function choleskyLower(v: number[][]): number[][] | null {
   const n = v.length;
   const l: number[][] = Array.from({ length: n }, () =>
@@ -182,7 +180,6 @@ function choleskyLower(v: number[][]): number[][] | null {
   return l;
 }
 
-/** Inverse of a lower-triangular matrix. */
 function invertLowerTriangular(l: number[][]): number[][] {
   const n = l.length;
   const x: number[][] = Array.from({ length: n }, () =>
@@ -213,7 +210,6 @@ export function invertSymmetricMatrix(v: number[][]): MatrixInversionResult {
     return { success: false, error: "Matrix is not positive-definite." };
   }
 
-  // inv(v) = inv(L)ᵀ · inv(L).
   const lInv = invertLowerTriangular(l);
   const inverse: number[][] = Array.from({ length: n }, () =>
     new Array<number>(n).fill(0),

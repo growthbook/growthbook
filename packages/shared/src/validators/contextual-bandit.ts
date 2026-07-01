@@ -25,7 +25,6 @@ export const contextualBanditValidator = baseSchema
   .extend({
     name: z.string(),
     description: z.string().optional(),
-    /** Empty string ("") = no project. */
     project: z.string().optional(),
     owner: ownerField,
     tags: z.array(z.string()),
@@ -48,19 +47,10 @@ export const contextualBanditValidator = baseSchema
     savedGroups: z.array(savedGroupTargeting).optional(),
     prerequisites: z.array(featurePrerequisite).optional(),
     seed: z.string().optional(),
-    /** SDK fallback when no context match. */
     variationWeights: z.array(variationWeightPairValidator).optional(),
-    /** Per-leaf bandit weights (one entry per tree leaf), keyed by the leaf's routing condition. */
     currentLeafWeights: z.array(leafWeightValidator),
-    /**
-     * Number of successful snapshots applied to this bandit. Incremented once per
-     * successful snapshot (i.e. each time a ContextualBanditEvent is created and the
-     * weight patch runs), regardless of whether the new weights actually differ from
-     * the previous ones. Use `weightsWereUpdated` on the CBE to know if weights changed.
-     */
     banditVersion: z.number().int().nonnegative(),
 
-    /** Aliased as `targetingAttributeColumns` so SQL builders don't have to translate. */
     contextualAttributes: z.array(z.string()),
     targetingAttributeColumns: z.array(z.string()).optional(),
 
@@ -74,10 +64,8 @@ export const contextualBanditValidator = baseSchema
 
     banditModelVersion: z.number().int().nonnegative(),
 
-    /** Feature IDs referencing this CB; maintained by `featureContextualBanditSync.ts`. */
     linkedFeatures: z.array(z.string()).optional(),
 
-    /** Drafts queued for auto-publish on `status -> running`. */
     pendingFeatureDrafts: z
       .array(
         z
@@ -92,7 +80,6 @@ export const contextualBanditValidator = baseSchema
     scheduleUnit: z.enum(["days", "hours"]).optional(),
     burnInValue: z.number().optional(),
     burnInUnit: z.enum(["days", "hours"]).optional(),
-    /** Per-bandit override of the decision metric's conversion window. Null/absent = use the metric default. */
     conversionWindowValue: z.number().optional().nullable(),
     conversionWindowUnit: z.enum(["hours", "days"]).optional().nullable(),
     stage: z.enum(banditStageType).optional(),
@@ -106,9 +93,6 @@ export const contextualBanditValidator = baseSchema
 export type ContextualBanditInterface = z.infer<
   typeof contextualBanditValidator
 >;
-
-// REST API DTO is a curated subset of `ContextualBanditInterface` so internal-only
-// fields (linkedFeatures, pendingFeatureDrafts, snapshot scheduling) don't leak.
 
 const apiContextualBanditVariation = z.object({
   id: z.string(),
@@ -174,7 +158,6 @@ export const apiListContextualBanditsValidator = {
   querySchema: z.strictObject({
     projectId: z.string().optional(),
     datasourceId: z.string().optional(),
-    /** Exact-match preflight for the CB create form to detect trackingKey collisions. */
     trackingKey: z.string().optional(),
   }),
   paramsSchema: z.never(),
@@ -359,11 +342,6 @@ const contextualBanditEventResponseShape = z.object({
   contextualBandit: z.string(),
   snapshotId: z.string(),
   weightsWereUpdated: z.boolean(),
-  /**
-   * Degrees of freedom of the contextual SRM test for this event's snapshot run.
-   * Absent when the SRM test could not be run (e.g. no group had enough usable
-   * cells, or a non-SQL data source).
-   */
   degreesOfFreedom: z.number().int().nonnegative().optional(),
   dateCreated: z.string(),
 });
@@ -460,12 +438,9 @@ export const getContextualBanditResultsValidator = {
       contextualBanditSnapshot: z
         .object({
           attributes: z.array(z.string()),
-          // Loose to avoid pulling the heavier stats validators into this file.
           responses: z.array(z.unknown()),
           leaf_map: z.array(z.unknown()).optional(),
           leaf_stats: z.array(z.unknown()).optional(),
-          // Total within-tree SSE at each stage of greedy tree growth (root,
-          // after the first split, after the second, ...): [{ numSplits, totalSse }].
           sse_trajectory: z.array(z.unknown()).optional(),
         })
         .nullable(),
@@ -477,15 +452,9 @@ export const getContextualBanditResultsValidator = {
           }),
         )
         .nullable(),
-      // Normalized leaf-first view: one entry per tree leaf (the decision unit)
-      // with its weights + pooled stats and the contexts that route to it, plus
-      // a bandit-level `overall` weight summary. Easier to consume than the raw
-      // `contextualBanditSnapshot` (positional arrays + separate leaf_map).
       results: z
         .object({
           attributes: z.array(z.string()),
-          // Total within-tree SSE at each stage of greedy tree growth, ordered
-          // root-first (numSplits 0 = before the first split).
           sseTrajectory: z.array(
             z.object({
               numSplits: z.number().int().nonnegative(),
@@ -573,10 +542,6 @@ export const getContextualBanditLinkedFeaturesValidator = {
   paramsSchema: contextualBanditIdOnlyParam,
   responseSchema: z
     .object({
-      // Enriched `LinkedFeatureInfo[]` (embeds the full feature doc + per-env
-      // rule state). Loose to avoid pulling the heavy feature validators into
-      // this file and bloating the OpenAPI spec; the UI consumes the typed
-      // `LinkedFeatureInfo` shape from `shared/types/experiment`.
       linkedFeatures: z.array(z.unknown()),
       environments: z.array(z.string()),
     })

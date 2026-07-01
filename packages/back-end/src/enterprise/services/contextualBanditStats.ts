@@ -71,7 +71,6 @@ export async function runContextualStatsEngine(
   return computeContextualBanditWeights(input);
 }
 
-/** Packages metric/analysis settings + rows into the `stats-ts` weight engine input contract. */
 function buildContextualBanditWeightsInput(
   settings: ContextualBanditStatsSettings,
   rows: ExperimentMetricQueryResponseRows,
@@ -145,7 +144,6 @@ export function filterMetricQueryRowsForStatsEngine(
 export function prepareRowsForContextualStats(
   rows: ExperimentMetricQueryResponseRows,
 ): ExperimentMetricQueryResponseRows {
-  // CB decision metrics are always fact metrics (m0_* prefixed columns).
   return filterMetricQueryRowsForStatsEngine(rows, 0);
 }
 

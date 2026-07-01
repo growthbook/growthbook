@@ -49,8 +49,6 @@ describe("computeOverallVariationWeights", () => {
         updatedWeights: [0.4, 0.6],
       }),
     ];
-    // Context A has 150/200 = 0.75 of users, context B has 50/200 = 0.25.
-    // v0 = 0.75*0.8 + 0.25*0.4 = 0.7; v1 = 0.75*0.2 + 0.25*0.6 = 0.3
     const result = computeOverallVariationWeights(responses, 2);
     expect(result[0]).toBeCloseTo(0.7, 10);
     expect(result[1]).toBeCloseTo(0.3, 10);
@@ -81,7 +79,6 @@ describe("computeOverallVariationWeights", () => {
   });
 
   it("returns null for variations no context contributed a weight to", () => {
-    // updatedWeights only covers v0, so v1 never gets a weight.
     const result = computeOverallVariationWeights(
       [response({ sampleSizePerVariation: [10, 10], updatedWeights: [0.5] })],
       2,

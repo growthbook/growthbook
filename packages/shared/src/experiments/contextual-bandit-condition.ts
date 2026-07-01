@@ -1,13 +1,11 @@
 import { ATTR_CB_PREFIX } from "shared/constants";
 
-/** Strip the internal contextual-bandit column prefix to get the targeting attribute alias. */
 function displayAttributeName(attr: string): string {
   return attr.startsWith(ATTR_CB_PREFIX)
     ? attr.slice(ATTR_CB_PREFIX.length)
     : attr;
 }
 
-/** Order attribute keys by the snapshot's attribute order, extras last. */
 function orderAttributes(keys: string[], attributeOrder: string[]): string[] {
   return [
     ...attributeOrder.filter((attr) => keys.includes(attr)),
@@ -15,7 +13,6 @@ function orderAttributes(keys: string[], attributeOrder: string[]): string[] {
   ];
 }
 
-/** Sort values numerically when they're all numeric, else lexicographically. */
 function sortClauseValues(values: string[]): string[] {
   const allNumeric = values.every((v) => v !== "" && !Number.isNaN(Number(v)));
   return [...values].sort((a, b) =>
@@ -23,7 +20,6 @@ function sortClauseValues(values: string[]): string[] {
   );
 }
 
-/** A factored targeting clause: one attribute matched against one or more values. */
 type LeafClause = { attr: string; values: string[] };
 
 function factorLeafContexts(
@@ -52,9 +48,6 @@ function factorLeafContexts(
     firstKeys.forEach((k) => valuesByKey.get(k)?.add(String(ctx[k]))),
   );
 
-  // More than one attribute varying means the contexts are a cartesian product
-  // (or scattered points); listing `attr is [...]` per key would over-claim the
-  // covered combinations, so bail out to the per-context fallback.
   const varyingKeys = firstKeys.filter(
     (k) => (valuesByKey.get(k)?.size ?? 0) > 1,
   );
@@ -66,7 +59,6 @@ function factorLeafContexts(
   }));
 }
 
-/** Build the prefix-stripped, attribute-ordered equality object for one context. */
 function contextToEqualityObject(
   attributes: Record<string, string>,
   attributeOrder: string[],
@@ -116,8 +108,6 @@ export function leafConditionFromContexts(
     return obj;
   }
 
-  // Complex leaf (cartesian / scattered across multiple attributes): list each
-  // context explicitly so we never over-claim the covered combinations.
   return {
     $or: contexts.map((ctx) => contextToEqualityObject(ctx, attributeOrder)),
   };

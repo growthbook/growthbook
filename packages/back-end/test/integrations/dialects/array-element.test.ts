@@ -13,15 +13,12 @@ import { prestoDialect } from "back-end/src/integrations/dialects/presto";
 import { postgresDialect } from "back-end/src/integrations/dialects/postgres";
 
 describe("SqlDialect.arrayElement", () => {
-  // [name, dialect, expected for logical index 0, expected for logical index 2]
   const cases: [string, Pick<SqlDialect, "arrayElement">, string, string][] = [
-    // Native 1-based arrays inherit the base implementation.
     ["base (native, 1-based)", baseDialect, "w[1]", "w[3]"],
     ["postgres (native, 1-based)", postgresDialect, "w[1]", "w[3]"],
     ["clickhouse (native, 1-based)", clickHouseDialect, "w[1]", "w[3]"],
     ["athena (native, 1-based)", athenaDialect, "w[1]", "w[3]"],
     ["presto (native, 1-based)", prestoDialect, "w[1]", "w[3]"],
-    // 0-based native arrays.
     [
       "bigquery (0-based, safe offset)",
       bigQueryDialect,
@@ -30,7 +27,6 @@ describe("SqlDialect.arrayElement", () => {
     ],
     ["databricks (0-based)", databricksDialect, "w[0]", "w[2]"],
     ["vertica (0-based native)", verticaDialect, "w[0]", "w[2]"],
-    // 0-based with cast to numeric.
     [
       "snowflake (0-based variant, cast)",
       snowflakeDialect,
@@ -43,7 +39,6 @@ describe("SqlDialect.arrayElement", () => {
       "w[0]::float",
       "w[2]::float",
     ],
-    // JSON-encoded arrays (no native array type).
     [
       "mysql (json array)",
       mysqlDialect,

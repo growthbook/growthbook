@@ -28,10 +28,6 @@ const BaseClass = MakeModelClass({
 });
 
 export class ContextualBanditQueryModel extends BaseClass {
-  // Reads are org-scoped by BaseModel. Writes are gated against the owning
-  // datasource's `editDatasourceSettings` permission in the before* hooks below,
-  // because the permission depends on the datasource's projects which can't be
-  // resolved synchronously here.
   protected canRead(): boolean {
     return true;
   }
@@ -45,7 +41,6 @@ export class ContextualBanditQueryModel extends BaseClass {
     return true;
   }
 
-  /** Defense-in-depth: bandit queries are an Enterprise-only construct. */
   protected hasPremiumFeature(): boolean {
     return this.context.hasPremiumFeature("contextual-bandits");
   }
@@ -77,9 +72,6 @@ export class ContextualBanditQueryModel extends BaseClass {
   ): Promise<void> {
     await this.assertCanEditDatasource(doc.datasourceId);
 
-    // Block deletion while a contextual bandit still references this query, otherwise
-    // the bandit's `contextualBanditQueryId` would be orphaned and it could no longer
-    // analyze results.
     const referencingBandits =
       await this.context.models.contextualBandits.getByContextualBanditQueryId(
         doc.id,
@@ -92,12 +84,6 @@ export class ContextualBanditQueryModel extends BaseClass {
     }
   }
 
-  /**
-   * Server-side source of truth (also mirrored in the authoring modal):
-   *  - at least one targeting attribute column (a CB must have context to split on)
-   *  - every column is a safe SQL identifier (injection safety — they're interpolated
-   *    as bare identifiers) AND maps to a non-archived org targeting attribute.
-   */
   protected async customValidation(
     doc: ContextualBanditQueryInterface,
   ): Promise<void> {

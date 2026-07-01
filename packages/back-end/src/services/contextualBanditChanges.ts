@@ -63,7 +63,6 @@ async function refreshLinkedFeaturePayloads(
   });
 }
 
-// Exported for callers without linked-feature docs in scope.
 export { getPayloadKeysForContextualBandit };
 
 /** Core CB start (no permission checks). Publishes pending drafts BEFORE the status flip; throws with `failedFeatureDrafts` on failure. */

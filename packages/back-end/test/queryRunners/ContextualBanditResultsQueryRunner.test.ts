@@ -18,8 +18,6 @@ import { QueryMap } from "back-end/src/queryRunners/QueryRunner";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { ReqContext } from "back-end/types/api";
 
-// Stub the Python stats engine and the side-effecting CBE persistence so we can
-// exercise the row-tagging / context-cap / settings-building glue in isolation.
 jest.mock("back-end/src/enterprise/services/contextualBanditStats", () => ({
   runContextualStatsEngine: jest.fn(),
 }));
@@ -200,8 +198,6 @@ function makeContext(cb: ContextualBanditInterface): ReqContext {
         })),
       },
       contextualBanditSnapshots: {
-        // Freshest CBS read by updateModel's idempotency guard; defaults to a
-        // snapshot that has not yet recorded a CBE so the success path persists.
         getBySnapshotIdInOrg: jest.fn().mockResolvedValue(makeCbsModel()),
         updateById: jest
           .fn()
@@ -235,7 +231,6 @@ describe("ContextualBanditResultsQueryRunner", () => {
       const context = makeContext(cb);
       const runner = newRunner(context);
 
-      // Seed params normally set by startQueries() to skip the real SQL path.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (runner as any).snapshotSettings = makeSnapshotSettings();
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -293,7 +288,6 @@ describe("ContextualBanditResultsQueryRunner", () => {
       expect(statsSettings.contextualAttributes).toEqual(["country"]);
       expect(runParams?.snapshotId).toBe("cbs_1");
       expect(runParams?.decisionMetricId).toBe("fact__g1");
-      // Rows are forwarded to the stats engine unchanged (no contextId tagging).
       expect(forwardedRows).toHaveLength(2);
       expect(forwardedRows).toEqual(rows);
       expect(
@@ -384,8 +378,6 @@ describe("ContextualBanditResultsQueryRunner", () => {
       const context = makeContext(cb);
       const runner = newRunner(context);
 
-      // Freshest CBS already recorded a CBE (e.g. a prior onQueryFinish re-drive),
-      // so the side effect must be skipped to stay idempotent.
       (
         context.models.contextualBanditSnapshots
           .getBySnapshotIdInOrg as jest.Mock
@@ -412,7 +404,6 @@ describe("ContextualBanditResultsQueryRunner", () => {
       });
 
       expect(persistContextualBanditEventMock).not.toHaveBeenCalled();
-      // A normal status/queries write still happens, but without re-stamping the CBE.
       expect(
         context.models.contextualBanditSnapshots.updateById,
       ).toHaveBeenCalledWith(
@@ -454,7 +445,6 @@ describe("ContextualBanditResultsQueryRunner", () => {
       const cb = makeCb();
       const context = makeContext(cb);
       const integration = makeIntegration();
-      // Stub the base class's startQuery; we only care about the integration call shape.
       const runner = newRunner(context, makeCbsModel(), integration);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (runner as any).startQuery = jest

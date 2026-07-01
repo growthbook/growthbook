@@ -50,7 +50,6 @@ export function getSnapshotMetricQuery(
 
   const factTableMap = params.factTableMap;
 
-  // clone the metrics before we mutate them
   const metric = cloneDeep<MetricInterface>(metricDoc);
   const denominatorMetrics = cloneDeep<MetricInterface[]>(
     denominatorMetricsDocs,
@@ -63,7 +62,6 @@ export function getSnapshotMetricQuery(
   applyMetricOverrides(metric, settings);
   denominatorMetrics.forEach((m) => applyMetricOverrides(m, settings));
 
-  // Replace any placeholders in the user defined dimension SQL
   const { unitDimensions } = processDimensions(
     dialect,
     params.dimensions,
@@ -80,26 +78,14 @@ export function getSnapshotMetricQuery(
     denominatorMetrics.length > 0
       ? denominatorMetrics[denominatorMetrics.length - 1]
       : undefined;
-  // If the denominator is a binomial, it's just acting as a filter
-  // e.g. "Purchase/Signup" is filtering to users who signed up and then counting purchases
-  // When the denominator is a count, it's a real ratio, dividing two quantities
-  // e.g. "Pages/Session" is dividing number of page views by number of sessions
   const ratioMetric = isRatioMetric(metric, denominator);
   const funnelMetric = isFunnelMetric(metric, denominator);
 
-  // Contextual bandits weight variations in TypeScript from raw summable stats,
-  // so they skip the multi-armed-bandit period weighting and run through the
-  // same aggregation as a standard experiment (just with the attr_cb_* context
-  // columns appended to the dimensions). `getBanditDates` returns undefined
-  // when `contextualBandit` is set, which short-circuits the CB path here.
   const banditDates = getBanditDates(settings.banditSettings);
 
-  // redundant checks to make sure configuration makes sense and we only build expensive queries for the cases
-  // where RA is actually possible
   const regressionAdjusted =
     settings.regressionAdjustmentEnabled &&
     isRegressionAdjusted(metric, denominator) &&
-    // and block RA for experiment metric query only, only works for optimized queries
     !isRatioMetric(metric, denominator);
 
   const regressionAdjustmentHours = regressionAdjusted
@@ -110,7 +96,6 @@ export function getSnapshotMetricQuery(
     settings.attributionModel === "experimentDuration" ||
     settings.attributionModel === "lookbackOverride";
 
-  // Get capping settings and final coalesce statement
   const isPercentileCapped = isPercentileCappedMetric(metric);
   const computeUncappedMetric = eligibleForUncappedMetric(metric);
 
@@ -185,7 +170,6 @@ export function getSnapshotMetricQuery(
     capTablePrefix: "cap",
     columnRef: null,
   });
-  // Get rough date filter for metrics to improve performance
   const orderedMetrics = (activationMetric ? [activationMetric] : [])
     .concat(denominatorMetrics)
     .concat([metric]);
@@ -201,14 +185,11 @@ export function getSnapshotMetricQuery(
     overrideConversionWindows,
   );
 
-  // Get any required identity join queries
   const idTypeObjects = [
     [userIdType],
     getUserIdTypes(metric, factTableMap),
     ...denominatorMetrics.map((m) => getUserIdTypes(m, factTableMap, true)),
   ];
-  // add idTypes usually handled in units query here in the case where
-  // we don't have a separate table for the units query
   if (params.unitsSource === "exposureQuery") {
     idTypeObjects.push(
       ...unitDimensions.map((d) => [d.dimension.userIdType || "user_id"]),
@@ -228,7 +209,6 @@ export function getSnapshotMetricQuery(
     },
   );
 
-  // Get date range for experiment and analysis
   const endDate: Date = getExperimentEndDate(
     settings,
     getMaxHoursToConvert(
@@ -241,9 +221,6 @@ export function getSnapshotMetricQuery(
   const dimensionCols = params.dimensions.map((d) =>
     getDimensionCol(dialect, d),
   );
-  // if bandit and there is no dimension column, we need to create a dummy column to make some of the joins
-  // work later on. `"dimension"` is a special column that gbstats can handle if there is no dimension
-  // column specified. See `BANDIT_DIMENSION` in gbstats.py.
   if (banditDates?.length && dimensionCols.length === 0) {
     dimensionCols.push({
       alias: "dimension",

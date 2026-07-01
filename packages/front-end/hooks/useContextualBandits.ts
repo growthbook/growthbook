@@ -12,7 +12,6 @@ export function useContextualBandits(
   project?: string,
   includeArchived: boolean = false,
 ) {
-  // Archived filter is client-side; BaseModel CRUD list doesn't support it yet.
   const path = `/api/v1/contextual-bandits${project ? `?projectId=${encodeURIComponent(project)}` : ""}`;
   const { data, error, mutate } = useApi<{
     contextualBandits: ApiContextualBanditInterface[];
@@ -31,7 +30,6 @@ export function useContextualBandits(
     [allContextualBandits, includeArchived],
   );
 
-  // O(1) id → CB lookup for resolvers like ContextualBanditLink.
   const contextualBanditsMap = useMemo(
     () => new Map(allContextualBandits.map((cb) => [cb.id, cb])),
     [allContextualBandits],
@@ -71,9 +69,7 @@ export function useContextualBandit(cbId: string | undefined) {
 export type ContextualBanditResultsResponse = {
   status: number;
   contextualBanditSnapshot: ContextualBanditSnapshot | null;
-  /** Overall (marginal) variation weights across all contexts, per variation. */
   overallWeights: { variationId: string; weight: number | null }[] | null;
-  /** Normalized leaf-first view (recommended representation). */
   results: ContextualBanditResultsView | null;
   latest: SnapshotStatusSummary | null;
 };
@@ -97,7 +93,6 @@ export function useContextualBanditResults(cbId: string | undefined) {
   const latest = data?.latest ?? null;
   const isRunning = latest?.status === "running";
 
-  // Poll while a run is in progress so weights update live.
   useEffect(() => {
     if (!isRunning) return;
     const timer = setInterval(() => {
@@ -126,9 +121,6 @@ export function useContextualBanditResults(cbId: string | undefined) {
   return {
     loading: !!cbId && !error && !data,
     contextualBanditSnapshot: data?.contextualBanditSnapshot ?? null,
-    // Normalized leaf-first view: one entry per tree leaf (the decision unit),
-    // each pooling the contexts that route to it. Preferred over the raw
-    // per-context `responses` for display.
     results: data?.results ?? null,
     latest,
     error,

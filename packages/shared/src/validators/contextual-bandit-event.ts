@@ -57,11 +57,6 @@ export const contextualBanditEventValidator = baseSchema
     leaf_stats: z.array(contextualLeafStatsEntryValidator).optional(),
     sse_trajectory: z.array(contextualSseTrajectoryEntryValidator).optional(),
     weightsWereUpdated: z.boolean(),
-    /**
-     * Degrees of freedom of the contextual SRM test for the snapshot run that
-     * produced this event, computed in SQL. Absent when the SRM test could not
-     * be run (e.g. no group had enough usable cells, or a non-SQL data source).
-     */
     degreesOfFreedom: z.number().int().nonnegative().optional(),
   })
   .strict();

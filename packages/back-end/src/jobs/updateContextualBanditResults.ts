@@ -58,15 +58,12 @@ const updateSingleContextualBandit = async (job: UpdateSingleCBJob) => {
 
   try {
     logger.info("Refreshing results for contextual bandit " + cbId);
-    // The Agenda job owns the run lifecycle, so block until results land (matching
-    // updateExperimentResults) for accurate job completion, retries, and logging.
     await runContextualBanditSnapshot(context, cb, {
       triggeredBy: "scheduled",
       wait: true,
     });
     logger.info("Successfully refreshed results for contextual bandit " + cbId);
   } catch (e) {
-    // CBs manage their own retry lifecycle; log and bail without disabling.
     logger.error(e, "Failed to update contextual bandit: " + cbId);
   }
 };

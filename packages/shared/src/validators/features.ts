@@ -199,7 +199,6 @@ const experimentRefRule = baseRule
 
 export type ExperimentRefRule = z.infer<typeof experimentRefRule>;
 
-/** Feature rule referencing a `ContextualBandit` doc; emits same SDK shape as `experiment-ref`. */
 const contextualBanditRefRule = baseRule
   .extend({
     type: z.literal("contextual-bandit-ref"),
@@ -926,7 +925,6 @@ export const apiFeatureExperimentRefRuleValidator = namedSchema(
   ),
 );
 
-// ---- FeatureContextualBanditRefRule ----
 export const apiFeatureContextualBanditRefRuleValidator = namedSchema(
   "FeatureContextualBanditRefRule",
   z.intersection(

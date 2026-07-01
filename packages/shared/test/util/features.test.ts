@@ -4192,7 +4192,6 @@ describe("draftHasChangesOutsideTargetRef", () => {
     ...overrides,
   });
 
-  // The target ref we're publishing for (e.g. a contextual-bandit-ref).
   const targetRule = {
     id: "tr_1",
     type: "contextual-bandit-ref",
@@ -4257,8 +4256,6 @@ describe("draftHasChangesOutsideTargetRef", () => {
     const draft = makeRev({
       rules: { production: [otherCbRule, targetRule] },
     });
-    // The cb_2 rule is unchanged across live/draft, so adding cb_1 alone is
-    // not a change outside the target.
     expect(draftHasChangesOutsideTargetRef(draft, live, isTarget)).toBe(false);
   });
 

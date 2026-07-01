@@ -45,7 +45,6 @@ export type Props = {
   close: () => void;
   cta?: string;
   cb: ApiContextualBanditInterface;
-  // Feature ids already linked to this CB; excluded from the "use existing" list.
   existingLinkedFeatureIds?: string[];
   mutate: () => void;
   source?: string;

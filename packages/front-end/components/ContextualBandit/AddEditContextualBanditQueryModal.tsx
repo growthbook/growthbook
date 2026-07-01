@@ -33,11 +33,9 @@ type CbQueryFormValues = {
 };
 
 type Props = {
-  /** Existing CB query when editing; omit to create. */
   contextualBanditQuery?: ApiContextualBanditQueryInterface;
   dataSource: DataSourceInterfaceWithParams;
   mode: "add" | "edit";
-  /** Called with the saved query so the parent can refresh + select it. */
   onSave: (q: ApiContextualBanditQueryInterface) => void;
   onCancel: () => void;
 };
@@ -58,8 +56,6 @@ export const AddEditContextualBanditQueryModal: FC<Props> = ({
   const { apiCall } = useAuth();
   const { settings } = useUser();
   const attributeSchema = settings?.attributeSchema ?? [];
-  // The non-archived attributes the user has access to — same list used across the
-  // app for attribute pickers. These are the only valid targeting columns.
   const accessibleAttributes = useAttributeSchema(false);
 
   const userIdTypeOptions = dataSource?.settings?.userIdTypes?.map(
@@ -110,9 +106,6 @@ export const AddEditContextualBanditQueryModal: FC<Props> = ({
     ]);
   }, [userEnteredUserIdType, userEnteredTargetingAttributeColumns]);
 
-  // Options for the targeting-attribute multiselect: the attributes the user has
-  // access to, plus any already-selected columns not in that list (e.g. an attribute
-  // archived after the query was authored) so editing never silently drops them.
   const targetingAttributeOptions = useMemo(() => {
     const accessible = accessibleAttributes.map((a) => a.property);
     const selected = userEnteredTargetingAttributeColumns ?? [];
@@ -123,7 +116,6 @@ export const AddEditContextualBanditQueryModal: FC<Props> = ({
   const saveEnabled = !!userEnteredUserIdType && !!userEnteredQuery;
 
   const handleSubmit = form.handleSubmit(async (value) => {
-    // CreatableSelect only commits pending text on blur; force blur first.
     (document.activeElement as HTMLElement | null)?.blur?.();
     await new Promise((resolve) => setTimeout(resolve, 0));
 
@@ -133,8 +125,6 @@ export const AddEditContextualBanditQueryModal: FC<Props> = ({
         "Add at least one targeting attribute column for a contextual bandit query.",
       );
     }
-    // The shared column validators (malformed-first, then unknown) accept the
-    // minimal TargetingColumnQuery shape, so reuse them directly.
     const queryForValidation = [
       { id: "new", name: value.name, targetingAttributeColumns: columns },
     ];
@@ -161,8 +151,6 @@ export const AddEditContextualBanditQueryModal: FC<Props> = ({
       );
     }
 
-    // Each targeting attribute column must actually appear in the SQL (as a selected
-    // column / alias), otherwise the bandit has no value for that context at runtime.
     const missingInQuery = columns.filter(
       (col) => !new RegExp(`\\b${col}\\b`).test(value.query ?? ""),
     );
@@ -174,9 +162,6 @@ export const AddEditContextualBanditQueryModal: FC<Props> = ({
       );
     }
 
-    // The update endpoint's body is strict and does NOT accept `datasourceId`
-    // (a CB query can't be re-pointed to a different datasource), so only the
-    // create body includes it.
     const sharedFields = {
       name: value.name,
       description: value.description || undefined,
@@ -223,10 +208,6 @@ export const AddEditContextualBanditQueryModal: FC<Props> = ({
       ? "Add a Contextual Bandit query"
       : `Edit ${contextualBanditQuery?.name ?? "Contextual Bandit"} query`;
 
-  // The SQL editor is a legacy Modal with a lower z-index than ModalStandard (Radix),
-  // so it would render behind. While editing SQL we unmount the main modal entirely —
-  // the form state lives on this component (not inside ModalStandard) so nothing is
-  // lost, and the SQL editor is always interactable on top.
   if (uiMode === "sql") {
     return (
       <EditSqlModal

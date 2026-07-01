@@ -17,8 +17,6 @@ export const getContextualBanditResults = createApiRequestHandler(
   const { contextualBanditSnapshot, latestSnapshotSummary, srm } =
     await getContextualBanditResultsForUi(req.context, contextualBandit);
 
-  // Overall (marginal) weights across every context, aligned to the bandit's
-  // variation order. This mirrors the "Overall weights" row in the results UI.
   const overallWeights = contextualBanditSnapshot
     ? computeOverallVariationWeights(
         contextualBanditSnapshot.responses,
@@ -29,7 +27,6 @@ export const getContextualBanditResults = createApiRequestHandler(
       }))
     : null;
 
-  // Normalized leaf-first view (recommended representation).
   const results = contextualBanditSnapshot
     ? buildContextualBanditResultsView(
         contextualBanditSnapshot,

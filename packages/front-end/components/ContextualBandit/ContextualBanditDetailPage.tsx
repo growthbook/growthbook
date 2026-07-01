@@ -1,5 +1,5 @@
 import { ReactNode, useState } from "react";
-import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { date } from "shared/dates";
 import { getMetricLink } from "shared/experiments";
@@ -37,7 +37,6 @@ import ContextualBanditLinkedFeatures from "@/components/ContextualBandit/Contex
 import StartContextualBanditModal from "@/components/ContextualBandit/StartContextualBanditModal";
 import { useContextualBanditQueries } from "@/hooks/useContextualBanditQueries";
 
-/** Experiment-style Frame section with a header + optional edit affordance. */
 function OverviewSection({
   title,
   onEdit,
@@ -194,7 +193,6 @@ export default function ContextualBanditDetailPage({
 
   return (
     <Box>
-      {/* Header — title, status, actions */}
       <Flex direction="row" align="start" justify="between" gap="5">
         <Box>
           <h1
@@ -278,7 +276,6 @@ export default function ContextualBanditDetailPage({
         </Flex>
       </Flex>
 
-      {/* Header — metadata + tags */}
       <div className="pb-3">
         <Flex gap="3" mt="2" mb="1" wrap="wrap" align="center">
           <Metadata
@@ -367,7 +364,6 @@ export default function ContextualBanditDetailPage({
 
         <TabsContent value="overview">
           <Box pt="4">
-            {/* Overview */}
             <Frame>
               <Flex align="start" justify="between" mb="2" gap="3">
                 <Heading as="h4" size="small" mb="0">
@@ -390,7 +386,6 @@ export default function ContextualBanditDetailPage({
               )}
             </Frame>
 
-            {/* Implementation */}
             <Heading as="h2" size="large" mt="5" mb="3">
               Implementation
             </Heading>
@@ -415,17 +410,17 @@ export default function ContextualBanditDetailPage({
               title="Traffic & Targeting"
               onEdit={editTrafficTargeting}
             >
-              <div className="row">
+              <Grid columns="3" gap="4">
                 <DetailSectionColumn label="Traffic">
                   {coveragePct}% included
                 </DetailSectionColumn>
                 <DetailSectionColumn label="Assignment Attribute">
-                  <div className="d-flex flex-wrap align-items-center gap-1">
+                  <Flex align="center" gap="1" wrap="wrap">
                     <AttributeBadge attributeId={cb.hashAttribute || "id"} />
-                  </div>
+                  </Flex>
                 </DetailSectionColumn>
-              </div>
-              <div className="row mt-3">
+              </Grid>
+              <Grid columns="3" gap="4" mt="4">
                 {hasConfiguredTargeting ? (
                   <>
                     <DetailSectionColumn label="Attribute Targeting">
@@ -459,14 +454,14 @@ export default function ContextualBanditDetailPage({
                     </Text>
                   </DetailSectionColumn>
                 )}
-              </div>
+              </Grid>
             </OverviewSection>
 
             <OverviewSection
               title="Analysis & Metrics"
               onEdit={editAnalysisMetrics}
             >
-              <div className="row">
+              <Grid columns="3" gap="4">
                 <DetailSectionColumn label="Data Source">
                   {datasourceName || <em>none</em>}
                 </DetailSectionColumn>
@@ -478,8 +473,8 @@ export default function ContextualBanditDetailPage({
                     ? cb.contextualAttributes.join(", ")
                     : "—"}
                 </DetailSectionColumn>
-              </div>
-              <div className="row mt-3">
+              </Grid>
+              <Grid columns="3" gap="4" mt="4">
                 <DetailSectionColumn label="Decision Metric">
                   {renderMetricList(
                     cb.decisionMetric ? [cb.decisionMetric] : [],
@@ -500,22 +495,21 @@ export default function ContextualBanditDetailPage({
                     <em>None</em>
                   )}
                 </DetailSectionColumn>
-              </div>
-              <div className="row mt-3">
+              </Grid>
+              <Grid columns="3" gap="4" mt="4">
                 <DetailSectionColumn label="Exploratory Stage">
                   {formatExploratoryStage(cb.burnInValue, cb.burnInUnit)}
                 </DetailSectionColumn>
                 <DetailSectionColumn label="Update Cadence">
                   {formatUpdateCadence(cb.scheduleValue, cb.scheduleUnit)}
                 </DetailSectionColumn>
-              </div>
+              </Grid>
             </OverviewSection>
           </Box>
         </TabsContent>
 
         <TabsContent value="results">
           <Box pt="4">
-            {/* Current Results — leaf heatmap */}
             <Frame>
               <ContextualBanditResultsTable cb={cb} mutate={mutate} />
             </Frame>

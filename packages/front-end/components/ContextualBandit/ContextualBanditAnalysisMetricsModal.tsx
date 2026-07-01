@@ -55,8 +55,7 @@ export default function ContextualBanditAnalysisMetricsModal({
     useState(false);
 
   const scheduleHours =
-    (cb.scheduleValue ?? 0) *
-    (cb.scheduleUnit === "days" ? 24 : 1);
+    (cb.scheduleValue ?? 0) * (cb.scheduleUnit === "days" ? 24 : 1);
 
   const initialConversionWindow = useMemo(() => {
     if (
@@ -78,7 +77,6 @@ export default function ContextualBanditAnalysisMetricsModal({
     return metricWindow
       ? conversionWindowFormValuesFromMetricWindow(metricWindow)
       : conversionWindowFromScheduleHours(scheduleHours);
-    // Seeded once on mount from the saved bandit.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -88,16 +86,12 @@ export default function ContextualBanditAnalysisMetricsModal({
       exposureQueryId: cb.contextualBanditQueryId ?? "",
       decisionMetric: cb.decisionMetric ?? "",
       banditScheduleValue:
-        cb.scheduleValue ??
-        scopedSettings.banditScheduleValue.value,
+        cb.scheduleValue ?? scopedSettings.banditScheduleValue.value,
       banditScheduleUnit:
-        cb.scheduleUnit ??
-        scopedSettings.banditScheduleUnit.value,
+        cb.scheduleUnit ?? scopedSettings.banditScheduleUnit.value,
       banditBurnInValue:
-        cb.burnInValue ??
-        scopedSettings.banditBurnInValue.value,
-      banditBurnInUnit:
-        cb.burnInUnit ?? scopedSettings.banditBurnInUnit.value,
+        cb.burnInValue ?? scopedSettings.banditBurnInValue.value,
+      banditBurnInUnit: cb.burnInUnit ?? scopedSettings.banditBurnInUnit.value,
       banditConversionWindowValue: initialConversionWindow.value,
       banditConversionWindowUnit: initialConversionWindow.unit,
     },
@@ -161,7 +155,6 @@ export default function ContextualBanditAnalysisMetricsModal({
               scheduleUnit: data.banditScheduleUnit,
               burnInValue: data.banditBurnInValue,
               burnInUnit: data.banditBurnInUnit,
-              // null clears the override so the decision metric's own window applies.
               conversionWindowValue: includeConversionWindow
                 ? Number(data.banditConversionWindowValue)
                 : null,
@@ -178,7 +171,6 @@ export default function ContextualBanditAnalysisMetricsModal({
           value={form.watch("datasource")}
           onChange={(v) => {
             form.setValue("datasource", v);
-            // Decision metric must belong to the selected data source.
             form.setValue("decisionMetric", "");
           }}
           options={datasources.map((d) => ({

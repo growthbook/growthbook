@@ -6,7 +6,6 @@ const variations = [
   { id: "v1", name: "Treatment" },
 ];
 
-// Two contexts route to leaf 3 (shared weights, differing means), one to leaf 7.
 const snapshot: ContextualBanditSnapshot = {
   attributes: ["country"],
   responses: [
@@ -95,7 +94,6 @@ describe("buildContextualBanditResultsView", () => {
       "Control",
       "Treatment",
     ]);
-    // Leaf-aggregated (pooled) stats come from leaf_stats.
     expect(leaf.variations.map((v) => v.users)).toEqual([800, 760]);
     expect(leaf.variations.map((v) => v.mean)).toEqual([0.121, 0.149]);
   });
@@ -132,16 +130,13 @@ describe("buildContextualBanditResultsView", () => {
     expect(us.variations.map((v) => v.mean)).toEqual([0.118, 0.151]);
     expect(ca.variations.map((v) => v.mean)).toEqual([0.126, 0.146]);
     expect(us.variations.map((v) => v.users)).toEqual([500, 470]);
-    // Context variations carry no weight (it lives on the leaf).
     expect(us.variations[0]).not.toHaveProperty("weight");
   });
 
   it("computes overall weights + total users across all contexts", () => {
     const overall = view.overall.variations;
     expect(overall.map((v) => v.variationId)).toEqual(["v0", "v1"]);
-    // Total users: v0 = 500+300+100 = 900; v1 = 470+290+110 = 870.
     expect(overall.map((v) => v.users)).toEqual([900, 870]);
-    // Sample-size-weighted blend of [0.6,0.4] (leaf 3) and [0.3,0.7] (leaf 7).
     expect(overall[0].weight).not.toBeNull();
     expect((overall[0].weight ?? 0) + (overall[1].weight ?? 0)).toBeCloseTo(
       1,

@@ -74,7 +74,6 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
     this.snapshotSettings = params.snapshotSettings;
     this.variationNames = params.variationNames;
 
-    // Side-effect: ensure the parent CB doc resolves before the SQL runs.
     await this.loadCbDoc();
 
     // TODO(query-runner): remove need for snapshotSettings
@@ -85,7 +84,6 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
       this.snapshotSettings,
     );
 
-    // Without usable targeting we degrade to a single global context; warn so the misconfig is visible.
     if (!hasUsableContextualBanditTargeting(cbUnitsSettings)) {
       logger.warn(
         `Contextual bandit ${this.snapshotSettings.experimentId} (snapshot ${this.model.id}) has no usable targeting attribute columns ` +
@@ -154,8 +152,6 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
       }),
     ];
 
-    // SRM is SQL-only and best-effort: skip it when the integration can't run it
-    // (e.g. non-SQL sources) rather than failing the whole snapshot run.
     if (
       this.integration.getContextualBanditSrmQuery &&
       this.integration.runContextualBanditSrmQuery
@@ -236,8 +232,6 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
       (sum, v) => sum + v.weight,
       0,
     );
-    // Analysis-window dates carry forward from the frozen snapshot settings; when the CB has not
-    // stopped yet, `endDate` is null and we fall back to "now" for length computation.
     const windowStart = new Date(this.snapshotSettings.startDate).getTime();
     const windowEnd = this.snapshotSettings.endDate
       ? new Date(this.snapshotSettings.endDate).getTime()
@@ -265,12 +259,6 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
     return { ...analysis, srm };
   }
 
-  /**
-   * Pulls the optional SQL SRM result from the query map and derives the p-value.
-   * The degrees of freedom are computed in SQL; when they are not positive (e.g.
-   * no kept (leaf_id, bandit_version) group has enough usable cells) the
-   * SRM test is undefined.
-   */
   private extractSrmResult(
     queryMap: QueryMap,
   ): ContextualBanditSrmResult | undefined {
@@ -361,7 +349,6 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
     };
   }
 
-  /** Resolves and caches the parent CB doc for the snapshot under analysis. */
   private async loadCbDoc(): Promise<ContextualBanditInterface> {
     if (this.cachedCb) return this.cachedCb;
     if (!this.snapshotSettings) {

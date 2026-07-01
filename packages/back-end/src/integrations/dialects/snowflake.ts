@@ -116,7 +116,6 @@ export const snowflakeDialect: SqlDialect = {
   //     set operations.
   unpivotLabeledPairs: indicesTableUnpivot,
 
-  // Snowflake ARRAY/VARIANT access is 0-based; cast the variant element to a number.
   arrayElement: (arrayCol: string, index: number) =>
     snowflakeDialect.castToFloat(`${arrayCol}[${index}]`),
 };

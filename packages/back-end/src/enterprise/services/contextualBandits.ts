@@ -146,7 +146,6 @@ export async function runContextualBanditSnapshot(
     wait?: boolean;
   },
 ): Promise<{ snapshotId: string; cbeId?: string }> {
-  // Defense-in-depth: re-check licensing so background jobs / internal callers can't bypass.
   if (!context.hasPremiumFeature("contextual-bandits")) {
     context.throwPlanDoesNotAllowError(
       "Contextual Bandits require an Enterprise plan.",
@@ -192,9 +191,6 @@ export async function runContextualBanditSnapshot(
     variationNames,
   });
 
-  // Default path: queries are dispatched and the QueryRunner's own polling
-  // (onQueryFinish timers) drives the run to completion and writes results to the
-  // CBS in the background, so we return the "running" snapshot id without blocking.
   if (!opts.wait) {
     return { snapshotId: cbs.id };
   }
@@ -234,7 +230,6 @@ export function leafWeightsFromContextualBanditResult(
   const leafMap = result.leaf_map ?? [];
   const attributeOrder = result.attributes ?? [];
 
-  // Group context indices by leaf id (mirrors buildContextualBanditResultsView).
   const indicesByLeaf = new Map<number, number[]>();
   const leafOrder: number[] = [];
   responses.forEach((_, i) => {
@@ -251,7 +246,6 @@ export function leafWeightsFromContextualBanditResult(
   const leafWeights: LeafWeight[] = [];
   for (const leafId of [...leafOrder].sort((a, b) => a - b)) {
     const indices = indicesByLeaf.get(leafId) ?? [];
-    // Weights are leaf-level, so any member context's response carries them.
     const updatedWeights = responses[indices[0]]?.updatedWeights;
     if (!updatedWeights || updatedWeights.length === 0) {
       continue;
@@ -312,10 +306,6 @@ export async function persistContextualBanditEvent(
   }
 
   const currentLeafWeights = cb.currentLeafWeights ?? [];
-  // During the exploratory (explore) stage we still record the run + advance
-  // banditVersion, but we do NOT apply new weights — weights stay at their current
-  // (even) split until the bandit transitions to exploit. Passing an empty leafWeights
-  // array leaves `currentLeafWeights` untouched in `patchLeafWeights`.
   const inExploreStage = cb.stage === "explore";
   const weightsWereUpdated = inExploreStage
     ? false
@@ -402,7 +392,6 @@ export function buildContextualBanditSnapshotSettings(
     startDate: cb.dateStarted ?? new Date(),
     endDate: cb.dateStopped ?? null,
     reweight: true,
-    // Seed is a fixed 0. A future stored `banditSeed` field can re-introduce variability if needed.
     banditWeightsSeed: 0,
 
     // TODO(holdout-v1.5): thread `holdoutPercent` + seed so SQL can split train_id=0/1 and stats can compute holdout-vs-bandit lift.
@@ -425,7 +414,6 @@ export function buildSnapshotSettingsForCb(
     secondaryMetrics: [],
     guardrailMetrics: [],
     activationMetric: null,
-    // CB v1 doesn't apply per-metric overrides at SQL gen time; empty array is the safe default.
     metricSettings: [],
     variations: cbSnapshotSettings.variations,
     dimensions: [],
@@ -433,7 +421,6 @@ export function buildSnapshotSettingsForCb(
     segment: "",
     skipPartialData: false,
     attributionModel: "firstExposure",
-    // Contextual bandits never use regression adjustment.
     regressionAdjustmentEnabled: false,
     defaultMetricPriorSettings: {
       override: false,
