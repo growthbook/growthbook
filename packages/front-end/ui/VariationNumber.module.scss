@@ -24,9 +24,9 @@ $text-colors:
     font-size: 11px;
     color: var(--slate-a11);
     font-weight: 500;
-    border: 1.2px solid var(--slate-a11);
+    border: 1px solid var(--slate-a11);
     border-radius: 50%;
-    padding: 0px var(--space-1, 4px);
+    box-sizing: border-box;
   }
 
   @for $i from 0 through 99 {
