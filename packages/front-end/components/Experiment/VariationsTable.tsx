@@ -360,7 +360,7 @@ export function VariationBox({
                   </ScreenshotUpload>
                 )}
                 {v.screenshots.length > 0 ? (
-                  <Text color="text-mid" size="small">
+                  <Text color="text-mid" size="small" whiteSpace="nowrap">
                     {v.screenshots.length} image
                     {v.screenshots.length > 1 ? "s" : ""}
                   </Text>
