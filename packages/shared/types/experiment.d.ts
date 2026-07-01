@@ -220,6 +220,11 @@ export type ComputedExperimentInterface = ExperimentInterfaceStringDates & {
   statusSortOrder: number;
   statusIndicator: StatusIndicatorData;
   isWatched?: boolean;
+  hasTempRollout: boolean;
+  // Display string for the "State" column (e.g. "No data", "Unhealthy",
+  // "Temp Rollout"), or "" when there's no health-related signal. Used for
+  // both rendering and alphabetical sorting.
+  healthStatus: string;
 };
 
 export type Changeset = Partial<ExperimentInterface>;
